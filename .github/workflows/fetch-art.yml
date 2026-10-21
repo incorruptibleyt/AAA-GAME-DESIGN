@@ -1,0 +1,50 @@
+# Downloads the free CC0 KayKit packs (by Kay Lousberg) from their official GitHub
+# repositories, keeps only the glTF models and textures, and posts them as one zip on
+# the "art-pack" release so they can be added to the game.
+
+name: Fetch KayKit art
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/fetch-art.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download and trim the packs
+        run: |
+          set -e
+          mkdir -p out
+          get() {
+            name=$1; url=$2
+            curl -sSL -o "$name.zip" "$url"
+            mkdir -p "src/$name"
+            unzip -q "$name.zip" -d "src/$name"
+            (cd "src/$name" && find . -type f \( -iname '*.gltf' -o -iname '*.glb' -o -iname '*.bin' -o -iname '*.png' \) \
+              -not -path '*/fbx/*' -not -path '*/FBX/*' -not -path '*/obj/*' -not -path '*/OBJ/*' \
+              -exec cp --parents {} "$GITHUB_WORKSPACE/out/" \;)
+          }
+          get adventurers https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Adventures-1.0/archive/672074b73ba276876a19e8816ecdc5241817ab47.zip
+          get skeletons https://github.com/KayKit-Game-Assets/KayKit-Character-Pack-Skeletons-1.0/archive/15b62b9bad122f72926c10fb14d622c73819fa54.zip
+          get dungeon https://github.com/KayKit-Game-Assets/KayKit-Dungeon-Remastered-1.0/archive/b0ca9bd96a8072ab36a3a5464f00ed1e06a16d07.zip
+          find out -type f | sort
+          du -sh out
+          (cd out && zip -q -r ../kaykit-art.zip .)
+          ls -la kaykit-art.zip
+
+      - name: Publish as the "art-pack" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete art-pack --yes --cleanup-tag || true
+          gh release create art-pack kaykit-art.zip --prerelease --target "$GITHUB_SHA" \
+            --title "KayKit art pack (CC0, by Kay Lousberg)" \
+            --notes "glTF models and textures from KayKit Adventurers, Skeletons and Dungeon Remastered. CC0 licence."
