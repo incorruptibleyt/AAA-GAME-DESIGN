@@ -8,6 +8,55 @@ and step 4 swaps in the real KayKit models.
 
 ---
 
+## Phone only? (Android)
+
+You can do almost everything from an Android phone. GitHub builds the game in the cloud and
+you install the app it makes. Unity only needs a computer **once**, for about 15 minutes, to
+create a free licence file. Any computer works for this: a friend's, school, or a library.
+You don't install the full Unity editor.
+
+### A. One time, on any computer: get your Unity licence file
+
+1. Make a free account at <https://unity.com> if you don't have one. If you signed up with Google or Apple,
+   set a password in your Unity account settings, because the cloud build needs one.
+2. Install **Unity Hub** from <https://unity.com/download> and sign in.
+3. In Unity Hub open **Preferences (gear icon) → Licenses → Add → Get a free personal license**.
+4. Open the licence file it made with Notepad (Windows) or TextEdit (Mac):
+   - Windows: `C:\ProgramData\Unity\Unity_lic.ulf` (type this path into File Explorer's address bar)
+   - Mac: `/Library/Application Support/Unity/Unity_lic.ulf` (in Finder press Cmd+Shift+G and paste the path)
+5. Select all the text, copy it, and email it to yourself. You're done with the computer.
+
+### B. On your phone: give GitHub your licence
+
+In your phone's browser (not the GitHub app), open
+<https://github.com/incorruptibleyt/AAA-GAME-DESIGN/settings/secrets/actions>
+and tap **New repository secret** three times:
+
+| Name | Secret |
+|---|---|
+| `UNITY_LICENSE` | everything from the licence file in your email |
+| `UNITY_EMAIL` | your Unity account email |
+| `UNITY_PASSWORD` | your Unity account password |
+
+Only GitHub's build machines can read these. Nobody else sees them, including me.
+
+### C. Get the app
+
+1. Open the **Actions** tab of the repository, then **Build Android**. Each time the game changes, a new build
+   starts by itself and takes about 20 to 40 minutes. You can also tap **Run workflow** to start one.
+2. When it shows a green tick, open it, scroll to **Artifacts**, and download **CryptCrawl-Android**.
+3. Open the downloaded zip in your Files app, tap `CryptCrawl.apk`, and allow your browser or Files app to
+   "install unknown apps" when Android asks. The game installs like any other app.
+
+### D. Add the KayKit art (optional, makes it look much better)
+
+Download the four packs listed in section 4 below on your phone. Then on GitHub, go to the `ArtZips` folder,
+tap **Add file → Upload files**, and upload the `.zip` files. The next cloud build unpacks and links them by itself.
+
+Everything below is for working on a computer.
+
+---
+
 ## 1. Install Unity (about 30 minutes, mostly waiting)
 
 1. Download **Unity Hub** from <https://unity.com/download> and install it.

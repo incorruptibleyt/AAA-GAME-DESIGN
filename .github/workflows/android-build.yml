@@ -1,0 +1,87 @@
+# Builds Crypt Crawl into an Android app (.apk) in the cloud, so you never need to open Unity.
+# When it finishes: open the run on GitHub (Actions tab), scroll to "Artifacts", download
+# "CryptCrawl-Android", unzip it on your phone and tap the .apk to install.
+#
+# It needs three repository secrets (Settings > Secrets and variables > Actions):
+#   UNITY_LICENSE   the full text of your Unity_lic.ulf file
+#   UNITY_EMAIL     your Unity account email
+#   UNITY_PASSWORD  your Unity account password
+# Without them the build is skipped (shown as a warning, not a failure).
+
+name: Build Android
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check for Unity licence
+        id: licence
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+        run: |
+          if [ -z "$UNITY_LICENSE" ]; then
+            echo "::warning::Skipping the Android build: add the UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD secrets first (see SETUP.md)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.licence.outputs.ready == 'true'
+
+      # KayKit packs uploaded as .zip files to the ArtZips folder are unpacked into the project here.
+      - name: Unpack KayKit art
+        if: steps.licence.outputs.ready == 'true'
+        run: |
+          shopt -s nullglob
+          for z in ArtZips/*.zip; do
+            name=$(basename "$z" .zip)
+            echo "Unpacking $name"
+            mkdir -p "Assets/KayKit/$name"
+            unzip -o -q "$z" '*.fbx' '*.FBX' '*.png' -d "Assets/KayKit/$name" || true
+          done
+
+      - name: Free disk space
+        if: steps.licence.outputs.ready == 'true'
+        uses: jlumbroso/free-disk-space@v1.3.1
+        with:
+          android: false
+          large-packages: false
+
+      - uses: actions/cache@v4
+        if: steps.licence.outputs.ready == 'true'
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**', 'ArtZips/**') }}
+          restore-keys: Library-Android-
+
+      - name: Build with Unity
+        if: steps.licence.outputs.ready == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          buildName: CryptCrawl
+          buildMethod: CryptCrawl.EditorTools.CloudBuild.BuildAndroid
+          androidExportType: androidPackage
+          versioning: None
+
+      - uses: actions/upload-artifact@v4
+        if: steps.licence.outputs.ready == 'true'
+        with:
+          name: CryptCrawl-Android
+          path: build/Android
+          retention-days: 14
