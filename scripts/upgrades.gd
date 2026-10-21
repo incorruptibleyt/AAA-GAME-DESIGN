@@ -5,7 +5,7 @@ class_name Upgrades
 const LIST := [
 	{"id": "damage", "title": "Sharpened Bolts", "text": "+30% damage", "color": Color(0.95, 0.35, 0.3), "max": 99},
 	{"id": "speed", "title": "Quick Draw", "text": "+25% attack speed", "color": Color(1.0, 0.75, 0.25), "max": 99},
-	{"id": "multishot", "title": "Twin Bolts", "text": "+1 bolt forward", "color": Color(0.4, 0.75, 1.0), "max": 3},
+	{"id": "multishot", "title": "Twin Bolts", "text": "+1 bolt forward (each hits 10% softer)", "color": Color(0.4, 0.75, 1.0), "max": 3},
 	{"id": "diagonal", "title": "Fan of Bolts", "text": "+2 bolts at an angle", "color": Color(0.35, 0.6, 1.0), "max": 2},
 	{"id": "rear", "title": "Eyes in the Back", "text": "+1 bolt backward", "color": Color(0.6, 0.6, 1.0), "max": 1},
 	{"id": "pierce", "title": "Piercing Shot", "text": "Bolts pass through 1 more enemy", "color": Color(0.75, 0.9, 1.0), "max": 2},

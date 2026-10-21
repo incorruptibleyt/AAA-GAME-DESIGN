@@ -53,6 +53,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.card_picked.connect(_on_card_picked)
 	hud.screen_tapped.connect(_on_screen_tapped)
+	hud.pause_pressed.connect(_on_pause_pressed)
 
 	_build_run()
 	_load_room(0, false)
@@ -112,6 +113,13 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if state == State.PLAYING:
 			_pause()
+	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
+		# Android's back button pauses the game; from the pause or title screen it leaves.
+		match state:
+			State.PLAYING:
+				_pause()
+			State.PAUSED, State.TITLE, State.DEAD, State.VICTORY:
+				get_tree().quit()
 
 
 func keyboard_move() -> Vector2:
@@ -296,6 +304,7 @@ func on_enemy_died(e: Enemy) -> void:
 				a.take_damage(9999.0, Vector3.ZERO, 0.0)
 		_win()
 	elif alive_enemies == 0 and not _in_boss_room():
+		_clear_enemy_attacks()
 		_room_cleared()
 
 
@@ -327,8 +336,20 @@ func _on_card_picked(i: int) -> void:
 	hud.banner(u.title, u.color)
 
 
+## Removes skeleton arrows and warning markers still in the air once a fight is over.
+func _clear_enemy_attacks() -> void:
+	if Room.current == null:
+		return
+	for n in Room.current.get_children():
+		if n is Projectile and (n as Projectile).owner_team == Actor.Team.UNDEAD:
+			n.queue_free()
+		elif n is Telegraph:
+			(n as Telegraph).cancel()
+
+
 func _win() -> void:
 	_set_state(State.VICTORY)
+	_clear_enemy_attacks()
 	hud.hide_boss()
 	await get_tree().create_timer(1.2, true, false, true).timeout
 	Sfx.play("victory")
@@ -340,7 +361,7 @@ func _win() -> void:
 
 
 func on_hero_died() -> void:
-	if state == State.DEAD:
+	if state == State.DEAD or state == State.VICTORY:
 		return
 	_set_state(State.DEAD)
 	await get_tree().create_timer(1.4, true, false, true).timeout
@@ -348,6 +369,11 @@ func on_hero_died() -> void:
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d" % [where, _format_time(_run_time), _kills])
 	_state_time = 0.0
+
+
+func _on_pause_pressed() -> void:
+	if state == State.PLAYING:
+		_pause()
 
 
 func _pause() -> void:

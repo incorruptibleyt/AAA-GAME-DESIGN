@@ -78,7 +78,7 @@ jobs:
 
       - name: Smoke test (a robot plays a full run)
         run: |
-          timeout 600 $GODOT --headless --fixed-fps 60 --disable-vsync --max-fps 0 --log-file smoke.log -- autoplay god || true
+          timeout 600 $GODOT --headless --fixed-fps 60 --disable-vsync --max-fps 0 --log-file smoke.log -- autoplay god runs=2 || true
           grep -E "END|TIMEOUT" smoke.log || true
           if grep -q "SCRIPT ERROR" smoke.log; then grep -A3 "SCRIPT ERROR" smoke.log; exit 1; fi
           grep -q "END state=VICTORY" smoke.log

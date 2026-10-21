@@ -6,6 +6,9 @@ extends Node
 
 var god := false
 var start_room := 1
+var runs := 1
+var _paused_once := false
+var _dumped_room := -1
 var shots_dir := ""
 var _t := 0.0
 var _next_shot := 1.0
@@ -19,6 +22,8 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "god":
 			god = true
+		elif a.begins_with("runs="):
+			runs = int(a.substr(5))
 		elif a.begins_with("room="):
 			start_room = int(a.substr(5))
 		elif a.begins_with("shots="):
@@ -54,8 +59,26 @@ func _process(delta: float) -> void:
 		Game.State.DEAD, Game.State.VICTORY:
 			if Game._state_time > 2.5:
 				print("[autoplay] END state=%s room=%d kills=%d time=%.1f" % [Game.State.keys()[Game.state], Game._room_index + 1, Game._kills, Game._run_time])
-				get_tree().quit()
+				runs -= 1
+				if runs <= 0:
+					get_tree().quit()
+				else:
+					Game._on_screen_tapped()   # try again
+		Game.State.PAUSED:
+			if Game._state_time > 1.0:
+				Game._on_screen_tapped()
+
 		Game.State.PLAYING:
+			if not _paused_once and Game._room_index == 1 and Game._state_time > 2.0:
+				_paused_once = true
+				print("[autoplay] pause test")
+				Game._on_pause_pressed()
+				return
+			if Game._state_time > 60.0 and _dumped_room != Game._room_index:
+				_dumped_room = Game._room_index
+				print("[autoplay] SLOW room=%d" % (Game._room_index + 1))
+				for a: Actor in Actor.all:
+					print("   ", a.get_script().get_global_name(), " pos=", a.global_position, " hp=", a.health)
 			_drive(delta)
 	if _t > 600.0:
 		print("[autoplay] TIMEOUT room=%d hero=%s" % [Game._room_index + 1, Game.hero.global_position])

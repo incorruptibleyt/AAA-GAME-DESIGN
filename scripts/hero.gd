@@ -50,7 +50,7 @@ func place_at(pos: Vector3) -> void:
 
 
 func can_be_hit() -> bool:
-	return not dead and _invulnerable <= 0.0
+	return not dead and _invulnerable <= 0.0 and Game.state == Game.State.PLAYING
 
 
 func on_kill() -> void:
@@ -147,6 +147,7 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	if dead:
 		return
 	Sfx.play("hurt")
+	Input.vibrate_handheld(45)
 	Game.shake(0.35)
 	Game.hit_stop(0.06)
 	_invulnerable = 0.7

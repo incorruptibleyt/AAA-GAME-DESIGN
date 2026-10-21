@@ -6,6 +6,7 @@ extends CanvasLayer
 
 signal card_picked(index: int)
 signal screen_tapped
+signal pause_pressed
 
 const STICK_RADIUS := 70.0
 
@@ -33,12 +34,16 @@ var _end_box: Control
 var _end_title: Label
 var _end_stats: Label
 var _pause_box: Control
+var _pause_button: Button
+var _danger: TextureRect
+var _cards_age := 0.0
 var _fade: ColorRect
 
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	layer = 10
+	_build_danger()
 	_build_hud()
 	_stick = Joystick.new()
 	_stick.radius = STICK_RADIUS
@@ -133,11 +138,29 @@ func _build_hud() -> void:
 
 	_room_label = label("", 22, Color(0.9, 0.85, 0.75), HORIZONTAL_ALIGNMENT_RIGHT)
 	_room_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_room_label.offset_left = -216
-	_room_label.offset_right = -16
+	_room_label.offset_left = -276
+	_room_label.offset_right = -76
 	_room_label.offset_top = 12
 	_room_label.offset_bottom = 48
 	root.add_child(_room_label)
+
+	_pause_button = Button.new()
+	_pause_button.text = "II"
+	_pause_button.focus_mode = Control.FOCUS_NONE
+	_pause_button.add_theme_font_size_override("font_size", 22)
+	var pb := StyleBoxFlat.new()
+	pb.bg_color = Color(0, 0, 0, 0.45)
+	pb.set_corner_radius_all(26)
+	_pause_button.add_theme_stylebox_override("normal", pb)
+	_pause_button.add_theme_stylebox_override("hover", pb)
+	_pause_button.add_theme_stylebox_override("pressed", pb)
+	_pause_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_pause_button.offset_left = -66
+	_pause_button.offset_right = -14
+	_pause_button.offset_top = 6
+	_pause_button.offset_bottom = 58
+	_pause_button.pressed.connect(func(): pause_pressed.emit())
+	root.add_child(_pause_button)
 
 	_boss_box = Control.new()
 	_boss_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -167,6 +190,29 @@ func _build_hud() -> void:
 	_banner.offset_bottom = -150
 	_banner.modulate.a = 0.0
 	root.add_child(_banner)
+
+
+## A red glow around the screen edges when health is low.
+func _build_danger() -> void:
+	var g := Gradient.new()
+	g.set_color(0, Color(0.7, 0, 0, 0))
+	g.set_color(1, Color(0.7, 0, 0, 0.75))
+	g.add_point(0.6, Color(0.7, 0, 0, 0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.05, 1.05)
+	tex.width = 128
+	tex.height = 128
+	_danger = TextureRect.new()
+	_danger.texture = tex
+	_danger.stretch_mode = TextureRect.STRETCH_SCALE
+	_danger.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_danger.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(_danger)
+	_danger.modulate.a = 0.0
+	add_child(_danger)
 
 
 func _build_cards() -> void:
@@ -288,6 +334,8 @@ func _input(event: InputEvent) -> void:
 			if _title_box.visible or _end_box.visible or _pause_box.visible:
 				screen_tapped.emit()
 				return
+			if _safe.visible and _pause_button.get_global_rect().has_point(t.position):
+				return
 			if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING:
 				_stick_touch = t.index
 				_stick_origin = t.position
@@ -318,7 +366,8 @@ func _release_stick() -> void:
 
 
 func _on_card(i: int) -> void:
-	if not _cards_box.visible:
+	# Ignore taps in the first moment so a thumb that was moving doesn't pick by accident.
+	if not _cards_box.visible or _cards_age < 0.45:
 		return
 	_cards_box.visible = false
 	card_picked.emit(i)
@@ -327,6 +376,7 @@ func _on_card(i: int) -> void:
 # ---------------------------------------------------------------- per frame
 
 func _process(delta: float) -> void:
+	_cards_age += delta
 	if Game.state != Game.State.PLAYING and _stick_touch != -1:
 		_release_stick()
 	var hero := Game.hero
@@ -334,6 +384,11 @@ func _process(delta: float) -> void:
 		_shown_hp = move_toward(_shown_hp, hero.health / hero.max_health, delta * 1.5)
 		_hp_fill.anchor_right = clampf(_shown_hp, 0.0, 1.0)
 		_hp_label.text = "%d / %d" % [ceili(hero.health), roundi(hero.max_health)]
+		var low := 1.0 - clampf(hero.health / hero.max_health / 0.35, 0.0, 1.0)
+		if hero.dead or not _safe.visible:
+			low = 0.0
+		var beat := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)
+		_danger.modulate.a = move_toward(_danger.modulate.a, low * beat, delta * 3.0)
 	var boss := Game.boss
 	if boss and is_instance_valid(boss):
 		_boss_fill.anchor_right = clampf(boss.health / boss.max_health, 0.0, 1.0)
@@ -380,6 +435,7 @@ func show_cards(choices: Array) -> void:
 		var sb := b.get_theme_stylebox("normal") as StyleBoxFlat
 		sb.border_color = u.color
 	_cards_box.visible = true
+	_cards_age = 0.0
 
 
 func show_title(v: bool, best := "") -> void:
