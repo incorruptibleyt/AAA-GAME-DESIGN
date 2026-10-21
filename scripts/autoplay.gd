@@ -1,13 +1,16 @@
 class_name Autoplay
 extends Node
 ## A simple robot player used to test the game without a person holding the phone.
-## Start Godot with:  -- autoplay [god] [shots=<folder>]
+## Start Godot with:  -- autoplay [god] [shop] [shots=<folder>]
+## `shop` buys what it can afford in the Armory before the first run.
 ## It walks through every room, picks the first blessing each time, and prints what happened.
 
 var god := false
 var start_room := 1
 var runs := 1
 var gallery := false
+var shop := false
+var _shopped := false
 var _gallery_t := -1.0
 var _paused_once := false
 var _dumped_room := -1
@@ -26,6 +29,8 @@ func _ready() -> void:
 			god = true
 		elif a.begins_with("floor="):
 			Game.floor_num = int(a.substr(6))
+		elif a == "shop":
+			shop = true
 		elif a == "gallery":
 			gallery = true
 		elif a.begins_with("runs="):
@@ -42,7 +47,7 @@ func _process(delta: float) -> void:
 	if Game.state != _last_state:
 		_last_state = Game.state
 		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
-		if shots_dir != "" and Game.state in [Game.State.UPGRADE, Game.State.VICTORY, Game.State.DEAD]:
+		if shots_dir != "" and Game.state in [Game.State.UPGRADE, Game.State.VICTORY, Game.State.DEAD, Game.State.PAUSED]:
 			_shot.call_deferred()
 		if shots_dir != "" and Game.state == Game.State.PLAYING and Room.current and Room.current.door_open:
 			_next_shot = _t + 0.3   # catch the exit arrow right after a blessing
@@ -55,6 +60,18 @@ func _process(delta: float) -> void:
 			if shots_dir != "" and _shot_n == 0 and _t > 1.0:
 				_shot_n = -1
 				_shot()
+			if shop and not _shopped and _t > 1.2:
+				_shopped = true
+				Game._open_armory()
+				for u: Dictionary in Armory.LIST:
+					Game._buy_upgrade(u.id)
+				print("[autoplay] shop: coins left %d, hero hp before run %d" % [Game.coins, Game.hero.max_health])
+				if shots_dir != "":
+					_shot()
+			if shop and _t < 3.0:
+				return
+			if Game.hud.armory_visible():
+				Game.hud.show_armory(false)
 			if _t > 1.5:
 				if start_room > 1 or Game.floor_num > 1:
 					Game.hud.show_title(false)

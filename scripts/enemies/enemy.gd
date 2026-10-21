@@ -48,6 +48,12 @@ func display_name() -> String:
 	return "Skeleton"
 
 
+## Coins dropped when destroyed. Deeper floors pay a little more.
+func coin_value() -> int:
+	var base := 20 if is_boss else (1 if max_health < 30.0 * Game.health_scale() else 2)
+	return base + (Game.floor_num - 1) * (5 if is_boss else 0) + (1 if not is_boss and randf() < 0.1 * (Game.floor_num - 1) else 0)
+
+
 func _think(_hero: Hero, _delta: float) -> void:
 	pass
 
@@ -156,7 +162,8 @@ func _on_death() -> void:
 		_bar.queue_free()
 	if Game.hero:
 		Game.hero.on_kill()
-	if randf() < drop_chance:
+	if randf() < drop_chance + (Game.heart_bonus if drop_chance > 0.0 else 0.0):
 		Pickup.drop(global_position)
+	Pickup.drop_coins(global_position, coin_value())
 	Game.on_enemy_died(self)
 	get_tree().create_timer(2.5, false).timeout.connect(queue_free)

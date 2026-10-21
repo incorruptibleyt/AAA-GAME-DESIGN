@@ -11,8 +11,11 @@ var _players: Array[AudioStreamPlayer] = []
 var _next := 0
 
 
+static var enabled := true
+
+
 static func play(sound: String, volume := 1.0) -> void:
-	if _instance == null or not _instance._clips.has(sound):
+	if not enabled or _instance == null or not _instance._clips.has(sound):
 		return
 	var p := _instance._players[_instance._next]
 	_instance._next = (_instance._next + 1) % _instance._players.size()
@@ -39,6 +42,8 @@ func _ready() -> void:
 	_clips["warn"] = _synth(0.15, func(t): return _sine(t, 1200) * _env(t, 0.15) * 0.12)
 	_clips["boom"] = _synth(0.5, func(t): return _noise() * _env(t, 0.5) * 0.55)
 	_clips["roar"] = _synth(1.1, func(t): return (_square(t, 70 + sin(t * 30) * 8) * 0.5 + _noise() * 0.3) * _env(t, 1.1) * 0.5)
+	_clips["coin"] = _synth(0.18, func(t): return (_sine(t, 1320 if t > 0.05 else 990)) * _env(t, 0.18) * 0.25)
+	_clips["click"] = _synth(0.06, func(t): return _sine(t, 700) * _env(t, 0.06) * 0.25)
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
 
 

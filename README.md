@@ -18,6 +18,8 @@ and face the Skeleton King at the end of the floor.
 - **The Skeleton King:** bone rings, a charge, meteor circles and summoning. He gets faster below half health.
 - **11 blessings** (upgrades) such as multishot, piercing, fire, critical hits and healing on kills.
 - **Endless descent:** beat the king and carry your blessings down to the next floor, where skeletons are tougher.
+- **Coins and the Armory:** skeletons drop gold you keep between runs. Spend it on permanent upgrades (health, damage, attack speed, move speed, luckier hearts, a free blessing each run, and a once-per-run Second Wind).
+- **Music:** a calm dungeon theme and a faster boss theme (made by [tools/make_music.py](tools/make_music.py)), with Music and Sounds switches in the pause menu.
 - **Healing hearts** that skeletons sometimes drop, a beginner hint in room 1, and a golden arrow pointing to the open door.
 - **Game feel:** hit-stop, screen shake, hit flashes, knockback, damage numbers, particles and synthesised sounds.
 - **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
@@ -46,6 +48,9 @@ scripts/
   game.gd             the run: rooms, camera, saving, win/lose
   room.gd, layouts.gd room building and the text room layouts
   hero.gd, upgrades.gd
+  armory.gd           permanent upgrades bought with coins
+  pickup.gd           hearts and coins
+  music.gd            background music (tracks in audio/)
   enemies/            minion, warrior, archer, mage, Skeleton King
   hud.gd, joystick.gd on-screen controls and menus
   fx.gd, sfx.gd       particles and generated sound effects
@@ -55,4 +60,4 @@ build/debug.keystore  shared debug signing key, so new builds install over old o
 ```
 
 The robot can be run locally with
-`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots).
+`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots, `shop` to buy Armory upgrades first).

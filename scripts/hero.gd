@@ -15,6 +15,8 @@ var pierce := 0
 var crit_chance := 0.05
 var burn_dps := 0.0
 var heal_on_kill := 0.0
+## From the Armory: survive one killing blow per run.
+var second_wind := false
 
 var _shot_timer := 0.4
 var _invulnerable := 0.0
@@ -142,6 +144,15 @@ func _fire(origin: Vector3, d: Vector3, col: Color) -> void:
 
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():
+		return
+	if second_wind and amount * Game.damage_scale() >= health:
+		second_wind = false
+		health = max_health * 0.5
+		_invulnerable = 2.0
+		Fx.magic(center(), Color(1, 0.9, 0.5), 50)
+		Sfx.play("victory", 0.6)
+		Game.shake(0.4)
+		Game.hud.banner("Second Wind!", Color(1, 0.9, 0.5))
 		return
 	super.take_damage(amount * Game.damage_scale(), direction, push, crit)
 	if dead:

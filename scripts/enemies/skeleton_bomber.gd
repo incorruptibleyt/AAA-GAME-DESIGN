@@ -6,6 +6,7 @@ extends Enemy
 
 const BLAST_RADIUS := 2.2
 var _lit := false
+var _exploded := false
 
 
 func _setup() -> void:
@@ -37,6 +38,10 @@ func _think(hero: Hero, delta: float) -> void:
 		track(Telegraph.circle(spot, BLAST_RADIUS, 0.75, func(): _blow_up()))
 
 
+func coin_value() -> int:
+	return 0 if _exploded else super.coin_value()   # no reward if it blew itself up
+
+
 func _blow_up() -> void:
 	if dead:
 		return
@@ -54,4 +59,5 @@ func _blow_up() -> void:
 			a.take_damage(22.0 if a is Hero else 30.0, d, 10.0)
 	# The blast takes the bomber with it.
 	drop_chance = 0.0
+	_exploded = true
 	take_damage(9999.0, Vector3.ZERO, 0.0)

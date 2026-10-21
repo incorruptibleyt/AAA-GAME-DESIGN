@@ -21,6 +21,11 @@ var boss: Enemy
 var alive_enemies := 0
 ## Which floor of the crypt we're on. Each Skeleton King beaten takes you one floor deeper.
 var floor_num := 1
+## Coins kept between runs (spent in the Armory), and the ones picked up this run.
+var coins := 0
+var run_coins := 0
+## Extra chance for skeletons to drop hearts, from the Armory's Lucky Bones.
+var heart_bonus := 0.0
 
 var _camera: Camera3D
 var _cam_focus := Vector3.ZERO
@@ -35,6 +40,7 @@ var _state_before_pause := State.PLAYING
 var _hit_stop_left := 0.0
 var _choices: Array = []
 var _exit_arrow: Node3D
+var _start_blessing := {}
 
 
 func _ready() -> void:
@@ -44,6 +50,7 @@ func _ready() -> void:
 	world.process_mode = Node.PROCESS_MODE_PAUSABLE
 	add_child(world)
 	add_child(Sfx.new())
+	add_child(Music.new())
 	_setup_environment()
 	_camera = Camera3D.new()
 	_camera.fov = CAMERA_FOV
@@ -57,6 +64,20 @@ func _ready() -> void:
 	hud.card_picked.connect(_on_card_picked)
 	hud.screen_tapped.connect(_on_screen_tapped)
 	hud.pause_pressed.connect(_on_pause_pressed)
+	hud.play_pressed.connect(_on_play_pressed)
+	hud.armory_pressed.connect(_open_armory)
+	hud.armory_buy.connect(_buy_upgrade)
+	hud.resume_pressed.connect(func(): if state == State.PAUSED: _resume())
+	hud.quit_run_pressed.connect(_quit_to_title)
+	hud.retry_pressed.connect(func(): if state == State.DEAD and not hud.armory_visible(): _on_screen_tapped())
+	hud.music_toggled.connect(_set_music)
+	hud.sounds_toggled.connect(_set_sounds)
+
+	var cfg := _load_save()
+	coins = int(cfg.get_value("stats", "coins", 0))
+	_set_music(bool(cfg.get_value("settings", "music", true)), false)
+	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
+	hud.set_coins(coins)
 
 	_build_run()
 	_load_room(0, false)
@@ -64,7 +85,8 @@ func _ready() -> void:
 	_snap_camera()
 	_set_state(State.TITLE)
 	hud.show_hud(false)
-	hud.show_title(true, _best_text())
+	hud.show_title(true, _best_text(), coins)
+	Music.play("dungeon")
 	_fade(1.0, 0.0, 0.6)
 	if "autoplay" in OS.get_cmdline_user_args():
 		add_child(Autoplay.new())
@@ -119,6 +141,9 @@ func _notification(what: int) -> void:
 			_pause()
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		# Android's back button pauses the game; from the pause or title screen it leaves.
+		if hud.armory_visible():
+			hud.show_armory(false)
+			return
 		match state:
 			State.PLAYING:
 				_pause()
@@ -272,7 +297,7 @@ func _on_screen_tapped() -> void:
 		State.TITLE:
 			_start_run()
 		State.DEAD:
-			if _state_time > 1.5:
+			if _state_time > 1.0:
 				_restart()
 		State.VICTORY:
 			if _state_time > 1.5:
@@ -281,14 +306,41 @@ func _on_screen_tapped() -> void:
 			_resume()
 
 
+func _on_play_pressed() -> void:
+	if state == State.TITLE:
+		Sfx.play("click")
+		_start_run()
+
+
 func _start_run() -> void:
 	hud.show_title(false)
+	hud.show_armory(false)
 	hud.show_hud(true)
+	_reset_run_stats()
+	_apply_armory()
+	_go_to_room(0)
+
+
+func _reset_run_stats() -> void:
 	_run_time = 0.0
 	_kills = 0
+	run_coins = 0
 	floor_num = 1
 	_taken.clear()
-	_go_to_room(0)
+
+
+## Gives the hero everything bought in the Armory. Called once at the start of each run.
+func _apply_armory() -> void:
+	var cfg := _load_save()
+	Armory.apply_to_hero(cfg, hero)
+	heart_bonus = Armory.heart_bonus(cfg)
+	if Armory.level(cfg, "blessed") > 0:
+		var pick := Upgrades.roll(_taken, 1)
+		if not pick.is_empty():
+			var u: Dictionary = pick[0]
+			_taken[u.id] = 1
+			Upgrades.apply(u.id, hero)
+			_start_blessing = u
 
 
 func _restart() -> void:
@@ -299,12 +351,38 @@ func _restart() -> void:
 		hero.queue_free()
 		hero = null
 	_build_run()
-	_run_time = 0.0
-	_kills = 0
-	floor_num = 1
-	_taken.clear()
+	_reset_run_stats()
 	hud.show_hud(true)
+	_load_room(0, false)
+	_apply_armory()
 	_load_room(0, true)
+	await _fade(1.0, 0.0, 0.4)
+
+
+## From the pause menu: give up this run and go back to the title (coins are kept).
+func _quit_to_title() -> void:
+	if state != State.PAUSED:
+		return
+	hud.show_pause(false)
+	get_tree().paused = false
+	_set_state(State.TRANSITION)
+	_save_coins()
+	await _fade(0.0, 1.0, 0.4)
+	_clear_enemy_attacks()
+	if hero:
+		hero.queue_free()
+		hero = null
+	_build_run()
+	floor_num = 1
+	_load_room(0, false)
+	hero.place_at(Vector3(0, 0, 2))
+	_snap_camera()
+	hud.show_hud(false)
+	hud.hide_boss()
+	hud.show_hint("")
+	hud.show_title(true, _best_text(), coins)
+	Music.play("dungeon")
+	_set_state(State.TITLE)
 	await _fade(1.0, 0.0, 0.4)
 
 
@@ -349,6 +427,11 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), floor_num)
 	hud.banner("The Throne Room" if _in_boss_room() else "Room %d" % (index + 1))
 	hud.show_hint("Drag to move  ·  Let go to shoot" if floor_num == 1 and index == 0 else "")
+	Music.play("boss" if _in_boss_room() else "dungeon")
+	if not _start_blessing.is_empty():
+		var u := _start_blessing
+		_start_blessing = {}
+		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner("Blessed: " + u.title, u.color))
 	for s in room.spawns:
 		var kind: String = s.kind
 		if kind == "K" and floor_num % 2 == 0:
@@ -387,6 +470,7 @@ func on_enemy_died(e: Enemy) -> void:
 
 
 func _room_cleared() -> void:
+	_save_coins()
 	hud.banner("Room Cleared")
 	await get_tree().create_timer(0.9, false).timeout
 	if state != State.PLAYING:
@@ -436,7 +520,8 @@ func _win() -> void:
 	var cfg := _load_save()
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	_save_best(cfg, _run.size())
-	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d" % [boss_name, floor_num, _format_time(_run_time), _kills],
+	Music.play("dungeon")
+	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins],
 		"Tap to descend to floor %d" % (floor_num + 1))
 	_state_time = 0.0
 
@@ -450,7 +535,8 @@ func on_hero_died() -> void:
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
 	if floor_num > 1:
 		where += " on floor %d" % floor_num
-	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d" % [where, _format_time(_run_time), _kills])
+	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\nCoins kept  %d  (spend them in the Armory)" % [where, _format_time(_run_time), _kills, run_coins],
+		"", true)
 	_state_time = 0.0
 
 
@@ -460,6 +546,7 @@ func _on_pause_pressed() -> void:
 
 
 func _pause() -> void:
+	_save_coins()
 	_state_before_pause = state
 	_set_state(State.PAUSED)
 	get_tree().paused = true
@@ -494,6 +581,74 @@ func _load_save() -> ConfigFile:
 	var cfg := ConfigFile.new()
 	cfg.load(SAVE_PATH)
 	return cfg
+
+
+func add_coins(n: int) -> void:
+	coins += n
+	run_coins += n
+	hud.set_coins(coins)
+
+
+func _save_coins() -> void:
+	var cfg := _load_save()
+	cfg.set_value("stats", "coins", coins)
+	cfg.save(SAVE_PATH)
+
+
+func _set_music(on: bool, save := true) -> void:
+	Music.set_enabled(on)
+	hud.set_toggles(Music.enabled, Sfx.enabled)
+	if save:
+		var cfg := _load_save()
+		cfg.set_value("settings", "music", on)
+		cfg.save(SAVE_PATH)
+
+
+func _set_sounds(on: bool, save := true) -> void:
+	Sfx.enabled = on
+	hud.set_toggles(Music.enabled, Sfx.enabled)
+	if save:
+		var cfg := _load_save()
+		cfg.set_value("settings", "sounds", on)
+		cfg.save(SAVE_PATH)
+
+
+# ---------------------------------------------------------------- armory
+
+func _open_armory() -> void:
+	if state != State.TITLE and state != State.DEAD:
+		return
+	Sfx.play("click")
+	hud.show_armory(true, _armory_rows(), coins)
+
+
+func _armory_rows() -> Array:
+	var cfg := _load_save()
+	var rows := []
+	for u: Dictionary in Armory.LIST:
+		rows.append({"id": u.id, "title": u.title, "text": u.text, "level": Armory.level(cfg, u.id),
+			"max": u.max, "cost": Armory.next_cost(cfg, u)})
+	return rows
+
+
+func _buy_upgrade(id: String) -> void:
+	var cfg := _load_save()
+	for u: Dictionary in Armory.LIST:
+		if u.id != id:
+			continue
+		var cost := Armory.next_cost(cfg, u)
+		if cost < 0 or cost > coins:
+			Sfx.play("hurt")
+			return
+		coins -= cost
+		cfg.set_value("stats", "coins", coins)
+		cfg.set_value(Armory.SAVE_SECTION, id, Armory.level(cfg, id) + 1)
+		cfg.save(SAVE_PATH)
+		Sfx.play("upgrade")
+		hud.set_coins(coins)
+		hud.show_armory(true, _armory_rows(), coins)
+		hud.show_title(hud.title_visible(), _best_text(), coins)
+		return
 
 
 func _save_best(cfg: ConfigFile, room_reached: int) -> void:

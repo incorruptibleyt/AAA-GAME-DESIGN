@@ -7,6 +7,16 @@ extends CanvasLayer
 signal card_picked(index: int)
 signal screen_tapped
 signal pause_pressed
+signal play_pressed
+signal armory_pressed
+signal armory_buy(id: String)
+signal resume_pressed
+signal quit_run_pressed
+signal retry_pressed
+signal music_toggled(on: bool)
+signal sounds_toggled(on: bool)
+
+const GOLD := Color(1.0, 0.8, 0.3)
 
 const STICK_RADIUS := 70.0
 
@@ -41,6 +51,16 @@ var _end_tap: Label
 var _boss_name: Label
 var _cards_age := 0.0
 var _fade: ColorRect
+var _coin_label: Label
+var _title_coins: Label
+var _armory_box: Control
+var _armory_coins: Label
+var _armory_rows: VBoxContainer
+var _end_buttons: Control
+var _music_button: Button
+var _sounds_button: Button
+var _music_on := true
+var _sounds_on := true
 
 
 func _ready() -> void:
@@ -56,6 +76,7 @@ func _ready() -> void:
 	_build_title()
 	_build_end()
 	_build_pause()
+	_build_armory()
 	_fade = ColorRect.new()
 	_fade.color = Color(0, 0, 0, 1)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -95,6 +116,60 @@ static func overlay(dim: Color) -> ColorRect:
 	r.mouse_filter = Control.MOUSE_FILTER_STOP
 	r.visible = false
 	return r
+
+
+static func button(text: String, size := 28, bg := Color(0.16, 0.12, 0.2, 0.95), border := Color(1, 0.8, 0.45, 0.6)) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(300, 74)
+	b.add_theme_font_size_override("font_size", size)
+	b.add_theme_color_override("font_color", Color(1, 0.93, 0.8))
+	b.add_theme_color_override("font_pressed_color", Color(1, 1, 1))
+	b.add_theme_color_override("font_hover_color", Color(1, 0.93, 0.8))
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = bg
+	normal.set_corner_radius_all(14)
+	normal.set_border_width_all(2)
+	normal.border_color = border
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = bg.lightened(0.2)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", normal)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("disabled", normal)
+	return b
+
+
+## A little gold coin drawn with a rounded box.
+static func coin_icon(size: float) -> Panel:
+	var p := Panel.new()
+	p.custom_minimum_size = Vector2(size, size)
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = GOLD
+	sb.set_corner_radius_all(int(size / 2))
+	sb.set_border_width_all(maxi(2, int(size / 8)))
+	sb.border_color = Color(0.65, 0.42, 0.08)
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
+
+## A coin icon with a number next to it.
+static func coin_row(text_size: int, parent: Control, centered := false) -> Label:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	if centered:
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
+	parent.add_child(row)
+	var icon := coin_icon(text_size * 0.9)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(icon)
+	var l := label("0", text_size, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	row.add_child(l)
+	return l
 
 
 func _bar(parent: Control, fill_col: Color) -> ColorRect:
@@ -138,6 +213,13 @@ func _build_hud() -> void:
 	_hp_label = label("100 / 100", 18)
 	full(_hp_label)
 	hp.add_child(_hp_label)
+
+	var coins := Control.new()
+	coins.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	coins.position = Vector2(18, 52)
+	coins.size = Vector2(200, 30)
+	root.add_child(coins)
+	_coin_label = coin_row(22, coins)
 
 	_room_label = label("", 22, Color(0.9, 0.85, 0.75), HORIZONTAL_ALIGNMENT_RIGHT)
 	_room_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -280,12 +362,24 @@ func _build_title() -> void:
 	col.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
 	_title_best = label("", 18, Color(0.7, 0.7, 0.8))
 	col.add_child(_title_best)
+	_title_coins = coin_row(26, col, true)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 160)
+	spacer.custom_minimum_size = Vector2(0, 70)
 	col.add_child(spacer)
-	var tap := label("Tap to begin", 32)
-	tap.set_script(Pulse)
-	col.add_child(tap)
+	var play := button("PLAY", 38, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
+	play.custom_minimum_size = Vector2(300, 92)
+	play.pressed.connect(func(): play_pressed.emit())
+	col.add_child(_centered(play))
+	var armory := button("ARMORY", 28)
+	armory.pressed.connect(func(): armory_pressed.emit())
+	col.add_child(_centered(armory))
+
+
+func _centered(c: Control) -> Control:
+	var box := CenterContainer.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(c)
+	return box
 
 
 func _build_end() -> void:
@@ -306,14 +400,72 @@ func _build_end() -> void:
 	_end_tap = label("Tap to try again", 30)
 	_end_tap.set_script(Pulse)
 	col.add_child(_end_tap)
+	var buttons := VBoxContainer.new()
+	buttons.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	buttons.add_theme_constant_override("separation", 18)
+	col.add_child(buttons)
+	var retry := button("TRY AGAIN", 32, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
+	retry.custom_minimum_size = Vector2(300, 86)
+	retry.pressed.connect(func(): retry_pressed.emit())
+	buttons.add_child(_centered(retry))
+	var armory := button("ARMORY", 26)
+	armory.pressed.connect(func(): armory_pressed.emit())
+	buttons.add_child(_centered(armory))
+	_end_buttons = buttons
 
 
 func _build_pause() -> void:
-	_pause_box = overlay(Color(0, 0, 0, 0.6))
+	_pause_box = overlay(Color(0, 0, 0, 0.7))
 	add_child(_pause_box)
-	var l := label("Paused\nTap to continue", 40)
-	full(l)
-	_pause_box.add_child(l)
+	var col := VBoxContainer.new()
+	full(col)
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 18)
+	_pause_box.add_child(col)
+	col.add_child(label("Paused", 52, Color(1, 0.85, 0.55)))
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 20)
+	col.add_child(gap)
+	var resume := button("RESUME", 32, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
+	resume.custom_minimum_size = Vector2(300, 86)
+	resume.pressed.connect(func(): resume_pressed.emit())
+	col.add_child(_centered(resume))
+	_music_button = button("Music: On", 26)
+	_music_button.pressed.connect(func(): music_toggled.emit(not _music_on))
+	col.add_child(_centered(_music_button))
+	_sounds_button = button("Sounds: On", 26)
+	_sounds_button.pressed.connect(func(): sounds_toggled.emit(not _sounds_on))
+	col.add_child(_centered(_sounds_button))
+	var quit := button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	quit.pressed.connect(func(): quit_run_pressed.emit())
+	col.add_child(_centered(quit))
+
+
+## The shop for permanent upgrades, opened from the title or death screen.
+func _build_armory() -> void:
+	_armory_box = overlay(Color(0.03, 0.02, 0.05, 0.94))
+	add_child(_armory_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 20
+	col.offset_right = -20
+	col.offset_top = 24
+	col.offset_bottom = -24
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 10)
+	_armory_box.add_child(col)
+	col.add_child(label("Armory", 46, Color(1, 0.85, 0.55)))
+	col.add_child(label("Upgrades bought here last forever.", 18, Color(0.8, 0.8, 0.85)))
+	_armory_coins = coin_row(30, col, true)
+	_armory_rows = VBoxContainer.new()
+	_armory_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_armory_rows.add_theme_constant_override("separation", 8)
+	col.add_child(_armory_rows)
+	var back := button("BACK", 26)
+	back.pressed.connect(func(): show_armory(false))
+	col.add_child(_centered(back))
 
 
 func _apply_safe_area() -> void:
@@ -336,14 +488,14 @@ func _apply_safe_area() -> void:
 # ---------------------------------------------------------------- input
 
 func _overlay_open() -> bool:
-	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible
+	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
-			if _title_box.visible or _end_box.visible or _pause_box.visible:
+			if _end_box.visible and not _end_buttons.visible and not _armory_box.visible:
 				screen_tapped.emit()
 				return
 			if _safe.visible and _pause_button.get_global_rect().has_point(t.position):
@@ -456,9 +608,83 @@ func show_cards(choices: Array) -> void:
 	_cards_age = 0.0
 
 
-func show_title(v: bool, best := "") -> void:
+func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_box.visible = v
 	_title_best.text = best
+	_title_coins.text = str(coins)
+
+
+func title_visible() -> bool:
+	return _title_box.visible
+
+
+func set_coins(n: int) -> void:
+	_coin_label.text = str(n)
+	_title_coins.text = str(n)
+
+
+func set_toggles(music: bool, sounds: bool) -> void:
+	_music_on = music
+	_sounds_on = sounds
+	_music_button.text = "Music: On" if music else "Music: Off"
+	_sounds_button.text = "Sounds: On" if sounds else "Sounds: Off"
+
+
+func armory_visible() -> bool:
+	return _armory_box.visible
+
+
+## rows: [{id, title, text, level, max, cost}] where cost is -1 once maxed out.
+func show_armory(v: bool, rows := [], coins := 0) -> void:
+	_armory_box.visible = v
+	if not v:
+		return
+	_armory_coins.text = str(coins)
+	for c in _armory_rows.get_children():
+		c.queue_free()
+	for r: Dictionary in rows:
+		_armory_rows.add_child(_armory_row(r, coins))
+
+
+func _armory_row(r: Dictionary, coins: int) -> Button:
+	var maxed: bool = r.cost < 0
+	var afford: bool = not maxed and r.cost <= coins
+	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), GOLD if afford else Color(0.4, 0.35, 0.45, 0.6))
+	b.custom_minimum_size = Vector2(0, 76)
+	b.pressed.connect(func(): armory_buy.emit(r.id))
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 16)
+	full(m)
+	b.add_child(m)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_child(h)
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.add_theme_constant_override("separation", 0)
+	h.add_child(texts)
+	var pips := "" if r.max <= 1 else "   " + "■".repeat(r.level) + "□".repeat(r.max - r.level)
+	var t := label(r.title + pips, 22, Color.WHITE if not maxed else Color(0.7, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(t)
+	var d := label(r.text, 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
+	d.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(d)
+	if maxed:
+		h.add_child(label("OWNED" if r.max <= 1 else "MAX", 22, Color(0.6, 1, 0.6)))
+	else:
+		var price := HBoxContainer.new()
+		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(price)
+		var cost_label := coin_row(24, price)
+		cost_label.text = str(r.cost)
+		if not afford:
+			cost_label.label_settings.font_color = Color(0.6, 0.55, 0.5)
+	return b
 
 
 func show_hint(text: String) -> void:
@@ -466,11 +692,13 @@ func show_hint(text: String) -> void:
 	_hint.visible = text != ""
 
 
-func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again") -> void:
+func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again", buttons := false) -> void:
 	_end_box.visible = v
 	if not v:
 		return
 	_end_tap.text = tap_text
+	_end_tap.visible = not buttons
+	_end_buttons.visible = buttons
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_end_stats.text = stats
