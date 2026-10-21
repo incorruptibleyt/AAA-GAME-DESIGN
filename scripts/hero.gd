@@ -30,8 +30,8 @@ static func spawn(parent: Node, pos: Vector3) -> Hero:
 	h.init_health(100.0)
 	parent.add_child(h)
 	h.global_position = pos
-	var key := Art.RANGER if Art.has_model(Art.RANGER) else (Art.ROGUE if Art.has_model(Art.ROGUE) else Art.KNIGHT)
-	h.make_visual({"key": key, "height": 2.1, "body": Color(0.25, 0.45, 0.78), "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0), "hood": true})
+	h.make_visual({"key": Art.ROGUE, "height": 2.1, "body": Color(0.25, 0.45, 0.78), "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0), "hood": true,
+		"hide": ["Knife", "Knife_Offhand", "2H_Crossbow", "Throwable"], "attack_anim": "1H_Ranged_Shoot"})
 	# A soft light that travels with the hero so they never get lost in the dark.
 	var lantern := OmniLight3D.new()
 	lantern.light_color = Color(0.75, 0.85, 1.0)

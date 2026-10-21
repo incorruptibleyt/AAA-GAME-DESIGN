@@ -11,7 +11,7 @@ const ANIMS := {
 	"attack": ["1H_Ranged_Shoot", "2H_Ranged_Shoot", "1H_Melee_Attack_Chop", "Unarmed_Melee_Attack_Punch_A", "Attack"],
 	"cast": ["Spellcast_Shoot", "Spellcasting", "Spellcast_Long"],
 	"hit": ["Hit_A", "Hit_B", "Hit"],
-	"death": ["Death_A", "Death_B", "Death"],
+	"death": ["Death_C_Skeletons", "Death_A", "Death_B", "Death"],
 }
 
 var _model: Node3D
@@ -35,9 +35,13 @@ func build(look: Dictionary) -> void:
 		Art.fit_height(_model, look.height)
 		_model.rotation.y = PI   # KayKit models face +Z; our "forward" is -Z
 		_anim = _find_anim(_model)
+		_dress_model(look)
 		if _anim:
 			for action in ANIMS:
-				for n in ANIMS[action]:
+				var names: Array = ANIMS[action]
+				if action == "attack" and look.has("attack_anim"):
+					names = [look.attack_anim] + names
+				for n in names:
 					if _anim.has_animation(n):
 						_anim_names[action] = n
 						break
@@ -49,6 +53,34 @@ func build(look: Dictionary) -> void:
 		_model = _placeholder(look)
 	_collect_meshes(_model)
 	_play("idle")
+
+
+## Weapons, shields and extras for KayKit models.
+func _dress_model(look: Dictionary) -> void:
+	Art.hide_parts(_model, look.get("hide", []))
+	if look.has("weapon"):
+		Art.attach_to_bone(_model, "handslot.r", look.weapon)
+	if look.has("offhand"):
+		Art.attach_to_bone(_model, "handslot.l", look.offhand)
+	var skel := Art._find_skeleton(_model)
+	if skel == null:
+		return
+	if look.get("crown", false) and skel.find_bone("head") >= 0:
+		var att := BoneAttachment3D.new()
+		skel.add_child(att)
+		att.bone_name = "head"
+		var gold := U.mat(Color(1.0, 0.78, 0.25), 0.3, 0.8)
+		var s := 0.45
+		U.cylinder(att, s * 0.5, s * 0.15, gold, Vector3(0, s * 1.1, 0))
+		for i in 5:
+			var a := i / 5.0 * TAU
+			U.box(att, Vector3.ONE * s * 0.18, gold, Vector3(cos(a) * s * 0.42, s * 1.32, sin(a) * s * 0.42))
+	if look.get("bomb", false) and skel.find_bone("chest") >= 0:
+		var att := BoneAttachment3D.new()
+		skel.add_child(att)
+		att.bone_name = "chest"
+		U.sphere(att, 0.42, U.mat(Color(0.08, 0.08, 0.1), 0.4), Vector3(0, 0.25, -0.45))
+		U.sphere(att, 0.1, U.mat(Color(1.0, 0.6, 0.1), 0.5, 4.0), Vector3(0, 0.72, -0.5))
 
 
 func _find_anim(n: Node) -> AnimationPlayer:

@@ -19,6 +19,9 @@ func _setup() -> void:
 	look.helmet = true
 	look.shield = true
 	look.accent = Color(0.5, 0.15, 0.12)
+	look.weapon = "Skeleton_Axe"
+	look.offhand = "Skeleton_Shield_Large_A"
+	look.attack_anim = "1H_Melee_Attack_Slice_Diagonal"
 	make_visual(look)
 
 

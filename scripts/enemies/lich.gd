@@ -25,6 +25,7 @@ func _setup() -> void:
 	look.hat = true
 	look.crown = true
 	look.accent = Color(0.18, 0.12, 0.32)
+	look.weapon = "Skeleton_Staff"
 	make_visual(look)
 
 

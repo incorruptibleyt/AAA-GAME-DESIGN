@@ -45,7 +45,8 @@ static func _scan(dir_path: String) -> void:
 			var file := f.trim_suffix(".import")
 			var ext := file.get_extension().to_lower()
 			if ext == "gltf" or ext == "glb":
-				var key := file.get_basename().to_lower()
+				# Some KayKit files are named like "pillar.gltf.glb".
+				var key := file.get_basename().trim_suffix(".gltf").to_lower()
 				if not _index.has(key) or ext == "glb":
 					_index[key] = dir_path.path_join(file)
 		f = dir.get_next()
@@ -70,6 +71,38 @@ static func get_model(key: String) -> PackedScene:
 
 static func has_model(key: String) -> bool:
 	return get_model(key) != null
+
+
+## Hold a KayKit weapon (or shield) in a character's hand. `side` is "r" or "l".
+static func attach_to_bone(model: Node, bone: String, scene_key: String) -> Node3D:
+	var scene := get_model(scene_key)
+	var skel := _find_skeleton(model)
+	if scene == null or skel == null or skel.find_bone(bone) < 0:
+		return null
+	var att := BoneAttachment3D.new()
+	skel.add_child(att)
+	att.bone_name = bone
+	var item := scene.instantiate() as Node3D
+	att.add_child(item)
+	return item
+
+
+static func _find_skeleton(n: Node) -> Skeleton3D:
+	if n is Skeleton3D:
+		return n
+	for c in n.get_children():
+		var r := _find_skeleton(c)
+		if r:
+			return r
+	return null
+
+
+## Hide parts of a model by node name (KayKit heroes come holding every weapon at once).
+static func hide_parts(model: Node, names: Array) -> void:
+	if model.name in names and model is Node3D:
+		(model as Node3D).visible = false
+	for c in model.get_children():
+		hide_parts(c, names)
 
 
 ## Instance a model under `parent`, scaled so it is `height` tall and standing on the floor.

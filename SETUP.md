@@ -27,15 +27,10 @@ To check on a build, open the repo's **Actions** tab. A green tick means the new
 - Red hearts heal you. Grab them when you're hurt.
 - Beat the Skeleton King in room 6, then tap to go a floor deeper. Each floor is harder. How deep can you get?
 
-## 3. Adding the real art (optional)
+## 3. Art
 
-The game ships with simple shapes. To use KayKit's models:
-
-1. On your phone, go to **https://kaylousberg.itch.io** and download (free, "No thanks, just take me
-   to the downloads") these packs: **KayKit Adventurers**, **KayKit Skeletons** and **KayKit Dungeon Remastered**.
-2. In the GitHub app or website, open the repo's **ArtZips** folder → **Add file → Upload files**,
-   and upload the zips. GitHub's website accepts files up to 25 MB each; if one is bigger, tell Claude.
-3. The next build uses them automatically.
+The game already includes the free KayKit models, so there's nothing to download.
+Want extra packs? Upload their zips to the **ArtZips** folder and ask Claude to hook them up.
 
 ## 4. Changing the game yourself (optional)
 

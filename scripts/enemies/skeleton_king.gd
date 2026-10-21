@@ -23,6 +23,9 @@ func _setup() -> void:
 	var look := bones(key, 4.0, Color(1.0, 0.25, 0.15))
 	look.crown = true
 	look.horns = true
+	look.weapon = "Skeleton_Axe"
+	look.offhand = "Skeleton_Shield_Large_A"
+	look.attack_anim = "1H_Melee_Attack_Chop"
 	make_visual(look)
 
 

@@ -17,6 +17,8 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_WARRIOR, 1.7, Color(0.5, 1.0, 0.3))
 	look.horns = true
 	look.accent = Color(0.2, 0.35, 0.15)
+	look.offhand = "Skeleton_Shield_Small_A"
+	look.attack_anim = "Spellcast_Shoot"
 	make_visual(look)
 
 

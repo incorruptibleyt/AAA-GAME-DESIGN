@@ -17,6 +17,8 @@ func _setup() -> void:
 	look.bow = true
 	look.hood = true
 	look.accent = Color(0.2, 0.35, 0.2)
+	look.weapon = "Skeleton_Crossbow"
+	look.attack_anim = "1H_Ranged_Shoot"
 	make_visual(look)
 
 

@@ -15,6 +15,7 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_MAGE, 2.0, Color(0.7, 0.4, 1.0))
 	look.hat = true
 	look.accent = Color(0.3, 0.18, 0.45)
+	look.weapon = "Skeleton_Staff"
 	make_visual(look)
 
 

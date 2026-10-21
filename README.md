@@ -24,9 +24,10 @@ and face the Skeleton King at the end of the floor.
 
 ## Art
 
-Everything is built from code, so the game runs with simple placeholder shapes out of the box.
-Drop Kay Lousberg's free CC0 **KayKit** packs (glTF versions) into [ArtZips](ArtZips/) and the next
-build swaps in the real knight, skeletons, pillars, barrels and torches automatically.
+The characters, weapons and dungeon props are Kay Lousberg's free CC0 **KayKit** packs
+(Adventurers, Skeletons, Dungeon Remastered), kept in [art/kaykit](art/kaykit/). The
+[Fetch KayKit art](.github/workflows/fetch-art.yml) workflow downloads them from the official
+repositories. If a model is missing, the game falls back to simple placeholder shapes.
 
 ## How it's built
 

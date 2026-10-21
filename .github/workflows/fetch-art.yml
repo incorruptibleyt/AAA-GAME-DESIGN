@@ -6,9 +6,6 @@ name: Fetch KayKit art
 
 on:
   workflow_dispatch:
-  push:
-    branches: ["claude/**"]
-    paths: [".github/workflows/fetch-art.yml"]
 
 permissions:
   contents: write
