@@ -14,7 +14,8 @@ func _setup() -> void:
 	radius = 0.6
 	center_height = 0.8
 	knockback_scale = 0.0
-	var look := bones(Art.SKELETON_WARRIOR, 1.7, Color(0.5, 1.0, 0.3))
+	var look := bones(Art.SKELETON_MINION, 1.8, Color(0.5, 1.0, 0.3))
+	look.tint = Color(0.1, 0.35, 0.05, 1.0)
 	look.horns = true
 	look.accent = Color(0.2, 0.35, 0.15)
 	look.offhand = "Skeleton_Shield_Small_A"

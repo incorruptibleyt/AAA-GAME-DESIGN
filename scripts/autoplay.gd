@@ -7,6 +7,8 @@ extends Node
 var god := false
 var start_room := 1
 var runs := 1
+var gallery := false
+var _gallery_t := -1.0
 var _paused_once := false
 var _dumped_room := -1
 var shots_dir := ""
@@ -24,6 +26,8 @@ func _ready() -> void:
 			god = true
 		elif a.begins_with("floor="):
 			Game.floor_num = int(a.substr(6))
+		elif a == "gallery":
+			gallery = true
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -62,7 +66,7 @@ func _process(delta: float) -> void:
 			Game.hud._on_card(0)
 		Game.State.DEAD, Game.State.VICTORY:
 			if Game._state_time > 2.5:
-				print("[autoplay] END state=%s floor=%d room=%d kills=%d time=%.1f" % [Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time])
+				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time])
 				runs -= 1
 				if runs <= 0:
 					get_tree().quit()
@@ -72,6 +76,10 @@ func _process(delta: float) -> void:
 			if Game._state_time > 1.0:
 				Game._on_screen_tapped()
 
+		Game.State.PLAYING when gallery:
+			_gallery_step(delta)
+		Game.State.TRANSITION when gallery and _gallery_t >= 0.0:
+			_gallery_step(delta)
 		Game.State.PLAYING:
 			if not _paused_once and Game._room_index == 1 and Game._state_time > 2.0:
 				_paused_once = true
@@ -89,6 +97,31 @@ func _process(delta: float) -> void:
 		for a: Actor in Actor.all:
 			print("   ", a.name, " ", a.get_script().get_global_name(), " pos=", a.global_position, " hp=", a.health, " dead=", a.dead)
 		get_tree().quit(1)
+
+
+## Lines up one of every skeleton type for a close look, takes a picture and quits.
+func _gallery_step(delta: float) -> void:
+	if _gallery_t < 0.0:
+		_gallery_t = 0.0
+		for a: Actor in Actor.all.duplicate():
+			if a is Enemy:
+				a.queue_free()
+		var kinds := ["m", "w", "a", "g", "x", "t"]
+		for i in kinds.size():
+			Game.spawn_enemy(kinds[i], Vector3(-4.0 + (i % 3) * 4.0, 0, 1.5 + (i / 3) * 3.0))
+		Game.spawn_enemy("K", Vector3(-3, 0, -5))
+		Game.spawn_enemy("L", Vector3(3, 0, -5))
+		Game.hero.place_at(Vector3(0, 0, 7.5))
+		Game.state = Game.State.TRANSITION   # everyone stands still
+		for a: Actor in Actor.all:
+			a.rotation.y = PI   # face the camera
+		return
+	_gallery_t += delta
+	if _gallery_t > 2.0 and _gallery_t < 100.0:
+		_gallery_t = 100.0
+		_shot()
+		await get_tree().create_timer(0.5).timeout
+		get_tree().quit()
 
 
 func _drive(delta: float) -> void:

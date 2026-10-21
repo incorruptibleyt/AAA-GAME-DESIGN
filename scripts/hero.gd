@@ -35,9 +35,9 @@ static func spawn(parent: Node, pos: Vector3) -> Hero:
 	# A soft light that travels with the hero so they never get lost in the dark.
 	var lantern := OmniLight3D.new()
 	lantern.light_color = Color(0.75, 0.85, 1.0)
-	lantern.light_energy = 1.0
-	lantern.omni_range = 7.0
-	lantern.position = Vector3(0, 2.2, 0)
+	lantern.light_energy = 0.9
+	lantern.omni_range = 8.0
+	lantern.position = Vector3(0, 3.6, 0.6)   # high and slightly behind, so the hood isn't blown out
 	h.add_child(lantern)
 	return h
 

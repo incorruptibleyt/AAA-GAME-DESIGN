@@ -17,6 +17,7 @@ func _setup() -> void:
 	drop_chance = 0.1
 	var look := bones(Art.SKELETON_MINION, 1.55, Color(1.0, 0.55, 0.1))
 	look.bomb = true
+	look.tint = Color(0.3, 0.12, 0.0, 1.0)
 	look.accent = Color(0.45, 0.25, 0.1)
 	look.attack_anim = "Spellcast_Raise"
 	make_visual(look)

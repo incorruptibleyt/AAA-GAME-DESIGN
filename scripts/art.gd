@@ -84,6 +84,8 @@ static func attach_to_bone(model: Node, bone: String, scene_key: String) -> Node
 	att.bone_name = bone
 	var item := scene.instantiate() as Node3D
 	att.add_child(item)
+	if scene_key == "Skeleton_Staff":
+		item.rotation.x = PI   # the staff file points down from the hand; hold it skull-up
 	return item
 
 

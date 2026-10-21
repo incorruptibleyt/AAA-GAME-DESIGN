@@ -24,6 +24,7 @@ var _dead := false
 var _flash := 0.0
 var _meshes: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
+var _tint_mat: StandardMaterial3D
 
 
 ## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb}
@@ -52,6 +53,11 @@ func build(look: Dictionary) -> void:
 	else:
 		_model = _placeholder(look)
 	_collect_meshes(_model)
+	if look.has("tint"):
+		# A coloured glow over the whole model, so look-alike skeletons stand apart.
+		_tint_mat = U.unlit(look.tint)
+		_tint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_set_flash(false)
 	_play("idle")
 
 
@@ -70,11 +76,13 @@ func _dress_model(look: Dictionary) -> void:
 		skel.add_child(att)
 		att.bone_name = "head"
 		var gold := U.mat(Color(1.0, 0.78, 0.25), 0.3, 0.8)
-		var s := 0.45
-		U.cylinder(att, s * 0.5, s * 0.15, gold, Vector3(0, s * 1.1, 0))
-		for i in 5:
-			var a := i / 5.0 * TAU
-			U.box(att, Vector3.ONE * s * 0.18, gold, Vector3(cos(a) * s * 0.42, s * 1.32, sin(a) * s * 0.42))
+		var s := 0.6
+		var y := 1.25
+		U.cylinder(att, s * 0.5, s * 0.18, gold, Vector3(0, y, 0))
+		for i in 6:
+			var a := i / 6.0 * TAU
+			var spike := U.box(att, Vector3(0.12, 0.3, 0.12) * s / 0.6, gold, Vector3(cos(a) * s * 0.44, y + s * 0.3, sin(a) * s * 0.44))
+			spike.rotation.y = -a
 	if look.get("bomb", false) and skel.find_bone("chest") >= 0:
 		var att := BoneAttachment3D.new()
 		skel.add_child(att)
@@ -186,7 +194,7 @@ func _set_flash(on: bool) -> void:
 		_flash_mat = U.unlit(Color.WHITE)
 	for m in _meshes:
 		if is_instance_valid(m):
-			m.material_overlay = _flash_mat if on else null
+			m.material_overlay = _flash_mat if on else _tint_mat
 
 
 func _placeholder(look: Dictionary) -> Node3D:
