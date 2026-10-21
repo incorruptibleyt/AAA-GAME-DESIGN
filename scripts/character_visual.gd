@@ -26,7 +26,7 @@ var _meshes: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
 
 
-## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow}
+## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb}
 func build(look: Dictionary) -> void:
 	var scene := Art.get_model(look.get("key", ""))
 	if scene:
@@ -190,6 +190,10 @@ func _placeholder(look: Dictionary) -> Node3D:
 		var shield := U.cylinder(root, h * 0.2, h * 0.05, U.mat(look.accent.lightened(0.15), 0.5), Vector3(-h * 0.3, h * 0.28, -h * 0.12))
 		shield.rotation.x = PI / 2
 		U.sphere(root, h * 0.045, steel, Vector3(-h * 0.3, h * 0.48, -h * 0.17))
+	if look.get("bomb", false):
+		# A round black bomb strapped to the back, with a glowing fuse.
+		U.sphere(root, h * 0.2, U.mat(Color(0.08, 0.08, 0.1), 0.4), Vector3(0, h * 0.5, h * 0.24))
+		U.sphere(root, h * 0.05, U.mat(Color(1.0, 0.6, 0.1), 0.5, 4.0), Vector3(0, h * 0.74, h * 0.26))
 	if look.get("helmet", false):
 		var helm := U.sphere(root, h * 0.2, steel, Vector3(0, h * 0.78, 0.0))
 		helm.scale = Vector3(1, 0.75, 1)

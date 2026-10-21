@@ -17,7 +17,7 @@ var state := State.TITLE
 var world: Node3D
 var hud: Hud
 var hero: Hero
-var boss: SkeletonKing
+var boss: Enemy
 var alive_enemies := 0
 ## Which floor of the crypt we're on. Each Skeleton King beaten takes you one floor deeper.
 var floor_num := 1
@@ -350,7 +350,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	hud.banner("The Throne Room" if _in_boss_room() else "Room %d" % (index + 1))
 	hud.show_hint("Drag to move  ·  Let go to shoot" if floor_num == 1 and index == 0 else "")
 	for s in room.spawns:
-		spawn_enemy(s.kind, s.pos)
+		var kind: String = s.kind
+		if kind == "K" and floor_num % 2 == 0:
+			kind = "L"   # every second floor is ruled by the Lich instead
+		spawn_enemy(kind, s.pos)
 	_set_state(State.PLAYING)
 	if alive_enemies == 0:
 		room.open_door()
@@ -359,8 +362,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 	var e := Enemy.create(kind, Room.current, pos)
 	alive_enemies += 1
-	if e is SkeletonKing:
+	if e.is_boss:
 		boss = e
+		hud.set_boss_name(e.display_name())
 	return e
 
 
@@ -370,8 +374,8 @@ func on_enemy_died(e: Enemy) -> void:
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
-	if e is SkeletonKing:
-		# Any minions left crumble with their king.
+	if e == boss:
+		# Any minions left crumble with their master.
 		for a: Actor in Actor.all.duplicate():
 			if a != e and a.team == Actor.Team.UNDEAD and not a.dead and a.can_be_hit():
 				a.take_damage(9999.0, Vector3.ZERO, 0.0)
@@ -422,6 +426,7 @@ func _clear_enemy_attacks() -> void:
 
 
 func _win() -> void:
+	var boss_name := boss.display_name() if is_instance_valid(boss) else "The boss"
 	_set_state(State.VICTORY)
 	_clear_enemy_attacks()
 	Pickup.collect_all()
@@ -431,7 +436,7 @@ func _win() -> void:
 	var cfg := _load_save()
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	_save_best(cfg, _run.size())
-	hud.show_end(true, true, "The Skeleton King of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d" % [floor_num, _format_time(_run_time), _kills],
+	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d" % [boss_name, floor_num, _format_time(_run_time), _kills],
 		"Tap to descend to floor %d" % (floor_num + 1))
 	_state_time = 0.0
 
@@ -505,7 +510,7 @@ func _best_text() -> String:
 	var best := int(cfg.get_value("stats", "best_room", 0))
 	var deepest := int(cfg.get_value("stats", "best_floor", 1))
 	if wins > 0:
-		return "Kings defeated: %d  ·  Deepest floor: %d" % [wins, deepest]
+		return "Bosses defeated: %d  ·  Deepest floor: %d" % [wins, deepest]
 	if best > 0:
 		return "Deepest room reached: %d" % best
 	return ""

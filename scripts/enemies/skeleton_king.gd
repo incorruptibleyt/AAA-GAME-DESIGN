@@ -11,6 +11,7 @@ var _busy := false
 
 
 func _setup() -> void:
+	is_boss = true
 	init_health(750.0)
 	drop_chance = 0.0
 	move_speed = 1.8
@@ -23,6 +24,10 @@ func _setup() -> void:
 	look.crown = true
 	look.horns = true
 	make_visual(look)
+
+
+func display_name() -> String:
+	return DISPLAY_NAME
 
 
 func _think(hero: Hero, delta: float) -> void:

@@ -38,6 +38,7 @@ var _pause_button: Button
 var _danger: TextureRect
 var _hint: Label
 var _end_tap: Label
+var _boss_name: Label
 var _cards_age := 0.0
 var _fade: ColorRect
 
@@ -181,10 +182,10 @@ func _build_hud() -> void:
 	_boss_box.offset_top = 60
 	_boss_box.offset_bottom = 112
 	root.add_child(_boss_box)
-	var bname := label(SkeletonKing.DISPLAY_NAME, 20, Color(1, 0.8, 0.6))
-	bname.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	bname.offset_bottom = 26
-	_boss_box.add_child(bname)
+	_boss_name = label(SkeletonKing.DISPLAY_NAME, 20, Color(1, 0.8, 0.6))
+	_boss_name.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_boss_name.offset_bottom = 26
+	_boss_box.add_child(_boss_name)
 	var bar_holder := Control.new()
 	bar_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_holder.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
@@ -418,6 +419,10 @@ func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
 	if floor_num > 1:
 		_room_label.text = "F%d · %s" % [floor_num, _room_label.text]
 	_boss_box.visible = boss
+
+
+func set_boss_name(n: String) -> void:
+	_boss_name.text = n
 
 
 func hide_boss() -> void:

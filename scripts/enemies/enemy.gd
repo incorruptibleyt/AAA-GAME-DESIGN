@@ -8,6 +8,8 @@ var contact_damage := 10.0
 var knockback_scale := 1.0
 ## Chance of dropping a healing heart when destroyed.
 var drop_chance := 0.18
+## Bosses use the big bar at the top of the screen instead of a little one.
+var is_boss := false
 
 var _spawn_timer := 0.9
 var _contact_cooldown := 0.0
@@ -22,6 +24,9 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"a": e = SkeletonArcher.new()
 		"g": e = SkeletonMage.new()
 		"K": e = SkeletonKing.new()
+		"L": e = Lich.new()
+		"x": e = SkeletonBomber.new()
+		"t": e = BoneSpitter.new()
 		_: e = SkeletonMinion.new()
 	e.team = Team.UNDEAD
 	parent.add_child(e)
@@ -37,6 +42,10 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 
 func _setup() -> void:
 	pass
+
+
+func display_name() -> String:
+	return "Skeleton"
 
 
 func _think(_hero: Hero, _delta: float) -> void:

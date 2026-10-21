@@ -9,7 +9,7 @@ var _timer := 0.0
 
 
 static func attach(a: Actor) -> HealthBar:
-	if a is SkeletonKing:
+	if a is Enemy and (a as Enemy).is_boss:
 		return null   # the boss uses the big bar at the top of the screen
 	var bar := HealthBar.new()
 	bar._owner_actor = a

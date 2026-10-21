@@ -22,6 +22,8 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "god":
 			god = true
+		elif a.begins_with("floor="):
+			Game.floor_num = int(a.substr(6))
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -50,7 +52,7 @@ func _process(delta: float) -> void:
 				_shot_n = -1
 				_shot()
 			if _t > 1.5:
-				if start_room > 1:
+				if start_room > 1 or Game.floor_num > 1:
 					Game.hud.show_title(false)
 					Game.hud.show_hud(true)
 					Game._go_to_room(start_room - 1)
@@ -78,7 +80,7 @@ func _process(delta: float) -> void:
 				return
 			if Game._state_time > 60.0 and _dumped_room != Game._room_index:
 				_dumped_room = Game._room_index
-				print("[autoplay] SLOW room=%d" % (Game._room_index + 1))
+				print("[autoplay] SLOW room=%d alive_enemies=%d door=%s" % [Game._room_index + 1, Game.alive_enemies, Room.current.door_open])
 				for a: Actor in Actor.all:
 					print("   ", a.get_script().get_global_name(), " pos=", a.global_position, " hp=", a.health)
 			_drive(delta)
@@ -118,6 +120,14 @@ func _drive(delta: float) -> void:
 		# Drift back towards the middle when idle so the hero doesn't get cornered.
 		if move.length() > 0.05:
 			move += (Vector3(0, 0, 4) - hero.global_position) * 0.08
+	if move.length() < 0.05 and not room.door_open:
+		# No clear shot at anything? Walk towards the target until there is one.
+		var target := hero._pick_target()
+		if target and not room.clear_shot(hero.global_position, target.global_position):
+			move = target.global_position - hero.global_position
+			move.y = 0.0
+	if move.length() > 0.05:
+		move = room.steer(hero.global_position, move.normalized(), hero.radius)
 	var stick := Vector2(move.x, move.z)
 	Game.hud.joystick = stick.normalized() if stick.length() > 0.05 else Vector2.ZERO
 

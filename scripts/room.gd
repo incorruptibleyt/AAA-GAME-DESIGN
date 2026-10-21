@@ -166,7 +166,11 @@ func _read_layout(layout: Array) -> void:
 						a.rotation.y = randf_range(-0.3, 0.3)
 						var b := U.box(self, Vector3.ONE * 0.55, wood, p + Vector3(0.1, 1.175, 0.05))
 						b.rotation.y = randf_range(0.3, 0.9)
-				"m", "w", "a", "g", "K":
+				"^":
+					var trap := SpikeTrap.new()
+					add_child(trap)
+					trap.position = p
+				"m", "w", "a", "g", "K", "L", "x", "t":
 					spawns.append({"kind": ch, "pos": p})
 
 
@@ -246,7 +250,8 @@ func clear_shot(a: Vector3, b: Vector3) -> bool:
 		for o in obstacles:
 			var d: Vector3 = p - o.pos
 			d.y = 0.0
-			if d.length_squared() < o.r * o.r:
+			var m: float = o.r + 0.15   # a bolt's own size, as in blocks_shot
+			if d.length_squared() < m * m:
 				return false
 	return true
 
