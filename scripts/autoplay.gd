@@ -38,6 +38,8 @@ func _process(delta: float) -> void:
 		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
 		if shots_dir != "" and Game.state in [Game.State.UPGRADE, Game.State.VICTORY, Game.State.DEAD]:
 			_shot.call_deferred()
+		if shots_dir != "" and Game.state == Game.State.PLAYING and Room.current and Room.current.door_open:
+			_next_shot = _t + 0.3   # catch the exit arrow right after a blessing
 	if shots_dir != "" and _t > _next_shot and Game.state == Game.State.PLAYING:
 		_next_shot = _t + 4.0
 		_shot()
@@ -58,7 +60,7 @@ func _process(delta: float) -> void:
 			Game.hud._on_card(0)
 		Game.State.DEAD, Game.State.VICTORY:
 			if Game._state_time > 2.5:
-				print("[autoplay] END state=%s room=%d kills=%d time=%.1f" % [Game.State.keys()[Game.state], Game._room_index + 1, Game._kills, Game._run_time])
+				print("[autoplay] END state=%s floor=%d room=%d kills=%d time=%.1f" % [Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time])
 				runs -= 1
 				if runs <= 0:
 					get_tree().quit()

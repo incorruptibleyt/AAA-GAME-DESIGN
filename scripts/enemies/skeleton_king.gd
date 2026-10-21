@@ -12,6 +12,7 @@ var _busy := false
 
 func _setup() -> void:
 	init_health(750.0)
+	drop_chance = 0.0
 	move_speed = 1.8
 	contact_damage = 18.0
 	radius = 1.15

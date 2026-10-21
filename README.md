@@ -17,8 +17,10 @@ and face the Skeleton King at the end of the floor.
   - *Mage*: marks a circle under you, then blows it up.
 - **The Skeleton King:** bone rings, a charge, meteor circles and summoning. He gets faster below half health.
 - **11 blessings** (upgrades) such as multishot, piercing, fire, critical hits and healing on kills.
+- **Endless descent:** beat the king and carry your blessings down to the next floor, where skeletons are tougher.
+- **Healing hearts** that skeletons sometimes drop, a beginner hint in room 1, and a golden arrow pointing to the open door.
 - **Game feel:** hit-stop, screen shake, hit flashes, knockback, damage numbers, particles and synthesised sounds.
-- **Phone-ready:** portrait layout, notch-safe HUD, auto-pause when you leave the app, best run saved.
+- **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
 
 ## Art
 

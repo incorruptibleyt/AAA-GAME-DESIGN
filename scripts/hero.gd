@@ -143,7 +143,7 @@ func _fire(origin: Vector3, d: Vector3, col: Color) -> void:
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():
 		return
-	super.take_damage(amount, direction, push, crit)
+	super.take_damage(amount * Game.damage_scale(), direction, push, crit)
 	if dead:
 		return
 	Sfx.play("hurt")

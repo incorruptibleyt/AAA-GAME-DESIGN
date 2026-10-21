@@ -15,7 +15,11 @@ func _setup() -> void:
 	radius = 0.6
 	center_height = 1.15
 	knockback_scale = 0.4
-	make_visual(bones(Art.SKELETON_WARRIOR, 2.3, Color(1.0, 0.35, 0.2)))
+	var look := bones(Art.SKELETON_WARRIOR, 2.3, Color(1.0, 0.35, 0.2))
+	look.helmet = true
+	look.shield = true
+	look.accent = Color(0.5, 0.15, 0.12)
+	make_visual(look)
 
 
 func _think(hero: Hero, delta: float) -> void:

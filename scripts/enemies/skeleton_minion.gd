@@ -9,6 +9,7 @@ func _setup() -> void:
 	init_health(22.0)
 	move_speed = 3.1
 	contact_damage = 10.0
+	drop_chance = 0.07
 	radius = 0.45
 	center_height = 0.75
 	_wobble = randf() * 10.0

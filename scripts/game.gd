@@ -19,6 +19,8 @@ var hud: Hud
 var hero: Hero
 var boss: SkeletonKing
 var alive_enemies := 0
+## Which floor of the crypt we're on. Each Skeleton King beaten takes you one floor deeper.
+var floor_num := 1
 
 var _camera: Camera3D
 var _cam_focus := Vector3.ZERO
@@ -32,6 +34,7 @@ var _state_time := 0.0
 var _state_before_pause := State.PLAYING
 var _hit_stop_left := 0.0
 var _choices: Array = []
+var _exit_arrow: Node3D
 
 
 func _ready() -> void:
@@ -107,6 +110,7 @@ func _process(delta: float) -> void:
 		if _hit_stop_left <= 0.0:
 			Engine.time_scale = 1.0
 	_update_camera(delta / maxf(Engine.time_scale, 0.01))
+	_update_exit_arrow()
 
 
 func _notification(what: int) -> void:
@@ -120,6 +124,55 @@ func _notification(what: int) -> void:
 				_pause()
 			State.PAUSED, State.TITLE, State.DEAD, State.VICTORY:
 				get_tree().quit()
+
+
+## How much tougher skeletons are on the current floor.
+func health_scale() -> float:
+	return 1.0 + 0.5 * (floor_num - 1)
+
+
+func damage_scale() -> float:
+	return 1.0 + 0.25 * (floor_num - 1)
+
+
+func speed_scale() -> float:
+	return minf(1.3, 1.0 + 0.05 * (floor_num - 1))
+
+
+## A golden arrow at the hero's feet pointing to the open door, so nobody gets lost.
+func _update_exit_arrow() -> void:
+	var show := state == State.PLAYING and hero != null and Room.current != null and Room.current.door_open
+	if not show:
+		if _exit_arrow:
+			_exit_arrow.visible = false
+		return
+	if _exit_arrow == null:
+		_exit_arrow = Node3D.new()
+		world.add_child(_exit_arrow)
+		var tri := CylinderMesh.new()
+		tri.radial_segments = 3
+		tri.rings = 1
+		tri.top_radius = 0.38
+		tri.bottom_radius = 0.38
+		tri.height = 0.04
+		var m := MeshInstance3D.new()
+		m.mesh = tri
+		m.material_override = U.unlit(Color(1.0, 0.8, 0.3, 0.85))
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		m.scale = Vector3(0.7, 1, 1.2)
+		m.rotation.y = PI   # put one corner of the triangle at -Z (forward)
+		_exit_arrow.add_child(m)
+	var door := Vector3(0, 0, -Room.HALF_L)
+	var to := door - hero.global_position
+	to.y = 0.0
+	if to.length() < 2.0:
+		_exit_arrow.visible = false
+		return
+	var d := to.normalized()
+	var pulse := 1.3 + sin(Time.get_ticks_msec() * 0.008) * 0.2
+	_exit_arrow.visible = true
+	_exit_arrow.global_position = hero.global_position + d * pulse + Vector3.UP * 0.06
+	_exit_arrow.rotation = Vector3(0, atan2(-d.x, -d.z), 0)
 
 
 func keyboard_move() -> Vector2:
@@ -218,9 +271,12 @@ func _on_screen_tapped() -> void:
 	match state:
 		State.TITLE:
 			_start_run()
-		State.DEAD, State.VICTORY:
+		State.DEAD:
 			if _state_time > 1.5:
 				_restart()
+		State.VICTORY:
+			if _state_time > 1.5:
+				_descend()
 		State.PAUSED:
 			_resume()
 
@@ -230,6 +286,7 @@ func _start_run() -> void:
 	hud.show_hud(true)
 	_run_time = 0.0
 	_kills = 0
+	floor_num = 1
 	_taken.clear()
 	_go_to_room(0)
 
@@ -244,10 +301,24 @@ func _restart() -> void:
 	_build_run()
 	_run_time = 0.0
 	_kills = 0
+	floor_num = 1
 	_taken.clear()
 	hud.show_hud(true)
 	_load_room(0, true)
 	await _fade(1.0, 0.0, 0.4)
+
+
+## After beating the king: keep your blessings and go one floor deeper, where it's harder.
+func _descend() -> void:
+	_set_state(State.TRANSITION)
+	await _fade(0.0, 1.0, 0.5)
+	hud.show_end(false)
+	floor_num += 1
+	hero.heal(hero.max_health * 0.5)
+	_build_run()
+	_load_room(0, true)
+	hud.banner("Floor %d" % floor_num, Color(1, 0.7, 0.4))
+	await _fade(1.0, 0.0, 0.5)
 
 
 func enter_next_room() -> void:
@@ -275,8 +346,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	_snap_camera()
 	if not spawn_enemies:
 		return
-	hud.set_room(index + 1, _combat_rooms(), _in_boss_room())
+	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), floor_num)
 	hud.banner("The Throne Room" if _in_boss_room() else "Room %d" % (index + 1))
+	hud.show_hint("Drag to move  ·  Let go to shoot" if floor_num == 1 and index == 0 else "")
 	for s in room.spawns:
 		spawn_enemy(s.kind, s.pos)
 	_set_state(State.PLAYING)
@@ -295,6 +367,7 @@ func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 func on_enemy_died(e: Enemy) -> void:
 	alive_enemies = maxi(0, alive_enemies - 1)
 	_kills += 1
+	hud.show_hint("")
 	if state != State.PLAYING:
 		return
 	if e is SkeletonKing:
@@ -305,6 +378,7 @@ func on_enemy_died(e: Enemy) -> void:
 		_win()
 	elif alive_enemies == 0 and not _in_boss_room():
 		_clear_enemy_attacks()
+		Pickup.collect_all()
 		_room_cleared()
 
 
@@ -350,13 +424,15 @@ func _clear_enemy_attacks() -> void:
 func _win() -> void:
 	_set_state(State.VICTORY)
 	_clear_enemy_attacks()
+	Pickup.collect_all()
 	hud.hide_boss()
 	await get_tree().create_timer(1.2, true, false, true).timeout
 	Sfx.play("victory")
 	var cfg := _load_save()
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	_save_best(cfg, _run.size())
-	hud.show_end(true, true, "The Skeleton King has fallen.\n\nTime  %s\nSkeletons destroyed  %d" % [_format_time(_run_time), _kills])
+	hud.show_end(true, true, "The Skeleton King of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d" % [floor_num, _format_time(_run_time), _kills],
+		"Tap to descend to floor %d" % (floor_num + 1))
 	_state_time = 0.0
 
 
@@ -367,6 +443,8 @@ func on_hero_died() -> void:
 	await get_tree().create_timer(1.4, true, false, true).timeout
 	_save_best(_load_save(), _room_index + 1)
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
+	if floor_num > 1:
+		where += " on floor %d" % floor_num
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d" % [where, _format_time(_run_time), _kills])
 	_state_time = 0.0
 
@@ -414,6 +492,8 @@ func _load_save() -> ConfigFile:
 
 
 func _save_best(cfg: ConfigFile, room_reached: int) -> void:
+	if floor_num > int(cfg.get_value("stats", "best_floor", 1)):
+		cfg.set_value("stats", "best_floor", floor_num)
 	if room_reached > int(cfg.get_value("stats", "best_room", 0)):
 		cfg.set_value("stats", "best_room", room_reached)
 	cfg.save(SAVE_PATH)
@@ -423,8 +503,9 @@ func _best_text() -> String:
 	var cfg := _load_save()
 	var wins := int(cfg.get_value("stats", "wins", 0))
 	var best := int(cfg.get_value("stats", "best_room", 0))
+	var deepest := int(cfg.get_value("stats", "best_floor", 1))
 	if wins > 0:
-		return "Kings defeated: %d" % wins
+		return "Kings defeated: %d  ·  Deepest floor: %d" % [wins, deepest]
 	if best > 0:
 		return "Deepest room reached: %d" % best
 	return ""

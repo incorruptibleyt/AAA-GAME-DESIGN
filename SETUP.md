@@ -24,7 +24,8 @@ To check on a build, open the repo's **Actions** tab. A green tick means the new
 - **Let go** to stand still, and the hero shoots the nearest skeleton automatically.
 - **Red shapes on the floor** are warnings. Step out of them!
 - After clearing a room, **pick one of three blessings**, then walk through the open door at the top.
-- Beat the Skeleton King in room 6 to win.
+- Red hearts heal you. Grab them when you're hurt.
+- Beat the Skeleton King in room 6, then tap to go a floor deeper. Each floor is harder. How deep can you get?
 
 ## 3. Adding the real art (optional)
 

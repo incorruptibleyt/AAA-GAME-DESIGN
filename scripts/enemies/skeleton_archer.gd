@@ -13,7 +13,11 @@ func _setup() -> void:
 	contact_damage = 8.0
 	radius = 0.5
 	center_height = 1.0
-	make_visual(bones(Art.SKELETON_ROGUE, 2.0, Color(1.0, 0.85, 0.2)))
+	var look := bones(Art.SKELETON_ROGUE, 2.0, Color(1.0, 0.85, 0.2))
+	look.bow = true
+	look.hood = true
+	look.accent = Color(0.2, 0.35, 0.2)
+	make_visual(look)
 
 
 func _think(hero: Hero, delta: float) -> void:

@@ -6,6 +6,8 @@ extends Actor
 var move_speed := 2.5
 var contact_damage := 10.0
 var knockback_scale := 1.0
+## Chance of dropping a healing heart when destroyed.
+var drop_chance := 0.18
 
 var _spawn_timer := 0.9
 var _contact_cooldown := 0.0
@@ -25,6 +27,9 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	parent.add_child(e)
 	e.global_position = pos
 	e._setup()
+	# Deeper floors make skeletons tougher and a little quicker.
+	e.init_health(e.max_health * Game.health_scale())
+	e.move_speed *= Game.speed_scale()
 	e._bar = HealthBar.attach(e)
 	Fx.dust(pos, 18)
 	return e
@@ -142,5 +147,7 @@ func _on_death() -> void:
 		_bar.queue_free()
 	if Game.hero:
 		Game.hero.on_kill()
+	if randf() < drop_chance:
+		Pickup.drop(global_position)
 	Game.on_enemy_died(self)
 	get_tree().create_timer(2.5, false).timeout.connect(queue_free)

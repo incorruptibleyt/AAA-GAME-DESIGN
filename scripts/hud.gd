@@ -36,6 +36,8 @@ var _end_stats: Label
 var _pause_box: Control
 var _pause_button: Button
 var _danger: TextureRect
+var _hint: Label
+var _end_tap: Label
 var _cards_age := 0.0
 var _fade: ColorRect
 
@@ -161,6 +163,15 @@ func _build_hud() -> void:
 	_pause_button.offset_bottom = 58
 	_pause_button.pressed.connect(func(): pause_pressed.emit())
 	root.add_child(_pause_button)
+
+	# A tip in the empty space at the bottom of the screen during the first room.
+	_hint = label("", 24, Color(1, 0.92, 0.75))
+	_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_hint.offset_top = -150
+	_hint.offset_bottom = -90
+	_hint.set_script(Pulse)
+	_hint.visible = false
+	root.add_child(_hint)
 
 	_boss_box = Control.new()
 	_boss_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -291,9 +302,9 @@ func _build_end() -> void:
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 100)
 	col.add_child(spacer)
-	var tap := label("Tap to try again", 30)
-	tap.set_script(Pulse)
-	col.add_child(tap)
+	_end_tap = label("Tap to try again", 30)
+	_end_tap.set_script(Pulse)
+	col.add_child(_end_tap)
 
 
 func _build_pause() -> void:
@@ -402,8 +413,10 @@ func _process(delta: float) -> void:
 
 # ---------------------------------------------------------------- API used by game.gd
 
-func set_room(index: int, total: int, boss: bool) -> void:
+func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
 	_room_label.text = "Boss" if boss else "Room %d / %d" % [index, total]
+	if floor_num > 1:
+		_room_label.text = "F%d · %s" % [floor_num, _room_label.text]
 	_boss_box.visible = boss
 
 
@@ -443,10 +456,16 @@ func show_title(v: bool, best := "") -> void:
 	_title_best.text = best
 
 
-func show_end(v: bool, victory := false, stats := "") -> void:
+func show_hint(text: String) -> void:
+	_hint.text = text
+	_hint.visible = text != ""
+
+
+func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again") -> void:
 	_end_box.visible = v
 	if not v:
 		return
+	_end_tap.text = tap_text
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_end_stats.text = stats

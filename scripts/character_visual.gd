@@ -26,7 +26,7 @@ var _meshes: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
 
 
-## look: {key, height, body, accent, eyes, hat, horns, crown, hood}
+## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow}
 func build(look: Dictionary) -> void:
 	var scene := Art.get_model(look.get("key", ""))
 	if scene:
@@ -172,7 +172,28 @@ func _placeholder(look: Dictionary) -> Node3D:
 	U.sphere(root, h * 0.035, eyes, Vector3(h * 0.07, h * 0.76, -h * 0.15))
 	U.capsule(root, h * 0.06, h * 0.32, body, Vector3(-h * 0.25, h * 0.4, 0))
 	U.capsule(root, h * 0.06, h * 0.32, body, Vector3(h * 0.25, h * 0.4, 0))
-	U.box(root, Vector3(h * 0.05, h * 0.05, h * 0.45), accent, Vector3(h * 0.3, h * 0.38, -h * 0.18))
+	var steel := U.mat(Color(0.55, 0.57, 0.62), 0.35)
+	if look.get("bow", false):
+		# A bow held out in front: short segments bent into an arc, plus a string.
+		var wood := U.mat(Color(0.45, 0.28, 0.14), 0.7)
+		var r := h * 0.24
+		var c := Vector3(h * 0.3, h * 0.45, -h * 0.1)
+		for i in 5:
+			var a := (i - 2) * 0.38
+			var seg := U.capsule(root, h * 0.022, h * 0.13, wood, c + Vector3(0, sin(a) * r, -cos(a) * r))
+			seg.rotation.x = a
+		U.box(root, Vector3(h * 0.008, r * 1.7, h * 0.008), U.unlit(Color(0.9, 0.9, 0.85)), c + Vector3(0, 0, -r * 0.55))
+	else:
+		var blade_len := 0.6 if look.get("shield", false) else 0.45
+		U.box(root, Vector3(h * 0.05, h * 0.05, h * blade_len), steel if look.get("shield", false) else accent, Vector3(h * 0.3, h * 0.38, -h * blade_len * 0.4))
+	if look.get("shield", false):
+		var shield := U.cylinder(root, h * 0.2, h * 0.05, U.mat(look.accent.lightened(0.15), 0.5), Vector3(-h * 0.3, h * 0.28, -h * 0.12))
+		shield.rotation.x = PI / 2
+		U.sphere(root, h * 0.045, steel, Vector3(-h * 0.3, h * 0.48, -h * 0.17))
+	if look.get("helmet", false):
+		var helm := U.sphere(root, h * 0.2, steel, Vector3(0, h * 0.78, 0.0))
+		helm.scale = Vector3(1, 0.75, 1)
+		U.box(root, Vector3(h * 0.04, h * 0.14, h * 0.04), steel, Vector3(0, h * 0.74, -h * 0.18))
 
 	if look.get("hat", false):
 		U.cylinder(root, h * 0.22, h * 0.03, accent, Vector3(0, h * 0.88, 0))
