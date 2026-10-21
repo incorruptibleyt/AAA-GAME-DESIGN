@@ -1,12 +1,7 @@
-# Builds Crypt Crawl into an Android app (.apk) in the cloud, so you never need to open Unity.
-# When it finishes: open the run on GitHub (Actions tab), scroll to "Artifacts", download
-# "CryptCrawl-Android", unzip it on your phone and tap the .apk to install.
-#
-# It needs three repository secrets (Settings > Secrets and variables > Actions):
-#   UNITY_LICENSE   the full text of your Unity_lic.ulf file
-#   UNITY_EMAIL     your Unity account email
-#   UNITY_PASSWORD  your Unity account password
-# Without them the build is skipped (shown as a warning, not a failure).
+# Builds Crypt Crawl into an Android app (.apk) in the cloud. No computer, licence or secrets needed.
+# When it finishes, the newest app is always at:
+#   https://github.com/incorruptibleyt/AAA-GAME-DESIGN/releases/tag/latest-build
+# (it's also attached to each run on the Actions tab, under "Artifacts").
 
 name: Build Android
 
@@ -19,69 +14,95 @@ concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.5.1
+
 jobs:
   android:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
     steps:
-      - name: Check for Unity licence
-        id: licence
-        env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-        run: |
-          if [ -z "$UNITY_LICENSE" ]; then
-            echo "::warning::Skipping the Android build: add the UNITY_LICENSE, UNITY_EMAIL and UNITY_PASSWORD secrets first (see SETUP.md)."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - uses: actions/checkout@v4
-        if: steps.licence.outputs.ready == 'true'
 
-      # KayKit packs uploaded as .zip files to the ArtZips folder are unpacked into the project here.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Download Godot
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d ~/godot
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz -d tpl
+          mv tpl/templates/android_* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          mv tpl/templates/version.txt ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm -rf godot.zip templates.tpz tpl
+
+      - name: Point Godot at the Android tools
+        run: |
+          echo "GODOT=$HOME/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+          ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --editor --quit || true
+          settings=$(ls ~/.config/godot/editor_settings-*.tres | head -n1)
+          echo "export/android/android_sdk_path = \"$ANDROID_HOME\"" >> "$settings"
+          echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$settings"
+
+      # KayKit packs uploaded as .zip files to the ArtZips folder are unpacked into the game here.
       - name: Unpack KayKit art
-        if: steps.licence.outputs.ready == 'true'
         run: |
           shopt -s nullglob
           for z in ArtZips/*.zip; do
             name=$(basename "$z" .zip)
             echo "Unpacking $name"
-            mkdir -p "Assets/KayKit/$name"
-            unzip -o -q "$z" '*.fbx' '*.FBX' '*.png' -d "Assets/KayKit/$name" || true
+            mkdir -p "art/kaykit/$name"
+            unzip -o -q "$z" '*.gltf' '*.glb' '*.bin' '*.png' -d "art/kaykit/$name" || true
           done
 
-      - name: Free disk space
-        if: steps.licence.outputs.ready == 'true'
-        uses: jlumbroso/free-disk-space@v1.3.1
-        with:
-          android: false
-          large-packages: false
+      - name: Import the project
+        run: $GODOT --headless --import || true
 
-      - uses: actions/cache@v4
-        if: steps.licence.outputs.ready == 'true'
-        with:
-          path: Library
-          key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**', 'ArtZips/**') }}
-          restore-keys: Library-Android-
+      - name: Smoke test (a robot plays a full run)
+        run: |
+          timeout 600 $GODOT --headless --fixed-fps 60 --disable-vsync --max-fps 0 --log-file smoke.log -- autoplay god || true
+          grep -E "END|TIMEOUT" smoke.log || true
+          if grep -q "SCRIPT ERROR" smoke.log; then grep -A3 "SCRIPT ERROR" smoke.log; exit 1; fi
+          grep -q "END state=VICTORY" smoke.log
 
-      - name: Build with Unity
-        if: steps.licence.outputs.ready == 'true'
-        uses: game-ci/unity-builder@v4
+      - name: Export the Android app
         env:
-          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
-          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
-          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
-        with:
-          targetPlatform: Android
-          buildName: CryptCrawl
-          buildMethod: CryptCrawl.EditorTools.CloudBuild.BuildAndroid
-          androidExportType: androidPackage
-          versioning: None
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/build/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          $GODOT --headless --export-debug "Android" build/crypt-crawl.apk
+          ls -la build/crypt-crawl.apk
 
       - uses: actions/upload-artifact@v4
-        if: steps.licence.outputs.ready == 'true'
         with:
           name: CryptCrawl-Android
-          path: build/Android
-          retention-days: 14
+          path: build/crypt-crawl.apk
+
+      - name: Publish to the "latest-build" download page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-build --yes --cleanup-tag || true
+          gh release create latest-build build/crypt-crawl.apk \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "Crypt Crawl (latest build)" \
+            --notes "Newest Android build from ${GITHUB_REF_NAME} (${GITHUB_SHA::7}). On your phone: tap crypt-crawl.apk below, then open it to install."

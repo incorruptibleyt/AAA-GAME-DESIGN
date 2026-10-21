@@ -1,13 +1,3 @@
-# Unity generated folders (rebuilt automatically when you open the project)
-/[Ll]ibrary/
-/[Tt]emp/
-/[Oo]bj/
-/[Bb]uild/
-/[Bb]uilds/
-/[Ll]ogs/
-/[Uu]ser[Ss]ettings/
-/[Mm]emoryCaptures/
-/[Rr]ecordings/
 
 # IDE files
 .vs/
@@ -34,3 +24,14 @@
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Godot
+.godot/
+/android/
+*.import.tmp
+export_credentials.cfg
+
+# Build folder (only the shared debug signing key is kept)
+/build/*
+!/build/debug.keystore
+*.idsig
