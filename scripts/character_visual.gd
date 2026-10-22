@@ -189,6 +189,13 @@ func _process(delta: float) -> void:
 	_model.scale = Vector3(squash, 1.0 / squash, squash)
 
 
+## Give the model a coloured glow after it's built (used for elite skeletons).
+func set_tint(col: Color) -> void:
+	_tint_mat = U.unlit(col)
+	_tint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_set_flash(false)
+
+
 func _set_flash(on: bool) -> void:
 	if _flash_mat == null:
 		_flash_mat = U.unlit(Color.WHITE)

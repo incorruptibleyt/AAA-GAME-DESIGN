@@ -10,6 +10,10 @@ var knockback_scale := 1.0
 var drop_chance := 0.18
 ## Bosses use the big bar at the top of the screen instead of a little one.
 var is_boss := false
+## Elite skeletons are golden, bigger and tougher, and drop more coins.
+var elite := false
+
+var _slow_left := 0.0
 
 var _spawn_timer := 0.9
 var _contact_cooldown := 0.0
@@ -48,8 +52,34 @@ func display_name() -> String:
 	return "Skeleton"
 
 
+## Turns this skeleton into a golden elite.
+func make_elite() -> void:
+	elite = true
+	init_health(max_health * 2.2)
+	contact_damage *= 1.3
+	knockback_scale *= 0.5
+	radius *= 1.15
+	drop_chance = maxf(drop_chance, 0.5)
+	visual.scale *= 1.22
+	visual.set_tint(Color(0.32, 0.22, 0.0))
+	var glow := U.floor_quad(self, Vector2(2.4, 2.4), U.unlit(Color(1, 0.75, 0.2, 0.45), U.soft_circle()), Vector3(0, 0.05, 0))
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if _bar:
+		_bar.queue_free()
+		_bar = HealthBar.attach(self)
+
+
+## Frost Bolts: walk slower for a moment.
+func chill(seconds: float) -> void:
+	if _slow_left <= 0.0:
+		Fx.magic(center(), Color(0.6, 0.9, 1.0), 8)
+	_slow_left = maxf(_slow_left, seconds)
+
+
 ## Coins dropped when destroyed. Deeper floors pay a little more.
 func coin_value() -> int:
+	if elite:
+		return 6 + 2 * (Game.floor_num - 1)
 	var base := 20 if is_boss else (1 if max_health < 30.0 * Game.health_scale() else 2)
 	return base + (Game.floor_num - 1) * (5 if is_boss else 0) + (1 if not is_boss and randf() < 0.1 * (Game.floor_num - 1) else 0)
 
@@ -80,6 +110,7 @@ func _process(delta: float) -> void:
 		visual.position.y = -(1.0 - k) * 1.8
 		return
 	visual.position.y = 0.0
+	_slow_left -= delta
 
 	var hero := Game.hero
 	if Game.state != Game.State.PLAYING or hero == null or hero.dead:
@@ -124,6 +155,8 @@ func walk(dir: Vector3, delta: float, speed_scale := 1.0) -> void:
 	dir = dir.normalized()
 	if Room.current:
 		dir = Room.current.steer(global_position, dir, radius)
+	if _slow_left > 0.0:
+		speed_scale *= 0.55
 	move_by(dir * move_speed * speed_scale * delta, delta)
 	face(dir, 10.0, delta)
 	visual.set_moving(true)
@@ -164,6 +197,9 @@ func _on_death() -> void:
 		Game.hero.on_kill()
 	if randf() < drop_chance + (Game.heart_bonus if drop_chance > 0.0 else 0.0):
 		Pickup.drop(global_position)
-	Pickup.drop_coins(global_position, coin_value())
+	var coins := coin_value()
+	if Game.hero and coins > 0:
+		coins = roundi(coins * (1.0 + Game.hero.coin_bonus))
+	Pickup.drop_coins(global_position, coins)
 	Game.on_enemy_died(self)
 	get_tree().create_timer(2.5, false).timeout.connect(queue_free)

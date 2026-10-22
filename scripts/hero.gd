@@ -17,6 +17,14 @@ var burn_dps := 0.0
 var heal_on_kill := 0.0
 ## From the Armory: survive one killing blow per run.
 var second_wind := false
+## Blessings that aren't plain numbers.
+var frost := false
+var magnet := 1.0
+var coin_bonus := 0.0
+## Bone Ward: hits blocked per room, and how many are left in this room.
+var ward_max := 0
+var ward := 0
+var _ward_bubble: MeshInstance3D
 
 var _shot_timer := 0.4
 var _invulnerable := 0.0
@@ -63,6 +71,7 @@ func on_kill() -> void:
 func _process(delta: float) -> void:
 	if dead:
 		return
+	_update_ward_bubble()
 	if _invulnerable > 0.0:
 		_invulnerable -= delta
 		visual.set_visible_blink(_invulnerable <= 0.0 or fmod(_invulnerable, 0.12) > 0.05)
@@ -140,10 +149,18 @@ func _fire(origin: Vector3, d: Vector3, col: Color) -> void:
 	p.pierce = pierce
 	p.crit_chance = crit_chance
 	p.burn_dps = burn_dps
+	p.frost = frost
 
 
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():
+		return
+	if ward > 0:
+		ward -= 1
+		_invulnerable = 0.7
+		Fx.magic(center(), Color(0.8, 0.9, 1.0), 24)
+		Sfx.play("upgrade", 0.6)
+		Game.shake(0.2)
 		return
 	if second_wind and amount * Game.damage_scale() >= health:
 		second_wind = false
@@ -162,6 +179,26 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	Game.shake(0.35)
 	Game.hit_stop(0.06)
 	_invulnerable = 0.7
+
+
+## Refills Bone Ward at the start of each room.
+func new_room() -> void:
+	ward = ward_max
+
+
+## A faint bubble around the hero while Bone Ward is up.
+func _update_ward_bubble() -> void:
+	if ward <= 0 or dead:
+		if _ward_bubble:
+			_ward_bubble.visible = false
+		return
+	if _ward_bubble == null:
+		var mat := U.unlit(Color(0.7, 0.85, 1.0, 0.18))
+		_ward_bubble = U.sphere(self, 0.95, mat, Vector3(0, 1.0, 0))
+		_ward_bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_ward_bubble.visible = true
+	var s := 1.0 + sin(Time.get_ticks_msec() * 0.004) * 0.04
+	_ward_bubble.scale = Vector3(s, s, s)
 
 
 func _on_death() -> void:

@@ -94,7 +94,7 @@ func _process(delta: float) -> void:
 	to.y = 0.0
 	var dist := to.length()
 	var wanted := coin or hero.health < hero.max_health
-	var magnet := COIN_MAGNET_RANGE if coin else MAGNET_RANGE
+	var magnet := (COIN_MAGNET_RANGE if coin else MAGNET_RANGE) * (hero.magnet if hero else 1.0)
 	if _homing or (wanted and dist < magnet):
 		_speed = minf(_speed + 30.0 * delta, 16.0)
 		global_position += to.normalized() * minf(_speed * delta, dist)

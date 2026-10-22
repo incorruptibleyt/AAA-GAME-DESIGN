@@ -2,14 +2,18 @@ class_name Autoplay
 extends Node
 ## A simple robot player used to test the game without a person holding the phone.
 ## Start Godot with:  -- autoplay [god] [shop] [shots=<folder>]
-## `shop` buys what it can afford in the Armory before the first run.
+## `shop` buys what it can afford in the Armory before the first run (`coins=N` gives it
+## N coins first). `quittest` quits the first run from the pause menu and starts again.
 ## It walks through every room, picks the first blessing each time, and prints what happened.
 
 var god := false
 var start_room := 1
 var runs := 1
 var gallery := false
+var elites := false
 var shop := false
+var quit_test := false
+var _quit_done := false
 var _shopped := false
 var _gallery_t := -1.0
 var _paused_once := false
@@ -31,6 +35,12 @@ func _ready() -> void:
 			Game.floor_num = int(a.substr(6))
 		elif a == "shop":
 			shop = true
+		elif a == "quittest":
+			quit_test = true
+		elif a.begins_with("coins="):
+			Game.coins = int(a.substr(6))
+		elif a == "elites":
+			elites = true
 		elif a == "gallery":
 			gallery = true
 		elif a.begins_with("runs="):
@@ -91,7 +101,13 @@ func _process(delta: float) -> void:
 					Game._on_screen_tapped()   # try again
 		Game.State.PAUSED:
 			if Game._state_time > 1.0:
-				Game._on_screen_tapped()
+				if quit_test and not _quit_done:
+					_quit_done = true
+					print("[autoplay] quit run test")
+					_t = 0.0
+					Game._quit_to_title()
+				else:
+					Game._on_screen_tapped()
 
 		Game.State.PLAYING when gallery:
 			_gallery_step(delta)
@@ -125,7 +141,11 @@ func _gallery_step(delta: float) -> void:
 				a.queue_free()
 		var kinds := ["m", "w", "a", "g", "x", "t"]
 		for i in kinds.size():
-			Game.spawn_enemy(kinds[i], Vector3(-4.0 + (i % 3) * 4.0, 0, 1.5 + (i / 3) * 3.0))
+			var e := Game.spawn_enemy(kinds[i], Vector3(-4.0 + (i % 3) * 4.0, 0, 1.5 + (i / 3) * 3.0))
+			if elites and i < 3:
+				e.make_elite()
+		if elites:
+			Game.hero.ward = 1
 		Game.spawn_enemy("K", Vector3(-3, 0, -5))
 		Game.spawn_enemy("L", Vector3(3, 0, -5))
 		Game.hero.place_at(Vector3(0, 0, 7.5))

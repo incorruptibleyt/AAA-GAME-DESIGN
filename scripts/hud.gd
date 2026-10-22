@@ -15,6 +15,7 @@ signal quit_run_pressed
 signal retry_pressed
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
+signal graphics_toggled(high: bool)
 
 const GOLD := Color(1.0, 0.8, 0.3)
 
@@ -61,6 +62,8 @@ var _music_button: Button
 var _sounds_button: Button
 var _music_on := true
 var _sounds_on := true
+var _graphics_button: Button
+var _graphics_high := true
 
 
 func _ready() -> void:
@@ -437,6 +440,9 @@ func _build_pause() -> void:
 	_sounds_button = button("Sounds: On", 26)
 	_sounds_button.pressed.connect(func(): sounds_toggled.emit(not _sounds_on))
 	col.add_child(_centered(_sounds_button))
+	_graphics_button = button("Graphics: High", 26)
+	_graphics_button.pressed.connect(func(): graphics_toggled.emit(not _graphics_high))
+	col.add_child(_centered(_graphics_button))
 	var quit := button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	quit.pressed.connect(func(): quit_run_pressed.emit())
 	col.add_child(_centered(quit))
@@ -584,6 +590,7 @@ func hide_boss() -> void:
 func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:
 	_banner.text = text
 	_banner.label_settings.font_color = col
+	_banner.label_settings.font_size = 48 if text.length() <= 16 else 38
 	_banner_time = 2.0
 
 
@@ -628,6 +635,11 @@ func set_toggles(music: bool, sounds: bool) -> void:
 	_sounds_on = sounds
 	_music_button.text = "Music: On" if music else "Music: Off"
 	_sounds_button.text = "Sounds: On" if sounds else "Sounds: Off"
+
+
+func set_graphics_label(high: bool) -> void:
+	_graphics_high = high
+	_graphics_button.text = "Graphics: High" if high else "Graphics: Low"
 
 
 func armory_visible() -> bool:

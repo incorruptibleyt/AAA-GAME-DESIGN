@@ -11,6 +11,7 @@ var pierce := 0
 var push := 4.0
 var crit_chance := 0.0
 var burn_dps := 0.0
+var frost := false
 var life := 4.0
 var dir := Vector3.FORWARD
 var _hit := {}
@@ -61,6 +62,8 @@ func _process(delta: float) -> void:
 		a.take_damage(damage * 2.0 if crit else damage, dir, push, crit)
 		if burn_dps > 0.0 and not a.dead:
 			Burning.apply(a, burn_dps, 2.5)
+		if frost and not a.dead and a is Enemy:
+			(a as Enemy).chill(1.5)
 		if owner_team == Actor.Team.HERO:
 			Sfx.play("hit", 0.6)
 		pierce -= 1

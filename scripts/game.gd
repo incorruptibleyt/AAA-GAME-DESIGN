@@ -41,6 +41,8 @@ var _hit_stop_left := 0.0
 var _choices: Array = []
 var _exit_arrow: Node3D
 var _start_blessing := {}
+var _env: Environment
+var _moon: DirectionalLight3D
 
 
 func _ready() -> void:
@@ -72,11 +74,14 @@ func _ready() -> void:
 	hud.retry_pressed.connect(func(): if state == State.DEAD and not hud.armory_visible(): _on_screen_tapped())
 	hud.music_toggled.connect(_set_music)
 	hud.sounds_toggled.connect(_set_sounds)
+	hud.graphics_toggled.connect(_set_graphics)
 
 	var cfg := _load_save()
 	coins = int(cfg.get_value("stats", "coins", 0))
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
+	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
+	Engine.max_fps = 60   # no need to drain the battery past what phones show
 	hud.set_coins(coins)
 
 	_build_run()
@@ -94,6 +99,7 @@ func _ready() -> void:
 
 func _setup_environment() -> void:
 	var env := Environment.new()
+	_env = env
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0.02, 0.02, 0.035)
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -113,6 +119,7 @@ func _setup_environment() -> void:
 	world.add_child(we)
 
 	var moon := DirectionalLight3D.new()
+	_moon = moon
 	moon.rotation = Vector3(deg_to_rad(-55), deg_to_rad(-35), 0)
 	moon.light_color = Color(0.55, 0.6, 0.9)
 	moon.light_energy = 0.5
@@ -421,6 +428,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start())
 	hero.place_at(room.player_start())
+	hero.new_room()
 	_snap_camera()
 	if not spawn_enemies:
 		return
@@ -436,7 +444,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		var kind: String = s.kind
 		if kind == "K" and floor_num % 2 == 0:
 			kind = "L"   # every second floor is ruled by the Lich instead
-		spawn_enemy(kind, s.pos)
+		var e := spawn_enemy(kind, s.pos)
+		if _roll_elite(e, index):
+			e.make_elite()
 	_set_state(State.PLAYING)
 	if alive_enemies == 0:
 		room.open_door()
@@ -449,6 +459,14 @@ func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 		boss = e
 		hud.set_boss_name(e.display_name())
 	return e
+
+
+## Now and then a skeleton is a golden elite. Never in the very first room, and more
+## often the deeper you go.
+func _roll_elite(e: Enemy, room_index: int) -> bool:
+	if e.is_boss or e is SkeletonBomber or (floor_num == 1 and room_index == 0):
+		return false
+	return randf() < minf(0.3, 0.07 + 0.05 * (floor_num - 1))
 
 
 func on_enemy_died(e: Enemy) -> void:
@@ -610,6 +628,21 @@ func _set_sounds(on: bool, save := true) -> void:
 	if save:
 		var cfg := _load_save()
 		cfg.set_value("settings", "sounds", on)
+		cfg.save(SAVE_PATH)
+
+
+## High looks best; Low turns off shadows and glow and draws the 3D world at a lower
+## resolution, for smoother play on older phones.
+func _set_graphics(high: bool, save := true) -> void:
+	var vp := get_viewport()
+	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED
+	vp.scaling_3d_scale = 1.0 if high else 0.7
+	_env.glow_enabled = high
+	_moon.shadow_enabled = high
+	hud.set_graphics_label(high)
+	if save:
+		var cfg := _load_save()
+		cfg.set_value("settings", "high_graphics", high)
 		cfg.save(SAVE_PATH)
 
 

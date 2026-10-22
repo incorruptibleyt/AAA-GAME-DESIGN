@@ -14,6 +14,10 @@ const LIST := [
 	{"id": "vitality", "title": "Vitality", "text": "+30 max health and heal 30", "color": Color(0.4, 0.95, 0.5), "max": 99},
 	{"id": "harvest", "title": "Bone Harvest", "text": "Heal 4 health per kill", "color": Color(0.6, 1.0, 0.6), "max": 3},
 	{"id": "boots", "title": "Swift Boots", "text": "+12% move speed", "color": Color(0.6, 0.9, 0.8), "max": 3},
+	{"id": "frost", "title": "Frost Bolts", "text": "Hits slow enemies down", "color": Color(0.55, 0.85, 1.0), "max": 1},
+	{"id": "magnet", "title": "Treasure Magnet", "text": "Pick up hearts and coins from twice as far", "color": Color(1.0, 0.85, 0.45), "max": 1},
+	{"id": "greed", "title": "Golden Touch", "text": "+50% coins from skeletons", "color": Color(1.0, 0.78, 0.2), "max": 2},
+	{"id": "ward", "title": "Bone Ward", "text": "Block the first hit in every room", "color": Color(0.8, 0.88, 1.0), "max": 2},
 ]
 
 
@@ -34,6 +38,12 @@ static func apply(id: String, h: Hero) -> void:
 			h.heal(30.0)
 		"harvest": h.heal_on_kill += 4.0
 		"boots": h.move_speed *= 1.12
+		"frost": h.frost = true
+		"magnet": h.magnet = 2.0
+		"greed": h.coin_bonus += 0.5
+		"ward":
+			h.ward_max += 1
+			h.ward += 1
 
 
 ## Pick up to three different blessings the hero can still take.
