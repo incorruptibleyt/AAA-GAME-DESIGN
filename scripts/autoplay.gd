@@ -24,6 +24,8 @@ var _next_shot := 1.0
 var _shot_n := 0
 var _dodge := Vector3.ZERO
 var _last_state := -1
+var _dashes := 0
+var _card_shot := false
 
 
 func _ready() -> void:
@@ -63,6 +65,10 @@ func _process(delta: float) -> void:
 			_next_shot = _t + 0.3   # catch the exit arrow right after a blessing
 	if shots_dir != "" and _t > _next_shot and Game.state == Game.State.PLAYING:
 		_next_shot = _t + 4.0
+		_shot()
+
+	if shots_dir != "" and not _card_shot and Game.hud._boss_card.visible and Game.hud._boss_card.modulate.a > 0.95:
+		_card_shot = true
 		_shot()
 
 	match Game.state:
@@ -121,7 +127,7 @@ func _process(delta: float) -> void:
 				return
 			if Game._state_time > 60.0 and _dumped_room != Game._room_index:
 				_dumped_room = Game._room_index
-				print("[autoplay] SLOW room=%d alive_enemies=%d door=%s" % [Game._room_index + 1, Game.alive_enemies, Room.current.door_open])
+				print("[autoplay] SLOW time_scale=%.2f dashes=%d room=%d alive_enemies=%d door=%s" % [Engine.time_scale, _dashes, Game._room_index + 1, Game.alive_enemies, Room.current.door_open])
 				for a: Actor in Actor.all:
 					print("   ", a.get_script().get_global_name(), " pos=", a.global_position, " hp=", a.health)
 			_drive(delta)
@@ -181,6 +187,11 @@ func _drive(delta: float) -> void:
 				d.y = 0
 				if d.length() < 2.4:
 					move += d.normalized() * (2.4 - d.length())
+				if d.length() < 1.6 and hero.dash_ready():
+					hero.dash(d if d.length() > 0.1 else Vector3.RIGHT)
+					_dashes += 1
+					if _dashes == 1:
+						print("[autoplay] first dash")
 		for a: Actor in Actor.all:
 			if a.team == Actor.Team.UNDEAD and not a.dead:
 				var d := hero.global_position - a.global_position

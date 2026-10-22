@@ -26,6 +26,15 @@ var ward_max := 0
 var ward := 0
 var _ward_bubble: MeshInstance3D
 
+## Dash: flick your thumb (or press Space) to zip a short way, untouchable while dashing.
+const DASH_SPEED := 21.0
+const DASH_TIME := 0.17
+const DASH_COOLDOWN := 1.1
+var _dash_left := 0.0
+var _dash_cooldown := 0.0
+var _dash_dir := Vector3.ZERO
+var _trail_t := 0.0
+
 var _shot_timer := 0.4
 var _invulnerable := 0.0
 var _moving := false
@@ -60,7 +69,26 @@ func place_at(pos: Vector3) -> void:
 
 
 func can_be_hit() -> bool:
-	return not dead and _invulnerable <= 0.0 and Game.state == Game.State.PLAYING
+	return not dead and _invulnerable <= 0.0 and _dash_left <= 0.0 and Game.state == Game.State.PLAYING
+
+
+func dash_ready() -> bool:
+	return _dash_cooldown <= 0.0
+
+
+## Start a dash along `dir` (on the floor). Does nothing while it's recharging.
+func dash(dir: Vector3) -> void:
+	dir.y = 0.0
+	if dead or not dash_ready() or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING:
+		return
+	_dash_dir = dir.normalized()
+	_dash_left = DASH_TIME
+	_dash_cooldown = DASH_COOLDOWN
+	_trail_t = 0.0
+	knockback = Vector3.ZERO
+	rotation.y = atan2(-_dash_dir.x, -_dash_dir.z)
+	Sfx.play("dash", 0.7)
+	Fx.dust(global_position, 10)
 
 
 func on_kill() -> void:
@@ -72,6 +100,17 @@ func _process(delta: float) -> void:
 	if dead:
 		return
 	_update_ward_bubble()
+	_dash_cooldown -= delta
+	if _dash_left > 0.0:
+		_dash_left -= delta
+		move_by(_dash_dir * DASH_SPEED * delta, delta)
+		visual.set_moving(true)
+		_trail_t -= delta
+		if _trail_t <= 0.0:
+			_trail_t = 0.025
+			Fx.trail(center(), Color(0.45, 0.8, 1.0))
+		_shot_timer = maxf(_shot_timer, 0.1)
+		return
 	if _invulnerable > 0.0:
 		_invulnerable -= delta
 		visual.set_visible_blink(_invulnerable <= 0.0 or fmod(_invulnerable, 0.12) > 0.05)

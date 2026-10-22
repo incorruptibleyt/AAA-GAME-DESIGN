@@ -16,6 +16,11 @@ signal retry_pressed
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
 signal graphics_toggled(high: bool)
+signal dash_flicked(dir: Vector2)
+
+## A quick flick of the thumb (short and fast) is a dash rather than a step.
+const FLICK_TIME := 0.22
+const FLICK_DISTANCE := 45.0
 
 const GOLD := Color(1.0, 0.8, 0.3)
 
@@ -64,6 +69,14 @@ var _music_on := true
 var _sounds_on := true
 var _graphics_button: Button
 var _graphics_high := true
+var _stick_start := Vector2.ZERO
+var _stick_age := 0.0
+var _combo_label: Label
+var _combo_time := 0.0
+var _boss_card: Control
+var _boss_card_title: Label
+var _boss_card_sub: Label
+var _flash: ColorRect
 
 
 func _ready() -> void:
@@ -80,6 +93,12 @@ func _ready() -> void:
 	_build_end()
 	_build_pause()
 	_build_armory()
+	_build_boss_card()
+	_flash = ColorRect.new()
+	_flash.color = Color(1, 1, 1, 0)
+	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_flash)
 	_fade = ColorRect.new()
 	_fade.color = Color(0, 0, 0, 1)
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -279,6 +298,16 @@ func _build_hud() -> void:
 	_boss_fill = _bar(bar_holder, Color(0.75, 0.1, 0.12))
 	_boss_box.visible = false
 
+	# The kill combo counter, under the room label on the right.
+	_combo_label = label("", 30, Color(1, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT)
+	_combo_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_combo_label.offset_left = -260
+	_combo_label.offset_right = -18
+	_combo_label.offset_top = 112
+	_combo_label.offset_bottom = 156
+	_combo_label.modulate.a = 0.0
+	root.add_child(_combo_label)
+
 	_banner = label("", 48, Color(1, 0.9, 0.7))
 	_banner.set_anchors_preset(Control.PRESET_CENTER)
 	_banner.offset_left = -260
@@ -287,6 +316,48 @@ func _build_hud() -> void:
 	_banner.offset_bottom = -150
 	_banner.modulate.a = 0.0
 	root.add_child(_banner)
+
+
+## The big title card when a boss appears: black bars, the name, and a line under it.
+func _build_boss_card() -> void:
+	_boss_card = Control.new()
+	_boss_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(_boss_card)
+	_boss_card.visible = false
+	add_child(_boss_card)
+	for top in [true, false]:
+		var bar := ColorRect.new()
+		bar.color = Color(0, 0, 0, 0.85)
+		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bar.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
+		if top:
+			bar.offset_bottom = 110
+		else:
+			bar.offset_top = -110
+		_boss_card.add_child(bar)
+	var stripe := ColorRect.new()
+	stripe.color = Color(0, 0, 0, 0.6)
+	stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stripe.set_anchors_preset(Control.PRESET_CENTER)
+	stripe.offset_left = -400
+	stripe.offset_right = 400
+	stripe.offset_top = 130
+	stripe.offset_bottom = 250
+	_boss_card.add_child(stripe)
+	_boss_card_title = label("", 46, Color(1, 0.35, 0.25))
+	_boss_card_title.set_anchors_preset(Control.PRESET_CENTER)
+	_boss_card_title.offset_left = -270
+	_boss_card_title.offset_right = 270
+	_boss_card_title.offset_top = 136
+	_boss_card_title.offset_bottom = 200
+	_boss_card.add_child(_boss_card_title)
+	_boss_card_sub = label("", 20, Color(0.9, 0.85, 0.8))
+	_boss_card_sub.set_anchors_preset(Control.PRESET_CENTER)
+	_boss_card_sub.offset_left = -270
+	_boss_card_sub.offset_right = 270
+	_boss_card_sub.offset_top = 200
+	_boss_card_sub.offset_bottom = 240
+	_boss_card.add_child(_boss_card_sub)
 
 
 ## A red glow around the screen edges when health is low.
@@ -509,11 +580,16 @@ func _input(event: InputEvent) -> void:
 			if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING:
 				_stick_touch = t.index
 				_stick_origin = t.position
+				_stick_start = t.position
+				_stick_age = 0.0
 				_stick.visible = true
 				_stick.position = _stick_origin
 				_stick.knob = Vector2.ZERO
 				joystick = Vector2.ZERO
 		elif t.index == _stick_touch:
+			var flick := t.position - _stick_start
+			if _stick_age < FLICK_TIME and flick.length() > FLICK_DISTANCE:
+				dash_flicked.emit(flick.normalized())
 			_release_stick()
 	elif event is InputEventScreenDrag:
 		var d := event as InputEventScreenDrag
@@ -547,6 +623,15 @@ func _on_card(i: int) -> void:
 
 func _process(delta: float) -> void:
 	_cards_age += delta
+	_stick_age += delta
+	if _flash.color.a > 0.0:
+		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
+	if _combo_time > 0.0:
+		_combo_time -= delta
+		_combo_label.modulate.a = clampf(_combo_time / 0.4, 0.0, 1.0)
+		var pop := 1.0 + maxf(0.0, _combo_time - 2.3) * 2.0
+		_combo_label.pivot_offset = Vector2(_combo_label.size.x, _combo_label.size.y * 0.5)
+		_combo_label.scale = Vector2(pop, pop)
 	if Game.state != Game.State.PLAYING and _stick_touch != -1:
 		_release_stick()
 	var hero := Game.hero
@@ -592,6 +677,44 @@ func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:
 	_banner.label_settings.font_color = col
 	_banner.label_settings.font_size = 48 if text.length() <= 16 else 38
 	_banner_time = 2.0
+
+
+## Shows "x5 COMBO"; it pops when it goes up and fades if you stop killing.
+func show_combo(n: int) -> void:
+	if n < 2:
+		_combo_time = minf(_combo_time, 0.3)
+		return
+	_combo_label.text = "x%d COMBO" % n
+	_combo_label.label_settings.font_color = Color(1, 0.85, 0.4) if n < 5 else (Color(1, 0.55, 0.2) if n < 10 else Color(1, 0.25, 0.3))
+	_combo_label.label_settings.font_size = mini(30 + n * 2, 52)
+	_combo_time = 2.5
+
+
+## A quick white (or coloured) flash over the whole screen.
+func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
+	_flash.color = Color(col.r, col.g, col.b, strength)
+
+
+func show_boss_card(title: String, subtitle: String) -> void:
+	_boss_card_title.text = title.to_upper()
+	_boss_card_sub.text = subtitle
+	_boss_card.visible = true
+	_boss_card.modulate.a = 0.0
+	_boss_card_title.scale = Vector2(1.6, 1.6)
+	_boss_card_title.pivot_offset = _boss_card_title.size * 0.5
+	var tw := create_tween().set_parallel(true)
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(_boss_card, "modulate:a", 1.0, 0.25)
+	tw.tween_property(_boss_card_title, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
+func hide_boss_card() -> void:
+	if not _boss_card.visible:
+		return
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(_boss_card, "modulate:a", 0.0, 0.35)
+	tw.tween_callback(func(): _boss_card.visible = false)
 
 
 func show_hud(v: bool) -> void:

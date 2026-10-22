@@ -42,6 +42,14 @@ var _choices: Array = []
 var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
+var _high_graphics := true
+var _combo := 0
+var _combo_left := 0.0
+## Camera close-ups: finishing blows and the boss entrance.
+var _zoom := 0.0
+var _zoom_hold := 0.0
+var _zoom_point := Vector3.ZERO
+var _intro_focus := false
 var _moon: DirectionalLight3D
 
 
@@ -75,6 +83,7 @@ func _ready() -> void:
 	hud.music_toggled.connect(_set_music)
 	hud.sounds_toggled.connect(_set_sounds)
 	hud.graphics_toggled.connect(_set_graphics)
+	hud.dash_flicked.connect(func(d: Vector2): if hero: hero.dash(Vector3(d.x, 0, d.y)))
 
 	var cfg := _load_save()
 	coins = int(cfg.get_value("stats", "coins", 0))
@@ -134,6 +143,10 @@ func _process(delta: float) -> void:
 	_state_time += delta
 	if state == State.PLAYING:
 		_run_time += delta
+		if _combo_left > 0.0:
+			_combo_left -= delta
+			if _combo_left <= 0.0:
+				_combo = 0
 	if _hit_stop_left > 0.0:
 		_hit_stop_left -= delta / maxf(Engine.time_scale, 0.01)
 		if _hit_stop_left <= 0.0:
@@ -207,6 +220,14 @@ func _update_exit_arrow() -> void:
 	_exit_arrow.rotation = Vector3(0, atan2(-d.x, -d.z), 0)
 
 
+func _unhandled_input(event: InputEvent) -> void:
+	# Space dashes on a keyboard (handy when testing on a computer).
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE and hero:
+		var m := keyboard_move()
+		var d := Vector3(m.x, 0, m.y) if m != Vector2.ZERO else -hero.global_transform.basis.z
+		hero.dash(d)
+
+
 func keyboard_move() -> Vector2:
 	var v := Vector2.ZERO
 	if Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT):
@@ -233,6 +254,15 @@ func _cam_distance() -> float:
 func _focus_goal() -> Vector3:
 	if hero == null:
 		return Vector3.ZERO
+	if _intro_focus and is_instance_valid(boss):
+		return Vector3(boss.global_position.x * 0.5, 0, boss.global_position.z + 0.5)
+	var goal := _room_focus()
+	if _zoom_hold > 0.0:
+		goal = goal.lerp(Vector3(_zoom_point.x * 0.6, 0, _zoom_point.z), 0.7)
+	return goal
+
+
+func _room_focus() -> Vector3:
 	# Keep the near wall at the bottom of the screen and the door in view at the top.
 	# On a tall phone the whole room fits, so the camera just stays centred.
 	var p := deg_to_rad(CAMERA_PITCH)
@@ -250,7 +280,7 @@ func _focus_goal() -> Vector3:
 func _place_camera() -> void:
 	var p := deg_to_rad(CAMERA_PITCH)
 	_camera.rotation = Vector3(-p, 0, 0)
-	var pos := _cam_focus + Vector3(0, sin(p), cos(p)) * _cam_distance()
+	var pos := _cam_focus + Vector3(0, sin(p), cos(p)) * _cam_distance() * (1.0 - 0.32 * _zoom)
 	if _shake > 0.001:
 		pos += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake
 	_camera.global_position = pos
@@ -262,9 +292,25 @@ func _snap_camera() -> void:
 
 
 func _update_camera(real_delta: float) -> void:
+	_zoom_hold -= real_delta
+	var zoom_goal := 1.0 if _zoom_hold > 0.0 else (0.5 if _intro_focus else 0.0)
+	_zoom = lerpf(_zoom, zoom_goal, 1.0 - exp(-(10.0 if zoom_goal > _zoom else 4.0) * real_delta))
 	_cam_focus = _cam_focus.lerp(_focus_goal(), 1.0 - exp(-8.0 * real_delta))
 	_shake = move_toward(_shake, 0.0, real_delta * 2.5)
 	_place_camera()
+
+
+## Slow motion and a close-up on the last kill of a room. Time runs at `time_scale`
+## for `seconds` of real time.
+func finisher(pos: Vector3, time_scale: float, seconds: float, col := Color(1, 0.85, 0.5)) -> void:
+	Engine.time_scale = time_scale
+	_hit_stop_left = maxf(_hit_stop_left, seconds)
+	_zoom_point = pos
+	_zoom_hold = seconds + 0.25
+	Fx.shockwave(pos, col)
+	hud.flash(Color(1, 0.95, 0.85), 0.35)
+	Sfx.play("slam", 0.8)
+	shake(0.35)
 
 
 func shake(amount: float) -> void:
@@ -332,6 +378,7 @@ func _reset_run_stats() -> void:
 	_run_time = 0.0
 	_kills = 0
 	run_coins = 0
+	_combo = 0
 	floor_num = 1
 	_taken.clear()
 
@@ -425,6 +472,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	alive_enemies = 0
 	boss = null
 	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
+	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14)
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start())
 	hero.place_at(room.player_start())
@@ -433,8 +481,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if not spawn_enemies:
 		return
 	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), floor_num)
-	hud.banner("The Throne Room" if _in_boss_room() else "Room %d" % (index + 1))
-	hud.show_hint("Drag to move  ·  Let go to shoot" if floor_num == 1 and index == 0 else "")
+	if not _in_boss_room():
+		hud.banner("Room %d" % (index + 1))
+	hud.show_hint("Drag to move  ·  Let go to shoot\nFlick your thumb to dash" if floor_num == 1 and index == 0 else "")
 	Music.play("boss" if _in_boss_room() else "dungeon")
 	if not _start_blessing.is_empty():
 		var u := _start_blessing
@@ -447,9 +496,34 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		var e := spawn_enemy(kind, s.pos)
 		if _roll_elite(e, index):
 			e.make_elite()
-	_set_state(State.PLAYING)
+	if is_instance_valid(boss):
+		_boss_intro()
+	else:
+		_set_state(State.PLAYING)
 	if alive_enemies == 0:
 		room.open_door()
+
+
+## The camera swings to the boss, which roars, and its name slams onto the screen.
+func _boss_intro() -> void:
+	_set_state(State.TRANSITION)
+	_intro_focus = true
+	var b := boss
+	await get_tree().create_timer(0.6, true, false, true).timeout
+	if not is_instance_valid(b) or state != State.TRANSITION:
+		_intro_focus = false
+		return
+	Sfx.play("roar")
+	Sfx.play("slam")
+	shake(0.5)
+	hud.flash(Color(1, 0.3, 0.2), 0.3)
+	hud.show_boss_card(b.display_name(), "Ruler of floor %d" % floor_num)
+	await get_tree().create_timer(1.8, true, false, true).timeout
+	hud.hide_boss_card()
+	_intro_focus = false
+	await get_tree().create_timer(0.35, true, false, true).timeout
+	if state == State.TRANSITION:
+		_set_state(State.PLAYING)
 
 
 func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
@@ -475,6 +549,12 @@ func on_enemy_died(e: Enemy) -> void:
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
+	# Kills close together build a combo. From x5 on, each kill drops a bonus coin.
+	_combo = _combo + 1 if _combo_left > 0.0 else 1
+	_combo_left = 2.5
+	hud.show_combo(_combo)
+	if _combo >= 5 and e != boss:
+		Pickup.drop_coins(e.global_position, 1)
 	if e == boss:
 		# Any minions left crumble with their master.
 		for a: Actor in Actor.all.duplicate():
@@ -482,6 +562,7 @@ func on_enemy_died(e: Enemy) -> void:
 				a.take_damage(9999.0, Vector3.ZERO, 0.0)
 		_win()
 	elif alive_enemies == 0 and not _in_boss_room():
+		finisher(e.global_position, 0.25, 0.6)
 		_clear_enemy_attacks()
 		Pickup.collect_all()
 		_room_cleared()
@@ -529,7 +610,9 @@ func _clear_enemy_attacks() -> void:
 
 func _win() -> void:
 	var boss_name := boss.display_name() if is_instance_valid(boss) else "The boss"
+	var where := boss.global_position if is_instance_valid(boss) else hero.global_position
 	_set_state(State.VICTORY)
+	finisher(where, 0.2, 1.0, Color(1, 0.5, 0.3))
 	_clear_enemy_attacks()
 	Pickup.collect_all()
 	hud.hide_boss()
@@ -639,6 +722,7 @@ func _set_graphics(high: bool, save := true) -> void:
 	vp.scaling_3d_scale = 1.0 if high else 0.7
 	_env.glow_enabled = high
 	_moon.shadow_enabled = high
+	_high_graphics = high
 	hud.set_graphics_label(high)
 	if save:
 		var cfg := _load_save()

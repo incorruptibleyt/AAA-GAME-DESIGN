@@ -9,7 +9,7 @@ and face the Skeleton King at the end of the floor.
 ## What's in this first playable slice
 
 - **One floor:** 5 rooms (2 easy, 2 medium, 1 hard, picked at random each run) plus a boss room.
-- **Hero:** one-thumb floating joystick, auto-aim and auto-fire when standing still, brief invulnerability after a hit.
+- **Hero:** one-thumb floating joystick, auto-aim and auto-fire when standing still, a quick flick of the thumb to dash (untouchable while dashing), brief invulnerability after a hit.
 - **Four skeletons.** The dangerous ones show a red warning before they attack:
   - *Minion*: rushes you in packs.
   - *Warrior*: shows a red strip, then lunges along it.
@@ -22,7 +22,7 @@ and face the Skeleton King at the end of the floor.
 - **Coins and the Armory:** skeletons drop gold you keep between runs. Spend it on permanent upgrades (health, damage, attack speed, move speed, luckier hearts, a free blessing each run, and a once-per-run Second Wind).
 - **Music:** a calm dungeon theme and a faster boss theme (made by [tools/make_music.py](tools/make_music.py)), with Music, Sounds and Graphics (High/Low) switches in the pause menu. Low graphics turns off shadows and glow for smoother play on older phones.
 - **Healing hearts** that skeletons sometimes drop, a beginner hint in room 1, and a golden arrow pointing to the open door.
-- **Game feel:** hit-stop, screen shake, hit flashes, knockback, damage numbers, particles and synthesised sounds.
+- **Game feel:** slow-motion close-up on the last kill of each room, kill combos (x5 and up drop bonus coins), a boss entrance with a title card, drifting embers, hit-stop, screen shake, hit flashes, knockback, damage numbers, particles and synthesised sounds.
 - **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
 
 ## Art
