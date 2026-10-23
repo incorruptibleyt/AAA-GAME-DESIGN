@@ -9,7 +9,8 @@ and face the Skeleton King at the end of the floor.
 ## What's in this first playable slice
 
 - **One floor:** 5 rooms (2 easy, 2 medium, 1 hard, picked at random each run) plus a boss room.
-- **Hero:** one-thumb floating joystick, auto-aim and auto-fire when standing still, a quick flick of the thumb to dash (untouchable while dashing), brief invulnerability after a hit.
+- **Four heroes:** the Rogue (crossbow), plus the Knight (armoured sword waves), Barbarian (thrown axes, heals on kills) and Mage (exploding orbs), unlocked with coins from the HEROES screen.
+- **Controls:** one-thumb floating joystick, auto-aim and auto-fire when standing still, a quick flick of the thumb to dash (untouchable while dashing), brief invulnerability after a hit.
 - **Four skeletons.** The dangerous ones show a red warning before they attack:
   - *Minion*: rushes you in packs.
   - *Warrior*: shows a red strip, then lunges along it.
@@ -50,6 +51,7 @@ scripts/
   room.gd, layouts.gd room building and the text room layouts
   hero.gd, upgrades.gd
   armory.gd           permanent upgrades bought with coins
+  heroes.gd           the playable heroes and their stats
   pickup.gd           hearts and coins
   music.gd            background music (tracks in audio/)
   enemies/            minion, warrior, archer, mage, Skeleton King

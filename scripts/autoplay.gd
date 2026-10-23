@@ -11,6 +11,9 @@ var start_room := 1
 var runs := 1
 var gallery := false
 var elites := false
+var hero_lineup := false
+var hero_menu := false
+var _hero_choice := ""
 var shop := false
 var quit_test := false
 var _quit_done := false
@@ -43,6 +46,12 @@ func _ready() -> void:
 			Game.coins = int(a.substr(6))
 		elif a == "elites":
 			elites = true
+		elif a == "heromenu":
+			hero_menu = true
+		elif a == "heroes":
+			hero_lineup = true
+		elif a.begins_with("hero="):
+			_hero_choice = a.substr(5)
 		elif a == "gallery":
 			gallery = true
 		elif a.begins_with("runs="):
@@ -55,6 +64,13 @@ func _ready() -> void:
 
 
 func _process(delta: float) -> void:
+	if _hero_choice != "" and Game.hero:
+		# Pick (and if needed unlock) a hero before the first run.
+		Game.coins += Heroes.get_hero(_hero_choice).cost
+		Game._pick_hero(_hero_choice)
+		Game.hud.show_heroes(false)
+		print("[autoplay] hero %s hp=%d" % [Game.hero.hero_id, Game.hero.max_health])
+		_hero_choice = ""
 	_t += delta
 	if Game.state != _last_state:
 		_last_state = Game.state
@@ -76,6 +92,16 @@ func _process(delta: float) -> void:
 			if shots_dir != "" and _shot_n == 0 and _t > 1.0:
 				_shot_n = -1
 				_shot()
+			if hero_menu and _t > 1.2 and not _shopped:
+				_shopped = true
+				Game._open_heroes()
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				await get_tree().create_timer(0.5).timeout
+				get_tree().quit()
+				return
+			if hero_menu:
+				return
 			if shop and not _shopped and _t > 1.2:
 				_shopped = true
 				Game._open_armory()
@@ -145,6 +171,14 @@ func _gallery_step(delta: float) -> void:
 		for a: Actor in Actor.all.duplicate():
 			if a is Enemy:
 				a.queue_free()
+		if hero_lineup:
+			var ids := ["rogue", "knight", "barbarian", "mage"]
+			for i in ids.size():
+				var h := Hero.spawn(Room.current, Vector3(-4.5 + i * 3.0, 0, 3.0), ids[i])
+				h.rotation.y = PI
+			Game.hero.place_at(Vector3(0, 0, 30))
+			Game.state = Game.State.TRANSITION
+			return
 		var kinds := ["m", "w", "a", "g", "x", "t"]
 		for i in kinds.size():
 			var e := Game.spawn_enemy(kinds[i], Vector3(-4.0 + (i % 3) * 4.0, 0, 1.5 + (i / 3) * 3.0))

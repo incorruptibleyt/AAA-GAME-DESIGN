@@ -77,6 +77,8 @@ func _ready() -> void:
 	hud.play_pressed.connect(_on_play_pressed)
 	hud.armory_pressed.connect(_open_armory)
 	hud.armory_buy.connect(_buy_upgrade)
+	hud.heroes_pressed.connect(_open_heroes)
+	hud.hero_pick.connect(_pick_hero)
 	hud.resume_pressed.connect(func(): if state == State.PAUSED: _resume())
 	hud.quit_run_pressed.connect(_quit_to_title)
 	hud.retry_pressed.connect(func(): if state == State.DEAD and not hud.armory_visible(): _on_screen_tapped())
@@ -100,6 +102,7 @@ func _ready() -> void:
 	_set_state(State.TITLE)
 	hud.show_hud(false)
 	hud.show_title(true, _best_text(), coins)
+	hud.set_title_hero(Heroes.get_hero(hero.hero_id).title)
 	Music.play("dungeon")
 	_fade(1.0, 0.0, 0.6)
 	if "autoplay" in OS.get_cmdline_user_args():
@@ -474,7 +477,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
 	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14)
 	if hero == null:
-		hero = Hero.spawn(world, room.player_start())
+		hero = Hero.spawn(world, room.player_start(), Heroes.selected(_load_save()))
 	hero.place_at(room.player_start())
 	hero.new_room()
 	_snap_camera()
@@ -737,6 +740,50 @@ func _open_armory() -> void:
 		return
 	Sfx.play("click")
 	hud.show_armory(true, _armory_rows(), coins)
+
+
+func _open_heroes() -> void:
+	if state != State.TITLE and state != State.DEAD:
+		return
+	Sfx.play("click")
+	hud.show_heroes(true, _hero_rows(), coins)
+
+
+func _hero_rows() -> Array:
+	var cfg := _load_save()
+	var chosen := Heroes.selected(cfg)
+	var rows := []
+	for h: Dictionary in Heroes.LIST:
+		rows.append({"id": h.id, "title": h.title, "text": h.text, "cost": h.cost,
+			"unlocked": Heroes.unlocked(cfg, h.id), "selected": h.id == chosen})
+	return rows
+
+
+## Tap a hero: unlock it if you can afford it, then make it your hero.
+func _pick_hero(id: String) -> void:
+	var cfg := _load_save()
+	var def := Heroes.get_hero(id)
+	if not Heroes.unlocked(cfg, id):
+		if def.cost > coins:
+			Sfx.play("hurt")
+			return
+		coins -= def.cost
+		cfg.set_value("stats", "coins", coins)
+		cfg.set_value(Heroes.SAVE_SECTION, id, true)
+		Sfx.play("victory", 0.7)
+		hud.set_coins(coins)
+	else:
+		Sfx.play("upgrade")
+	cfg.set_value(Heroes.SAVE_SECTION, "selected", id)
+	cfg.save(SAVE_PATH)
+	hud.set_title_hero(def.title)
+	hud.show_heroes(true, _hero_rows(), coins)
+	# On the title screen, swap the hero standing in the room straight away.
+	if state == State.TITLE and hero and hero.hero_id != id:
+		var at := hero.global_position
+		hero.queue_free()
+		hero = Hero.spawn(world, at, id)
+		Fx.magic(hero.center(), def.bolt_color, 30)
 
 
 func _armory_rows() -> Array:

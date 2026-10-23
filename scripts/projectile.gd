@@ -12,6 +12,8 @@ var push := 4.0
 var crit_chance := 0.0
 var burn_dps := 0.0
 var frost := false
+## Mage orbs: on hitting something, also hurt everything nearby.
+var splash := 0.0
 var life := 4.0
 var dir := Vector3.FORWARD
 var _hit := {}
@@ -64,9 +66,23 @@ func _process(delta: float) -> void:
 			Burning.apply(a, burn_dps, 2.5)
 		if frost and not a.dead and a is Enemy:
 			(a as Enemy).chill(1.5)
+		if splash > 0.0:
+			_explode(next, target, a)
 		if owner_team == Actor.Team.HERO:
 			Sfx.play("hit", 0.6)
 		pierce -= 1
 		if pierce < 0:
 			queue_free()
 			return
+
+
+func _explode(at: Vector3, target: int, already: Actor) -> void:
+	Fx.magic(at + Vector3.UP * 0.4, Color(0.8, 0.45, 1.0), 22)
+	Fx.shockwave(at, Color(0.7, 0.4, 1.0), splash)
+	for a: Actor in Actor.all.duplicate():
+		if a == already or a.team != target or not a.can_be_hit():
+			continue
+		var d := a.global_position - at
+		d.y = 0.0
+		if d.length() < splash + a.radius:
+			a.take_damage(damage * 0.6, d, push * 0.5)

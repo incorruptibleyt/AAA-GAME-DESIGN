@@ -10,6 +10,8 @@ signal pause_pressed
 signal play_pressed
 signal armory_pressed
 signal armory_buy(id: String)
+signal heroes_pressed
+signal hero_pick(id: String)
 signal resume_pressed
 signal quit_run_pressed
 signal retry_pressed
@@ -62,6 +64,10 @@ var _title_coins: Label
 var _armory_box: Control
 var _armory_coins: Label
 var _armory_rows: VBoxContainer
+var _shop_heroes := false
+var _shop_title: Label
+var _shop_sub: Label
+var _title_hero: Label
 var _end_buttons: Control
 var _music_button: Button
 var _sounds_button: Button
@@ -437,13 +443,18 @@ func _build_title() -> void:
 	_title_best = label("", 18, Color(0.7, 0.7, 0.8))
 	col.add_child(_title_best)
 	_title_coins = coin_row(26, col, true)
+	_title_hero = label("", 20, Color(0.75, 0.85, 1.0))
+	col.add_child(_title_hero)
 	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 70)
+	spacer.custom_minimum_size = Vector2(0, 30)
 	col.add_child(spacer)
 	var play := button("PLAY", 38, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
 	play.custom_minimum_size = Vector2(300, 92)
 	play.pressed.connect(func(): play_pressed.emit())
 	col.add_child(_centered(play))
+	var heroes := button("HEROES", 28)
+	heroes.pressed.connect(func(): heroes_pressed.emit())
+	col.add_child(_centered(heroes))
 	var armory := button("ARMORY", 28)
 	armory.pressed.connect(func(): armory_pressed.emit())
 	col.add_child(_centered(armory))
@@ -482,6 +493,9 @@ func _build_end() -> void:
 	retry.custom_minimum_size = Vector2(300, 86)
 	retry.pressed.connect(func(): retry_pressed.emit())
 	buttons.add_child(_centered(retry))
+	var heroes := button("HEROES", 26)
+	heroes.pressed.connect(func(): heroes_pressed.emit())
+	buttons.add_child(_centered(heroes))
 	var armory := button("ARMORY", 26)
 	armory.pressed.connect(func(): armory_pressed.emit())
 	buttons.add_child(_centered(armory))
@@ -533,8 +547,10 @@ func _build_armory() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 10)
 	_armory_box.add_child(col)
-	col.add_child(label("Armory", 46, Color(1, 0.85, 0.55)))
-	col.add_child(label("Upgrades bought here last forever.", 18, Color(0.8, 0.8, 0.85)))
+	_shop_title = label("Armory", 46, Color(1, 0.85, 0.55))
+	col.add_child(_shop_title)
+	_shop_sub = label("Upgrades bought here last forever.", 18, Color(0.8, 0.8, 0.85))
+	col.add_child(_shop_sub)
 	_armory_coins = coin_row(30, col, true)
 	_armory_rows = VBoxContainer.new()
 	_armory_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -774,11 +790,79 @@ func show_armory(v: bool, rows := [], coins := 0) -> void:
 	_armory_box.visible = v
 	if not v:
 		return
+	_shop_heroes = false
+	_shop_title.text = "Armory"
+	_shop_sub.text = "Upgrades bought here last forever."
+	_fill_shop(rows, coins)
+
+
+## rows: [{id, title, text, cost, unlocked, selected}]
+func show_heroes(v: bool, rows := [], coins := 0) -> void:
+	_armory_box.visible = v
+	if not v:
+		return
+	_shop_heroes = true
+	_shop_title.text = "Heroes"
+	_shop_sub.text = "Tap a hero to play as them. Unlock new ones with coins."
+	_fill_shop(rows, coins)
+
+
+func set_title_hero(hero_name: String) -> void:
+	_title_hero.text = "Playing as the " + hero_name
+
+
+func _fill_shop(rows: Array, coins: int) -> void:
 	_armory_coins.text = str(coins)
 	for c in _armory_rows.get_children():
 		c.queue_free()
 	for r: Dictionary in rows:
-		_armory_rows.add_child(_armory_row(r, coins))
+		_armory_rows.add_child(_hero_row(r, coins) if _shop_heroes else _armory_row(r, coins))
+
+
+func _hero_row(r: Dictionary, coins: int) -> Button:
+	var owned: bool = r.unlocked
+	var afford: bool = owned or r.cost <= coins
+	var border := Color(0.5, 0.85, 1.0) if r.selected else (GOLD if afford else Color(0.4, 0.35, 0.45, 0.6))
+	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), border)
+	b.custom_minimum_size = Vector2(0, 104)
+	if r.selected:
+		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4)
+	b.pressed.connect(func(): hero_pick.emit(r.id))
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 16)
+	full(m)
+	b.add_child(m)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 12)
+	m.add_child(h)
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.add_theme_constant_override("separation", 2)
+	h.add_child(texts)
+	var t := label(r.title, 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(t)
+	var d := label(r.text, 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
+	d.custom_minimum_size = Vector2(300, 0)
+	texts.add_child(d)
+	if r.selected or owned:
+		var tag := label("CHOSEN" if r.selected else "PICK", 20 if r.selected else 22, Color(0.5, 0.85, 1.0) if r.selected else Color(0.6, 1, 0.6))
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		h.add_child(tag)
+	else:
+		var price := HBoxContainer.new()
+		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(price)
+		var cost_label := coin_row(24, price)
+		cost_label.text = str(r.cost)
+		if not afford:
+			cost_label.label_settings.font_color = Color(0.6, 0.55, 0.5)
+	return b
 
 
 func _armory_row(r: Dictionary, coins: int) -> Button:
