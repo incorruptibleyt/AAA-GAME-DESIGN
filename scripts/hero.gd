@@ -32,6 +32,10 @@ var frost_time := 1.5
 ## Blessings taken this run, by id, for the ones that change rules rather than numbers.
 var perks := {}
 var _volleys := 0
+## The special move fills from kills (elites and perfect dodges count more).
+var special_charge := 0.0
+var _spin_left := 0.0
+var _spin_tick := 0.0
 var magnet := 1.0
 var coin_bonus := 0.0
 ## Bone Ward: hits blocked per room, and how many are left in this room.
@@ -154,6 +158,7 @@ func _check_perfect(window: float) -> void:
 func _perfect_dodge() -> void:
 	_perfect_done = true
 	_dash_cooldown = 0.0
+	add_charge(0.25)
 	for p in Projectile.danger.duplicate():
 		if is_instance_valid(p) and p.global_position.distance_to(global_position) < 3.0:
 			p.shatter()
@@ -164,6 +169,120 @@ func _perfect_dodge() -> void:
 		var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.5 * Game.chain_damage(), bolt_speed, col, bolt_size)
 		p.pierce = pierce + 1
 		p.push = bolt_push
+
+
+func special_ready() -> bool:
+	return special_charge >= 1.0
+
+
+func add_charge(amount: float) -> void:
+	var was := special_ready()
+	special_charge = minf(1.0, special_charge + amount)
+	if special_ready() and not was:
+		Sfx.play("upgrade", 0.5)
+
+
+## Each hero has one big move, used from the button on the right.
+func use_special() -> void:
+	if dead or not special_ready() or Game.state != Game.State.PLAYING:
+		return
+	special_charge = 0.0
+	Game.report_event("special")
+	Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.3))
+	Game.shake(0.25)
+	match hero_id:
+		"knight": _shield_slam()
+		"barbarian":
+			_spin_left = 2.5
+			Sfx.play("dash", 0.9)
+		"mage": _meteors()
+		_: _shadow_volley()
+
+
+func _special_hit(a: Actor, amount: float, from: Vector3, push: float) -> void:
+	var d := a.global_position - from
+	d.y = 0.0
+	a.take_damage(amount * Game.chain_damage(), d, push)
+
+
+func _shadow_volley() -> void:
+	for wave in 3:
+		get_tree().create_timer(0.22 * wave, false).timeout.connect(func():
+			if dead:
+				return
+			Sfx.play("shoot", 0.9)
+			for i in 12:
+				var d := Vector3.FORWARD.rotated(Vector3.UP, TAU * (i + wave * 0.33) / 12.0)
+				var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.4 * Game.chain_damage(), bolt_speed, bolt_color.lerp(Color(0.6, 0.3, 1.0), 0.4), bolt_size)
+				p.pierce = pierce + 1
+				p.push = bolt_push)
+
+
+func _shield_slam() -> void:
+	visual.attack()
+	Game.finisher(global_position, 0.35, 0.3, Color(1, 0.95, 0.7))
+	Fx.shockwave(global_position, Color(1, 0.9, 0.6), 5.0)
+	Fx.dust(global_position, 30)
+	_invulnerable = maxf(_invulnerable, 1.2)
+	for a: Actor in Actor.all.duplicate():
+		if a.team != Team.UNDEAD or not a.can_be_hit():
+			continue
+		if a.global_position.distance_to(global_position) < 5.0 + a.radius:
+			_special_hit(a, damage * 3.0, global_position, 14.0)
+			if not a.dead and a is Enemy:
+				(a as Enemy).chill(2.5)
+
+
+func _meteors() -> void:
+	var targets := Actor.all.filter(func(a: Actor): return a.team == Team.UNDEAD and a.can_be_hit())
+	targets.sort_custom(func(a: Actor, b: Actor): return a.global_position.distance_squared_to(global_position) < b.global_position.distance_squared_to(global_position))
+	targets = targets.slice(0, 5)
+	if targets.is_empty():
+		targets = [self]   # nothing around: one meteor lands in front so the move isn't wasted
+	for i in targets.size():
+		var spot: Vector3 = targets[i].global_position if targets[i] != self else global_position - basis.z * 3.0
+		spot.y = 0.0
+		get_tree().create_timer(0.15 * i, false).timeout.connect(func(): _meteor(spot))
+
+
+func _meteor(spot: Vector3) -> void:
+	if Room.current == null:
+		return
+	var mark := U.floor_quad(Room.current, Vector2(4.4, 4.4), U.unlit(Color(1, 0.75, 0.3, 0.5), U.soft_circle()).duplicate(), spot + Vector3.UP * 0.05)
+	var rock := Node3D.new()
+	Room.current.add_child(rock)
+	rock.global_position = spot + Vector3.UP * 9.0
+	U.sphere(rock, 0.45, U.unlit(Color(1, 0.55, 0.2)))
+	U.sphere(rock, 0.3, U.unlit(Color(1, 0.95, 0.7)))
+	var tw := rock.create_tween()
+	tw.tween_property(rock, "global_position", spot + Vector3.UP * 0.3, 0.45).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func():
+		rock.queue_free()
+		mark.queue_free()
+		Fx.shockwave(spot, Color(1, 0.55, 0.2), 2.4)
+		Fx.magic(spot + Vector3.UP * 0.5, Color(1, 0.6, 0.2), 20)
+		Sfx.play("boom", 0.7)
+		Game.shake(0.2)
+		for a: Actor in Actor.all.duplicate():
+			if a.team == Team.UNDEAD and a.can_be_hit() and a.global_position.distance_to(spot) < 2.2 + a.radius:
+				_special_hit(a, damage * 3.0, spot, 8.0)
+				if not a.dead:
+					Burning.apply(a, maxf(burn_dps, 8.0), 3.0))
+
+
+func _whirlwind(delta: float) -> void:
+	_spin_left -= delta
+	visual.rotation.y += delta * 22.0
+	_spin_tick -= delta
+	if _spin_tick <= 0.0:
+		_spin_tick = 0.16
+		Fx.trail(center(), Color(1, 0.7, 0.4))
+		for a: Actor in Actor.all.duplicate():
+			if a.team == Team.UNDEAD and a.can_be_hit() and a.global_position.distance_to(global_position) < 2.8 + a.radius:
+				_special_hit(a, damage * 0.8, global_position, 5.0)
+				heal(1.0)
+	if _spin_left <= 0.0:
+		visual.rotation.y = 0.0
 
 
 func on_kill() -> void:
@@ -193,6 +312,9 @@ func _process(delta: float) -> void:
 		visual.set_visible_blink(_invulnerable <= 0.0 or fmod(_invulnerable, 0.12) > 0.05)
 
 	var playing := Game.state == Game.State.PLAYING
+	if _spin_left > 0.0 and playing:
+		_whirlwind(delta)
+		_shot_timer = maxf(_shot_timer, 0.1)
 	var stick := Vector2.ZERO
 	if playing:
 		stick = Game.hud.joystick + Game.keyboard_move()
@@ -202,7 +324,7 @@ func _process(delta: float) -> void:
 	visual.set_moving(_moving)
 
 	if _moving:
-		move_by(move * move_speed * delta, delta)
+		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * delta, delta)
 		face(move, 18.0, delta)
 		_shot_timer = maxf(_shot_timer, 0.12)   # firing resumes shortly after you stop
 	else:

@@ -30,6 +30,8 @@ var _dodge := Vector3.ZERO
 var _last_state := -1
 var _dashes := 0
 var _perfect_shots := 0
+var _special_shots := 0
+var _force_special := false
 var _perks: PackedStringArray = []
 var _card_shot := false
 
@@ -63,6 +65,8 @@ func _ready() -> void:
 			_hero_choice = a.substr(5)
 		elif a.begins_with("perks="):
 			_perks = a.substr(6).split(",")
+		elif a == "special":
+			_force_special = true
 		elif a == "gallery":
 			gallery = true
 		elif a.begins_with("runs="):
@@ -160,9 +164,10 @@ func _process(delta: float) -> void:
 			if Game._state_time > 1.0:
 				if quit_test and not _quit_done:
 					_quit_done = true
-					print("[autoplay] quit run test")
 					_t = 0.0
-					Game._quit_to_title()
+					Game.hud._on_quit_pressed()
+					print("[autoplay] quit run test: first tap %s" % ("asks" if Game.state == Game.State.PAUSED else "QUIT TOO EARLY"))
+					Game.hud._on_quit_pressed()
 				else:
 					Game._on_screen_tapped()
 
@@ -244,6 +249,14 @@ func _drive(delta: float) -> void:
 		hero.health = hero.max_health
 	var move := Vector3.ZERO
 	var room := Room.current
+	if _force_special and Game.alive_enemies >= 4 and Game._state_time > 2.0:
+		_force_special = false
+		hero.special_charge = 1.0
+	if hero.special_ready() and Game.alive_enemies >= 3:
+		hero.use_special()
+		if shots_dir != "" and _special_shots < 2:
+			_special_shots += 1
+			get_tree().create_timer(0.35, true, false, true).timeout.connect(_shot)
 	# Grave Dash: dash sideways through a shot that is about to land.
 	if hero.dash_ready():
 		for p in Projectile.danger:

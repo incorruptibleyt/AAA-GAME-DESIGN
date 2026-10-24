@@ -6,6 +6,7 @@ extends CanvasLayer
 
 signal card_picked(index: int)
 signal reroll_pressed
+signal special_pressed
 signal screen_tapped
 signal pause_pressed
 signal play_pressed
@@ -50,6 +51,9 @@ var _stick_origin := Vector2.ZERO
 var _cards_box: Control
 var _cards: Array[Button] = []
 var _reroll_button: Button
+var _special: SpecialButton
+var _quit_button: Button
+var _quit_armed := false
 var _title_box: Control
 var _title_best: Label
 var _end_box: Control
@@ -275,6 +279,14 @@ func _build_hud() -> void:
 	_wave_label.offset_bottom = 74
 	_wave_label.visible = false
 	root.add_child(_wave_label)
+
+	_special = SpecialButton.new()
+	_special.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_special.offset_left = -124
+	_special.offset_right = -24
+	_special.offset_top = -260
+	_special.offset_bottom = -160
+	root.add_child(_special)
 
 	_pause_button = Button.new()
 	_pause_button.text = "II"
@@ -600,9 +612,27 @@ func _build_pause() -> void:
 	_graphics_button = button("Graphics: High", 26)
 	_graphics_button.pressed.connect(func(): graphics_toggled.emit(not _graphics_high))
 	col.add_child(_centered(_graphics_button))
-	var quit := button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
-	quit.pressed.connect(func(): quit_run_pressed.emit())
-	col.add_child(_centered(quit))
+	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_quit_button.pressed.connect(_on_quit_pressed)
+	col.add_child(_centered(_quit_button))
+
+
+## Quitting loses the run, so the first tap only asks; a second tap within 3 s quits.
+func _on_quit_pressed() -> void:
+	if _quit_armed:
+		_disarm_quit()
+		quit_run_pressed.emit()
+		return
+	_quit_armed = true
+	_quit_button.text = "Tap again to quit"
+	_quit_button.add_theme_color_override("font_color", Color(1, 0.45, 0.4))
+	get_tree().create_timer(3.0, true, false, true).timeout.connect(_disarm_quit)
+
+
+func _disarm_quit() -> void:
+	_quit_armed = false
+	_quit_button.text = "Quit run"
+	_quit_button.add_theme_color_override("font_color", Color(1, 0.93, 0.8))
 
 
 ## The shop for permanent upgrades, opened from the title or death screen.
@@ -665,6 +695,10 @@ func _input(event: InputEvent) -> void:
 				screen_tapped.emit()
 				return
 			if _safe.visible and _pause_button.get_global_rect().has_point(t.position):
+				return
+			if _safe.visible and _special.visible and not _overlay_open() \
+					and _special.get_global_rect().grow(12.0).has_point(t.position):
+				special_pressed.emit()
 				return
 			if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING:
 				_stick_touch = t.index
@@ -801,6 +835,7 @@ func show_chain(mult: float) -> void:
 func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 	_callout.text = text
 	_callout.label_settings.font_color = col
+	_callout.label_settings.font_size = 46 if text.length() <= 10 else 34
 	_callout_time = 1.1
 
 
@@ -1037,6 +1072,8 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 
 func show_pause(v: bool) -> void:
 	_pause_box.visible = v
+	if _quit_armed:
+		_disarm_quit()
 
 
 func set_fade(a: float) -> void:

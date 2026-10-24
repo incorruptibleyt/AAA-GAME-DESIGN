@@ -20,6 +20,7 @@ var door_open := false
 
 var _portcullis: Node3D
 var _exit_light: OmniLight3D
+var _torch_lights: Array[OmniLight3D] = []
 var _exit_glow: MeshInstance3D
 
 
@@ -77,6 +78,17 @@ func _build_shell() -> void:
 	for z in [-6.0, 0.0, 6.0]:
 		_add_torch(Vector3(-HALF_W + 0.05, 1.7, z), 1.0)
 		_add_torch(Vector3(HALF_W - 0.05, 1.7, z), -1.0)
+	apply_graphics(Game._high_graphics)
+
+
+## Low graphics keeps only the middle pair of torch lights (made a little stronger),
+## since every light costs a lot on older phones. The torch flames still show.
+func apply_graphics(high: bool) -> void:
+	for i in _torch_lights.size():
+		var keep := high or i == 2 or i == 3
+		_torch_lights[i].visible = keep
+		_torch_lights[i].omni_range = 7.0 if high else 11.0
+		_torch_lights[i].light_energy = 1.4 if high else 1.7
 
 
 func _build_door(trim: Material, dark: Material) -> void:
@@ -127,6 +139,7 @@ func _add_torch(pos: Vector3, facing: float) -> void:
 	light.light_energy = 1.4
 	light.position = Vector3(0.8 * facing, 0.4, 0)
 	root.add_child(light)
+	_torch_lights.append(light)
 
 
 func _read_layout(layout: Array) -> void:

@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24d"
+const BUILD := "2026-10-24e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -103,6 +103,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.card_picked.connect(_on_card_picked)
 	hud.reroll_pressed.connect(_on_reroll)
+	hud.special_pressed.connect(func(): if hero: hero.use_special())
 	hud.screen_tapped.connect(_on_screen_tapped)
 	hud.pause_pressed.connect(_on_pause_pressed)
 	hud.play_pressed.connect(_on_play_pressed)
@@ -268,6 +269,8 @@ func _update_exit_arrow() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	# Space dashes on a keyboard (handy when testing on a computer).
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_E and hero:
+		hero.use_special()
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_SPACE and hero:
 		var m := keyboard_move()
 		var d := Vector3(m.x, 0, m.y) if m != Vector2.ZERO else -hero.global_transform.basis.z
@@ -440,7 +443,7 @@ func _start_run() -> void:
 
 func _reset_report() -> void:
 	_rep = {"damage": {}, "hits": 0, "healed": 0.0, "dash": 0, "ward": 0, "second_wind": 0,
-		"best_combo": 0, "best_chain": 1.0, "perfect": 0, "rooms": [], "room_start": 0.0, "killed_by": ""}
+		"best_combo": 0, "best_chain": 1.0, "perfect": 0, "special": 0, "rooms": [], "room_start": 0.0, "killed_by": ""}
 	_fps_sum = 0.0
 	_fps_n = 0
 	_fps_low = 999.0
@@ -487,7 +490,7 @@ func run_report(result: String) -> String:
 	lines.append("Damage taken %d in %d hits: %s" % [roundi(total), _rep.get("hits", 0), ", ".join(parts) if parts else "none"])
 	if _rep.get("killed_by", "") != "" and state == State.DEAD:
 		lines.append("Final blow: " + _rep.killed_by)
-	lines.append("Healed %d | Dashes %d | Perfect dodges %d | Best chain x%.1f | Ward blocks %d | Second Wind used %d" % [roundi(_rep.get("healed", 0.0)), _rep.get("dash", 0), _rep.get("perfect", 0), _rep.get("best_chain", 1.0), _rep.get("ward", 0), _rep.get("second_wind", 0)])
+	lines.append("Healed %d | Dashes %d | Perfect dodges %d | Specials %d | Best chain x%.1f | Ward blocks %d | Second Wind used %d" % [roundi(_rep.get("healed", 0.0)), _rep.get("dash", 0), _rep.get("perfect", 0), _rep.get("special", 0), _rep.get("best_chain", 1.0), _rep.get("ward", 0), _rep.get("second_wind", 0)])
 	var bl := []
 	for id in _taken:
 		var u := Upgrades.get_def(id)
@@ -711,6 +714,8 @@ func on_enemy_died(e: Enemy) -> void:
 		Fx.magic(hero.center(), Color(0.8, 0.9, 1.0), 20)
 		hud.callout("WARD!", Color(0.85, 0.92, 1.0))
 	hud.show_chain(chain)
+	if hero:
+		hero.add_charge(0.3 if e.elite else 0.1)
 	if before < chain_max() and chain >= chain_max():
 		Sfx.play("vo_combo", 0.8)
 	if not _rep.is_empty():
@@ -958,6 +963,8 @@ func _set_graphics(high: bool, save := true) -> void:
 	_env.glow_enabled = high
 	_moon.shadow_enabled = high
 	_high_graphics = high
+	if Room.current:
+		Room.current.apply_graphics(high)
 	hud.set_graphics_label(high)
 	if save:
 		var cfg := _load_save()
@@ -986,7 +993,7 @@ func _hero_rows() -> Array:
 	var chosen := Heroes.selected(cfg)
 	var rows := []
 	for h: Dictionary in Heroes.LIST:
-		rows.append({"id": h.id, "title": h.title, "text": h.text, "cost": h.cost,
+		rows.append({"id": h.id, "title": h.title, "text": "%s Special: %s." % [h.text, h.special], "cost": h.cost,
 			"unlocked": Heroes.unlocked(cfg, h.id), "selected": h.id == chosen})
 	return rows
 
