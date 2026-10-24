@@ -30,6 +30,7 @@ var _dodge := Vector3.ZERO
 var _last_state := -1
 var _dashes := 0
 var _perfect_shots := 0
+var _perks: PackedStringArray = []
 var _card_shot := false
 
 
@@ -60,6 +61,8 @@ func _ready() -> void:
 			hero_lineup = true
 		elif a.begins_with("hero="):
 			_hero_choice = a.substr(5)
+		elif a.begins_with("perks="):
+			_perks = a.substr(6).split(",")
 		elif a == "gallery":
 			gallery = true
 		elif a.begins_with("runs="):
@@ -80,6 +83,12 @@ func _process(delta: float) -> void:
 		print("[autoplay] hero %s hp=%d" % [Game.hero.hero_id, Game.hero.max_health])
 		_hero_choice = ""
 	_t += delta
+	if not _perks.is_empty() and Game.state == Game.State.PLAYING and Game.hero:
+		for id in _perks:
+			Game._taken[id] = Game._taken.get(id, 0) + 1
+			Upgrades.apply(id, Game.hero)
+		print("[autoplay] perks %s" % ", ".join(_perks))
+		_perks = []
 	if Game.state != _last_state:
 		_last_state = Game.state
 		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
@@ -133,6 +142,11 @@ func _process(delta: float) -> void:
 				else:
 					Game._on_screen_tapped()
 		Game.State.UPGRADE:
+			if Game.rerolls > 0 and Game.hud._cards_age >= 0.45:
+				print("[autoplay] reroll: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
+				Game._on_reroll()
+				print("[autoplay] rerolled: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
+				Game.hud._cards_age = 0.45
 			Game.hud._on_card(0)
 		Game.State.DEAD, Game.State.VICTORY:
 			if Game._state_time > 2.5:

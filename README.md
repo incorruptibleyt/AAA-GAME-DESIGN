@@ -17,7 +17,6 @@ and face the Skeleton King at the end of the floor.
   - *Archer*: keeps its distance and fires aimed arrows.
   - *Mage*: marks a circle under you, then blows it up.
 - **The Skeleton King:** bone rings, a charge, meteor circles and summoning. He gets faster below half health.
-- **15 blessings** (upgrades) such as multishot, piercing, fire, frost, critical hits, a hit-blocking Bone Ward and healing on kills.
 - **Elite skeletons:** golden, bigger and tougher versions that drop extra coins, more common on deeper floors.
 - **Endless descent:** beat the king and carry your blessings down to the next floor, where skeletons are tougher.
 - **Coins and the Armory:** skeletons drop gold you keep between runs. Spend it on permanent upgrades (health, damage, attack speed, move speed, luckier hearts, a free blessing each run, and a once-per-run Second Wind).
@@ -25,6 +24,7 @@ and face the Skeleton King at the end of the floor.
 - **Run report:** the end screen has a COPY RUN REPORT button. It copies the hero, damage taken from each enemy, blessings, room times and frame rate, to paste to Claude for balancing.
 - **Grave Dash:** dash through a red enemy shot just before it hits for a PERFECT dodge: time slows, nearby shots shatter, the dash recharges and your hero fires a ring of 8 bolts back. Dash across a spike trap while it's armed and it fires on the skeletons around it instead.
 - **Bone Chain:** kills close together build a multiplier (+0.1 per kill, +0.3 for elites, up to x3). It multiplies coins, boosts damage (up to x2), and drains away 2.5 s after your last kill.
+- **Blessings:** 21 blessings in four families (Bolt, Flame, Frost, Bone), each with an icon and a rarity (common, rare, epic). Some only appear once you own the blessing they build on (Kindling and Pyre need Fire Bolts). Owning both halves of a synergy brings its gold card: Shatter (Fire + Frost), Bone Storm (Fan + Pierce) and Ossuary (Ward + Vitality). One free reroll per run.
 - **Waves:** normal rooms come in 2–3 waves (the next one arrives when only a few skeletons are left). After the last kill the blessing cards show at once, and picking one goes straight to the next room.
 - **Readable danger:** the camera sits close and follows the hero, red arrows on the screen edge point at enemies and warnings just off-screen, every enemy shot is hot pink-red with a dark ring and a pulse, and your own shots are small and see-through.
 - **Healing hearts** that skeletons sometimes drop and a beginner hint in room 1.

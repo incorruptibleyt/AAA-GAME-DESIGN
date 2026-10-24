@@ -5,6 +5,7 @@ extends CanvasLayer
 ## Laid out for a portrait phone.
 
 signal card_picked(index: int)
+signal reroll_pressed
 signal screen_tapped
 signal pause_pressed
 signal play_pressed
@@ -48,6 +49,7 @@ var _stick_origin := Vector2.ZERO
 
 var _cards_box: Control
 var _cards: Array[Button] = []
+var _reroll_button: Button
 var _title_box: Control
 var _title_best: Label
 var _end_box: Control
@@ -460,17 +462,37 @@ func _build_cards() -> void:
 		b.add_theme_stylebox_override("hover", normal)
 		b.add_theme_stylebox_override("pressed", pressed)
 		var t := label("", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		t.position = Vector2(28, 14)
-		t.size = Vector2(440, 40)
+		t.position = Vector2(96, 12)
+		t.size = Vector2(250, 40)
+		t.autowrap_mode = TextServer.AUTOWRAP_OFF
 		b.add_child(t)
 		var d := label("", 18, Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
-		d.position = Vector2(28, 58)
-		d.size = Vector2(440, 50)
+		d.position = Vector2(96, 54)
+		d.size = Vector2(370, 56)
 		b.add_child(d)
+		var icon := BlessingIcon.new()
+		icon.position = Vector2(22, 28)
+		b.add_child(icon)
+		var r := label("", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+		r.anchor_left = 1.0
+		r.anchor_right = 1.0
+		r.offset_left = -130
+		r.offset_right = -14
+		r.offset_top = 10
+		r.offset_bottom = 30
+		r.autowrap_mode = TextServer.AUTOWRAP_OFF
+		b.add_child(r)
 		var idx := i
 		b.pressed.connect(func(): _on_card(idx))
 		col.add_child(b)
 		_cards.append(b)
+	_reroll_button = button("Reroll", 22)
+	_reroll_button.custom_minimum_size = Vector2(220, 60)
+	_reroll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_reroll_button.pressed.connect(func():
+		if _cards_age >= 0.45:
+			reroll_pressed.emit())
+	col.add_child(_reroll_button)
 
 
 func _build_title() -> void:
@@ -696,9 +718,9 @@ func _process(delta: float) -> void:
 	var chained := Game.chain > 1.01 and Game.state == Game.State.PLAYING
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, 1.0 if chained else 0.0, delta * (8.0 if chained else 3.0))
 	if chained:
-		_chain_fill.size.x = 150.0 * clampf(Game._combo_left / Game.CHAIN_TIME, 0.0, 1.0)
+		_chain_fill.size.x = 150.0 * clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0)
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)
-	var pulse := 1.0 + _chain_pop * 0.5 + (0.04 * sin(Time.get_ticks_msec() * 0.012) if Game.chain >= Game.CHAIN_MAX else 0.0)
+	var pulse := 1.0 + _chain_pop * 0.5 + (0.04 * sin(Time.get_ticks_msec() * 0.012) if Game.chain >= Game.chain_max() else 0.0)
 	_chain_label.scale = Vector2(pulse, pulse)
 	if _callout_time > 0.0:
 		_callout_time -= delta
@@ -769,10 +791,10 @@ func show_chain(mult: float) -> void:
 	if mult <= 1.01:
 		return
 	_chain_label.text = "CHAIN x%.1f" % mult
-	var col := Color(1, 0.85, 0.4) if mult < 2.0 else (Color(1, 0.55, 0.2) if mult < Game.CHAIN_MAX else Color(1, 0.97, 0.85))
+	var col := Color(1, 0.85, 0.4) if mult < 2.0 else (Color(1, 0.55, 0.2) if mult < Game.chain_max() else Color(1, 0.97, 0.85))
 	_chain_label.label_settings.font_color = col
 	_chain_fill.color = col
-	_chain_pop = 0.35 if mult < Game.CHAIN_MAX else 0.6
+	_chain_pop = 0.35 if mult < Game.chain_max() else 0.6
 
 
 ## A short punchy word over the action, like "PERFECT!".
@@ -813,19 +835,32 @@ func show_hud(v: bool) -> void:
 	_safe.visible = v
 
 
-func show_cards(choices: Array) -> void:
+## Each card shows the family icon, the title in the family colour, and the rarity
+## as a tag and border colour. `rerolls` is how many free rerolls are left.
+func show_cards(choices: Array, rerolls := 0) -> void:
 	for i in _cards.size():
 		var b := _cards[i]
 		b.visible = i < choices.size()
 		if not b.visible:
 			continue
 		var u: Dictionary = choices[i]
+		var rar: Dictionary = Upgrades.RARITIES[u.rarity]
 		var labels := b.get_children()
 		(labels[0] as Label).text = u.title
-		(labels[0] as Label).label_settings.font_color = u.color
+		(labels[0] as Label).label_settings.font_color = Upgrades.color(u)
 		(labels[1] as Label).text = u.text
-		var sb := b.get_theme_stylebox("normal") as StyleBoxFlat
-		sb.border_color = u.color
+		(labels[2] as BlessingIcon).show_for(u)
+		(labels[3] as Label).text = "%s · %s" % [Upgrades.FAMILIES[u.family].name.to_upper(), rar.name]
+		(labels[3] as Label).label_settings.font_color = rar.color
+		for sb_name in ["normal", "pressed"]:
+			var sb := b.get_theme_stylebox(sb_name) as StyleBoxFlat
+			sb.border_color = rar.color
+			var edge := 0 if u.rarity == "common" else (2 if u.rarity == "rare" else 3)
+			sb.border_width_top = edge
+			sb.border_width_right = edge
+			sb.border_width_bottom = edge
+	_reroll_button.visible = rerolls > 0
+	_reroll_button.text = "Reroll (%d left)" % rerolls
 	_cards_box.visible = true
 	_cards_age = 0.0
 

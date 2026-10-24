@@ -83,6 +83,34 @@ func make_elite() -> void:
 		_bar = HealthBar.attach(self)
 
 
+## Pyre and Shatter: burning or chilled skeletons take their neighbours with them.
+func _death_burst(h: Hero) -> void:
+	var burning := get_node_or_null("Burning") != null
+	var pyre := burning and h.perks.has("pyre")
+	var shatter := _slow_left > 0.0 and h.perks.has("shatter")
+	if not pyre and not shatter:
+		return
+	var at := global_position
+	var col := Color(1, 0.5, 0.15) if pyre else Color(0.6, 0.92, 1.0)
+	Fx.shockwave(at, col, 2.4)
+	Fx.magic(center(), col, 18)
+	Sfx.play("boom" if pyre else "crack", 0.5)
+	for a: Actor in Actor.all.duplicate():
+		if a == self or a.team != Team.UNDEAD or not a.can_be_hit():
+			continue
+		var d := a.global_position - at
+		d.y = 0.0
+		if d.length() > 2.4 + a.radius:
+			continue
+		a.take_damage(15.0 + h.damage * 0.8, d, 3.0)
+		if a.dead:
+			continue
+		if pyre:
+			Burning.apply(a, h.burn_dps, 2.5)
+		if shatter and a is Enemy:
+			(a as Enemy).chill(h.frost_time)
+
+
 ## Frost Bolts: walk slower for a moment.
 func chill(seconds: float) -> void:
 	if _slow_left <= 0.0:
@@ -191,6 +219,8 @@ func track(t: Telegraph) -> Telegraph:
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():
 		return
+	if _slow_left > 0.0 and Game.hero and Game.hero.perks.has("deepfreeze"):
+		amount *= 1.3
 	super.take_damage(amount, direction, push * knockback_scale, crit)
 	if _bar:
 		_bar.reveal()
@@ -210,6 +240,7 @@ func _on_death() -> void:
 		_bar.queue_free()
 	if Game.hero:
 		Game.hero.on_kill()
+		_death_burst(Game.hero)
 	if randf() < drop_chance + (Game.heart_bonus if drop_chance > 0.0 else 0.0):
 		Pickup.drop(global_position)
 	var coins := coin_value()

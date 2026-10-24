@@ -28,6 +28,10 @@ var _ring_mat: StandardMaterial3D
 var second_wind := false
 ## Blessings that aren't plain numbers.
 var frost := false
+var frost_time := 1.5
+## Blessings taken this run, by id, for the ones that change rules rather than numbers.
+var perks := {}
+var _volleys := 0
 var magnet := 1.0
 var coin_bonus := 0.0
 ## Bone Ward: hits blocked per room, and how many are left in this room.
@@ -254,6 +258,14 @@ func _shoot(fwd: Vector3) -> void:
 		_fire(origin, fwd.rotated(Vector3.UP, -angle), col)
 	for i in rear_bolts:
 		_fire(global_position + Vector3.UP * 1.1 - fwd * 0.6, -fwd, col)
+	# Bone Storm: every third volley also throws a ring of piercing bone shards.
+	_volleys += 1
+	if perks.has("bonestorm") and _volleys % 3 == 0:
+		for i in 10:
+			var d := fwd.rotated(Vector3.UP, TAU * (i + 0.5) / 10.0)
+			var p := Projectile.fire(Team.HERO, origin - fwd * 0.6 + d * 0.5, d, damage * 0.7 * Game.chain_damage(), bolt_speed * 0.85, Color(0.95, 0.92, 0.8), bolt_size * 0.9)
+			p.pierce = 2
+			p.push = bolt_push * 0.5
 
 
 func _fire(origin: Vector3, d: Vector3, col: Color) -> void:

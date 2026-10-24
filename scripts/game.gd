@@ -33,6 +33,7 @@ var _shake := 0.0
 var _run: Array = []
 var _room_index := 0
 var _taken := {}
+var rerolls := 1
 var _kills := 0
 var _run_time := 0.0
 var _state_time := 0.0
@@ -43,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24b"
+const BUILD := "2026-10-24c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -56,8 +57,13 @@ var _combo := 0
 ## Bone Chain: kills close together grow a multiplier on damage and coins.
 ## +0.1 per kill (+0.3 for elites), up to x3, gone after 2.5 s without a kill.
 var chain := 1.0
-const CHAIN_MAX := 3.0
-const CHAIN_TIME := 2.5
+
+func chain_max() -> float:
+	return 4.0 if hero and hero.perks.has("marrow") else 3.0
+
+
+func chain_time() -> float:
+	return 3.5 if hero and hero.perks.has("links") else 2.5
 
 
 ## Damage gets half the chain's bonus (x2 at the cap) so a long chain doesn't trivialise rooms.
@@ -96,6 +102,7 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.card_picked.connect(_on_card_picked)
+	hud.reroll_pressed.connect(_on_reroll)
 	hud.screen_tapped.connect(_on_screen_tapped)
 	hud.pause_pressed.connect(_on_pause_pressed)
 	hud.play_pressed.connect(_on_play_pressed)
@@ -483,9 +490,9 @@ func run_report(result: String) -> String:
 	lines.append("Healed %d | Dashes %d | Perfect dodges %d | Best chain x%.1f | Ward blocks %d | Second Wind used %d" % [roundi(_rep.get("healed", 0.0)), _rep.get("dash", 0), _rep.get("perfect", 0), _rep.get("best_chain", 1.0), _rep.get("ward", 0), _rep.get("second_wind", 0)])
 	var bl := []
 	for id in _taken:
-		for u in Upgrades.LIST:
-			if u.id == id:
-				bl.append(u.title + ("" if _taken[id] == 1 else " x%d" % _taken[id]))
+		var u := Upgrades.get_def(id)
+		if not u.is_empty():
+			bl.append(u.title + ("" if _taken[id] == 1 else " x%d" % _taken[id]))
 	lines.append("Blessings: " + (", ".join(bl) if bl else "none"))
 	var arm := []
 	for u in Armory.LIST:
@@ -508,6 +515,7 @@ func _reset_run_stats() -> void:
 	chain = 1.0
 	floor_num = 1
 	_taken.clear()
+	rerolls = 1
 
 
 ## Gives the hero everything bought in the Armory. Called once at the start of each run.
@@ -617,7 +625,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if not _start_blessing.is_empty():
 		var u := _start_blessing
 		_start_blessing = {}
-		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner("Blessed: " + u.title, u.color))
+		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner("Blessed: " + u.title, Upgrades.color(u)))
 	_wave_kinds.clear()
 	for s in room.spawns:
 		var kind: String = s.kind
@@ -693,8 +701,14 @@ func on_enemy_died(e: Enemy) -> void:
 		_combo = 0
 		chain = 1.0
 	_combo += 1
-	_combo_left = CHAIN_TIME
-	chain = minf(CHAIN_MAX, chain + (0.3 if e.elite else 0.1))
+	_combo_left = chain_time()
+	var before := chain
+	chain = minf(chain_max(), chain + (0.3 if e.elite else 0.1))
+	# Ossuary: hitting Chain x2 recharges a Bone Ward.
+	if before < 2.0 and chain >= 2.0 and hero and hero.perks.has("ossuary") and hero.ward < hero.ward_max:
+		hero.ward += 1
+		Fx.magic(hero.center(), Color(0.8, 0.9, 1.0), 20)
+		hud.callout("WARD!", Color(0.85, 0.92, 1.0))
 	hud.show_chain(chain)
 	if not _rep.is_empty():
 		_rep.best_combo = maxi(_rep.best_combo, _combo)
@@ -775,7 +789,17 @@ func _room_cleared() -> void:
 	_set_state(State.UPGRADE)
 	get_tree().paused = true
 	hud.clear_banner()
-	hud.show_cards(_choices)
+	hud.show_cards(_choices, rerolls)
+
+
+## One free reroll per run swaps all three cards.
+func _on_reroll() -> void:
+	if state != State.UPGRADE or rerolls <= 0:
+		return
+	rerolls -= 1
+	_choices = Upgrades.roll(_taken)
+	Sfx.play("click")
+	hud.show_cards(_choices, rerolls)
 
 
 func _on_card_picked(i: int) -> void:
@@ -787,8 +811,8 @@ func _on_card_picked(i: int) -> void:
 	get_tree().paused = false
 	_set_state(State.PLAYING)
 	Sfx.play("upgrade")
-	Fx.magic(hero.center(), u.color, 30)
-	hud.banner(u.title, u.color)
+	Fx.magic(hero.center(), Upgrades.color(u), 30)
+	hud.banner(u.title, Upgrades.color(u))
 	# No walk to the door: anything left on the floor is picked up and the next room starts.
 	Pickup.grant_all()
 	_save_coins()

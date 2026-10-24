@@ -130,7 +130,7 @@ func _process(delta: float) -> void:
 		if burn_dps > 0.0 and not a.dead:
 			Burning.apply(a, burn_dps, 2.5)
 		if frost and not a.dead and a is Enemy:
-			(a as Enemy).chill(1.5)
+			(a as Enemy).chill(Game.hero.frost_time if Game.hero else 1.5)
 		if splash > 0.0:
 			_explode(next, target, a)
 		if owner_team == Actor.Team.HERO:
