@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24e"
+const BUILD := "2026-10-24f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -587,7 +587,7 @@ func _descend() -> void:
 	hero.heal(hero.max_health * 0.5)
 	_build_run()
 	_load_room(0, true)
-	hud.banner("Floor %d" % floor_num, Color(1, 0.7, 0.4))
+	hud.banner("Floor %d: %s" % [floor_num, Floors.current().name], Floors.current().banner)
 	await _fade(1.0, 0.0, 0.5)
 
 
@@ -610,7 +610,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	alive_enemies = 0
 	boss = null
 	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
-	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14)
+	var look := Floors.current()
+	_env.ambient_light_color = look.ambient
+	_env.fog_light_color = look.fog
+	_env.background_color = look.background
+	_moon.light_color = look.moon
+	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14, look.motes, look.motes_fall)
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start(), Heroes.selected(_load_save()))
 	hero.place_at(room.player_start())

@@ -96,18 +96,20 @@ static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
 
 
 ## Slowly drifting embers and dust in the air of a room.
-static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36) -> CPUParticles3D:
+## Drifting motes that give each floor its mood: embers rise, frost flakes fall.
+static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36,
+		colors: Array = [Color(1.0, 0.55, 0.2, 0.9), Color(0.7, 0.6, 1.0, 0.35)], fall := false) -> CPUParticles3D:
 	_burst_material()
 	var p := CPUParticles3D.new()
 	p.mesh = _quad
 	p.amount = amount
 	p.lifetime = 7.0
 	p.preprocess = 7.0
-	p.direction = Vector3.UP
+	p.direction = Vector3.DOWN if fall else Vector3.UP
 	p.spread = 25.0
 	p.initial_velocity_min = 0.15
 	p.initial_velocity_max = 0.45
-	p.gravity = Vector3(0.05, 0.02, 0)
+	p.gravity = Vector3(0.12, -0.15, 0.05) if fall else Vector3(0.05, 0.02, 0)
 	p.scale_amount_min = 0.04
 	p.scale_amount_max = 0.11
 	var curve := Curve.new()
@@ -117,12 +119,12 @@ static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36)
 	curve.add_point(Vector2(1, 0))
 	p.scale_amount_curve = curve
 	var g := Gradient.new()
-	g.set_color(0, Color(1.0, 0.55, 0.2, 0.9))
-	g.set_color(1, Color(0.7, 0.6, 1.0, 0.35))
+	g.set_color(0, colors[0])
+	g.set_color(1, colors[1])
 	p.color_initial_ramp = g
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 	p.emission_box_extents = Vector3(half_w, 1.2, half_l)
-	p.position = Vector3(0, 1.4, 0)
+	p.position = Vector3(0, 2.6 if fall else 1.4, 0)
 	parent.add_child(p)
 	return p
 

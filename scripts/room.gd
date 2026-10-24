@@ -48,13 +48,15 @@ func player_start() -> Vector3:
 # ---------------------------------------------------------------- building
 
 func _build_shell() -> void:
-	var wall := U.mat(Color(0.15, 0.14, 0.19), 0.95)
-	var trim := U.mat(Color(0.27, 0.25, 0.31), 0.85)
+	var look := Floors.current()
+	var wall := U.mat(look.wall, 0.95)
+	var trim := U.mat(look.trim, 0.85)
 	var dark := U.mat(Color(0.02, 0.02, 0.04), 1.0)
 
 	# Floor: textured flagstones, plus a dark surround so the room edges read clearly.
 	var floor_mat := StandardMaterial3D.new()
 	floor_mat.albedo_texture = U.stone()
+	floor_mat.albedo_color = look.floor
 	floor_mat.roughness = 0.75
 	floor_mat.uv1_scale = Vector3(3, 5, 1)
 	floor_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
@@ -88,7 +90,7 @@ func apply_graphics(high: bool) -> void:
 		var keep := high or i == 2 or i == 3
 		_torch_lights[i].visible = keep
 		_torch_lights[i].omni_range = 7.0 if high else 11.0
-		_torch_lights[i].light_energy = 1.4 if high else 1.7
+		_torch_lights[i].light_energy = Floors.current().torch_energy * (1.0 if high else 1.2)
 
 
 func _build_door(trim: Material, dark: Material) -> void:
@@ -134,7 +136,7 @@ func _add_torch(pos: Vector3, facing: float) -> void:
 		flame.scale = Vector3(1, 1.5, 1)
 		flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var light := Flicker.new()
-	light.light_color = Color(1.0, 0.62, 0.3)
+	light.light_color = Floors.current().torch
 	light.omni_range = 7.0
 	light.light_energy = 1.4
 	light.position = Vector3(0.8 * facing, 0.4, 0)
