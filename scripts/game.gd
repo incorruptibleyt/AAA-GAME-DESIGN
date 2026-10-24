@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24i"
+const BUILD := "2026-10-24j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -75,6 +75,62 @@ func chain_damage() -> float:
 func chain_coins() -> float:
 	return 1.0 + (chain - 1.0) * 0.25
 var _combo_left := 0.0
+
+## Run score: every kill is worth points times the full Bone Chain.
+var score := 0
+const KILL_POINTS := 10
+const ELITE_POINTS := 30
+const BOSS_POINTS := 500
+
+
+## First run: each room adds one system (FTUE = first-time user experience).
+## Room 1 just move and shoot, 2 dash, 3 the Bone Chain, 4 the special, 5 synergies, 6 boss.
+var first_run := false
+var _tutorial_requested := false
+
+
+## True until the first run has ended. Older saves that already got somewhere count as done.
+func first_run_pending() -> bool:
+	var cfg := _load_save()
+	if bool(cfg.get_value("stats", "first_run_done", false)):
+		return false
+	return int(cfg.get_value("stats", "best_room", 0)) == 0 and int(cfg.get_value("stats", "wins", 0)) == 0
+
+
+## Which room of the first run this is (1-6), or 99 outside the first run.
+func ftue_room() -> int:
+	return _room_index + 1 if first_run and floor_num == 1 else 99
+
+
+func dash_unlocked() -> bool:
+	return ftue_room() >= 2
+
+
+func chain_unlocked() -> bool:
+	return ftue_room() >= 3
+
+
+func special_unlocked() -> bool:
+	return ftue_room() >= 4
+
+
+func _finish_first_run() -> void:
+	if not first_run:
+		return
+	var cfg := _load_save()
+	cfg.set_value("stats", "first_run_done", true)
+	cfg.save(SAVE_PATH)
+
+
+## Ends the chain. The spine shatters on screen if it had got anywhere.
+func _break_chain() -> void:
+	var was := chain
+	_combo = 0
+	chain = 1.0
+	if was > 1.01:
+		hud.chain_broken(was)
+		if was >= 2.0:
+			Sfx.play("crack", 0.6)
 ## Camera close-ups: finishing blows and the boss entrance.
 var _zoom := 0.0
 var _zoom_hold := 0.0
@@ -113,6 +169,10 @@ func _ready() -> void:
 	hud.screen_tapped.connect(_on_screen_tapped)
 	hud.pause_pressed.connect(_on_pause_pressed)
 	hud.play_pressed.connect(_on_play_pressed)
+	hud.tutorial_pressed.connect(func():
+		if state == State.TITLE:
+			_tutorial_requested = true
+			_on_play_pressed())
 	hud.armory_pressed.connect(_open_armory)
 	hud.armory_buy.connect(_buy_upgrade)
 	hud.heroes_pressed.connect(_open_heroes)
@@ -197,9 +257,7 @@ func _process(delta: float) -> void:
 		if _combo_left > 0.0:
 			_combo_left -= delta
 			if _combo_left <= 0.0:
-				_combo = 0
-				chain = 1.0
-				hud.show_chain(chain)
+				_break_chain()
 	if _hit_stop_left > 0.0:
 		_hit_stop_left -= delta / maxf(Engine.time_scale, 0.01)
 		if _hit_stop_left <= 0.0:
@@ -387,6 +445,16 @@ func perfect_dodge(pos: Vector3) -> void:
 	Sfx.play("crack", 0.9)
 	shake(0.2)
 	report_event("perfect")
+	# A perfect dodge feeds the chain and resets its timer.
+	if chain_unlocked():
+		var before := chain
+		chain = minf(chain_max(), chain + 0.5)
+		_combo_left = chain_time()
+		hud.show_chain(chain)
+		if before < chain_max() and chain >= chain_max():
+			Sfx.play("vo_combo", 0.8)
+		if not _rep.is_empty():
+			_rep.best_chain = maxf(_rep.best_chain, chain)
 	var cfg := _load_save()
 	_perfect_total = int(cfg.get_value("stats", "perfect_total", 0)) + 1
 	cfg.set_value("stats", "perfect_total", _perfect_total)
@@ -418,7 +486,7 @@ func _update_dash_lesson(real_delta: float) -> void:
 		if _lesson_left <= 0.0 or state != State.PLAYING or hero == null or hero.is_dashing():
 			_end_dash_lesson()
 		return
-	if state != State.PLAYING or hero == null or not hero.dash_ready() or _lessons_this_run >= 2 or _hit_stop_left > 0.0:
+	if state != State.PLAYING or hero == null or not hero.dash_ready() or _lessons_this_run >= 2 or _hit_stop_left > 0.0 or not dash_unlocked():
 		return
 	if _perfect_total < 0:
 		_perfect_total = int(_load_save().get_value("stats", "perfect_total", 0))
@@ -494,6 +562,8 @@ func _on_play_pressed() -> void:
 
 
 func _start_run() -> void:
+	first_run = first_run_pending() or _tutorial_requested
+	_tutorial_requested = false
 	hud.show_title(false)
 	hud.show_armory(false)
 	hud.show_hud(true)
@@ -538,6 +608,7 @@ func run_report(result: String) -> String:
 	var lines := []
 	lines.append("Bone Chain run report (build %s)" % BUILD)
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
+	lines.append("Score %d | First run %s" % [score, "yes" if first_run else "no"])
 	lines.append("Kills %d | Coins +%d | Best combo x%d | Health %d/%d" % [_kills, run_coins, _rep.get("best_combo", 0),
 		ceili(hero.health) if hero else 0, roundi(hero.max_health) if hero else 0])
 	var dmg: Dictionary = _rep.get("damage", {})
@@ -577,6 +648,8 @@ func _reset_run_stats() -> void:
 	run_coins = 0
 	_combo = 0
 	chain = 1.0
+	score = 0
+	hud.show_chain(1.0)
 	_lessons_this_run = 0
 	floor_num = 1
 	_taken.clear()
@@ -606,6 +679,7 @@ func _restart() -> void:
 		hero = null
 	_build_run()
 	_reset_run_stats()
+	first_run = false
 	hud.show_hud(true)
 	_load_room(0, false)
 	_apply_armory()
@@ -690,7 +764,11 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_rep.room_start = _run_time
 	if not _in_boss_room():
 		hud.banner("Room %d" % (index + 1))
-	hud.show_hint("Drag to move  ·  Let go to shoot\nFlick your thumb to dash" if floor_num == 1 and index == 0 else "")
+	if first_run:
+		hud.show_hint("Drag to move  ·  Let go to shoot" if index == 0 else "")
+		_ftue_room_intro()
+	else:
+		hud.show_hint("Drag to move  ·  Let go to shoot\nFlick your thumb to dash" if floor_num == 1 and index == 0 else "")
 	Music.play("boss" if _in_boss_room() else "dungeon")
 	if not _start_blessing.is_empty():
 		var u := _start_blessing
@@ -719,6 +797,20 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_set_state(State.PLAYING)
 	if alive_enemies == 0:
 		room.open_door()
+
+
+## The one new thing each first-run room teaches.
+func _ftue_room_intro() -> void:
+	match ftue_room():
+		2: hud.tip("New: DASH. Flick your thumb, or tap DASH,\nto dodge right through arrows", 6.0)
+		3:
+			hud.tip("Kill fast. Your chain grows.", 6.0)
+			Sfx.play("upgrade", 0.5)
+		4:
+			hero.special_charge = 1.0
+			hud.tip("Your special is ready. Tap to unleash!", 999.0)
+		5: hud.tip("Two matching blessings make a gold SYNERGY card", 5.0)
+		_: hud.tip("", 0.0)
 
 
 ## The camera swings to the boss, which roars, and its name slams onto the screen.
@@ -774,7 +866,9 @@ func on_enemy_died(e: Enemy) -> void:
 	_combo += 1
 	_combo_left = chain_time()
 	var before := chain
-	chain = minf(chain_max(), chain + (0.3 if e.elite else 0.1))
+	if chain_unlocked():
+		chain = minf(chain_max(), chain + (0.3 if e.elite else 0.1))
+	score += roundi((BOSS_POINTS if e == boss else (ELITE_POINTS if e.elite else KILL_POINTS)) * chain)
 	# Ossuary: hitting Chain x2 recharges a Bone Ward.
 	if before < 2.0 and chain >= 2.0 and hero and hero.perks.has("ossuary") and hero.ward < hero.ward_max:
 		hero.ward += 1
@@ -813,6 +907,9 @@ func _next_wave() -> void:
 	kinds.shuffle()
 	# Later waves bring one extra skeleton.
 	kinds.append(kinds[0])
+	# First run, room 2: there's always an archer, so the dash lesson has arrows to teach with.
+	if ftue_room() == 2 and not kinds.has("a"):
+		kinds[0] = "a"
 	var spots := _wave_spots(kinds.size())
 	for p in spots:
 		Fx.dust(p, 10)
@@ -855,7 +952,8 @@ func _room_cleared() -> void:
 	await get_tree().create_timer(0.75, true, false, true).timeout
 	if state != State.PLAYING:
 		return
-	_choices = Upgrades.roll(_taken)
+	var step := ftue_room()
+	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 3, step == 4)
 	if _choices.is_empty():
 		Pickup.grant_all()
 		_save_coins()
@@ -864,17 +962,17 @@ func _room_cleared() -> void:
 	_set_state(State.UPGRADE)
 	get_tree().paused = true
 	hud.clear_banner()
-	hud.show_cards(_choices, rerolls)
+	hud.show_cards(_choices, rerolls if step >= 3 else 0, step >= 2)
 
 
 ## One free reroll per run swaps all three cards.
 func _on_reroll() -> void:
-	if state != State.UPGRADE or rerolls <= 0:
+	if state != State.UPGRADE or rerolls <= 0 or ftue_room() < 3:
 		return
 	rerolls -= 1
 	_choices = Upgrades.roll(_taken)
 	Sfx.play("click")
-	hud.show_cards(_choices, rerolls)
+	hud.show_cards(_choices, rerolls, true)
 
 
 func _on_card_picked(i: int) -> void:
@@ -921,10 +1019,14 @@ func _win() -> void:
 	Sfx.play("vo_win", 0.8)
 	var cfg := _load_save()
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
+	var best := _save_score(cfg)
 	_save_best(cfg, _run.size())
+	var was_first := first_run
+	_finish_first_run()
 	Music.play("dungeon")
-	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins],
-		"Tap to descend to floor %d" % (floor_num + 1))
+	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins,
+		"\n\nHeroes and the Armory are open!" if was_first else ""],
+		"Tap to descend to floor %d" % (floor_num + 1), false, score, best)
 	_state_time = 0.0
 	_last_report = run_report("Beat floor %d" % floor_num)
 	print("[report]\n" + _last_report)
@@ -937,12 +1039,17 @@ func on_hero_died() -> void:
 	_save_coins()
 	Sfx.play("vo_lose", 0.8)
 	await get_tree().create_timer(1.4, true, false, true).timeout
-	_save_best(_load_save(), _room_index + 1)
+	var cfg := _load_save()
+	var best := _save_score(cfg)
+	_save_best(cfg, _room_index + 1)
+	var was_first := first_run
+	_finish_first_run()
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
 	if floor_num > 1:
 		where += " on floor %d" % floor_num
-	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\nCoins kept  %d  (spend them in the Armory)" % [where, _format_time(_run_time), _kills, run_coins],
-		"", true)
+	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d  (spend them in the Armory)" % run_coins
+	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
+		"", true, score, best)
 	_state_time = 0.0
 	_last_report = run_report("Died on floor %d, %s" % [floor_num, "boss room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]])
 	print("[report]\n" + _last_report)
@@ -1121,6 +1228,14 @@ func _buy_upgrade(id: String) -> void:
 		return
 
 
+## Saves the best score and returns the best from before this run.
+func _save_score(cfg: ConfigFile) -> int:
+	var best := int(cfg.get_value("stats", "best_score", 0))
+	if score > best:
+		cfg.set_value("stats", "best_score", score)
+	return best
+
+
 func _save_best(cfg: ConfigFile, room_reached: int) -> void:
 	if floor_num > int(cfg.get_value("stats", "best_floor", 1)):
 		cfg.set_value("stats", "best_floor", floor_num)
@@ -1134,6 +1249,9 @@ func _best_text() -> String:
 	var wins := int(cfg.get_value("stats", "wins", 0))
 	var best := int(cfg.get_value("stats", "best_room", 0))
 	var deepest := int(cfg.get_value("stats", "best_floor", 1))
+	var top := int(cfg.get_value("stats", "best_score", 0))
+	if top > 0:
+		return "Best score %s  ·  Deepest floor %d" % [Hud.thousands(top), deepest]
 	if wins > 0:
 		return "Bosses defeated: %d  ·  Deepest floor: %d" % [wins, deepest]
 	if best > 0:

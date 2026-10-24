@@ -16,7 +16,7 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	visible = Game.hero != null and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE]
+	visible = Game.hero != null and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE] and Game.dash_unlocked()
 	if visible:
 		queue_redraw()
 

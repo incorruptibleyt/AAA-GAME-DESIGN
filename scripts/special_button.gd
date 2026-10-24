@@ -17,7 +17,7 @@ func _ready() -> void:
 
 func _process(_delta: float) -> void:
 	var h := Game.hero
-	visible = h != null and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE]
+	visible = h != null and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE] and Game.special_unlocked()
 	if visible:
 		_label.text = Heroes.get_hero(h.hero_id).special
 		_label.modulate.a = 1.0 if h.special_ready() else 0.6

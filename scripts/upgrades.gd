@@ -95,7 +95,8 @@ static func apply(id: String, h: Hero) -> void:
 
 ## Pick up to `count` different blessings the hero can still take. Rarer cards are
 ## less likely, and a synergy the hero has just unlocked always takes the first slot.
-static func roll(taken: Dictionary, count := 3) -> Array:
+## `finish_synergy` (first run) also offers the missing half of a synergy you half own.
+static func roll(taken: Dictionary, count := 3, finish_synergy := false) -> Array:
 	var out := []
 	for s in SYNERGIES:
 		if not taken.has(s.id) and taken.has(s.parts[0]) and taken.has(s.parts[1]):
@@ -105,6 +106,15 @@ static func roll(taken: Dictionary, count := 3) -> Array:
 	for u in LIST:
 		if taken.get(u.id, 0) < u.max and (not u.has("needs") or taken.has(u.needs)):
 			pool.append(u)
+	if finish_synergy and out.is_empty():
+		for s in SYNERGIES:
+			var half: Array = s.parts.filter(func(id): return not taken.has(id))
+			if half.size() == 1:
+				var u := get_def(half[0])
+				if pool.has(u):
+					out.append(u)
+					pool.erase(u)
+					break
 	while out.size() < count and not pool.is_empty():
 		var total := 0
 		for u in pool:
@@ -116,4 +126,13 @@ static func roll(taken: Dictionary, count := 3) -> Array:
 				out.append(u)
 				pool.erase(u)
 				break
+	return out
+
+
+## The very first pick: three plain common cards, one of them Vitality (half of Ossuary).
+static func roll_commons(taken: Dictionary) -> Array:
+	var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and taken.get(u.id, 0) < u.max and u.id != "vitality")
+	pool.shuffle()
+	var out := [get_def("vitality")] + pool.slice(0, 2)
+	out.shuffle()
 	return out

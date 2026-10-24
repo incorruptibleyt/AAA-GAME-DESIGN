@@ -188,6 +188,7 @@ func use_special() -> void:
 		return
 	special_charge = 0.0
 	Game.report_event("special")
+	Game.hud.tip("", 0.0)
 	Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.3))
 	Game.shake(0.25)
 	match hero_id:
@@ -202,7 +203,7 @@ func use_special() -> void:
 func _special_hit(a: Actor, amount: float, from: Vector3, push: float) -> void:
 	var d := a.global_position - from
 	d.y = 0.0
-	a.take_damage(amount * Game.chain_damage(), d, push)
+	a.take_damage(amount * Game.chain, d, push)   # specials get the full chain
 
 
 func _shadow_volley() -> void:
@@ -213,7 +214,7 @@ func _shadow_volley() -> void:
 			Sfx.play("shoot", 0.9)
 			for i in 12:
 				var d := Vector3.FORWARD.rotated(Vector3.UP, TAU * (i + wave * 0.33) / 12.0)
-				var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.4 * Game.chain_damage(), bolt_speed, bolt_color.lerp(Color(0.6, 0.3, 1.0), 0.4), bolt_size)
+				var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.4 * Game.chain, bolt_speed, bolt_color.lerp(Color(0.6, 0.3, 1.0), 0.4), bolt_size)
 				p.pierce = pierce + 1
 				p.push = bolt_push)
 

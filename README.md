@@ -24,6 +24,9 @@ and face the Skeleton King at the end of the floor.
 - **Run report:** the end screen has a COPY RUN REPORT button. It copies the hero, damage taken from each enemy, blessings, room times and frame rate, to paste to Claude for balancing.
 - **Grave Dash:** dash through a red enemy shot just before it hits for a PERFECT dodge: time slows, nearby shots shatter, the dash recharges and your hero fires a ring of 8 bolts back. Until you've landed 3 perfect dodges, the game slows down right before a shot hits and shows "DASH THROUGH IT!" (twice per run at most). Dash across a spike trap while it's armed and it fires on the skeletons around it instead.
 - **Bone Chain:** kills close together build a multiplier (+0.1 per kill, +0.3 for elites, up to x3). It boosts coins and damage by +25% per full x1 (Marrow lets it climb to x4), and drains away 2.5 s after your last kill.
+  The spine across the top lights one vertebra per +0.5 (bone-white, then gold, then red-hot), and shatters when the chain breaks.
+- **Score:** every kill is worth points (10, elites 30, the boss 500) times the full chain. Specials also hit with the full chain, and a perfect dodge adds +0.5 and resets the timer. The best score is saved.
+- **First run:** each room teaches one thing: move and shoot, then dash, then the Bone Chain, then the special (which starts full), then a synergy card, then the boss. Heroes and the Armory open once the first run ends. "Tutorial run" on the title replays it.
 - **Special moves:** kills fill a ring on the star button (bottom right). When it's full, tap it: the Rogue fires three rings of bolts (Shadow Volley), the Knight stuns everything nearby (Shield Slam), the Barbarian spins and heals (Whirlwind), and the Mage drops five meteors (Meteor). Perfect dodges and elites charge it faster. Press E on a keyboard.
 - **Floor themes:** each floor has its own look, made from colours, lights and particles on the same models: the Bone Crypt (floor 1), the Frozen Ossuary (floor 2, blue torches and falling frost) and the Ember Catacomb (floor 3, red-hot embers), then round again. See [scripts/floors.gd](scripts/floors.gd).
 - **Blessings:** 21 blessings in four families (Bolt, Flame, Frost, Bone), each with an icon and a rarity (common, rare, epic). Some only appear once you own the blessing they build on (Kindling and Pyre need Fire Bolts). Owning both halves of a synergy brings its gold card: Shatter (Fire + Frost), Bone Storm (Fan + Pierce) and Ossuary (Ward + Vitality). One free reroll per run.
@@ -65,6 +68,7 @@ scripts/
   room.gd, layouts.gd room building and the text room layouts
   hero.gd, upgrades.gd
   armory.gd           permanent upgrades bought with coins
+  chain_spine.gd      the Bone Chain spine meter at the top
   heroes.gd           the playable heroes and their stats
   pickup.gd           hearts and coins
   music.gd            background music (tracks in audio/)

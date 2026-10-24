@@ -4,6 +4,7 @@ extends CanvasLayer
 ## room counter, boss bar, blessing cards, title and end screens, and fades.
 ## Laid out for a portrait phone.
 
+signal tutorial_pressed
 signal card_picked(index: int)
 signal reroll_pressed
 signal special_pressed
@@ -90,8 +91,23 @@ var _stick_start := Vector2.ZERO
 var _stick_age := 0.0
 var _chain_box: Control
 var _chain_label: Label
-var _chain_fill: ColorRect
 var _chain_pop := 0.0
+var _spine: ChainSpine
+var _score_label: Label
+var _broken_label: Label
+var _broken_time := 0.0
+var _tip: Label
+var _tip_time := 0.0
+var _shown_score := 0.0
+var _end_score: Label
+var _end_best: Label
+var _end_target := 0
+var _end_count := -1.0
+var _end_best_value := 0
+var _title_heroes: Control
+var _title_armory: Control
+var _title_lock: Label
+var _title_tutorial: Control
 var _callout: Label
 var _callout_time := 0.0
 var _boss_card: Control
@@ -345,39 +361,54 @@ func _build_hud() -> void:
 	_boss_fill = _bar(bar_holder, Color(0.75, 0.1, 0.12))
 	_boss_box.visible = false
 
-	# The kill combo counter, under the room label on the right.
-	# Bone Chain: a big multiplier at the top with a bar that drains until the next kill.
+	# Bone Chain: a spine of six vertebrae across the top, the multiplier under it, and
+	# the run score under that. The cord behind the bones drains until the next kill.
 	_chain_box = Control.new()
 	_chain_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_chain_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_chain_box.offset_left = -130
-	_chain_box.offset_right = 130
-	_chain_box.offset_top = 92
-	_chain_box.offset_bottom = 158
+	_chain_box.offset_left = -160
+	_chain_box.offset_right = 160
+	_chain_box.offset_top = 88
+	_chain_box.offset_bottom = 210
 	_chain_box.modulate.a = 0.0
 	root.add_child(_chain_box)
-	_chain_label = label("", 40, Color(1, 0.85, 0.4))
-	_chain_label.size = Vector2(260, 52)
-	_chain_label.pivot_offset = Vector2(130, 26)
+	_spine = ChainSpine.new()
+	_spine.position = Vector2(10, 0)
+	_spine.size = Vector2(300, 46)
+	_chain_box.add_child(_spine)
+	_chain_label = label("x1.0", 46, ChainSpine.BONE)
+	_chain_label.position = Vector2(0, 42)
+	_chain_label.size = Vector2(320, 54)
+	_chain_label.pivot_offset = Vector2(160, 27)
 	_chain_box.add_child(_chain_label)
-	var bar_bg := ColorRect.new()
-	bar_bg.color = Color(0, 0, 0, 0.55)
-	bar_bg.position = Vector2(55, 54)
-	bar_bg.size = Vector2(150, 7)
-	bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_chain_box.add_child(bar_bg)
-	_chain_fill = ColorRect.new()
-	_chain_fill.position = Vector2(55, 54)
-	_chain_fill.size = Vector2(150, 7)
-	_chain_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_chain_box.add_child(_chain_fill)
+	_score_label = label("", 18, Color(0.85, 0.82, 0.75))
+	_score_label.position = Vector2(0, 94)
+	_score_label.size = Vector2(320, 24)
+	_chain_box.add_child(_score_label)
+	_broken_label = label("", 30, Color(1, 0.35, 0.3))
+	_broken_label.position = Vector2(-40, 44)
+	_broken_label.size = Vector2(400, 44)
+	_broken_label.modulate.a = 0.0
+	_chain_box.add_child(_broken_label)
+
+	# First-run tips ("Kill fast. Your chain grows.") sit just under the chain meter.
+	_tip = label("", 22, Color(1, 0.95, 0.8))
+	_tip.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_tip.offset_left = -240
+	_tip.offset_right = 240
+	_tip.offset_top = 214
+	_tip.offset_bottom = 274
+	_tip.label_settings.outline_size = 6
+	_tip.label_settings.outline_color = Color(0, 0, 0, 0.85)
+	_tip.visible = false
+	root.add_child(_tip)
 
 	_callout = label("", 46, Color(0.6, 0.95, 1.0))
 	_callout.set_anchors_preset(Control.PRESET_CENTER)
 	_callout.offset_left = -220
 	_callout.offset_right = 220
-	_callout.offset_top = -330
-	_callout.offset_bottom = -270
+	_callout.offset_top = -250
+	_callout.offset_bottom = -190
 	_callout.modulate.a = 0.0
 	root.add_child(_callout)
 
@@ -541,10 +572,18 @@ func _build_title() -> void:
 	col.add_child(_centered(play))
 	var heroes := button("HEROES", 28)
 	heroes.pressed.connect(func(): heroes_pressed.emit())
-	col.add_child(_centered(heroes))
+	_title_heroes = _centered(heroes)
+	col.add_child(_title_heroes)
 	var armory := button("ARMORY", 28)
 	armory.pressed.connect(func(): armory_pressed.emit())
-	col.add_child(_centered(armory))
+	_title_armory = _centered(armory)
+	col.add_child(_title_armory)
+	_title_lock = label("Heroes and the Armory open\nafter your first run", 20, Color(0.7, 0.68, 0.62))
+	col.add_child(_title_lock)
+	var tutorial := button("Tutorial run", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	tutorial.pressed.connect(func(): tutorial_pressed.emit())
+	_title_tutorial = _centered(tutorial)
+	col.add_child(_title_tutorial)
 
 
 func _centered(c: Control) -> Control:
@@ -564,6 +603,10 @@ func _build_end() -> void:
 	_end_box.add_child(col)
 	_end_title = label("", 60)
 	col.add_child(_end_title)
+	_end_score = label("", 40, Color(1, 0.85, 0.45))
+	col.add_child(_end_score)
+	_end_best = label("", 20, Color(0.8, 0.78, 0.7))
+	col.add_child(_end_best)
 	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
 	col.add_child(_end_stats)
 	# Copies a detailed report of the run, to paste to Claude for balancing.
@@ -763,13 +806,27 @@ func _process(delta: float) -> void:
 	_stick_age += delta
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
-	var chained := Game.chain > 1.01 and Game.state == Game.State.PLAYING
-	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, 1.0 if chained else 0.0, delta * (8.0 if chained else 3.0))
-	if chained:
-		_chain_fill.size.x = 150.0 * clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0)
+	_chain_box.offset_top = 122.0 if _boss_box.visible else 88.0
+	_chain_box.offset_bottom = _chain_box.offset_top + 122.0
+	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE]
+	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.6) if meter else 0.0
+	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
+	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)
-	var pulse := 1.0 + _chain_pop * 0.5 + (0.04 * sin(Time.get_ticks_msec() * 0.012) if Game.chain >= Game.chain_max() else 0.0)
+	var pulse := 1.0 + _chain_pop * 0.5 + (0.05 * sin(Time.get_ticks_msec() * 0.012) if Game.chain >= Game.chain_max() else 0.0)
 	_chain_label.scale = Vector2(pulse, pulse)
+	_shown_score = move_toward(_shown_score, Game.score, maxf(40.0, absf(Game.score - _shown_score) * 8.0) * delta)
+	_score_label.text = "SCORE  " + Hud.thousands(roundi(_shown_score))
+	if _broken_time > 0.0:
+		_broken_time -= delta
+		_broken_label.modulate.a = clampf(_broken_time / 0.4, 0.0, 1.0)
+		_chain_label.modulate.a = 1.0 - _broken_label.modulate.a
+	if _tip_time > 0.0:
+		_tip_time -= delta
+		_tip.modulate.a = clampf(_tip_time / 0.4, 0.0, 1.0)
+		if _tip_time <= 0.0:
+			_tip.visible = false
+	_update_end_count(delta)
 	if _callout_time > 0.0:
 		_callout_time -= delta
 		_callout.modulate.a = clampf(_callout_time / 0.3, 0.0, 1.0)
@@ -836,15 +893,42 @@ func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:
 	_banner_time = 2.0
 
 
-## Shows "CHAIN x1.8". Gold, then orange from x2, then white-hot and pulsing at x3.
+## Updates the spine and the big "x2.4" under it. Each step up punches the number.
 func show_chain(mult: float) -> void:
-	if mult <= 1.01:
-		return
-	_chain_label.text = "CHAIN x%.1f" % mult
-	var col := Color(1, 0.85, 0.4) if mult < 2.0 else (Color(1, 0.55, 0.2) if mult < Game.chain_max() else Color(1, 0.97, 0.85))
+	var col := ChainSpine.color_for(mult)
+	if mult > _spine.mult + 0.01:
+		_chain_pop = 0.35 if mult < Game.chain_max() else 0.6
+	_spine.set_chain(mult)
+	_chain_label.text = "x%.1f" % mult
 	_chain_label.label_settings.font_color = col
-	_chain_fill.color = col
-	_chain_pop = 0.35 if mult < Game.chain_max() else 0.6
+
+
+## The chain ran out: the spine shatters and the number it reached flashes in red.
+func chain_broken(was: float) -> void:
+	_spine.shatter()
+	_chain_label.text = "x1.0"
+	_chain_label.label_settings.font_color = ChainSpine.BONE
+	if was >= 2.0:
+		_broken_label.text = "CHAIN BROKEN  x%.1f" % was
+		_broken_time = 1.3
+
+
+## A short line under the chain meter, for teaching the first run. 0 seconds clears it.
+func tip(text: String, seconds := 5.0) -> void:
+	_tip.text = text
+	_tip.visible = text != "" and seconds > 0.0
+	_tip.modulate.a = 1.0
+	_tip_time = seconds if _tip.visible else 0.0
+
+
+## 12345 -> "12,345"
+static func thousands(n: int) -> String:
+	var s := str(absi(n))
+	var out := ""
+	while s.length() > 3:
+		out = "," + s.substr(s.length() - 3) + out
+		s = s.substr(0, s.length() - 3)
+	return ("-" if n < 0 else "") + s + out
 
 
 ## A short punchy word over the action, like "PERFECT!".
@@ -888,7 +972,7 @@ func show_hud(v: bool) -> void:
 
 ## Each card shows the family icon, the title in the family colour, and the rarity
 ## as a tag and border colour. `rerolls` is how many free rerolls are left.
-func show_cards(choices: Array, rerolls := 0) -> void:
+func show_cards(choices: Array, rerolls := 0, tags := true) -> void:
 	for i in _cards.size():
 		var b := _cards[i]
 		b.visible = i < choices.size()
@@ -901,23 +985,28 @@ func show_cards(choices: Array, rerolls := 0) -> void:
 		(labels[0] as Label).label_settings.font_color = Upgrades.color(u)
 		(labels[1] as Label).text = u.text
 		(labels[2] as BlessingIcon).show_for(u)
-		(labels[3] as Label).text = "%s · %s" % [Upgrades.FAMILIES[u.family].name.to_upper(), rar.name]
+		(labels[3] as Label).text = "%s · %s" % [Upgrades.FAMILIES[u.family].name.to_upper(), rar.name] if tags else Upgrades.FAMILIES[u.family].name.to_upper()
 		(labels[3] as Label).label_settings.font_color = rar.color
 		for sb_name in ["normal", "pressed"]:
 			var sb := b.get_theme_stylebox(sb_name) as StyleBoxFlat
 			sb.border_color = rar.color
-			var edge := 0 if u.rarity == "common" else (2 if u.rarity == "rare" else 3)
+			var edge := 0 if u.rarity == "common" or not tags else (2 if u.rarity == "rare" else 3)
 			sb.border_width_top = edge
 			sb.border_width_right = edge
 			sb.border_width_bottom = edge
 	_reroll_button.visible = rerolls > 0
-	_reroll_button.text = "Reroll (%d left)" % rerolls
+	_reroll_button.text = "Reroll (%d free)" % rerolls
 	_cards_box.visible = true
 	_cards_age = 0.0
 
 
 func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_box.visible = v
+	var locked := Game.first_run_pending()
+	_title_heroes.visible = not locked
+	_title_armory.visible = not locked
+	_title_lock.visible = locked
+	_title_tutorial.visible = not locked
 	_title_best.text = best
 	_title_coins.text = str(coins)
 
@@ -1073,10 +1162,18 @@ func show_hint(text: String) -> void:
 	_hint.visible = text != ""
 
 
-func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again", buttons := false) -> void:
+## `score` counts up from zero on the end screen; `best` is the best score before this run.
+func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again", buttons := false, score := -1, best := 0) -> void:
 	_end_box.visible = v
 	if not v:
 		return
+	_end_score.visible = score >= 0
+	_end_best.visible = score >= 0
+	_end_target = maxi(score, 0)
+	_end_best_value = best
+	_end_count = 0.0 if score >= 0 else -1.0
+	_end_score.text = "SCORE  0"
+	_end_best.text = ""
 	_end_tap.text = tap_text
 	_copy_button.text = "COPY RUN REPORT"
 	_end_tap.visible = not buttons
@@ -1084,6 +1181,26 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_end_stats.text = stats
+
+
+func _update_end_count(delta: float) -> void:
+	if _end_count < 0.0 or not _end_box.visible:
+		return
+	var was := _end_count
+	_end_count = minf(1.0, _end_count + delta / 1.4)
+	var shown := roundi(_end_target * ease(_end_count, 0.4))
+	_end_score.text = "SCORE  " + thousands(shown)
+	if int(was * 20.0) != int(_end_count * 20.0) and _end_count < 1.0:
+		Sfx.play("coin", 0.35)
+	if _end_count >= 1.0:
+		_end_count = -1.0
+		if _end_target > _end_best_value and _end_target > 0:
+			_end_best.text = "NEW BEST!"
+			_end_best.label_settings.font_color = Color(1, 0.8, 0.3)
+			Sfx.play("upgrade", 0.6)
+		else:
+			_end_best.text = "Best  " + thousands(_end_best_value)
+			_end_best.label_settings.font_color = Color(0.8, 0.78, 0.7)
 
 
 func show_pause(v: bool) -> void:
