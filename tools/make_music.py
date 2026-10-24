@@ -22,6 +22,11 @@ def hz(name):
 
 def lowpass(x, cutoff):
     a = np.exp(-2 * np.pi * cutoff / RATE)
+    try:
+        from scipy.signal import lfilter
+        return lfilter([1 - a], [1, -a], x)
+    except ImportError:
+        pass
     y = np.empty_like(x)
     acc = 0.0
     for i in range(len(x)):
@@ -133,69 +138,124 @@ def write(name, buf):
     os.remove(wav)
 
 
+CHORDS = {
+    "Am": (["A2", "E3", "A3", "C4"], ["A3", "C4", "E4", "A4"]),
+    "F": (["F2", "C3", "F3", "A3"], ["F3", "A3", "C4", "F4"]),
+    "Dm": (["D2", "A2", "D3", "F3"], ["D3", "F3", "A3", "D4"]),
+    "E": (["E2", "B2", "E3", "G#3"], ["E3", "G#3", "B3", "E4"]),
+    "G": (["G2", "D3", "G3", "B3"], ["G3", "B3", "D4", "G4"]),
+    "C": (["C3", "G3", "C4", "E4"], ["C4", "E4", "G4", "C5"]),
+}
+
+
 def dungeon():
+    """About 2 minutes 17 seconds in five parts, so it takes a while to notice the loop:
+    a quiet intro, the main groove, a melody, a drum-less breakdown, and a brighter reprise."""
     bpm = 84
     beat = 60 / bpm
-    bars = 16
-    length = bars * 4 * beat
-    buf = np.zeros(int(length * RATE))
-    chords = [["A2", "E3", "A3", "C4"], ["F2", "C3", "F3", "A3"], ["D2", "A2", "D3", "F3"], ["E2", "B2", "E3", "G#3"]]
-    arps = [["A3", "C4", "E4", "A4"], ["F3", "A3", "C4", "F4"], ["D3", "F3", "A3", "D4"], ["E3", "G#3", "B3", "E4"]]
-    for bar in range(bars):
-        c = (bar // 2) % 4
-        t0 = bar * 4 * beat
-        if bar % 2 == 0:
-            add(buf, t0, pad([hz(n) for n in chords[c]], 8 * beat) * 0.55)
-            add(buf, t0, sine(hz(chords[c][0]) / 2, int(8 * beat * RATE)) * env(int(8 * beat * RATE), 0.5, 1.0) * 0.35)
-        for i in range(8):  # eighth-note arpeggio, quiet
-            if bar < 2:
-                break
-            note = arps[c][[0, 1, 2, 3, 2, 1, 2, 3][i]]
-            add(buf, t0 + i * beat / 2, pluck(hz(note)) * (0.22 if i % 2 == 0 else 0.15))
-        if bar >= 4:
-            add(buf, t0, kick() * 0.5)
-            add(buf, t0 + 2 * beat, kick() * 0.35)
-            for i in range(4):
-                add(buf, t0 + i * beat + beat / 2, tick() * 0.05)
-    melody = [("E5", 0), ("C5", 2), ("D5", 3), ("A4", 4), ("C5", 8), ("B4", 10), ("G#4", 12)]
-    for start_bar in (8, 12):
-        for n, b in melody:
-            add(buf, start_bar * 4 * beat + b * beat * 0.5 * 2, bell(hz(n)) * 0.18)
+    bar_s = 4 * beat
+    # (chord for each 2-bar step, arp density 0-2, drums 0-2, toms)
+    parts = [
+        (["Am", "F", "Dm", "E"], 0, 0, False),              # bars 0-7: intro
+        (["Am", "F", "Dm", "E"] * 2, 2, 2, False),          # bars 8-23: groove
+        (["Dm", "Am", "E", "Am"], 1, 0, True),              # bars 24-31: breakdown
+        (["Am", "G", "F", "E", "Am", "G", "C", "E"], 2, 2, False),  # bars 32-47: reprise
+    ]
+    bars = sum(len(p[0]) * 2 for p in parts)
+    buf = np.zeros(int(bars * bar_s * RATE))
+    bar = 0
+    for chords, arp, drums, toms in parts:
+        for name in chords:
+            low, up = CHORDS[name]
+            for half in range(2):
+                t0 = (bar + half) * bar_s
+                if half == 0:
+                    add(buf, t0, pad([hz(n) for n in low], 2 * bar_s) * 0.55)
+                    m = int(2 * bar_s * RATE)
+                    add(buf, t0, sine(hz(low[0]) / 2, m) * env(m, 0.5, 1.0) * 0.35)
+                if arp:
+                    order = [0, 1, 2, 3, 2, 1, 2, 3] if half == 0 else [0, 2, 1, 3, 2, 3, 1, 2]
+                    for i in range(8):
+                        if arp == 1 and i % 2:
+                            continue
+                        add(buf, t0 + i * beat / 2, pluck(hz(up[order[i]])) * (0.22 if i % 2 == 0 else 0.15))
+                if drums:
+                    add(buf, t0, kick() * 0.5)
+                    add(buf, t0 + 2 * beat, kick() * 0.35)
+                    if drums == 2 and half == 1:
+                        add(buf, t0 + 3.5 * beat, kick() * 0.25)
+                    for i in range(4):
+                        add(buf, t0 + i * beat + beat / 2, tick() * 0.05)
+                if toms and half == 1:
+                    add(buf, t0 + 3 * beat, tom(110, 0.4) * 0.3)
+            bar += 2
+    # Bell melodies over the groove and the reprise, a low one in the breakdown.
+    m1 = [("E5", 0), ("C5", 2), ("D5", 3), ("A4", 4), ("C5", 8), ("B4", 10), ("G#4", 12)]
+    m2 = [("A4", 0), ("F4", 2), ("A4", 4), ("D5", 6), ("C5", 8), ("B4", 11), ("E4", 12), ("A4", 14)]
+    m3 = [("C5", 0), ("E5", 1), ("D5", 2), ("B4", 4), ("A4", 6), ("C5", 8), ("A4", 10), ("G#4", 12), ("B4", 14)]
+    for start, mel, vol, octave in ((16, m1, 0.18, 1), (20, m2, 0.15, 1), (24, m2, 0.16, 0.5), (36, m3, 0.17, 1), (44, m1, 0.18, 1)):
+        for n, b in mel:
+            add(buf, start * bar_s + b * beat, bell(hz(n) * octave) * vol)
     return reverb(buf, 0.3)
 
 
 def boss():
+    """About 2 minutes 5 seconds: a bass-and-drums intro, two driving sections with a
+    lead, a half-time breakdown, a faster climb, and a tom-roll build back to the top."""
     bpm = 138
     beat = 60 / bpm
-    bars = 16
-    length = bars * 4 * beat
-    buf = np.zeros(int(length * RATE))
-    roots = ["D2", "D2", "A#1", "C2"]
-    for bar in range(bars):
-        t0 = bar * 4 * beat
-        r = hz(roots[(bar // 2) % 4])
-        for i in range(8):  # driving eighth-note bass
-            m = int(beat / 2 * RATE)
-            f = r * (2 if i in (3, 6) else 1)
-            note = lowpass(lowpass(saw(f, m, 0.006), 900), 900) * env(m, 0.005, 0.08)
-            add(buf, t0 + i * beat / 2, note * 0.5)
-        for i in range(4):
-            add(buf, t0 + i * beat, kick() * 0.6)
-            add(buf, t0 + i * beat + beat / 2, tick() * 0.08)
-        if bar % 2 == 1:
-            add(buf, t0 + 3 * beat, tom(140, 0.3) * 0.4)
-            add(buf, t0 + 3.5 * beat, tom(100, 0.3) * 0.4)
-        if bar >= 4:  # stabs
-            for b in (0, 1.5, 3):
-                m = int(0.25 * RATE)
-                chord = [r * 4, r * 4 * 1.189, r * 4 * 1.498]
-                stab = sum(saw(f, m, 0.01) for f in chord) / 3
-                add(buf, t0 + b * beat, lowpass(stab, 2200) * env(m, 0.005, 0.2) * 0.22)
-    lead = ["D5", "F5", "E5", "C5", "D5", "A4", "A#4", "C5"]
-    for bar in range(8, 16):
-        n = lead[bar - 8]
-        m = int(4 * beat * RATE)
-        add(buf, bar * 4 * beat, lowpass(saw(hz(n), m, 0.003), 2500) * env(m, 0.05, 0.6) * 0.16)
+    bar_s = 4 * beat
+    r1 = ["D2", "D2", "A#1", "C2"]
+    r2 = ["G1", "G1", "A#1", "A1"]
+    # (roots, bars, stabs, lead notes (one per bar) or None, mode)
+    parts = [
+        (r1, 8, False, None, "intro"),
+        (r1, 16, True, [None] * 8 + ["D5", "F5", "E5", "C5", "D5", "A4", "A#4", "C5"], "drive"),
+        (r2, 16, True, ["G4", "A#4", "A4", "F4", "G4", "D5", "C5", "A4"] * 2, "drive"),
+        (r1, 8, False, ["D5", "D5", "C5", "C5", "A#4", "A#4", "A4", "A4"], "half"),
+        (r1, 16, True, ["D6", "F6", "E6", "C6", "D6", "A5", "A#5", "C6"] * 2, "fast"),
+        (r2, 8, True, ["G5", "A#5", "A5", "F5", "G5", "A#5", "C6", "A5"], "build"),
+    ]
+    bars = sum(p[1] for p in parts)
+    buf = np.zeros(int(bars * bar_s * RATE))
+    bar = 0
+    for roots, count, stabs, lead, mode in parts:
+        for k in range(count):
+            t0 = bar * bar_s
+            r = hz(roots[(k // 2) % 4])
+            for i in range(8):  # driving eighth-note bass
+                if mode == "half" and i % 2:
+                    continue
+                m = int(beat / 2 * RATE)
+                f = r * (2 if i in (3, 6) else 1)
+                note = lowpass(lowpass(saw(f, m, 0.006), 900), 900) * env(m, 0.005, 0.08)
+                add(buf, t0 + i * beat / 2, note * 0.5)
+            for i in range(4):
+                if mode == "half" and i % 2:
+                    continue
+                add(buf, t0 + i * beat, kick() * 0.6)
+                add(buf, t0 + i * beat + beat / 2, tick() * 0.08)
+                if mode == "fast":
+                    add(buf, t0 + i * beat + beat / 4, tick() * 0.04)
+                    add(buf, t0 + i * beat + 3 * beat / 4, tick() * 0.04)
+            if mode == "half" and k % 2 == 0:
+                add(buf, t0, pad([r * 2, r * 2 * 1.189, r * 2 * 1.498], 2 * bar_s) * 0.4)
+            if k % 2 == 1 or mode == "build":
+                add(buf, t0 + 3 * beat, tom(140, 0.3) * 0.4)
+                add(buf, t0 + 3.5 * beat, tom(100, 0.3) * 0.4)
+            if mode == "build" and k >= count - 2:
+                for i in range(8):
+                    add(buf, t0 + i * beat / 2, tom(160 - i * 8, 0.25) * 0.3)
+            if stabs:
+                for b in (0, 1.5, 3):
+                    m = int(0.25 * RATE)
+                    chord = [r * 4, r * 4 * 1.189, r * 4 * 1.498]
+                    stab = sum(saw(f, m, 0.01) for f in chord) / 3
+                    add(buf, t0 + b * beat, lowpass(stab, 2200) * env(m, 0.005, 0.2) * 0.22)
+            if lead and lead[k % len(lead)]:
+                m = int(bar_s * RATE)
+                add(buf, t0, lowpass(saw(hz(lead[k % len(lead)]), m, 0.003), 2500) * env(m, 0.05, 0.6) * 0.16)
+            bar += 1
     return reverb(buf, 0.18)
 
 

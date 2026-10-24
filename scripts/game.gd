@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24c"
+const BUILD := "2026-10-24d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -662,6 +662,7 @@ func _boss_intro() -> void:
 		return
 	Sfx.play("roar")
 	Sfx.play("slam")
+	get_tree().create_timer(0.7, true, false, true).timeout.connect(func(): Sfx.play("vo_prepare", 0.8))
 	shake(0.5)
 	hud.flash(Color(1, 0.3, 0.2), 0.3)
 	hud.show_boss_card(b.display_name(), "Ruler of floor %d" % floor_num)
@@ -710,6 +711,8 @@ func on_enemy_died(e: Enemy) -> void:
 		Fx.magic(hero.center(), Color(0.8, 0.9, 1.0), 20)
 		hud.callout("WARD!", Color(0.85, 0.92, 1.0))
 	hud.show_chain(chain)
+	if before < chain_max() and chain >= chain_max():
+		Sfx.play("vo_combo", 0.8)
 	if not _rep.is_empty():
 		_rep.best_combo = maxi(_rep.best_combo, _combo)
 		_rep.best_chain = maxf(_rep.best_chain, chain)
@@ -843,6 +846,7 @@ func _win() -> void:
 	Pickup.grant_all()   # coins still flying to the hero count, and are saved
 	_save_coins()
 	Sfx.play("victory")
+	Sfx.play("vo_win", 0.8)
 	var cfg := _load_save()
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	_save_best(cfg, _run.size())
@@ -859,6 +863,7 @@ func on_hero_died() -> void:
 		return
 	_set_state(State.DEAD)
 	_save_coins()
+	Sfx.play("vo_lose", 0.8)
 	await get_tree().create_timer(1.4, true, false, true).timeout
 	_save_best(_load_save(), _room_index + 1)
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]

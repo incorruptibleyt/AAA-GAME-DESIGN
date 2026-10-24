@@ -116,6 +116,6 @@ func _process(delta: float) -> void:
 			Sfx.play("coin", 0.45)
 		else:
 			hero.heal(HEAL)
-			Sfx.play("upgrade", 0.35)
+			Sfx.play("pickup", 0.6)
 			Fx.magic(hero.center(), Color(1, 0.35, 0.45), 14)
 		queue_free()

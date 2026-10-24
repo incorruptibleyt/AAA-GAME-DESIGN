@@ -1,7 +1,8 @@
 class_name Sfx
 extends Node
-## Placeholder sound effects synthesised in code, so the game has audio with no files.
-## Swap them for a free CC0 sound pack later.
+## Sound effects. Most are real recordings from Kenney's CC0 packs in audio/sfx, named
+## <sound>_<n>.ogg (one is picked at random each time). Sounds without files, like the
+## boss roar, are synthesised in code.
 
 const RATE := 22050
 
@@ -19,7 +20,8 @@ static func play(sound: String, volume := 1.0) -> void:
 		return
 	var p := _instance._players[_instance._next]
 	_instance._next = (_instance._next + 1) % _instance._players.size()
-	p.stream = _instance._clips[sound]
+	var clip = _instance._clips[sound]
+	p.stream = clip.pick_random() if clip is Array else clip
 	p.volume_db = linear_to_db(volume * randf_range(0.85, 1.0))
 	p.pitch_scale = randf_range(0.95, 1.05)
 	p.play()
@@ -48,6 +50,21 @@ func _ready() -> void:
 	_clips["slam"] = _synth(0.9, func(t): return (_sweep(t, 120, 35) * 0.7 + _noise() * 0.35 * exp(-t * 8.0)) * _env(t, 0.9) * 0.6)
 	_clips["crack"] = _synth(0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
+	_load_samples()
+
+
+## Looks for audio/sfx/<name>_0.ogg, _1.ogg ... and uses them instead of the synth.
+func _load_samples() -> void:
+	for name in ["shoot", "hit", "die", "hurt", "door", "upgrade", "coin", "click", "dash", "slam", "crack", "pickup",
+			"vo_prepare", "vo_win", "vo_lose", "vo_combo"]:
+		var found := []
+		for i in 10:
+			var path := "res://audio/sfx/%s_%d.ogg" % [name, i]
+			if not ResourceLoader.exists(path):
+				break
+			found.append(load(path))
+		if not found.is_empty():
+			_clips[name] = found
 
 
 func _synth(seconds: float, wave: Callable) -> AudioStreamWAV:
