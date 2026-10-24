@@ -69,6 +69,7 @@ scripts/
   hero.gd, upgrades.gd
   armory.gd           permanent upgrades bought with coins
   chain_spine.gd      the Bone Chain spine meter at the top
+  telemetry.gd        anonymous run/error/crash reports to a Google Form (opt-out in pause menu)
   heroes.gd           the playable heroes and their stats
   pickup.gd           hearts and coins
   music.gd            background music (tracks in audio/)

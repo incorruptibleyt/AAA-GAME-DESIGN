@@ -23,6 +23,7 @@ signal retry_pressed
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
 signal graphics_toggled(high: bool)
+signal reports_toggled(on: bool)
 signal dash_flicked(dir: Vector2)
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
@@ -87,6 +88,8 @@ var _music_on := true
 var _sounds_on := true
 var _graphics_button: Button
 var _graphics_high := true
+var _reports_button: Button
+var _reports_on := true
 var _stick_start := Vector2.ZERO
 var _stick_age := 0.0
 var _chain_box: Control
@@ -665,6 +668,9 @@ func _build_pause() -> void:
 	_graphics_button = button("Graphics: High", 26)
 	_graphics_button.pressed.connect(func(): graphics_toggled.emit(not _graphics_high))
 	col.add_child(_centered(_graphics_button))
+	_reports_button = button("Send reports: On", 22)
+	_reports_button.pressed.connect(func(): reports_toggled.emit(not _reports_on))
+	col.add_child(_centered(_reports_button))
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
@@ -1025,6 +1031,13 @@ func set_toggles(music: bool, sounds: bool) -> void:
 	_sounds_on = sounds
 	_music_button.text = "Music: On" if music else "Music: Off"
 	_sounds_button.text = "Sounds: On" if sounds else "Sounds: Off"
+
+
+## Anonymous run and crash reports (see telemetry.gd). Hidden if no form is set up.
+func set_reports_label(on: bool, available: bool) -> void:
+	_reports_on = on
+	_reports_button.text = "Send reports: On" if on else "Send reports: Off"
+	_reports_button.get_parent().visible = available
 
 
 func set_graphics_label(high: bool) -> void:

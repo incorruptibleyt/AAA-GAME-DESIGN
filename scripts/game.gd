@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24j"
+const BUILD := "2026-10-24k"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -152,6 +152,7 @@ func _ready() -> void:
 	add_child(world)
 	add_child(Sfx.new())
 	add_child(Music.new())
+	add_child(Telemetry.new())
 	_setup_environment()
 	_camera = Camera3D.new()
 	_camera.fov = CAMERA_FOV
@@ -186,6 +187,7 @@ func _ready() -> void:
 	hud.music_toggled.connect(_set_music)
 	hud.sounds_toggled.connect(_set_sounds)
 	hud.graphics_toggled.connect(_set_graphics)
+	hud.reports_toggled.connect(_set_reports)
 	hud.dash_flicked.connect(func(d: Vector2): if hero: hero.dash(Vector3(d.x, 0, d.y)))
 
 	var cfg := _load_save()
@@ -193,6 +195,7 @@ func _ready() -> void:
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
+	hud.set_reports_label(bool(cfg.get_value("settings", "reports", true)), Telemetry.configured())
 	Engine.max_fps = 60   # no need to drain the battery past what phones show
 	hud.set_coins(coins)
 
@@ -271,6 +274,14 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if state == State.PLAYING:
 			_pause()
+		if Telemetry.instance:
+			Telemetry.instance.session_open(false)
+	elif what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		if Telemetry.instance:
+			Telemetry.instance.session_open(true)
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		if Telemetry.instance:
+			Telemetry.instance.session_open(false)
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		# Android's back button pauses the game; from the pause or title screen it leaves.
 		if hud.armory_visible():
@@ -280,6 +291,8 @@ func _notification(what: int) -> void:
 			State.PLAYING:
 				_pause()
 			State.PAUSED, State.TITLE, State.DEAD, State.VICTORY:
+				if Telemetry.instance:
+					Telemetry.instance.session_open(false)
 				get_tree().quit()
 
 
@@ -606,7 +619,7 @@ func _report_room_done(label: String) -> void:
 func run_report(result: String) -> String:
 	var cfg := _load_save()
 	var lines := []
-	lines.append("Bone Chain run report (build %s)" % BUILD)
+	lines.append("Bone Chain run report (build %s, install %s)" % [BUILD, Telemetry.install_id(cfg)])
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
 	lines.append("Score %d | First run %s" % [score, "yes" if first_run else "no"])
 	lines.append("Kills %d | Coins +%d | Best combo x%d | Health %d/%d" % [_kills, run_coins, _rep.get("best_combo", 0),
@@ -693,6 +706,7 @@ func _quit_to_title() -> void:
 		return
 	hud.show_pause(false)
 	get_tree().paused = false
+	Telemetry.instance.send("run", run_report("Quit on floor %d, room %d" % [floor_num, _room_index + 1]))
 	_set_state(State.TRANSITION)
 	_save_coins()
 	await _fade(0.0, 1.0, 0.4)
@@ -1030,6 +1044,7 @@ func _win() -> void:
 	_state_time = 0.0
 	_last_report = run_report("Beat floor %d" % floor_num)
 	print("[report]\n" + _last_report)
+	Telemetry.instance.send("run", _last_report)
 
 
 func on_hero_died() -> void:
@@ -1053,6 +1068,7 @@ func on_hero_died() -> void:
 	_state_time = 0.0
 	_last_report = run_report("Died on floor %d, %s" % [floor_num, "boss room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]])
 	print("[report]\n" + _last_report)
+	Telemetry.instance.send("run", _last_report)
 
 
 func _on_pause_pressed() -> void:
@@ -1130,6 +1146,20 @@ func _set_sounds(on: bool, save := true) -> void:
 
 ## High looks best; Low turns off shadows and glow and draws the 3D world at a lower
 ## resolution, for smoother play on older phones.
+func _set_reports(on: bool) -> void:
+	var cfg := _load_save()
+	cfg.set_value("settings", "reports", on)
+	cfg.save(SAVE_PATH)
+	hud.set_reports_label(on, Telemetry.configured())
+	Sfx.play("click")
+
+
+## A short "where are we" line for error and crash reports.
+func where_text() -> String:
+	return "%s, floor %d room %d, %s, %s into the run" % [State.keys()[state], floor_num, _room_index + 1,
+		hero.hero_id if hero else "no hero", _format_time(_run_time)]
+
+
 func _set_graphics(high: bool, save := true) -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED

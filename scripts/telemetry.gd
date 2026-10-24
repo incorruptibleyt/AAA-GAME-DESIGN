@@ -9,8 +9,8 @@ extends Node
 ## To point it at a different form, change FORM_ID and ENTRY (from the form's
 ## "Get pre-filled link"). Leaving FORM_ID empty switches reports off completely.
 
-const FORM_ID := ""
-const ENTRY := ""
+const FORM_ID := "1FAIpQLSfn55v80P_BKC4IcLw9wsS7d9d2618GsHbo8ktg1IbYK3eogw"
+const ENTRY := "entry.999248691"
 const QUEUE_PATH := "user://report_queue.json"
 const MAX_QUEUE := 20
 const MAX_ERRORS := 5   # error reports per session, so one bug can't spam
@@ -61,7 +61,7 @@ func _ready() -> void:
 
 ## Reports go out only from a real install with a form set up, and never from the test robot.
 func active() -> bool:
-	return configured() and not "autoplay" in OS.get_cmdline_user_args() and not OS.has_feature("editor")
+	return configured() and not "autoplay" in OS.get_cmdline_user_args() and OS.has_feature("template")
 
 
 func enabled() -> bool:
@@ -72,7 +72,7 @@ func send(kind: String, body: String) -> void:
 	if not enabled():
 		return
 	var cfg := Game._load_save()
-	var head := "%s | build %s | install %s | %s | Android %s | %s" % [kind, Game.BUILD, _install_id(cfg),
+	var head := "%s | build %s | install %s | %s | Android %s | %s" % [kind, Game.BUILD, install_id(cfg),
 		OS.get_model_name(), OS.get_version(), RenderingServer.get_video_adapter_name()]
 	_queue.append(head + "\n" + body)
 	while _queue.size() > MAX_QUEUE:
@@ -134,7 +134,7 @@ func _last_log() -> String:
 	return "Log tail:\n" + "\n".join(lines.slice(maxi(0, lines.size() - 30)))
 
 
-func _install_id(cfg: ConfigFile) -> String:
+static func install_id(cfg: ConfigFile) -> String:
 	var id := str(cfg.get_value("telemetry", "id", ""))
 	if id == "":
 		id = "%08x" % (randi() & 0x7fffffff)
