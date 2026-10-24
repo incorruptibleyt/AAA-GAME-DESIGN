@@ -1,0 +1,6 @@
+These models are from Kay Lousberg's KayKit packs (https://kaylousberg.com),
+released under the CC0 licence (free to use, no credit required, credit appreciated):
+- KayKit Character Pack: Adventurers 1.0
+- KayKit Character Pack: Skeletons 1.0
+- KayKit Dungeon Remastered 1.0
+Fetched from the official repositories by .github/workflows/fetch-art.yml.
