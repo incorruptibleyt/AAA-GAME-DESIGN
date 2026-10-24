@@ -525,7 +525,7 @@ func _build_title() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 20)
 	_title_box.add_child(col)
-	col.add_child(label("CRYPT CRAWL", 64, Color(1, 0.85, 0.55)))
+	col.add_child(label("BONE CHAIN", 64, Color(1, 0.85, 0.55)))
 	col.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
 	_title_best = label("", 18, Color(0.7, 0.7, 0.8))
 	col.add_child(_title_best)
@@ -774,6 +774,8 @@ func _process(delta: float) -> void:
 		_callout_time -= delta
 		_callout.modulate.a = clampf(_callout_time / 0.3, 0.0, 1.0)
 		var cs := 1.0 + maxf(0.0, _callout_time - 0.8) * 3.0
+		# Never let the pop grow past the screen edges (long callouts on narrow phones).
+		cs = minf(cs, maxf(1.0, (get_viewport().get_visible_rect().size.x - 24.0) / maxf(_callout.size.x, 1.0)))
 		_callout.pivot_offset = _callout.size / 2
 		_callout.scale = Vector2(cs, cs)
 	if Game.state != Game.State.PLAYING and _stick_touch != -1:

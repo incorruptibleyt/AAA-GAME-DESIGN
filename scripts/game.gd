@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24h"
+const BUILD := "2026-10-24i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -536,7 +536,7 @@ func _report_room_done(label: String) -> void:
 func run_report(result: String) -> String:
 	var cfg := _load_save()
 	var lines := []
-	lines.append("Crypt Crawl run report (build %s)" % BUILD)
+	lines.append("Bone Chain run report (build %s)" % BUILD)
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
 	lines.append("Kills %d | Coins +%d | Best combo x%d | Health %d/%d" % [_kills, run_coins, _rep.get("best_combo", 0),
 		ceili(hero.health) if hero else 0, roundi(hero.max_health) if hero else 0])

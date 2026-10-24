@@ -1,4 +1,4 @@
-# Crypt Crawl
+# Bone Chain
 
 A top-down dungeon action game for Android phones, built in **Godot 4.7**. Fight down through a crypt
 one room at a time: drag your thumb to move, stand still to shoot, pick a blessing after every room,

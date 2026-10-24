@@ -99,6 +99,16 @@ static func _find_skeleton(n: Node) -> Skeleton3D:
 	return null
 
 
+## Godot 4.7 imports KayKit meshes without a link to their skeleton, so they would stand
+## frozen in a T-pose while the bones animate. Link every skinned mesh to the skeleton
+## it sits under.
+static func bind_skins(n: Node) -> void:
+	if n is MeshInstance3D and n.get_parent() is Skeleton3D and (n as MeshInstance3D).skeleton.is_empty():
+		(n as MeshInstance3D).skeleton = NodePath("..")
+	for c in n.get_children():
+		bind_skins(c)
+
+
 ## Hide parts of a model by node name (KayKit heroes come holding every weapon at once).
 static func hide_parts(model: Node, names: Array) -> void:
 	if model.name in names and model is Node3D:
@@ -110,6 +120,7 @@ static func hide_parts(model: Node, names: Array) -> void:
 ## Instance a model under `parent`, scaled so it is `height` tall and standing on the floor.
 static func place_prop(scene: PackedScene, parent: Node3D, height: float) -> Node3D:
 	var node := scene.instantiate() as Node3D
+	bind_skins(node)
 	parent.add_child(node)
 	fit_height(node, height)
 	return node

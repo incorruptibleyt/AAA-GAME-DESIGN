@@ -4,7 +4,7 @@ config_version=5
 
 [application]
 
-config/name="Crypt Crawl"
+config/name="Bone Chain"
 config/icon="res://icon.png"
 config/quit_on_go_back=false
 config/description="Top-down dungeon action for phones."

@@ -32,6 +32,7 @@ func build(look: Dictionary) -> void:
 	var scene := Art.get_model(look.get("key", ""))
 	if scene:
 		_model = scene.instantiate() as Node3D
+		Art.bind_skins(_model)
 		add_child(_model)
 		Art.fit_height(_model, look.height)
 		_model.rotation.y = PI   # KayKit models face +Z; our "forward" is -Z
