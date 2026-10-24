@@ -170,7 +170,7 @@ func _read_layout(layout: Array) -> void:
 					var trap := SpikeTrap.new()
 					add_child(trap)
 					trap.position = p
-				"m", "w", "a", "g", "K", "L", "x", "t":
+				"m", "w", "a", "g", "K", "L", "x", "t", "s":
 					spawns.append({"kind": ch, "pos": p})
 
 

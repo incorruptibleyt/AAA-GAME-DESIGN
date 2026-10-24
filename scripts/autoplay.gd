@@ -13,6 +13,7 @@ var gallery := false
 var elites := false
 var hero_lineup := false
 var hero_menu := false
+var spider_shot := false
 var _hero_choice := ""
 var shop := false
 var quit_test := false
@@ -46,6 +47,12 @@ func _ready() -> void:
 			Game.coins = int(a.substr(6))
 		elif a == "elites":
 			elites = true
+		elif a == "spiderroom":
+			# Test the spider rooms: make the first rooms the spider nest and spider hall.
+			Game._run[0] = Layouts.MEDIUM[0]
+			Game._run[1] = Layouts.HARD[0]
+		elif a == "spiders":
+			spider_shot = true
 		elif a == "heromenu":
 			hero_menu = true
 		elif a == "heroes":
@@ -178,6 +185,16 @@ func _gallery_step(delta: float) -> void:
 				h.rotation.y = PI
 			Game.hero.place_at(Vector3(0, 0, 30))
 			Game.state = Game.State.TRANSITION
+			return
+		if spider_shot:
+			for i in 3:
+				var sp := Game.spawn_enemy("s", Vector3(-2.5 + i * 2.5, 0, 4.0 - absf(i - 1) * 1.0))
+				sp.rotation.y = PI
+			Game.spawn_enemy("w", Vector3(0, 0, 0.5))
+			Game.hero.place_at(Vector3(0, 0, 8.0))
+			Game.state = Game.State.TRANSITION
+			for a in Actor.all:
+				a.rotation.y = PI
 			return
 		var kinds := ["m", "w", "a", "g", "x", "t"]
 		for i in kinds.size():

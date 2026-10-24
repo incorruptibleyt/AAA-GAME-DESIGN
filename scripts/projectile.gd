@@ -14,13 +14,16 @@ var burn_dps := 0.0
 var frost := false
 ## Mage orbs: on hitting something, also hurt everything nearby.
 var splash := 0.0
+## What fired it, for the run report ("Archer", "Lich"...).
+var source := "Shot"
 var life := 4.0
 var dir := Vector3.FORWARD
 var _hit := {}
 
 
-static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd: float, col: Color, size := 0.22) -> Projectile:
+static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd: float, col: Color, size := 0.22, src := "Shot") -> Projectile:
 	var p := Projectile.new()
+	p.source = src
 	direction.y = 0.0
 	p.dir = direction.normalized()
 	p.owner_team = team
@@ -61,6 +64,8 @@ func _process(delta: float) -> void:
 			continue
 		_hit[a] = true
 		var crit := randf() < crit_chance
+		if a is Hero:
+			Game.hit_source = source
 		a.take_damage(damage * 2.0 if crit else damage, dir, push, crit)
 		if burn_dps > 0.0 and not a.dead:
 			Burning.apply(a, burn_dps, 2.5)

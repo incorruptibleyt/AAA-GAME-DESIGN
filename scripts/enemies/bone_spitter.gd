@@ -46,4 +46,4 @@ func _spit(d: Vector3) -> void:
 	Sfx.play("shoot", 0.7)
 	for angle in [-0.28, 0.0, 0.28]:
 		var dir := d.rotated(Vector3.UP, angle)
-		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + dir * 0.6, dir, 10.0, 8.0, Color(0.6, 1.0, 0.4), 0.22)
+		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + dir * 0.6, dir, 10.0, 8.0, Color(0.6, 1.0, 0.4), 0.22, "Bone Spitter")

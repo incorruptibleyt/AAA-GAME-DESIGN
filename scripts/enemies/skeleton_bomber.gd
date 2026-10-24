@@ -56,6 +56,8 @@ func _blow_up() -> void:
 		var d := a.global_position - spot
 		d.y = 0.0
 		if d.length() < BLAST_RADIUS + a.radius * 0.5:
+			if a is Hero:
+				Game.hit_source = "Bomber"
 			a.take_damage(22.0 if a is Hero else 30.0, d, 10.0)
 	# The blast takes the bomber with it.
 	drop_chance = 0.0

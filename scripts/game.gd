@@ -42,6 +42,15 @@ var _choices: Array = []
 var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
+## Run report: numbers collected during a run so Jesse can paste them back for balancing.
+const BUILD := "2026-10-24"
+var hit_source := ""
+var _last_report := ""
+var _rep := {}
+var _fps_sum := 0.0
+var _fps_n := 0
+var _fps_low := 999.0
+var _fps_t := 0.0
 var _high_graphics := true
 var _combo := 0
 var _combo_left := 0.0
@@ -78,6 +87,9 @@ func _ready() -> void:
 	hud.armory_pressed.connect(_open_armory)
 	hud.armory_buy.connect(_buy_upgrade)
 	hud.heroes_pressed.connect(_open_heroes)
+	hud.copy_report_pressed.connect(func():
+		DisplayServer.clipboard_set(_last_report)
+		Sfx.play("click"))
 	hud.hero_pick.connect(_pick_hero)
 	hud.resume_pressed.connect(func(): if state == State.PAUSED: _resume())
 	hud.quit_run_pressed.connect(_quit_to_title)
@@ -146,6 +158,13 @@ func _process(delta: float) -> void:
 	_state_time += delta
 	if state == State.PLAYING:
 		_run_time += delta
+		_fps_t += delta
+		if _fps_t >= 1.0:
+			_fps_t = 0.0
+			var f := Engine.get_frames_per_second()
+			_fps_sum += f
+			_fps_n += 1
+			_fps_low = minf(_fps_low, f)
 		if _combo_left > 0.0:
 			_combo_left -= delta
 			if _combo_left <= 0.0:
@@ -377,7 +396,76 @@ func _start_run() -> void:
 	_go_to_room(0)
 
 
+func _reset_report() -> void:
+	_rep = {"damage": {}, "hits": 0, "healed": 0.0, "dash": 0, "ward": 0, "second_wind": 0,
+		"best_combo": 0, "rooms": [], "room_start": 0.0, "killed_by": ""}
+	_fps_sum = 0.0
+	_fps_n = 0
+	_fps_low = 999.0
+
+
+func report_damage(amount: float) -> void:
+	if _rep.is_empty() or amount <= 0.0:
+		return
+	var src := hit_source if hit_source != "" else "Other"
+	hit_source = ""
+	_rep.damage[src] = _rep.damage.get(src, 0.0) + amount
+	_rep.hits += 1
+	_rep.killed_by = src
+
+
+func report_event(what: String, amount := 1.0) -> void:
+	if _rep.is_empty() or not _rep.has(what):
+		return
+	_rep[what] += amount
+
+
+func _report_room_done(label: String) -> void:
+	if _rep.is_empty():
+		return
+	_rep.rooms.append("%s %s" % [label, _format_time(_run_time - _rep.room_start)])
+
+
+## The text that the COPY RUN REPORT button puts on the clipboard.
+func run_report(result: String) -> String:
+	var cfg := _load_save()
+	var lines := []
+	lines.append("Crypt Crawl run report (build %s)" % BUILD)
+	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
+	lines.append("Kills %d | Coins +%d | Best combo x%d | Health %d/%d" % [_kills, run_coins, _rep.get("best_combo", 0),
+		ceili(hero.health) if hero else 0, roundi(hero.max_health) if hero else 0])
+	var dmg: Dictionary = _rep.get("damage", {})
+	var srcs := dmg.keys()
+	srcs.sort_custom(func(a, b): return dmg[a] > dmg[b])
+	var parts := []
+	var total := 0.0
+	for k in srcs:
+		parts.append("%s %d" % [k, roundi(dmg[k])])
+		total += dmg[k]
+	lines.append("Damage taken %d in %d hits: %s" % [roundi(total), _rep.get("hits", 0), ", ".join(parts) if parts else "none"])
+	if _rep.get("killed_by", "") != "" and state == State.DEAD:
+		lines.append("Final blow: " + _rep.killed_by)
+	lines.append("Healed %d | Dashes %d | Ward blocks %d | Second Wind used %d" % [roundi(_rep.get("healed", 0.0)), _rep.get("dash", 0), _rep.get("ward", 0), _rep.get("second_wind", 0)])
+	var bl := []
+	for id in _taken:
+		for u in Upgrades.LIST:
+			if u.id == id:
+				bl.append(u.title + ("" if _taken[id] == 1 else " x%d" % _taken[id]))
+	lines.append("Blessings: " + (", ".join(bl) if bl else "none"))
+	var arm := []
+	for u in Armory.LIST:
+		var lv := Armory.level(cfg, u.id)
+		if lv > 0:
+			arm.append("%s %d" % [u.title, lv])
+	lines.append("Armory: " + (", ".join(arm) if arm else "none"))
+	lines.append("Rooms: " + ", ".join(_rep.get("rooms", [])))
+	lines.append("Graphics %s | FPS avg %d, lowest %d" % ["High" if _high_graphics else "Low",
+		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0)])
+	return "\n".join(lines)
+
+
 func _reset_run_stats() -> void:
+	_reset_report()
 	_run_time = 0.0
 	_kills = 0
 	run_coins = 0
@@ -484,6 +572,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if not spawn_enemies:
 		return
 	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), floor_num)
+	if not _rep.is_empty():
+		_rep.room_start = _run_time
 	if not _in_boss_room():
 		hud.banner("Room %d" % (index + 1))
 	hud.show_hint("Drag to move  ·  Let go to shoot\nFlick your thumb to dash" if floor_num == 1 and index == 0 else "")
@@ -556,6 +646,8 @@ func on_enemy_died(e: Enemy) -> void:
 	_combo = _combo + 1 if _combo_left > 0.0 else 1
 	_combo_left = 2.5
 	hud.show_combo(_combo)
+	if not _rep.is_empty():
+		_rep.best_combo = maxi(_rep.best_combo, _combo)
 	if _combo >= 5 and e != boss:
 		Pickup.drop_coins(e.global_position, 1)
 	if e == boss:
@@ -572,6 +664,7 @@ func on_enemy_died(e: Enemy) -> void:
 
 
 func _room_cleared() -> void:
+	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
 	_save_coins()
 	hud.banner("Room Cleared")
 	await get_tree().create_timer(0.9, false).timeout
@@ -614,6 +707,7 @@ func _clear_enemy_attacks() -> void:
 func _win() -> void:
 	var boss_name := boss.display_name() if is_instance_valid(boss) else "The boss"
 	var where := boss.global_position if is_instance_valid(boss) else hero.global_position
+	_report_room_done("F%d Boss" % floor_num)
 	_set_state(State.VICTORY)
 	finisher(where, 0.2, 1.0, Color(1, 0.5, 0.3))
 	_clear_enemy_attacks()
@@ -628,6 +722,8 @@ func _win() -> void:
 	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins],
 		"Tap to descend to floor %d" % (floor_num + 1))
 	_state_time = 0.0
+	_last_report = run_report("Beat floor %d" % floor_num)
+	print("[report]\n" + _last_report)
 
 
 func on_hero_died() -> void:
@@ -642,6 +738,8 @@ func on_hero_died() -> void:
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\nCoins kept  %d  (spend them in the Armory)" % [where, _format_time(_run_time), _kills, run_coins],
 		"", true)
 	_state_time = 0.0
+	_last_report = run_report("Died on floor %d, %s" % [floor_num, "boss room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]])
+	print("[report]\n" + _last_report)
 
 
 func _on_pause_pressed() -> void:

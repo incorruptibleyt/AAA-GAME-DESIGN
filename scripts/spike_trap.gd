@@ -61,4 +61,5 @@ func _process(delta: float) -> void:
 				var d := hero.global_position - global_position
 				if absf(d.x) < HALF + hero.radius * 0.5 and absf(d.z) < HALF + hero.radius * 0.5:
 					_hit_this_time = true
+					Game.hit_source = "Spike trap"
 					hero.take_damage(DAMAGE, Vector3.ZERO, 0.0)

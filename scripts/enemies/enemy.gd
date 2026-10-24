@@ -31,6 +31,7 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"L": e = Lich.new()
 		"x": e = SkeletonBomber.new()
 		"t": e = BoneSpitter.new()
+		"s": e = BoneSpider.new()
 		_: e = SkeletonMinion.new()
 	e.team = Team.UNDEAD
 	parent.add_child(e)
@@ -50,6 +51,19 @@ func _setup() -> void:
 
 func display_name() -> String:
 	return "Skeleton"
+
+
+## A readable name for this kind of skeleton, e.g. "Skeleton Warrior" (for the run report).
+func kind_name() -> String:
+	if is_boss:
+		return display_name()
+	var n := str(get_script().get_global_name())
+	var out := ""
+	for i in n.length():
+		if i > 0 and n[i] == n[i].to_upper() and n[i] != n[i].to_lower():
+			out += " "
+		out += n[i]
+	return ("Elite " if elite else "") + out
 
 
 ## Turns this skeleton into a golden elite.
@@ -144,6 +158,7 @@ func _touch(hero: Hero, delta: float) -> void:
 	var reach := radius + hero.radius + 0.1
 	if d.length_squared() < reach * reach:
 		_contact_cooldown = 0.8
+		Game.hit_source = kind_name()
 		hero.take_damage(contact_damage, d, 9.0)
 
 

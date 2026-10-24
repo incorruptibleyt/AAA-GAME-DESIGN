@@ -100,6 +100,12 @@ func can_be_hit() -> bool:
 	return not dead and _invulnerable <= 0.0 and _dash_left <= 0.0 and Game.state == Game.State.PLAYING
 
 
+func heal(amount: float) -> void:
+	var before := health
+	super.heal(amount)
+	Game.report_event("healed", health - before)
+
+
 func dash_ready() -> bool:
 	return _dash_cooldown <= 0.0
 
@@ -116,6 +122,7 @@ func dash(dir: Vector3) -> void:
 	knockback = Vector3.ZERO
 	rotation.y = atan2(-_dash_dir.x, -_dash_dir.z)
 	Sfx.play("dash", 0.7)
+	Game.report_event("dash")
 	Fx.dust(global_position, 10)
 
 
@@ -227,6 +234,7 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		return
 	if ward > 0:
 		ward -= 1
+		Game.report_event("ward")
 		_invulnerable = 0.7
 		Fx.magic(center(), Color(0.8, 0.9, 1.0), 24)
 		Sfx.play("upgrade", 0.6)
@@ -234,6 +242,7 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		return
 	if second_wind and amount * Game.damage_scale() * (1.0 - armor) >= health:
 		second_wind = false
+		Game.report_event("second_wind")
 		health = max_health * 0.5
 		_invulnerable = 2.0
 		Fx.magic(center(), Color(1, 0.9, 0.5), 50)
@@ -241,7 +250,9 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		Game.shake(0.4)
 		Game.hud.banner("Second Wind!", Color(1, 0.9, 0.5))
 		return
+	var before := health
 	super.take_damage(amount * Game.damage_scale() * (1.0 - armor), direction, push, crit)
+	Game.report_damage(before - health)
 	if dead:
 		return
 	Sfx.play("hurt")

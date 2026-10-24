@@ -22,11 +22,15 @@ and face the Skeleton King at the end of the floor.
 - **Endless descent:** beat the king and carry your blessings down to the next floor, where skeletons are tougher.
 - **Coins and the Armory:** skeletons drop gold you keep between runs. Spend it on permanent upgrades (health, damage, attack speed, move speed, luckier hearts, a free blessing each run, and a once-per-run Second Wind).
 - **Music:** a calm dungeon theme and a faster boss theme (made by [tools/make_music.py](tools/make_music.py)), with Music, Sounds and Graphics (High/Low) switches in the pause menu. Low graphics turns off shadows and glow for smoother play on older phones.
+- **Run report:** the end screen has a COPY RUN REPORT button. It copies the hero, damage taken from each enemy, blessings, room times and frame rate, to paste to Claude for balancing.
 - **Healing hearts** that skeletons sometimes drop, a beginner hint in room 1, and a golden arrow pointing to the open door.
 - **Game feel:** slow-motion close-up on the last kill of each room, kill combos (x5 and up drop bonus coins), a boss entrance with a title card, drifting embers, hit-stop, screen shake, hit flashes, knockback, damage numbers, particles and synthesised sounds.
 - **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
 
 ## Art
+
+The **Bone Spider** is our own model: [tools/blender/bone_spider.py](tools/blender/bone_spider.py) builds and animates it in Blender from code (run it with the `bpy` Python module) and writes `art/original/Bone_Spider.glb`.
+
 
 The characters, weapons and dungeon props are Kay Lousberg's free CC0 **KayKit** packs
 (Adventurers, Skeletons, Dungeon Remastered), kept in [art/kaykit](art/kaykit/). The

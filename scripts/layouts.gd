@@ -11,6 +11,7 @@ class_name Layouts
 ##   a  skeleton archer      g  skeleton mage
 ##   x  bone bomber (runs at you and explodes)
 ##   t  bone spitter (stays put, spits three shards)
+##   s  bone spider (zig-zags, then pounces)
 ##   ^  spike trap (glows red, then spikes shoot up)
 ##   K  the boss (the Skeleton King, or the Lich on every second floor)
 
@@ -123,6 +124,24 @@ const EASY := [
 ]
 
 const MEDIUM := [
+	# The spider nest: webbed corners and a pack of bone spiders.
+	[
+		".........",
+		"..s...s..",
+		".c.....c.",
+		"....s....",
+		".........",
+		"..#...#..",
+		".........",
+		"...m.m...",
+		".........",
+		"..#...#..",
+		".........",
+		".........",
+		".........",
+		".........",
+		".........",
+	],
 	[
 		".........",
 		".a.....a.",
@@ -228,6 +247,24 @@ const MEDIUM := [
 ]
 
 const HARD := [
+	# Spiders and archers: dodge the pounces while arrows fly.
+	[
+		".........",
+		".a.....a.",
+		"..b...b..",
+		"...s.s...",
+		".........",
+		"#..#.#..#",
+		".........",
+		"..s...s..",
+		".........",
+		"..^...^..",
+		".........",
+		".........",
+		".........",
+		".........",
+		".........",
+	],
 	[
 		".g.....g.",
 		".........",

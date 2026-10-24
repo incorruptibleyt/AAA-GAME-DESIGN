@@ -88,7 +88,7 @@ func _bone_ring() -> void:
 		var offset := w * (PI / count)
 		for i in count:
 			var d := Vector3.FORWARD.rotated(Vector3.UP, offset + i * TAU / count)
-			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP + d * 1.1, d, 12.0, 6.5, Color(1, 0.35, 0.25), 0.28)
+			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP + d * 1.1, d, 12.0, 6.5, Color(1, 0.35, 0.25), 0.28, DISPLAY_NAME)
 		Sfx.play("shoot", 0.8)
 		await _wait(0.45)
 

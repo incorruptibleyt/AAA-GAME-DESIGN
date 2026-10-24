@@ -55,4 +55,5 @@ static func explode(spot: Vector3, r: float, dmg: float) -> void:
 	var d := hero.global_position - spot
 	d.y = 0.0
 	if d.length() < r + hero.radius * 0.5:
+		Game.hit_source = "Magic blast"
 		hero.take_damage(dmg, d, 8.0)

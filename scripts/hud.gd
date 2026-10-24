@@ -12,6 +12,7 @@ signal armory_pressed
 signal armory_buy(id: String)
 signal heroes_pressed
 signal hero_pick(id: String)
+signal copy_report_pressed
 signal resume_pressed
 signal quit_run_pressed
 signal retry_pressed
@@ -68,6 +69,7 @@ var _shop_heroes := false
 var _shop_title: Label
 var _shop_sub: Label
 var _title_hero: Label
+var _copy_button: Button
 var _end_buttons: Control
 var _music_button: Button
 var _sounds_button: Button
@@ -479,6 +481,13 @@ func _build_end() -> void:
 	col.add_child(_end_title)
 	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
 	col.add_child(_end_stats)
+	# Copies a detailed report of the run, to paste to Claude for balancing.
+	_copy_button = button("COPY RUN REPORT", 20, Color(0.1, 0.12, 0.18, 0.95), Color(0.5, 0.75, 1.0, 0.7))
+	_copy_button.custom_minimum_size = Vector2(300, 56)
+	_copy_button.pressed.connect(func():
+		_copy_button.text = "Copied! Paste it to Claude"
+		copy_report_pressed.emit())
+	col.add_child(_centered(_copy_button))
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 100)
 	col.add_child(spacer)
@@ -588,7 +597,8 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
-			if _end_box.visible and not _end_buttons.visible and not _armory_box.visible:
+			if _end_box.visible and not _end_buttons.visible and not _armory_box.visible \
+					and not _copy_button.get_global_rect().has_point(t.position):
 				screen_tapped.emit()
 				return
 			if _safe.visible and _pause_button.get_global_rect().has_point(t.position):
@@ -916,6 +926,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	if not v:
 		return
 	_end_tap.text = tap_text
+	_copy_button.text = "COPY RUN REPORT"
 	_end_tap.visible = not buttons
 	_end_buttons.visible = buttons
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
