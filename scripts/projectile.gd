@@ -26,6 +26,8 @@ var _pulse := 0.0
 ## core with a white-hot centre and a dark outline, a little bigger than it hits, pulsing.
 const DANGER := Color(1.0, 0.12, 0.38)
 static var _outline_mat: StandardMaterial3D
+## Undead shots in flight, for Grave Dash to check against.
+static var danger: Array[Projectile] = []
 
 
 static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd: float, col: Color, size := 0.22, src := "Shot") -> Projectile:
@@ -40,6 +42,9 @@ static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd
 	var parent: Node = Room.current if Room.current else Game.world
 	parent.add_child(p)
 	p.global_position = origin
+	if team != Actor.Team.HERO:
+		danger.append(p)
+		p.tree_exiting.connect(func(): danger.erase(p))
 	p.rotation.y = atan2(-p.dir.x, -p.dir.z)
 	if team == Actor.Team.HERO:
 		p._hero_look(col, size)
@@ -73,6 +78,26 @@ func _danger_look(size: float) -> void:
 	var tail := U.sphere(self, r * 0.7, U.unlit(Color(DANGER.r, DANGER.g, DANGER.b, 0.4)), Vector3(0, 0, r * 2.2))
 	tail.scale = Vector3(0.7, 0.7, 3.0)
 	tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Seconds until this shot would reach `pos` (a body of radius `r`), or INF if it will miss.
+func time_to_hit(pos: Vector3, r: float) -> float:
+	var rel := pos - global_position
+	rel.y = 0.0
+	var along := rel.dot(dir)
+	if along < -r:
+		return INF
+	var side := (rel - dir * along).length()
+	if side > radius + r:
+		return INF
+	return maxf(0.0, along - (radius + r)) / maxf(speed, 0.01)
+
+
+## Shatters the shot, for a perfect dodge.
+func shatter() -> void:
+	Fx.sparks(global_position, Color(1, 0.95, 0.95))
+	Fx.bones(global_position)
+	queue_free()
 
 
 func _process(delta: float) -> void:

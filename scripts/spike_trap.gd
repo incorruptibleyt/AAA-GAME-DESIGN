@@ -11,6 +11,7 @@ const UP := 0.8
 
 var _t := 0.0
 var _hit_this_time := false
+var _turned := false
 var _spikes: Node3D
 var _glow_mat: StandardMaterial3D
 
@@ -48,11 +49,14 @@ func _process(delta: float) -> void:
 		_spikes.position.y = move_toward(_spikes.position.y, -0.6, delta * 3.0)
 		_glow_mat.albedo_color.a = 0.0
 		_hit_this_time = false
+		_turned = false
 	elif k < REST + WARN:
 		var w := (k - REST) / WARN
 		_glow_mat.albedo_color.a = 0.35 + 0.35 * sin(w * 25.0)
 		_spikes.position.y = -0.45
+		_try_turn()
 	else:
+		_try_turn()
 		_glow_mat.albedo_color.a = 0.25
 		_spikes.position.y = move_toward(_spikes.position.y, 0.0, delta * 12.0)
 		if not _hit_this_time and _spikes.position.y > -0.2:
@@ -63,3 +67,24 @@ func _process(delta: float) -> void:
 					_hit_this_time = true
 					Game.hit_source = "Spike trap"
 					hero.take_damage(DAMAGE, Vector3.ZERO, 0.0)
+
+
+## Dash across an armed trap and it fires on the skeletons around it instead of you.
+func _try_turn() -> void:
+	var hero := Game.hero
+	if _turned or hero == null or not hero.is_dashing():
+		return
+	var d := hero.global_position - global_position
+	if absf(d.x) > HALF + hero.radius or absf(d.z) > HALF + hero.radius:
+		return
+	_turned = true
+	_hit_this_time = true
+	_spikes.position.y = 0.0
+	Fx.shockwave(global_position, Color(1, 0.5, 0.3), 2.6)
+	Sfx.play("crack", 0.8)
+	for a: Actor in Actor.all.duplicate():
+		if a.team == Actor.Team.UNDEAD and a.can_be_hit():
+			var e := a.global_position - global_position
+			e.y = 0.0
+			if e.length() < 2.6 + a.radius:
+				a.take_damage(DAMAGE * 2.5, e, 6.0)

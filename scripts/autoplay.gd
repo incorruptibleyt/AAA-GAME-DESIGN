@@ -29,6 +29,7 @@ var _shot_n := 0
 var _dodge := Vector3.ZERO
 var _last_state := -1
 var _dashes := 0
+var _perfect_shots := 0
 var _card_shot := false
 
 
@@ -90,6 +91,9 @@ func _process(delta: float) -> void:
 		_next_shot = _t + 4.0
 		_shot()
 
+	if shots_dir != "" and _perfect_shots < 2 and Game.hud._callout_time > 0.85:
+		_perfect_shots += 1
+		_shot()
 	if shots_dir != "" and not _card_shot and Game.hud._boss_card.visible and Game.hud._boss_card.modulate.a > 0.95:
 		_card_shot = true
 		_shot()
@@ -132,7 +136,7 @@ func _process(delta: float) -> void:
 			Game.hud._on_card(0)
 		Game.State.DEAD, Game.State.VICTORY:
 			if Game._state_time > 2.5:
-				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time])
+				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
 				runs -= 1
 				if runs <= 0:
 					get_tree().quit()
@@ -226,6 +230,12 @@ func _drive(delta: float) -> void:
 		hero.health = hero.max_health
 	var move := Vector3.ZERO
 	var room := Room.current
+	# Grave Dash: dash sideways through a shot that is about to land.
+	if hero.dash_ready():
+		for p in Projectile.danger:
+			if is_instance_valid(p) and p.time_to_hit(hero.global_position, hero.radius + 0.15) < 0.12:
+				hero.dash(p.dir.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
+				break
 	if room.door_open:
 		move = Vector3(0, 0, -Room.HALF_L - 1.0) - hero.global_position
 		if absf(hero.global_position.x) > 0.6 and hero.global_position.z < -Room.HALF_L + 2.0:

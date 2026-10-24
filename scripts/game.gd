@@ -43,7 +43,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24"
+const BUILD := "2026-10-24b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -53,6 +53,16 @@ var _fps_low := 999.0
 var _fps_t := 0.0
 var _high_graphics := true
 var _combo := 0
+## Bone Chain: kills close together grow a multiplier on damage and coins.
+## +0.1 per kill (+0.3 for elites), up to x3, gone after 2.5 s without a kill.
+var chain := 1.0
+const CHAIN_MAX := 3.0
+const CHAIN_TIME := 2.5
+
+
+## Damage gets half the chain's bonus (x2 at the cap) so a long chain doesn't trivialise rooms.
+func chain_damage() -> float:
+	return 1.0 + (chain - 1.0) * 0.5
 var _combo_left := 0.0
 ## Camera close-ups: finishing blows and the boss entrance.
 var _zoom := 0.0
@@ -174,6 +184,8 @@ func _process(delta: float) -> void:
 			_combo_left -= delta
 			if _combo_left <= 0.0:
 				_combo = 0
+				chain = 1.0
+				hud.show_chain(chain)
 	if _hit_stop_left > 0.0:
 		_hit_stop_left -= delta / maxf(Engine.time_scale, 0.01)
 		if _hit_stop_left <= 0.0:
@@ -346,6 +358,18 @@ func finisher(pos: Vector3, time_scale: float, seconds: float, col := Color(1, 0
 	shake(0.35)
 
 
+## Grave Dash landed: a short slow-motion beat, a callout and a bone crack.
+func perfect_dodge(pos: Vector3) -> void:
+	Engine.time_scale = 0.3
+	_hit_stop_left = maxf(_hit_stop_left, 0.4)
+	Fx.shockwave(pos, Color(0.6, 0.95, 1.0), 2.5)
+	hud.flash(Color(0.7, 0.95, 1.0), 0.25)
+	hud.callout("PERFECT!")
+	Sfx.play("crack", 0.9)
+	shake(0.2)
+	report_event("perfect")
+
+
 func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
@@ -409,7 +433,7 @@ func _start_run() -> void:
 
 func _reset_report() -> void:
 	_rep = {"damage": {}, "hits": 0, "healed": 0.0, "dash": 0, "ward": 0, "second_wind": 0,
-		"best_combo": 0, "rooms": [], "room_start": 0.0, "killed_by": ""}
+		"best_combo": 0, "best_chain": 1.0, "perfect": 0, "rooms": [], "room_start": 0.0, "killed_by": ""}
 	_fps_sum = 0.0
 	_fps_n = 0
 	_fps_low = 999.0
@@ -456,7 +480,7 @@ func run_report(result: String) -> String:
 	lines.append("Damage taken %d in %d hits: %s" % [roundi(total), _rep.get("hits", 0), ", ".join(parts) if parts else "none"])
 	if _rep.get("killed_by", "") != "" and state == State.DEAD:
 		lines.append("Final blow: " + _rep.killed_by)
-	lines.append("Healed %d | Dashes %d | Ward blocks %d | Second Wind used %d" % [roundi(_rep.get("healed", 0.0)), _rep.get("dash", 0), _rep.get("ward", 0), _rep.get("second_wind", 0)])
+	lines.append("Healed %d | Dashes %d | Perfect dodges %d | Best chain x%.1f | Ward blocks %d | Second Wind used %d" % [roundi(_rep.get("healed", 0.0)), _rep.get("dash", 0), _rep.get("perfect", 0), _rep.get("best_chain", 1.0), _rep.get("ward", 0), _rep.get("second_wind", 0)])
 	var bl := []
 	for id in _taken:
 		for u in Upgrades.LIST:
@@ -481,6 +505,7 @@ func _reset_run_stats() -> void:
 	_kills = 0
 	run_coins = 0
 	_combo = 0
+	chain = 1.0
 	floor_num = 1
 	_taken.clear()
 
@@ -663,14 +688,17 @@ func on_enemy_died(e: Enemy) -> void:
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
-	# Kills close together build a combo. From x5 on, each kill drops a bonus coin.
-	_combo = _combo + 1 if _combo_left > 0.0 else 1
-	_combo_left = 2.5
-	hud.show_combo(_combo)
+	# Kills close together build a combo, and the combo feeds the Bone Chain.
+	if _combo_left <= 0.0:
+		_combo = 0
+		chain = 1.0
+	_combo += 1
+	_combo_left = CHAIN_TIME
+	chain = minf(CHAIN_MAX, chain + (0.3 if e.elite else 0.1))
+	hud.show_chain(chain)
 	if not _rep.is_empty():
 		_rep.best_combo = maxi(_rep.best_combo, _combo)
-	if _combo >= 5 and e != boss:
-		Pickup.drop_coins(e.global_position, 1)
+		_rep.best_chain = maxf(_rep.best_chain, chain)
 	if e == boss:
 		# Any minions left crumble with their master.
 		for a: Actor in Actor.all.duplicate():

@@ -80,8 +80,12 @@ var _graphics_button: Button
 var _graphics_high := true
 var _stick_start := Vector2.ZERO
 var _stick_age := 0.0
-var _combo_label: Label
-var _combo_time := 0.0
+var _chain_box: Control
+var _chain_label: Label
+var _chain_fill: ColorRect
+var _chain_pop := 0.0
+var _callout: Label
+var _callout_time := 0.0
 var _boss_card: Control
 var _boss_card_title: Label
 var _boss_card_sub: Label
@@ -318,14 +322,40 @@ func _build_hud() -> void:
 	_boss_box.visible = false
 
 	# The kill combo counter, under the room label on the right.
-	_combo_label = label("", 30, Color(1, 0.85, 0.4), HORIZONTAL_ALIGNMENT_RIGHT)
-	_combo_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_combo_label.offset_left = -260
-	_combo_label.offset_right = -18
-	_combo_label.offset_top = 112
-	_combo_label.offset_bottom = 156
-	_combo_label.modulate.a = 0.0
-	root.add_child(_combo_label)
+	# Bone Chain: a big multiplier at the top with a bar that drains until the next kill.
+	_chain_box = Control.new()
+	_chain_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chain_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_chain_box.offset_left = -130
+	_chain_box.offset_right = 130
+	_chain_box.offset_top = 92
+	_chain_box.offset_bottom = 158
+	_chain_box.modulate.a = 0.0
+	root.add_child(_chain_box)
+	_chain_label = label("", 40, Color(1, 0.85, 0.4))
+	_chain_label.size = Vector2(260, 52)
+	_chain_label.pivot_offset = Vector2(130, 26)
+	_chain_box.add_child(_chain_label)
+	var bar_bg := ColorRect.new()
+	bar_bg.color = Color(0, 0, 0, 0.55)
+	bar_bg.position = Vector2(55, 54)
+	bar_bg.size = Vector2(150, 7)
+	bar_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chain_box.add_child(bar_bg)
+	_chain_fill = ColorRect.new()
+	_chain_fill.position = Vector2(55, 54)
+	_chain_fill.size = Vector2(150, 7)
+	_chain_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_chain_box.add_child(_chain_fill)
+
+	_callout = label("", 46, Color(0.6, 0.95, 1.0))
+	_callout.set_anchors_preset(Control.PRESET_CENTER)
+	_callout.offset_left = -220
+	_callout.offset_right = 220
+	_callout.offset_top = -330
+	_callout.offset_bottom = -270
+	_callout.modulate.a = 0.0
+	root.add_child(_callout)
 
 	_banner = label("", 48, Color(1, 0.9, 0.7))
 	_banner.set_anchors_preset(Control.PRESET_CENTER)
@@ -663,12 +693,19 @@ func _process(delta: float) -> void:
 	_stick_age += delta
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
-	if _combo_time > 0.0:
-		_combo_time -= delta
-		_combo_label.modulate.a = clampf(_combo_time / 0.4, 0.0, 1.0)
-		var pop := 1.0 + maxf(0.0, _combo_time - 2.3) * 2.0
-		_combo_label.pivot_offset = Vector2(_combo_label.size.x, _combo_label.size.y * 0.5)
-		_combo_label.scale = Vector2(pop, pop)
+	var chained := Game.chain > 1.01 and Game.state == Game.State.PLAYING
+	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, 1.0 if chained else 0.0, delta * (8.0 if chained else 3.0))
+	if chained:
+		_chain_fill.size.x = 150.0 * clampf(Game._combo_left / Game.CHAIN_TIME, 0.0, 1.0)
+	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)
+	var pulse := 1.0 + _chain_pop * 0.5 + (0.04 * sin(Time.get_ticks_msec() * 0.012) if Game.chain >= Game.CHAIN_MAX else 0.0)
+	_chain_label.scale = Vector2(pulse, pulse)
+	if _callout_time > 0.0:
+		_callout_time -= delta
+		_callout.modulate.a = clampf(_callout_time / 0.3, 0.0, 1.0)
+		var cs := 1.0 + maxf(0.0, _callout_time - 0.8) * 3.0
+		_callout.pivot_offset = _callout.size / 2
+		_callout.scale = Vector2(cs, cs)
 	if Game.state != Game.State.PLAYING and _stick_touch != -1:
 		_release_stick()
 	var hero := Game.hero
@@ -727,15 +764,22 @@ func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:
 	_banner_time = 2.0
 
 
-## Shows "x5 COMBO"; it pops when it goes up and fades if you stop killing.
-func show_combo(n: int) -> void:
-	if n < 2:
-		_combo_time = minf(_combo_time, 0.3)
+## Shows "CHAIN x1.8". Gold, then orange from x2, then white-hot and pulsing at x3.
+func show_chain(mult: float) -> void:
+	if mult <= 1.01:
 		return
-	_combo_label.text = "x%d COMBO" % n
-	_combo_label.label_settings.font_color = Color(1, 0.85, 0.4) if n < 5 else (Color(1, 0.55, 0.2) if n < 10 else Color(1, 0.25, 0.3))
-	_combo_label.label_settings.font_size = mini(30 + n * 2, 52)
-	_combo_time = 2.5
+	_chain_label.text = "CHAIN x%.1f" % mult
+	var col := Color(1, 0.85, 0.4) if mult < 2.0 else (Color(1, 0.55, 0.2) if mult < Game.CHAIN_MAX else Color(1, 0.97, 0.85))
+	_chain_label.label_settings.font_color = col
+	_chain_fill.color = col
+	_chain_pop = 0.35 if mult < Game.CHAIN_MAX else 0.6
+
+
+## A short punchy word over the action, like "PERFECT!".
+func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
+	_callout.text = text
+	_callout.label_settings.font_color = col
+	_callout_time = 1.1
 
 
 ## A quick white (or coloured) flash over the whole screen.

@@ -23,10 +23,12 @@ and face the Skeleton King at the end of the floor.
 - **Coins and the Armory:** skeletons drop gold you keep between runs. Spend it on permanent upgrades (health, damage, attack speed, move speed, luckier hearts, a free blessing each run, and a once-per-run Second Wind).
 - **Music:** a calm dungeon theme and a faster boss theme (made by [tools/make_music.py](tools/make_music.py)), with Music, Sounds and Graphics (High/Low) switches in the pause menu. Low graphics turns off shadows and glow for smoother play on older phones.
 - **Run report:** the end screen has a COPY RUN REPORT button. It copies the hero, damage taken from each enemy, blessings, room times and frame rate, to paste to Claude for balancing.
+- **Grave Dash:** dash through a red enemy shot just before it hits for a PERFECT dodge: time slows, nearby shots shatter, the dash recharges and your hero fires a ring of 8 bolts back. Dash across a spike trap while it's armed and it fires on the skeletons around it instead.
+- **Bone Chain:** kills close together build a multiplier (+0.1 per kill, +0.3 for elites, up to x3). It multiplies coins, boosts damage (up to x2), and drains away 2.5 s after your last kill.
 - **Waves:** normal rooms come in 2–3 waves (the next one arrives when only a few skeletons are left). After the last kill the blessing cards show at once, and picking one goes straight to the next room.
 - **Readable danger:** the camera sits close and follows the hero, red arrows on the screen edge point at enemies and warnings just off-screen, every enemy shot is hot pink-red with a dark ring and a pulse, and your own shots are small and see-through.
 - **Healing hearts** that skeletons sometimes drop and a beginner hint in room 1.
-- **Game feel:** slow-motion close-up on the last kill of each room, kill combos (x5 and up drop bonus coins), a boss entrance with a title card, drifting embers, hit-stop, screen shake, hit flashes, knockback, damage numbers, particles and synthesised sounds.
+- **Game feel:** slow-motion close-up on the last kill of each room, a boss entrance with a title card, drifting embers, hit-stop, screen shake, hit flashes, knockback, damage numbers, particles and synthesised sounds.
 - **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
 
 ## Art

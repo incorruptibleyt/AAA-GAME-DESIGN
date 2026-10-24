@@ -106,6 +106,10 @@ func heal(amount: float) -> void:
 	Game.report_event("healed", health - before)
 
 
+func is_dashing() -> bool:
+	return _dash_left > 0.0
+
+
 func dash_ready() -> bool:
 	return _dash_cooldown <= 0.0
 
@@ -124,6 +128,38 @@ func dash(dir: Vector3) -> void:
 	Sfx.play("dash", 0.7)
 	Game.report_event("dash")
 	Fx.dust(global_position, 10)
+	_perfect_done = false
+	_check_perfect(PERFECT_WINDOW)
+
+
+## Grave Dash: dashing through a red shot just before it lands is a perfect dodge.
+## Time slows, nearby shots shatter, and the hero answers with a ring of bolts.
+const PERFECT_WINDOW := 0.15
+var _perfect_done := false
+
+
+func _check_perfect(window: float) -> void:
+	if _perfect_done:
+		return
+	for p in Projectile.danger:
+		if is_instance_valid(p) and not p.is_queued_for_deletion() and p.time_to_hit(global_position, radius + 0.15) <= window:
+			_perfect_dodge()
+			return
+
+
+func _perfect_dodge() -> void:
+	_perfect_done = true
+	_dash_cooldown = 0.0
+	for p in Projectile.danger.duplicate():
+		if is_instance_valid(p) and p.global_position.distance_to(global_position) < 3.0:
+			p.shatter()
+	Game.perfect_dodge(center())
+	var col := bolt_color.lerp(Color.WHITE, 0.4)
+	for i in 8:
+		var d := Vector3.FORWARD.rotated(Vector3.UP, TAU * i / 8.0 + rotation.y)
+		var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.5 * Game.chain_damage(), bolt_speed, col, bolt_size)
+		p.pierce = pierce + 1
+		p.push = bolt_push
 
 
 func on_kill() -> void:
@@ -146,6 +182,7 @@ func _process(delta: float) -> void:
 			_trail_t = 0.025
 			Fx.trail(center(), Color(0.45, 0.8, 1.0))
 		_shot_timer = maxf(_shot_timer, 0.1)
+		_check_perfect(0.0)
 		return
 	if _invulnerable > 0.0:
 		_invulnerable -= delta
@@ -220,7 +257,7 @@ func _shoot(fwd: Vector3) -> void:
 
 
 func _fire(origin: Vector3, d: Vector3, col: Color) -> void:
-	var p := Projectile.fire(Team.HERO, origin, d, damage, bolt_speed, col, bolt_size)
+	var p := Projectile.fire(Team.HERO, origin, d, damage * Game.chain_damage(), bolt_speed, col, bolt_size)
 	p.pierce = pierce
 	p.push = bolt_push
 	p.splash = splash

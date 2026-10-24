@@ -46,6 +46,7 @@ func _ready() -> void:
 	_clips["click"] = _synth(0.06, func(t): return _sine(t, 700) * _env(t, 0.06) * 0.25)
 	_clips["dash"] = _synth(0.22, func(t): return (_noise() * 0.6 + _sweep(t, 300, 1400) * 0.25) * _env(t, 0.22) * 0.4)
 	_clips["slam"] = _synth(0.9, func(t): return (_sweep(t, 120, 35) * 0.7 + _noise() * 0.35 * exp(-t * 8.0)) * _env(t, 0.9) * 0.6)
+	_clips["crack"] = _synth(0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
 
 
