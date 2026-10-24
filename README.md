@@ -1,6 +1,6 @@
 # Crypt Crawl
 
-A top-down dungeon action game for Android phones, built in **Godot 4.5**. Fight down through a crypt
+A top-down dungeon action game for Android phones, built in **Godot 4.7**. Fight down through a crypt
 one room at a time: drag your thumb to move, stand still to shoot, pick a blessing after every room,
 and face the Skeleton King at the end of the floor.
 
@@ -48,7 +48,11 @@ repositories. If a model is missing, the game falls back to simple placeholder s
 Every push runs [.github/workflows/android-build.yml](.github/workflows/android-build.yml), which:
 1. unpacks any KayKit zips,
 2. lets a robot play a full run (it must beat the boss with no script errors),
-3. exports the Android app and posts it on the
+3. exports a test app (`crypt-crawl.apk`) and checks it targets Android API 36 and is 16 KB page aligned,
+4. builds the signed Google Play release (`crypt-crawl.aab`) with Gradle, using the upload key
+   (locked in `signing/upload-keystore.p12.enc`, unlocked by the `ANDROID_UPLOAD_PASSWORD` secret;
+   without that secret the Play build is only a test and isn't published),
+5. posts both on the
    [latest-build release](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/releases/tag/latest-build).
 
 ## How the project is organised
