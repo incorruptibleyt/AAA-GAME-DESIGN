@@ -40,7 +40,8 @@ static func cell_to_world(col: int, row: int) -> Vector3:
 
 
 func player_start() -> Vector3:
-	return Vector3(0, 0, HALF_L - 1.4)
+	# A little up from the near wall, so the camera can keep the hero above the thumb.
+	return Vector3(0, 0, HALF_L - 3.0)
 
 
 # ---------------------------------------------------------------- building

@@ -38,6 +38,7 @@ var _room_label: Label
 var _boss_box: Control
 var _boss_fill: ColorRect
 var _banner: Label
+var _wave_label: Label
 var _banner_time := 0.0
 var _shown_hp := 1.0
 
@@ -226,6 +227,7 @@ func _bar(parent: Control, fill_col: Color) -> ColorRect:
 
 
 func _build_hud() -> void:
+	add_child(EdgeMarkers.new())
 	_safe = MarginContainer.new()
 	_safe.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	full(_safe)
@@ -258,6 +260,15 @@ func _build_hud() -> void:
 	_room_label.offset_top = 12
 	_room_label.offset_bottom = 48
 	root.add_child(_room_label)
+
+	_wave_label = label("", 20, Color(1, 0.62, 0.45), HORIZONTAL_ALIGNMENT_RIGHT)
+	_wave_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_wave_label.offset_left = -276
+	_wave_label.offset_right = -76
+	_wave_label.offset_top = 44
+	_wave_label.offset_bottom = 74
+	_wave_label.visible = false
+	root.add_child(_wave_label)
 
 	_pause_button = Button.new()
 	_pause_button.text = "II"
@@ -696,6 +707,17 @@ func set_boss_name(n: String) -> void:
 
 func hide_boss() -> void:
 	_boss_box.visible = false
+
+
+## "Wave 2 / 3" under the room name; hidden in one-wave rooms.
+func set_wave(wave: int, total: int) -> void:
+	_wave_label.visible = total > 1
+	_wave_label.text = "Wave %d / %d" % [wave, total]
+
+
+func clear_banner() -> void:
+	_banner_time = 0.0
+	_banner.modulate.a = 0.0
 
 
 func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:

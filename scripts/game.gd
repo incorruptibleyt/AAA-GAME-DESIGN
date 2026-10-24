@@ -59,6 +59,11 @@ var _zoom := 0.0
 var _zoom_hold := 0.0
 var _zoom_point := Vector3.ZERO
 var _intro_focus := false
+## Waves: normal rooms send 2-3 waves; the next arrives when only a few are left.
+var _waves_left := 0
+var _wave_total := 1
+var _wave_kinds: Array = []
+var _wave_pending := false
 var _moon: DirectionalLight3D
 
 
@@ -265,19 +270,26 @@ func keyboard_move() -> Vector2:
 
 # ---------------------------------------------------------------- camera and juice
 
+## How much of the room's width the camera shows (the room is 12 wide). Showing about two
+## thirds of it keeps the skeletons big on a phone; the camera follows the hero instead.
+const VIEW_HALF_WIDTH := 4.4
+## The hero sits this far above the middle of the screen, away from the thumb.
+const HERO_ABOVE_CENTRE := 0.9
+
+
 func _cam_distance() -> float:
-	# Pick a distance where the full room width fits on screen, whatever the phone's shape.
+	# The same visible width on every phone shape, so characters are the same size.
 	var vp := get_viewport().get_visible_rect().size
 	var aspect := vp.x / maxf(vp.y, 1.0)
 	var half_h := atan(tan(deg_to_rad(CAMERA_FOV) * 0.5) * aspect)
-	return maxf(15.0, (Room.HALF_W + 0.4) / tan(half_h))
+	return VIEW_HALF_WIDTH / tan(half_h)
 
 
 func _focus_goal() -> Vector3:
 	if hero == null:
 		return Vector3.ZERO
 	if _intro_focus and is_instance_valid(boss):
-		return Vector3(boss.global_position.x * 0.5, 0, boss.global_position.z + 0.5)
+		return Vector3(boss.global_position.x * 0.5, 0, boss.global_position.z + 1.5)
 	var goal := _room_focus()
 	if _zoom_hold > 0.0:
 		goal = goal.lerp(Vector3(_zoom_point.x * 0.6, 0, _zoom_point.z), 0.7)
@@ -285,8 +297,7 @@ func _focus_goal() -> Vector3:
 
 
 func _room_focus() -> Vector3:
-	# Keep the near wall at the bottom of the screen and the door in view at the top.
-	# On a tall phone the whole room fits, so the camera just stays centred.
+	# Follow the hero, but never show past the walls: no empty black space at the edges.
 	var p := deg_to_rad(CAMERA_PITCH)
 	var half_v := deg_to_rad(CAMERA_FOV) * 0.5
 	var d := _cam_distance()
@@ -294,9 +305,9 @@ func _room_focus() -> Vector3:
 	var top := d * (cos(p) - sin(p) / tan(p - half_v))
 	var hi := Room.HALF_L + 0.6 - bottom
 	var lo := -Room.HALF_L - 2.5 - top
-	if lo > hi:
-		return Vector3(0, 0, (lo + hi) * 0.5)
-	return Vector3(0, 0, clampf(hero.global_position.z - 1.5, lo, hi))
+	var z := (lo + hi) * 0.5 if lo > hi else clampf(hero.global_position.z + HERO_ABOVE_CENTRE, lo, hi)
+	var x_room := maxf(0.0, Room.HALF_W + 0.6 - VIEW_HALF_WIDTH)
+	return Vector3(clampf(hero.global_position.x, -x_room, x_room), 0, z)
 
 
 func _place_camera() -> void:
@@ -582,6 +593,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		var u := _start_blessing
 		_start_blessing = {}
 		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner("Blessed: " + u.title, u.color))
+	_wave_kinds.clear()
 	for s in room.spawns:
 		var kind: String = s.kind
 		if kind == "K" and floor_num % 2 == 0:
@@ -589,6 +601,15 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		var e := spawn_enemy(kind, s.pos)
 		if _roll_elite(e, index):
 			e.make_elite()
+		_wave_kinds.append(kind)
+	_wave_pending = false
+	if _in_boss_room() or _wave_kinds.is_empty():
+		_wave_total = 1
+	else:
+		# The first room is gentle; later and deeper rooms get three waves.
+		_wave_total = 2 if (index == 0 and floor_num == 1) else (3 if index >= 2 or floor_num > 1 else 2)
+	_waves_left = _wave_total - 1
+	hud.set_wave(1, _wave_total)
 	if is_instance_valid(boss):
 		_boss_intro()
 	else:
@@ -656,26 +677,76 @@ func on_enemy_died(e: Enemy) -> void:
 			if a != e and a.team == Actor.Team.UNDEAD and not a.dead and a.can_be_hit():
 				a.take_damage(9999.0, Vector3.ZERO, 0.0)
 		_win()
-	elif alive_enemies == 0 and not _in_boss_room():
+	elif not _in_boss_room() and _waves_left > 0 and not _wave_pending and alive_enemies <= (1 if _wave_kinds.size() <= 4 else 2):
+		_wave_pending = true
+		_next_wave()
+	elif alive_enemies == 0 and not _in_boss_room() and _waves_left == 0 and not _wave_pending:
 		finisher(e.global_position, 0.25, 0.6)
 		_clear_enemy_attacks()
 		Pickup.collect_all()
 		_room_cleared()
 
 
+## The next wave climbs out of the floor away from the hero, after a short warning.
+func _next_wave() -> void:
+	var wave := _wave_total - _waves_left + 1
+	hud.banner("Wave %d" % wave, Color(1, 0.55, 0.4))
+	Sfx.play("warn")
+	var kinds := _wave_kinds.duplicate()
+	kinds.shuffle()
+	# Later waves bring one extra skeleton.
+	kinds.append(kinds[0])
+	var spots := _wave_spots(kinds.size())
+	for p in spots:
+		Fx.dust(p, 10)
+	await get_tree().create_timer(0.8, false).timeout
+	if state != State.PLAYING or Room.current == null:
+		_wave_pending = false
+		return
+	for i in mini(kinds.size(), spots.size()):
+		var e := spawn_enemy(kinds[i], spots[i])
+		if _roll_elite(e, _room_index):
+			e.make_elite()
+	_waves_left -= 1
+	_wave_pending = false
+	hud.set_wave(wave, _wave_total)
+
+
+## Free floor spots at least 4.5 away from the hero, spread around the room.
+func _wave_spots(count: int) -> Array:
+	var room := Room.current
+	var spots := []
+	for row in Layouts.ROWS:
+		for col in Layouts.COLUMNS:
+			var p := Room.cell_to_world(col, row)
+			if absf(p.x) > Room.HALF_W - 1.0 or absf(p.z) > Room.HALF_L - 1.2:
+				continue
+			if room.blocks_shot(p, 0.7):
+				continue
+			if hero and p.distance_to(hero.global_position) < 4.5:
+				continue
+			spots.append(p)
+	spots.shuffle()
+	return spots.slice(0, count)
+
+
 func _room_cleared() -> void:
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
 	_save_coins()
-	hud.banner("Room Cleared")
-	await get_tree().create_timer(0.9, false).timeout
+	hud.set_wave(0, 0)
+	# Straight to the blessing cards once the slow-motion finish has played.
+	await get_tree().create_timer(0.75, true, false, true).timeout
 	if state != State.PLAYING:
 		return
 	_choices = Upgrades.roll(_taken)
 	if _choices.is_empty():
-		Room.current.open_door()
+		Pickup.grant_all()
+		_save_coins()
+		enter_next_room()
 		return
 	_set_state(State.UPGRADE)
 	get_tree().paused = true
+	hud.clear_banner()
 	hud.show_cards(_choices)
 
 
@@ -689,8 +760,11 @@ func _on_card_picked(i: int) -> void:
 	_set_state(State.PLAYING)
 	Sfx.play("upgrade")
 	Fx.magic(hero.center(), u.color, 30)
-	Room.current.open_door()
 	hud.banner(u.title, u.color)
+	# No walk to the door: anything left on the floor is picked up and the next room starts.
+	Pickup.grant_all()
+	_save_coins()
+	enter_next_room()
 
 
 ## Removes skeleton arrows and warning markers still in the air once a fight is over.
@@ -714,6 +788,8 @@ func _win() -> void:
 	Pickup.collect_all()
 	hud.hide_boss()
 	await get_tree().create_timer(1.2, true, false, true).timeout
+	Pickup.grant_all()   # coins still flying to the hero count, and are saved
+	_save_coins()
 	Sfx.play("victory")
 	var cfg := _load_save()
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
@@ -730,6 +806,7 @@ func on_hero_died() -> void:
 	if state == State.DEAD or state == State.VICTORY:
 		return
 	_set_state(State.DEAD)
+	_save_coins()
 	await get_tree().create_timer(1.4, true, false, true).timeout
 	_save_best(_load_save(), _room_index + 1)
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]

@@ -70,6 +70,18 @@ func _ready() -> void:
 	Fx.magic(global_position + Vector3.UP * 0.6, Color(1, 0.3, 0.4), 8)
 
 
+## Collect everything at once (before leaving a room), so nothing is lost.
+static func grant_all() -> void:
+	var hero := Game.hero
+	for p in all.duplicate():
+		if p.coin:
+			Game.add_coins(p.value)
+		elif hero and not hero.dead:
+			hero.heal(HEAL)
+		p.queue_free()
+	all.clear()
+
+
 ## Called when a room is cleared: everything left flies to the hero.
 static func collect_all() -> void:
 	for p in all:
