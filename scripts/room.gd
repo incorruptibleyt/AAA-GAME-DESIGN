@@ -83,13 +83,14 @@ func _build_shell() -> void:
 	apply_graphics(Game._high_graphics)
 
 
-## Low graphics keeps only the middle pair of torch lights (made a little stronger),
-## since every light costs a lot on older phones. The torch flames still show.
+## Every light costs a lot on phones, so High keeps the far and near pairs of torch
+## lights (with a longer reach to cover the middle) and Low keeps only the middle pair.
+## The torch flames themselves always show.
 func apply_graphics(high: bool) -> void:
 	for i in _torch_lights.size():
-		var keep := high or i == 2 or i == 3
+		var keep := (i != 2 and i != 3) if high else (i == 2 or i == 3)
 		_torch_lights[i].visible = keep
-		_torch_lights[i].omni_range = 7.0 if high else 11.0
+		_torch_lights[i].omni_range = 9.5 if high else 11.0
 		_torch_lights[i].light_energy = Floors.current().torch_energy * (1.0 if high else 1.2)
 
 
@@ -118,6 +119,7 @@ func _build_door(trim: Material, dark: Material) -> void:
 	_exit_light.light_color = Color(0.4, 0.6, 1.0)
 	_exit_light.omni_range = 6.0
 	_exit_light.light_energy = 0.0
+	_exit_light.visible = false   # a light at zero energy still costs a pass on phones
 	_exit_light.position = Vector3(0, 1.5, 0.8)
 	door.add_child(_exit_light)
 
@@ -286,4 +288,5 @@ func open_door() -> void:
 	_exit_glow.visible = true
 	var tw := create_tween().set_parallel()
 	tw.tween_property(_portcullis, "position:y", 2.9, 0.9).set_trans(Tween.TRANS_SINE)
+	_exit_light.visible = true
 	tw.tween_property(_exit_light, "light_energy", 2.5, 0.9)

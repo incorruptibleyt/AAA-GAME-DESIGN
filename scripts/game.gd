@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24f"
+const BUILD := "2026-10-24g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -66,9 +66,14 @@ func chain_time() -> float:
 	return 3.5 if hero and hero.perks.has("links") else 2.5
 
 
-## Damage gets half the chain's bonus (x2 at the cap) so a long chain doesn't trivialise rooms.
+## Damage gets a quarter of the chain's bonus (x1.5 at the cap) so a long chain doesn't trivialise rooms.
 func chain_damage() -> float:
-	return 1.0 + (chain - 1.0) * 0.5
+	return 1.0 + (chain - 1.0) * 0.25
+
+
+## Coins get the same quarter share of the chain: up to x1.5 (x1.75 with Marrow).
+func chain_coins() -> float:
+	return 1.0 + (chain - 1.0) * 0.25
 var _combo_left := 0.0
 ## Camera close-ups: finishing blows and the boss entrance.
 var _zoom := 0.0
@@ -104,6 +109,7 @@ func _ready() -> void:
 	hud.card_picked.connect(_on_card_picked)
 	hud.reroll_pressed.connect(_on_reroll)
 	hud.special_pressed.connect(func(): if hero: hero.use_special())
+	hud.dash_pressed.connect(_dash_from_button)
 	hud.screen_tapped.connect(_on_screen_tapped)
 	hud.pause_pressed.connect(_on_pause_pressed)
 	hud.play_pressed.connect(_on_play_pressed)
@@ -197,7 +203,8 @@ func _process(delta: float) -> void:
 	if _hit_stop_left > 0.0:
 		_hit_stop_left -= delta / maxf(Engine.time_scale, 0.01)
 		if _hit_stop_left <= 0.0:
-			Engine.time_scale = 1.0
+			Engine.time_scale = 0.12 if _lesson_left > 0.0 else 1.0
+	_update_dash_lesson(delta / maxf(Engine.time_scale, 0.01))
 	_update_camera(delta / maxf(Engine.time_scale, 0.01))
 	_update_exit_arrow()
 
@@ -219,12 +226,14 @@ func _notification(what: int) -> void:
 
 
 ## How much tougher skeletons are on the current floor.
+## Skeleton health grows 55% per floor (compounding), so it keeps pace with a hero whose
+## blessings stack up. Floor 4 skeletons have about 3.7x their floor 1 health.
 func health_scale() -> float:
-	return 1.0 + 0.5 * (floor_num - 1)
+	return pow(1.55, floor_num - 1)
 
 
 func damage_scale() -> float:
-	return 1.0 + 0.25 * (floor_num - 1)
+	return 1.0 + 0.35 * (floor_num - 1)
 
 
 func speed_scale() -> float:
@@ -378,6 +387,58 @@ func perfect_dodge(pos: Vector3) -> void:
 	Sfx.play("crack", 0.9)
 	shake(0.2)
 	report_event("perfect")
+	var cfg := _load_save()
+	_perfect_total = int(cfg.get_value("stats", "perfect_total", 0)) + 1
+	cfg.set_value("stats", "perfect_total", _perfect_total)
+	cfg.save(SAVE_PATH)
+
+
+## The DASH button dashes the way you're moving, or the way you face if you're still.
+func _dash_from_button() -> void:
+	if hero == null:
+		return
+	var m := hud.joystick + keyboard_move()
+	hero.dash(Vector3(m.x, 0, m.y) if m.length() > 0.2 else -hero.global_transform.basis.z)
+
+
+## Dash lessons: until you've pulled off a few perfect dodges, a shot about to hit you
+## freezes time for a moment and the game tells you to dash through it.
+var _lesson_left := 0.0
+var _lessons_this_run := 0
+var _perfect_total := -1
+
+
+func dash_lesson_active() -> bool:
+	return _lesson_left > 0.0
+
+
+func _update_dash_lesson(real_delta: float) -> void:
+	if _lesson_left > 0.0:
+		_lesson_left -= real_delta
+		if _lesson_left <= 0.0 or state != State.PLAYING or hero == null or hero.is_dashing():
+			_end_dash_lesson()
+		return
+	if state != State.PLAYING or hero == null or not hero.dash_ready() or _lessons_this_run >= 2 or _hit_stop_left > 0.0:
+		return
+	if _perfect_total < 0:
+		_perfect_total = int(_load_save().get_value("stats", "perfect_total", 0))
+	if _perfect_total >= 3:
+		return
+	for p in Projectile.danger:
+		if is_instance_valid(p) and p.time_to_hit(hero.global_position, hero.radius + 0.15) < 0.5:
+			_lessons_this_run += 1
+			_lesson_left = 1.8
+			Engine.time_scale = 0.12
+			hud.callout("DASH THROUGH IT!", Color(0.6, 0.9, 1.0))
+			hud.show_hint("Flick your thumb, or tap DASH")
+			return
+
+
+func _end_dash_lesson() -> void:
+	_lesson_left = 0.0
+	hud.show_hint("")
+	if _hit_stop_left <= 0.0:
+		Engine.time_scale = 1.0
 
 
 func shake(amount: float) -> void:
@@ -516,6 +577,7 @@ func _reset_run_stats() -> void:
 	run_coins = 0
 	_combo = 0
 	chain = 1.0
+	_lessons_this_run = 0
 	floor_num = 1
 	_taken.clear()
 	rerolls = 1
@@ -584,7 +646,7 @@ func _descend() -> void:
 	await _fade(0.0, 1.0, 0.5)
 	hud.show_end(false)
 	floor_num += 1
-	hero.heal(hero.max_health * 0.5)
+	hero.heal(hero.max_health * 0.3)
 	_build_run()
 	_load_room(0, true)
 	hud.banner("Floor %d: %s" % [floor_num, Floors.current().name], Floors.current().banner)
@@ -964,7 +1026,7 @@ func _set_sounds(on: bool, save := true) -> void:
 func _set_graphics(high: bool, save := true) -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED
-	vp.scaling_3d_scale = 1.0 if high else 0.7
+	vp.scaling_3d_scale = 0.85 if high else 0.7
 	_env.glow_enabled = high
 	_moon.shadow_enabled = high
 	_high_graphics = high

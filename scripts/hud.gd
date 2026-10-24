@@ -7,6 +7,7 @@ extends CanvasLayer
 signal card_picked(index: int)
 signal reroll_pressed
 signal special_pressed
+signal dash_pressed
 signal screen_tapped
 signal pause_pressed
 signal play_pressed
@@ -52,6 +53,7 @@ var _cards_box: Control
 var _cards: Array[Button] = []
 var _reroll_button: Button
 var _special: SpecialButton
+var _dash_button: DashButton
 var _quit_button: Button
 var _quit_armed := false
 var _title_box: Control
@@ -287,6 +289,14 @@ func _build_hud() -> void:
 	_special.offset_top = -260
 	_special.offset_bottom = -160
 	root.add_child(_special)
+
+	_dash_button = DashButton.new()
+	_dash_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_dash_button.offset_left = -114
+	_dash_button.offset_right = -34
+	_dash_button.offset_top = -380
+	_dash_button.offset_bottom = -300
+	root.add_child(_dash_button)
 
 	_pause_button = Button.new()
 	_pause_button.text = "II"
@@ -699,6 +709,10 @@ func _input(event: InputEvent) -> void:
 			if _safe.visible and _special.visible and not _overlay_open() \
 					and _special.get_global_rect().grow(12.0).has_point(t.position):
 				special_pressed.emit()
+				return
+			if _safe.visible and _dash_button.visible and not _overlay_open() \
+					and _dash_button.get_global_rect().grow(12.0).has_point(t.position):
+				dash_pressed.emit()
 				return
 			if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING:
 				_stick_touch = t.index

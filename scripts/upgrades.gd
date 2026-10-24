@@ -21,8 +21,8 @@ const RARITIES := {
 }
 
 const LIST := [
-	{"id": "damage", "family": "bolt", "rarity": "common", "title": "Sharpened Bolts", "text": "+30% damage", "max": 99},
-	{"id": "speed", "family": "bolt", "rarity": "common", "title": "Quick Draw", "text": "+25% attack speed", "max": 99},
+	{"id": "damage", "family": "bolt", "rarity": "common", "title": "Sharpened Bolts", "text": "+20% damage", "max": 99},
+	{"id": "speed", "family": "bolt", "rarity": "common", "title": "Quick Draw", "text": "+15% attack speed", "max": 99},
 	{"id": "crit", "family": "bolt", "rarity": "common", "title": "Keen Eye", "text": "+15% critical hit chance", "max": 3},
 	{"id": "multishot", "family": "bolt", "rarity": "rare", "title": "Twin Bolts", "text": "+1 bolt forward (each hits 10% softer)", "max": 3},
 	{"id": "rear", "family": "bolt", "rarity": "rare", "title": "Eyes in the Back", "text": "+1 bolt backward", "max": 1},
@@ -37,8 +37,8 @@ const LIST := [
 	{"id": "vitality", "family": "bone", "rarity": "common", "title": "Vitality", "text": "+30 max health and heal 30", "max": 99},
 	{"id": "boots", "family": "bone", "rarity": "common", "title": "Swift Boots", "text": "+12% move speed", "max": 3},
 	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Pick up hearts and coins from twice as far", "max": 1},
-	{"id": "greed", "family": "bone", "rarity": "common", "title": "Golden Touch", "text": "+50% coins from skeletons", "max": 2},
-	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 4 health per kill", "max": 3},
+	{"id": "greed", "family": "bone", "rarity": "common", "title": "Golden Touch", "text": "+30% coins from skeletons", "max": 2},
+	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 2 health per kill", "max": 3},
 	{"id": "ward", "family": "bone", "rarity": "rare", "title": "Bone Ward", "text": "Block the first hit in every room", "max": 2},
 	{"id": "links", "family": "bone", "rarity": "rare", "title": "Long Links", "text": "Bone Chain lasts 1 second longer", "max": 1},
 	{"id": "marrow", "family": "bone", "rarity": "epic", "title": "Marrow", "text": "Bone Chain can climb to x4", "max": 1},
@@ -66,8 +66,8 @@ static func color(u: Dictionary) -> Color:
 static func apply(id: String, h: Hero) -> void:
 	h.perks[id] = h.perks.get(id, 0) + 1
 	match id:
-		"damage": h.damage *= 1.3
-		"speed": h.shots_per_second *= 1.25
+		"damage": h.damage *= 1.2
+		"speed": h.shots_per_second *= 1.15
 		"multishot":
 			h.front_bolts += 1
 			h.damage *= 0.9
@@ -80,12 +80,12 @@ static func apply(id: String, h: Hero) -> void:
 		"vitality":
 			h.max_health += 30.0
 			h.heal(30.0)
-		"harvest": h.heal_on_kill += 4.0
+		"harvest": h.heal_on_kill += 2.0
 		"boots": h.move_speed *= 1.12
 		"frost": h.frost = true
 		"frostbite": h.frost_time *= 2.0
 		"magnet": h.magnet = 2.0
-		"greed": h.coin_bonus += 0.5
+		"greed": h.coin_bonus += 0.3
 		"ward":
 			h.ward_max += 1
 			h.ward += 1

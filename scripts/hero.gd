@@ -142,7 +142,7 @@ func dash(dir: Vector3) -> void:
 
 ## Grave Dash: dashing through a red shot just before it lands is a perfect dodge.
 ## Time slows, nearby shots shatter, and the hero answers with a ring of bolts.
-const PERFECT_WINDOW := 0.15
+const PERFECT_WINDOW := 0.22
 var _perfect_done := false
 
 

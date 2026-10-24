@@ -7,7 +7,7 @@ var move_speed := 2.5
 var contact_damage := 10.0
 var knockback_scale := 1.0
 ## Chance of dropping a healing heart when destroyed.
-var drop_chance := 0.18
+var drop_chance := 0.12
 ## Bosses use the big bar at the top of the screen instead of a little one.
 var is_boss := false
 ## Elite skeletons are golden, bigger and tougher, and drop more coins.
@@ -38,7 +38,8 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	e.global_position = pos
 	e._setup()
 	# Deeper floors make skeletons tougher and a little quicker.
-	e.init_health(e.max_health * Game.health_scale())
+	# Bosses get an extra 30% per floor on top, so deep bosses are a real fight.
+	e.init_health(e.max_health * Game.health_scale() * ((1.0 + 0.3 * (Game.floor_num - 1)) if e.is_boss else 1.0))
 	e.move_speed *= Game.speed_scale()
 	e._bar = HealthBar.attach(e)
 	Fx.dust(pos, 18)
@@ -121,9 +122,10 @@ func chill(seconds: float) -> void:
 ## Coins dropped when destroyed. Deeper floors pay a little more.
 func coin_value() -> int:
 	if elite:
-		return 6 + 2 * (Game.floor_num - 1)
-	var base := 20 if is_boss else (1 if max_health < 30.0 * Game.health_scale() else 2)
-	return base + (Game.floor_num - 1) * (5 if is_boss else 0) + (1 if not is_boss and randf() < 0.1 * (Game.floor_num - 1) else 0)
+		return 4 + Game.floor_num
+	if is_boss:
+		return 15 + 5 * (Game.floor_num - 1)
+	return 1
 
 
 func _think(_hero: Hero, _delta: float) -> void:
@@ -245,7 +247,7 @@ func _on_death() -> void:
 		Pickup.drop(global_position)
 	var coins := coin_value()
 	if Game.hero and coins > 0:
-		coins = roundi(coins * (1.0 + Game.hero.coin_bonus) * Game.chain)
+		coins = roundi(coins * (1.0 + Game.hero.coin_bonus) * Game.chain_coins())
 	Pickup.drop_coins(global_position, coins)
 	Game.on_enemy_died(self)
 	get_tree().create_timer(2.5, false).timeout.connect(queue_free)

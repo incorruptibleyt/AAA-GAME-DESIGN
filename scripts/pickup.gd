@@ -4,7 +4,7 @@ extends Node3D
 ## (spend them in the Armory). Walk near to collect. Once a room is cleared, anything
 ## left on the floor flies to the hero by itself.
 
-const HEAL := 15.0
+const HEAL := 12.0
 const MAGNET_RANGE := 2.6
 const COIN_MAGNET_RANGE := 3.6
 

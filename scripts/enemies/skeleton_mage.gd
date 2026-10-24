@@ -42,7 +42,7 @@ func _think(hero: Hero, delta: float) -> void:
 		visual.attack(true)
 		var spot := hero.global_position
 		Fx.magic(center() + Vector3.UP * 0.3, Color(0.7, 0.4, 1.0), 14)
-		track(Telegraph.circle(spot, 1.7, 1.0, func(): SkeletonMage.explode(spot, 1.7, 18.0)))
+		track(Telegraph.circle(spot, 1.7, 1.2, func(): SkeletonMage.explode(spot, 1.7, 18.0)))
 
 
 static func explode(spot: Vector3, r: float, dmg: float) -> void:

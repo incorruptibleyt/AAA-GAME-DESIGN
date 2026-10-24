@@ -35,8 +35,8 @@ func _think(hero: Hero, delta: float) -> void:
 		return
 	_timer -= delta
 	if _timer <= 0.0:
-		_timer = randf_range(2.0, 2.6)
-		_charging = 0.5
+		_timer = randf_range(2.4, 3.0)
+		_charging = 0.7
 		Fx.magic(center() + Vector3.UP * 0.3, Color(0.5, 1.0, 0.3), 12)
 		Sfx.play("warn", 0.4)
 
