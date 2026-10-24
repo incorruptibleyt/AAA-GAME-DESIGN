@@ -101,6 +101,7 @@ var _broken_label: Label
 var _broken_time := 0.0
 var _tip: Label
 var _tip_time := 0.0
+var _tip_delay := 0.0
 var _shown_score := 0.0
 var _end_score: Label
 var _end_best: Label
@@ -410,8 +411,8 @@ func _build_hud() -> void:
 	_callout.set_anchors_preset(Control.PRESET_CENTER)
 	_callout.offset_left = -220
 	_callout.offset_right = 220
-	_callout.offset_top = -250
-	_callout.offset_bottom = -190
+	_callout.offset_top = -190
+	_callout.offset_bottom = -130
 	_callout.modulate.a = 0.0
 	root.add_child(_callout)
 
@@ -827,7 +828,10 @@ func _process(delta: float) -> void:
 		_broken_time -= delta
 		_broken_label.modulate.a = clampf(_broken_time / 0.4, 0.0, 1.0)
 		_chain_label.modulate.a = 1.0 - _broken_label.modulate.a
-	if _tip_time > 0.0:
+	if _tip_delay > 0.0:
+		_tip_delay -= delta
+		_tip.visible = _tip_delay <= 0.0
+	elif _tip_time > 0.0:
 		_tip_time -= delta
 		_tip.modulate.a = clampf(_tip_time / 0.4, 0.0, 1.0)
 		if _tip_time <= 0.0:
@@ -901,6 +905,8 @@ func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:
 
 ## Updates the spine and the big "x2.4" under it. Each step up punches the number.
 func show_chain(mult: float) -> void:
+	if Game.score == 0:
+		_shown_score = 0.0   # a new run starts from zero instead of counting down
 	var col := ChainSpine.color_for(mult)
 	if mult > _spine.mult + 0.01:
 		_chain_pop = 0.35 if mult < Game.chain_max() else 0.6
@@ -920,11 +926,13 @@ func chain_broken(was: float) -> void:
 
 
 ## A short line under the chain meter, for teaching the first run. 0 seconds clears it.
-func tip(text: String, seconds := 5.0) -> void:
+## `delay` waits for the room banner to clear first, so the two don't overlap.
+func tip(text: String, seconds := 5.0, delay := 0.0) -> void:
 	_tip.text = text
-	_tip.visible = text != "" and seconds > 0.0
+	_tip_delay = delay if text != "" and seconds > 0.0 else 0.0
+	_tip.visible = text != "" and seconds > 0.0 and _tip_delay <= 0.0
 	_tip.modulate.a = 1.0
-	_tip_time = seconds if _tip.visible else 0.0
+	_tip_time = seconds if text != "" else 0.0
 
 
 ## 12345 -> "12,345"
@@ -951,6 +959,7 @@ func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
 
 
 func show_boss_card(title: String, subtitle: String) -> void:
+	clear_banner()   # a blessing banner from the last pick would sit on top of the card
 	_boss_card_title.text = title.to_upper()
 	_boss_card_sub.text = subtitle
 	_boss_card.visible = true

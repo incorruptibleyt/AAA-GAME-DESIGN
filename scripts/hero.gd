@@ -184,7 +184,7 @@ func add_charge(amount: float) -> void:
 
 ## Each hero has one big move, used from the button on the right.
 func use_special() -> void:
-	if dead or not special_ready() or Game.state != Game.State.PLAYING:
+	if dead or not special_ready() or Game.state != Game.State.PLAYING or not Game.special_unlocked():
 		return
 	special_charge = 0.0
 	Game.report_event("special")

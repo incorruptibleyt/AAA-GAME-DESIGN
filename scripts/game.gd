@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24k"
+const BUILD := "2026-10-24l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -816,14 +816,14 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 ## The one new thing each first-run room teaches.
 func _ftue_room_intro() -> void:
 	match ftue_room():
-		2: hud.tip("New: DASH. Flick your thumb, or tap DASH,\nto dodge right through arrows", 6.0)
+		2: hud.tip("New: DASH. Flick your thumb, or tap DASH,\nto dodge right through arrows", 6.0, 1.8)
 		3:
-			hud.tip("Kill fast. Your chain grows.", 6.0)
+			hud.tip("Kill fast. Your chain grows.", 6.0, 1.8)
 			Sfx.play("upgrade", 0.5)
 		4:
 			hero.special_charge = 1.0
-			hud.tip("Your special is ready. Tap to unleash!", 999.0)
-		5: hud.tip("Two matching blessings make a gold SYNERGY card", 5.0)
+			hud.tip("Your special is ready. Tap to unleash!", 999.0, 1.8)
+		5: hud.tip("Two matching blessings make a gold SYNERGY card", 5.0, 1.8)
 		_: hud.tip("", 0.0)
 
 

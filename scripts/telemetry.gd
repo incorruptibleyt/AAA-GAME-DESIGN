@@ -23,13 +23,16 @@ var _busy := false
 var _errors: Array = []
 var _errors_sent := 0
 var _mutex := Mutex.new()
+var _seen := {}
 
 
 class ErrorCatcher extends Logger:
 	var owner: Telemetry
 
 	func _log_error(function: String, file: String, line: int, code: String, rationale: String, _editor_notify: bool, error_type: int, script_backtraces: Array[ScriptBacktrace]) -> void:
-		var text := "%s %s (%s:%d %s)" % ["WARNING" if error_type == 1 else "ERROR", rationale if rationale != "" else code, file, line, function]
+		if error_type == ERROR_TYPE_WARNING:
+			return   # warnings are noise on players' phones
+		var text := "ERROR %s (%s:%d %s)" % [rationale if rationale != "" else code, file, line, function]
 		if not script_backtraces.is_empty():
 			text += "\n" + script_backtraces[0].format()
 		owner.catch_error(text)
@@ -84,7 +87,8 @@ func send(kind: String, body: String) -> void:
 ## Called by the logger, possibly from another thread: just remember it for _process.
 func catch_error(text: String) -> void:
 	_mutex.lock()
-	if _errors.size() < MAX_ERRORS:
+	if _errors.size() < MAX_ERRORS and not _seen.has(text):
+		_seen[text] = true   # the same error every frame is reported once
 		_errors.append(text)
 	_mutex.unlock()
 
