@@ -48,8 +48,20 @@ How deep can you go?
 - Category: Game > Action
 - Tags to pick in Play Console: Roguelike, Dungeon crawler, Action, Casual, Offline
 
-## Graphics
+## Privacy policy link
 
-- App icon: icon-512.png (512 x 512)
-- Feature graphic: feature-1024x500.png (1024 x 500)
-- Phone screenshots: screenshot-1.png to screenshot-6.png (1080 x 1920)
+https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/claude/project-thread-j5ioix/PRIVACY.md
+
+## Graphics (tap a link on your phone to download)
+
+- App icon, 512 x 512: [icon-512.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/icon-512.png)
+- Feature graphic, 1024 x 500: [feature-1024x500.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/feature-1024x500.png)
+- Phone screenshots, 1080 x 1920, in this order:
+    1. [screenshot-1.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-1.png)
+    2. [screenshot-2.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-2.png)
+    3. [screenshot-3.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-3.png)
+    4. [screenshot-4.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-4.png)
+    5. [screenshot-5.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-5.png)
+    6. [screenshot-6.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-6.png)
+
+The icon, banner and screenshots are made by tools/store/render_art.gd and tools/store/compose.py.
