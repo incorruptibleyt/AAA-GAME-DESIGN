@@ -18,6 +18,8 @@ extends Node
 ## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
+## `intro` plays the opening animation first (other robot runs skip it) and, with `shots=`, takes
+## pictures through it; `introskip` taps the screen half a second in.
 ## `slowphone` feeds the frame-rate watcher 30 frames a second, to check the switch to Low graphics.
 ## `heromenu` pictures every hero on the Heroes screen (then taps UNLOCK on the Mage); `modesmenu` pictures the title and
 ## the Modes screen, `newfoes` (with `floor=2 god`) the Frost Wraith and Cinder Skeleton up
@@ -78,6 +80,10 @@ var _answering := false
 var _die := false
 ## "icons": a picture of every blessing's badge, then quit.
 var _icons := false
+var _intro_skip := false
+var _intro_seen := false
+## Moments of the opening animation to picture (seconds into it).
+var _intro_marks: Array = [0.3, 0.6, 0.95, 1.1, 1.33, 1.42, 1.7, 2.1, 2.45, 2.62, 2.78]
 ## "slowphone": pretends the phone only manages 30 frames a second, to check that the game
 ## switches itself to Low graphics (and that a chosen setting is left alone).
 var _slow_phone := false
@@ -93,6 +99,8 @@ func _ready() -> void:
 			god = true
 		elif a == "slowphone":
 			_slow_phone = true
+		elif a == "introskip":
+			_intro_skip = true
 		elif a.begins_with("floor="):
 			Game.floor_num = int(a.substr(6))
 		elif a == "shop":
@@ -199,6 +207,12 @@ func _skip_first_run() -> void:
 
 
 func _process(delta: float) -> void:
+	if is_instance_valid(Game.intro):
+		_watch_intro()
+		return
+	if _intro_seen:
+		_intro_seen = false
+		print("[autoplay] intro finished, logo alpha %.2f, state %s" % [Game.hud.title_logo().modulate.a, Game.State.keys()[Game.state]])
 	if _hero_choice != "" and Game.hero:
 		# Pick (and if needed unlock) a hero before the first run.
 		Game.coins += Heroes.get_hero(_hero_choice).cost
@@ -664,6 +678,24 @@ func _icon_sheet() -> void:
 		await get_tree().process_frame
 	if shots_dir != "":
 		await _shot()
+
+
+func _watch_intro() -> void:
+	var it := Game.intro
+	if not _intro_seen:
+		_intro_seen = true
+		print("[autoplay] intro playing")
+	if _intro_skip and it.t >= 0.5:
+		_intro_skip = false
+		print("[autoplay] intro skipped at %.2f" % it.t)
+		it.skip()
+	if shots_dir != "" and not _intro_marks.is_empty() and it.t >= _intro_marks[0]:
+		var img := get_viewport().get_texture().get_image()
+		if img and not img.is_empty():
+			var path := shots_dir.path_join("intro_%.2f.png" % _intro_marks[0])
+			img.save_png(path)
+			print("[autoplay] intro picture ", path)
+		_intro_marks.pop_front()
 
 
 func _shot() -> void:

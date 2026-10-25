@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25y"
+const BUILD := "2026-10-25z"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -60,6 +60,8 @@ var _auto_fps: Array[float] = []
 var _auto_seen := 0
 ## The robot's "slowphone" test sets this to pretend the phone is slow (-1 = really measure).
 var fps_override := -1.0
+## The opening animation while it plays.
+var intro: Intro
 var _combo := 0
 ## Bone Chain: kills close together grow a multiplier on damage and coins.
 ## +0.1 per kill (+0.3 for elites), up to x3, gone after 2.5 s without a kill.
@@ -300,10 +302,23 @@ func _ready() -> void:
 	hud.show_hud(false)
 	hud.show_title(true, _best_text(), coins)
 	hud.set_title_hero(Heroes.get_hero(hero.hero_id).title)
-	Music.play("dungeon")
 	_fade(1.0, 0.0, 0.6)
-	if "autoplay" in OS.get_cmdline_user_args():
+	var args := OS.get_cmdline_user_args()
+	if not "autoplay" in args or "intro" in args:
+		_play_intro()
+	else:
+		Music.play("dungeon")
+	if "autoplay" in args:
 		add_child(Autoplay.new())
+
+
+## The opening animation, which hands over to the title screen (and its music).
+func _play_intro() -> void:
+	intro = Intro.new()
+	intro.logo = hud.title_logo()
+	intro.logo.modulate.a = 0.0
+	intro.handoff.connect(func(): Music.play("dungeon"))
+	add_child(intro)
 
 
 func _setup_environment() -> void:

@@ -47,6 +47,9 @@ const FLICK_TIME := 0.22
 const FLICK_DISTANCE := 45.0
 
 const GOLD := Color(1.0, 0.8, 0.3)
+## The game's name on the title screen (and in the opening animation, which lands on it).
+const LOGO_FONT := preload("res://fonts/CinzelDecorative-Black.ttf")
+const LOGO_SIZE := 58
 
 const STICK_RADIUS := 70.0
 
@@ -80,6 +83,7 @@ var _dash_button: DashButton
 var _quit_button: Button
 var _quit_armed := false
 var _title_box: Control
+var _title_logo: Label
 var _title_best: Label
 var _end_box: Control
 var _end_title: Label
@@ -244,6 +248,14 @@ static func label(text: String, size: int, col := Color.WHITE, align := HORIZONT
 	s.outline_color = Color(0, 0, 0, 0.85)
 	l.label_settings = s
 	return l
+
+
+static func logo_outline() -> int:
+	return maxi(4, LOGO_SIZE / 8)   # as label() gives it
+
+
+func title_logo() -> Label:
+	return _title_logo
 
 
 static func full(c: Control) -> Control:
@@ -780,7 +792,9 @@ func _build_title() -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 40)
 	top.add_child(gap)
-	top.add_child(label("BONE CHAIN", 64, Color(1, 0.85, 0.55)))
+	_title_logo = label("BONE CHAIN", LOGO_SIZE, Color(1, 0.85, 0.55))
+	_title_logo.label_settings.font = LOGO_FONT
+	top.add_child(_title_logo)
 	top.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
 	# Said up front, so nobody is surprised when the free floors end.
 	_title_free = label("Free to try: floors 1-%d. The Crypt Pass opens the rest." % Store.FREE_FLOORS, 17, Color(0.95, 0.78, 0.45))
