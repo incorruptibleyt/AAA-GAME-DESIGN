@@ -37,7 +37,7 @@ Keep the gold you find and spend it in the Armory on permanent upgrades, or unlo
 
 FREE TO TRY, ONE OPTIONAL PASS
 The first five floors are free, with no ads and no energy timers, and the Daily Crypt is free for everyone on Sundays. The one-time Crypt Pass opens the rest:
-- Endless floors below floor 5.
+- Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
 - The Daily Crypt every day: the same three floors, hero and rules for everyone, with a result to share.
 - Ten Curses that stack into a Curse Level for bigger scores, with hero rewards to earn.
 - Every hero, ready to play.

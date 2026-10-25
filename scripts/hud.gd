@@ -36,6 +36,9 @@ signal daily_start
 signal continue_pressed
 signal hero_trial(id: String)
 signal share_pressed
+signal loop_deeper
+signal loop_bank
+signal omen_picked(id: String)
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
 const FLICK_TIME := 0.22
@@ -154,6 +157,13 @@ var _daily_open := false
 var _pass_tiles: Array[Label] = []
 var _pass_dev: Label
 var _pass_back: Button
+var _end_loop: Control
+var _loop_deeper_button: Button
+var _loop_bank_button: Button
+var _omen_box: Control
+var _omen_info: Label
+var _omen_rows: VBoxContainer
+var _omen_have: Label
 var _callout: Label
 var _callout_time := 0.0
 var _boss_card: Control
@@ -177,6 +187,7 @@ func _ready() -> void:
 	_build_pause()
 	_build_armory()
 	_build_daily()
+	_build_omens()
 	_build_pass()
 	_build_boss_card()
 	_flash = ColorRect.new()
@@ -795,6 +806,22 @@ func _build_end() -> void:
 	to_title.pressed.connect(func(): title_pressed.emit())
 	offer.add_child(_centered(to_title))
 	_end_offer = offer
+	# End of an endless loop: go deeper, or leave with a coin bonus.
+	var loop := VBoxContainer.new()
+	loop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	loop.add_theme_constant_override("separation", 18)
+	col.add_child(loop)
+	_loop_deeper_button = button("DESCEND DEEPER", 28, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
+	_loop_deeper_button.custom_minimum_size = Vector2(380, 86)
+	_loop_deeper_button.pressed.connect(func(): loop_deeper.emit())
+	loop.add_child(_centered(_loop_deeper_button))
+	_loop_bank_button = button("BANK AND LEAVE", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	_loop_bank_button.add_theme_color_override("font_color", GOLD)
+	_loop_bank_button.custom_minimum_size = Vector2(380, 74)
+	_loop_bank_button.pressed.connect(func(): loop_bank.emit())
+	loop.add_child(_centered(_loop_bank_button))
+	_end_loop = loop
+	_end_loop.visible = false
 
 
 func _build_pause() -> void:
@@ -900,7 +927,7 @@ func _build_pass() -> void:
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(_centered(grid))
-	for tile in [["floors", "Endless floors"], ["heroes", "All 4 heroes now"], ["daily", "Daily Crypt"], ["curses", "10 Curses"]]:
+	for tile in [["floors", "Endless loops"], ["heroes", "All 4 heroes now"], ["daily", "Daily Crypt"], ["curses", "10 Curses"]]:
 		grid.add_child(_pass_tile(tile[0], tile[1]))
 	_pass_buy = button("UNLOCK", 32, Color(0.45, 0.3, 0.08, 0.98), GOLD)
 	_pass_buy.custom_minimum_size = Vector2(320, 86)
@@ -1045,6 +1072,56 @@ func daily_visible() -> bool:
 	return _daily_box.visible
 
 
+# ---------------------------------------------------------------- Omens
+
+func _build_omens() -> void:
+	_omen_box = overlay(Color(0.03, 0.01, 0.03, 0.96))
+	add_child(_omen_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 22
+	col.offset_right = -22
+	col.offset_top = 24
+	col.offset_bottom = -24
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 14)
+	_omen_box.add_child(col)
+	col.add_child(label("CHOOSE AN OMEN", 44, Color(0.95, 0.4, 0.42)))
+	_omen_info = label("", 20, Color(1, 0.9, 0.8))
+	col.add_child(_omen_info)
+	_omen_rows = VBoxContainer.new()
+	_omen_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_omen_rows.add_theme_constant_override("separation", 12)
+	col.add_child(_omen_rows)
+	_omen_have = label("", 17, Color(0.75, 0.72, 0.8))
+	col.add_child(_omen_have)
+	var back := button("BACK", 24)
+	back.pressed.connect(func(): show_omens(false))
+	col.add_child(_centered(back))
+
+
+## choices: three Omens ({id, title, text}); `have` lists the Omens already in play.
+func show_omens(v: bool, choices := [], next_loop := 2, have := "") -> void:
+	_omen_box.visible = v
+	if not v:
+		return
+	_omen_info.text = "Loop %d. Omens stack, and each adds +%d%% score.\nIn between loops: full health and +%d rerolls." % [next_loop,
+		roundi(Loops.OMEN_SCORE * 100.0), Loops.LOOP_REROLLS]
+	for c in _omen_rows.get_children():
+		c.queue_free()
+	for o: Dictionary in choices:
+		var b := button("%s\n%s" % [o.title, o.text], 22, Color(0.16, 0.06, 0.09, 0.98), Color(0.95, 0.4, 0.42, 0.8))
+		b.custom_minimum_size = Vector2(0, 92)
+		b.pressed.connect(func(): omen_picked.emit(o.id))
+		_omen_rows.add_child(b)
+	_omen_have.text = "Your Omens: " + have if have != "" else "No Omens yet"
+
+
+func omens_visible() -> bool:
+	return _omen_box.visible
+
+
 ## A daily rule: green helps, red is a curse, gold is a trade-off.
 func _rule_row(r: Dictionary) -> Control:
 	var kinds := {"help": ["HELP", Color(0.5, 0.95, 0.55)], "harm": ["CURSE", Color(0.95, 0.4, 0.42)], "trade": ["TRADE", GOLD]}
@@ -1103,15 +1180,16 @@ func _apply_safe_area() -> void:
 # ---------------------------------------------------------------- input
 
 func _overlay_open() -> bool:
-	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible or _daily_box.visible
+	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
+		or _daily_box.visible or _omen_box.visible
 
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
-			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _armory_box.visible \
-					and not _pass_box.visible and not _copy_button.get_global_rect().has_point(t.position) \
+			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _end_loop.visible \
+					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _copy_button.get_global_rect().has_point(t.position) \
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
 				return
@@ -1647,6 +1725,7 @@ func show_hint(text: String) -> void:
 func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again", buttons := false, score := -1, best := 0, offer := false) -> void:
 	_end_box.visible = v
 	_end_offer.visible = v and offer
+	_end_loop.visible = false
 	if not v:
 		return
 	_end_score.visible = score >= 0
@@ -1699,6 +1778,18 @@ func show_share(v: bool) -> void:
 ## A CRYPT PASS button among the death-screen buttons (after a deep death, once a session).
 func show_end_pass(v: bool) -> void:
 	_end_pass.visible = v
+
+
+## The end of a loop: DESCEND DEEPER into `next_loop`, or BANK AND LEAVE with `bonus` coins.
+func show_end_loop(v: bool, bonus := 0, next_loop := 2) -> void:
+	_end_loop.visible = v
+	if not v:
+		return
+	_end_offer.visible = false
+	_end_tap.visible = false
+	_end_spacer.custom_minimum_size.y = 24.0
+	_loop_deeper_button.text = "DESCEND INTO LOOP %d" % next_loop
+	_loop_bank_button.text = "BANK AND LEAVE  (+%d coins)" % bonus
 
 
 ## The Pass was bought on the end screen: carry on deeper instead.

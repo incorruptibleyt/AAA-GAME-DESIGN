@@ -11,6 +11,10 @@ extends Node
 ## Saved runs: `killat=N` closes the game as room N starts (like Android killing it), and
 ## `continue` presses CONTINUE on the title screen. `trial=mage` plays a free trial run,
 ## `dailymenu` takes a picture of the Daily Crypt screen, and `share` prints the share text.
+## Endless loops: at the end of a loop it descends and takes the first Omen while `runs` lasts,
+## then banks. `bank` banks at once, and `loopquit` closes the game on the end-of-loop screen.
+## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
+## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 
 var god := false
 var start_room := 1
@@ -49,6 +53,9 @@ var _continue := false
 var _trial := ""
 var _daily_menu := false
 var _share := false
+var _bank := false
+var _loop_quit := false
+var _loop_menu := false
 
 
 func _ready() -> void:
@@ -113,6 +120,12 @@ func _ready() -> void:
 			_skip_first_run()
 		elif a == "share":
 			_share = true
+		elif a == "bank":
+			_bank = true
+		elif a == "loopquit":
+			_loop_quit = true
+		elif a == "loopmenu":
+			_loop_menu = true
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -266,6 +279,33 @@ func _process(delta: float) -> void:
 					print("[autoplay] bought the Pass: owned=%s free_end=%s" % [Store.owned(), Game._free_end])
 				else:
 					get_tree().quit()
+		Game.State.VICTORY when Game._loop_choice:
+			if Game.hud.omens_visible():
+				if Game._state_time > 3.5:
+					if shots_dir != "":
+						_shot()
+					var pick: Dictionary = Game._omen_choices[0]
+					print("[autoplay] omen picked: %s (of %s)" % [pick.title, ", ".join(Game._omen_choices.map(func(o): return o.title))])
+					Game.hud.omen_picked.emit(pick.id)
+			elif Game._state_time > 2.5:
+				print("[autoplay] loop %d cleared on floor %d: score %d, run coins %d, bank bonus %d" % [Loops.loop_of(Game.floor_num), Game.floor_num, Game.score, Game.run_coins, Game._bank_bonus()])
+				if shots_dir != "":
+					_shot()
+				if _loop_quit:
+					_loop_quit = false
+					print("[autoplay] closing the game on the end-of-loop screen")
+					get_tree().quit()
+				elif _bank or runs <= 1:
+					var before := Game.coins
+					Game.hud.loop_bank.emit()
+					print("[autoplay] banked: coins %d -> %d" % [before, Game.coins])
+					get_tree().create_timer(1.5).timeout.connect(func():
+						print("[autoplay] after bank: state=%s saved run=%s coins in save=%d" % [Game.State.keys()[Game.state], not RunSave.read().is_empty(), int(Game._load_save().get_value("stats", "coins", 0))])
+						get_tree().quit())
+					set_process(false)
+				else:
+					runs -= 1
+					Game.hud.loop_deeper.emit()
 		Game.State.DEAD, Game.State.VICTORY:
 			if _share and Game.daily and (Game._daily_done or Game.state == Game.State.DEAD) and Game._state_time > 2.0:
 				_share = false
@@ -292,6 +332,13 @@ func _process(delta: float) -> void:
 			_gallery_step(delta)
 		Game.State.TRANSITION when gallery and _gallery_t >= 0.0:
 			_gallery_step(delta)
+		Game.State.PLAYING when _loop_menu:
+			if is_instance_valid(Game.boss) and not Game.boss.dead and Game._state_time > 1.0:
+				Game.boss.take_damage(1e9, Vector3.ZERO, 0.0)
+			elif Loops.loop_of(Game.floor_num) > 1 and Game._state_time > 2.5:
+				_loop_menu = false
+				await _shot()
+				get_tree().quit()
 		Game.State.PLAYING:
 			if _kill_at > 0 and Game._room_index == _kill_at - 1 and Game._state_time > 1.0:
 				print("[autoplay] closing the game on floor %d room %d: hp %d/%d score %d coins %d run coins %d" % [Game.floor_num, Game._room_index + 1, Game.hero.health, Game.hero.max_health, Game.score, Game.coins, Game.run_coins])

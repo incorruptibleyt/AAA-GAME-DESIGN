@@ -1,7 +1,8 @@
 class_name Floors
 ## Each floor of the crypt has its own look, made only from colours, lights and particles
 ## on the same models: the Bone Crypt, the Frozen Ossuary and the Ember Catacomb, then
-## round again. To add a theme, copy an entry in THEMES.
+## round again. Each endless loop below floor 5 darkens them. To add a theme, copy an
+## entry in THEMES.
 
 const THEMES := [
 	{"name": "Bone Crypt", "floor": Color(1, 1, 1), "wall": Color(0.15, 0.14, 0.19), "trim": Color(0.27, 0.25, 0.31),
@@ -20,7 +21,26 @@ const THEMES := [
 
 
 static func theme(floor_num: int) -> Dictionary:
-	return THEMES[(maxi(floor_num, 1) - 1) % THEMES.size()]
+	var t: Dictionary = THEMES[(maxi(floor_num, 1) - 1) % THEMES.size()]
+	var loop := Loops.loop_of(floor_num)
+	return t if loop <= 1 else _deeper(t, loop)
+
+
+## Every endless loop is a little darker and redder than the one before (down to loop 4).
+static func _deeper(t: Dictionary, loop: int) -> Dictionary:
+	var steps := mini(loop - 1, 3)
+	var dark := pow(0.86, steps)
+	var red := 0.14 * steps
+	var d := t.duplicate()
+	for key in ["ambient", "moon", "fog", "background", "wall", "trim", "torch"]:
+		var c: Color = t[key]
+		var blood := Color(c.get_luminance() * 1.6, c.get_luminance() * 0.4, c.get_luminance() * 0.35)
+		c = c.lerp(blood, red)
+		if key in ["ambient", "moon"]:
+			c = Color(c.r * dark, c.g * dark, c.b * dark)
+		d[key] = c
+	d["banner"] = (t.banner as Color).lerp(Color(1, 0.3, 0.25), red)
+	return d
 
 
 static func current() -> Dictionary:

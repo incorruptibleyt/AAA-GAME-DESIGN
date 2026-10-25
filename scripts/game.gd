@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25p"
+const BUILD := "2026-10-25q"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -70,7 +70,7 @@ func chain_time() -> float:
 		t *= 0.5
 	if _hourglass_out:
 		t *= 0.4
-	return t
+	return t * pow(0.75, _omen("night"))
 
 
 ## Damage gets a quarter of the chain's bonus (x1.5 at the cap) so a long chain doesn't trivialise rooms.
@@ -121,6 +121,16 @@ var _bosses: Array = []
 var _boss_lost := 0.0
 ## After a death on floor 3 or deeper, free players see one line about the Pass, once a session.
 var _pass_note_shown := false
+## Endless loops (Crypt Pass): the Omens taken so far ({id: stacks}), whether the end-of-loop
+## choice (descend or bank) is showing, and the three Omens on offer.
+var omens := {}
+var _loop_choice := false
+var _omen_choices: Array = []
+
+
+## How many times Omen `id` has been taken this run.
+func _omen(id: String) -> int:
+	return int(omens.get(id, 0))
 
 
 ## True until the first run has ended. Older saves that already got somewhere count as done.
@@ -241,6 +251,9 @@ func _ready() -> void:
 	hud.share_pressed.connect(func():
 		DisplayServer.clipboard_set(_share_text())
 		Sfx.play("click"))
+	hud.loop_deeper.connect(_open_omens)
+	hud.loop_bank.connect(_bank_run)
+	hud.omen_picked.connect(_pick_omen)
 
 	var cfg := _load_save()
 	coins = int(cfg.get_value("stats", "coins", 0))
@@ -359,6 +372,9 @@ func _notification(what: int) -> void:
 		if hud.daily_visible():
 			hud.show_daily(false)
 			return
+		if hud.omens_visible():
+			hud.show_omens(false)
+			return
 		match state:
 			State.PLAYING:
 				_pause()
@@ -371,28 +387,32 @@ func _notification(what: int) -> void:
 ## How much tougher skeletons are on the current floor.
 ## Skeleton health grows 55% per floor (compounding), so it keeps pace with a hero whose
 ## blessings stack up. Floor 4 skeletons have about 3.7x their floor 1 health.
-## From floor 5 on it grows 70% per floor, because a hero that deep is very strong.
+## Floor 5 adds 70%, because a hero that deep is very strong. The endless loops below it
+## add 45% a floor, and each Omen of Bones 25%.
 func health_scale() -> float:
-	return pow(1.55, mini(floor_num, 4) - 1) * pow(1.7, maxi(floor_num - 4, 0))
+	return pow(1.55, mini(floor_num, 4) - 1) * pow(1.7, clampi(floor_num - 4, 0, 1)) \
+		* pow(1.45, maxi(floor_num - 5, 0)) * pow(1.25, _omen("bones"))
 
 
 ## Skeletons hit 35% harder per floor, and 50% per floor from floor 5 on.
-## When the Hourglass runs out they hit 25% harder still.
+## When the Hourglass runs out they hit 25% harder still, and each Omen of Blades adds 25%.
 func damage_scale() -> float:
-	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 4, 0)) * (1.25 if _hourglass_out else 1.0)
+	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 4, 0)) * (1.25 if _hourglass_out else 1.0) \
+		* pow(1.25, _omen("blades"))
 
 
 func speed_scale() -> float:
-	return minf(1.3, 1.0 + 0.05 * (floor_num - 1)) * (1.2 if curses.has("restless") else 1.0) * (1.25 if curses.has("frenzy") else 1.0)
+	return minf(1.3, 1.0 + 0.05 * (floor_num - 1)) * (1.2 if curses.has("restless") else 1.0) * (1.25 if curses.has("frenzy") else 1.0) \
+		* pow(1.1, _omen("haste"))
 
 
-## Daily Crypt rules that change coins and hearts.
+## Daily Crypt rules and Omens that change coins and hearts.
 func coin_mult() -> float:
-	return 1.5 if curses.has("rich") else 1.0
+	return (1.5 if curses.has("rich") else 1.0) * pow(1.5, _omen("gold"))
 
 
 func heart_mult() -> float:
-	return 2.0 if curses.has("hearty") else 1.0
+	return (2.0 if curses.has("hearty") else 1.0) * pow(0.7, _omen("ash"))
 
 
 ## A golden arrow at the hero's feet pointing to the open door, so nobody gets lost.
@@ -655,7 +675,7 @@ func _on_screen_tapped() -> void:
 			if _state_time > 1.0:
 				_restart()
 		State.VICTORY:
-			if _state_time > 1.5:
+			if _state_time > 1.5 and not _loop_choice:   # the end of a loop has its own buttons
 				if _daily_done:
 					_back_to_title()
 				else:
@@ -743,7 +763,12 @@ func _pick_curses() -> void:
 		curses = Curses.daily_rules(_daily_date)
 	else:
 		curses = Curses.chosen(_load_save(), Store.owned())
-	_score_mult = Curses.score_mult(curses)
+	_update_score_mult()
+
+
+## Curses (or the day's rules) and Omens both raise the score.
+func _update_score_mult() -> void:
+	_score_mult = Curses.score_mult(curses) + Loops.OMEN_SCORE * Loops.total(omens)
 
 
 func _mode_banner() -> void:
@@ -801,6 +826,8 @@ func run_report(result: String) -> String:
 	if daily or not curses.is_empty():
 		lines.append("Mode: %s | %s: %s (Curse Level %d, score x%s)" % ["Daily Crypt #%d %s%s" % [Curses.day_number(_daily_date), _daily_date, " practice" if _daily_practice else ""] if daily else "Normal",
 			"Rules" if daily else "Curses", Curses.names(curses) if curses else "none", Curses.level_of(curses), _mult_text(_score_mult)])
+	if floor_num > Loops.FLOORS or not omens.is_empty():
+		lines.append("Loop %d | Omens: %s" % [Loops.loop_of(floor_num), Loops.names(omens) if omens else "none"])
 	lines.append("Kills %d | Coins +%d | Best combo x%d | Health %d/%d" % [_kills, run_coins, _rep.get("best_combo", 0),
 		ceili(hero.health) if hero else 0, roundi(hero.max_health) if hero else 0])
 	var dmg: Dictionary = _rep.get("damage", {})
@@ -846,6 +873,9 @@ func _reset_run_stats() -> void:
 	floor_num = 1
 	_taken.clear()
 	rerolls = 1
+	omens.clear()
+	_loop_choice = false
+	_omen_choices = []
 
 
 ## Gives the hero everything bought in the Armory. Called once at the start of each run.
@@ -931,8 +961,12 @@ func _back_to_title() -> void:
 	await _fade(0.0, 1.0, 0.4)
 	hud.show_end(false)
 	hud.show_pass(false)
+	hud.show_omens(false)
 	daily = false
 	_daily_done = false
+	omens.clear()
+	_loop_choice = false
+	_omen_choices = []
 	_run_hero_id = ""
 	_trial_hero = ""
 	curses = []
@@ -958,6 +992,7 @@ func _back_to_title() -> void:
 
 
 ## After beating the king: keep your blessings and go one floor deeper, where it's harder.
+## Going into a new loop also gives full health and two more rerolls.
 func _descend() -> void:
 	if _free_end:
 		return
@@ -965,11 +1000,74 @@ func _descend() -> void:
 	await _fade(0.0, 1.0, 0.5)
 	hud.show_end(false)
 	floor_num += 1
-	hero.heal(hero.max_health * 0.3)
+	var new_loop := Loops.loop_end(floor_num - 1)
+	if new_loop:
+		hero.heal(hero.max_health)
+		if not curses.has("narrow"):   # Narrow Path means no rerolls at all
+			rerolls += Loops.LOOP_REROLLS
+	else:
+		hero.heal(hero.max_health * 0.3)
 	_build_run()
 	_load_room(0, true)
-	hud.banner("Floor %d: %s" % [floor_num, Floors.current().name], Floors.current().banner)
+	var loop := Loops.loop_of(floor_num)
+	hud.banner(("Loop %d · " % loop if loop > 1 else "") + "Floor %d: %s" % [floor_num, Floors.current().name], Floors.current().banner)
+	if new_loop and not omens.is_empty():
+		hud.tip("LOOP %d  ·  Score x%s\nOmens: %s" % [loop, _mult_text(_score_mult), Loops.names(omens)], 4.0, 1.8)
 	await _fade(1.0, 0.0, 0.5)
+
+
+## The coins BANK AND LEAVE pays on top of the run's own.
+func _bank_bonus() -> int:
+	return roundi(run_coins * Loops.BANK_BONUS)
+
+
+## BANK AND LEAVE at the end of a loop: the run ends here, paying half its coins again.
+func _bank_run() -> void:
+	if state != State.VICTORY or not _loop_choice:
+		return
+	var bonus := _bank_bonus()
+	_loop_choice = false
+	add_coins(bonus)
+	Sfx.play("upgrade")
+	print("[run] banked after loop %d: +%d coins, %d in all" % [Loops.loop_of(floor_num), bonus, coins])
+	_back_to_title()
+
+
+## DESCEND DEEPER at the end of a loop: first pick one of three Omens.
+func _open_omens() -> void:
+	if state != State.VICTORY or not _loop_choice:
+		return
+	Sfx.play("click")
+	if _omen_choices.is_empty():
+		_omen_choices = Loops.choices()   # kept if the player backs out, so BACK can't reroll them
+	hud.show_omens(true, _omen_choices, Loops.loop_of(floor_num) + 1, Loops.names(omens))
+
+
+func _pick_omen(id: String) -> void:
+	if state != State.VICTORY or not _loop_choice or Loops.get_omen(id).is_empty():
+		return
+	Sfx.play("upgrade")
+	omens[id] = _omen(id) + 1
+	_omen_choices = []
+	_loop_choice = false
+	_update_score_mult()
+	hud.show_omens(false)
+	print("[run] omen %s, now %s, score x%s" % [id, Loops.names(omens), _mult_text(_score_mult)])
+	_descend()
+
+
+## A run saved on the end-of-loop screen comes back to that screen.
+func _resume_loop_end() -> void:
+	_load_room(_run.size() - 1, false)
+	_set_state(State.VICTORY)
+	_loop_choice = true
+	hud.show_end(true, true, "Run continued.\n\n" + _loop_text(), "", false, score, int(_load_save().get_value("stats", "best_score", 0)))
+	hud.show_end_loop(true, _bank_bonus(), Loops.loop_of(floor_num) + 1)
+
+
+func _loop_text() -> String:
+	var loop := Loops.loop_of(floor_num)
+	return "Loop %d cleared! Bank the run for +%d coins,\nor descend into loop %d." % [loop, _bank_bonus(), loop + 1]
 
 
 func enter_next_room() -> void:
@@ -1040,10 +1138,13 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			for b: Enemy in [e, twin]:
 				b.max_health *= 0.65
 				b.health = b.max_health
-	# Swarm: the first wave gets its extra skeleton too.
-	if curses.has("swarm") and not _in_boss_room() and not _wave_kinds.is_empty():
-		var extra := spawn_enemy(_wave_kinds[0], _wave_spots(1)[0])
-		extra.rotation.y = PI
+	# Swarm, and each Omen of the Horde: the first wave gets its extra skeletons too.
+	var extras := (1 if curses.has("swarm") else 0) + _omen("horde")
+	if extras > 0 and not _in_boss_room() and not _wave_kinds.is_empty():
+		var spots := _wave_spots(extras)
+		for i in spots.size():
+			var extra := spawn_enemy(_wave_kinds[i % _wave_kinds.size()], spots[i])
+			extra.rotation.y = PI
 	_wave_pending = false
 	if _in_boss_room() or _wave_kinds.is_empty():
 		_wave_total = 1
@@ -1063,7 +1164,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 
 ## Saves the run as it is at the start of this room (or of the next floor, after a boss),
 ## so it can be continued if the game is closed. Not during the first run.
-func _checkpoint(next_floor := false) -> void:
+## `loop_end`: saved on the end-of-loop screen, which CONTINUE comes back to.
+func _checkpoint(next_floor := false, loop_end := false) -> void:
 	if first_run or hero == null or hero.dead:
 		return
 	var h := RunSave.hero_state(hero)
@@ -1073,7 +1175,7 @@ func _checkpoint(next_floor := false) -> void:
 		"hero_id": hero.hero_id, "hero": h, "taken": _taken.duplicate(), "rerolls": rerolls, "score": score,
 		"run_coins": run_coins, "banked": run_coins, "kills": _kills, "time": _run_time, "curses": curses.duplicate(),
 		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
-		"heart_bonus": heart_bonus})
+		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end})
 
 
 ## "Floor 3 · Room 2" for the CONTINUE button, or "" when there's no saved run.
@@ -1082,6 +1184,8 @@ func continue_text() -> String:
 	if s.is_empty():
 		return ""
 	var where := "Floor %d · %s" % [s.floor, "Boss" if s.room >= EASY_ROOMS + MEDIUM_ROOMS + HARD_ROOMS else "Room %d" % (s.room + 1)]
+	if s.get("loop_end", false):
+		where = "Loop %d cleared" % Loops.loop_of(int(s.floor))
 	return ("Daily Crypt · " if s.daily else "") + where
 
 
@@ -1113,7 +1217,8 @@ func _continue_run() -> void:
 	_daily_practice = bool(s.practice)
 	_daily_done = false
 	_run_hero_id = str(s.run_hero)
-	_score_mult = Curses.score_mult(curses)
+	omens = (s.get("omens", {}) as Dictionary).duplicate()
+	_update_score_mult()
 	heart_bonus = float(s.get("heart_bonus", Armory.heart_bonus(_load_save())))
 	# (Coins from the room being replayed were held back when the game started: RunSave.hold_replayed.)
 	if hero:
@@ -1122,9 +1227,12 @@ func _continue_run() -> void:
 	_swap_hero(str(s.hero_id))
 	RunSave.apply_hero(hero, s.hero)
 	_build_run()
-	_go_to_room(int(s.room))
-	hud.tip("Run continued: floor %d" % floor_num, 3.0, 1.2)
-	print("[run] continued floor %d room %d hp %d/%d score %d" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score])
+	if s.get("loop_end", false):
+		_resume_loop_end()
+	else:
+		_go_to_room(int(s.room))
+		hud.tip("Run continued: floor %d" % floor_num, 3.0, 1.2)
+	print("[run] continued floor %d room %d hp %d/%d score %d omens %s" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score, Loops.names(omens)])
 
 
 ## The one new thing each first-run room teaches.
@@ -1192,7 +1300,9 @@ func _roll_elite(e: Enemy, room_index: int) -> bool:
 	if e.is_boss or e is SkeletonBomber or (floor_num == 1 and room_index == 0):
 		return false
 	var chance := minf(0.3, 0.07 + 0.05 * (floor_num - 1))
-	return randf() < (chance * 2.0 if curses.has("gilded") or curses.has("hunt") else chance)
+	if curses.has("gilded") or curses.has("hunt"):
+		chance *= 2.0
+	return randf() < minf(0.6, chance * pow(2.0, _omen("gold")))
 
 
 ## Points for a kill, before the chain and curse multipliers.
@@ -1268,10 +1378,12 @@ func _next_wave() -> void:
 	Sfx.play("warn")
 	var kinds := _wave_kinds.duplicate()
 	kinds.shuffle()
-	# Later waves bring one extra skeleton (two with the Swarm rule).
+	# Later waves bring one extra skeleton (two with the Swarm rule, and one per Omen of the Horde).
 	kinds.append(kinds[0])
 	if curses.has("swarm"):
 		kinds.append(kinds[1 % kinds.size()])
+	for i in _omen("horde"):
+		kinds.append(kinds[(2 + i) % kinds.size()])
 	# First run, room 2: there's always an archer, so the dash lesson has arrows to teach with.
 	if ftue_room() == 2 and not kinds.has("a"):
 		kinds[0] = "a"
@@ -1396,8 +1508,11 @@ func _win() -> void:
 	Music.play("dungeon")
 	_daily_done = daily and floor_num >= Curses.DAILY_FLOORS
 	_free_end = not daily and floor_num >= Store.FREE_FLOORS and not Store.owned()
+	_loop_choice = not daily and not _free_end and Loops.loop_end(floor_num)
 	if _daily_done or _free_end:
 		RunSave.clear()
+	elif _loop_choice:
+		_checkpoint(false, true)
 	else:
 		_checkpoint(true)
 	var extra := ""
@@ -1407,11 +1522,14 @@ func _win() -> void:
 		extra = "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
 	elif _free_end:
 		extra = "\n\nYou beat the free crypt!\nThe Crypt Pass opens floor %d and beyond." % (floor_num + 1)
+	elif _loop_choice:
+		extra = "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
 	var tap := "Tap to return to the title" if _daily_done else "Tap to descend to floor %d" % (floor_num + 1)
 	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, extra],
 		tap, false, score, best, _free_end)
+	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	hud.show_share(daily)
 	_state_time = 0.0
 	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")])
@@ -1734,7 +1852,12 @@ func _on_store_changed() -> void:
 		_show_daily()
 	if Store.owned() and _free_end and state == State.VICTORY:
 		_free_end = false
-		hud.end_offer_done("Tap to descend to floor %d" % (floor_num + 1))
+		if Loops.loop_end(floor_num):
+			_loop_choice = true
+			_checkpoint(false, true)
+			hud.show_end_loop(true, _bank_bonus(), Loops.loop_of(floor_num) + 1)
+		else:
+			hud.end_offer_done("Tap to descend to floor %d" % (floor_num + 1))
 
 
 func _armory_rows() -> Array:
