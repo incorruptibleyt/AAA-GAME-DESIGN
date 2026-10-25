@@ -47,9 +47,10 @@ const FLICK_TIME := 0.22
 const FLICK_DISTANCE := 45.0
 
 const GOLD := Color(1.0, 0.8, 0.3)
-## The game's name on the title screen (and in the opening animation, which lands on it).
-const LOGO_FONT := preload("res://fonts/CinzelDecorative-Black.ttf")
-const LOGO_SIZE := 58
+## The game's name on the title screen (and in the opening animation, which lands on it), drawn
+## by tools/store/make_logo.py at twice the size it is shown, glow and edge included.
+const LOGO := preload("res://art/ui/logo.png")
+const LOGO_WIDTH := 490.0
 
 const STICK_RADIUS := 70.0
 
@@ -83,7 +84,7 @@ var _dash_button: DashButton
 var _quit_button: Button
 var _quit_armed := false
 var _title_box: Control
-var _title_logo: Label
+var _title_logo: TextureRect
 var _title_best: Label
 var _end_box: Control
 var _end_title: Label
@@ -250,11 +251,25 @@ static func label(text: String, size: int, col := Color.WHITE, align := HORIZONT
 	return l
 
 
-static func logo_outline() -> int:
-	return maxi(4, LOGO_SIZE / 8)   # as label() gives it
+## The logo picture's size on screen.
+static func logo_size() -> Vector2:
+	return Vector2(LOGO_WIDTH, LOGO_WIDTH * LOGO.get_height() / LOGO.get_width())
 
 
-func title_logo() -> Label:
+## The logo picture, at its size on screen.
+static func logo_rect() -> TextureRect:
+	var r := TextureRect.new()
+	r.texture = LOGO
+	r.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	r.stretch_mode = TextureRect.STRETCH_SCALE
+	r.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	r.custom_minimum_size = logo_size()
+	r.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return r
+
+
+func title_logo() -> Control:
 	return _title_logo
 
 
@@ -792,8 +807,7 @@ func _build_title() -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 40)
 	top.add_child(gap)
-	_title_logo = label("BONE CHAIN", LOGO_SIZE, Color(1, 0.85, 0.55))
-	_title_logo.label_settings.font = LOGO_FONT
+	_title_logo = logo_rect()
 	top.add_child(_title_logo)
 	top.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
 	# Said up front, so nobody is surprised when the free floors end.

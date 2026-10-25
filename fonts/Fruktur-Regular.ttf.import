@@ -2,13 +2,13 @@
 
 importer="font_data_dynamic"
 type="FontFile"
-uid="uid://bep3my6c8idy6"
-path="res://.godot/imported/CinzelDecorative-Black.ttf-5ffc7c7ec557b3b46eb47e6a7caf5341.fontdata"
+uid="uid://bxxmvxibru5tj"
+path="res://.godot/imported/Fruktur-Regular.ttf-e27afdcf928fe9b8d8ad53a63edba331.fontdata"
 
 [deps]
 
-source_file="res://fonts/CinzelDecorative-Black.ttf"
-dest_files=["res://.godot/imported/CinzelDecorative-Black.ttf-5ffc7c7ec557b3b46eb47e6a7caf5341.fontdata"]
+source_file="res://fonts/Fruktur-Regular.ttf"
+dest_files=["res://.godot/imported/Fruktur-Regular.ttf-e27afdcf928fe9b8d8ad53a63edba331.fontdata"]
 
 [params]
 
@@ -16,9 +16,9 @@ Rendering=null
 antialiasing=1
 generate_mipmaps=false
 disable_embedded_bitmaps=true
-multichannel_signed_distance_field=true
-msdf_pixel_range=16
-msdf_size=64
+multichannel_signed_distance_field=false
+msdf_pixel_range=8
+msdf_size=48
 allow_system_fallback=true
 force_autohinter=false
 modulate_color_glyphs=false

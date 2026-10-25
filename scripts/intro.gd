@@ -11,7 +11,6 @@ signal handoff    # the glide to the title screen begins
 signal finished
 
 const BG := Color(0.094, 0.063, 0.149)   # Android's launch screen, which runs into this
-const GOLD := Color(1, 0.85, 0.55)
 const TORCH := Color(1.0, 0.6, 0.28)
 const TAGLINE := "Dash. Chain. Descend."
 
@@ -27,7 +26,7 @@ const HANDOFF := 3.25
 const HANDOFF_LEN := 0.55
 
 ## The title screen's logo, which the words land on.
-var logo: Label
+var logo: Control
 var t := 0.0
 var _vp: SubViewport
 var _view: TextureRect
@@ -72,6 +71,7 @@ func _ready() -> void:
 	_canvas = Control.new()
 	_canvas.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
+	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_canvas.draw.connect(_paint)
 	add_child(_canvas)
 	_step(0.0)
@@ -268,10 +268,12 @@ func _step(dt: float) -> void:
 	_flash = move_toward(_flash, 0.0, dt * 2.2)
 	_update_embers(dt)
 	if logo:
-		logo.modulate.a = _logo_swap()
+		logo.modulate.a = 0.0
 	_view.modulate.a = 1.0 - _glide()
 	_canvas.queue_redraw()
 	if t >= HANDOFF + HANDOFF_LEN:
+		# The words now sit exactly on the title's own logo (the same picture, size and place),
+		# so it takes over from them without a seam.
 		if logo:
 			logo.modulate.a = 1.0
 		finished.emit()
@@ -353,7 +355,7 @@ func _update_embers(dt: float) -> void:
 
 func _burst() -> void:
 	var c := _words_center()
-	var w := Hud.LOGO_FONT.get_string_size("BONE CHAIN", HORIZONTAL_ALIGNMENT_LEFT, -1, Hud.LOGO_SIZE).x * 1.12
+	var w := Hud.logo_size().x * 0.85 * 1.12   # the letters, not the glow around them
 	for i in 50:
 		var p := c + Vector2(randf_range(-w * 0.5, w * 0.5), randf_range(-18, 18))
 		var dir := (p - c + Vector2(0, randf_range(-30, 10))).normalized()
@@ -364,11 +366,6 @@ func _burst() -> void:
 ## 0 to 1 over the glide to the title screen.
 func _glide() -> float:
 	return smoothstep(0.0, 1.0, clampf((t - HANDOFF) / HANDOFF_LEN, 0.0, 1.0))
-
-
-## The title's own logo fades in over the last moment of the glide, as these words fade out.
-func _logo_swap() -> float:
-	return clampf((t - (HANDOFF + HANDOFF_LEN - 0.12)) / 0.12, 0.0, 1.0)
 
 
 func _words_center() -> Vector2:
@@ -393,7 +390,7 @@ func _paint() -> void:
 		var f := ThemeDB.fallback_font
 		var ts := 22
 		var tw := f.get_string_size(TAGLINE, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x
-		var tp := _words_center() + Vector2(-tw * 0.5, 58)
+		var tp := _words_center() + Vector2(-tw * 0.5, 74)
 		_canvas.draw_string_outline(f, tp, TAGLINE, HORIZONTAL_ALIGNMENT_LEFT, -1, ts, 5, Color(0, 0, 0, 0.8 * tag_a))
 		_canvas.draw_string(f, tp, TAGLINE, HORIZONTAL_ALIGNMENT_LEFT, -1, ts, Color(0.88, 0.84, 0.92, tag_a))
 	for e in _embers:
@@ -409,7 +406,7 @@ func _paint() -> void:
 func _draw_words(glide: float) -> void:
 	var slam := HIT - SLAM_LEN
 	var k := clampf((t - slam) / SLAM_LEN, 0.0, 1.0)
-	var alpha := maxf(k, glide) * (1.0 - _logo_swap())
+	var alpha := maxf(k, glide)
 	if alpha <= 0.0:
 		return
 	var scale := lerpf(2.6, 1.12, k * k)
@@ -419,20 +416,17 @@ func _draw_words(glide: float) -> void:
 	if glide > 0.0 and logo:
 		centre = centre.lerp(logo.get_global_rect().get_center(), glide)
 		scale = lerpf(1.12, 1.0, glide)
-	var font := Hud.LOGO_FONT
-	var size := Hud.LOGO_SIZE
-	var w := font.get_string_size("BONE CHAIN", HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
-	var asc := font.get_ascent(size)
-	var desc := font.get_descent(size)
+	var ls := Hud.logo_size()
 	var hot := clampf(1.0 - (t - HIT) / 0.4, 0.0, 1.0) * float(t > HIT)
-	var gw := w * 0.75 * scale
+	var gw := ls.x * 0.65 * scale
 	_canvas.draw_texture_rect(_glow, Rect2(centre - Vector2(gw, 80 * scale), Vector2(gw, 80 * scale) * 2.0), false,
-		Color(1.0, 0.4, 0.1, (0.3 + hot * 0.45) * alpha * (1.0 - glide)))
+		Color(1.0, 0.4, 0.1, (0.15 + hot * 0.45) * alpha * (1.0 - glide)))
 	# Drawn around the middle of the words, so they grow and shrink in place.
 	_canvas.draw_set_transform(centre + _off, 0.0, Vector2(scale, scale))
-	var at := Vector2(-w * 0.5, (asc - desc) * 0.5)
-	_canvas.draw_string_outline(font, at, "BONE CHAIN", HORIZONTAL_ALIGNMENT_LEFT, -1, size, Hud.logo_outline(), Color(0, 0, 0, 0.85 * alpha))
-	_canvas.draw_string(font, at, "BONE CHAIN", HORIZONTAL_ALIGNMENT_LEFT, -1, size, GOLD.lerp(Color(1, 1, 0.9), hot * 0.8) * Color(1, 1, 1, alpha))
+	var rect := Rect2(-ls * 0.5, ls)
+	# White-hot for a moment as the letters land.
+	var heat := 1.0 + hot * 0.9
+	_canvas.draw_texture_rect(Hud.LOGO, rect, false, Color(heat, heat, 1.0 + hot * 0.7, alpha))
 	_canvas.draw_set_transform(_off)
 
 

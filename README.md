@@ -56,7 +56,7 @@ The characters, weapons and dungeon props are Kay Lousberg's free CC0 **KayKit**
 [Fetch KayKit art](.github/workflows/fetch-art.yml) workflow downloads them from the official
 repositories. If a model is missing, the game falls back to simple placeholder shapes.
 
-The logo lettering is **Cinzel Decorative** by Natanael Gama (SIL Open Font License, [fonts/OFL.txt](fonts/OFL.txt)).
+The logo lettering is **Fruktur** by The Fruktur Project Authors (SIL Open Font License, [fonts/OFL.txt](fonts/OFL.txt)). [tools/store/make_logo.py](tools/store/make_logo.py) draws it with its gold shine, dark edge and glow into [art/ui/logo.png](art/ui/logo.png), which the opening, the title screen and the share picture use, and the store banner gets a two-line version from the same script.
 
 ## How it's built
 

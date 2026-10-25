@@ -80,7 +80,7 @@ static func picture(parent: Node, lines: Array, rows: Array, caption: String) ->
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 12)
 	frame.add_child(Hud.full(col))
-	col.add_child(Hud.label("BONE CHAIN", 70, Hud.GOLD))
+	col.add_child(Hud.logo_rect())
 	for line: Array in lines:
 		col.add_child(Hud.label(line[0], line[1], line[2]))
 	var card := ShareCard.new()

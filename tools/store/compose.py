@@ -12,8 +12,11 @@ import sys
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
+import make_logo
+
 FONT = "/usr/share/fonts/opentype/inter/InterDisplay-Black.otf"
 FONT_BOLD = "/usr/share/fonts/opentype/inter/InterDisplay-Bold.otf"
+LOGO_FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "fonts", "Fruktur-Regular.ttf")
 BONE = (240, 226, 196)
 GOLD = (255, 205, 110)
 EMBER = (255, 120, 40)
@@ -102,10 +105,11 @@ def banner(src, shots, out):
     glow.putalpha(ch.getchannel("A").filter(ImageFilter.GaussianBlur(30)).point(lambda a: int(a * 0.55)))
     img.alpha_composite(glow, (500, 90))
     img.alpha_composite(ch, (500, 90))
-    title = ImageFont.truetype(FONT, 190)
+    # The game's logo, with BONE over CHAIN.
+    title = make_logo.logo(LOGO_FONT, ["BONE", "CHAIN"])
+    title = title.resize((int(title.width * 430 / title.height), 430), Image.LANCZOS)
+    img.alpha_composite(title, (100, 200))
     sub = ImageFont.truetype(FONT_BOLD, 64)
-    glow_text(img, (150, 420), "BONE", title, BONE, glow=(0, 0, 0), glow_radius=14, anchor="ls", stroke=4)
-    glow_text(img, (150, 610), "CHAIN", title, GOLD, glow=(120, 40, 10), glow_radius=18, anchor="ls", stroke=4)
     glow_text(img, (156, 720), "Dash. Chain. Descend.", sub, (235, 230, 245), glow_radius=8, anchor="ls")
     img.convert("RGB").resize((1024, 500), Image.LANCZOS).save(os.path.join(out, "feature-1024x500.png"))
 
