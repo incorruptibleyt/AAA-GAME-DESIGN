@@ -38,7 +38,7 @@ const LIST := [
 	{"id": "boots", "family": "bone", "rarity": "common", "title": "Swift Boots", "text": "+12% move speed", "max": 3},
 	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Pick up hearts and coins from twice as far", "max": 1},
 	{"id": "greed", "family": "bone", "rarity": "common", "title": "Golden Touch", "text": "+30% coins from skeletons", "max": 2},
-	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 2 health per kill", "max": 3},
+	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 2 per kill while your chain is x2 or more", "max": 3},
 	{"id": "ward", "family": "bone", "rarity": "rare", "title": "Bone Ward", "text": "Block the first hit in every room", "max": 2},
 	{"id": "links", "family": "bone", "rarity": "rare", "title": "Long Links", "text": "Bone Chain lasts 1 second longer", "max": 1},
 	{"id": "marrow", "family": "bone", "rarity": "epic", "title": "Marrow", "text": "Bone Chain can climb to x4", "max": 1},
@@ -80,7 +80,7 @@ static func apply(id: String, h: Hero) -> void:
 		"vitality":
 			h.max_health += 30.0
 			h.heal(30.0)
-		"harvest": h.heal_on_kill += 2.0
+		"harvest": h.harvest_heal += 2.0
 		"boots": h.move_speed *= 1.12
 		"frost": h.frost = true
 		"frostbite": h.frost_time *= 2.0

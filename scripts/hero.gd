@@ -15,6 +15,8 @@ var pierce := 0
 var crit_chance := 0.05
 var burn_dps := 0.0
 var heal_on_kill := 0.0
+## From Bone Harvest: only heals while the Bone Chain is x2 or higher.
+var harvest_heal := 0.0
 ## Set by the chosen hero (heroes.gd).
 var hero_id := "rogue"
 var bolt_size := 0.22
@@ -287,8 +289,11 @@ func _whirlwind(delta: float) -> void:
 
 
 func on_kill() -> void:
-	if heal_on_kill > 0.0:
-		heal(heal_on_kill)
+	var amount := heal_on_kill
+	if Game.chain >= 2.0:
+		amount += harvest_heal
+	if amount > 0.0:
+		heal(amount)
 
 
 func _process(delta: float) -> void:

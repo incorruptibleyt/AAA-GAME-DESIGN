@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-24l"
+const BUILD := "2026-10-25m"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -299,12 +299,14 @@ func _notification(what: int) -> void:
 ## How much tougher skeletons are on the current floor.
 ## Skeleton health grows 55% per floor (compounding), so it keeps pace with a hero whose
 ## blessings stack up. Floor 4 skeletons have about 3.7x their floor 1 health.
+## From floor 5 on it grows 70% per floor, because a hero that deep is very strong.
 func health_scale() -> float:
-	return pow(1.55, floor_num - 1)
+	return pow(1.55, mini(floor_num, 4) - 1) * pow(1.7, maxi(floor_num - 4, 0))
 
 
+## Skeletons hit 35% harder per floor, and 50% per floor from floor 5 on.
 func damage_scale() -> float:
-	return 1.0 + 0.35 * (floor_num - 1)
+	return 1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 4, 0)
 
 
 func speed_scale() -> float:
