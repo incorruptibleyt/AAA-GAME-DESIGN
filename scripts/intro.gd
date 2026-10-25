@@ -2,12 +2,13 @@ class_name Intro
 extends CanvasLayer
 ## The opening scene when the game starts, about five seconds, and the game in miniature. In a
 ## dark crypt two torches catch and three skeletons wake; the warrior's eyes light up and it
-## roars, then leaps at you (the camera is the hero's eyes). Time slows as you dodge out from
-## under the blade, then your bolt bursts the warrior into bones and a burning chain lashes out
-## from it to the other two skeletons, bursting each in turn. The chain whips into the middle
-## and snaps into BONE CHAIN as the words slam down, then they glide up onto the title screen's
-## logo while the crypt fades into the title. A tap skips to the glide. The crypt is its own
-## small 3D world, drawn as a picture under the words.
+## roars, then leaps high at you, sword overhead (the camera is the hero's eyes, looking up).
+## Time slows at the top of the leap; you dodge as the blade comes down and smashes the floor
+## where you stood, then your bolt bursts the warrior into bones and a burning chain lashes out
+## from it to the other two skeletons, bursting each in turn. The chain hangs there burning a
+## moment, then whips into the middle and snaps into BONE CHAIN as the words slam down, then
+## they glide up onto the title screen's logo while the crypt fades into the title. A tap skips
+## to the glide. The crypt is its own small 3D world, drawn as a picture under the words.
 
 signal music      # the title music should start (as the words land, or on a skip)
 signal handoff    # the glide to the title screen begins
@@ -21,33 +22,39 @@ const TAGLINE := "Dash. Chain. Descend."
 const TORCHES := [0.12, 0.36]
 const AWAKEN := 0.6
 const EYES := 1.0
-const CHOP := 1.45       # the warrior leaps at you; its sword lands 0.76 s in
-const LAND := CHOP + 0.76
-const DODGE := 2.0       # you dodge out from under the blade just before it lands
-const DODGE_LEN := 0.24
-const SHOT := 2.34       # then fire one bolt into the warrior
+const CHOP := 1.3        # the warrior crouches and leaps at you (its jump chop)
+const RISE := CHOP + 0.15   # its feet leave the floor
+const DOWN := CHOP + 0.72   # and come down, its sword hitting the floor a moment later
+const LAND := CHOP + 0.75
+const LEAP_LEN := 1.9    # how far the leap carries it toward you
+const LEAP_SIDE := 0.45  # and to the side, so the sword in its right hand comes down where you stand
+const LEAP_ARC := 0.35   # and how much higher than the animation's own jump
+const DODGE := CHOP + 0.58   # you dodge out from under the blade as it comes down
+const DODGE_LEN := 0.2
+const SHOT := LAND + 0.1     # then fire one bolt into the warrior
 const BOLT_TIME := 0.06
-const BURSTS := [2.4, 2.55, 2.7]   # the warrior, then the chain reaches the other two
-const HOP := 0.1         # the chain takes this long to lash from one skeleton to the next
-const SNAP := 2.74       # and then whips into the middle as the words come down
+const BURSTS := [2.21, 2.45, 2.69]   # the warrior, then the chain reaches the other two
+const HOP := 0.16        # the chain takes this long to lash from one skeleton to the next
+const SNAP := 2.99       # it hangs there burning a moment, then whips into the words
 const SLAM_LEN := 0.14
 const HIT := SNAP + SLAM_LEN   # the words land
-const SLOW_FROM := 1.98  # the dodge plays in slow motion, like a perfect dodge in the game
-const SLOW_TO := 2.2
-const SLOW := 0.45
+const SLOW_FROM := 1.74  # the top of the leap plays in slow motion, like a perfect dodge in the game
+const SLOW_TO := 1.96
+const SLOW := 0.42
 const TAG := HIT + 0.3
 const GLINT := HIT + 0.35  # a glint of light sweeps across the letters
 const GLINT_LEN := 0.45
 const HANDOFF := HIT + 0.95
 const WARRIOR_AT := Vector3(-0.2, 0, 0.0)
 const WARRIOR_YAW := 0.15
-# The camera is where you stand: close and low as the warrior leaps at you, then a dodge up,
-# back and to the right, from where you see the whole chain.
-const LEAP_FROM := Vector3(0.1, 1.35, 4.6)
-const LEAP_AT := Vector3(-0.2, 1.3, 0.2)
-const DODGE_FROM := Vector3(1.3, 1.9, 5.6)
-const DODGE_AT := Vector3(0.0, 0.8, -0.8)
-const FIGHT_FOV := 44.0
+# The camera is where you stand: low, looking up as the warrior leaps at you, then a dodge
+# out to the right, from where you see the blade hit the floor and the whole chain.
+const LEAP_FROM := Vector3(0.15, 1.0, 6.2)
+const LEAP_AT := Vector3(-0.2, 1.5, 0.6)
+const DODGE_FROM := Vector3(1.6, 2.1, 6.6)
+const DODGE_AT := Vector3(-0.1, 0.6, -0.6)
+const SLAM_AT := Vector3(0.0, 0.3, 3.0)   # about where the sword hits the floor
+const FIGHT_FOV := 50.0
 const BOLT := Color(0.55, 0.85, 1.0)
 const LINK := Color(1.0, 0.6, 0.2)   # the burning chain, the gold and ember of the logo
 ## Lights up the gold of the letters (not their dark edge) where the glint passes.
@@ -72,6 +79,8 @@ var _cam: Camera3D
 var _anims: Array = []          # {player, cues: [[time, animation], ...], next}
 var _torches: Array = []        # {light, flame, size, at}
 var _eye_light: OmniLight3D
+var _head: Node3D               # follows the warrior's head
+var _blade: Node3D              # the warrior's sword
 var _eye_mat: StandardMaterial3D
 var _rim: OmniLight3D
 var _key: OmniLight3D
@@ -85,6 +94,7 @@ var _bolt: Node3D
 var _links: Array = []          # the chain's links: {node, at, born, from}
 var _link_mesh: TorusMesh
 var _link_mat: StandardMaterial3D
+var _halo_mat: StandardMaterial3D   # the fiery glow around each link
 var _impact_at := -10.0         # when the floor light last flared
 var _sprites: Array = []        # glowing puffs: {node, mat, vel, life, len, size, grow, col}
 var _bones: Array = []          # flying bones: {node, vel, spin}
@@ -229,6 +239,8 @@ func _build_crypt() -> void:
 	var archer := _actor(world, "Skeleton_Rogue", Vector3(1.0, 0, -2.3), deg_to_rad(-18.0), "Skeleton_Crossbow",
 		[[0.0, "Skeleton_Inactive_Standing_Pose"], [AWAKEN + 0.75, "Skeletons_Awaken_Standing"], [AWAKEN + 1.7, "Idle_Combat"]])
 	_add_eyes(warrior)
+	if warrior:
+		_blade = warrior.get_meta("weapon")
 	_targets = [warrior, minion, archer]
 	_bolt = Node3D.new()
 	world.add_child(_bolt)
@@ -236,11 +248,18 @@ func _build_crypt() -> void:
 	shaft.rotation.x = PI * 0.5   # along -Z, the way look_at points it
 	_bolt.visible = false
 	_link_mesh = TorusMesh.new()
-	_link_mesh.inner_radius = 0.075
-	_link_mesh.outer_radius = 0.13
+	_link_mesh.inner_radius = 0.09
+	_link_mesh.outer_radius = 0.165
 	_link_mesh.rings = 12
 	_link_mesh.ring_segments = 6
-	_link_mat = U.mat(LINK, 0.35, 2.2)   # solid, glowing metal
+	_link_mat = U.mat(LINK, 0.35, 2.6)   # solid, glowing metal
+	_halo_mat = StandardMaterial3D.new()
+	_halo_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	_halo_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	_halo_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_halo_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	_halo_mat.albedo_texture = _soft
+	_halo_mat.albedo_color = Color(1.0, 0.45, 0.12, 0.55)
 
 	_rim = OmniLight3D.new()
 	_rim.light_color = Color(0.55, 0.4, 1.0)
@@ -273,7 +292,7 @@ func _actor(world: Node3D, key: String, pos: Vector3, yaw: float, weapon: String
 	node.position = pos
 	node.rotation.y = yaw
 	if weapon != "":
-		Art.attach_to_bone(node, "handslot.r", weapon)
+		node.set_meta("weapon", Art.attach_to_bone(node, "handslot.r", weapon))
 	var players := node.find_children("*", "AnimationPlayer", true, false)
 	if not players.is_empty():
 		var ap := players[0] as AnimationPlayer
@@ -293,6 +312,7 @@ func _add_eyes(warrior: Node3D) -> void:
 	var head := BoneAttachment3D.new()
 	skel.add_child(head)
 	head.bone_name = "head"
+	_head = head
 	_eye_mat = StandardMaterial3D.new()
 	_eye_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_eye_mat.albedo_color = Color(0, 0, 0)
@@ -326,7 +346,8 @@ func _glow_mat(col: Color) -> StandardMaterial3D:
 	return m
 
 
-## The warrior turns square on to you as it leaps, and the leap carries it forward.
+## The warrior turns square on to you as it crouches, and its leap carries it high and most of
+## the way to you.
 func _place_warrior() -> void:
 	var warrior := _targets[0] as Node3D
 	if warrior == null:
@@ -334,7 +355,8 @@ func _place_warrior() -> void:
 	var to_you := LEAP_FROM - WARRIOR_AT
 	to_you.y = 0.0
 	warrior.rotation.y = lerp_angle(WARRIOR_YAW, atan2(to_you.x, to_you.z), smoothstep(CHOP - 0.15, CHOP + 0.05, t))
-	warrior.position = WARRIOR_AT + to_you.normalized() * 0.5 * smoothstep(CHOP + 0.2, LAND, t)
+	var air := clampf((t - RISE) / (DOWN - RISE), 0.0, 1.0)
+	warrior.position = WARRIOR_AT + (to_you.normalized() * LEAP_LEN + Vector3(LEAP_SIDE, 0, 0)) * smoothstep(0.0, 1.0, air) + Vector3(0, LEAP_ARC * sin(air * PI), 0)
 
 
 static func _ease_out(k: float) -> float:
@@ -361,6 +383,21 @@ func _fly_bolt() -> void:
 		_bolt.look_at(to, Vector3.UP)
 	for j in 3:
 		_puff(at.lerp(from, randf() * 0.25), Vector3.ZERO, Color(BOLT.r, BOLT.g, BOLT.b, 0.8), 0.15, -0.5, 0.2)
+
+
+## The lowest point of the warrior's sword: its tip, as it comes down.
+func _blade_tip() -> Vector3:
+	var low := Vector3(0, INF, 0)
+	if _blade:
+		for mi: MeshInstance3D in _blade.find_children("*", "MeshInstance3D", true, false):
+			var box := mi.mesh.get_aabb() if mi.mesh else AABB()
+			for e in 8:
+				var p := mi.global_transform * box.get_endpoint(e)
+				if p.y < low.y:
+					low = p
+	if low.y == INF:
+		low = _target_at(0) + (LEAP_FROM - WARRIOR_AT).normalized() * 1.2
+	return low
 
 
 ## Your crossbow, just below and to the right of the middle of the picture.
@@ -434,8 +471,13 @@ func _shatter(i: int) -> void:
 		copy.global_transform = mi.global_transform
 		_fling(piece, middle - chest, along, power)
 		if mi.mesh.get_aabb().get_longest_axis_size() > 0.5:
-			# A skull is big: send it high and far back, out of the way of the words.
-			_bones[-1].vel += along * 3.0 + Vector3(0, 2.5, 0)
+			# A skull or weapon is big: fling it straight out of the picture (up and away from
+			# the middle), so it doesn't hang there as a pale lump.
+			var screen := _cam.unproject_position(middle) / Vector2(_vp.size) - Vector2(0.5, 0.5)
+			var out2 := Vector2(screen.x, minf(screen.y, -0.2)).normalized()
+			var basis := _cam.global_transform.basis
+			_bones[-1].vel = (basis.x * out2.x - basis.y * out2.y) * 9.0 + along * 1.5
+			_bones[-1].big = true
 	for _j in 9:
 		var bone := _loose_bone()
 		bone.position = chest + Vector3(randf_range(-0.3, 0.3), randf_range(-0.6, 0.4), randf_range(-0.2, 0.2))
@@ -495,7 +537,7 @@ func _fling(piece: Node3D, out: Vector3, along: Vector3, power: float) -> void:
 	out = (out + away.normalized()).normalized()
 	var vel := (along * randf_range(1.0, 2.5) + out * randf_range(1.5, 3.0)) * power
 	vel.y = randf_range(2.0, 4.0)
-	_bones.append({"node": piece, "vel": vel, "spin": Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 12.0})
+	_bones.append({"node": piece, "vel": vel, "spin": Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * 12.0, "big": false})
 
 
 ## The burning chain. It lashes from each burst skeleton to the next (link by link, sagging a
@@ -506,7 +548,7 @@ func _update_chain() -> void:
 		var start: float = BURSTS[i] + 0.05
 		var a := _target_at(i)
 		var b := _target_at(i + 1)
-		var count := maxi(4, int(a.distance_to(b) / 0.27))
+		var count := maxi(4, int(a.distance_to(b) / 0.3))
 		var reach := clampf((t - start) / HOP, 0.0, 1.0)
 		var made := _links.filter(func(l): return l.hop == i).size()
 		while t >= start and t < SNAP and made < count and float(made) / count <= reach:
@@ -521,13 +563,28 @@ func _update_chain() -> void:
 			link.look_at_from_position(at, next, Vector3.UP)
 			link.rotate_object_local(Vector3(0, 0, 1), PI * 0.5 * (made % 2))
 			link.scale = Vector3(1.0, 1.0, 1.7)
-			_links.append({"node": link, "hop": i, "from": at, "born": t})
+			var halo := MeshInstance3D.new()
+			halo.mesh = QuadMesh.new()
+			halo.material_override = _halo_mat
+			halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			halo.position = at
+			halo.scale = Vector3.ONE * 0.7
+			_world.add_child(halo)
+			_links.append({"node": link, "halo": halo, "hop": i, "from": at, "born": t, "k": i + k})
 			_puff(at, Vector3.ZERO, Color(LINK.r, LINK.g, LINK.b, 0.45), 0.35, 0.6, 0.2)
 			made += 1
+	# Burning: it flickers, and once it reaches the last skeleton a pulse of heat runs along it.
+	_link_mat.emission_energy_multiplier = 2.6 + 0.6 * sin(t * 47.0) * sin(t * 19.0)
+	var taut: float = BURSTS[-1] + 0.05
 	if t < SNAP:
 		for l in _links:
 			var node := l.node as Node3D
-			node.scale = Vector3(1.0, 1.0, 1.7) * (1.0 + 0.5 * exp(-(t - l.born) * 20.0))
+			var pulse := 0.0
+			if t > taut:
+				var wave := (t - taut) / (SNAP - taut) * 2.4   # runs from the warrior's end (0) past the archer's (2)
+				pulse = maxf(0.0, 1.0 - absf(l.k - wave) / 0.4)
+			node.scale = Vector3(1.0, 1.0, 1.7) * (1.0 + 0.5 * exp(-(t - l.born) * 20.0) + 0.35 * pulse)
+			(l.halo as Node3D).scale = Vector3.ONE * (0.7 + 0.6 * pulse)
 		return
 	# Whip into the words: the far end of the chain goes first.
 	var to := _cam.project_position(_words_center() * (Vector2(_vp.size) / _canvas.size), 2.5)
@@ -538,6 +595,9 @@ func _update_chain() -> void:
 		node.visible = k < 1.0
 		node.position = (l.from as Vector3).lerp(to, k * k)
 		node.scale = Vector3(1.0, 1.0, 1.7) * (1.0 - 0.6 * k)
+		var halo := l.halo as Node3D
+		halo.visible = node.visible
+		halo.position = node.position
 
 
 func _update_bones(dt: float) -> void:
@@ -546,6 +606,8 @@ func _update_bones(dt: float) -> void:
 		b.vel.y -= 16.0 * dt
 		node.position += b.vel * dt
 		node.rotation += b.spin * dt
+		if b.big and not _cam.is_position_in_frustum(node.position):
+			node.visible = false   # gone for good, rather than falling back into the picture
 		if node.position.y < 0.12 and b.vel.y < 0.0:
 			node.position.y = 0.12
 			b.vel = Vector3(b.vel.x * 0.6, -b.vel.y * 0.3, b.vel.z * 0.6)
@@ -577,13 +639,21 @@ func _step(dt: float) -> void:
 			Sfx.play("dash", 0.9, 0.7)
 			Sfx.play("crack", 0.6, 1.2)
 		if _crossed(was, LAND):
-			# The blade hits the floor where you stood a moment ago.
-			Sfx.play("slam", 0.85)
-			_shake = 8.0
-			var at := _target_at(0) + (LEAP_FROM - WARRIOR_AT).normalized() * 1.2 - Vector3(0, 1.1, 0)
-			for i in 8:
-				_puff(at + Vector3(randf_range(-0.3, 0.3), 0.15, randf_range(-0.2, 0.2)),
-					Vector3(randf_range(-2, 2), randf_range(0.3, 1.2), randf_range(-1, 1.5)), Color(0.6, 0.55, 0.65, 0.35), 0.5, 2.0, 0.6, false)
+			# The blade bites into the floor where you stood a moment ago, in a spray of sparks.
+			Sfx.play("slam", 0.95)
+			Sfx.play("crack", 0.7, 0.8)
+			_shake = 11.0
+			var at := _blade_tip()
+			at.y = 0.1
+			for i in 10:
+				_puff(at + Vector3(randf_range(-0.3, 0.3), 0.1, randf_range(-0.2, 0.2)),
+					Vector3(randf_range(-2.5, 2.5), randf_range(0.3, 1.4), randf_range(-1, 1.5)), Color(0.6, 0.55, 0.65, 0.4), 0.6, 2.2, 0.7, false)
+			for i in 18:
+				var dir := Vector3(randf_range(-1, 1), randf_range(0.3, 1.2), randf_range(-1, 1)).normalized()
+				_puff(at, dir * randf_range(3.0, 7.0), Color(1.0, 0.7, 0.35, 0.95), 0.08, -0.5, randf_range(0.25, 0.5))
+			_puff(at, Vector3.ZERO, Color(1.0, 0.6, 0.25, 0.7), 1.2, 0.8, 0.25)
+			_impact.position = at + Vector3(0, 0.3, 0)
+			_impact_at = t
 		if _crossed(was, SHOT):
 			Sfx.play("shoot", 0.8)
 		for i in BURSTS.size():
@@ -693,16 +763,22 @@ func _move_camera() -> void:
 	var k := smoothstep(0.0, 1.0, clampf(t / HANDOFF, 0.0, 1.0))
 	var from := Vector3(0.5, 1.05, 7.6).lerp(Vector3(0.1, 1.3, 6.6), k)
 	var at := Vector3(0.0, 0.65, 0.0).lerp(Vector3(0.0, 0.9, 0.4), k)
-	var close := smoothstep(EYES - 0.2, EYES + 0.1, t) * (1.0 - smoothstep(CHOP - 0.05, CHOP + 0.3, t))
+	var close := smoothstep(EYES - 0.2, EYES + 0.1, t) * (1.0 - smoothstep(CHOP - 0.1, CHOP + 0.15, t))
 	from = from.lerp(Vector3(0.1, 1.6, 3.7), close) + WARRIOR_AT
 	at = at.lerp(Vector3(0.0, 1.45, 0.0), close) + WARRIOR_AT
-	var leap := smoothstep(CHOP - 0.05, CHOP + 0.3, t)
+	var leap := smoothstep(CHOP - 0.1, CHOP + 0.15, t)
 	from = from.lerp(LEAP_FROM, leap)
-	at = at.lerp(LEAP_AT, leap)
+	# Your eyes follow it up into the air.
+	var look := LEAP_AT
+	if _head and _blade:
+		look = LEAP_AT.lerp(_head.global_position.lerp(_blade.global_position, 0.35), 0.6)
+	at = at.lerp(look, leap)
 	var dodge := _ease_out(clampf((t - DODGE) / DODGE_LEN, 0.0, 1.0))
 	var push := smoothstep(DODGE + DODGE_LEN, HANDOFF, t)
 	from = from.lerp(DODGE_FROM + Vector3(-0.2, -0.2, -0.6) * push, dodge)
 	at = at.lerp(DODGE_AT, dodge)
+	# A glance down at the sword as it bites into the floor, then over to the chain.
+	at = at.lerp(SLAM_AT, 0.4 * smoothstep(DODGE, LAND, t) * (1.0 - smoothstep(SHOT, BURSTS[1], t)))
 	_cam.fov = lerpf(40.0, FIGHT_FOV, leap)
 	_cam.look_at_from_position(from, at)
 	_cam.rotate_object_local(Vector3(0, 0, 1), -sin(dodge * PI) * 0.14)
@@ -777,7 +853,7 @@ func _paint() -> void:
 	# A cold tint while time slows.
 	var slow := _slowness()
 	if slow > 0.0:
-		_canvas.draw_rect(Rect2(Vector2.ZERO, vp), Color(0.25, 0.35, 0.85, 0.2 * slow))
+		_canvas.draw_rect(Rect2(Vector2.ZERO, vp), Color(0.25, 0.35, 0.85, 0.12 * slow))
 	_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
 	_canvas.draw_set_transform(_off)
 	_draw_impact(fade)
