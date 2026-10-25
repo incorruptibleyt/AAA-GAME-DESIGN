@@ -17,7 +17,7 @@ var _next := 0
 static var enabled := true
 
 
-static func play(sound: String, volume := 1.0) -> void:
+static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
 	if not enabled or _instance == null or not _instance._clips.has(sound):
 		return
 	var p := _instance._players[_instance._next]
@@ -25,7 +25,7 @@ static func play(sound: String, volume := 1.0) -> void:
 	var clip = _instance._clips[sound]
 	p.stream = clip.pick_random() if clip is Array else clip
 	p.volume_db = linear_to_db(volume * randf_range(0.85, 1.0))
-	p.pitch_scale = randf_range(0.95, 1.05)
+	p.pitch_scale = pitch * randf_range(0.95, 1.05)
 	p.play()
 
 
