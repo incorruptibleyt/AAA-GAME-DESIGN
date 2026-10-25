@@ -104,6 +104,7 @@ var _graphics_button: Button
 var _graphics_high := true
 var _reports_button: Button
 var _reports_on := false
+var _hud_before_end := false
 var _stick_start := Vector2.ZERO
 var _stick_age := 0.0
 var _chain_box: Control
@@ -284,6 +285,15 @@ static func coin_icon(size: float) -> Panel:
 
 
 ## A coin icon with a number next to it.
+## A small "Privacy policy" button that opens the policy page in the browser.
+static func privacy_button() -> Button:
+	var b := button("Privacy policy", 18, Color(0.08, 0.07, 0.1, 0.85), Color(0.6, 0.55, 0.6, 0.4))
+	b.add_theme_color_override("font_color", Color(0.75, 0.72, 0.78))
+	b.custom_minimum_size = Vector2(200, 48)
+	b.pressed.connect(func(): OS.shell_open(Game.PRIVACY_URL))
+	return b
+
+
 static func coin_row(text_size: int, parent: Control, centered := false) -> Label:
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -631,19 +641,40 @@ func _build_cards() -> void:
 func _build_title() -> void:
 	_title_box = overlay(Color(0.01, 0.01, 0.03, 0.55))
 	add_child(_title_box)
-	var col := VBoxContainer.new()
-	full(col)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 14)
-	_title_box.add_child(col)
-	col.add_child(label("BONE CHAIN", 64, Color(1, 0.85, 0.55)))
-	col.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
+	# The hero stands in the middle of the screen, so the words sit above them (anchored
+	# to the top) and the buttons below (anchored to the bottom), on any phone shape.
+	var holder := Control.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(holder)
+	_title_box.add_child(holder)
+	var top := VBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	top.offset_left = 24
+	top.offset_right = -24
+	top.offset_top = 30
+	top.add_theme_constant_override("separation", 10)
+	holder.add_child(top)
+	_title_coins = coin_row(26, top)
+	(_title_coins.get_parent() as HBoxContainer).alignment = BoxContainer.ALIGNMENT_END
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 40)
+	top.add_child(gap)
+	top.add_child(label("BONE CHAIN", 64, Color(1, 0.85, 0.55)))
+	top.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
 	# Said up front, so nobody is surprised when the free floors end.
 	_title_free = label("Free to try: floors 1-%d. The Crypt Pass opens the rest." % Store.FREE_FLOORS, 17, Color(0.95, 0.78, 0.45))
-	col.add_child(_title_free)
+	top.add_child(_title_free)
 	_title_best = label("", 18, Color(0.7, 0.7, 0.8))
-	col.add_child(_title_best)
-	_title_coins = coin_row(26, col, true)
+	top.add_child(_title_best)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	col.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	col.offset_top = -40
+	col.offset_bottom = -40
+	col.add_theme_constant_override("separation", 14)
+	holder.add_child(col)
 	_title_hero = label("", 20, Color(0.75, 0.85, 1.0))
 	col.add_child(_title_hero)
 	_title_spacer = Control.new()
@@ -994,6 +1025,7 @@ func _build_pause() -> void:
 	_reports_button = button("Send reports: Off", 22)
 	_reports_button.pressed.connect(func(): reports_toggled.emit(not _reports_on))
 	col.add_child(_centered(_reports_button))
+	col.add_child(_centered(privacy_button()))
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
@@ -1085,7 +1117,7 @@ func _build_pass() -> void:
 	_pass_restore.custom_minimum_size = Vector2(220, 50)
 	_pass_restore.pressed.connect(func(): pass_restore.emit())
 	col.add_child(_centered(_pass_back))
-	col.add_child(_centered(_pass_restore))
+	col.add_child(_pair(_pass_restore, privacy_button()))
 
 
 ## One picture tile: the picture, a title and a line of text (filled in by show_pass).
@@ -1140,13 +1172,13 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_tiles[2].text = "#%d %s.\nNew rules every day" % [Curses.day_number(), t.name]
 	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
 	_pass_buy.disabled = owned
-	_pass_buy.text = "OWNED - THANK YOU!" if owned else ("UNLOCK  " + price if price != "" else "UNLOCK")
+	_pass_buy.text = "OWNED - THANK YOU!" if owned else "UNLOCK  " + (price if price != "" else Store.FALLBACK_PRICE)
 	_pass_buy.add_theme_font_size_override("font_size", 26 if owned else 32)
 	_pass_status.text = status
 	_pass_status.visible = status != ""
 	_pass_dev.visible = not owned
 	_pass_back.text = "BACK" if owned else "NOT NOW"
-	_pass_restore.get_parent().visible = not owned
+	_pass_restore.visible = not owned
 
 
 ## The Daily Crypt screen: today's theme, hero and three rules, and START.
@@ -1289,6 +1321,7 @@ func _build_reports_ask() -> void:
 	no.custom_minimum_size = Vector2(360, 70)
 	no.pressed.connect(func(): reports_answered.emit(false))
 	col.add_child(_centered(no))
+	col.add_child(_centered(privacy_button()))
 
 
 func show_reports_ask(v: bool) -> void:
@@ -1433,7 +1466,8 @@ func _process(delta: float) -> void:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
 	_chain_box.offset_top = 122.0 if _boss_box.visible else 88.0
 	_chain_box.offset_bottom = _chain_box.offset_top + 122.0
-	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE]
+	# Hidden behind the pause menu, where it would cross "Paused".
+	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.UPGRADE]
 	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.6) if meter else 0.0
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
@@ -1620,6 +1654,12 @@ func hide_boss_card() -> void:
 
 func show_hud(v: bool) -> void:
 	_safe.visible = v
+
+
+## How far down the screen the top bar reaches (health, coins, room counter, chain and
+## score), so damage numbers can keep below it.
+func top_band() -> float:
+	return float(_safe.get_theme_constant("margin_top")) + 225.0
 
 
 ## Each card shows the family icon, the title in the family colour, and the rarity
@@ -1845,6 +1885,12 @@ func show_hint(text: String) -> void:
 ## `score` counts up from zero on the end screen; `best` is the best score before this run.
 ## `offer` swaps the tap line for the Crypt Pass offer (after the last free floor).
 func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again", buttons := false, score := -1, best := 0, offer := false) -> void:
+	# The run's top bar would show through the end screen: hide it while it's up.
+	if v and not _end_box.visible:
+		_hud_before_end = _safe.visible
+		_safe.visible = false
+	elif not v and _end_box.visible:
+		_safe.visible = _hud_before_end
 	_end_box.visible = v
 	_end_offer.visible = v and offer
 	_end_loop.visible = false
@@ -1859,6 +1905,8 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_best.text = ""
 	_end_tap.text = tap_text
 	_copy_button.text = "COPY RUN REPORT"
+	# A tool for balancing the game, only for players who chose to send reports.
+	_copy_button.visible = _reports_on
 	_end_tap.visible = not buttons and not offer
 	_end_buttons.visible = buttons
 	_end_pass.visible = false

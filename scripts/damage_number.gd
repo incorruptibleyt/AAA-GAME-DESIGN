@@ -1,7 +1,8 @@
 class_name DamageNumber
 extends Label3D
 ## Numbers that pop out of whatever got hit and float away. Quick hits on the same target
-## add up into one number, which sits up and to the side so it never hides the skeleton.
+## add up into one number, which sits up and to the side so it never hides the skeleton,
+## and slides down below the top bar so it never covers the health, room or chain.
 
 const LIFE := 0.75
 ## A hit this soon after the last one joins its number instead of making a new one.
@@ -90,7 +91,22 @@ func _process(delta: float) -> void:
 		_base = _follow.center()
 	_rise = minf(_rise + delta * 1.4, 0.9)
 	position = _base + OFFSET + Vector3(0, _rise + _lift, 0)
+	_keep_below_hud()
 	var pop := lerpf(1.5, 1.0, k / 0.15) if k < 0.15 else 1.0
 	scale = Vector3.ONE * _size * pop
 	modulate.a = 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
 	outline_modulate.a = modulate.a * 0.85
+
+
+func _keep_below_hud() -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or Game.hud == null or not Game.hud.visible:
+		return
+	var band := Game.hud.top_band() + 24.0 * scale.y
+	var y := cam.unproject_position(global_position).y
+	if y >= band:
+		return
+	# How many pixels down the screen one step towards the camera's bottom edge moves it.
+	var per := cam.unproject_position(global_position + Vector3(0, 0, 1)).y - y
+	if per > 1.0:
+		global_position.z += (band - y) / per

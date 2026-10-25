@@ -1,8 +1,8 @@
 class_name Sfx
 extends Node
-## Sound effects. Most are real recordings from Kenney's CC0 packs in audio/sfx, named
-## <sound>_<n>.ogg (one is picked at random each time). Sounds without files, like the
-## boss roar, are synthesised in code.
+## Sound effects: real CC0 recordings in audio/sfx (Kenney's packs, plus creature roars from
+## OpenGameArt; see audio/sfx/CREDITS.md), named <sound>_<n>.ogg, one picked at random each
+## time. The code-made sounds below are only fallbacks for a sound with no files.
 
 const RATE := 22050
 
@@ -56,7 +56,7 @@ func _ready() -> void:
 ## Looks for audio/sfx/<name>_0.ogg, _1.ogg ... and uses them instead of the synth.
 func _load_samples() -> void:
 	for name in ["shoot", "hit", "die", "hurt", "door", "upgrade", "coin", "click", "dash", "slam", "crack", "pickup",
-			"vo_prepare", "vo_win", "vo_lose", "vo_combo"]:
+			"warn", "boom", "roar", "victory", "vo_prepare", "vo_win", "vo_lose", "vo_combo"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [name, i]

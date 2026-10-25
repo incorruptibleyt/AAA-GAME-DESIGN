@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25u"
+const BUILD := "2026-10-25v"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -297,7 +297,7 @@ func _setup_environment() -> void:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.1
 	env.glow_enabled = true
-	env.glow_intensity = 0.6
+	env.glow_intensity = GLOW
 	env.glow_bloom = 0.05
 	env.glow_hdr_threshold = 1.0
 	env.fog_enabled = true
@@ -346,6 +346,7 @@ func _process(delta: float) -> void:
 		if _hit_stop_left <= 0.0:
 			Engine.time_scale = 0.12 if _lesson_left > 0.0 else 1.0
 	_update_dash_lesson(delta / maxf(Engine.time_scale, 0.01))
+	_update_glow(delta / maxf(Engine.time_scale, 0.01))
 	_update_camera(delta / maxf(Engine.time_scale, 0.01))
 	_update_exit_arrow()
 
@@ -365,7 +366,8 @@ func _notification(what: int) -> void:
 		if Telemetry.instance:
 			Telemetry.instance.session_open(false)
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		# Android's back button pauses the game; from the pause or title screen it leaves.
+		# Android's back button pauses the game and resumes it again; from the title or end
+		# screens it leaves.
 		if hud.reports_ask_visible():
 			hud.show_reports_ask(false)
 			_set_reports(false)   # backing out of the question is a no
@@ -391,10 +393,17 @@ func _notification(what: int) -> void:
 		match state:
 			State.PLAYING:
 				_pause()
-			State.PAUSED, State.TITLE, State.DEAD, State.VICTORY:
+			State.PAUSED:
+				_resume()
+			State.TITLE, State.DEAD, State.VICTORY:
 				if Telemetry.instance:
 					Telemetry.instance.session_open(false)
 				get_tree().quit()
+
+
+## The privacy policy (the same pinned page as the Play listing), opened from the pause
+## menu, the reports question and the Crypt Pass screen.
+const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/fcd3ae43fd44cfc6084dac18c31cb27e4a1c50f5/PRIVACY.md"
 
 
 ## The game's Google Play page, for the Daily Crypt share text.
@@ -558,13 +567,13 @@ func _update_camera(real_delta: float) -> void:
 
 ## Slow motion and a close-up on the last kill of a room. Time runs at `time_scale`
 ## for `seconds` of real time.
-func finisher(pos: Vector3, time_scale: float, seconds: float, col := Color(1, 0.85, 0.5)) -> void:
+func finisher(pos: Vector3, time_scale: float, seconds: float, col := Color(1, 0.85, 0.5), flash := 0.35) -> void:
 	Engine.time_scale = time_scale
 	_hit_stop_left = maxf(_hit_stop_left, seconds)
 	_zoom_point = pos
 	_zoom_hold = seconds + 0.25
 	Fx.shockwave(pos, col)
-	hud.flash(Color(1, 0.95, 0.85), 0.35)
+	hud.flash(Color(1, 0.95, 0.85), flash)
 	Sfx.play("slam", 0.8)
 	shake(0.35)
 
@@ -648,6 +657,25 @@ func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount)
 
 
+## Specials fill the screen with bright bolts and shockwaves; for a moment the bloom is
+## turned down so the hero doesn't vanish in a white blur.
+const GLOW := 0.6
+const GLOW_CALM := 0.25
+var _glow_calm_left := 0.0
+
+
+func calm_glow(seconds: float) -> void:
+	_glow_calm_left = maxf(_glow_calm_left, seconds)
+
+
+func _update_glow(delta: float) -> void:
+	if _env == null or not _env.glow_enabled:
+		return
+	_glow_calm_left -= delta
+	var target := GLOW_CALM if _glow_calm_left > 0.0 else GLOW
+	_env.glow_intensity = move_toward(_env.glow_intensity, target, delta * (3.0 if target < _env.glow_intensity else 0.6))
+
+
 ## A tiny freeze when something is hit hard. Small touches like this make combat feel good.
 func hit_stop(seconds: float) -> void:
 	if state != State.PLAYING:
@@ -658,22 +686,41 @@ func hit_stop(seconds: float) -> void:
 
 # ---------------------------------------------------------------- run flow
 
+## Rooms are dealt like cards: one played this run doesn't come back until its pile
+## runs out (after floor 5), so the first five floors never repeat a room.
+## Each entry is "<pile>:<index>", for example "1:4" for the fifth medium room.
+var _seen_rooms: Array = []
+
+
 func _build_run() -> void:
 	_run.clear()
+	if floor_num <= 1:
+		_seen_rooms.clear()
 	# The Daily Crypt picks the same rooms for everyone that day.
 	var rng := Curses.daily_rng(100 + floor_num, _daily_date) if daily else null
-	for pair in [[Layouts.EASY, EASY_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, HARD_ROOMS]]:
-		var pool: Array = (pair[0] as Array).duplicate()
+	var piles := [[Layouts.EASY, EASY_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, HARD_ROOMS]]
+	for p in piles.size():
+		var all: Array = piles[p][0]
+		var count: int = piles[p][1]
+		var left: Array = []
+		for i in all.size():
+			if not _seen_rooms.has("%d:%d" % [p, i]):
+				left.append(i)
+		if left.size() < count:
+			# This pile is used up: shuffle it back in.
+			_seen_rooms = _seen_rooms.filter(func(k): return not (k as String).begins_with("%d:" % p))
+			left = range(all.size())
 		if rng:
-			for i in range(pool.size() - 1, 0, -1):
+			for i in range(left.size() - 1, 0, -1):
 				var j := rng.randi_range(0, i)
-				var tmp = pool[i]
-				pool[i] = pool[j]
-				pool[j] = tmp
+				var tmp = left[i]
+				left[i] = left[j]
+				left[j] = tmp
 		else:
-			pool.shuffle()
-		for i in mini(pair[1], pool.size()):
-			_run.append(_twist_room(pool[i], pool, rng))
+			left.shuffle()
+		for i in mini(count, left.size()):
+			_seen_rooms.append("%d:%d" % [p, left[i]])
+			_run.append(_twist_room(all[left[i]], all, rng))
 	_run.append(Layouts.BOSS)
 
 
@@ -1025,8 +1072,8 @@ func _back_to_title() -> void:
 	if hero:
 		hero.queue_free()
 		hero = null
-	_build_run()
 	floor_num = 1
+	_build_run()
 	_load_room(0, false)
 	hero.place_at(Vector3(0, 0, 2))
 	_snap_camera()
@@ -1236,7 +1283,7 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 		"hero_id": hero.hero_id, "hero": h, "taken": _taken.duplicate(), "rerolls": rerolls, "score": score,
 		"run_coins": run_coins, "banked": run_coins, "kills": _kills, "time": _run_time, "curses": curses.duplicate(),
 		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
-		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end})
+		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate()})
 
 
 ## "Floor 3 · Room 2" for the CONTINUE button, or "" when there's no saved run.
@@ -1287,6 +1334,7 @@ func _continue_run() -> void:
 		hero = null
 	_swap_hero(str(s.hero_id))
 	RunSave.apply_hero(hero, s.hero)
+	_seen_rooms = (s.get("seen_rooms", []) as Array).duplicate()
 	_build_run()
 	if s.get("loop_end", false):
 		_resume_loop_end()

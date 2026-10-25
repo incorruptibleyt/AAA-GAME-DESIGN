@@ -47,3 +47,8 @@ static func _deeper(t: Dictionary, loop: int) -> Dictionary:
 
 static func current() -> Dictionary:
 	return theme(Game.floor_num)
+
+
+## The Ember Catacomb, where red warnings would melt into the floor.
+static func hot() -> bool:
+	return current().name == "Ember Catacomb"

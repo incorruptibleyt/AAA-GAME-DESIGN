@@ -16,6 +16,8 @@ signal changed   # owned, price or status changed
 
 const PASS_ID := "crypt_pass"
 const FREE_FLOORS := 5
+## Shown on the buy button until Google Play sends the local price.
+const FALLBACK_PRICE := "$4.99"
 const SAVE_SECTION := "pass"
 const PLUGIN := "GodotGooglePlayBilling"
 

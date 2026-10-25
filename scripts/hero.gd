@@ -161,10 +161,13 @@ func dash(dir: Vector3) -> void:
 	_check_perfect(PERFECT_WINDOW)
 
 
-## Grave Dash: dashing through a red shot just before it lands is a perfect dodge.
+## Grave Dash: dashing through a red shot just before it lands is a perfect dodge, and
+## so is dashing out of any warning on the floor (a beam, a blast circle, a lunge) as it lands.
 ## Time slows, nearby shots shatter, and the hero answers with a ring of bolts.
 const PERFECT_WINDOW := 0.22
 var _perfect_done := false
+## The dark disc and coloured ring at the hero's feet (hidden when they die).
+var _rings: Array[Node3D] = []
 
 
 func _check_perfect(window: float) -> void:
@@ -174,6 +177,8 @@ func _check_perfect(window: float) -> void:
 		if is_instance_valid(p) and not p.is_queued_for_deletion() and p.time_to_hit(global_position, radius + 0.15) <= window:
 			_perfect_dodge()
 			return
+	if Telegraph.dodged(global_position, radius, window):
+		_perfect_dodge()
 
 
 func _perfect_dodge() -> void:
@@ -218,6 +223,7 @@ func use_special() -> void:
 	Game.hud.tip("", 0.0)
 	Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.3))
 	Game.shake(0.25)
+	Game.calm_glow(2.2)
 	match hero_id:
 		"knight": _shield_slam()
 		"barbarian":
@@ -248,7 +254,7 @@ func _shadow_volley() -> void:
 
 func _shield_slam() -> void:
 	visual.attack()
-	Game.finisher(global_position, 0.35, 0.3, Color(1, 0.95, 0.7))
+	Game.finisher(global_position, 0.35, 0.3, Color(1, 0.95, 0.7), 0.12)
 	Fx.shockwave(global_position, Color(1, 0.9, 0.6), slam_reach)
 	Fx.dust(global_position, 30)
 	_invulnerable = maxf(_invulnerable, 1.2)
@@ -498,6 +504,7 @@ func _build_aura() -> void:
 func _build_feet_marker(col: Color) -> void:
 	var disc := U.cylinder(self, 0.6, 0.01, U.unlit(Color(0, 0, 0, 0.4)), Vector3(0, 0.02, 0))
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_rings.append(disc)
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.5
 	torus.outer_radius = 0.6
@@ -510,6 +517,7 @@ func _build_feet_marker(col: Color) -> void:
 	ring.position = Vector3(0, 0.04, 0)
 	ring.scale = Vector3(1, 0.12, 1)
 	add_child(ring)
+	_rings.append(ring)
 
 
 ## A ring around that one: bright when the dash is ready, faint while it recharges.
@@ -576,6 +584,13 @@ func _update_ward_bubble() -> void:
 
 
 func _on_death() -> void:
+	# The rings at the hero's feet go with them, so none is left floating on the end screen.
+	for r in _rings:
+		r.visible = false
+	if _dash_ring:
+		_dash_ring.visible = false
+	if _aura:
+		_aura.visible = false
 	visual.set_visible_blink(true)
 	visual.die()
 	Sfx.play("hurt")

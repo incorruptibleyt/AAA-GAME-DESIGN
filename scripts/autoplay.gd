@@ -16,7 +16,7 @@ extends Node
 ## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
-## `heromenu` pictures every hero on the Heroes screen; `modesmenu` pictures the title and
+## `heromenu` pictures every hero on the Heroes screen (then taps UNLOCK on the Mage); `modesmenu` pictures the title and
 ## the Modes screen, `newfoes` (with `floor=2 god`) the Frost Wraith and Cinder Skeleton up
 ## close. `chains=1.2,2,3` (with `die`) fills in the chain reached in each room
 ## before, to picture the Daily Crypt share card.
@@ -236,6 +236,13 @@ func _process(delta: float) -> void:
 					await get_tree().create_timer(1.2).timeout
 					await _shot()
 					print("[autoplay] heroes screen: %s" % Heroes.LIST[i].title)
+				# UNLOCK without enough coins shows how many more are needed (the Mage costs the most).
+				Game.hud._heroes_box.show_index(Heroes.LIST.size() - 1)
+				await get_tree().create_timer(0.6).timeout
+				Game.hud._heroes_box._on_action()
+				await get_tree().create_timer(0.5).timeout
+				await _shot()
+				print("[autoplay] heroes screen: unlock without coins says \"%s\"" % Game.hud._heroes_box._badge.text)
 				get_tree().quit()
 				return
 			if hero_menu:
@@ -395,7 +402,9 @@ func _process(delta: float) -> void:
 					print("[autoplay] quit run test: first tap %s" % ("asks" if Game.state == Game.State.PAUSED else "QUIT TOO EARLY"))
 					Game.hud._on_quit_pressed()
 				else:
-					Game._on_screen_tapped()
+					# Android's Back button on the pause menu goes back into the run.
+					Game._notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+					print("[autoplay] back button on pause: %s" % ("resumed" if Game.state != Game.State.PAUSED else "STILL PAUSED"))
 
 		Game.State.PLAYING when gallery:
 			_gallery_step(delta)

@@ -293,6 +293,7 @@ func _refresh() -> void:
 		bits.append("Best Curse Level beaten: %d" % r.mastery)
 	if not r.unlocked:
 		bits.append("Locked · or get every hero with the Crypt Pass")
+	_badge.label_settings.font_color = Hud.GOLD
 	_badge.text = "  ·  ".join(bits)
 	_badge.visible = not bits.is_empty()
 	_text.text = def.text
@@ -365,4 +366,23 @@ func _on_action() -> void:
 	var r := _row()
 	if r.selected or r.trying:
 		return
+	if not r.unlocked and r.cost > _coins:
+		_need_coins(r)
 	pick.emit(r.id)
+
+
+## UNLOCK without enough coins: say how many more are needed, and the other ways in.
+func _need_coins(r: Dictionary) -> void:
+	_badge.text = "You need %d more coins. Runs earn coins%s, or the Crypt Pass unlocks every hero." % [
+		r.cost - _coins, ", or TRY FREE first" if r.trial else ""]
+	_badge.label_settings.font_color = Color(1, 0.55, 0.45)
+	_badge.visible = true
+	var x := _action.position.x
+	var tw := create_tween()
+	for dx in [10.0, -8.0, 6.0, -3.0, 0.0]:
+		tw.tween_property(_action, "position:x", x + dx, 0.04)
+	var id: String = r.id
+	get_tree().create_timer(3.5).timeout.connect(func():
+		if visible and _row().id == id:
+			_badge.label_settings.font_color = Hud.GOLD
+			_refresh())
