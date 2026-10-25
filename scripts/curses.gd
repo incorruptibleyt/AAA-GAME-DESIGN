@@ -279,9 +279,12 @@ static func _pick_rules(date: String, avoid: Array) -> Array:
 	return out
 
 
-## Today's starting blessing (with Blessed Start): any blessing that doesn't need another first.
+## Today's starting blessing (with Blessed Start): any blessing that doesn't need another
+## first and that today's hero can use.
 static func daily_blessing(date := "") -> Dictionary:
-	var pool := Upgrades.LIST.filter(func(u: Dictionary): return not u.has("needs") and u.id != "vitality")
+	var hero := daily_hero(date)
+	var pool := Upgrades.LIST.filter(func(u: Dictionary): return not u.has("needs") and u.id != "vitality" \
+			and u.get("hero", hero) == hero)
 	return pool[daily_rng(2, date).randi() % pool.size()]
 
 

@@ -551,7 +551,7 @@ func _update_dash_ring() -> void:
 func chill(seconds: float) -> void:
 	if chill_left <= 0.0:
 		Fx.magic(center(), Color(0.6, 0.9, 1.0), 16)
-		Game.hud.callout("FROZEN!", Color(0.6, 0.9, 1.0))
+		Game.hud.callout("CHILLED!", Color(0.6, 0.9, 1.0))
 	chill_left = maxf(chill_left, seconds)
 
 

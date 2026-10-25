@@ -685,8 +685,9 @@ func theme_enemy() -> String:
 	return ["", "f", "e"][(maxi(floor_num, 1) - 1) % 3]
 
 
-## Deeper floors don't replay rooms exactly: from floor 2 a room may be mirrored, and from
-## floor 3 its far half may be joined to the near half of another room from the same pool.
+## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
+## from another room, and from floor 3 its far half may be joined to the near half of another
+## room from the same pool.
 func _twist_room(layout: Array, pool: Array, rng: RandomNumberGenerator) -> Array:
 	var roll := func() -> float: return rng.randf() if rng else randf()
 	var out := layout.duplicate()
@@ -695,9 +696,13 @@ func _twist_room(layout: Array, pool: Array, rng: RandomNumberGenerator) -> Arra
 		if other != layout:
 			for row in range(7, Layouts.ROWS):
 				out[row] = other[row]
-	if floor_num >= 2 and roll.call() < 0.5:
-		for row in out.size():
-			out[row] = (out[row] as String).reverse()
+	# Every room is drawn the same on both sides, so a plain mirror would change nothing:
+	# instead the right-hand side comes from another room, making a lopsided new one.
+	if floor_num >= 2 and pool.size() > 1 and roll.call() < 0.5:
+		var right: Array = pool[(pool.find(layout) + 1 + int(roll.call() * (pool.size() - 1))) % pool.size()]
+		if right != layout:
+			for row in out.size():
+				out[row] = (out[row] as String).substr(0, 5) + (right[row] as String).substr(5)
 	return out
 
 
@@ -1947,7 +1952,10 @@ func _show_share_card() -> void:
 		hud.show_share(false)
 		return
 	var days := Curses.streak(_load_save())
-	hud.show_share(true, _share_rows(), "%d days in a row!" % days if days >= 2 else "Play tomorrow to start a streak")
+	var caption := "%d days in a row!" % days if days >= 2 else "Play tomorrow to start a streak"
+	if not Store.owned():
+		caption = "The Daily Crypt is free every Sunday"
+	hud.show_share(true, _share_rows(), caption)
 
 
 ## The Pass was bought, restored or refunded, or Google Play sent the price.

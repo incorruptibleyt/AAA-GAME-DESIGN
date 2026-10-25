@@ -8,7 +8,7 @@ and face the Skeleton King at the end of the floor.
 
 ## What's in this first playable slice
 
-- **One floor:** 5 rooms (2 easy, 2 medium, 1 hard, picked at random from 36 hand-made rooms) plus a boss room. From floor 2 rooms may come mirrored, and from floor 3 two rooms may be joined into one. Floor 1 never has more than one skeleton mage in a wave.
+- **One floor:** 5 rooms (2 easy, 2 medium, 1 hard, picked at random from 36 hand-made rooms) plus a boss room. From floor 2 a room may take its right-hand side from another room (every room is drawn symmetric, so the result is lopsided and new), and from floor 3 the far half of one room may be joined to the near half of another. Floor 1 never has more than one skeleton mage in a wave.
 - **Four heroes:** the Rogue (crossbow), plus the Knight (armoured sword waves), Barbarian (thrown axes, heals on kills) and Mage (exploding orbs), unlocked with coins from the HEROES screen. It shows one hero at a time turning on a pedestal (drag to spin them), with bars for health, damage, attack speed and speed, their special, and the three blessings only they can find.
 - **Controls:** one-thumb floating joystick, auto-aim and auto-fire when standing still, a quick flick of the thumb or the DASH button (bottom right) to dash (untouchable while dashing), brief invulnerability after a hit.
 - **Four skeletons.** The dangerous ones show a red warning before they attack:

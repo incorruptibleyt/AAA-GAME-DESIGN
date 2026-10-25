@@ -17,9 +17,9 @@ class_name Layouts
 ##   ^  spike trap (glows red, then spikes shoot up)
 ##   K  the boss (the Skeleton King, or the Lich on every second floor)
 ##
-## From floor 2 a room may be mirrored left to right, and from floor 3 the far half of one
-## room may be joined to the near half of another (game.gd, _twist_room), so even the
-## same rooms come back different.
+## Rooms are drawn the same on both sides. From floor 2 a room may take its right-hand side
+## from another room, and from floor 3 the far half of one room may be joined to the near
+## half of another (game.gd, _twist_room), so even the same rooms come back different.
 
 const COLUMNS := 9
 const ROWS := 15
