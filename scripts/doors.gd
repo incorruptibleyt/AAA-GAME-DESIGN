@@ -40,7 +40,7 @@ static func describe(door: Dictionary) -> Dictionary:
 			return {"title": "Treasure Room", "text": "+%d%% coins in\nthe next room" % roundi(TREASURE_COINS * 100),
 				"color": Color(1.0, 0.82, 0.3), "icon": "greed", "family": "bone"}
 		"shrine":
-			return {"title": "Shrine", "text": "+1 free reroll\nfor the blessings", "color": Color(0.6, 0.75, 1.0),
+			return {"title": "Shrine", "text": "+1 reroll\nfor the blessings", "color": Color(0.6, 0.75, 1.0),
 				"icon": "door_shrine", "family": "bolt"}
 		"champion":
 			return {"title": "Champion's Door", "text": "A golden elite waits.\nNext pick: rare or better",

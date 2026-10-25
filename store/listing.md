@@ -30,7 +30,7 @@ FOUR HEROES, FOUR SPECIAL MOVES
 - Mage: exploding magic orbs and a rain of Meteors.
 
 A CRYPT THAT FIGHTS BACK
-Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus golden elites. At the bottom of each floor waits a boss: the Skeleton King or the Lich. Descend through the Bone Crypt, the Frozen Ossuary and the Ember Catacomb.
+Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus golden elites. At the bottom of each floor waits a boss: the Skeleton King or the Lich. Descend through the Bone Crypt, the Frozen Ossuary and the Ember Catacomb, each with its own skeletons: floating Frost Wraiths that fire ice beams and burning Cinder Skeletons that leave fire in their path.
 
 GET STRONGER BETWEEN RUNS
 Keep the gold you find and spend it in the Armory on permanent upgrades, new blessings from the Vault, or new heroes. Pick your door after every room: treasure, a healing spring, a champion to fight, or a path to the blessings you want.

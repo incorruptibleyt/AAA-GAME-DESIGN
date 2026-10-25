@@ -28,7 +28,8 @@ var _tint_mat: Material
 static var _rim_shader: Shader
 
 
-## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb, tint, rim}
+## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb, tint, rim,
+## overlay, hide}
 func build(look: Dictionary) -> void:
 	var scene := Art.get_model(look.get("key", ""))
 	if scene:
@@ -55,7 +56,10 @@ func build(look: Dictionary) -> void:
 	else:
 		_model = _placeholder(look)
 	_collect_meshes(_model)
-	if look.has("tint"):
+	if look.has("overlay"):
+		# A ready-made material drawn over the whole model (the Cinder Skeleton's charring).
+		_tint_mat = look.overlay
+	elif look.has("tint"):
 		# A coloured glow over the whole model, so look-alike skeletons stand apart.
 		_tint_mat = U.unlit(look.tint)
 		_tint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD

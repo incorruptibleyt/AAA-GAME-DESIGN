@@ -33,6 +33,7 @@ static func build(parent: Node, layout: Array, label: String) -> Room:
 	current = room
 	room._build_shell()
 	room._read_layout(layout)
+	Props.dress(room, layout)
 	return room
 
 
@@ -54,13 +55,7 @@ func _build_shell() -> void:
 	var dark := U.mat(Color(0.02, 0.02, 0.04), 1.0)
 
 	# Floor: textured flagstones, plus a dark surround so the room edges read clearly.
-	var floor_mat := StandardMaterial3D.new()
-	floor_mat.albedo_texture = U.stone()
-	floor_mat.albedo_color = look.floor
-	floor_mat.roughness = 0.75
-	floor_mat.uv1_scale = Vector3(3, 5, 1)
-	floor_mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	var f := U.floor_quad(self, Vector2(HALF_W * 2, HALF_L * 2), floor_mat)
+	var f := U.floor_quad(self, Vector2(HALF_W * 2, HALF_L * 2), _floor_material(look))
 	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	U.floor_quad(self, Vector2(70, 90), dark, Vector3(0, -0.05, 0))
 
@@ -81,6 +76,56 @@ func _build_shell() -> void:
 		_add_torch(Vector3(-HALF_W + 0.05, 1.7, z), 1.0)
 		_add_torch(Vector3(HALF_W - 0.05, 1.7, z), -1.0)
 	apply_graphics(Game._high_graphics)
+
+
+static var _seam_shader: Shader
+
+## Flagstones in the floor's colour. A floor with "seams" (the Ember Catacomb) has fire
+## glowing in the gaps between its charcoal slabs, slowly pulsing, and a few cracked slabs.
+static func _floor_material(look: Dictionary) -> Material:
+	if not look.has("seams"):
+		var m := StandardMaterial3D.new()
+		m.albedo_texture = U.stone()
+		m.albedo_color = look.floor
+		m.roughness = 0.75
+		m.uv1_scale = Vector3(3, 5, 1)
+		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		return m
+	if _seam_shader == null:
+		_seam_shader = Shader.new()
+		_seam_shader.code = """
+shader_type spatial;
+uniform sampler2D stone : source_color, repeat_enable, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform vec4 seam : source_color = vec4(1.0, 0.35, 0.08, 1.0);
+float h(vec2 q) {
+	return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453);
+}
+void fragment() {
+	vec2 uv = UV * vec2(3.0, 5.0);
+	ALBEDO = texture(stone, uv).rgb * tint.rgb;
+	ROUGHNESS = 0.8;
+	// The stone texture has 4 x 4 slabs: how near is this point to the gap between two?
+	vec2 s = uv * 4.0;
+	vec2 f = fract(s) - 0.5;
+	float gap = 1.0 - smoothstep(0.0, 0.028, 0.5 - max(abs(f.x), abs(f.y)));
+	vec2 cell = floor(s);
+	float r = h(cell);
+	// Some slabs have a crack of their own, a wobbly line across the middle.
+	float a = h(cell + 7.0) * 3.1416;
+	vec2 dir = vec2(cos(a), sin(a));
+	float off = dot(f, vec2(-dir.y, dir.x)) + 0.035 * sin(dot(f, dir) * 13.0 + r * 30.0);
+	float crack = (1.0 - smoothstep(0.0, 0.018, abs(off))) * step(0.86, r) * (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
+	float pulse = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + s.x * 0.7 + s.y * 0.4), 2.0);
+	EMISSION = seam.rgb * max(gap, crack) * pulse * mix(0.6, 1.2, r);
+}
+"""
+	var sm := ShaderMaterial.new()
+	sm.shader = _seam_shader
+	sm.set_shader_parameter("stone", U.stone())
+	sm.set_shader_parameter("tint", look.floor)
+	sm.set_shader_parameter("seam", look.seams)
+	return sm
 
 
 ## Every light costs a lot on phones, so High keeps the far and near pairs of torch

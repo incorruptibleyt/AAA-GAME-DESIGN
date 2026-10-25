@@ -131,3 +131,48 @@ static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36,
 
 static func magic(pos: Vector3, color: Color, count := 18) -> void:
 	_burst(pos, count, color, 0.35, 4.0, 0.6, -0.2)
+
+
+static var _flame_mat: ShaderMaterial
+
+## A flickering flame that always faces the camera, drawn by the graphics card (no script,
+## no light): `size` is its width and height in metres, standing on `pos`.
+static func flame(parent: Node3D, size: Vector2, pos := Vector3.ZERO) -> MeshInstance3D:
+	if _flame_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 hot : source_color = vec4(1.0, 0.85, 0.4, 1.0);
+uniform vec4 cool : source_color = vec4(1.0, 0.3, 0.04, 1.0);
+varying float seed;
+void vertex() {
+	seed = MODEL_MATRIX[3].x * 3.7 + MODEL_MATRIX[3].z * 1.3;
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
+		vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+	float k = sin(TIME * 13.0 + seed) * 0.12 + sin(TIME * 7.3 + seed * 2.0) * 0.08;
+	VERTEX.y = (VERTEX.y + 0.5) * (1.0 + k) - 0.5;
+	VERTEX.x *= 1.0 - k * 0.5;
+}
+void fragment() {
+	float t = 1.0 - UV.y;
+	float x = abs(UV.x * 2.0 - 1.0);
+	float w = 0.85 * (1.0 - t) * smoothstep(0.0, 0.3, t) + 0.03;
+	float inside = (1.0 - smoothstep(w * 0.45, w, x)) * smoothstep(0.0, 0.12, t);
+	ALBEDO = mix(hot.rgb, cool.rgb, smoothstep(0.1, 0.8, t)) * inside * (1.2 - t * 0.5);
+}
+"""
+		_flame_mat = ShaderMaterial.new()
+		_flame_mat.shader = sh
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	var f := MeshInstance3D.new()
+	f.mesh = q
+	f.material_override = _flame_mat
+	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	f.scale = Vector3(size.x, size.y, 1.0)
+	f.position = pos + Vector3.UP * size.y * 0.5
+	parent.add_child(f)
+	return f

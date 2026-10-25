@@ -2,7 +2,7 @@ class_name ShareCard
 extends Control
 ## The Daily Crypt result as a little picture on the end screen: one square per room,
 ## coloured by how high the Bone Chain climbed in it, a skull for each boss beaten and a
-## cross where the run ended. SHARE RESULT copies the same thing as emoji (game.gd).
+## cross where the run ended. SHARE RESULT sends it as a picture and as emoji (share.gd).
 
 ## Square codes 0-3 are the chain colours; then these.
 const BOSS := 4
@@ -17,6 +17,8 @@ const GAP := 6.0
 
 ## One Array of codes per floor.
 var rows: Array = []
+## Bigger squares for the share picture.
+var zoom := 1.0
 var caption := ""
 var _box := StyleBoxFlat.new()
 
@@ -48,20 +50,22 @@ static func emoji(card_rows: Array) -> String:
 func show_rows(card_rows: Array, text: String) -> void:
 	rows = card_rows
 	caption = text
-	custom_minimum_size = Vector2(0, rows.size() * (CELL + GAP) + (26.0 if caption != "" else 0.0))
+	custom_minimum_size = Vector2(0, rows.size() * (CELL + GAP) * zoom + (26.0 * zoom if caption != "" else 0.0))
 	queue_redraw()
 
 
 func _draw() -> void:
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE * zoom)
+	var w := size.x / zoom
 	var y := 0.0
 	for row: Array in rows:
-		var x := (size.x - (row.size() * (CELL + GAP) - GAP)) / 2.0
+		var x := (w - (row.size() * (CELL + GAP) - GAP)) / 2.0
 		for code: int in row:
 			_cell(Rect2(x, y, CELL, CELL), code)
 			x += CELL + GAP
 		y += CELL + GAP
 	if caption != "":
-		draw_string(get_theme_default_font(), Vector2(0, y + 18), caption, HORIZONTAL_ALIGNMENT_CENTER, size.x, 18, Hud.GOLD)
+		draw_string(get_theme_default_font(), Vector2(0, y + 18), caption, HORIZONTAL_ALIGNMENT_CENTER, w, 18, Hud.GOLD)
 
 
 func _cell(r: Rect2, code: int) -> void:

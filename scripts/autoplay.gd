@@ -20,8 +20,9 @@ extends Node
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
 ## `heromenu` pictures every hero on the Heroes screen (then taps UNLOCK on the Mage); `modesmenu` pictures the title and
 ## the Modes screen, `newfoes` (with `floor=2 god`) the Frost Wraith and Cinder Skeleton up
-## close. `chains=1.2,2,3` (with `die`) fills in the chain reached in each room
-## before, to picture the Daily Crypt share card.
+## close, `props` (with `floor=N`) the floor's own props, and `bigshots` draws at half size
+## between pictures (for 1080 x 1920 store screenshots). `chains=1.2,2,3` (with `die`)
+## fills in the chain reached in each room before, to picture the Daily Crypt share card.
 
 var god := false
 var start_room := 1
@@ -63,6 +64,10 @@ var _daily_menu := false
 var _modes_menu := false
 var _chains: Array = []
 var _new_foes := false
+var _props := false
+## "bigshots": draw the 3D at half size between pictures, so a 1080 x 1920 window plays
+## fast enough to reach the blessing and door screens (store screenshots).
+var _big_shots := false
 var _title_shot := false
 var _share := false
 var _bank := false
@@ -118,6 +123,12 @@ func _ready() -> void:
 		elif a == "newfoes":
 			gallery = true
 			_new_foes = true
+		elif a == "bigshots":
+			_big_shots = true
+			get_viewport().scaling_3d_scale = 0.5
+		elif a == "props":
+			gallery = true
+			_props = true
 		elif a == "pass":
 			Store.test_owned = true
 		elif a == "daily":
@@ -408,6 +419,7 @@ func _process(delta: float) -> void:
 				print("[autoplay] share text:\n" + Game._share_text())
 				if shots_dir != "":
 					_shot()
+					_share_picture()
 			if Game._state_time > 2.5:
 				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
 				runs -= 1
@@ -485,16 +497,28 @@ func _gallery_step(delta: float) -> void:
 			Game.hero.place_at(Vector3(0, 0, 30))
 			Game.state = Game.State.TRANSITION
 			return
+		if _props:
+			# The floor's own props: a near corner and wall, the other wall, then the far end.
+			var spots := [Vector3(-4.6, 0, 8.4), Vector3(4.6, 0, 2.0), Vector3(-2.5, 0, -7.0)]
+			for i in spots.size():
+				get_tree().create_timer(0.6 + i * 1.4).timeout.connect(func():
+					Game.hero.place_at(spots[i])
+					Game._snap_camera())
+				get_tree().create_timer(1.4 + i * 1.4).timeout.connect(_shot)
+			get_tree().create_timer(5.0).timeout.connect(get_tree().quit)
+			_gallery_t = 200.0
+			return
 		if _new_foes:
-			# The two theme skeletons up close and attacking: pictures at 1.3, 2.3 and 3.3 s.
+			# The two theme skeletons up close and attacking: pictures at 1.3, 2.3, 3.3 and 4.45 s
+			# (the last as the first ice beams fire).
 			Game.spawn_enemy("f", Vector3(-2.2, 0, 1.5))
 			Game.spawn_enemy("f", Vector3(2.4, 0, 0.5))
 			Game.spawn_enemy("e", Vector3(-1.0, 0, 3.5))
 			Game.spawn_enemy("e", Vector3(1.4, 0, 3.0))
 			Game.hero.place_at(Vector3(0, 0, 7.0))
-			for t in [1.3, 2.3, 3.3]:
+			for t in [1.3, 2.3, 3.3, 4.45]:
 				get_tree().create_timer(t).timeout.connect(_shot)
-			get_tree().create_timer(3.8).timeout.connect(get_tree().quit)
+			get_tree().create_timer(4.9).timeout.connect(get_tree().quit)
 			_gallery_t = 200.0
 			return
 		if spider_shot:
@@ -590,6 +614,14 @@ func _drive(delta: float) -> void:
 
 
 ## Every blessing's badge on one page, with its name, to check the pictures.
+## Saves the Daily Crypt share picture next to the other pictures.
+func _share_picture() -> void:
+	var img: Image = await Share.picture(Game.hud, Game._share_lines(), Game._share_rows(), Game._share_caption())
+	if img:
+		img.save_png(shots_dir.path_join("share_picture.png"))
+		print("[autoplay] share picture %dx%d" % [img.get_width(), img.get_height()])
+
+
 func _icon_sheet() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 50
@@ -616,8 +648,14 @@ func _icon_sheet() -> void:
 
 
 func _shot() -> void:
+	if _big_shots:
+		get_viewport().scaling_3d_scale = 1.0
+		await get_tree().process_frame
+		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img := get_viewport().get_texture().get_image()
+	if _big_shots:
+		get_viewport().scaling_3d_scale = 0.5
 	if img == null or img.is_empty():
 		return
 	_shot_n += 1

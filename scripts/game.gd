@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25w"
+const BUILD := "2026-10-25x"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -262,9 +262,7 @@ func _ready() -> void:
 	hud.title_pressed.connect(func(): if state == State.VICTORY and _free_end: _back_to_title())
 	hud.continue_pressed.connect(_continue_run)
 	hud.hero_trial.connect(_try_hero)
-	hud.share_pressed.connect(func():
-		DisplayServer.clipboard_set(_share_text())
-		Sfx.play("click"))
+	hud.share_pressed.connect(_share)
 	hud.loop_deeper.connect(_open_omens)
 	hud.loop_bank.connect(_bank_run)
 	hud.omen_picked.connect(_pick_omen)
@@ -2061,6 +2059,31 @@ func _share_text() -> String:
 		ShareCard.emoji(_share_rows()), " · ".join(about.filter(func(s): return s != "")), PLAY_URL]
 
 
+## The same result for the share picture: [text, size, colour] lines under the game's name.
+func _share_lines() -> Array:
+	var num := Curses.day_number(_daily_date)
+	var result := "Fell on floor %d" % floor_num
+	var col := Color(1.0, 0.55, 0.45)
+	if _daily_done:
+		result = "CLEARED!"
+		col = Color(0.55, 1.0, 0.6)
+	elif state == State.VICTORY:
+		result = "Floor %d of %d beaten" % [floor_num, Curses.DAILY_FLOORS]
+		col = Color(1.0, 0.85, 0.45)
+	var about := [Heroes.get_hero(hero.hero_id).title if hero else "", Curses.theme(_daily_date).name]
+	return [["Daily Crypt #%d%s" % [num, " (practice)" if _daily_practice else ""], 34, Color(0.95, 0.9, 0.8)],
+		[result, 50, col],
+		["%s points · best chain x%.1f" % [Hud.thousands(score), _rep.get("best_chain", 1.0)], 28, Hud.GOLD],
+		[" · ".join(about.filter(func(t): return t != "")), 24, Color(0.8, 0.78, 0.9)]]
+
+
+## SHARE RESULT: the phone's share menu with the result as words and as a picture.
+func _share() -> void:
+	Sfx.play("click")
+	var picture: Image = await Share.picture(hud, _share_lines(), _share_rows(), _share_caption())
+	hud.share_done(Share.send(_share_text(), picture))
+
+
 ## The Daily Crypt as ShareCard codes: one row per floor, one code per room.
 func _share_rows() -> Array:
 	var per_floor := _run.size()
@@ -2087,9 +2110,12 @@ func _show_share_card() -> void:
 	if not daily:
 		hud.show_share(false)
 		return
+	hud.show_share(true, _share_rows(), _share_caption())
+
+
+func _share_caption() -> String:
 	var days := Curses.streak(_load_save())
-	var caption := "%d days in a row!" % days if days >= 2 else "Play tomorrow to start a streak"
-	hud.show_share(true, _share_rows(), caption)
+	return "%d days in a row!" % days if days >= 2 else "Play tomorrow to start a streak"
 
 
 ## The Pass was bought, restored or refunded, or Google Play sent the price.

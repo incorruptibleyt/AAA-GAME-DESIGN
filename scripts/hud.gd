@@ -1038,8 +1038,7 @@ func _build_end() -> void:
 	_share_button.add_theme_color_override("font_color", GOLD)
 	_share_button.custom_minimum_size = Vector2(240, 56)
 	_share_button.pressed.connect(func():
-		_share_button.text = "Copied! Paste it anywhere"
-		_share_button.add_theme_font_size_override("font_size", 16)
+		_share_button.disabled = true
 		share_pressed.emit())
 	# Copies a detailed report of the run, to paste to Claude for balancing.
 	_copy_button = button("COPY RUN REPORT", 20, Color(0.1, 0.12, 0.18, 0.95), Color(0.5, 0.75, 1.0, 0.7))
@@ -1818,7 +1817,7 @@ func show_cards(choices: Array, rerolls := 0, tags := true) -> void:
 			sb.border_width_right = edge
 			sb.border_width_bottom = edge
 	_reroll_button.visible = rerolls > 0
-	_reroll_button.text = "Reroll (%d free)" % rerolls
+	_reroll_button.text = "Reroll (%d left)" % rerolls
 	_cards_box.visible = true
 	_cards_age = 0.0
 
@@ -2095,6 +2094,13 @@ func _update_end_count(delta: float) -> void:
 
 ## Daily Crypt runs get their result card (rows of ShareCard codes) and a SHARE RESULT
 ## button on the end screen.
+## After SHARE RESULT: the share menu opened (the words are copied too), or they were copied.
+func share_done(opened: bool) -> void:
+	_share_button.disabled = false
+	_share_button.text = "Shared! The words are copied too" if opened else "Copied! Paste it anywhere"
+	_share_button.add_theme_font_size_override("font_size", 15 if opened else 16)
+
+
 func show_share(v: bool, rows := [], caption := "") -> void:
 	_share_button.visible = v
 	_share_card.visible = v and not rows.is_empty()

@@ -1,9 +1,10 @@
 """Builds the Google Play graphics for Bone Chain from the renders.
 
-    python3 tools/store/compose.py <render folder> <output folder>
+    python3 tools/store/compose.py <render folder> <output folder> dodge=<file> ember=<file> ...
 
-The render folder holds icon3d.png and banner3d.png (from render_art.gd) and the
-gameplay screenshots named in SHOTS (1080 x 1920, from the autoplay robot).
+The render folder holds icon3d.png and banner3d.png (from render_art.gd; leave them out
+to make only the screenshots) and the screenshots (1080 x 1920, from the autoplay robot),
+passed as key=file for each key in SHOTS, e.g. dodge=shot_07_playing.png.
 """
 import math
 import os
@@ -20,12 +21,12 @@ NIGHT = (24, 16, 38)
 
 # (screenshot, caption, sub-caption)
 SHOTS = [
-    ("f/PERFECT", "DASH THROUGH BULLETS", "Perfect dodges slow time and shatter shots"),
-    ("g/CHAIN", "CHAIN YOUR KILLS", "The higher the chain, the harder you hit"),
-    ("g/upgrade", "A NEW BUILD EVERY RUN", "Fire, frost, bolts and bone blessings"),
-    ("e/CHAIN", "FOUR HEROES", "Each with their own special move"),
-    ("c/EMBER", "THREE DEADLY CRYPTS", "Bone, frost and ember floors"),
-    ("g/run", "ONE THUMB, NO WI-FI", "Quick runs you can play anywhere"),
+    ("dodge", "DASH THROUGH DANGER", "Perfect dodges slow time and shatter shots"),
+    ("ember", "CHAIN YOUR KILLS", "The higher the chain, the harder you hit"),
+    ("doors", "CHOOSE YOUR PATH", "Pick a door after every room"),
+    ("blessings", "A NEW BUILD EVERY RUN", "Fire, frost, bolts and bone blessings"),
+    ("heroes", "FOUR HEROES", "Each with their own special move"),
+    ("daily", "A NEW CRYPT EVERY DAY", "The same rooms for everyone, then share"),
 ]
 
 
@@ -91,7 +92,7 @@ def icon(src, out):
 
 def banner(src, shots, out):
     w, h = 2048, 1000
-    bg = Image.open(shots["f/PERFECT"]).convert("RGB")
+    bg = Image.open(shots["dodge"]).convert("RGB")
     bg = bg.resize((w, int(bg.height * w / bg.width))).crop((0, 900, w, 900 + h))
     bg = bg.filter(ImageFilter.GaussianBlur(12))
     img = Image.blend(bg, radial((w, h), (70, 30, 50), NIGHT, center=(0.3, 0.5), radius=0.8), 0.72).convert("RGBA")
@@ -133,9 +134,11 @@ def main():
     src, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
     picks = dict(arg.split("=", 1) for arg in sys.argv[3:])
-    icon(src, out)
     shots = {k: os.path.join(src, picks[k]) for k, _, _ in SHOTS}
-    banner(src, shots, out)
+    # The icon and banner need the 3D renders; without them only the screenshots are made.
+    if os.path.exists(os.path.join(src, "icon3d.png")):
+        icon(src, out)
+        banner(src, shots, out)
     for i, (k, cap, sub) in enumerate(SHOTS, 1):
         screenshot(shots[k], cap, sub, os.path.join(out, "screenshot-%d.png" % i))
 
