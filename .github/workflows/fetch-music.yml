@@ -31,31 +31,35 @@ jobs:
           siberian_intro|https://opengameart.org/content/siberian-intro|https://opengameart.org/sites/default/files/Vehicle%20-%20OGA%20-%20Siberian%20Intro.wav
           col_legno|https://opengameart.org/content/col-legno|https://opengameart.org/sites/default/files/Vehicle%20-%20OGA%20-%20Col%20Legno.wav
           battlegrounds|https://opengameart.org/content/fantasy-battlegrounds|https://opengameart.org/sites/default/files/battleground_remastered_0.mp3
-          serpents|https://opengameart.org/content/ancient-power-of-serpents|https://opengameart.org/sites/default/files/Ancient_Power_Of_Serpents_0.ogg
+          lament_of_the_war|https://opengameart.org/content/laments-of-the-war|https://opengameart.org/sites/default/files/Lament%20of%20the%20War%20-%20Lossless%20FLAC.flac
+          prepare_to_fight|https://opengameart.org/content/prepare-to-fight|https://opengameart.org/sites/default/files/prepare_to_fight.mp3
+          sinister_boss|https://opengameart.org/content/sinister-boss-appears|https://opengameart.org/sites/default/files/Sinister%20Boss%20Appears.wav
+          metal_boss|https://opengameart.org/content/boss-battle-2-symphonic-metal|https://opengameart.org/sites/default/files/boss_battle_%232_metal_pack.zip
+          unexplored_expanded|https://opengameart.org/content/unexplored-expansion|https://opengameart.org/sites/default/files/tad_-_unexplored_-_expanded_1_by_bo_jingles_0.mp3
           fantasy_choir|https://opengameart.org/content/fantasy-choir-3-orchestral-pieces|https://opengameart.org/sites/default/files/FantasyChoir24bit.zip
           EOF
           echo "Track | Page | Licence check" > out/SOURCES.txt
           while IFS='|' read -r name page file; do
             name=$(echo "$name" | xargs)
             [ -z "$name" ] && continue
-            html=$(curl -sSL "$page" || true)
+            html=$(curl -sSL "$page" < /dev/null || true)
             if ! grep -q 'CC0' <<< "$html"; then
               echo "$name: page no longer says CC0, skipped"
               echo "$name | $page | NOT CC0, skipped" >> out/SOURCES.txt
               continue
             fi
             ext="${file##*.}"
-            curl -sSL -o "src/$name.$ext" "$file" || { echo "$name: download failed"; continue; }
+            curl -sSL -o "src/$name.$ext" "$file" < /dev/null || { echo "$name: download failed"; continue; }
             if [ "$ext" = "zip" ]; then
               mkdir -p "src/$name"
               unzip -q -o "src/$name.zip" -d "src/$name"
-              i=1
-              find "src/$name" -type f \( -iname '*.wav' -o -iname '*.mp3' -o -iname '*.ogg' \) | sort | while read -r f; do
-                ffmpeg -loglevel error -y -i "$f" -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "out/${name}_$i.ogg"
-                i=$((i + 1))
-              done
+              find "src/$name" -type f \( -iname '*.wav' -o -iname '*.mp3' -o -iname '*.ogg' -o -iname '*.flac' \) | sort > list.txt
+              while read -r f; do
+                part=$(basename "$f" | sed 's/\.[^.]*$//' | tr -c 'A-Za-z0-9\n' '_')
+                ffmpeg -nostdin -loglevel error -y -i "$f" -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "out/${name}__${part}.ogg"
+              done < list.txt
             else
-              ffmpeg -loglevel error -y -i "src/$name.$ext" -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "out/$name.ogg"
+              ffmpeg -nostdin -loglevel error -y -i "src/$name.$ext" -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "out/$name.ogg"
             fi
             echo "$name | $page | CC0" >> out/SOURCES.txt
           done < tracks.txt
