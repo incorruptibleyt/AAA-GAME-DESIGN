@@ -245,6 +245,10 @@ func steer(pos: Vector3, dir: Vector3, r: float) -> Vector3:
 			tangent = -tangent
 		elif side.length_squared() < 0.0001 and fmod(pos.x + pos.z, 2.0) < 1.0:
 			tangent = -tangent
+		# A pillar next to a wall: go round the open side instead of pushing into the wall.
+		var probe: Vector3 = pos + tangent * (o.r + r + 0.4)
+		if absf(probe.x) > HALF_W - r or absf(probe.z) > HALF_L - r:
+			tangent = -tangent
 		return (dir + tangent * 1.5).normalized()
 	return dir
 

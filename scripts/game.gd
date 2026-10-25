@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25m"
+const BUILD := "2026-10-25n"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -63,7 +63,8 @@ func chain_max() -> float:
 
 
 func chain_time() -> float:
-	return 3.5 if hero and hero.perks.has("links") else 2.5
+	var t := 3.5 if hero and hero.perks.has("links") else 2.5
+	return t * 0.5 if curses.has("fragile") else t
 
 
 ## Damage gets a quarter of the chain's bonus (x1.5 at the cap) so a long chain doesn't trivialise rooms.
@@ -87,6 +88,14 @@ const BOSS_POINTS := 500
 ## Room 1 just move and shoot, 2 dash, 3 the Bone Chain, 4 the special, 5 synergies, 6 boss.
 var first_run := false
 var _tutorial_requested := false
+
+## Crypt Pass modes. `daily`: today's Daily Crypt. `curses`: curse ids active this run.
+var daily := false
+var curses: Array = []
+var _score_mult := 1.0
+var _daily_requested := false
+## The free game ends after the boss of floor Store.FREE_FLOORS; this is that screen.
+var _free_end := false
 
 
 ## True until the first run has ended. Older saves that already got somewhere count as done.
@@ -153,6 +162,8 @@ func _ready() -> void:
 	add_child(Sfx.new())
 	add_child(Music.new())
 	add_child(Telemetry.new())
+	add_child(Store.new())
+	Store.instance.changed.connect(_on_store_changed)
 	_setup_environment()
 	_camera = Camera3D.new()
 	_camera.fov = CAMERA_FOV
@@ -189,6 +200,16 @@ func _ready() -> void:
 	hud.graphics_toggled.connect(_set_graphics)
 	hud.reports_toggled.connect(_set_reports)
 	hud.dash_flicked.connect(func(d: Vector2): if hero: hero.dash(Vector3(d.x, 0, d.y)))
+	hud.pass_pressed.connect(_open_pass)
+	hud.pass_buy.connect(func(): Sfx.play("click"); Store.instance.buy())
+	hud.pass_restore.connect(func(): Sfx.play("click"); Store.instance.restore())
+	hud.daily_pressed.connect(func():
+		if state == State.TITLE and Store.owned():
+			_daily_requested = true
+			_on_play_pressed())
+	hud.curses_pressed.connect(_open_curses)
+	hud.curse_toggled.connect(_toggle_curse)
+	hud.title_pressed.connect(func(): if state == State.VICTORY and _free_end: _back_to_title())
 
 	var cfg := _load_save()
 	coins = int(cfg.get_value("stats", "coins", 0))
@@ -310,7 +331,7 @@ func damage_scale() -> float:
 
 
 func speed_scale() -> float:
-	return minf(1.3, 1.0 + 0.05 * (floor_num - 1))
+	return minf(1.3, 1.0 + 0.05 * (floor_num - 1)) * (1.2 if curses.has("restless") else 1.0)
 
 
 ## A golden arrow at the hero's feet pointing to the open door, so nobody gets lost.
@@ -540,9 +561,18 @@ func hit_stop(seconds: float) -> void:
 
 func _build_run() -> void:
 	_run.clear()
+	# The Daily Crypt picks the same rooms for everyone today.
+	var rng := Curses.daily_rng(100 + floor_num) if daily else null
 	for pair in [[Layouts.EASY, EASY_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, HARD_ROOMS]]:
 		var pool: Array = (pair[0] as Array).duplicate()
-		pool.shuffle()
+		if rng:
+			for i in range(pool.size() - 1, 0, -1):
+				var j := rng.randi_range(0, i)
+				var tmp = pool[i]
+				pool[i] = pool[j]
+				pool[j] = tmp
+		else:
+			pool.shuffle()
 		for i in mini(pair[1], pool.size()):
 			_run.append(pool[i])
 	_run.append(Layouts.BOSS)
@@ -579,12 +609,34 @@ func _on_play_pressed() -> void:
 func _start_run() -> void:
 	first_run = first_run_pending() or _tutorial_requested
 	_tutorial_requested = false
+	daily = _daily_requested and Store.owned() and not first_run
+	_daily_requested = false
 	hud.show_title(false)
 	hud.show_armory(false)
+	hud.show_pass(false)
 	hud.show_hud(true)
 	_reset_run_stats()
+	_pick_curses()
+	if daily:
+		_build_run()   # today's rooms
 	_apply_armory()
 	_go_to_room(0)
+	_mode_banner()
+
+
+## Curses chosen on the Curses screen (Pass only), plus today's curse in the Daily Crypt.
+func _pick_curses() -> void:
+	curses = [] if first_run or not Store.owned() else Curses.chosen(_load_save())
+	if daily and not curses.has(Curses.daily_curse()):
+		curses.append(Curses.daily_curse())
+	_score_mult = Curses.score_mult(curses)
+
+
+func _mode_banner() -> void:
+	if daily:
+		hud.tip("DAILY CRYPT  ·  Score x%.1f\nStart: %s  ·  Curse: %s" % [_score_mult, Curses.daily_blessing().title, Curses.get_curse(Curses.daily_curse()).title], 5.0, 1.8)
+	elif not curses.is_empty():
+		hud.tip("CURSED  ·  Score x%.1f\n%s" % [_score_mult, Curses.names(curses)], 4.0, 1.8)
 
 
 func _reset_report() -> void:
@@ -624,6 +676,8 @@ func run_report(result: String) -> String:
 	lines.append("Bone Chain run report (build %s, install %s)" % [BUILD, Telemetry.install_id(cfg)])
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
 	lines.append("Score %d | First run %s" % [score, "yes" if first_run else "no"])
+	if daily or not curses.is_empty():
+		lines.append("Mode: %s | Curses: %s (score x%.1f)" % ["Daily Crypt " + Curses.today() if daily else "Normal", Curses.names(curses) if curses else "none", _score_mult])
 	lines.append("Kills %d | Coins +%d | Best combo x%d | Health %d/%d" % [_kills, run_coins, _rep.get("best_combo", 0),
 		ceili(hero.health) if hero else 0, roundi(hero.max_health) if hero else 0])
 	var dmg: Dictionary = _rep.get("damage", {})
@@ -683,6 +737,13 @@ func _apply_armory() -> void:
 			_taken[u.id] = 1
 			Upgrades.apply(u.id, hero)
 			_start_blessing = u
+	if daily:
+		var d := Curses.daily_blessing()
+		_taken[d.id] = _taken.get(d.id, 0) + 1
+		Upgrades.apply(d.id, hero)
+	if curses.has("brittle"):
+		hero.max_health = roundf(hero.max_health * 0.5)
+		hero.health = minf(hero.health, hero.max_health)
 
 
 func _restart() -> void:
@@ -692,14 +753,16 @@ func _restart() -> void:
 	if hero:
 		hero.queue_free()
 		hero = null
-	_build_run()
 	_reset_run_stats()
+	_build_run()
 	first_run = false
+	_pick_curses()
 	hud.show_hud(true)
 	_load_room(0, false)
 	_apply_armory()
 	_load_room(0, true)
 	await _fade(1.0, 0.0, 0.4)
+	_mode_banner()
 
 
 ## From the pause menu: give up this run and go back to the title (coins are kept).
@@ -709,9 +772,19 @@ func _quit_to_title() -> void:
 	hud.show_pause(false)
 	get_tree().paused = false
 	Telemetry.instance.send("run", run_report("Quit on floor %d, room %d" % [floor_num, _room_index + 1]))
+	_back_to_title()
+
+
+func _back_to_title() -> void:
 	_set_state(State.TRANSITION)
 	_save_coins()
+	_free_end = false
 	await _fade(0.0, 1.0, 0.4)
+	hud.show_end(false)
+	hud.show_pass(false)
+	daily = false
+	curses = []
+	_score_mult = 1.0
 	_clear_enemy_attacks()
 	if hero:
 		hero.queue_free()
@@ -732,6 +805,8 @@ func _quit_to_title() -> void:
 
 ## After beating the king: keep your blessings and go one floor deeper, where it's harder.
 func _descend() -> void:
+	if _free_end:
+		return
 	_set_state(State.TRANSITION)
 	await _fade(0.0, 1.0, 0.5)
 	hud.show_end(false)
@@ -866,7 +941,8 @@ func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 func _roll_elite(e: Enemy, room_index: int) -> bool:
 	if e.is_boss or e is SkeletonBomber or (floor_num == 1 and room_index == 0):
 		return false
-	return randf() < minf(0.3, 0.07 + 0.05 * (floor_num - 1))
+	var chance := minf(0.3, 0.07 + 0.05 * (floor_num - 1))
+	return randf() < (chance * 2.0 if curses.has("gilded") else chance)
 
 
 func on_enemy_died(e: Enemy) -> void:
@@ -884,7 +960,7 @@ func on_enemy_died(e: Enemy) -> void:
 	var before := chain
 	if chain_unlocked():
 		chain = minf(chain_max(), chain + (0.3 if e.elite else 0.1))
-	score += roundi((BOSS_POINTS if e == boss else (ELITE_POINTS if e.elite else KILL_POINTS)) * chain)
+	score += roundi((BOSS_POINTS if e == boss else (ELITE_POINTS if e.elite else KILL_POINTS)) * chain * _score_mult)
 	# Ossuary: hitting Chain x2 recharges a Bone Ward.
 	if before < 2.0 and chain >= 2.0 and hero and hero.perks.has("ossuary") and hero.ward < hero.ward_max:
 		hero.ward += 1
@@ -1040,11 +1116,16 @@ func _win() -> void:
 	var was_first := first_run
 	_finish_first_run()
 	Music.play("dungeon")
-	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins,
-		"\n\nHeroes and the Armory are open!" if was_first else ""],
-		"Tap to descend to floor %d" % (floor_num + 1), false, score, best)
+	_free_end = floor_num >= Store.FREE_FLOORS and not Store.owned()
+	var extra := ""
+	if was_first:
+		extra = "\n\nHeroes and the Armory are open!"
+	elif _free_end:
+		extra = "\n\nYou beat the free crypt!\nThe Crypt Pass opens floor %d and beyond." % (floor_num + 1)
+	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, extra],
+		"Tap to descend to floor %d" % (floor_num + 1), false, score, best, _free_end)
 	_state_time = 0.0
-	_last_report = run_report("Beat floor %d" % floor_num)
+	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else ""])
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
 
@@ -1231,6 +1312,52 @@ func _pick_hero(id: String) -> void:
 		Fx.magic(hero.center(), def.bolt_color, 30)
 
 
+func _open_pass() -> void:
+	if state != State.TITLE and state != State.DEAD and state != State.VICTORY:
+		return
+	Sfx.play("click")
+	Store.instance.refresh()
+	hud.show_pass(true, Store.owned(), Store.instance.price, Store.instance.status)
+
+
+func _open_curses() -> void:
+	if state != State.TITLE or not Store.owned():
+		return
+	Sfx.play("click")
+	hud.show_curses(true, _curse_rows(), Curses.score_mult(Curses.chosen(_load_save())))
+
+
+func _curse_rows() -> Array:
+	var cfg := _load_save()
+	var on := Curses.chosen(cfg)
+	var rows := []
+	for c: Dictionary in Curses.LIST:
+		rows.append({"id": c.id, "title": c.title, "text": c.text, "bonus": c.bonus, "on": on.has(c.id)})
+	return rows
+
+
+func _toggle_curse(id: String) -> void:
+	var cfg := _load_save()
+	var on := not bool(cfg.get_value(Curses.SAVE_SECTION, id, false))
+	cfg.set_value(Curses.SAVE_SECTION, id, on)
+	cfg.save(SAVE_PATH)
+	Sfx.play("hurt" if on else "click", 0.6)
+	hud.show_curses(true, _curse_rows(), Curses.score_mult(Curses.chosen(cfg)))
+
+
+## The Pass was bought, restored or refunded, or Google Play sent the price.
+func _on_store_changed() -> void:
+	if hud.pass_visible():
+		hud.show_pass(true, Store.owned(), Store.instance.price, Store.instance.status)
+	if hud.title_visible():
+		hud.show_title(true, _best_text(), coins)
+	if hud.armory_visible() and hud._shop_heroes:
+		hud.show_heroes(true, _hero_rows(), coins)
+	if Store.owned() and _free_end and state == State.VICTORY:
+		_free_end = false
+		hud.end_offer_done("Tap to descend to floor %d" % (floor_num + 1))
+
+
 func _armory_rows() -> Array:
 	var cfg := _load_save()
 	var rows := []
@@ -1261,7 +1388,13 @@ func _buy_upgrade(id: String) -> void:
 
 
 ## Saves the best score and returns the best from before this run.
+## The Daily Crypt keeps its own best for each day.
 func _save_score(cfg: ConfigFile) -> int:
+	if daily:
+		var today_best := Curses.daily_best(cfg)
+		if score > today_best:
+			cfg.set_value("daily", Curses.today(), score)
+		return today_best
 	var best := int(cfg.get_value("stats", "best_score", 0))
 	if score > best:
 		cfg.set_value("stats", "best_score", score)
@@ -1282,6 +1415,8 @@ func _best_text() -> String:
 	var best := int(cfg.get_value("stats", "best_room", 0))
 	var deepest := int(cfg.get_value("stats", "best_floor", 1))
 	var top := int(cfg.get_value("stats", "best_score", 0))
+	if Store.owned(cfg) and Curses.daily_best(cfg) > 0:
+		return "Best score %s  ·  Deepest floor %d\nToday's Daily Crypt best %s" % [Hud.thousands(top), deepest, Hud.thousands(Curses.daily_best(cfg))]
 	if top > 0:
 		return "Best score %s  ·  Deepest floor %d" % [Hud.thousands(top), deepest]
 	if wins > 0:

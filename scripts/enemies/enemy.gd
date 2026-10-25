@@ -243,7 +243,7 @@ func _on_death() -> void:
 	if Game.hero:
 		Game.hero.on_kill()
 		_death_burst(Game.hero)
-	if randf() < drop_chance + (Game.heart_bonus if drop_chance > 0.0 else 0.0):
+	if randf() < drop_chance + (Game.heart_bonus if drop_chance > 0.0 else 0.0) and not Game.curses.has("famine"):
 		Pickup.drop(global_position)
 	var coins := coin_value()
 	if Game.hero and coins > 0:

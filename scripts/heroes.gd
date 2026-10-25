@@ -40,8 +40,9 @@ static func get_hero(id: String) -> Dictionary:
 	return LIST[0]
 
 
+## Bought with coins, or every hero with the Crypt Pass.
 static func unlocked(cfg: ConfigFile, id: String) -> bool:
-	return get_hero(id).cost == 0 or bool(cfg.get_value(SAVE_SECTION, id, false))
+	return get_hero(id).cost == 0 or Store.owned(cfg) or bool(cfg.get_value(SAVE_SECTION, id, false))
 
 
 static func selected(cfg: ConfigFile) -> String:

@@ -35,6 +35,9 @@ Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus gold
 GET STRONGER BETWEEN RUNS
 Keep the gold you find and spend it in the Armory on permanent upgrades, or unlock new heroes.
 
+FREE TO PLAY, ONE OPTIONAL PASS
+The first five floors are free, with no ads and no energy timers. The one-time Crypt Pass opens endless floors, a new Daily Crypt every day, Curses for bigger scores, and every hero.
+
 MADE FOR PHONES
 - Plays with one thumb in portrait.
 - Short runs you can pick up any time.
@@ -42,6 +45,13 @@ MADE FOR PHONES
 - High and Low graphics settings for older phones.
 
 How deep can you go?
+
+## In-app product (Monetize with Play > Products > One-time products)
+
+- Product ID: `crypt_pass` (must be exactly this; the game asks Google Play for it)
+- Name: Crypt Pass
+- Description: Endless floors, a new Daily Crypt every day, Curses for bigger scores, and every hero.
+- Price: $4.99 (US), let Play convert it for other countries
 
 ## Category and tags
 

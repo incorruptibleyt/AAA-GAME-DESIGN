@@ -34,6 +34,7 @@ and face the Skeleton King at the end of the floor.
 - **Readable danger:** the camera sits close and follows the hero, red arrows on the screen edge point at enemies and warnings just off-screen, every enemy shot is hot pink-red with a dark ring and a pulse, and your own shots are small and see-through.
 - **Healing hearts** (12 health) that skeletons sometimes drop and a beginner hint in room 1.
 - **Game feel:** slow-motion close-up on the last kill of each room, a boss entrance with a title card, drifting embers, hit-stop, screen shake, hit flashes, knockback, damage numbers, particles, and real sound effects plus an announcer voice from Kenney's CC0 packs (fetched by the Fetch Kenney audio workflow into audio/sfx).
+- **Crypt Pass ($4.99, one purchase through Google Play):** the free game ends after the floor 5 boss with an offer screen. The Pass opens endless floors, the **Daily Crypt** (the same rooms, starting blessing and curse for everyone that day, with its own best score) and **Curses** (Brittle Bones, Fragile Chain, Restless Dead, Famine, Gilded Horde: each makes runs harder and adds to a score multiplier), and unlocks every hero. Purchases use the official Godot Google Play Billing plugin in addons/ (Play build only); the product ID in Play Console must be `crypt_pass`.
 - **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
 
 ## Art
@@ -70,6 +71,8 @@ scripts/
   armory.gd           permanent upgrades bought with coins
   chain_spine.gd      the Bone Chain spine meter at the top
   telemetry.gd        anonymous run/error/crash reports to a Google Form (opt-out in pause menu)
+  store.gd            the Crypt Pass purchase through Google Play (buy, restore, offline cache)
+  curses.gd           Curses and the Daily Crypt (daily seed, blessing and curse)
   heroes.gd           the playable heroes and their stats
   pickup.gd           hearts and coins
   music.gd            background music (tracks in audio/)
@@ -78,8 +81,9 @@ scripts/
   fx.gd, sfx.gd       particles and sound effects (files in audio/sfx)
   art.gd              finds KayKit models if they're present
   autoplay.gd         the test robot used by the cloud build
+addons/GodotGooglePlayBilling/  official Google Play Billing plugin (MIT), used by store.gd
 build/debug.keystore  shared debug signing key, so new builds install over old ones
 ```
 
 The robot can be run locally with
-`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots, `shop` to buy Armory upgrades first, `quittest` to test quitting a run, `gallery elites` for a line-up screenshot).
+`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots, `shop` to buy Armory upgrades first, `quittest` to test quitting a run, `gallery elites` for a line-up screenshot, `pass` to play with the Crypt Pass, `daily` for the Daily Crypt, `curses=brittle,famine` to switch curses on, `passmenu`/`cursemenu` for screenshots of those screens, `freeend floor=5` to test the end of the free game).

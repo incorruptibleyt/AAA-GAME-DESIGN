@@ -5,6 +5,9 @@ extends Node
 ## `shop` buys what it can afford in the Armory before the first run (`coins=N` gives it
 ## N coins first). `quittest` quits the first run from the pause menu and starts again.
 ## It walks through every room, picks the first blessing each time, and prints what happened.
+## Crypt Pass: `pass` plays as if it were owned, `daily` starts the Daily Crypt, `curses=a,b`
+## switches curses on, `passmenu` / `cursemenu` take pictures of those screens, and
+## `freeend` buys the Pass on the end-of-free-game screen (try with `floor=5`).
 
 var god := false
 var start_room := 1
@@ -34,6 +37,10 @@ var _special_shots := 0
 var _force_special := false
 var _perks: PackedStringArray = []
 var _card_shot := false
+var _pass_menu := false
+var _curse_menu := false
+var _free_end_test := false
+var _free_end_done := false
 
 
 func _ready() -> void:
@@ -69,6 +76,23 @@ func _ready() -> void:
 			_force_special = true
 		elif a == "gallery":
 			gallery = true
+		elif a == "pass":
+			Store.test_owned = true
+		elif a == "daily":
+			Game._daily_requested = true
+			_skip_first_run()
+		elif a.begins_with("curses="):
+			var cfg := Game._load_save()
+			for id in a.substr(7).split(","):
+				cfg.set_value(Curses.SAVE_SECTION, id, true)
+			cfg.save(Game.SAVE_PATH)
+			_skip_first_run()
+		elif a == "passmenu":
+			_pass_menu = true
+		elif a == "cursemenu":
+			_curse_menu = true
+		elif a == "freeend":
+			_free_end_test = true
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -76,6 +100,13 @@ func _ready() -> void:
 		elif a.begins_with("shots="):
 			shots_dir = a.substr(6)
 			DirAccess.make_dir_recursive_absolute(shots_dir)
+
+
+## Daily Crypt and Curses aren't offered on the very first run.
+func _skip_first_run() -> void:
+	var cfg := Game._load_save()
+	cfg.set_value("stats", "first_run_done", true)
+	cfg.save(Game.SAVE_PATH)
 
 
 func _process(delta: float) -> void:
@@ -126,6 +157,30 @@ func _process(delta: float) -> void:
 				return
 			if hero_menu:
 				return
+			if (_pass_menu or _curse_menu) and _t > 1.2 and not _shopped:
+				_shopped = true
+				if _pass_menu:
+					Game._open_pass()
+				else:
+					Game._open_curses()
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				await get_tree().create_timer(0.3).timeout
+				if _pass_menu:
+					Game.hud.pass_buy.emit()
+				else:
+					Game.hud.curse_toggled.emit(Curses.LIST[2].id)
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				print("[autoplay] pass owned=%s curses=%s" % [Store.owned(), Curses.chosen(Game._load_save())])
+				if _pass_menu:
+					Game.hud.show_pass(false)
+					await get_tree().create_timer(0.3).timeout
+					_shot()   # the title with Daily Crypt and Curses
+				get_tree().quit()
+				return
+			if _pass_menu or _curse_menu:
+				return
 			if shop and not _shopped and _t > 1.2:
 				_shopped = true
 				Game._open_armory()
@@ -152,6 +207,19 @@ func _process(delta: float) -> void:
 				print("[autoplay] rerolled: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
 				Game.hud._cards_age = 0.45
 			Game.hud._on_card(0)
+		Game.State.VICTORY when Game._free_end:
+			if Game._state_time > 2.5 and not _free_end_done:
+				_free_end_done = true
+				print("[autoplay] free game over on floor %d" % Game.floor_num)
+				if shots_dir != "":
+					_shot()
+				if _free_end_test:
+					Game.hud.pass_pressed.emit()
+					Game.hud.pass_buy.emit()
+					Game.hud.show_pass(false)
+					print("[autoplay] bought the Pass: owned=%s free_end=%s" % [Store.owned(), Game._free_end])
+				else:
+					get_tree().quit()
 		Game.State.DEAD, Game.State.VICTORY:
 			if Game._state_time > 2.5:
 				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])

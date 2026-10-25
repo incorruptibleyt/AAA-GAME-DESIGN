@@ -1,12 +1,12 @@
 # Bone Chain privacy policy
 
-_Last updated: October 24, 2026_
+_Last updated: October 25, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
 ## The short version
 
-Bone Chain has no accounts, no ads and no in-app purchases, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it sends short **anonymous game reports** to the developer. You can switch this off at any time in the pause menu (**Send reports: Off**).
+Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it sends short **anonymous game reports** to the developer. You can switch this off at any time in the pause menu (**Send reports: Off**). There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
 
 ## What the game reports
 
@@ -21,14 +21,19 @@ Reports are sent over an encrypted (HTTPS) connection to a Google Form owned by 
 
 If you're offline, up to 20 reports wait on your phone and are sent later. Turning reports off stops new ones being sent.
 
+## The Crypt Pass (in-app purchase)
+
+The Crypt Pass is a one-time purchase made through Google Play. Google handles the whole payment, so the game never sees your card, payment details, name or email. The game only asks Google Play whether your Google account owns the Pass, and saves the answer on your phone so it works offline. No order or payment details are included in the anonymous reports. Google's own privacy policy covers the payment.
+
 ## What stays on your phone
 
-The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, settings and simple play counts such as perfect dodges) in a file on your own phone. It is deleted when you uninstall the game.
+The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, Daily Crypt best scores, chosen Curses, whether you own the Crypt Pass, settings and simple play counts such as perfect dodges) in a file on your own phone. It is deleted when you uninstall the game.
 
 ## Permissions
 
 - **Internet:** only to send the anonymous game reports described above.
 - **Vibrate:** the phone buzzes briefly when your hero is hit.
+- **Google Play billing:** only to buy the Crypt Pass through Google Play.
 
 The game asks for no other permissions. It cannot see your contacts, photos, location, microphone or camera.
 
@@ -42,7 +47,7 @@ Bone Chain is not made for children under 13 and does not knowingly collect info
 
 ## Changes
 
-If a future version collects anything else (for example ads or purchases), this policy will be updated first and the Google Play data safety section will say so.
+If a future version collects anything else (for example ads), this policy will be updated first and the Google Play data safety section will say so.
 
 ## Contact
 
