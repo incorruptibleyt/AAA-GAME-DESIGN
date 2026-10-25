@@ -4,7 +4,8 @@ class_name Upgrades
 ##
 ## Every blessing belongs to a family (Shot, Flame, Frost, Bone) and has a rarity.
 ## Rarer cards turn up less often. "needs" means the card only appears once you own that
-## blessing. "hero" means only that hero is offered it. Owning both halves of a SYNERGY
+## blessing. "hero" means only that hero is offered it. "vault" means it is bought with
+## coins in the Armory's Vault before it can turn up. Owning both halves of a SYNERGY
 ## puts its gold card in the next pick.
 
 const FAMILIES := {
@@ -56,6 +57,13 @@ const LIST := [
 	{"id": "volatile", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Volatile Orbs", "text": "Orb blasts are 35% wider", "max": 2},
 	{"id": "flow", "hero": "mage", "family": "frost", "rarity": "common", "title": "Arcane Flow", "text": "Orbs fly 20% faster, cast 10% faster", "max": 2},
 	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Meteor hits 3 more skeletons", "max": 1},
+	# Vault blessings: bought once with coins in the Armory, then they can turn up in runs.
+	{"id": "siphon", "vault": true, "family": "bone", "rarity": "rare", "title": "Soul Siphon", "text": "Perfect dodges heal 10", "max": 2},
+	{"id": "frozen_ground", "vault": true, "family": "frost", "rarity": "rare", "title": "Frozen Ground", "text": "Perfect dodges chill skeletons near you", "max": 1},
+	{"id": "executioner", "vault": true, "family": "bolt", "rarity": "rare", "title": "Executioner", "text": "+50% damage to nearly dead skeletons", "max": 1},
+	{"id": "flashfire", "vault": true, "family": "flame", "rarity": "rare", "title": "Flashfire", "text": "Critical hits set skeletons on fire", "max": 1},
+	{"id": "splinters", "vault": true, "family": "bone", "rarity": "epic", "title": "Bone Splinters", "text": "Kills burst into 3 bone shards", "max": 1},
+	{"id": "overcharge", "vault": true, "family": "bolt", "rarity": "epic", "title": "Overcharge", "text": "Shots hit 25% harder at Chain x2 or more", "max": 1},
 ]
 
 const SYNERGIES := [
@@ -78,6 +86,11 @@ static func get_def(id: String) -> Dictionary:
 ## Only the hero a blessing is made for is offered it.
 static func fits_hero(u: Dictionary) -> bool:
 	return not u.has("hero") or (Game.hero != null and Game.hero.hero_id == u.hero)
+
+
+## Vault blessings only turn up once they're bought.
+static func unlocked(u: Dictionary) -> bool:
+	return not u.get("vault", false) or Game.vault.has(u.id)
 
 
 ## The colour a card's title uses.
@@ -136,7 +149,9 @@ static func apply(id: String, h: Hero) -> void:
 ## Pick up to `count` different blessings the hero can still take. Rarer cards are
 ## less likely, and a synergy the hero has just unlocked always takes the first slot.
 ## `finish_synergy` (first run) also offers the missing half of a synergy you half own.
-static func roll(taken: Dictionary, count := 3, finish_synergy := false) -> Array:
+## `family` (a door's path) makes all but one card that family when it can, and
+## `better` (the Champion's Door) leaves out common cards.
+static func roll(taken: Dictionary, count := 3, finish_synergy := false, family := "", better := false) -> Array:
 	var out := []
 	for s in SYNERGIES:
 		if not taken.has(s.id) and taken.has(s.parts[0]) and taken.has(s.parts[1]):
@@ -144,8 +159,12 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false) -> Arra
 			break
 	var pool := []
 	for u in LIST:
-		if taken.get(u.id, 0) < u.max and (not u.has("needs") or taken.has(u.needs)) and fits_hero(u):
+		if taken.get(u.id, 0) < u.max and (not u.has("needs") or taken.has(u.needs)) and fits_hero(u) and unlocked(u):
 			pool.append(u)
+	if better:
+		var rarer := pool.filter(func(u): return u.rarity != "common")
+		if not rarer.is_empty():
+			pool = rarer
 	if finish_synergy and out.is_empty():
 		for s in SYNERGIES:
 			var half: Array = s.parts.filter(func(id): return not taken.has(id))
@@ -155,23 +174,36 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false) -> Arra
 					out.append(u)
 					pool.erase(u)
 					break
+	var lean := count - 1 if family != "" else 0
 	while out.size() < count and not pool.is_empty():
-		var total := 0
-		for u in pool:
-			total += RARITIES[u.rarity].weight
-		var r := randi() % total
-		for u in pool:
-			r -= RARITIES[u.rarity].weight
-			if r < 0:
-				out.append(u)
-				pool.erase(u)
-				break
+		var from := pool
+		if lean > 0:
+			lean -= 1
+			var same := pool.filter(func(u): return u.family == family)
+			if not same.is_empty():
+				from = same
+		var u := _weighted(from)
+		out.append(u)
+		pool.erase(u)
 	return out
+
+
+## One blessing from `pool`, rarer ones less likely.
+static func _weighted(pool: Array) -> Dictionary:
+	var total := 0
+	for u in pool:
+		total += RARITIES[u.rarity].weight
+	var r := randi() % total
+	for u in pool:
+		r -= RARITIES[u.rarity].weight
+		if r < 0:
+			return u
+	return pool[0]
 
 
 ## The very first pick: three plain common cards, one of them Vitality (half of Ossuary).
 static func roll_commons(taken: Dictionary) -> Array:
-	var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and not u.has("hero") and taken.get(u.id, 0) < u.max and u.id != "vitality")
+	var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and not u.has("hero") and not u.has("vault") and taken.get(u.id, 0) < u.max and u.id != "vitality")
 	pool.shuffle()
 	var out := [get_def("vitality")] + pool.slice(0, 2)
 	out.shuffle()

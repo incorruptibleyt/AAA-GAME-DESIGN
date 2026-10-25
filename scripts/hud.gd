@@ -7,6 +7,7 @@ extends CanvasLayer
 signal tutorial_pressed
 signal card_picked(index: int)
 signal reroll_pressed
+signal door_picked(index: int)
 signal special_pressed
 signal dash_pressed
 signal screen_tapped
@@ -69,6 +70,11 @@ var _stick_origin := Vector2.ZERO
 var _cards_box: Control
 var _cards: Array[Button] = []
 var _reroll_button: Button
+## Doors (doors.gd): two to pick from after a blessing.
+var _doors_box: Control
+var _door_buttons: Array[Button] = []
+var _doors_next: Label
+var _doors_age := 0.0
 var _special: SpecialButton
 var _dash_button: DashButton
 var _quit_button: Button
@@ -93,6 +99,12 @@ var _armory_coins: Label
 var _armory_rows: VBoxContainer
 var _shop_title: Label
 var _shop_sub: Label
+## The Armory's two tabs: UPGRADES and the VAULT (new blessings), and the rows last shown.
+var _armory_tabs: Control
+var _tab_buttons := {}
+var _armory_tab := "upgrades"
+var _shop_rows: Array = []
+var _shop_coins := 0
 var _title_hero: Label
 var _copy_button: Button
 var _end_buttons: Control
@@ -190,6 +202,7 @@ func _ready() -> void:
 	_stick.visible = false
 	add_child(_stick)
 	_build_cards()
+	_build_doors()
 	_build_title()
 	_build_end()
 	_build_pause()
@@ -638,6 +651,113 @@ func _build_cards() -> void:
 	col.add_child(_reroll_button)
 
 
+## Two tall arched doors side by side, each with a picture, a name and what it promises.
+func _build_doors() -> void:
+	_doors_box = overlay(Color(0.02, 0.01, 0.04, 0.9))
+	add_child(_doors_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(col)
+	col.offset_left = 20
+	col.offset_right = -20
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 16)
+	_doors_box.add_child(col)
+	col.add_child(label("Choose your door", 40, Color(1, 0.85, 0.55)))
+	_doors_next = label("", 18, Color(0.78, 0.78, 0.86))
+	col.add_child(_doors_next)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	col.add_child(row)
+	for i in 2:
+		var b := Button.new()
+		b.focus_mode = Control.FOCUS_NONE
+		b.custom_minimum_size = Vector2(232, 380)
+		var normal := StyleBoxFlat.new()
+		normal.bg_color = Color(0.09, 0.07, 0.12, 0.98)
+		normal.corner_radius_top_left = 116
+		normal.corner_radius_top_right = 116
+		normal.corner_radius_bottom_left = 6
+		normal.corner_radius_bottom_right = 6
+		normal.set_border_width_all(5)
+		normal.shadow_color = Color(0, 0, 0, 0.5)
+		normal.shadow_size = 8
+		var pressed := normal.duplicate() as StyleBoxFlat
+		pressed.bg_color = Color(0.2, 0.17, 0.26)
+		b.add_theme_stylebox_override("normal", normal)
+		b.add_theme_stylebox_override("hover", normal)
+		b.add_theme_stylebox_override("pressed", pressed)
+		var inner := VBoxContainer.new()
+		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		full(inner)
+		inner.offset_left = 14
+		inner.offset_right = -14
+		inner.offset_top = 44
+		inner.offset_bottom = -20
+		inner.add_theme_constant_override("separation", 16)
+		b.add_child(inner)
+		# A darker doorway inside the frame.
+		var way := Panel.new()
+		way.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		full(way)
+		way.offset_left = 16
+		way.offset_right = -16
+		way.offset_top = 16
+		var way_sb := StyleBoxFlat.new()
+		way_sb.bg_color = Color(0.03, 0.02, 0.05, 0.95)
+		way_sb.corner_radius_top_left = 100
+		way_sb.corner_radius_top_right = 100
+		way_sb.set_border_width_all(2)
+		way.add_theme_stylebox_override("panel", way_sb)
+		b.add_child(way)
+		b.move_child(way, 0)
+		var icon := BlessingIcon.new()
+		icon.zoom = 1.6
+		inner.add_child(_centered(icon))
+		inner.add_child(label("", 25, Color.WHITE))
+		inner.add_child(label("", 18, Color(0.85, 0.85, 0.9)))
+		var idx := i
+		b.pressed.connect(func(): _on_door(idx))
+		row.add_child(b)
+		_door_buttons.append(b)
+
+
+## doors: Doors.describe() of each door. `boss_next`: the boss waits behind them.
+func show_doors(doors: Array, boss_next := false) -> void:
+	_doors_next.text = "The boss waits beyond either one" if boss_next else "Both lead on to the next room"
+	for i in _door_buttons.size():
+		var b := _door_buttons[i]
+		b.visible = i < doors.size()
+		if not b.visible:
+			continue
+		var d: Dictionary = doors[i]
+		var inner := b.get_child(1)
+		((b.get_child(0) as Panel).get_theme_stylebox("panel") as StyleBoxFlat).border_color = Color(d.color, 0.35)
+		(inner.get_child(0).get_child(0) as BlessingIcon).show_icon(d.icon, d.family, d.color)
+		var t := inner.get_child(1) as Label
+		t.text = d.title
+		t.label_settings.font_color = d.color
+		(inner.get_child(2) as Label).text = d.text
+		for sb_name in ["normal", "pressed"]:
+			(b.get_theme_stylebox(sb_name) as StyleBoxFlat).border_color = d.color
+	_doors_box.visible = true
+	_doors_age = 0.0
+
+
+func doors_visible() -> bool:
+	return _doors_box.visible
+
+
+func _on_door(i: int) -> void:
+	# The same short guard as the blessing cards, so a moving thumb doesn't pick by accident.
+	if not _doors_box.visible or _doors_age < 0.45:
+		return
+	_doors_box.visible = false
+	door_picked.emit(i)
+
+
 func _build_title() -> void:
 	_title_box = overlay(Color(0.01, 0.01, 0.03, 0.55))
 	add_child(_title_box)
@@ -836,14 +956,7 @@ func show_modes(v: bool) -> void:
 	var cfg := Game._load_save()
 	var theme := Curses.theme()
 	_mode_daily_text.text = "%s: %s.\nThe same crypt for everyone, once a day." % [theme.name, theme.text]
-	if not Curses.open_today(owned):
-		_mode_daily_tag.text = "PASS"
-	elif Curses.official_used(cfg):
-		_mode_daily_tag.text = "PLAYED"
-	elif not owned:
-		_mode_daily_tag.text = "FREE TODAY"
-	else:
-		_mode_daily_tag.text = "READY"
+	_mode_daily_tag.text = "PLAYED" if Curses.official_used(cfg) else "READY"
 	var level := Curses.level_of(Curses.chosen(cfg, owned))
 	_mode_curses_tag.text = "LEVEL %d" % level if level > 0 else "OFF"
 
@@ -1067,6 +1180,19 @@ func _build_armory() -> void:
 	col.add_child(_shop_title)
 	_shop_sub = label("Upgrades bought here last forever.", 18, Color(0.8, 0.8, 0.85))
 	col.add_child(_shop_sub)
+	var tabs := []
+	for tab in [["upgrades", "UPGRADES"], ["vault", "VAULT"]]:
+		var tb := button(tab[1], 20)
+		tb.custom_minimum_size = Vector2(200, 52)
+		var id: String = tab[0]
+		tb.pressed.connect(func():
+			Sfx.play("click")
+			_armory_tab = id
+			_fill_shop(_shop_rows, _shop_coins))
+		_tab_buttons[id] = tb
+		tabs.append(tb)
+	_armory_tabs = _pair(tabs[0], tabs[1])
+	col.add_child(_armory_tabs)
 	_armory_coins = coin_row(30, col, true)
 	_armory_rows = VBoxContainer.new()
 	_armory_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1100,7 +1226,7 @@ func _build_pass() -> void:
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(_centered(grid))
-	for tile in [["floors", "Endless loops"], ["heroes", "All 4 heroes now"], ["daily", "Daily Crypt"], ["curses", "10 Curses"]]:
+	for tile in [["floors", "Endless loops"], ["heroes", "All 4 heroes now"], ["daily", "Daily practice"], ["curses", "10 Curses"]]:
 		grid.add_child(_pass_tile(tile[0], tile[1]))
 	_pass_buy = button("UNLOCK", 32, Color(0.45, 0.3, 0.08, 0.98), GOLD)
 	_pass_buy.custom_minimum_size = Vector2(320, 86)
@@ -1166,10 +1292,9 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	var coins_of_heroes := 0
 	for h: Dictionary in Heroes.LIST:
 		coins_of_heroes += int(h.cost)
-	var t := Curses.theme()
 	_pass_tiles[0].text = "Floor %d and as deep\nas you dare" % (Store.FREE_FLOORS + 1)
 	_pass_tiles[1].text = "Knight, Barbarian and Mage,\nno coins needed (%d)" % coins_of_heroes
-	_pass_tiles[2].text = "#%d %s.\nNew rules every day" % [Curses.day_number(), t.name]
+	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
 	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
 	_pass_buy.disabled = owned
 	_pass_buy.text = "OWNED - THANK YOU!" if owned else "UNLOCK  " + (price if price != "" else Store.FALLBACK_PRICE)
@@ -1390,7 +1515,7 @@ func _apply_safe_area() -> void:
 # ---------------------------------------------------------------- input
 
 func _overlay_open() -> bool:
-	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
+	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible
 
 
@@ -1461,6 +1586,11 @@ func _on_card(i: int) -> void:
 
 func _process(delta: float) -> void:
 	_cards_age += delta
+	_doors_age += delta
+	# The title's words and buttons would show faintly through the screens opened over it.
+	if _title_box.visible:
+		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
+			or _pass_box.visible or _heroes_box.visible)
 	_stick_age += delta
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
@@ -1700,7 +1830,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_shop_row.visible = not locked
 	_title_pass_row.visible = not locked and not has_pass
 	_title_modes_row.visible = not locked
-	_title_modes_badge.visible = Curses.open_today(has_pass) and not Curses.official_used(Game._load_save())
+	_title_modes_badge.visible = not Curses.official_used(Game._load_save())
 	_title_lock.visible = locked
 	if not v:
 		show_modes(false)
@@ -1755,7 +1885,6 @@ func show_armory(v: bool, rows := [], coins := 0) -> void:
 		return
 	_shop_curses = false
 	_shop_title.text = "Armory"
-	_shop_sub.text = "Upgrades bought here last forever."
 	_fill_shop(rows, coins)
 
 
@@ -1780,6 +1909,7 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 	_shop_curses = true
 	_shop_title.text = "Curses"
 	_shop_sub.text = "%s\n%s" % [info, goal]
+	_armory_tabs.visible = false
 	_armory_coins.get_parent().visible = false
 	for c in _armory_rows.get_children():
 		c.queue_free()
@@ -1791,13 +1921,25 @@ func set_title_hero(hero_name: String) -> void:
 	_title_hero.text = "Playing as the " + hero_name
 
 
+## Shows the rows of the open tab: Armory upgrades, or the Vault's blessings.
 func _fill_shop(rows: Array, coins: int) -> void:
+	_shop_rows = rows
+	_shop_coins = coins
+	var vault := _armory_tab == "vault"
+	_shop_sub.text = "New blessings. Buy one once and it can\nturn up in all your runs." if vault else "Upgrades bought here last forever."
+	_armory_tabs.visible = true
+	for id: String in _tab_buttons:
+		var on := id == _armory_tab
+		var sb := _tab_buttons[id].get_theme_stylebox("normal") as StyleBoxFlat
+		sb.bg_color = Color(0.32, 0.22, 0.08, 0.98) if on else Color(0.12, 0.1, 0.16, 0.95)
+		sb.border_color = GOLD if on else Color(0.45, 0.4, 0.5, 0.6)
 	_armory_coins.get_parent().visible = true
 	_armory_coins.text = str(coins)
 	for c in _armory_rows.get_children():
 		c.queue_free()
 	for r: Dictionary in rows:
-		_armory_rows.add_child(_armory_row(r, coins))
+		if r.has("vault") == vault:
+			_armory_rows.add_child(_armory_row(r, coins))
 
 
 func _curse_row(r: Dictionary) -> Button:
@@ -1840,7 +1982,8 @@ func _armory_row(r: Dictionary, coins: int) -> Button:
 	var maxed: bool = r.cost < 0
 	var afford: bool = not maxed and r.cost <= coins
 	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), GOLD if afford else Color(0.4, 0.35, 0.45, 0.6))
-	b.custom_minimum_size = Vector2(0, 76)
+	var blessing: Dictionary = r.get("vault", {})
+	b.custom_minimum_size = Vector2(0, 70 if blessing.is_empty() else 78)
 	b.pressed.connect(func(): armory_buy.emit(r.id))
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1850,7 +1993,14 @@ func _armory_row(r: Dictionary, coins: int) -> Button:
 	b.add_child(m)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 10)
 	m.add_child(h)
+	if not blessing.is_empty():
+		# Vault rows show the blessing's own badge, as on its card.
+		var icon := BlessingIcon.new()
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		icon.show_for(blessing)
+		h.add_child(icon)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1858,14 +2008,19 @@ func _armory_row(r: Dictionary, coins: int) -> Button:
 	texts.add_theme_constant_override("separation", 0)
 	h.add_child(texts)
 	var pips := "" if r.max <= 1 else "   " + "■".repeat(r.level) + "□".repeat(r.max - r.level)
-	var t := label(r.title + pips, 22, Color.WHITE if not maxed else Color(0.7, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	var title_col := Upgrades.color(blessing) if not blessing.is_empty() else Color.WHITE
+	var t := label(r.title + pips, 22, title_col if not maxed or not blessing.is_empty() else Color(0.7, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
 	t.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(t)
-	var d := label(r.text, 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
-	d.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var d := label(r.text, 15 if not blessing.is_empty() else 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
+	if blessing.is_empty():
+		d.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(d)
 	if maxed:
-		h.add_child(label("OWNED" if r.max <= 1 else "MAX", 22, Color(0.6, 1, 0.6)))
+		var done := "IN RUNS" if not blessing.is_empty() else ("OWNED" if r.max <= 1 else "MAX")
+		var tag := label(done, 20 if not blessing.is_empty() else 22, Color(0.6, 1, 0.6))
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		h.add_child(tag)
 	else:
 		var price := HBoxContainer.new()
 		price.mouse_filter = Control.MOUSE_FILTER_IGNORE

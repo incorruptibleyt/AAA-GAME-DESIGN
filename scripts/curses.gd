@@ -7,7 +7,8 @@ class_name Curses
 ## everyone; the rest come with the Crypt Pass.
 ##
 ## The Daily Crypt is 3 floors with the same rooms, hero and three rules for everyone each
-## day. It turns over at 07:00 UTC. Everyone can play it on Sundays.
+## day. It turns over at 07:00 UTC. Everyone gets the day's Official run; Practice runs
+## after it come with the Crypt Pass.
 
 const LIST := [
 	{"id": "restless", "title": "Restless Dead", "text": "Skeletons move 20% faster", "level": 1, "free": true},
@@ -156,7 +157,7 @@ const CLASHES := [["dice", "narrow"], ["hearty", "famine"]]
 
 ## One theme per weekday (0 = Sunday), so the week has a rhythm.
 const THEMES := [
-	{"name": "Free Crypt Sunday", "text": "Free for everyone today", "hero": ""},
+	{"name": "Hero Swap Sunday", "text": "Try a hero you may not own", "hero": ""},
 	{"name": "Marrow Monday", "text": "The chain climbs to x4", "hero": "rogue", "perk": "marrow"},
 	{"name": "Tough Tuesday", "text": "Two curses, no help", "hero": "knight", "slots": ["harm", "harm", "trade"]},
 	{"name": "Wild Wednesday", "text": "Two trade-offs", "hero": "barbarian", "slots": ["help", "trade", "trade"]},
@@ -199,12 +200,9 @@ static func theme(date := "") -> Dictionary:
 	return THEMES[weekday(date)]
 
 
-static func free_today() -> bool:
-	return weekday() == 0
-
-
-static func open_today(owned: bool) -> bool:
-	return owned or free_today()
+## Everyone gets the day's Official run; Practice runs after it come with the Crypt Pass.
+static func can_play(owned: bool, cfg: ConfigFile) -> bool:
+	return owned or not official_used(cfg)
 
 
 static func daily_hero(date := "") -> String:
@@ -284,7 +282,7 @@ static func _pick_rules(date: String, avoid: Array) -> Array:
 static func daily_blessing(date := "") -> Dictionary:
 	var hero := daily_hero(date)
 	var pool := Upgrades.LIST.filter(func(u: Dictionary): return not u.has("needs") and u.id != "vitality" \
-			and u.get("hero", hero) == hero)
+			and u.get("hero", hero) == hero and not u.has("vault"))
 	return pool[daily_rng(2, date).randi() % pool.size()]
 
 

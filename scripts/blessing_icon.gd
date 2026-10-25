@@ -12,6 +12,13 @@ var id := ""
 var family := "bolt"
 var color := Color.WHITE
 var synergy := false
+## Draws the badge bigger (the doors use 1.6). Set before adding it to a container.
+var zoom := 1.0:
+	set(v):
+		zoom = v
+		custom_minimum_size = Vector2(64, 64) * v
+		size = custom_minimum_size
+		queue_redraw()
 # Where and how big the picture is drawn; the helpers below work in a 40 x 40 box around it.
 var _c := Vector2.ZERO
 var _k := 1.0
@@ -31,8 +38,19 @@ func show_for(u: Dictionary) -> void:
 	queue_redraw()
 
 
+## A picture that isn't a blessing's own: the doors (doors.gd) use these. An empty
+## `icon_id` draws the family's picture.
+func show_icon(icon_id: String, fam: String, col: Color) -> void:
+	id = icon_id
+	family = fam
+	color = col
+	synergy = false
+	queue_redraw()
+
+
 func _draw() -> void:
-	var c := size / 2.0
+	draw_set_transform(Vector2.ZERO, 0.0, Vector2(zoom, zoom))
+	var c := size / 2.0 / zoom
 	draw_circle(c, 30.0, Color(0, 0, 0, 0.45))
 	if synergy:
 		var star := PackedVector2Array()
@@ -85,6 +103,14 @@ func _draw() -> void:
 		"wildfire": _wildfire()
 		"glacier": _glacier()
 		"deadeye": _crosshair()
+		"siphon": _siphon()
+		"frozen_ground": _frozen_ground()
+		"executioner": _executioner()
+		"flashfire": _flashfire()
+		"splinters": _splinters()
+		"overcharge": _overcharge()
+		"door_shrine": _shrine()
+		"door_champion": _crown()
 		_:
 			match family:
 				"bolt": _bolt()
@@ -564,3 +590,84 @@ func _crosshair() -> void:
 	for d: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
 		_ln(d * 8.0, d * 19.0, 3.0)
 	_dot(Vector2.ZERO, 3.5, Color(1, 0.3, 0.3))
+
+
+# ---------------------------------------------------------------- Vault blessings
+
+func _siphon() -> void:
+	# Soul Siphon: a pale wisp curling down into a heart.
+	var pts := []
+	for i in 32:
+		var t := TAU * i / 32.0
+		pts.append(Vector2(16.0 * pow(sin(t), 3), -(13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t))) * 0.55 + Vector2(3, 7))
+	_poly(pts, Color(0.95, 0.3, 0.35))
+	var wisp := Color(0.75, 0.95, 1.0, 0.9)
+	_arc(Vector2(-6, -8), 8.0, PI * 0.9, PI * 2.2, 3.0, wisp)
+	_arc(Vector2(-1, -6), 13.0, PI * 1.05, PI * 1.6, 2.5, Color(wisp, 0.6))
+	_dot(Vector2(-13, -12), 3.0, wisp)
+
+
+func _frozen_ground() -> void:
+	# Frozen Ground: ice spikes bursting out of the floor.
+	_oval(Vector2(0, 11), 18.0, 5.0, 0.0, 2.5)
+	_poly([Vector2(-13, 10), Vector2(-9, -6), Vector2(-5, 10)], Color(color, 0.85))
+	_poly([Vector2(-5, 10), Vector2(0, -17), Vector2(5, 10)])
+	_poly([Vector2(5, 10), Vector2(10, -4), Vector2(14, 10)], Color(color, 0.85))
+	_ln(Vector2(0, -12), Vector2(0, 4), 1.5, Color.WHITE)
+
+
+func _executioner() -> void:
+	# Executioner: a heavy blade over a nearly empty health bar.
+	_poly([Vector2(-15, 9), Vector2(15, 9), Vector2(15, 16), Vector2(-15, 16)], DARK)
+	_poly([Vector2(-14, 10), Vector2(-6, 10), Vector2(-6, 15), Vector2(-14, 15)], Color(0.9, 0.2, 0.2))
+	_ln(Vector2(-15, -2), Vector2(9, -16), 3.5, color.darkened(0.4))
+	_poly([Vector2(2, -14), Vector2(13, -20), Vector2(19, -8), Vector2(10, 0)], STEEL)
+	_ln(Vector2(13, -20), Vector2(19, -8), 2.0, Color.WHITE)
+
+
+func _flashfire() -> void:
+	# Flashfire: a critical spark lighting a flame.
+	_flame(Vector2(4, 4), 0.85)
+	_sparkle(Vector2(-11, -11), 9.0, Color(1, 1, 0.8))
+	_ln(Vector2(-6, -6), Vector2(-1, -1), 2.0, HOT)
+
+
+func _splinters() -> void:
+	# Bone Splinters: a skull bursting into three shards.
+	_dot(Vector2(0, 1), 8.0, Color(0.92, 0.9, 0.82))
+	_dot(Vector2(-3, 0), 2.5, DARK)
+	_dot(Vector2(3, 0), 2.5, DARK)
+	for i in 3:
+		var d := Vector2.UP.rotated(TAU * i / 3.0 + 0.5)
+		var n := d.orthogonal()
+		_poly([d * 20.0, d * 12.0 + n * 3.5, d * 12.0 - n * 3.5], color)
+
+
+func _overcharge() -> void:
+	# Overcharge: a lightning bolt through a chain link.
+	_oval(Vector2(-4, 4), 9.0, 6.0, -0.6, 3.0, Color(0.88, 0.92, 0.72))
+	_poly([Vector2(4, -19), Vector2(-6, -1), Vector2(1, -1), Vector2(-4, 18), Vector2(10, -4), Vector2(3, -4), Vector2(9, -19)], HOT)
+
+
+# ---------------------------------------------------------------- doors
+
+func _shrine() -> void:
+	# Shrine: two arrows chasing each other round a circle (a reroll).
+	for start: float in [-0.95 * PI, 0.05 * PI]:
+		var end := start + 0.8 * PI
+		_arc(Vector2.ZERO, 13.0, start, end, 3.5)
+		var tip := Vector2(cos(end), sin(end)) * 13.0
+		var along := Vector2(-sin(end), cos(end))
+		var out := tip.normalized()
+		_poly([tip + along * 7.0, tip + out * 5.5, tip - out * 5.5])
+	_dot(Vector2.ZERO, 3.5, Color.WHITE)
+
+
+func _crown() -> void:
+	# Champion's Door: a golden crown.
+	var gold := Color(1.0, 0.8, 0.3)
+	_poly([Vector2(-16, 10), Vector2(-16, -10), Vector2(-8, -1), Vector2(0, -15), Vector2(8, -1), Vector2(16, -10), Vector2(16, 10)], gold)
+	_poly([Vector2(-16, 10), Vector2(16, 10), Vector2(16, 15), Vector2(-16, 15)], gold.darkened(0.25))
+	_dot(Vector2(0, 4), 3.0, Color(0.9, 0.2, 0.25))
+	_dot(Vector2(-9, 5), 2.0, Color(0.4, 0.7, 1.0))
+	_dot(Vector2(9, 5), 2.0, Color(0.4, 0.7, 1.0))

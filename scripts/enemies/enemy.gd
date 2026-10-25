@@ -114,6 +114,16 @@ func _death_burst(h: Hero) -> void:
 			(a as Enemy).chill(h.frost_time)
 
 
+## Bone Splinters: three bone shards fly out of a destroyed skeleton.
+func _splinters(h: Hero) -> void:
+	var turn := randf() * TAU
+	for i in 3:
+		var d := Vector3.FORWARD.rotated(Vector3.UP, turn + TAU * i / 3.0)
+		var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 0.9 + d * 0.4, d, h.damage * 0.6 * Game.chain_damage(),
+			h.bolt_speed * 0.8, Color(0.95, 0.92, 0.8), h.bolt_size * 0.8)
+		p.pierce = 1
+
+
 ## Frost Shots: walk slower for a moment.
 func chill(seconds: float) -> void:
 	if _slow_left <= 0.0:
@@ -225,6 +235,8 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		return
 	if _slow_left > 0.0 and Game.hero and Game.hero.perks.has("deepfreeze"):
 		amount *= 1.3
+	if health < max_health * 0.3 and Game.hero and Game.hero.perks.has("executioner"):
+		amount *= 1.5
 	super.take_damage(amount, direction, push * knockback_scale, crit)
 	if _bar:
 		_bar.reveal()
@@ -245,6 +257,8 @@ func _on_death() -> void:
 	if Game.hero:
 		Game.hero.on_kill()
 		_death_burst(Game.hero)
+		if Game.hero.perks.has("splinters"):
+			_splinters(Game.hero)
 	if randf() < drop_chance + (Game.heart_bonus if drop_chance > 0.0 else 0.0) and not Game.curses.has("famine"):
 		Pickup.drop(global_position)
 	var coins := coin_value()

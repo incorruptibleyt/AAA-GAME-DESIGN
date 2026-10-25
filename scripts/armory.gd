@@ -2,6 +2,9 @@ class_name Armory
 ## Permanent upgrades bought with coins on the title screen. They stay between runs.
 ## To add one: copy an entry in LIST, then say what it does in `apply_to_hero` (or where
 ## the game checks it).
+##
+## The Vault sells new blessings (the "vault" ones in upgrades.gd): bought once, they can
+## turn up in the blessing picks of every run after.
 
 const LIST := [
 	{"id": "vigor", "title": "Vigor", "text": "+10 max health", "max": 5, "costs": [15, 30, 50, 80, 120]},
@@ -14,6 +17,16 @@ const LIST := [
 ]
 
 const SAVE_SECTION := "armory"
+
+const VAULT := [
+	{"id": "siphon", "cost": 300},
+	{"id": "frozen_ground", "cost": 400},
+	{"id": "executioner", "cost": 450},
+	{"id": "flashfire", "cost": 450},
+	{"id": "splinters", "cost": 600},
+	{"id": "overcharge", "cost": 650},
+]
+const VAULT_SECTION := "vault"
 
 
 static func level(cfg: ConfigFile, id: String) -> int:
@@ -33,6 +46,23 @@ static func apply_to_hero(cfg: ConfigFile, h: Hero) -> void:
 	h.shots_per_second *= 1.0 + 0.06 * level(cfg, "haste")
 	h.move_speed *= 1.0 + 0.05 * level(cfg, "swift")
 	h.second_wind = level(cfg, "second_wind") > 0
+
+
+## What a Vault blessing costs (0 if `id` isn't one).
+static func vault_cost(id: String) -> int:
+	for v: Dictionary in VAULT:
+		if v.id == id:
+			return int(v.cost)
+	return 0
+
+
+static func vault_has(cfg: ConfigFile, id: String) -> bool:
+	return bool(cfg.get_value(VAULT_SECTION, id, false))
+
+
+## The Vault blessings bought so far.
+static func vault_owned(cfg: ConfigFile) -> Array:
+	return VAULT.filter(func(v): return vault_has(cfg, v.id)).map(func(v): return v.id)
 
 
 static func heart_bonus(cfg: ConfigFile) -> float:

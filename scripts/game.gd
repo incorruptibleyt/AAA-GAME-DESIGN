@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25v"
+const BUILD := "2026-10-25w"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -75,7 +75,10 @@ func chain_time() -> float:
 
 ## Damage gets a quarter of the chain's bonus (x1.5 at the cap) so a long chain doesn't trivialise rooms.
 func chain_damage() -> float:
-	return 1.0 + (chain - 1.0) * 0.25
+	var d := 1.0 + (chain - 1.0) * 0.25
+	if chain >= 2.0 and hero and hero.perks.has("overcharge"):
+		d *= 1.25   # Overcharge
+	return d
 
 
 ## Coins get the same quarter share of the chain: up to x1.5 (x1.75 with Marrow).
@@ -126,6 +129,16 @@ var _pass_note_shown := false
 var omens := {}
 var _loop_choice := false
 var _omen_choices: Array = []
+## Blessings bought in the Armory's Vault, which can turn up in runs.
+var vault: Array = []
+## Doors (doors.gd): the two on offer after a blessing, and the one picked for the next room.
+var _doors: Array = []
+var _door := {}
+## The blessing just picked, named on a banner once the door is chosen too.
+var _picked := {}
+## What the door before this room promised the blessing pick after it.
+var _pick_family := ""
+var _pick_better := false
 
 
 ## How many times Omen `id` has been taken this run.
@@ -211,6 +224,7 @@ func _ready() -> void:
 	add_child(hud)
 	hud.card_picked.connect(_on_card_picked)
 	hud.reroll_pressed.connect(_on_reroll)
+	hud.door_picked.connect(_on_door_picked)
 	hud.special_pressed.connect(func(): if hero: hero.use_special())
 	hud.dash_pressed.connect(_dash_from_button)
 	hud.screen_tapped.connect(_on_screen_tapped)
@@ -240,7 +254,7 @@ func _ready() -> void:
 	hud.pass_restore.connect(func(): Sfx.play("click"); Store.instance.restore())
 	hud.daily_pressed.connect(_open_daily)
 	hud.daily_start.connect(func():
-		if state == State.TITLE and Curses.open_today(Store.owned()):
+		if state == State.TITLE and Curses.can_play(Store.owned(), _load_save()):
 			_daily_requested = true
 			_on_play_pressed())
 	hud.curses_pressed.connect(_open_curses)
@@ -434,7 +448,8 @@ func speed_scale() -> float:
 
 ## Daily Crypt rules and Omens that change coins and hearts.
 func coin_mult() -> float:
-	return (1.5 if curses.has("rich") else 1.0) * pow(1.5, _omen("gold"))
+	var treasure := 1.0 + Doors.TREASURE_COINS if _door.get("kind", "") == "treasure" else 1.0
+	return (1.5 if curses.has("rich") else 1.0) * pow(1.5, _omen("gold")) * treasure
 
 
 func heart_mult() -> float:
@@ -793,7 +808,7 @@ func _start_run() -> void:
 	RunSave.clear()   # starting something new gives up a saved run
 	first_run = first_run_pending() or _tutorial_requested
 	_tutorial_requested = false
-	daily = _daily_requested and Curses.open_today(Store.owned()) and not first_run
+	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run
 	_daily_requested = false
 	_daily_done = false
 	_run_hero_id = ""
@@ -972,11 +987,17 @@ func _reset_run_stats() -> void:
 	omens.clear()
 	_loop_choice = false
 	_omen_choices = []
+	_doors = []
+	_door = {}
+	_picked = {}
+	_pick_family = ""
+	_pick_better = false
 
 
 ## Gives the hero everything bought in the Armory. Called once at the start of each run.
 func _apply_armory() -> void:
 	var cfg := _load_save()
+	vault = Armory.vault_owned(cfg)
 	Armory.apply_to_hero(cfg, hero)
 	heart_bonus = Armory.heart_bonus(cfg)
 	if Armory.level(cfg, "blessed") > 0:
@@ -1018,11 +1039,15 @@ func _restart() -> void:
 	_reset_run_stats()
 	if daily and _daily_date != Curses.today():
 		# A new day started while on the end screen: retry on today's Daily Crypt.
-		daily = Curses.open_today(Store.owned())
+		daily = Curses.can_play(Store.owned(), _load_save())
 		if daily:
 			_begin_daily()
 		else:
 			_run_hero_id = ""
+	elif daily and not Store.owned():
+		# Practice runs come with the Crypt Pass, so TRY AGAIN starts a normal run.
+		daily = false
+		_run_hero_id = ""
 	elif daily:
 		_daily_practice = true   # the Official run is used up
 		_daily_done = false
@@ -1088,7 +1113,7 @@ func _back_to_title() -> void:
 
 
 ## After beating the king: keep your blessings and go one floor deeper, where it's harder.
-## Going into a new loop also gives full health and two more rerolls.
+## Every new floor brings a free reroll; a new loop gives full health and two more.
 func _descend() -> void:
 	if _free_end:
 		return
@@ -1096,6 +1121,8 @@ func _descend() -> void:
 	await _fade(0.0, 1.0, 0.5)
 	hud.show_end(false)
 	floor_num += 1
+	if _door.get("kind", "") != "path":
+		_door = {}   # a treasure door before the boss paid out in the boss room
 	var new_loop := Loops.loop_end(floor_num - 1)
 	if new_loop:
 		hero.heal(hero.max_health)
@@ -1103,6 +1130,8 @@ func _descend() -> void:
 			rerolls += Loops.LOOP_REROLLS
 	else:
 		hero.heal(hero.max_health * 0.3)
+		if not curses.has("narrow"):
+			rerolls += 1
 	_build_run()
 	_load_room(0, true)
 	var loop := Loops.loop_of(floor_num)
@@ -1210,6 +1239,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_rep.room_chain = chain
 	if not _in_boss_room():
 		hud.banner("Room %d" % (index + 1))
+	if Doors.room_tip(_door) != "":
+		hud.tip(Doors.room_tip(_door), 3.5, 1.4)
 	if first_run:
 		hud.show_hint("Drag to move  ·  Let go to shoot" if index == 0 else "")
 		_ftue_room_intro()
@@ -1246,6 +1277,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			for b: Enemy in [e, twin]:
 				b.max_health *= 0.65
 				b.health = b.max_health
+	# Champion's Door: a golden elite is waiting.
+	if _door.get("kind", "") == "champion":
+		for a: Actor in Actor.all:
+			if a is Enemy and not (a as Enemy).elite and not (a as Enemy).is_boss and not (a is SkeletonBomber) and not a.dead:
+				(a as Enemy).make_elite()
+				break
 	# Swarm, and each Omen of the Horde: the first wave gets its extra skeletons too.
 	var extras := (1 if curses.has("swarm") else 0) + _omen("horde")
 	if extras > 0 and not _in_boss_room() and not _wave_kinds.is_empty():
@@ -1280,10 +1317,12 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 	if next_floor:
 		h.health = minf(hero.max_health, hero.health + hero.max_health * 0.3)   # as _descend heals
 	RunSave.write({"floor": floor_num + (1 if next_floor else 0), "room": 0 if next_floor else _room_index,
-		"hero_id": hero.hero_id, "hero": h, "taken": _taken.duplicate(), "rerolls": rerolls, "score": score,
+		"hero_id": hero.hero_id, "hero": h, "taken": _taken.duplicate(), "score": score,
+		"rerolls": rerolls + (1 if next_floor and not curses.has("narrow") else 0),   # as _descend adds
 		"run_coins": run_coins, "banked": run_coins, "kills": _kills, "time": _run_time, "curses": curses.duplicate(),
 		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
-		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate()})
+		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate(),
+		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {}})
 
 
 ## "Floor 3 · Room 2" for the CONTINUE button, or "" when there's no saved run.
@@ -1326,6 +1365,8 @@ func _continue_run() -> void:
 	_daily_done = false
 	_run_hero_id = str(s.run_hero)
 	omens = (s.get("omens", {}) as Dictionary).duplicate()
+	_door = (s.get("door", {}) as Dictionary).duplicate()
+	vault = Armory.vault_owned(_load_save())
 	_update_score_mult()
 	heart_bonus = float(s.get("heart_bonus", Armory.heart_bonus(_load_save())))
 	# (Coins from the room being replayed were held back when the game started: RunSave.hold_replayed.)
@@ -1341,7 +1382,7 @@ func _continue_run() -> void:
 	else:
 		_go_to_room(int(s.room))
 		hud.tip("Run continued: floor %d" % floor_num, 3.0, 1.2)
-	print("[run] continued floor %d room %d hp %d/%d score %d omens %s" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score, Loops.names(omens)])
+	print("[run] continued floor %d room %d hp %d/%d score %d omens %s door %s" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score, Loops.names(omens), Doors.describe(_door).get("title", "none")])
 
 
 ## The one new thing each first-run room teaches.
@@ -1545,7 +1586,11 @@ func _room_cleared() -> void:
 	if state != State.PLAYING:
 		return
 	var step := ftue_room()
-	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4)
+	# The door picked before this room shapes the blessings after it.
+	_pick_family = str(_door.get("family", ""))
+	_pick_better = _door.get("kind", "") == "champion"
+	_door = {}
+	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better)
 	if _choices.is_empty():
 		Pickup.grant_all()
 		_save_coins()
@@ -1562,7 +1607,7 @@ func _on_reroll() -> void:
 	if state != State.UPGRADE or rerolls <= 0 or ftue_room() < 3:
 		return
 	rerolls -= 1
-	_choices = Upgrades.roll(_taken, 2 if curses.has("narrow") else 3)
+	_choices = Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, false, _pick_family, _pick_better)
 	Sfx.play("click")
 	hud.show_cards(_choices, rerolls, true)
 
@@ -1573,12 +1618,54 @@ func _on_card_picked(i: int) -> void:
 	var u: Dictionary = _choices[i]
 	_taken[u.id] = _taken.get(u.id, 0) + 1
 	Upgrades.apply(u.id, hero)
+	_pick_family = ""
+	_pick_better = false
+	_picked = u
+	Sfx.play("upgrade")
+	# Then two doors to the next room (still paused), except in the first run.
+	_doors = _door_offer()
+	if not _doors.is_empty():
+		hud.show_doors(_doors.map(func(d): return Doors.describe(d)), _room_index + 2 >= _run.size())
+		return
+	_leave_room()
+
+
+## The two doors after this room's blessing. The Daily Crypt offers everyone the same ones.
+func _door_offer() -> Array:
+	if first_run or _room_index + 1 >= _run.size():
+		return []
+	var rng := RandomNumberGenerator.new()
+	if daily:
+		rng = Curses.daily_rng(300 + floor_num * 10 + _room_index, _daily_date)
+	else:
+		rng.randomize()
+	return Doors.offer(rng, _room_index + 2 >= _run.size(), not curses.has("narrow"))
+
+
+func _on_door_picked(i: int) -> void:
+	if state != State.UPGRADE or i >= _doors.size():
+		return
+	_door = _doors[i]
+	_doors = []
+	Sfx.play("door", 0.7)
+	match str(_door.kind):
+		"spring":
+			hero.heal(hero.max_health * Doors.SPRING_HEAL)
+		"shrine":
+			rerolls += 1
+	print("[run] door: %s" % Doors.describe(_door).title)
+	_leave_room()
+
+
+## After the blessing (and the door): anything left on the floor is picked up and the
+## next room starts. No walk to the door.
+func _leave_room() -> void:
 	get_tree().paused = false
 	_set_state(State.PLAYING)
-	Sfx.play("upgrade")
-	Fx.magic(hero.center(), Upgrades.color(u), 30)
-	hud.banner(u.title, Upgrades.color(u))
-	# No walk to the door: anything left on the floor is picked up and the next room starts.
+	if not _picked.is_empty():
+		Fx.magic(hero.center(), Upgrades.color(_picked), 30)
+		hud.banner(_picked.title, Upgrades.color(_picked))
+		_picked = {}
 	Pickup.grant_all()
 	_save_coins()
 	enter_next_room()
@@ -1939,15 +2026,16 @@ func _show_daily() -> void:
 	var used := Curses.official_used(cfg)
 	var best := Curses.daily_best(cfg)
 	var status := "Your Official run is ready. Only that one counts, so make it good!"
-	if not Curses.open_today(owned):
-		status = "The Daily Crypt is free every Sunday,\nand every day with the Crypt Pass."
+	var best_text := "  ·  best " + Hud.thousands(best) if best > 0 else ""
+	if used and not owned:
+		status = "Official run done%s.\nCome back tomorrow, or get the Crypt Pass\nfor practice runs." % best_text
 	elif used:
-		status = "Official run done%s.\nPlay again for practice." % ("  ·  best " + Hud.thousands(best) if best > 0 else "")
+		status = "Official run done%s.\nPlay again for practice." % best_text
 	var left := Curses.seconds_left()
 	var t := Curses.theme()
 	hud.show_daily(true, {"title": "DAILY CRYPT #%d" % Curses.day_number(), "theme": t.name, "theme_text": t.text,
 		"hero": Heroes.get_hero(Curses.daily_hero()).title, "mult": _mult_text(Curses.score_mult(Curses.daily_rules())),
-		"rules": rules, "status": status, "open": Curses.open_today(owned), "practice": used,
+		"rules": rules, "status": status, "open": Curses.can_play(owned, cfg), "practice": used,
 		"next": "Next Daily Crypt in %dh %02dm" % [left / 3600, (left % 3600) / 60]})
 
 
@@ -2001,8 +2089,6 @@ func _show_share_card() -> void:
 		return
 	var days := Curses.streak(_load_save())
 	var caption := "%d days in a row!" % days if days >= 2 else "Play tomorrow to start a streak"
-	if not Store.owned():
-		caption = "The Daily Crypt is free every Sunday"
 	hud.show_share(true, _share_rows(), caption)
 
 
@@ -2034,11 +2120,31 @@ func _armory_rows() -> Array:
 	for u: Dictionary in Armory.LIST:
 		rows.append({"id": u.id, "title": u.title, "text": u.text, "level": Armory.level(cfg, u.id),
 			"max": u.max, "cost": Armory.next_cost(cfg, u)})
+	for v: Dictionary in Armory.VAULT:
+		var u := Upgrades.get_def(v.id)
+		var has := Armory.vault_has(cfg, v.id)
+		rows.append({"id": v.id, "title": u.title, "text": u.text, "level": 1 if has else 0, "max": 1,
+			"cost": -1 if has else int(v.cost), "vault": u})
 	return rows
 
 
 func _buy_upgrade(id: String) -> void:
 	var cfg := _load_save()
+	# The Vault: a new blessing, bought once.
+	var price := Armory.vault_cost(id)
+	if price > 0:
+		if Armory.vault_has(cfg, id) or price > coins:
+			Sfx.play("hurt")
+			return
+		coins -= price
+		cfg.set_value("stats", "coins", coins)
+		cfg.set_value(Armory.VAULT_SECTION, id, true)
+		cfg.save(SAVE_PATH)
+		Sfx.play("victory", 0.6)
+		hud.set_coins(coins)
+		hud.show_armory(true, _armory_rows(), coins)
+		hud.show_title(hud.title_visible(), _best_text(), coins)
+		return
 	for u: Dictionary in Armory.LIST:
 		if u.id != id:
 			continue

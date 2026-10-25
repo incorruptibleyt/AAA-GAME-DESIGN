@@ -168,6 +168,8 @@ func _process(delta: float) -> void:
 		a.take_damage(damage * crit_mult if crit else damage, dir, push, crit)
 		if burn_dps > 0.0 and not a.dead:
 			Burning.apply(a, burn_dps, 2.5)
+		elif crit and owner_team == Actor.Team.HERO and not a.dead and Game.hero and Game.hero.perks.has("flashfire"):
+			Burning.apply(a, 8.0, 2.5)   # Flashfire
 		if frost and not a.dead and a is Enemy:
 			(a as Enemy).chill(Game.hero.frost_time if Game.hero else 1.5)
 		if splash > 0.0:

@@ -2,8 +2,10 @@ class_name Autoplay
 extends Node
 ## A simple robot player used to test the game without a person holding the phone.
 ## Start Godot with:  -- autoplay [god] [shop] [shots=<folder>]
-## `shop` buys what it can afford in the Armory before the first run (`coins=N` gives it
-## N coins first). `quittest` quits the first run from the pause menu and starts again.
+## `shop` buys what it can afford in the Armory and its Vault before the first run (`coins=N`
+## gives it N coins first). `vault` owns every Vault blessing without paying.
+## `quittest` quits the first run from the pause menu and starts again.
+## After a blessing it picks one of the two doors at random.
 ## It walks through every room, picks the first blessing each time, and prints what happened.
 ## Crypt Pass: `pass` plays as if it were owned, `daily` starts the Daily Crypt, `curses=a,b`
 ## switches curses on, `passmenu` / `cursemenu` take pictures of those screens, and
@@ -49,6 +51,7 @@ var _special_shots := 0
 var _force_special := false
 var _perks: PackedStringArray = []
 var _card_shot := false
+var _door_shot := false
 var _pass_menu := false
 var _curse_menu := false
 var _free_end_test := false
@@ -82,6 +85,12 @@ func _ready() -> void:
 			Game.floor_num = int(a.substr(6))
 		elif a == "shop":
 			shop = true
+		elif a == "vault":
+			# Every Vault blessing owned, so they can turn up in the blessing picks.
+			var cfg := Game._load_save()
+			for v: Dictionary in Armory.VAULT:
+				cfg.set_value(Armory.VAULT_SECTION, v.id, true)
+			cfg.save(Game.SAVE_PATH)
 		elif a == "quittest":
 			quit_test = true
 		elif a.begins_with("coins="):
@@ -310,11 +319,16 @@ func _process(delta: float) -> void:
 			if shop and not _shopped and _t > 1.2:
 				_shopped = true
 				Game._open_armory()
-				for u: Dictionary in Armory.LIST:
+				for u: Dictionary in Armory.LIST + Armory.VAULT:
 					Game._buy_upgrade(u.id)
-				print("[autoplay] shop: coins left %d, hero hp before run %d" % [Game.coins, Game.hero.max_health])
+				print("[autoplay] shop: coins left %d, hero hp before run %d, vault %s" % [Game.coins, Game.hero.max_health, Armory.vault_owned(Game._load_save())])
 				if shots_dir != "":
-					_shot()
+					await _shot()
+					Game.hud._armory_tab = "vault"
+					Game.hud._fill_shop(Game.hud._shop_rows, Game.hud._shop_coins)
+					await _shot()
+					Game.hud._armory_tab = "upgrades"
+					return   # later frames start the run
 			if shop and _t < 3.0:
 				return
 			if Game.hud.armory_visible():
@@ -333,6 +347,14 @@ func _process(delta: float) -> void:
 					Game._mode_banner()
 				else:
 					Game._on_screen_tapped()
+		Game.State.UPGRADE when Game.hud.doors_visible():
+			if shots_dir != "" and not _door_shot and Game.hud._doors_age > 0.5:
+				_door_shot = true
+				_shot()
+			if Game.hud._doors_age > 1.0:
+				var pick := randi() % Game._doors.size()
+				print("[autoplay] doors: %s -> %s" % [" or ".join(Game._doors.map(func(d): return Doors.describe(d).title)), Doors.describe(Game._doors[pick]).title])
+				Game.hud._on_door(pick)
 		Game.State.UPGRADE:
 			if Game.rerolls > 0 and Game.hud._cards_age >= 0.45:
 				print("[autoplay] reroll: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
@@ -580,13 +602,12 @@ func _icon_sheet() -> void:
 	for i in all.size():
 		var u: Dictionary = all[i]
 		var icon := BlessingIcon.new()
-		icon.position = Vector2(26 + (i % 5) * 102, 14 + (i / 5) * 116)
-		icon.scale = Vector2(1.15, 1.15)
+		icon.position = Vector2(14 + (i % 6) * 88, 10 + (i / 6) * 104)
 		bg.add_child(icon)
 		icon.show_for(u)
-		var l := Hud.label(u.title, 12)
-		l.position = icon.position + Vector2(-17, 76)
-		l.size = Vector2(108, 18)
+		var l := Hud.label(u.title, 11)
+		l.position = icon.position + Vector2(-14, 66)
+		l.size = Vector2(92, 18)
 		bg.add_child(l)
 	for f in 6:
 		await get_tree().process_frame

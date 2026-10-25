@@ -33,12 +33,12 @@ A CRYPT THAT FIGHTS BACK
 Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus golden elites. At the bottom of each floor waits a boss: the Skeleton King or the Lich. Descend through the Bone Crypt, the Frozen Ossuary and the Ember Catacomb.
 
 GET STRONGER BETWEEN RUNS
-Keep the gold you find and spend it in the Armory on permanent upgrades, or unlock new heroes.
+Keep the gold you find and spend it in the Armory on permanent upgrades, new blessings from the Vault, or new heroes. Pick your door after every room: treasure, a healing spring, a champion to fight, or a path to the blessings you want.
 
 FREE TO TRY, ONE OPTIONAL PASS
-The first five floors are free, with no ads and no energy timers, and the Daily Crypt is free for everyone on Sundays. The one-time Crypt Pass opens the rest:
+The first five floors are free, with no ads and no energy timers, and everyone gets one Daily Crypt run a day. The one-time Crypt Pass opens the rest:
 - Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
-- The Daily Crypt every day: the same three floors, hero and rules for everyone, with a result to share.
+- Daily Crypt practice: replay the day's three floors as often as you like after your Official run.
 - Ten Curses that stack into a Curse Level for bigger scores, with hero rewards to earn.
 - Every hero, ready to play.
 
@@ -54,7 +54,7 @@ How deep can you go?
 
 - Product ID: `crypt_pass` (must be exactly this; the game asks Google Play for it)
 - Name: Crypt Pass
-- Description: Endless floors, the Daily Crypt every day, 10 Curses with hero rewards, and every hero. One-time purchase.
+- Description: Endless floors, Daily Crypt practice runs, 10 Curses with hero rewards, and every hero. One-time purchase.
 - Price: $4.99 (US), let Play convert it for other countries
 
 ## Category and tags

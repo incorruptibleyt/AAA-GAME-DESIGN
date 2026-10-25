@@ -189,6 +189,14 @@ func _perfect_dodge() -> void:
 		if is_instance_valid(p) and p.global_position.distance_to(global_position) < 3.0:
 			p.shatter()
 	Game.perfect_dodge(center())
+	# Soul Siphon heals; Frozen Ground chills every skeleton within 5 m.
+	if perks.has("siphon"):
+		heal(10.0 * perks.siphon)
+	if perks.has("frozen_ground"):
+		Fx.shockwave(global_position, Color(0.6, 0.92, 1.0), 5.0)
+		for a: Actor in Actor.all:
+			if a is Enemy and not a.dead and a.global_position.distance_to(global_position) < 5.0:
+				(a as Enemy).chill(maxf(frost_time, 2.0))
 	var col := bolt_color.lerp(Color.WHITE, 0.4)
 	for i in 8:
 		var d := Vector3.FORWARD.rotated(Vector3.UP, TAU * i / 8.0 + rotation.y)
