@@ -24,10 +24,11 @@ var _dead := false
 var _flash := 0.0
 var _meshes: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
-var _tint_mat: StandardMaterial3D
+var _tint_mat: Material
+static var _rim_shader: Shader
 
 
-## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb}
+## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb, tint, rim}
 func build(look: Dictionary) -> void:
 	var scene := Art.get_model(look.get("key", ""))
 	if scene:
@@ -58,8 +59,30 @@ func build(look: Dictionary) -> void:
 		# A coloured glow over the whole model, so look-alike skeletons stand apart.
 		_tint_mat = U.unlit(look.tint)
 		_tint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	elif look.has("rim"):
+		_tint_mat = rim_material(look.rim)
 	_set_flash(false)
 	_play("idle")
+
+
+## A bright glow around a model's edges (heroes), so they stand out from above on any floor.
+static func rim_material(col: Color) -> ShaderMaterial:
+	if _rim_shader == null:
+		_rim_shader = Shader.new()
+		_rim_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back;
+uniform vec4 rim : source_color = vec4(0.4, 0.7, 1.0, 1.0);
+uniform float power = 2.2;
+void fragment() {
+	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), power);
+	ALBEDO = rim.rgb * f * rim.a;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = _rim_shader
+	m.set_shader_parameter("rim", col)
+	return m
 
 
 ## Weapons, shields and extras for KayKit models.

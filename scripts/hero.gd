@@ -85,11 +85,12 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	parent.add_child(h)
 	h.global_position = pos
 	var look := {"key": def.key, "height": 2.1, "body": def.body, "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0),
-		"hide": def.hide, "attack_anim": def.attack_anim}
+		"hide": def.hide, "attack_anim": def.attack_anim, "rim": Color(def.ring, 0.9)}
 	for extra in ["hood", "helmet", "hat", "horns"]:
 		if def.has(extra):
 			look[extra] = def[extra]
 	h.make_visual(look)
+	h._build_feet_marker(def.ring)
 	h._build_dash_ring()
 	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.
 	var mastery := Curses.mastery(Game._load_save(), def.id)
@@ -477,7 +478,26 @@ func _build_aura() -> void:
 	_aura = m
 
 
-## A ring at the hero's feet: bright when the dash is ready, faint while it recharges.
+## A dark disc with a ring in the hero's own colour at their feet, so you can always find
+## your hero from above, even in a crowd of skeletons on a bright floor.
+func _build_feet_marker(col: Color) -> void:
+	var disc := U.cylinder(self, 0.6, 0.01, U.unlit(Color(0, 0, 0, 0.4)), Vector3(0, 0.02, 0))
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.5
+	torus.outer_radius = 0.6
+	torus.rings = 32
+	torus.ring_segments = 4
+	var ring := MeshInstance3D.new()
+	ring.mesh = torus
+	ring.material_override = U.unlit(Color(col, 0.95))
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.position = Vector3(0, 0.04, 0)
+	ring.scale = Vector3(1, 0.12, 1)
+	add_child(ring)
+
+
+## A ring around that one: bright when the dash is ready, faint while it recharges.
 func _build_dash_ring() -> void:
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.62

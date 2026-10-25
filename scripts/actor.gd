@@ -55,8 +55,7 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	direction.y = 0.0
 	if direction.length_squared() > 0.0001:
 		knockback += direction.normalized() * push
-	var col := Color(1, 0.35, 0.35) if team == Team.HERO else (Color(1, 0.85, 0.2) if crit else Color.WHITE)
-	DamageNumber.spawn(center() + Vector3.UP * 0.6, str(maxi(1, roundi(amount))), col, crit)
+	DamageNumber.hit(self, amount, crit)
 	Fx.sparks(center())
 	if visual:
 		visual.hit()
@@ -72,7 +71,7 @@ func heal(amount: float) -> void:
 	if dead:
 		return
 	health = minf(max_health, health + amount)
-	DamageNumber.spawn(center() + Vector3.UP * 0.6, "+%d" % roundi(amount), Color(0.4, 1, 0.5), false)
+	DamageNumber.healed(self, amount)
 
 
 func _on_damaged() -> void:

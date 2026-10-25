@@ -16,7 +16,9 @@ const THEMES := [
 	{"name": "Ember Catacomb", "floor": Color(0.9, 0.72, 0.62), "wall": Color(0.19, 0.1, 0.08), "trim": Color(0.35, 0.18, 0.12),
 		"ambient": Color(0.27, 0.15, 0.12), "fog": Color(0.09, 0.03, 0.02), "background": Color(0.05, 0.015, 0.01),
 		"moon": Color(1.0, 0.55, 0.35), "torch": Color(1.0, 0.45, 0.18), "torch_energy": 1.7,
-		"motes": [Color(1.0, 0.75, 0.3, 1.0), Color(1.0, 0.3, 0.1, 0.4)], "motes_fall": false, "banner": Color(1, 0.55, 0.3)},
+		# Embers stay small, dim and deep red so they never look like coins or enemy shots.
+		"motes": [Color(0.95, 0.38, 0.16, 0.5), Color(0.7, 0.15, 0.06, 0.2)], "motes_fall": false, "motes_size": 0.5,
+		"banner": Color(1, 0.55, 0.3)},
 ]
 
 

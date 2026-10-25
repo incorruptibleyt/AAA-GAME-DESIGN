@@ -1,6 +1,7 @@
 class_name SkeletonMage
 extends Enemy
 ## Marks a circle where you're standing, then blows it up. Keep moving!
+## On floor 1 the mage casts less often and the circle takes longer to go off.
 
 var _cast_timer := 1.8
 var _casting := 0.0
@@ -17,6 +18,12 @@ func _setup() -> void:
 	look.accent = Color(0.3, 0.18, 0.45)
 	look.weapon = "Skeleton_Staff"
 	make_visual(look)
+	if _gentle():
+		_cast_timer = 2.6
+
+
+func _gentle() -> bool:
+	return Game.floor_num == 1
 
 
 func _think(hero: Hero, delta: float) -> void:
@@ -38,11 +45,11 @@ func _think(hero: Hero, delta: float) -> void:
 
 	if _cast_timer <= 0.0:
 		_casting = 0.5
-		_cast_timer = randf_range(2.8, 3.4)
+		_cast_timer = randf_range(3.8, 4.6) if _gentle() else randf_range(2.8, 3.4)
 		visual.attack(true)
 		var spot := hero.global_position
 		Fx.magic(center() + Vector3.UP * 0.3, Color(0.7, 0.4, 1.0), 14)
-		track(Telegraph.circle(spot, 1.7, 1.2, func(): SkeletonMage.explode(spot, 1.7, 18.0)))
+		track(Telegraph.circle(spot, 1.7, 1.7 if _gentle() else 1.2, func(): SkeletonMage.explode(spot, 1.7, 18.0)))
 
 
 static func explode(spot: Vector3, r: float, dmg: float) -> void:

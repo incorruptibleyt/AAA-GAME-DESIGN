@@ -59,6 +59,8 @@ var _loop_quit := false
 var _loop_menu := false
 var _answering := false
 var _die := false
+## "icons": a picture of every blessing's badge, then quit.
+var _icons := false
 
 
 func _ready() -> void:
@@ -131,6 +133,8 @@ func _ready() -> void:
 			_loop_menu = true
 		elif a == "die":
 			_die = true
+		elif a == "icons":
+			_icons = true
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -156,6 +160,11 @@ func _process(delta: float) -> void:
 		print("[autoplay] hero %s hp=%d" % [Game.hero.hero_id, Game.hero.max_health])
 		_hero_choice = ""
 	_t += delta
+	if _icons and _t > 0.5:
+		_icons = false
+		await _icon_sheet()
+		get_tree().quit()
+		return
 	if Game.hud.reports_ask_visible() and not _answering:
 		# The once-only "send reports?" question after a run: picture it, then say no.
 		_answering = true
@@ -485,6 +494,33 @@ func _drive(delta: float) -> void:
 		move = room.steer(hero.global_position, move.normalized(), hero.radius)
 	var stick := Vector2(move.x, move.z)
 	Game.hud.joystick = stick.normalized() if stick.length() > 0.05 else Vector2.ZERO
+
+
+## Every blessing's badge on one page, with its name, to check the pictures.
+func _icon_sheet() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.16, 0.12, 0.2)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(bg)
+	var all: Array = Upgrades.LIST + Upgrades.SYNERGIES
+	for i in all.size():
+		var u: Dictionary = all[i]
+		var icon := BlessingIcon.new()
+		icon.position = Vector2(30 + (i % 4) * 128, 20 + (i / 4) * 132)
+		icon.scale = Vector2(1.4, 1.4)
+		bg.add_child(icon)
+		icon.show_for(u)
+		var l := Hud.label(u.title, 15)
+		l.position = icon.position + Vector2(-20, 92)
+		l.size = Vector2(130, 20)
+		bg.add_child(l)
+	for f in 6:
+		await get_tree().process_frame
+	if shots_dir != "":
+		await _shot()
 
 
 func _shot() -> void:

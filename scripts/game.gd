@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25r"
+const BUILD := "2026-10-25s"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -610,7 +610,7 @@ func _update_dash_lesson(real_delta: float) -> void:
 		if _lesson_left <= 0.0 or state != State.PLAYING or hero == null or hero.is_dashing():
 			_end_dash_lesson()
 		return
-	if state != State.PLAYING or hero == null or not hero.dash_ready() or _lessons_this_run >= 2 or _hit_stop_left > 0.0 or not dash_unlocked():
+	if state != State.PLAYING or hero == null or not hero.dash_ready() or _lessons_this_run >= 1 or _hit_stop_left > 0.0 or not dash_unlocked():
 		return
 	if _perfect_total < 0:
 		_perfect_total = int(_load_save().get_value("stats", "perfect_total", 0))
@@ -1106,7 +1106,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	_env.fog_light_color = look.fog
 	_env.background_color = look.background
 	_moon.light_color = look.moon
-	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14, look.motes, look.motes_fall)
+	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14, look.motes, look.motes_fall, look.get("motes_size", 1.0))
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start(), _run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save()))
 	hero.place_at(room.player_start())
@@ -1130,10 +1130,16 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_start_blessing = {}
 		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner("Blessed: " + u.title, Upgrades.color(u)))
 	_wave_kinds.clear()
+	var mages := 0
 	for s in room.spawns:
 		var kind: String = s.kind
 		if kind == "K" and floor_num % 2 == 0:
 			kind = "L"   # every second floor is ruled by the Lich instead
+		# Floor 1 is for learning: never more than one skeleton mage in a wave.
+		if kind == "g" and floor_num == 1:
+			mages += 1
+			if mages > 1:
+				kind = "m"
 		var e := spawn_enemy(kind, s.pos)
 		if _roll_elite(e, index):
 			e.make_elite()
@@ -1394,6 +1400,11 @@ func _next_wave() -> void:
 	# First run, room 2: there's always an archer, so the dash lesson has arrows to teach with.
 	if ftue_room() == 2 and not kinds.has("a"):
 		kinds[0] = "a"
+	if floor_num == 1:
+		var first := kinds.find("g")
+		for i in kinds.size():
+			if kinds[i] == "g" and i != first:
+				kinds[i] = "m"
 	var spots := _wave_spots(kinds.size())
 	for p in spots:
 		Fx.dust(p, 10)

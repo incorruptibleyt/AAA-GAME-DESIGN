@@ -1307,6 +1307,12 @@ func _process(delta: float) -> void:
 		_broken_time -= delta
 		_broken_label.modulate.a = clampf(_broken_time / 0.4, 0.0, 1.0)
 		_chain_label.modulate.a = 1.0 - _broken_label.modulate.a
+	# Tips, hints and callouts belong to the action: hide them while a menu or the
+	# blessing cards cover it, so they never show through ("PERFECT!" over the cards).
+	var covered := 0.0 if _overlay_open() else 1.0
+	_tip.self_modulate.a = covered
+	_hint.self_modulate.a = covered
+	_callout.self_modulate.a = covered
 	if _tip_delay > 0.0:
 		_tip_delay -= delta
 		_tip.visible = _tip_delay <= 0.0

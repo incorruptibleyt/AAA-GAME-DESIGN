@@ -23,10 +23,14 @@ var _first_frame := true
 var _look: Node3D
 var _pulse := 0.0
 
-## Every undead shot shares one look so danger reads at a glance: a hot red-magenta
-## core with a white-hot centre and a dark outline, a little bigger than it hits, pulsing.
+## Every undead shot shares one look so danger reads at a glance on every floor: a big
+## white-hot core in a red-magenta shell, a near-black outline and a faint white halo
+## underneath, a little bigger than it hits, pulsing.
 const DANGER := Color(1.0, 0.12, 0.38)
 static var _outline_mat: StandardMaterial3D
+static var _shell_mat: StandardMaterial3D
+static var _core_mat: StandardMaterial3D
+static var _halo_mat: StandardMaterial3D
 ## Undead shots in flight, for Grave Dash to check against.
 static var danger: Array[Projectile] = []
 
@@ -69,16 +73,33 @@ func _danger_look(size: float) -> void:
 		_outline_mat = StandardMaterial3D.new()
 		_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
-		_outline_mat.albedo_color = Color(0.12, 0.0, 0.04)
+		_outline_mat.albedo_color = Color(0.03, 0.0, 0.02)
+		# See-through layers draw in priority order, so the white core always shows on top
+		# of the shell instead of flickering behind it.
+		_halo_mat = _layer(Color(1, 1, 1, 0.3), 0)
+		_shell_mat = _layer(DANGER, 1)
+		_core_mat = _layer(Color(1, 0.97, 0.98), 2)
 	var r := maxf(size, 0.2) * 1.3
 	_look = Node3D.new()
 	add_child(_look)
-	for part in [[r * 1.3, _outline_mat], [r, U.unlit(DANGER)], [r * 0.45, U.unlit(Color(1, 0.92, 0.95))]]:
+	for part in [[r * 1.35, _outline_mat], [r, _shell_mat], [r * 0.55, _core_mat]]:
 		var m := U.sphere(_look, part[0], part[1])
 		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var halo := U.sphere(_look, r * 1.9, _halo_mat, Vector3(0, -r * 1.6, 0))
+	halo.scale = Vector3(1, 0.08, 1)
+	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	var tail := U.sphere(self, r * 0.7, U.unlit(Color(DANGER.r, DANGER.g, DANGER.b, 0.4)), Vector3(0, 0, r * 2.2))
 	tail.scale = Vector3(0.7, 0.7, 3.0)
 	tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+static func _layer(col: Color, priority: int) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.albedo_color = col
+	m.render_priority = priority
+	return m
 
 
 ## Seconds until this shot would reach `pos` (a body of radius `r`), or INF if it will miss.
