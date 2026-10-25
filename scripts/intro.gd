@@ -634,6 +634,8 @@ func _step(dt: float) -> void:
 			Sfx.play("roar", 0.85)
 		if _crossed(was, CHOP + 0.15):
 			Sfx.play("dash", 0.8, 0.7)   # the warrior launches itself at you
+		if _crossed(was, RISE):
+			Sfx.play("roar", 0.75, 0.75)   # a war cry as it leaves the floor
 		if _crossed(was, DODGE):
 			# Like a perfect dodge in the game: a slowed whoosh and a bone crack.
 			Sfx.play("dash", 0.9, 0.7)
@@ -661,6 +663,8 @@ func _step(dt: float) -> void:
 				_shatter(i)
 			if i > 0 and _crossed(was, BURSTS[i - 1] + 0.05):
 				Sfx.play("dash", 0.6, 1.3 + i * 0.15)   # the chain lashing out
+		if _crossed(was, BURSTS[-1] + 0.05):
+			Sfx.play("ignite", 0.9, 0.8)   # the whole chain flares up
 		if _crossed(was, SNAP):
 			Sfx.play("dash", 0.9, 0.8)
 		if _crossed(was, HIT):
