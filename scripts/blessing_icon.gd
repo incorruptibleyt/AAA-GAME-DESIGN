@@ -70,6 +70,18 @@ func _draw() -> void:
 		"shatter": _shards()
 		"bonestorm": _shard_ring()
 		"ossuary": _skull()
+		"nimble": _nimble()
+		"backstab": _dagger()
+		"quiver": _rings()
+		"bulwark": _tower_shield()
+		"broad": _sword()
+		"aftershock": _quake()
+		"bloodlust": _blood_drop()
+		"heavy": _axe()
+		"whirl": _spiral()
+		"volatile": _orb_burst()
+		"flow": _orb_flow()
+		"meteors": _meteor_storm()
 		_:
 			match family:
 				"bolt": _bolt()
@@ -189,7 +201,7 @@ func _bone() -> void:
 # ---------------------------------------------------------------- one picture per blessing
 
 func _damage() -> void:
-	# Sharpened Bolts: a bolt with a big gleaming head.
+	# Sharpened Shots: a bolt with a big gleaming head.
 	_ln(Vector2(-14, 14), Vector2(4, -4), 4.0)
 	_poly([Vector2(16, -16), Vector2(-1, -9), Vector2(5, -5), Vector2(9, 1)])
 	_ln(Vector2(-14, 14), Vector2(-19, 12), 3.0)
@@ -224,7 +236,7 @@ func _eye() -> void:
 
 
 func _twin() -> void:
-	# Twin Bolts: two bolts side by side.
+	# Twin Shots: two bolts side by side.
 	for x in [-7.0, 7.0]:
 		_arrow(Vector2(x, 15), Vector2(x, -17), 3.5, 9.0)
 		_ln(Vector2(x, 15), Vector2(x - 3.5, 18.5), 2.5)
@@ -246,7 +258,7 @@ func _pierce() -> void:
 
 
 func _fan() -> void:
-	# Fan of Bolts: three bolts spreading out.
+	# Fan of Shots: three bolts spreading out.
 	for tip: Vector2 in [Vector2(-15, -10), Vector2(0, -18), Vector2(15, -10)]:
 		_arrow(Vector2(0, 15), tip, 3.0, 8.0)
 
@@ -398,3 +410,128 @@ func _skull() -> void:
 	_poly([Vector2(0, 2), Vector2(-2.5, 6), Vector2(2.5, 6)], DARK)
 	for x in [-3.5, 0.0, 3.5]:
 		_ln(Vector2(x, 9), Vector2(x, 14), 1.5, DARK)
+
+
+# ---------------------------------------------------------------- hero blessings
+
+const STEEL := Color(0.86, 0.9, 0.96)
+const ARCANE := Color(0.8, 0.5, 1.0)
+const BLOOD := Color(0.88, 0.14, 0.18)
+const EMBER := Color(1.0, 0.55, 0.2)
+
+
+func _nimble() -> void:
+	# Nimble: dash chevrons.
+	for x in [-9.0, 4.0]:
+		_ln(Vector2(x - 5, -12), Vector2(x + 6, 0), 5.0)
+		_ln(Vector2(x + 6, 0), Vector2(x - 5, 12), 5.0)
+	_dot(Vector2(14, 0), 2.5, Color.WHITE)
+
+
+func _dagger() -> void:
+	# Backstab: a dagger.
+	var d := Vector2(1, -1).normalized()
+	var n := d.orthogonal()
+	_poly([d * 19.0, n * 4.5, -n * 4.5], STEEL)
+	_ln(n * 8.0 - d * 1.0, -n * 8.0 - d * 1.0, 3.5)
+	_ln(-d * 2.0, -d * 13.0, 4.0, color.darkened(0.35))
+	_dot(-d * 14.5, 3.0)
+
+
+func _rings() -> void:
+	# Shadow Quiver: rings of shots spreading out.
+	for r in [6.0, 11.0, 16.0]:
+		_arc(Vector2.ZERO, r, 0.0, TAU, 2.5, ARCANE if r == 11.0 else color)
+	for i in 6:
+		var d := Vector2.UP.rotated(TAU * i / 6.0)
+		_dot(d * 16.0, 2.5, Color.WHITE)
+	_dot(Vector2.ZERO, 3.0, Color.WHITE)
+
+
+func _tower_shield() -> void:
+	# Bulwark: a big square shield with a cross.
+	_poly([Vector2(-13, -16), Vector2(13, -16), Vector2(13, 5), Vector2(0, 17), Vector2(-13, 5)])
+	_ln(Vector2(0, -14), Vector2(0, 14), 3.0, DARK)
+	_ln(Vector2(-11, -4), Vector2(11, -4), 3.0, DARK)
+	for p: Vector2 in [Vector2(-9, -12), Vector2(9, -12), Vector2(-9, 4), Vector2(9, 4)]:
+		_dot(p, 1.6, DARK)
+
+
+func _sword() -> void:
+	# Broad Swing: a sword with a sweeping arc.
+	_arc(Vector2(0, 3), 17.0, PI + 0.35, TAU - 0.35, 3.0, Color(1, 1, 1, 0.75))
+	_poly([Vector2(0, -16), Vector2(3, -12), Vector2(3, 5), Vector2(-3, 5), Vector2(-3, -12)], STEEL)
+	_ln(Vector2(-8, 6), Vector2(8, 6), 3.5)
+	_ln(Vector2(0, 7), Vector2(0, 14), 3.0, color.darkened(0.35))
+	_dot(Vector2(0, 15.5), 2.5)
+
+
+func _quake() -> void:
+	# Aftershock: shockwaves over a cracked floor.
+	_arc(Vector2(0, 8), 8.0, PI, TAU, 3.0, Color.WHITE)
+	_arc(Vector2(0, 8), 15.0, PI + 0.15, TAU - 0.15, 3.0)
+	_ln(Vector2(-18, 9), Vector2(18, 9), 3.0)
+	_ln(Vector2(0, 9), Vector2(3, 13), 2.5)
+	_ln(Vector2(3, 13), Vector2(-1, 17), 2.5)
+	_ln(Vector2(-9, 9), Vector2(-11, 14), 2.0)
+	_ln(Vector2(9, 9), Vector2(12, 13), 2.0)
+
+
+func _blood_drop() -> void:
+	# Bloodlust: a drop of blood.
+	var pts := []
+	for i in 24:
+		var t := TAU * i / 24.0
+		var p := Vector2(sin(t) * (1.0 - 0.55 * max(0.0, -cos(t))), cos(t))
+		pts.append(Vector2(p.x * 12.0, p.y * 10.0 + 5.0 - max(0.0, -p.y) * 9.0))
+	_poly(pts, BLOOD)
+	_dot(Vector2(-4, 6), 2.5, Color(1, 1, 1, 0.8))
+
+
+func _axe() -> void:
+	# Heavy Axes: a big axe.
+	_ln(Vector2(-11, 17), Vector2(9, -13), 4.0, color.darkened(0.4))
+	_poly([Vector2(3, -9), Vector2(9, -19), Vector2(17, -15), Vector2(19, -5), Vector2(13, 3), Vector2(7, -3)], STEEL)
+	_ln(Vector2(9, -19), Vector2(19, -5), 2.0, Color.WHITE)
+
+
+func _spiral() -> void:
+	# Endless Whirl: a spinning spiral.
+	var pts := PackedVector2Array()
+	for i in 41:
+		var a := i * 0.36
+		pts.append(_v(Vector2(cos(a), sin(a)) * (2.0 + i * 0.4)))
+	draw_polyline(pts, color, 3.5 * _k, true)
+	var end := Vector2(cos(40 * 0.36), sin(40 * 0.36)) * 18.0
+	_dot(end, 3.0, Color.WHITE)
+
+
+func _orb_burst() -> void:
+	# Volatile Orbs: an orb bursting.
+	for i in 8:
+		var d := Vector2.UP.rotated(TAU * i / 8.0 + 0.2)
+		_ln(d * 10.0, d * 18.0, 3.0, EMBER)
+	_dot(Vector2.ZERO, 8.0, ARCANE)
+	_dot(Vector2(-2.5, -2.5), 2.5, Color.WHITE)
+
+
+func _orb_flow() -> void:
+	# Arcane Flow: an orb streaking along.
+	var trail := Color(color, 0.75)
+	_ln(Vector2(-18, -6), Vector2(-2, -6), 2.5, trail)
+	_ln(Vector2(-19, 0), Vector2(-2, 0), 2.5, trail)
+	_ln(Vector2(-18, 6), Vector2(-2, 6), 2.5, trail)
+	_dot(Vector2(7, 0), 9.0, ARCANE)
+	_dot(Vector2(4.5, -2.5), 2.5, Color.WHITE)
+
+
+func _meteor_storm() -> void:
+	# Meteor Storm: falling meteors with fiery tails.
+	for m in [[Vector2(7, -7), 7.0], [Vector2(-9, -12), 3.5], [Vector2(13, 7), 3.5]]:
+		var at: Vector2 = m[0]
+		var r: float = m[1]
+		var d := Vector2(-1, 1).normalized()
+		var n := d.orthogonal()
+		_poly([at + n * r, at - n * r, at + d * r * 3.2], Color(EMBER, 0.75))
+		_dot(at, r, EMBER)
+		_dot(at - Vector2(r, r) * 0.25, r * 0.45, HOT)

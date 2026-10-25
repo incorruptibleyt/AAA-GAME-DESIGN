@@ -1,6 +1,6 @@
 class_name Burning
 extends Node
-## Damage over time from the Fire Bolts blessing.
+## Damage over time from the Fire Shots blessing.
 
 var dps := 0.0
 var remaining := 0.0

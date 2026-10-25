@@ -10,6 +10,8 @@ var radius := 0.2
 var pierce := 0
 var push := 4.0
 var crit_chance := 0.0
+## How much a critical hit multiplies the damage (Backstab makes it 3).
+var crit_mult := 2.0
 var burn_dps := 0.0
 var frost := false
 ## Mage orbs: on hitting something, also hurt everything nearby.
@@ -163,7 +165,7 @@ func _process(delta: float) -> void:
 		var crit := randf() < crit_chance
 		if a is Hero:
 			Game.hit_source = source
-		a.take_damage(damage * 2.0 if crit else damage, dir, push, crit)
+		a.take_damage(damage * crit_mult if crit else damage, dir, push, crit)
 		if burn_dps > 0.0 and not a.dead:
 			Burning.apply(a, burn_dps, 2.5)
 		if frost and not a.dead and a is Enemy:

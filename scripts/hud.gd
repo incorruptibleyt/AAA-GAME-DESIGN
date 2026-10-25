@@ -1114,7 +1114,7 @@ func show_omens(v: bool, choices := [], next_loop := 2, have := "") -> void:
 	for c in _omen_rows.get_children():
 		c.queue_free()
 	for o: Dictionary in choices:
-		var b := button("%s\n%s" % [o.title, o.text], 22, Color(0.16, 0.06, 0.09, 0.98), Color(0.95, 0.4, 0.42, 0.8))
+		var b := button("%s  ·  +%d%% score\n%s" % [o.title, roundi(Loops.OMEN_SCORE * 100.0), o.text], 22, Color(0.16, 0.06, 0.09, 0.98), Color(0.95, 0.4, 0.42, 0.8))
 		b.custom_minimum_size = Vector2(0, 92)
 		b.pressed.connect(func(): omen_picked.emit(o.id))
 		_omen_rows.add_child(b)
@@ -1498,7 +1498,8 @@ func show_cards(choices: Array, rerolls := 0, tags := true) -> void:
 		(labels[0] as Label).label_settings.font_color = Upgrades.color(u)
 		(labels[1] as Label).text = u.text
 		(labels[2] as BlessingIcon).show_for(u)
-		(labels[3] as Label).text = "%s · %s" % [Upgrades.FAMILIES[u.family].name.to_upper(), rar.name] if tags else Upgrades.FAMILIES[u.family].name.to_upper()
+		var kind: String = Heroes.get_hero(u.hero).title.to_upper() if u.has("hero") else Upgrades.FAMILIES[u.family].name.to_upper()
+		(labels[3] as Label).text = "%s · %s" % [kind, rar.name] if tags else kind
 		(labels[3] as Label).label_settings.font_color = rar.color
 		for sb_name in ["normal", "pressed"]:
 			var sb := b.get_theme_stylebox(sb_name) as StyleBoxFlat

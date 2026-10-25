@@ -6,8 +6,10 @@ class_name Loops
 ## Every loop is also a little darker.
 
 const FLOORS := 5
-## Banking a run at the end of a loop pays this share of the run's coins again.
-const BANK_BONUS := 0.5
+## Banking a run at the end of a loop pays the run's coins again, plus a quarter more
+## for every Omen braved.
+const BANK_BONUS := 1.0
+const OMEN_BANK := 0.25
 ## Each Omen adds this much to the score multiplier.
 const OMEN_SCORE := 0.25
 ## Rerolls handed out between loops (along with full health).

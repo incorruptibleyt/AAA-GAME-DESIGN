@@ -112,7 +112,7 @@ func _death_burst(h: Hero) -> void:
 			(a as Enemy).chill(h.frost_time)
 
 
-## Frost Bolts: walk slower for a moment.
+## Frost Shots: walk slower for a moment.
 func chill(seconds: float) -> void:
 	if _slow_left <= 0.0:
 		Fx.magic(center(), Color(0.6, 0.9, 1.0), 8)

@@ -32,7 +32,7 @@ func _draw() -> void:
 	var pulse := 1.0 + (0.12 * sin(Time.get_ticks_msec() * 0.02) if lesson else 0.0)
 	var col := Color(0.45, 0.8, 1.0)
 	draw_circle(c, r * pulse, Color(col.r, col.g, col.b, 0.75) if lesson else Color(0.08, 0.06, 0.1, 0.7))
-	var charge := 1.0 - clampf(h._dash_cooldown / Hero.DASH_COOLDOWN, 0.0, 1.0)
+	var charge := 1.0 - clampf(h._dash_cooldown / h.dash_cooldown_time, 0.0, 1.0)
 	draw_arc(c, r * pulse, -PI / 2.0, -PI / 2.0 + TAU * charge, 40, col if ready else Color(col.r, col.g, col.b, 0.4), 5.0)
 	# Two chevrons pointing up: ">>" turned on its side.
 	var ink := Color(0.05, 0.05, 0.1) if lesson else (col if ready else Color(col.r, col.g, col.b, 0.4))

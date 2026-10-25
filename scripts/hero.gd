@@ -40,6 +40,13 @@ var _spin_left := 0.0
 var _spin_tick := 0.0
 var magnet := 1.0
 var coin_bonus := 0.0
+## Hero blessings (upgrades.gd) tune these.
+var dash_cooldown_time := DASH_COOLDOWN
+var crit_mult := 2.0
+var volley_rings := 3
+var slam_reach := 5.0
+var whirl_time := 2.5
+var meteor_count := 5
 ## Bone Ward: hits blocked per room, and how many are left in this room.
 var ward_max := 0
 var ward := 0
@@ -146,7 +153,7 @@ func dash(dir: Vector3) -> void:
 	_dash_dir = dir.normalized()
 	_dash_left = DASH_TIME
 	_last_dash_ms = Time.get_ticks_msec()
-	_dash_cooldown = DASH_COOLDOWN
+	_dash_cooldown = dash_cooldown_time
 	_trail_t = 0.0
 	knockback = Vector3.ZERO
 	rotation.y = atan2(-_dash_dir.x, -_dash_dir.z)
@@ -217,7 +224,7 @@ func use_special() -> void:
 	match hero_id:
 		"knight": _shield_slam()
 		"barbarian":
-			_spin_left = 2.5
+			_spin_left = whirl_time
 			Sfx.play("dash", 0.9)
 		"mage": _meteors()
 		_: _shadow_volley()
@@ -230,7 +237,7 @@ func _special_hit(a: Actor, amount: float, from: Vector3, push: float) -> void:
 
 
 func _shadow_volley() -> void:
-	for wave in 3:
+	for wave in volley_rings:
 		get_tree().create_timer(0.22 * wave, false).timeout.connect(func():
 			if dead:
 				return
@@ -245,22 +252,22 @@ func _shadow_volley() -> void:
 func _shield_slam() -> void:
 	visual.attack()
 	Game.finisher(global_position, 0.35, 0.3, Color(1, 0.95, 0.7))
-	Fx.shockwave(global_position, Color(1, 0.9, 0.6), 5.0)
+	Fx.shockwave(global_position, Color(1, 0.9, 0.6), slam_reach)
 	Fx.dust(global_position, 30)
 	_invulnerable = maxf(_invulnerable, 1.2)
 	for a: Actor in Actor.all.duplicate():
 		if a.team != Team.UNDEAD or not a.can_be_hit():
 			continue
-		if a.global_position.distance_to(global_position) < 5.0 + a.radius:
+		if a.global_position.distance_to(global_position) < slam_reach + a.radius:
 			_special_hit(a, damage * 3.0, global_position, 14.0)
 			if not a.dead and a is Enemy:
-				(a as Enemy).chill(2.5)
+				(a as Enemy).chill(2.5 if slam_reach <= 5.0 else 3.5)
 
 
 func _meteors() -> void:
 	var targets := Actor.all.filter(func(a: Actor): return a.team == Team.UNDEAD and a.can_be_hit())
 	targets.sort_custom(func(a: Actor, b: Actor): return a.global_position.distance_squared_to(global_position) < b.global_position.distance_squared_to(global_position))
-	targets = targets.slice(0, 5)
+	targets = targets.slice(0, meteor_count)
 	if targets.is_empty():
 		targets = [self]   # nothing around: one meteor lands in front so the move isn't wasted
 	for i in targets.size():
@@ -423,6 +430,7 @@ func _fire(origin: Vector3, d: Vector3, col: Color) -> void:
 	p.push = bolt_push
 	p.splash = splash
 	p.crit_chance = crit_chance
+	p.crit_mult = crit_mult
 	p.burn_dps = burn_dps
 	p.frost = frost
 
@@ -522,7 +530,7 @@ func _update_dash_ring() -> void:
 	if _dash_ring == null:
 		return
 	var ready := dash_ready()
-	var a := 0.12 + 0.12 * (1.0 - clampf(_dash_cooldown / DASH_COOLDOWN, 0.0, 1.0))
+	var a := 0.12 + 0.12 * (1.0 - clampf(_dash_cooldown / dash_cooldown_time, 0.0, 1.0))
 	if ready:
 		a = 0.45 + sin(Time.get_ticks_msec() * 0.006) * 0.1
 	_ring_mat.albedo_color.a = a

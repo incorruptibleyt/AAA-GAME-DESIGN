@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25s"
+const BUILD := "2026-10-25t"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -662,8 +662,24 @@ func _build_run() -> void:
 		else:
 			pool.shuffle()
 		for i in mini(pair[1], pool.size()):
-			_run.append(pool[i])
+			_run.append(_twist_room(pool[i], pool, rng))
 	_run.append(Layouts.BOSS)
+
+
+## Deeper floors don't replay rooms exactly: from floor 2 a room may be mirrored, and from
+## floor 3 its far half may be joined to the near half of another room from the same pool.
+func _twist_room(layout: Array, pool: Array, rng: RandomNumberGenerator) -> Array:
+	var roll := func() -> float: return rng.randf() if rng else randf()
+	var out := layout.duplicate()
+	if floor_num >= 3 and pool.size() > 1 and roll.call() < 0.35:
+		var other: Array = pool[(pool.find(layout) + 1 + int(roll.call() * (pool.size() - 1))) % pool.size()]
+		if other != layout:
+			for row in range(7, Layouts.ROWS):
+				out[row] = other[row]
+	if floor_num >= 2 and roll.call() < 0.5:
+		for row in out.size():
+			out[row] = (out[row] as String).reverse()
+	return out
 
 
 func _combat_rooms() -> int:
@@ -1025,10 +1041,11 @@ func _descend() -> void:
 
 ## The coins BANK AND LEAVE pays on top of the run's own.
 func _bank_bonus() -> int:
-	return roundi(run_coins * Loops.BANK_BONUS)
+	return roundi(run_coins * (Loops.BANK_BONUS + Loops.OMEN_BANK * Loops.total(omens)))
 
 
-## BANK AND LEAVE at the end of a loop: the run ends here, paying half its coins again.
+## BANK AND LEAVE at the end of a loop: the run ends here, paying its coins again (and a
+## quarter more for each Omen).
 func _bank_run() -> void:
 	if state != State.VICTORY or not _loop_choice:
 		return

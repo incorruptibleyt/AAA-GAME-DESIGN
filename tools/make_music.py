@@ -2,6 +2,7 @@
 
 Run:  python3 tools/make_music.py   (needs numpy and ffmpeg)
 Writes audio/music_dungeon.ogg and audio/music_boss.ogg. Each file loops seamlessly.
+(The game now plays the CC0 orchestral tracks in audio/music instead; this is kept for reference.)
 """
 import os
 import subprocess

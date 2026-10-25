@@ -61,6 +61,8 @@ var _answering := false
 var _die := false
 ## "icons": a picture of every blessing's badge, then quit.
 var _icons := false
+## "cards=a,b,c": the first blessing pick offers exactly these cards (for pictures).
+var _force_cards: Array = []
 
 
 func _ready() -> void:
@@ -135,6 +137,8 @@ func _ready() -> void:
 			_die = true
 		elif a == "icons":
 			_icons = true
+		elif a.begins_with("cards="):
+			_force_cards = Array(a.substr(6).split(","))
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -183,6 +187,10 @@ func _process(delta: float) -> void:
 	if Game.state != _last_state:
 		_last_state = Game.state
 		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
+		if Game.state == Game.State.UPGRADE and not _force_cards.is_empty():
+			Game._choices = _force_cards.map(func(id): return Upgrades.get_def(id))
+			Game.hud.show_cards(Game._choices, Game.rerolls, true)
+			_force_cards = []
 		if shots_dir != "" and Game.state in [Game.State.UPGRADE, Game.State.VICTORY, Game.State.DEAD, Game.State.PAUSED]:
 			_shot.call_deferred()
 		if shots_dir != "" and Game.state == Game.State.PLAYING and Room.current and Room.current.door_open:
@@ -509,13 +517,13 @@ func _icon_sheet() -> void:
 	for i in all.size():
 		var u: Dictionary = all[i]
 		var icon := BlessingIcon.new()
-		icon.position = Vector2(30 + (i % 4) * 128, 20 + (i / 4) * 132)
-		icon.scale = Vector2(1.4, 1.4)
+		icon.position = Vector2(26 + (i % 5) * 102, 14 + (i / 5) * 116)
+		icon.scale = Vector2(1.15, 1.15)
 		bg.add_child(icon)
 		icon.show_for(u)
-		var l := Hud.label(u.title, 15)
-		l.position = icon.position + Vector2(-20, 92)
-		l.size = Vector2(130, 20)
+		var l := Hud.label(u.title, 12)
+		l.position = icon.position + Vector2(-17, 76)
+		l.size = Vector2(108, 18)
 		bg.add_child(l)
 	for f in 6:
 		await get_tree().process_frame

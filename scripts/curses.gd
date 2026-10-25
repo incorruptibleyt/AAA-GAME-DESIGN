@@ -37,7 +37,7 @@ const MASTERY := [
 	{"level": 4, "title": "Bone Crown", "text": "Title: Bone Crown"},
 	{"level": 6, "title": "Grave Aura", "text": "A red glow at your hero's feet"},
 	{"level": 8, "title": "Dread", "text": "Title: Dread"},
-	{"level": 10, "title": "Golden Bolts", "text": "Your hero's shots turn gold"},
+	{"level": 10, "title": "Golden Shots", "text": "Your hero's shots turn gold"},
 ]
 
 
@@ -144,7 +144,7 @@ const RULES := [
 	{"id": "quick", "kind": "help", "title": "Quick Hands", "text": "Your special charges twice as fast"},
 	{"id": "hearty", "kind": "help", "title": "Hearty", "text": "Hearts heal twice as much"},
 	{"id": "longlinks", "kind": "help", "title": "Long Links", "text": "The Bone Chain lasts 1.5 s longer"},
-	{"id": "glass", "kind": "trade", "title": "Glass Bolts", "text": "+50% damage, but 30% less health"},
+	{"id": "glass", "kind": "trade", "title": "Glass Shots", "text": "+50% damage, but 30% less health"},
 	{"id": "frenzy", "kind": "trade", "title": "Frenzy", "text": "Skeletons 25% faster, kills worth double"},
 	{"id": "swarm", "kind": "trade", "title": "Swarm", "text": "One more skeleton a wave, kills worth +50%"},
 	{"id": "hunt", "kind": "trade", "title": "Elite Hunt", "text": "Twice the elites, each worth triple"},
@@ -160,7 +160,7 @@ const THEMES := [
 	{"name": "Marrow Monday", "text": "The chain climbs to x4", "hero": "rogue", "perk": "marrow"},
 	{"name": "Tough Tuesday", "text": "Two curses, no help", "hero": "knight", "slots": ["harm", "harm", "trade"]},
 	{"name": "Wild Wednesday", "text": "Two trade-offs", "hero": "barbarian", "slots": ["help", "trade", "trade"]},
-	{"name": "Thunder Thursday", "text": "Start with Twin Bolts", "hero": "mage", "perk": "multishot"},
+	{"name": "Thunder Thursday", "text": "Start with Twin Shots", "hero": "mage", "perk": "multishot"},
 	{"name": "Frenzy Friday", "text": "The dead are restless tonight", "hero": "rogue", "force": "frenzy"},
 	{"name": "Swarm Saturday", "text": "The crypt is packed", "hero": "knight", "force": "swarm"},
 ]
