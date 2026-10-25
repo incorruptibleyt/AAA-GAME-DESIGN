@@ -27,7 +27,7 @@ The Crypt Pass is a one-time purchase made through Google Play. Google handles t
 
 ## What stays on your phone
 
-The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, Daily Crypt best scores, chosen Curses, whether you own the Crypt Pass, settings and simple play counts such as perfect dodges) in a file on your own phone. It is deleted when you uninstall the game.
+The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, Daily Crypt best scores, chosen Curses, Curse rewards, free hero trials used, whether you own the Crypt Pass, settings and simple play counts such as perfect dodges) in a file on your own phone. A run in progress is saved in a second file on your phone so you can continue it. Both files are deleted when you uninstall the game.
 
 ## Permissions
 

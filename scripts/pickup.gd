@@ -77,7 +77,7 @@ static func grant_all() -> void:
 		if p.coin:
 			Game.add_coins(p.value)
 		elif hero and not hero.dead:
-			hero.heal(HEAL)
+			hero.heal(HEAL * Game.heart_mult())
 		p.queue_free()
 	all.clear()
 
@@ -115,7 +115,7 @@ func _process(delta: float) -> void:
 			Game.add_coins(value)
 			Sfx.play("coin", 0.45)
 		else:
-			hero.heal(HEAL)
+			hero.heal(HEAL * Game.heart_mult())
 			Sfx.play("pickup", 0.6)
 			Fx.magic(hero.center(), Color(1, 0.35, 0.45), 14)
 		queue_free()

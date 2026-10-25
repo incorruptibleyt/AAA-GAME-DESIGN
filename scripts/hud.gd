@@ -32,6 +32,10 @@ signal daily_pressed
 signal curses_pressed
 signal curse_toggled(id: String)
 signal title_pressed
+signal daily_start
+signal continue_pressed
+signal hero_trial(id: String)
+signal share_pressed
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
 const FLICK_TIME := 0.22
@@ -128,6 +132,29 @@ var _pass_buy: Button
 var _pass_status: Label
 var _pass_restore: Button
 var _shop_curses := false
+var _title_free: Label
+var _title_play: Button
+var _title_continue: Control
+var _continue_where: Label
+var _title_spacer: Control
+var _title_daily: Button
+var _title_tutorial_button: Button
+var _timer_label: Label
+var _share_button: Button
+var _end_pass: Control
+var _end_spacer: Control
+var _daily_box: Control
+var _daily_title: Label
+var _daily_theme: Label
+var _daily_info: Label
+var _daily_rules: VBoxContainer
+var _daily_status: Label
+var _daily_go: Button
+var _daily_next: Label
+var _daily_open := false
+var _pass_tiles: Array[Label] = []
+var _pass_dev: Label
+var _pass_back: Button
 var _callout: Label
 var _callout_time := 0.0
 var _boss_card: Control
@@ -150,6 +177,7 @@ func _ready() -> void:
 	_build_end()
 	_build_pause()
 	_build_armory()
+	_build_daily()
 	_build_pass()
 	_build_boss_card()
 	_flash = ColorRect.new()
@@ -318,6 +346,17 @@ func _build_hud() -> void:
 	_wave_label.offset_bottom = 74
 	_wave_label.visible = false
 	root.add_child(_wave_label)
+
+	# The Hourglass curse's countdown, under the wave counter.
+	_timer_label = label("", 20, Color(1, 0.75, 0.5), HORIZONTAL_ALIGNMENT_RIGHT)
+	_timer_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_timer_label.offset_left = -276
+	_timer_label.offset_right = -76
+	_timer_label.offset_top = 72
+	_timer_label.offset_bottom = 100
+	_timer_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_timer_label.visible = false
+	root.add_child(_timer_label)
 
 	_special = SpecialButton.new()
 	_special.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -575,21 +614,38 @@ func _build_title() -> void:
 	var col := VBoxContainer.new()
 	full(col)
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 20)
+	col.add_theme_constant_override("separation", 14)
 	_title_box.add_child(col)
 	col.add_child(label("BONE CHAIN", 64, Color(1, 0.85, 0.55)))
 	col.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
+	# Said up front, so nobody is surprised when the free floors end.
+	_title_free = label("Free to try: floors 1-%d. The Crypt Pass opens the rest." % Store.FREE_FLOORS, 17, Color(0.95, 0.78, 0.45))
+	col.add_child(_title_free)
 	_title_best = label("", 18, Color(0.7, 0.7, 0.8))
 	col.add_child(_title_best)
 	_title_coins = coin_row(26, col, true)
 	_title_hero = label("", 20, Color(0.75, 0.85, 1.0))
 	col.add_child(_title_hero)
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 30)
-	col.add_child(spacer)
+	_title_spacer = Control.new()
+	_title_spacer.custom_minimum_size = Vector2(0, 24)
+	col.add_child(_title_spacer)
+	# A saved run (run_save.gd) can be picked up again.
+	var cont_col := VBoxContainer.new()
+	cont_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cont_col.add_theme_constant_override("separation", 2)
+	var cont := button("CONTINUE", 36, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	cont.add_theme_color_override("font_color", GOLD)
+	cont.custom_minimum_size = Vector2(300, 86)
+	cont.pressed.connect(func(): continue_pressed.emit())
+	cont_col.add_child(_centered(cont))
+	_continue_where = label("", 17, Color(0.95, 0.85, 0.6))
+	cont_col.add_child(_continue_where)
+	_title_continue = cont_col
+	col.add_child(cont_col)
 	var play := button("PLAY", 38, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
 	play.custom_minimum_size = Vector2(300, 92)
-	play.pressed.connect(func(): play_pressed.emit())
+	play.pressed.connect(func(): _guarded(play, play_pressed))
+	_title_play = play
 	col.add_child(_centered(play))
 	var heroes := button("HEROES", 26)
 	heroes.custom_minimum_size = Vector2(222, 74)
@@ -601,27 +657,49 @@ func _build_title() -> void:
 	_title_armory = armory
 	_title_shop_row = _pair(heroes, armory)
 	col.add_child(_title_shop_row)
-	# Crypt Pass: an offer for free players, Daily Crypt and Curses once it's owned.
-	var pass_button := button("CRYPT PASS", 26, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	pass_button.add_theme_color_override("font_color", GOLD)
-	pass_button.pressed.connect(func(): pass_pressed.emit())
-	_title_pass_row = _centered(pass_button)
-	col.add_child(_title_pass_row)
+	# The Daily Crypt (free on Sundays) and Curses (one is free), then the Crypt Pass.
 	var daily := button("DAILY CRYPT", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	daily.custom_minimum_size = Vector2(222, 74)
 	daily.add_theme_color_override("font_color", GOLD)
 	daily.pressed.connect(func(): daily_pressed.emit())
+	_title_daily = daily
 	var curses := button("CURSES", 24, Color(0.22, 0.06, 0.1, 0.97), Color(0.9, 0.35, 0.4))
 	curses.custom_minimum_size = Vector2(222, 74)
 	curses.pressed.connect(func(): curses_pressed.emit())
 	_title_daily_row = _pair(daily, curses)
 	col.add_child(_title_daily_row)
+	var pass_button := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	pass_button.custom_minimum_size = Vector2(222, 66)
+	pass_button.add_theme_color_override("font_color", GOLD)
+	pass_button.pressed.connect(func(): pass_pressed.emit())
+	_title_pass_row = pass_button
 	_title_lock = label("Heroes and the Armory open\nafter your first run", 20, Color(0.7, 0.68, 0.62))
 	col.add_child(_title_lock)
 	var tutorial := button("Tutorial run", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
-	tutorial.pressed.connect(func(): tutorial_pressed.emit())
-	_title_tutorial = _centered(tutorial)
-	col.add_child(_title_tutorial)
+	tutorial.custom_minimum_size = Vector2(222, 66)
+	tutorial.pressed.connect(func(): _guarded(tutorial, tutorial_pressed))
+	_title_tutorial_button = tutorial
+	_title_tutorial = tutorial
+	col.add_child(_pair(pass_button, tutorial))
+
+
+## With a saved run waiting, starting a new one asks first: the first tap warns, and a
+## second tap within 3 seconds starts it (giving up the saved run).
+func _guarded(b: Button, sig: Signal) -> void:
+	if not _title_continue.visible or b.has_meta("armed"):
+		if b.has_meta("armed"):
+			b.text = b.get_meta("armed")
+			b.remove_meta("armed")
+		sig.emit()
+		return
+	b.set_meta("armed", b.text)
+	b.text = "Tap again: new run"
+	b.add_theme_font_size_override("font_size", 20)
+	get_tree().create_timer(3.0, true, false, true).timeout.connect(func():
+		if b.has_meta("armed"):
+			b.text = b.get_meta("armed")
+			b.remove_meta("armed")
+			b.add_theme_font_size_override("font_size", 38 if b == _title_play else 20))
 
 
 ## Two buttons side by side, centred.
@@ -658,15 +736,24 @@ func _build_end() -> void:
 	col.add_child(_end_best)
 	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
 	col.add_child(_end_stats)
+	# Daily Crypt: the result as text to paste anywhere (one square per room).
+	_share_button = button("SHARE RESULT", 20, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	_share_button.add_theme_color_override("font_color", GOLD)
+	_share_button.custom_minimum_size = Vector2(240, 56)
+	_share_button.pressed.connect(func():
+		_share_button.text = "Copied! Paste it anywhere"
+		_share_button.add_theme_font_size_override("font_size", 16)
+		share_pressed.emit())
 	# Copies a detailed report of the run, to paste to Claude for balancing.
 	_copy_button = button("COPY RUN REPORT", 20, Color(0.1, 0.12, 0.18, 0.95), Color(0.5, 0.75, 1.0, 0.7))
-	_copy_button.custom_minimum_size = Vector2(300, 56)
+	_copy_button.custom_minimum_size = Vector2(240, 56)
 	_copy_button.pressed.connect(func():
 		_copy_button.text = "Copied! Paste it to Claude"
 		copy_report_pressed.emit())
-	col.add_child(_centered(_copy_button))
+	col.add_child(_pair(_share_button, _copy_button))
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 100)
+	_end_spacer = spacer
 	col.add_child(spacer)
 	_end_tap = label("Tap to try again", 30)
 	_end_tap.set_script(Pulse)
@@ -680,11 +767,18 @@ func _build_end() -> void:
 	retry.pressed.connect(func(): retry_pressed.emit())
 	buttons.add_child(_centered(retry))
 	var heroes := button("HEROES", 26)
+	heroes.custom_minimum_size = Vector2(222, 74)
 	heroes.pressed.connect(func(): heroes_pressed.emit())
-	buttons.add_child(_centered(heroes))
 	var armory := button("ARMORY", 26)
+	armory.custom_minimum_size = Vector2(222, 74)
 	armory.pressed.connect(func(): armory_pressed.emit())
-	buttons.add_child(_centered(armory))
+	buttons.add_child(_pair(heroes, armory))
+	var end_pass := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	end_pass.add_theme_color_override("font_color", GOLD)
+	end_pass.pressed.connect(func(): pass_pressed.emit())
+	_end_pass = _centered(end_pass)
+	_end_pass.visible = false
+	buttons.add_child(_end_pass)
 	_end_buttons = buttons
 	# After the last free floor: the Crypt Pass, or back to the title.
 	var offer := VBoxContainer.new()
@@ -782,53 +876,85 @@ func _build_armory() -> void:
 	col.add_child(_centered(back))
 
 
-## The Crypt Pass screen: what it gives, the price, and buy / restore.
+## The Crypt Pass screen: four picture tiles for what it gives, the price, and buy / restore.
+## The pictures are in art/ui (taken from the game by the test robot).
 func _build_pass() -> void:
-	_pass_box = overlay(Color(0.03, 0.02, 0.05, 0.96))
+	_pass_box = overlay(Color(0.03, 0.02, 0.05, 0.97))
 	add_child(_pass_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	col.offset_left = 24
-	col.offset_right = -24
-	col.offset_top = 24
-	col.offset_bottom = -24
+	col.offset_left = 16
+	col.offset_right = -16
+	col.offset_top = 16
+	col.offset_bottom = -16
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 10)
 	_pass_box.add_child(col)
-	col.add_child(label("CRYPT PASS", 52, GOLD))
-	col.add_child(label("One purchase. Yours to keep.", 20, Color(0.85, 0.82, 0.75)))
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 8)
-	col.add_child(gap)
-	for perk in [
-		["Endless floors", "Go past floor %d, as deep as you dare." % Store.FREE_FLOORS],
-		["Daily Crypt", "New rooms, a blessing and a curse every day."],
-		["Curses", "Make runs harder for a much bigger score."],
-		["Every hero", "Knight, Barbarian and Mage, unlocked now."],
-	]:
-		var row := VBoxContainer.new()
-		row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		row.add_theme_constant_override("separation", 0)
-		col.add_child(row)
-		row.add_child(label(perk[0], 26, Color(1, 0.93, 0.8)))
-		row.add_child(label(perk[1], 18, Color(0.75, 0.75, 0.82)))
-	var gap2 := Control.new()
-	gap2.custom_minimum_size = Vector2(0, 10)
-	col.add_child(gap2)
+	col.add_child(label("CRYPT PASS", 50, GOLD))
+	col.add_child(label("One-time purchase. No ads. No subscription.\nYours forever.", 18, Color(0.88, 0.85, 0.78)))
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 10)
+	col.add_child(_centered(grid))
+	for tile in [["floors", "Endless floors"], ["heroes", "All 4 heroes now"], ["daily", "Daily Crypt"], ["curses", "10 Curses"]]:
+		grid.add_child(_pass_tile(tile[0], tile[1]))
 	_pass_buy = button("UNLOCK", 32, Color(0.45, 0.3, 0.08, 0.98), GOLD)
-	_pass_buy.custom_minimum_size = Vector2(320, 92)
+	_pass_buy.custom_minimum_size = Vector2(320, 86)
 	_pass_buy.pressed.connect(func(): pass_buy.emit())
 	col.add_child(_centered(_pass_buy))
 	_pass_status = label("", 18, Color(1, 0.75, 0.6))
 	col.add_child(_pass_status)
-	_pass_restore = button("Restore purchase", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
-	_pass_restore.custom_minimum_size = Vector2(260, 56)
+	_pass_dev = label("Bone Chain is made by one developer.\nThank you for keeping it going!", 15, Color(0.7, 0.68, 0.74))
+	col.add_child(_pass_dev)
+	_pass_back = button("NOT NOW", 26)
+	_pass_back.custom_minimum_size = Vector2(320, 70)
+	_pass_back.pressed.connect(func(): show_pass(false))
+	_pass_restore = button("Restore purchase", 18, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_pass_restore.custom_minimum_size = Vector2(220, 50)
 	_pass_restore.pressed.connect(func(): pass_restore.emit())
+	col.add_child(_centered(_pass_back))
 	col.add_child(_centered(_pass_restore))
-	var back := button("BACK", 26)
-	back.pressed.connect(func(): show_pass(false))
-	col.add_child(_centered(back))
+
+
+## One picture tile: the picture, a title and a line of text (filled in by show_pass).
+func _pass_tile(pic: String, title: String) -> Control:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.custom_minimum_size = Vector2(246, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.11, 0.08, 0.13, 1)
+	sb.set_corner_radius_all(12)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(1, 0.8, 0.3, 0.45)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 2)
+	panel.add_child(v)
+	var img := TextureRect.new()
+	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	img.custom_minimum_size = Vector2(234, 112)
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var path := "res://art/ui/pass_%s.png" % pic
+	if ResourceLoader.exists(path):
+		img.texture = load(path)
+	v.add_child(img)
+	var t := label(title, 20, Color(1, 0.93, 0.8))
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(t)
+	var d := label("", 14, Color(0.78, 0.78, 0.84))
+	d.custom_minimum_size = Vector2(234, 0)
+	v.add_child(d)
+	_pass_tiles.append(d)
+	return panel
 
 
 ## `price` is Google Play's price text ("" until it arrives), `status` a line under the button.
@@ -836,12 +962,120 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_box.visible = v
 	if not v:
 		return
+	var coins_of_heroes := 0
+	for h: Dictionary in Heroes.LIST:
+		coins_of_heroes += int(h.cost)
+	var t := Curses.theme()
+	_pass_tiles[0].text = "Floor %d and as deep\nas you dare" % (Store.FREE_FLOORS + 1)
+	_pass_tiles[1].text = "Knight, Barbarian and Mage,\nno coins needed (%d)" % coins_of_heroes
+	_pass_tiles[2].text = "#%d %s.\nNew rules every day" % [Curses.day_number(), t.name]
+	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
 	_pass_buy.disabled = owned
 	_pass_buy.text = "OWNED - THANK YOU!" if owned else ("UNLOCK  " + price if price != "" else "UNLOCK")
 	_pass_buy.add_theme_font_size_override("font_size", 26 if owned else 32)
 	_pass_status.text = status
 	_pass_status.visible = status != ""
+	_pass_dev.visible = not owned
+	_pass_back.text = "BACK" if owned else "NOT NOW"
 	_pass_restore.get_parent().visible = not owned
+
+
+## The Daily Crypt screen: today's theme, hero and three rules, and START.
+func _build_daily() -> void:
+	_daily_box = overlay(Color(0.03, 0.02, 0.05, 0.96))
+	add_child(_daily_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 22
+	col.offset_right = -22
+	col.offset_top = 24
+	col.offset_bottom = -24
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 12)
+	_daily_box.add_child(col)
+	_daily_title = label("DAILY CRYPT", 46, GOLD)
+	col.add_child(_daily_title)
+	_daily_theme = label("", 24, Color(1, 0.93, 0.8))
+	col.add_child(_daily_theme)
+	_daily_info = label("", 18, Color(0.8, 0.8, 0.86))
+	col.add_child(_daily_info)
+	_daily_rules = VBoxContainer.new()
+	_daily_rules.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_daily_rules.add_theme_constant_override("separation", 8)
+	col.add_child(_daily_rules)
+	_daily_status = label("", 18, Color(1, 0.8, 0.6))
+	col.add_child(_daily_status)
+	_daily_go = button("START", 30, Color(0.45, 0.3, 0.08, 0.98), GOLD)
+	_daily_go.custom_minimum_size = Vector2(340, 86)
+	_daily_go.pressed.connect(func():
+		if _daily_open:
+			_guarded(_daily_go, daily_start)
+		else:
+			pass_pressed.emit())
+	col.add_child(_centered(_daily_go))
+	_daily_next = label("", 16, Color(0.65, 0.63, 0.7))
+	col.add_child(_daily_next)
+	var back := button("BACK", 26)
+	back.pressed.connect(func(): show_daily(false))
+	col.add_child(_centered(back))
+
+
+## info: {title, theme, theme_text, hero, mult, rules: [{title, text, kind}], status, open, practice, next}
+func show_daily(v: bool, info := {}) -> void:
+	_daily_box.visible = v
+	if not v:
+		return
+	_daily_open = info.open
+	_daily_title.text = info.title
+	_daily_theme.text = "%s\n%s" % [info.theme, info.theme_text]
+	_daily_info.text = "Hero: %s  ·  %d floors  ·  Score x%s" % [info.hero, Curses.DAILY_FLOORS, info.mult]
+	for c in _daily_rules.get_children():
+		c.queue_free()
+	for r: Dictionary in info.rules:
+		_daily_rules.add_child(_rule_row(r))
+	_daily_status.text = info.status
+	_daily_go.text = ("PLAY PRACTICE" if info.practice else "START OFFICIAL RUN") if info.open else "GET THE CRYPT PASS"
+	_daily_go.add_theme_font_size_override("font_size", 26)
+	_daily_next.text = info.next
+
+
+func daily_visible() -> bool:
+	return _daily_box.visible
+
+
+## A daily rule: green helps, red is a curse, gold is a trade-off.
+func _rule_row(r: Dictionary) -> Control:
+	var kinds := {"help": ["HELP", Color(0.5, 0.95, 0.55)], "harm": ["CURSE", Color(0.95, 0.4, 0.42)], "trade": ["TRADE", GOLD]}
+	var k: Array = kinds.get(r.kind, kinds.harm)
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.1, 0.16, 0.98)
+	sb.set_corner_radius_all(10)
+	sb.border_width_left = 8
+	sb.border_color = k[1]
+	sb.content_margin_left = 18
+	sb.content_margin_right = 14
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.add_child(h)
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.add_theme_constant_override("separation", 0)
+	h.add_child(texts)
+	var t := label(r.title, 22, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(t)
+	texts.add_child(label(r.text, 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT))
+	var tag := label(k[0], 18, k[1])
+	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+	h.add_child(tag)
+	return panel
 
 
 func pass_visible() -> bool:
@@ -868,7 +1102,7 @@ func _apply_safe_area() -> void:
 # ---------------------------------------------------------------- input
 
 func _overlay_open() -> bool:
-	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible
+	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible or _daily_box.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -984,7 +1218,7 @@ func _process(delta: float) -> void:
 		_danger.modulate.a = move_toward(_danger.modulate.a, low * beat, delta * 3.0)
 	var boss := Game.boss
 	if boss and is_instance_valid(boss):
-		_boss_fill.anchor_right = clampf(boss.health / boss.max_health, 0.0, 1.0)
+		_boss_fill.anchor_right = Game.boss_bar()
 	if _banner_time > 0.0:
 		_banner_time -= delta
 		_banner.modulate.a = clampf(_banner_time / 0.4, 0.0, 1.0)
@@ -1014,6 +1248,19 @@ func hide_boss() -> void:
 func set_wave(wave: int, total: int) -> void:
 	_wave_label.visible = total > 1
 	_wave_label.text = "Wave %d / %d" % [wave, total]
+
+
+## The Hourglass countdown. Below zero hides it.
+func set_timer(seconds: float) -> void:
+	_timer_label.visible = seconds > -0.5 and Game.curses.has("hourglass")
+	if not _timer_label.visible:
+		return
+	if seconds <= 0.0:
+		_timer_label.text = "TIME'S UP"
+		_timer_label.label_settings.font_color = Color(1, 0.35, 0.3)
+	else:
+		_timer_label.text = "Time %d:%02d" % [int(seconds) / 60, int(seconds) % 60]
+		_timer_label.label_settings.font_color = Color(1, 0.45, 0.35) if seconds < 10.0 else Color(1, 0.75, 0.5)
 
 
 func clear_banner() -> void:
@@ -1146,11 +1393,20 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	var has_pass := Store.owned()
 	_title_shop_row.visible = not locked
 	_title_pass_row.visible = not locked and not has_pass
-	_title_daily_row.visible = not locked and has_pass
+	_title_daily_row.visible = not locked
+	_title_daily.text = "DAILY · FREE!" if Curses.free_today() and not has_pass else "DAILY CRYPT"
 	_title_lock.visible = locked
 	_title_tutorial.visible = not locked
+	_title_free.visible = not has_pass
 	_title_best.text = best
 	_title_coins.text = str(coins)
+	var where := Game.continue_text()
+	_title_continue.visible = where != "" and not locked
+	_continue_where.text = where
+	_title_spacer.visible = not _title_continue.visible
+	_title_play.text = "NEW RUN" if _title_continue.visible else "PLAY"
+	_title_play.add_theme_font_size_override("font_size", 32 if _title_continue.visible else 38)
+	_title_play.remove_meta("armed")
 
 
 func title_visible() -> bool:
@@ -1209,15 +1465,16 @@ func show_heroes(v: bool, rows := [], coins := 0) -> void:
 	_fill_shop(rows, coins)
 
 
-## rows: [{id, title, text, bonus, on}]. `mult` is the score multiplier they add up to.
-func show_curses(v: bool, rows := [], mult := 1.0) -> void:
+## rows: [{id, title, text, level, on, locked}]. `info` is the Curse Level line, `goal` the
+## next hero reward.
+func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 	_armory_box.visible = v
 	if not v:
 		return
 	_shop_heroes = false
 	_shop_curses = true
 	_shop_title.text = "Curses"
-	_shop_sub.text = "Make your runs harder for a bigger score.\nScore  x%.1f" % mult
+	_shop_sub.text = "%s\n%s" % [info, goal]
 	_armory_coins.get_parent().visible = false
 	for c in _armory_rows.get_children():
 		c.queue_free()
@@ -1269,26 +1526,44 @@ func _hero_row(r: Dictionary, coins: int) -> Button:
 	var d := label(r.text, 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
 	d.custom_minimum_size = Vector2(300, 0)
 	texts.add_child(d)
-	if r.selected or owned:
+	if r.get("trying", false):
+		var tag := label("FREE\nTRIAL", 18, GOLD)
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		h.add_child(tag)
+	elif r.selected or owned:
 		var tag := label("CHOSEN" if r.selected else "PICK", 20 if r.selected else 22, Color(0.5, 0.85, 1.0) if r.selected else Color(0.6, 1, 0.6))
 		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 		h.add_child(tag)
 	else:
+		var side := VBoxContainer.new()
+		side.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		side.alignment = BoxContainer.ALIGNMENT_CENTER
+		side.add_theme_constant_override("separation", 6)
+		h.add_child(side)
 		var price := HBoxContainer.new()
 		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(price)
+		price.alignment = BoxContainer.ALIGNMENT_CENTER
+		side.add_child(price)
 		var cost_label := coin_row(24, price)
 		cost_label.text = str(r.cost)
 		if not afford:
 			cost_label.label_settings.font_color = Color(0.6, 0.55, 0.5)
+		# Each locked hero can be tried for one run, free.
+		if r.get("trial", false):
+			var tb := button("TRY FREE", 15, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+			tb.add_theme_color_override("font_color", GOLD)
+			tb.custom_minimum_size = Vector2(108, 38)
+			tb.pressed.connect(func(): hero_trial.emit(r.id))
+			side.add_child(tb)
 	return b
 
 
 func _curse_row(r: Dictionary) -> Button:
 	var on: bool = r.on
+	var locked: bool = r.get("locked", false)
 	var red := Color(0.95, 0.35, 0.4)
 	var b := button("", 20, Color(0.2, 0.06, 0.09, 0.98) if on else Color(0.12, 0.1, 0.16, 0.98), red if on else Color(0.4, 0.35, 0.45, 0.6))
-	b.custom_minimum_size = Vector2(0, 76)
+	b.custom_minimum_size = Vector2(0, 60)
 	if on:
 		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4)
 	b.pressed.connect(func(): curse_toggled.emit(r.id))
@@ -1307,13 +1582,13 @@ func _curse_row(r: Dictionary) -> Button:
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	texts.add_theme_constant_override("separation", 0)
 	h.add_child(texts)
-	var t := label("%s   +%d%%" % [r.title, roundi(r.bonus * 100.0)], 22, red.lightened(0.3) if on else Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+	var t := label("%s   Lv %d" % [r.title, r.level], 20, red.lightened(0.3) if on else (Color(0.6, 0.58, 0.62) if locked else Color.WHITE), HORIZONTAL_ALIGNMENT_LEFT)
 	t.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(t)
-	var d := label(r.text, 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
+	var d := label(r.text, 15, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
 	d.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(d)
-	var tag := label("ON" if on else "OFF", 22, red if on else Color(0.6, 0.58, 0.62))
+	var tag := label("PASS" if locked else ("ON" if on else "OFF"), 20, GOLD.darkened(0.2) if locked else (red if on else Color(0.6, 0.58, 0.62)))
 	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(tag)
 	return b
@@ -1383,6 +1658,9 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_copy_button.text = "COPY RUN REPORT"
 	_end_tap.visible = not buttons and not offer
 	_end_buttons.visible = buttons
+	_end_pass.visible = false
+	_share_button.visible = false
+	_end_spacer.custom_minimum_size.y = 100.0 if not buttons else 24.0
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_end_stats.text = stats
@@ -1406,6 +1684,19 @@ func _update_end_count(delta: float) -> void:
 		else:
 			_end_best.text = "Best  " + thousands(_end_best_value)
 			_end_best.label_settings.font_color = Color(0.8, 0.78, 0.7)
+
+
+## Daily Crypt runs get a SHARE RESULT button on the end screen.
+func show_share(v: bool) -> void:
+	_share_button.visible = v
+	_share_button.text = "SHARE RESULT"
+	_share_button.add_theme_font_size_override("font_size", 20)
+	_copy_button.custom_minimum_size.x = 240.0 if v else 300.0
+
+
+## A CRYPT PASS button among the death-screen buttons (after a deep death, once a session).
+func show_end_pass(v: bool) -> void:
+	_end_pass.visible = v
 
 
 ## The Pass was bought on the end screen: carry on deeper instead.

@@ -34,7 +34,11 @@ and face the Skeleton King at the end of the floor.
 - **Readable danger:** the camera sits close and follows the hero, red arrows on the screen edge point at enemies and warnings just off-screen, every enemy shot is hot pink-red with a dark ring and a pulse, and your own shots are small and see-through.
 - **Healing hearts** (12 health) that skeletons sometimes drop and a beginner hint in room 1.
 - **Game feel:** slow-motion close-up on the last kill of each room, a boss entrance with a title card, drifting embers, hit-stop, screen shake, hit flashes, knockback, damage numbers, particles, and real sound effects plus an announcer voice from Kenney's CC0 packs (fetched by the Fetch Kenney audio workflow into audio/sfx).
-- **Crypt Pass ($4.99, one purchase through Google Play):** the free game ends after the floor 5 boss with an offer screen. The Pass opens endless floors, the **Daily Crypt** (the same rooms, starting blessing and curse for everyone that day, with its own best score) and **Curses** (Brittle Bones, Fragile Chain, Restless Dead, Famine, Gilded Horde: each makes runs harder and adds to a score multiplier), and unlocks every hero. Purchases use the official Godot Google Play Billing plugin in addons/ (Play build only); the product ID in Play Console must be `crypt_pass`.
+- **Crypt Pass ($4.99, one purchase through Google Play):** the free game ends after the floor 5 boss with an offer screen, and the title screen says "Free to try: floors 1-5". The Pass opens endless floors, the **Daily Crypt** and **Curses**, and unlocks every hero. The game checks with Google Play again whenever it comes back to the front.
+  - **Daily Crypt:** 3 floors with the same rooms, hero and three rules for everyone (one that helps, one curse, one trade-off), a theme for each weekday, one Official run a day plus Practice runs, and a result to share. It turns over at 07:00 UTC, and Sundays are free for everyone.
+  - **Curses:** 10 curses, each with a level; switched-on curses add up to a Curse Level (+15% score per level, up to 17). Beating the floor 5 boss at a Curse Level earns that hero titles and looks (red lantern, red aura, gold bolts). Restless Dead is free for everyone.
+  - **Free tastes:** each locked hero can be played once for free, and free players hear about the Pass once a session after reaching floor 3.
+- **Continue:** the run is saved at the start of every room (scripts/run_save.gd), so if Android closes the game, CONTINUE on the title screen picks it up at the start of that room. Purchases use the official Godot Google Play Billing plugin in addons/ (Play build only); the product ID in Play Console must be `crypt_pass`.
 - **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
 
 ## Art
@@ -72,7 +76,8 @@ scripts/
   chain_spine.gd      the Bone Chain spine meter at the top
   telemetry.gd        anonymous run/error/crash reports to a Google Form (opt-out in pause menu)
   store.gd            the Crypt Pass purchase through Google Play (buy, restore, offline cache)
-  curses.gd           Curses and the Daily Crypt (daily seed, blessing and curse)
+  curses.gd           Curses, Curse Levels, hero rewards and the Daily Crypt (day, theme, rules)
+  run_save.gd         saves the run at every room for CONTINUE
   heroes.gd           the playable heroes and their stats
   pickup.gd           hearts and coins
   music.gd            background music (tracks in audio/)
@@ -86,4 +91,4 @@ build/debug.keystore  shared debug signing key, so new builds install over old o
 ```
 
 The robot can be run locally with
-`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots, `shop` to buy Armory upgrades first, `quittest` to test quitting a run, `gallery elites` for a line-up screenshot, `pass` to play with the Crypt Pass, `daily` for the Daily Crypt, `curses=brittle,famine` to switch curses on, `passmenu`/`cursemenu` for screenshots of those screens, `freeend floor=5` to test the end of the free game).
+`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots, `shop` to buy Armory upgrades first, `quittest` to test quitting a run, `gallery elites` for a line-up screenshot, `pass` to play with the Crypt Pass, `daily` for the Daily Crypt, `curses=brittle,famine` to switch curses on, `passmenu`/`cursemenu` for screenshots of those screens, `freeend floor=5` to test the end of the free game, `runs=3` to keep playing after a win, `killat=3` to close the game as room 3 starts and `continue` to press CONTINUE next time, `trial=mage` for a free hero trial, `dailymenu` for a Daily Crypt screenshot, `share` to print the Daily Crypt share text).

@@ -6,7 +6,7 @@ Bone Chain: Dungeon Roguelite
 
 ## Short description (80 characters max)
 
-Dash through bullets, chain your kills and fight down into a skeleton crypt.
+Free to try: floors 1-5. Dash, chain kills and fight down a skeleton crypt.
 
 ## Full description (4000 characters max)
 
@@ -35,12 +35,16 @@ Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus gold
 GET STRONGER BETWEEN RUNS
 Keep the gold you find and spend it in the Armory on permanent upgrades, or unlock new heroes.
 
-FREE TO PLAY, ONE OPTIONAL PASS
-The first five floors are free, with no ads and no energy timers. The one-time Crypt Pass opens endless floors, a new Daily Crypt every day, Curses for bigger scores, and every hero.
+FREE TO TRY, ONE OPTIONAL PASS
+The first five floors are free, with no ads and no energy timers, and the Daily Crypt is free for everyone on Sundays. The one-time Crypt Pass opens the rest:
+- Endless floors below floor 5.
+- The Daily Crypt every day: the same three floors, hero and rules for everyone, with a result to share.
+- Ten Curses that stack into a Curse Level for bigger scores, with hero rewards to earn.
+- Every hero, ready to play.
 
 MADE FOR PHONES
 - Plays with one thumb in portrait.
-- Short runs you can pick up any time.
+- Short runs you can pick up any time. Close the game and CONTINUE right where the room started.
 - Plays fully offline. No account needed.
 - High and Low graphics settings for older phones.
 
@@ -50,7 +54,7 @@ How deep can you go?
 
 - Product ID: `crypt_pass` (must be exactly this; the game asks Google Play for it)
 - Name: Crypt Pass
-- Description: Endless floors, a new Daily Crypt every day, Curses for bigger scores, and every hero.
+- Description: Endless floors, the Daily Crypt every day, 10 Curses with hero rewards, and every hero. One-time purchase.
 - Price: $4.99 (US), let Play convert it for other countries
 
 ## Category and tags

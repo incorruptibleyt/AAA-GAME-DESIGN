@@ -7,7 +7,8 @@ extends Node
 ## Play build (the .aab). Elsewhere (the test .apk, the editor) the Pass can't be bought;
 ## in the editor `buy()` just grants it so the screens can be tested.
 ## Owning it is saved in save.cfg so it works offline, and checked with Google Play at
-## every launch, which also restores it after reinstalling or on a new phone.
+## every launch and whenever the game comes back from the background, which also restores
+## it after reinstalling or on a new phone.
 ##
 ## The product must exist in Play Console as a one-time product with this ID.
 
@@ -37,6 +38,7 @@ var status := ""
 var _play: Object   # the plugin's JNI singleton, only in the Play build
 var _have_details := false
 var _buy_when_ready := false
+var _last_check := -100000
 
 
 static func owned(cfg: ConfigFile = null) -> bool:
@@ -113,7 +115,20 @@ func restore() -> void:
 		_play.startConnection()
 
 
+## Asks Google Play again when the game comes back from the background, so a purchase
+## finished (or refunded) while the game was away shows up. At most every 30 seconds.
+func recheck() -> void:
+	if _play == null or Time.get_ticks_msec() - _last_check < 30000:
+		return
+	_last_check = Time.get_ticks_msec()
+	if _play.isReady():
+		_play.queryPurchases("inapp", false)
+	else:
+		_play.startConnection()
+
+
 func _on_connected() -> void:
+	_last_check = Time.get_ticks_msec()
 	_play.queryProductDetails(PackedStringArray([PASS_ID]), "inapp")
 	_play.queryPurchases("inapp", false)
 

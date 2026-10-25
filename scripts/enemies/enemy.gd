@@ -247,7 +247,7 @@ func _on_death() -> void:
 		Pickup.drop(global_position)
 	var coins := coin_value()
 	if Game.hero and coins > 0:
-		coins = roundi(coins * (1.0 + Game.hero.coin_bonus) * Game.chain_coins())
+		coins = roundi(coins * (1.0 + Game.hero.coin_bonus) * Game.chain_coins() * Game.coin_mult())
 	Pickup.drop_coins(global_position, coins)
 	Game.on_enemy_died(self)
 	get_tree().create_timer(2.5, false).timeout.connect(queue_free)

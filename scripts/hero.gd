@@ -51,6 +51,8 @@ const DASH_TIME := 0.17
 const DASH_COOLDOWN := 1.1
 var _dash_left := 0.0
 var _dash_cooldown := 0.0
+var _last_dash_ms := -100000
+var _aura: MeshInstance3D
 var _dash_dir := Vector3.ZERO
 var _trail_t := 0.0
 var _ring_was_ready := true
@@ -89,9 +91,15 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 			look[extra] = def[extra]
 	h.make_visual(look)
 	h._build_dash_ring()
+	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.
+	var mastery := Curses.mastery(Game._load_save(), def.id)
+	if mastery >= 10:
+		h.bolt_color = Color(1.0, 0.8, 0.3)
+	if mastery >= 6:
+		h._build_aura()
 	# A soft light that travels with the hero so they never get lost in the dark.
 	var lantern := OmniLight3D.new()
-	lantern.light_color = Color(0.75, 0.85, 1.0)
+	lantern.light_color = Color(1.0, 0.45, 0.42) if mastery >= 2 else Color(0.75, 0.85, 1.0)
 	lantern.light_energy = 0.9
 	lantern.omni_range = 8.0
 	lantern.position = Vector3(0, 3.6, 0.6)   # high and slightly behind, so the hood isn't blown out
@@ -120,6 +128,11 @@ func is_dashing() -> bool:
 	return _dash_left > 0.0
 
 
+## For the Grave Pact curse: a dash in the last 1.5 seconds.
+func dashed_recently() -> bool:
+	return Time.get_ticks_msec() - _last_dash_ms < 1500
+
+
 func dash_ready() -> bool:
 	return _dash_cooldown <= 0.0
 
@@ -131,6 +144,7 @@ func dash(dir: Vector3) -> void:
 		return
 	_dash_dir = dir.normalized()
 	_dash_left = DASH_TIME
+	_last_dash_ms = Time.get_ticks_msec()
 	_dash_cooldown = DASH_COOLDOWN
 	_trail_t = 0.0
 	knockback = Vector3.ZERO
@@ -178,6 +192,8 @@ func special_ready() -> bool:
 
 
 func add_charge(amount: float) -> void:
+	if Game.curses.has("quick"):
+		amount *= 2.0   # Daily Crypt rule: Quick Hands
 	var was := special_ready()
 	special_charge = minf(1.0, special_charge + amount)
 	if special_ready() and not was:
@@ -190,6 +206,10 @@ func use_special() -> void:
 		return
 	special_charge = 0.0
 	Game.report_event("special")
+	if Game.curses.has("blood"):
+		# Blood Price: the special costs a quarter of max health, but never kills.
+		health = maxf(1.0, health - max_health * 0.25)
+		Game.hud.flash(Color(0.9, 0.1, 0.1), 0.3)
 	Game.hud.tip("", 0.0)
 	Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.3))
 	Game.shake(0.25)
@@ -439,6 +459,24 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	_invulnerable = 0.7
 
 
+## Grave Aura (a Curse mastery reward): a slow red glow on the floor under the hero.
+func _build_aura() -> void:
+	var disc := CylinderMesh.new()
+	disc.top_radius = 1.1
+	disc.bottom_radius = 1.1
+	disc.height = 0.02
+	disc.radial_segments = 32
+	var m := MeshInstance3D.new()
+	m.mesh = disc
+	var mat := U.unlit(Color(0.9, 0.12, 0.15, 0.22))
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	m.position = Vector3(0, 0.03, 0)
+	add_child(m)
+	_aura = m
+
+
 ## A ring at the hero's feet: bright when the dash is ready, faint while it recharges.
 func _build_dash_ring() -> void:
 	var torus := TorusMesh.new()
@@ -458,6 +496,9 @@ func _build_dash_ring() -> void:
 
 
 func _update_dash_ring() -> void:
+	if _aura:
+		var s := 1.0 + sin(Time.get_ticks_msec() * 0.002) * 0.08
+		_aura.scale = Vector3(s, 1, s)
 	if _dash_ring == null:
 		return
 	var ready := dash_ready()

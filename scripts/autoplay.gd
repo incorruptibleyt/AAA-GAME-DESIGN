@@ -8,6 +8,9 @@ extends Node
 ## Crypt Pass: `pass` plays as if it were owned, `daily` starts the Daily Crypt, `curses=a,b`
 ## switches curses on, `passmenu` / `cursemenu` take pictures of those screens, and
 ## `freeend` buys the Pass on the end-of-free-game screen (try with `floor=5`).
+## Saved runs: `killat=N` closes the game as room N starts (like Android killing it), and
+## `continue` presses CONTINUE on the title screen. `trial=mage` plays a free trial run,
+## `dailymenu` takes a picture of the Daily Crypt screen, and `share` prints the share text.
 
 var god := false
 var start_room := 1
@@ -41,6 +44,11 @@ var _pass_menu := false
 var _curse_menu := false
 var _free_end_test := false
 var _free_end_done := false
+var _kill_at := 0
+var _continue := false
+var _trial := ""
+var _daily_menu := false
+var _share := false
 
 
 func _ready() -> void:
@@ -93,6 +101,18 @@ func _ready() -> void:
 			_curse_menu = true
 		elif a == "freeend":
 			_free_end_test = true
+		elif a.begins_with("killat="):
+			_kill_at = int(a.substr(7))
+		elif a == "continue":
+			_continue = true
+		elif a.begins_with("trial="):
+			_trial = a.substr(6)
+			_skip_first_run()
+		elif a == "dailymenu":
+			_daily_menu = true
+			_skip_first_run()
+		elif a == "share":
+			_share = true
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -181,6 +201,29 @@ func _process(delta: float) -> void:
 				return
 			if _pass_menu or _curse_menu:
 				return
+			if _daily_menu and _t > 1.2 and not _shopped:
+				_shopped = true
+				Game._open_daily()
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				print("[autoplay] daily #%d %s hero=%s rules=%s" % [Curses.day_number(), Curses.theme().name, Curses.daily_hero(), Curses.daily_rules()])
+				await get_tree().create_timer(0.3).timeout
+				get_tree().quit()
+				return
+			if _daily_menu:
+				return
+			if _continue and _t > 1.2:
+				_continue = false
+				print("[autoplay] title says CONTINUE %s" % Game.continue_text())
+				if shots_dir != "":
+					_shot()
+					await get_tree().create_timer(0.3).timeout
+				Game.hud.continue_pressed.emit()
+				return
+			if _trial != "" and _t > 1.2:
+				Game._try_hero(_trial)
+				print("[autoplay] trying %s for free: %s" % [_trial, Game._trial_hero])
+				_trial = ""
 			if shop and not _shopped and _t > 1.2:
 				_shopped = true
 				Game._open_armory()
@@ -197,7 +240,10 @@ func _process(delta: float) -> void:
 				if start_room > 1 or Game.floor_num > 1:
 					Game.hud.show_title(false)
 					Game.hud.show_hud(true)
+					Game._pick_curses()
+					Game._apply_armory()
 					Game._go_to_room(start_room - 1)
+					Game._mode_banner()
 				else:
 					Game._on_screen_tapped()
 		Game.State.UPGRADE:
@@ -221,6 +267,9 @@ func _process(delta: float) -> void:
 				else:
 					get_tree().quit()
 		Game.State.DEAD, Game.State.VICTORY:
+			if _share and Game.daily and (Game._daily_done or Game.state == Game.State.DEAD) and Game._state_time > 2.0:
+				_share = false
+				print("[autoplay] share text:\n" + Game._share_text())
 			if Game._state_time > 2.5:
 				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
 				runs -= 1
@@ -244,6 +293,10 @@ func _process(delta: float) -> void:
 		Game.State.TRANSITION when gallery and _gallery_t >= 0.0:
 			_gallery_step(delta)
 		Game.State.PLAYING:
+			if _kill_at > 0 and Game._room_index == _kill_at - 1 and Game._state_time > 1.0:
+				print("[autoplay] closing the game on floor %d room %d: hp %d/%d score %d coins %d run coins %d" % [Game.floor_num, Game._room_index + 1, Game.hero.health, Game.hero.max_health, Game.score, Game.coins, Game.run_coins])
+				get_tree().quit()
+				return
 			if not _paused_once and Game._room_index == 1 and Game._state_time > 2.0:
 				_paused_once = true
 				print("[autoplay] pause test")
