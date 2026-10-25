@@ -23,6 +23,21 @@ const HIT := 2.06        # the sword lands and the words slam down
 const SLAM_LEN := 0.14
 const TAG := 2.4
 const HANDOFF := 3.25
+const SLOW_FROM := 1.58  # the top of the warrior's leap plays in slow motion, like a perfect dodge
+const SLOW_TO := 1.84
+const SLOW := 0.3
+const GLINT := 2.5       # a glint of light sweeps across the letters
+const GLINT_LEN := 0.45
+## Lights up the gold of the letters (not their dark edge) where the glint passes.
+const GLINT_SHADER := """
+shader_type canvas_item;
+uniform float sweep = -1.0;
+void fragment() {
+	float lum = dot(COLOR.rgb, vec3(0.3, 0.59, 0.11));
+	float band = 1.0 - smoothstep(0.0, 0.09, abs(UV.x - sweep + (UV.y - 0.5) * 0.35));
+	COLOR.rgb += vec3(1.0, 0.95, 0.8) * band * smoothstep(0.45, 0.8, lum) * 1.4;
+}
+"""
 const HANDOFF_LEN := 0.55
 
 ## The title screen's logo, which the words land on.
@@ -38,6 +53,10 @@ var _eye_light: OmniLight3D
 var _eye_mat: StandardMaterial3D
 var _rim: OmniLight3D
 var _key: OmniLight3D
+var _impact: OmniLight3D        # flares from the floor where the sword lands
+var _words: Control             # draws BONE CHAIN, through the glint shader
+var _glint: ShaderMaterial
+var _cracks: Array = []         # glowing cracks in the floor from the hit, as point lists
 var _glow: GradientTexture2D
 var _shade: GradientTexture2D
 var _embers: Array = []         # {p, v, life, size}
@@ -74,6 +93,16 @@ func _ready() -> void:
 	_canvas.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_canvas.draw.connect(_paint)
 	add_child(_canvas)
+	_glint = ShaderMaterial.new()
+	_glint.shader = Shader.new()
+	_glint.shader.code = GLINT_SHADER
+	_words = Control.new()
+	_words.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_words.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	_words.material = _glint
+	_words.draw.connect(_draw_words)
+	_canvas.add_child(_words)
 	_step(0.0)
 
 
@@ -177,6 +206,12 @@ func _build_crypt() -> void:
 	_key.omni_range = 7.0
 	_key.position = Vector3(1.4, 2.2, 2.4)
 	world.add_child(_key)
+	_impact = OmniLight3D.new()
+	_impact.light_color = Color(1.0, 0.55, 0.2)
+	_impact.omni_range = 4.0
+	_impact.light_energy = 0.0
+	_impact.position = Vector3(0.2, 0.25, 1.3)
+	world.add_child(_impact)
 	_cam = Camera3D.new()
 	_cam.fov = 40.0
 	world.add_child(_cam)
@@ -240,7 +275,8 @@ func _process(delta: float) -> void:
 
 func _step(dt: float) -> void:
 	var was := t
-	t += dt
+	var step := dt * _speed()
+	t += step
 	if t < HANDOFF:
 		for at: float in TORCHES:
 			if _crossed(was, at):
@@ -249,28 +285,33 @@ func _step(dt: float) -> void:
 			Sfx.play("crack", 0.6)
 		if _crossed(was, EYES):
 			Sfx.play("roar", 0.85)
+		if _crossed(was, SLOW_FROM - 0.06):
+			Sfx.play("dash", 0.7)
 		if _crossed(was, HIT):
 			Sfx.play("slam")
 			Sfx.play("boom", 0.6)
 			_shake = 16.0
 			_flash = 0.22
 			_burst()
+			_crack()
 	if t >= HIT and not _music_sent:
 		_music_sent = true
 		music.emit()
 	if t >= HANDOFF and not _handed:
 		_handed = true
 		handoff.emit()
-	_animate(dt)
+	_animate(step)
 	_light_up()
 	_move_camera()
 	_shake = move_toward(_shake, 0.0, dt * 50.0)
 	_flash = move_toward(_flash, 0.0, dt * 2.2)
-	_update_embers(dt)
+	_update_embers(step)
+	_glint.set_shader_parameter("sweep", lerpf(-0.25, 1.25, (t - GLINT) / GLINT_LEN) if t > GLINT and t < GLINT + GLINT_LEN else -1.0)
 	if logo:
 		logo.modulate.a = 0.0
 	_view.modulate.a = 1.0 - _glide()
 	_canvas.queue_redraw()
+	_words.queue_redraw()
 	if t >= HANDOFF + HANDOFF_LEN:
 		# The words now sit exactly on the title's own logo (the same picture, size and place),
 		# so it takes over from them without a seam.
@@ -282,6 +323,15 @@ func _step(dt: float) -> void:
 
 func _crossed(was: float, at: float) -> bool:
 	return was < at and t >= at
+
+
+## How fast the clock runs: slow at the top of the leap, then full speed into the hit.
+func _speed() -> float:
+	return lerpf(1.0, SLOW, _slowness())
+
+
+func _slowness() -> float:
+	return smoothstep(SLOW_FROM - 0.08, SLOW_FROM, t) * (1.0 - smoothstep(SLOW_TO - 0.04, SLOW_TO + 0.04, t))
 
 
 func _animate(dt: float) -> void:
@@ -310,6 +360,7 @@ func _light_up() -> void:
 		flame.visible = on > 0.0
 		flame.scale = (tr.size as Vector3) * (0.6 + 0.4 * minf(on, 1.6)) * (1.0 + hit * 0.3)
 	_rim.light_energy = 2.2 * clampf((t - 0.1) / 0.6, 0.0, 1.0)
+	_impact.light_energy = 6.0 * hit * hit
 	_key.light_energy = 0.75 * clampf((t - TORCHES[0]) / 0.5, 0.0, 1.0)
 	var eyes := 0.0
 	var since_eyes := t - EYES
@@ -324,10 +375,14 @@ func _light_up() -> void:
 
 
 func _move_camera() -> void:
-	# A slow push in on the warrior from just below its eye line.
+	# A slow push in on the warrior from just below its eye line, rushing in close on its face as
+	# the eyes light up, then back out for the leap.
 	var k := smoothstep(0.0, 1.0, clampf(t / HANDOFF, 0.0, 1.0))
 	var from := Vector3(0.5, 1.05, 7.6).lerp(Vector3(0.12, 1.2, 6.2), k)
 	var at := Vector3(0.0, 0.65, 0.0).lerp(Vector3(0.0, 0.85, 0.0), k)
+	var close := smoothstep(EYES - 0.2, EYES + 0.1, t) * (1.0 - smoothstep(CHOP + 0.05, CHOP + 0.4, t))
+	from = from.lerp(Vector3(0.1, 1.6, 3.7), close)
+	at = at.lerp(Vector3(0.0, 1.45, 0.0), close)
 	_cam.look_at_from_position(from, at)
 	var shake := _shake / 600.0
 	_cam.h_offset = randf_range(-1, 1) * shake
@@ -363,6 +418,21 @@ func _burst() -> void:
 			"life": randf_range(0.5, 1.1), "size": randf_range(2.0, 4.5)})
 
 
+## Glowing cracks that run out across the floor from where the words land, flattened as if
+## seen at an angle.
+func _crack() -> void:
+	_cracks.clear()
+	for i in 11:
+		var a := TAU * (i + randf_range(-0.3, 0.3)) / 11.0
+		var reach := randf_range(150.0, 300.0)
+		var p := Vector2.ZERO
+		var pts := PackedVector2Array([p])
+		for _j in 6:
+			p += Vector2.from_angle(a + randf_range(-0.5, 0.5)) * reach / 6.0
+			pts.append(Vector2(p.x, p.y * 0.32))
+		_cracks.append(pts)
+
+
 ## 0 to 1 over the glide to the title screen.
 func _glide() -> float:
 	return smoothstep(0.0, 1.0, clampf((t - HANDOFF) / HANDOFF_LEN, 0.0, 1.0))
@@ -382,9 +452,14 @@ func _paint() -> void:
 		_canvas.draw_rect(Rect2(Vector2.ZERO, vp), Color(BG.r, BG.g, BG.b, open))
 	# Darken the bottom of the picture so the words stand out.
 	_canvas.draw_texture_rect(_shade, Rect2(0, vp.y * 0.5, vp.x, vp.y * 0.5), false, Color(1, 1, 1, fade))
+	# A cold tint while time slows.
+	var slow := _slowness()
+	if slow > 0.0:
+		_canvas.draw_rect(Rect2(Vector2.ZERO, vp), Color(0.25, 0.35, 0.85, 0.2 * slow))
 	_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
 	_canvas.draw_set_transform(_off)
-	_draw_words(glide)
+	_draw_impact(fade)
+	_draw_words_glow(glide)
 	var tag_a := clampf((t - TAG) / 0.3, 0.0, 1.0) * fade
 	if tag_a > 0.0:
 		var f := ThemeDB.fallback_font
@@ -402,13 +477,32 @@ func _paint() -> void:
 		_canvas.draw_rect(Rect2(Vector2.ZERO, vp), Color(1.0, 0.85, 0.65, _flash))
 
 
-## BONE CHAIN: slams down from big, then glides up onto the title screen's logo.
-func _draw_words(glide: float) -> void:
+## The shockwave and the glowing cracks where the words hit the floor.
+func _draw_impact(fade: float) -> void:
+	var since := t - HIT
+	if since <= 0.0 or fade <= 0.0:
+		return
+	var floor_at := _words_center() + Vector2(0, 30) + _off
+	var ring := clampf(since / 0.5, 0.0, 1.0)
+	if ring < 1.0:
+		_canvas.draw_set_transform(floor_at, 0.0, Vector2(1.0, 0.3))
+		var r := 60.0 + 400.0 * (1.0 - pow(1.0 - ring, 3.0))
+		_canvas.draw_arc(Vector2.ZERO, r, 0.0, TAU, 72, Color(1.0, 0.8, 0.55, 0.7 * (1.0 - ring) * fade), 14.0 * (1.0 - ring) + 2.0, true)
+	_canvas.draw_set_transform(floor_at)
+	var grow := clampf(since / 0.15, 0.0, 1.0)
+	var heat := clampf(1.0 - since / 1.0, 0.0, 1.0) * fade
+	for pts: PackedVector2Array in _cracks:
+		var part := pts.slice(0, maxi(2, ceili(pts.size() * grow)))
+		_canvas.draw_polyline(part, Color(1.0, 0.4, 0.1, 0.35 * heat), 9.0, true)
+		_canvas.draw_polyline(part, Color(1.0, 0.82, 0.5, 0.9 * heat), 2.5, true)
+	_canvas.draw_set_transform(_off)
+
+
+## Where BONE CHAIN is and how big: it slams down from big, then glides up onto the title
+## screen's logo. [centre, scale, alpha, hot]
+func _words_place(glide: float) -> Array:
 	var slam := HIT - SLAM_LEN
 	var k := clampf((t - slam) / SLAM_LEN, 0.0, 1.0)
-	var alpha := maxf(k, glide)
-	if alpha <= 0.0:
-		return
 	var scale := lerpf(2.6, 1.12, k * k)
 	if t > HIT:
 		scale = 1.12 * (1.0 - 0.05 * exp(-(t - HIT) * 9.0) * cos((t - HIT) * 30.0))
@@ -416,18 +510,39 @@ func _draw_words(glide: float) -> void:
 	if glide > 0.0 and logo:
 		centre = centre.lerp(logo.get_global_rect().get_center(), glide)
 		scale = lerpf(1.12, 1.0, glide)
-	var ls := Hud.logo_size()
 	var hot := clampf(1.0 - (t - HIT) / 0.4, 0.0, 1.0) * float(t > HIT)
-	var gw := ls.x * 0.65 * scale
+	return [centre, scale, maxf(k, glide), hot]
+
+
+## The warm glow behind the words.
+func _draw_words_glow(glide: float) -> void:
+	var place := _words_place(glide)
+	var centre: Vector2 = place[0]
+	var scale: float = place[1]
+	var alpha: float = place[2]
+	var hot: float = place[3]
+	if alpha <= 0.0:
+		return
+	var gw := Hud.logo_size().x * 0.65 * scale
 	_canvas.draw_texture_rect(_glow, Rect2(centre - Vector2(gw, 80 * scale), Vector2(gw, 80 * scale) * 2.0), false,
 		Color(1.0, 0.4, 0.1, (0.15 + hot * 0.45) * alpha * (1.0 - glide)))
+
+
+## BONE CHAIN itself, the same picture as the title screen's logo.
+func _draw_words() -> void:
+	var place := _words_place(_glide())
+	var centre: Vector2 = place[0]
+	var scale: float = place[1]
+	var alpha: float = place[2]
+	var hot: float = place[3]
+	if alpha <= 0.0:
+		return
+	var ls := Hud.logo_size()
 	# Drawn around the middle of the words, so they grow and shrink in place.
-	_canvas.draw_set_transform(centre + _off, 0.0, Vector2(scale, scale))
-	var rect := Rect2(-ls * 0.5, ls)
+	_words.draw_set_transform(centre + _off, 0.0, Vector2(scale, scale))
 	# White-hot for a moment as the letters land.
 	var heat := 1.0 + hot * 0.9
-	_canvas.draw_texture_rect(Hud.LOGO, rect, false, Color(heat, heat, 1.0 + hot * 0.7, alpha))
-	_canvas.draw_set_transform(_off)
+	_words.draw_texture_rect(Hud.LOGO, Rect2(-ls * 0.5, ls), false, Color(heat, heat, 1.0 + hot * 0.7, alpha))
 
 
 static func _radial() -> GradientTexture2D:
