@@ -16,6 +16,9 @@ extends Node
 ## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
+## `heromenu` pictures every hero on the Heroes screen; `modesmenu` pictures the title and
+## the Modes screen. `chains=1.2,2,3` (with `die`) fills in the chain reached in each room
+## before, to picture the Daily Crypt share card.
 
 var god := false
 var start_room := 1
@@ -53,6 +56,9 @@ var _kill_at := 0
 var _continue := false
 var _trial := ""
 var _daily_menu := false
+var _modes_menu := false
+var _chains: Array = []
+var _title_shot := false
 var _share := false
 var _bank := false
 var _loop_quit := false
@@ -121,6 +127,11 @@ func _ready() -> void:
 			_continue = true
 		elif a.begins_with("trial="):
 			_trial = a.substr(6)
+			_skip_first_run()
+		elif a.begins_with("chains="):
+			_chains = Array(a.substr(7).split(",")).map(func(c): return float(c))
+		elif a == "modesmenu":
+			_modes_menu = true
 			_skip_first_run()
 		elif a == "dailymenu":
 			_daily_menu = true
@@ -208,15 +219,18 @@ func _process(delta: float) -> void:
 
 	match Game.state:
 		Game.State.TITLE:
-			if shots_dir != "" and _shot_n == 0 and _t > 1.0:
+			if shots_dir != "" and _shot_n == 0 and _t > 1.0 and not _title_shot:
+				_title_shot = true
 				_shot_n = -1
 				_shot()
 			if hero_menu and _t > 1.2 and not _shopped:
 				_shopped = true
 				Game._open_heroes()
-				await get_tree().create_timer(0.5).timeout
-				_shot()
-				await get_tree().create_timer(0.5).timeout
+				for i in Heroes.LIST.size():
+					Game.hud._heroes_box.show_index(i)
+					await get_tree().create_timer(1.2).timeout
+					await _shot()
+					print("[autoplay] heroes screen: %s" % Heroes.LIST[i].title)
 				get_tree().quit()
 				return
 			if hero_menu:
@@ -244,6 +258,17 @@ func _process(delta: float) -> void:
 				get_tree().quit()
 				return
 			if _pass_menu or _curse_menu:
+				return
+			if _modes_menu and _t > 1.2 and not _shopped:
+				_shopped = true
+				await _shot()
+				Game.hud.show_modes(true)
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				print("[autoplay] modes: daily %s, curses %s" % [Game.hud._mode_daily_tag.text, Game.hud._mode_curses_tag.text])
+				get_tree().quit()
+				return
+			if _modes_menu:
 				return
 			if _daily_menu and _t > 1.2 and not _shopped:
 				_shopped = true
@@ -284,6 +309,9 @@ func _process(delta: float) -> void:
 				if start_room > 1 or Game.floor_num > 1:
 					Game.hud.show_title(false)
 					Game.hud.show_hud(true)
+					if Game._daily_requested:
+						Game.daily = true
+						Game._begin_daily()
 					Game._pick_curses()
 					Game._apply_armory()
 					Game._go_to_room(start_room - 1)
@@ -338,9 +366,11 @@ func _process(delta: float) -> void:
 					runs -= 1
 					Game.hud.loop_deeper.emit()
 		Game.State.DEAD, Game.State.VICTORY:
-			if _share and Game.daily and (Game._daily_done or Game.state == Game.State.DEAD) and Game._state_time > 2.0:
+			if _share and Game.daily and Game._state_time > 2.0:
 				_share = false
 				print("[autoplay] share text:\n" + Game._share_text())
+				if shots_dir != "":
+					_shot()
 			if Game._state_time > 2.5:
 				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
 				runs -= 1
@@ -366,6 +396,10 @@ func _process(delta: float) -> void:
 		Game.State.PLAYING when _die:
 			if Game._state_time > 1.0:
 				_die = false
+				if not _chains.is_empty():
+					if Game._rep.is_empty():
+						Game._reset_report()
+					Game._rep.chains = _chains   # a made-up chain in each room so far, for the share card
 				Game.hero.take_damage(1e9, Vector3.ZERO, 0.0)
 		Game.State.PLAYING when _loop_menu:
 			if is_instance_valid(Game.boss) and not Game.boss.dead and Game._state_time > 1.0:

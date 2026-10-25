@@ -9,13 +9,14 @@ and face the Skeleton King at the end of the floor.
 ## What's in this first playable slice
 
 - **One floor:** 5 rooms (2 easy, 2 medium, 1 hard, picked at random from 36 hand-made rooms) plus a boss room. From floor 2 rooms may come mirrored, and from floor 3 two rooms may be joined into one. Floor 1 never has more than one skeleton mage in a wave.
-- **Four heroes:** the Rogue (crossbow), plus the Knight (armoured sword waves), Barbarian (thrown axes, heals on kills) and Mage (exploding orbs), unlocked with coins from the HEROES screen.
+- **Four heroes:** the Rogue (crossbow), plus the Knight (armoured sword waves), Barbarian (thrown axes, heals on kills) and Mage (exploding orbs), unlocked with coins from the HEROES screen. It shows one hero at a time turning on a pedestal (drag to spin them), with bars for health, damage, attack speed and speed, their special, and the three blessings only they can find.
 - **Controls:** one-thumb floating joystick, auto-aim and auto-fire when standing still, a quick flick of the thumb or the DASH button (bottom right) to dash (untouchable while dashing), brief invulnerability after a hit.
 - **Four skeletons.** The dangerous ones show a red warning before they attack:
   - *Minion*: rushes you in packs.
   - *Warrior*: shows a red strip, then lunges along it.
   - *Archer*: keeps its distance and fires aimed arrows.
   - *Mage*: marks a circle under you, then blows it up.
+  - Each floor theme brings its own skeleton (from the second run): on Frozen Ossuary floors a *Frost Wraith* marks a line and fires an ice beam down it that slows you, and in the Ember Catacomb a *Cinder Skeleton* runs at you leaving patches of fire behind.
 - **The Skeleton King:** bone rings, a charge, meteor circles and summoning. He gets faster below half health.
 - **Elite skeletons:** golden, bigger and tougher versions that drop extra coins, more common on deeper floors.
 - **Endless descent:** beat the king and carry your blessings down to the next floor, where skeletons get about 55% more health and 35% more damage per floor, and bosses even more. Descending heals 30%.
@@ -27,16 +28,17 @@ and face the Skeleton King at the end of the floor.
 - **Bone Chain:** kills close together build a multiplier (+0.1 per kill, +0.3 for elites, up to x3). It boosts coins and damage by +25% per full x1 (Marrow lets it climb to x4), and drains away 2.5 s after your last kill.
   The spine across the top lights one vertebra per +0.5 (bone-white, then gold, then red-hot), and shatters when the chain breaks.
 - **Score:** every kill is worth points (10, elites 30, the boss 500) times the full chain. Specials also hit with the full chain, and a perfect dodge adds +0.5 and resets the timer. The best score is saved.
-- **First run:** each room teaches one thing: move and shoot, then dash, then the Bone Chain, then the special (which starts full), then a synergy card, then the boss. Heroes and the Armory open once the first run ends. "Tutorial run" on the title replays it.
+- **First run:** each room teaches one thing: move and shoot, then dash, then the Bone Chain, then the special (which starts full), then a synergy card, then the boss. Heroes and the Armory open once the first run ends. "Tutorial run" in MODES replays it.
+- **Title screen:** PLAY, then HEROES and ARMORY, then MODES (the Daily Crypt, Curses and the tutorial run, with a DAILY READY tag when today's Daily Crypt is waiting) and the CRYPT PASS.
 - **Special moves:** kills fill a ring on the star button (bottom right). When it's full, tap it: the Rogue fires three rings of bolts (Shadow Volley), the Knight stuns everything nearby (Shield Slam), the Barbarian spins and heals (Whirlwind), and the Mage drops five meteors (Meteor). Perfect dodges and elites charge it faster. Press E on a keyboard.
 - **Floor themes:** each floor has its own look, made from colours, lights and particles on the same models: the Bone Crypt (floor 1), the Frozen Ossuary (floor 2, blue torches and falling frost) and the Ember Catacomb (floor 3, red-hot embers), then round again. See [scripts/floors.gd](scripts/floors.gd).
-- **Blessings:** 21 shared blessings in four families (Shot, Flame, Frost, Bone) plus 3 for each hero (like Backstab for the Rogue or Meteor Storm for the Mage), each with its own icon and a rarity (common, rare, epic). Some only appear once you own the blessing they build on (Kindling and Pyre need Fire Shots). Owning both halves of a synergy brings its gold card: Shatter (Fire + Frost), Bone Storm (Fan + Pierce) and Ossuary (Ward + Vitality). One free reroll per run.
+- **Blessings:** 21 shared blessings in four families (Shot, Flame, Frost, Bone) plus 3 for each hero (like Backstab for the Rogue or Meteor Storm for the Mage), each with its own icon and a rarity (common, rare, epic). Some only appear once you own the blessing they build on (Kindling and Pyre need Fire Shots). Owning both halves of a synergy brings its gold card: Shatter (Fire + Frost), Bone Storm (Fan + Pierce), Ossuary (Ward + Vitality), Wildfire (Fire + Twin Shots: burning spreads), Glacier (Frost + Ward: a blocked hit freezes skeletons nearby) and Deadeye (Keen Eye + Pierce: critical hits fly through everything). One free reroll per run.
 - **Waves:** normal rooms come in 2–3 waves (the next one arrives when only a few skeletons are left). After the last kill the blessing cards show at once, and picking one goes straight to the next room.
 - **Readable danger:** the camera sits close and follows the hero, red arrows on the screen edge point at enemies and warnings just off-screen, every enemy shot is hot pink-red with a dark ring and a pulse, and your own shots are small and see-through.
 - **Healing hearts** (12 health) that skeletons sometimes drop and a beginner hint in room 1.
 - **Game feel:** slow-motion close-up on the last kill of each room, a boss entrance with a title card, drifting embers, hit-stop, screen shake, hit flashes, knockback, damage numbers, particles, and real sound effects plus an announcer voice from Kenney's CC0 packs (fetched by the Fetch Kenney audio workflow into audio/sfx).
 - **Crypt Pass ($4.99, one purchase through Google Play):** the free game ends after the floor 5 boss with an offer screen, and the title screen says "Free to try: floors 1-5". The Pass opens endless loops with Omens, the **Daily Crypt** and **Curses**, and unlocks every hero. The game checks with Google Play again whenever it comes back to the front.
-  - **Daily Crypt:** 3 floors with the same rooms, hero and three rules for everyone (one that helps, one curse, one trade-off), a theme for each weekday, one Official run a day plus Practice runs, and a result to share. It turns over at 07:00 UTC, and Sundays are free for everyone.
+  - **Daily Crypt:** 3 floors with the same rooms, hero and three rules for everyone (one that helps, one curse, one trade-off), a theme for each weekday, one Official run a day plus Practice runs, and a result card to share: the result first, one square per room coloured by how high the Bone Chain climbed (a skull for each boss beaten, a cross where you fell), your days-in-a-row streak and the Google Play link. It turns over at 07:00 UTC, and Sundays are free for everyone.
   - **Curses:** 10 curses, each with a level; switched-on curses add up to a Curse Level (+15% score per level, up to 17). Beating the floor 5 boss at a Curse Level earns that hero titles and looks (red lantern, red aura, gold bolts). Restless Dead is free for everyone.
   - **Free tastes:** each locked hero can be played once for free, and free players hear about the Pass once a session after reaching floor 3.
 - **Continue:** the run is saved at the start of every room (scripts/run_save.gd), so if Android closes the game, CONTINUE on the title screen picks it up at the start of that room. Purchases use the official Godot Google Play Billing plugin in addons/ (Play build only); the product ID in Play Console must be `crypt_pass`.
@@ -80,9 +82,11 @@ scripts/
   curses.gd           Curses, Curse Levels, hero rewards and the Daily Crypt (day, theme, rules)
   run_save.gd         saves the run at every room for CONTINUE
   heroes.gd           the playable heroes and their stats
+  hero_screen.gd      the Heroes screen; hero_stage.gd draws the turning 3D hero on it
+  share_card.gd       the Daily Crypt result card (squares on the end screen, emoji to share)
   pickup.gd           hearts and coins
   music.gd            background music (tracks in audio/)
-  enemies/            minion, warrior, archer, mage, Skeleton King
+  enemies/            minion, warrior, archer, mage, spider, bomber, spitter, Frost Wraith, Cinder Skeleton, Lich, Skeleton King
   hud.gd, joystick.gd on-screen controls and menus
   fx.gd, sfx.gd       particles and sound effects (files in audio/sfx)
   art.gd              finds KayKit models if they're present
@@ -92,4 +96,4 @@ build/debug.keystore  shared debug signing key, so new builds install over old o
 ```
 
 The robot can be run locally with
-`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots, `shop` to buy Armory upgrades first, `quittest` to test quitting a run, `gallery elites` for a line-up screenshot, `pass` to play with the Crypt Pass, `daily` for the Daily Crypt, `curses=brittle,famine` to switch curses on, `passmenu`/`cursemenu` for screenshots of those screens, `freeend floor=5` to test the end of the free game, `runs=3` to keep playing after a win, `killat=3` to close the game as room 3 starts and `continue` to press CONTINUE next time, `trial=mage` for a free hero trial, `dailymenu` for a Daily Crypt screenshot, `share` to print the Daily Crypt share text, `icons` for a picture of every blessing icon, `cards=backstab,nimble,quiver` to offer exactly those cards first).
+`godot --headless -- autoplay god` (add `room=6` to jump to the boss, `shots=<folder>` for screenshots, `shop` to buy Armory upgrades first, `quittest` to test quitting a run, `gallery elites` for a line-up screenshot, `pass` to play with the Crypt Pass, `daily` for the Daily Crypt, `curses=brittle,famine` to switch curses on, `passmenu`/`cursemenu` for screenshots of those screens, `freeend floor=5` to test the end of the free game, `runs=3` to keep playing after a win, `killat=3` to close the game as room 3 starts and `continue` to press CONTINUE next time, `trial=mage` for a free hero trial, `dailymenu` for a Daily Crypt screenshot, `share` to print the Daily Crypt share text, `icons` for a picture of every blessing icon, `cards=backstab,nimble,quiver` to offer exactly those cards first, `heromenu` to picture every hero on the Heroes screen, `modesmenu` for the Modes screen, and `daily share die floor=2 room=3 chains=1.2,2,3` to picture the share card).

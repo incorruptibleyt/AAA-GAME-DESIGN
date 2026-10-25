@@ -91,7 +91,6 @@ var _title_coins: Label
 var _armory_box: Control
 var _armory_coins: Label
 var _armory_rows: VBoxContainer
-var _shop_heroes := false
 var _shop_title: Label
 var _shop_sub: Label
 var _title_hero: Label
@@ -126,10 +125,16 @@ var _end_best_value := 0
 var _title_heroes: Control
 var _title_armory: Control
 var _title_lock: Label
-var _title_tutorial: Control
 var _title_shop_row: Control
 var _title_pass_row: Control
-var _title_daily_row: Control
+var _title_modes_row: Control
+var _title_modes_badge: Label
+var _modes_box: Control
+var _mode_daily_text: Label
+var _mode_daily_tag: Label
+var _mode_curses_tag: Label
+var _modes_tutorial: Button
+var _heroes_box: HeroScreen
 var _end_offer: Control
 var _pass_box: Control
 var _pass_buy: Button
@@ -141,9 +146,9 @@ var _title_play: Button
 var _title_continue: Control
 var _continue_where: Label
 var _title_spacer: Control
-var _title_daily: Button
 var _timer_label: Label
 var _share_button: Button
+var _share_card: ShareCard
 var _end_pass: Control
 var _end_spacer: Control
 var _daily_box: Control
@@ -187,7 +192,9 @@ func _ready() -> void:
 	_build_title()
 	_build_end()
 	_build_pause()
+	_build_modes()
 	_build_armory()
+	_build_heroes()
 	_build_daily()
 	_build_omens()
 	_build_reports_ask()
@@ -670,29 +677,155 @@ func _build_title() -> void:
 	_title_armory = armory
 	_title_shop_row = _pair(heroes, armory)
 	col.add_child(_title_shop_row)
-	# The Daily Crypt (free on Sundays) and Curses (one is free), then the Crypt Pass.
-	var daily := button("DAILY CRYPT", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	daily.custom_minimum_size = Vector2(222, 74)
-	daily.add_theme_color_override("font_color", GOLD)
-	daily.pressed.connect(func(): daily_pressed.emit())
-	_title_daily = daily
-	var curses := button("CURSES", 24, Color(0.22, 0.06, 0.1, 0.97), Color(0.9, 0.35, 0.4))
-	curses.custom_minimum_size = Vector2(222, 74)
-	curses.pressed.connect(func(): curses_pressed.emit())
-	_title_daily_row = _pair(daily, curses)
-	col.add_child(_title_daily_row)
+	# MODES holds the Daily Crypt, Curses and the tutorial run; then the Crypt Pass.
+	var modes := button("MODES", 26)
+	modes.custom_minimum_size = Vector2(222, 74)
+	modes.pressed.connect(func(): show_modes(true))
+	# A little gold tag when today's Daily Crypt is waiting.
+	_title_modes_badge = label("DAILY READY", 13, Color(0.12, 0.08, 0.02))
+	_title_modes_badge.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_title_modes_badge.label_settings.outline_size = 0
+	var pill := StyleBoxFlat.new()
+	pill.bg_color = GOLD
+	pill.set_corner_radius_all(9)
+	pill.content_margin_left = 8
+	pill.content_margin_right = 8
+	_title_modes_badge.add_theme_stylebox_override("normal", pill)
+	_title_modes_badge.anchor_left = 1.0
+	_title_modes_badge.anchor_right = 1.0
+	_title_modes_badge.offset_left = -104
+	_title_modes_badge.offset_right = 4
+	_title_modes_badge.offset_top = -10
+	_title_modes_badge.offset_bottom = 10
+	modes.add_child(_title_modes_badge)
 	var pass_button := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	pass_button.custom_minimum_size = Vector2(222, 66)
+	pass_button.custom_minimum_size = Vector2(222, 74)
 	pass_button.add_theme_color_override("font_color", GOLD)
 	pass_button.pressed.connect(func(): pass_pressed.emit())
 	_title_pass_row = pass_button
+	_title_modes_row = _pair(modes, pass_button)
+	col.add_child(_title_modes_row)
 	_title_lock = label("Heroes and the Armory open\nafter your first run", 20, Color(0.7, 0.68, 0.62))
 	col.add_child(_title_lock)
-	var tutorial := button("Tutorial run", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
-	tutorial.custom_minimum_size = Vector2(222, 66)
-	tutorial.pressed.connect(func(): _guarded(tutorial, tutorial_pressed))
-	_title_tutorial = tutorial
-	col.add_child(_pair(pass_button, tutorial))
+
+
+## Daily Crypt, Curses and the tutorial run, all behind MODES on the title screen.
+## The screens they open sit on top, so BACK from them lands here again.
+func _build_modes() -> void:
+	_modes_box = overlay(Color(0.03, 0.02, 0.05, 0.95))
+	add_child(_modes_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 20
+	col.offset_right = -20
+	col.offset_top = 24
+	col.offset_bottom = -24
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 14)
+	_modes_box.add_child(col)
+	col.add_child(label("MODES", 46, Color(1, 0.85, 0.55)))
+	col.add_child(label("More ways to run the crypt.", 18, Color(0.8, 0.8, 0.85)))
+	var daily := _mode_card("daily", "DAILY CRYPT", GOLD, func(): daily_pressed.emit())
+	col.add_child(daily[0])
+	_mode_daily_text = daily[1]
+	_mode_daily_tag = daily[2]
+	var curses := _mode_card("curses", "CURSES", Color(0.95, 0.35, 0.4), func(): curses_pressed.emit())
+	col.add_child(curses[0])
+	(curses[1] as Label).text = "Turn on curses for harder runs, more score\nand rewards for your hero."
+	_mode_curses_tag = curses[2]
+	_modes_tutorial = button("Tutorial run", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_modes_tutorial.custom_minimum_size = Vector2(260, 62)
+	_modes_tutorial.pressed.connect(func(): _guarded(_modes_tutorial, tutorial_pressed))
+	col.add_child(_centered(_modes_tutorial))
+	var back := button("BACK", 26)
+	back.pressed.connect(func(): show_modes(false))
+	col.add_child(_centered(back))
+
+
+## A big mode button: a picture (art/ui/pass_<pic>.png), the name, a line about it and a tag.
+## Returns [button, line, tag].
+func _mode_card(pic: String, title: String, col: Color, on_press: Callable) -> Array:
+	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), Color(col, 0.75))
+	b.custom_minimum_size = Vector2(0, 228)
+	for state in ["normal", "pressed"]:
+		var sb := b.get_theme_stylebox(state) as StyleBoxFlat
+		sb.set_border_width_all(3)
+	b.pressed.connect(on_press)
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right", "top", "bottom"]:
+		m.add_theme_constant_override("margin_" + side, 8)
+	full(m)
+	b.add_child(m)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	m.add_child(v)
+	var img := TextureRect.new()
+	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	img.custom_minimum_size = Vector2(0, 112)
+	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	var path := "res://art/ui/pass_%s.png" % pic
+	if ResourceLoader.exists(path):
+		img.texture = load(path)
+	v.add_child(img)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 8)
+	v.add_child(h)
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.add_theme_constant_override("separation", 0)
+	h.add_child(texts)
+	var t := label(title, 26, col.lightened(0.15), HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(t)
+	var line := label("", 15, Color(0.8, 0.8, 0.86), HORIZONTAL_ALIGNMENT_LEFT)
+	texts.add_child(line)
+	var tag := label("", 18, col)
+	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(tag)
+	return [b, line, tag]
+
+
+func show_modes(v: bool) -> void:
+	if v and not _modes_box.visible:
+		Sfx.play("click")
+	_modes_box.visible = v
+	if not v:
+		_disarm(_modes_tutorial)
+		return
+	var owned := Store.owned()
+	var cfg := Game._load_save()
+	var theme := Curses.theme()
+	_mode_daily_text.text = "%s: %s.\nThe same crypt for everyone, once a day." % [theme.name, theme.text]
+	if not Curses.open_today(owned):
+		_mode_daily_tag.text = "PASS"
+	elif Curses.official_used(cfg):
+		_mode_daily_tag.text = "PLAYED"
+	elif not owned:
+		_mode_daily_tag.text = "FREE TODAY"
+	else:
+		_mode_daily_tag.text = "READY"
+	var level := Curses.level_of(Curses.chosen(cfg, owned))
+	_mode_curses_tag.text = "LEVEL %d" % level if level > 0 else "OFF"
+
+
+func modes_visible() -> bool:
+	return _modes_box.visible
+
+
+## The Heroes screen (hero_screen.gd).
+func _build_heroes() -> void:
+	_heroes_box = HeroScreen.new()
+	add_child(_heroes_box)
+	_heroes_box.pick.connect(func(id: String): hero_pick.emit(id))
+	_heroes_box.trial.connect(func(id: String): hero_trial.emit(id))
+	_heroes_box.closed.connect(func(): show_heroes(false))
 
 
 ## With a saved run waiting, starting a new one asks first: the first tap warns, and a
@@ -751,7 +884,10 @@ func _build_end() -> void:
 	col.add_child(_end_best)
 	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
 	col.add_child(_end_stats)
-	# Daily Crypt: the result as text to paste anywhere (one square per room).
+	# Daily Crypt: the result card, and the same as text to paste anywhere.
+	_share_card = ShareCard.new()
+	_share_card.visible = false
+	col.add_child(_share_card)
 	_share_button = button("SHARE RESULT", 20, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	_share_button.add_theme_color_override("font_color", GOLD)
 	_share_button.custom_minimum_size = Vector2(240, 56)
@@ -1220,7 +1356,7 @@ func _apply_safe_area() -> void:
 
 func _overlay_open() -> bool:
 	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
-		or _daily_box.visible or _omen_box.visible or _ask_box.visible
+		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -1229,6 +1365,7 @@ func _input(event: InputEvent) -> void:
 		if t.pressed:
 			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _end_loop.visible \
 					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible \
+					and not _heroes_box.visible \
 					and not _copy_button.get_global_rect().has_point(t.position) \
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
@@ -1520,10 +1657,11 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	var has_pass := Store.owned()
 	_title_shop_row.visible = not locked
 	_title_pass_row.visible = not locked and not has_pass
-	_title_daily_row.visible = not locked
-	_title_daily.text = "DAILY · FREE!" if Curses.free_today() and not has_pass else "DAILY CRYPT"
+	_title_modes_row.visible = not locked
+	_title_modes_badge.visible = Curses.open_today(has_pass) and not Curses.official_used(Game._load_save())
 	_title_lock.visible = locked
-	_title_tutorial.visible = not locked
+	if not v:
+		show_modes(false)
 	_title_free.visible = not has_pass and not locked   # not before the tutorial run is done
 	_title_best.text = best
 	_title_coins.text = str(coins)
@@ -1573,23 +1711,22 @@ func show_armory(v: bool, rows := [], coins := 0) -> void:
 	_armory_box.visible = v
 	if not v:
 		return
-	_shop_heroes = false
 	_shop_curses = false
 	_shop_title.text = "Armory"
 	_shop_sub.text = "Upgrades bought here last forever."
 	_fill_shop(rows, coins)
 
 
-## rows: [{id, title, text, cost, unlocked, selected}]
+## rows: [{id, name, badge, mastery, cost, unlocked, selected, trial, trying}]
 func show_heroes(v: bool, rows := [], coins := 0) -> void:
-	_armory_box.visible = v
-	if not v:
-		return
-	_shop_heroes = true
-	_shop_curses = false
-	_shop_title.text = "Heroes"
-	_shop_sub.text = "Tap a hero to play as them. Unlock new ones with coins."
-	_fill_shop(rows, coins)
+	if v:
+		_heroes_box.open(rows, coins)
+	else:
+		_heroes_box.close()
+
+
+func heroes_visible() -> bool:
+	return _heroes_box.visible
 
 
 ## rows: [{id, title, text, level, on, locked}]. `info` is the Curse Level line, `goal` the
@@ -1598,7 +1735,6 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 	_armory_box.visible = v
 	if not v:
 		return
-	_shop_heroes = false
 	_shop_curses = true
 	_shop_title.text = "Curses"
 	_shop_sub.text = "%s\n%s" % [info, goal]
@@ -1619,70 +1755,7 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	for c in _armory_rows.get_children():
 		c.queue_free()
 	for r: Dictionary in rows:
-		_armory_rows.add_child(_hero_row(r, coins) if _shop_heroes else _armory_row(r, coins))
-
-
-func _hero_row(r: Dictionary, coins: int) -> Button:
-	var owned: bool = r.unlocked
-	var afford: bool = owned or r.cost <= coins
-	var border := Color(0.5, 0.85, 1.0) if r.selected else (GOLD if afford else Color(0.4, 0.35, 0.45, 0.6))
-	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), border)
-	b.custom_minimum_size = Vector2(0, 104)
-	if r.selected:
-		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4)
-	b.pressed.connect(func(): hero_pick.emit(r.id))
-	var m := MarginContainer.new()
-	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["left", "right"]:
-		m.add_theme_constant_override("margin_" + side, 16)
-	full(m)
-	b.add_child(m)
-	var h := HBoxContainer.new()
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", 12)
-	m.add_child(h)
-	var texts := VBoxContainer.new()
-	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	texts.alignment = BoxContainer.ALIGNMENT_CENTER
-	texts.add_theme_constant_override("separation", 2)
-	h.add_child(texts)
-	var t := label(r.title, 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-	t.autowrap_mode = TextServer.AUTOWRAP_OFF
-	texts.add_child(t)
-	var d := label(r.text, 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
-	d.custom_minimum_size = Vector2(300, 0)
-	texts.add_child(d)
-	if r.get("trying", false):
-		var tag := label("FREE\nTRIAL", 18, GOLD)
-		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(tag)
-	elif r.selected or owned:
-		var tag := label("CHOSEN" if r.selected else "PICK", 20 if r.selected else 22, Color(0.5, 0.85, 1.0) if r.selected else Color(0.6, 1, 0.6))
-		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(tag)
-	else:
-		var side := VBoxContainer.new()
-		side.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		side.alignment = BoxContainer.ALIGNMENT_CENTER
-		side.add_theme_constant_override("separation", 6)
-		h.add_child(side)
-		var price := HBoxContainer.new()
-		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		price.alignment = BoxContainer.ALIGNMENT_CENTER
-		side.add_child(price)
-		var cost_label := coin_row(24, price)
-		cost_label.text = str(r.cost)
-		if not afford:
-			cost_label.label_settings.font_color = Color(0.6, 0.55, 0.5)
-		# Each locked hero can be tried for one run, free.
-		if r.get("trial", false):
-			var tb := button("TRY FREE", 15, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-			tb.add_theme_color_override("font_color", GOLD)
-			tb.custom_minimum_size = Vector2(108, 38)
-			tb.pressed.connect(func(): hero_trial.emit(r.id))
-			side.add_child(tb)
-	return b
+		_armory_rows.add_child(_armory_row(r, coins))
 
 
 func _curse_row(r: Dictionary) -> Button:
@@ -1788,6 +1861,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_buttons.visible = buttons
 	_end_pass.visible = false
 	_share_button.visible = false
+	_share_card.visible = false
 	_end_spacer.custom_minimum_size.y = 100.0 if not buttons else 24.0
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
@@ -1814,9 +1888,13 @@ func _update_end_count(delta: float) -> void:
 			_end_best.label_settings.font_color = Color(0.8, 0.78, 0.7)
 
 
-## Daily Crypt runs get a SHARE RESULT button on the end screen.
-func show_share(v: bool) -> void:
+## Daily Crypt runs get their result card (rows of ShareCard codes) and a SHARE RESULT
+## button on the end screen.
+func show_share(v: bool, rows := [], caption := "") -> void:
 	_share_button.visible = v
+	_share_card.visible = v and not rows.is_empty()
+	if _share_card.visible:
+		_share_card.show_rows(rows, caption)
 	_share_button.text = "SHARE RESULT"
 	_share_button.add_theme_font_size_override("font_size", 20)
 	_copy_button.custom_minimum_size.x = 240.0 if v else 300.0

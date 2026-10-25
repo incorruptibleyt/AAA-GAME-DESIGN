@@ -93,12 +93,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.heal_on_kill = def.get("heal_on_kill", 0.0)
 	parent.add_child(h)
 	h.global_position = pos
-	var look := {"key": def.key, "height": 2.1, "body": def.body, "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0),
-		"hide": def.hide, "attack_anim": def.attack_anim, "rim": Color(def.ring, 0.9)}
-	for extra in ["hood", "helmet", "hat", "horns"]:
-		if def.has(extra):
-			look[extra] = def[extra]
-	h.make_visual(look)
+	h.make_visual(Heroes.look(def))
 	h._build_feet_marker(def.ring)
 	h._build_dash_ring()
 	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.

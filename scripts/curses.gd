@@ -295,5 +295,15 @@ static func official_used(cfg: ConfigFile, date := "") -> bool:
 	return bool(cfg.get_value("daily", (date if date != "" else today()) + "_official", false))
 
 
+## Days in a row with a Daily Crypt run: up to today, or up to yesterday while today's
+## hasn't been played yet.
+static func streak(cfg: ConfigFile) -> int:
+	var start := 0 if official_used(cfg) else -1
+	var n := 0
+	while n < 3650 and official_used(cfg, today(start - n)):
+		n += 1
+	return n
+
+
 static func use_official(cfg: ConfigFile, date: String) -> void:
 	cfg.set_value("daily", date + "_official", true)

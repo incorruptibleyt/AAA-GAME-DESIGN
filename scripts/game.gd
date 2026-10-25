@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25t"
+const BUILD := "2026-10-25u"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -229,7 +229,7 @@ func _ready() -> void:
 	hud.hero_pick.connect(_pick_hero)
 	hud.resume_pressed.connect(func(): if state == State.PAUSED: _resume())
 	hud.quit_run_pressed.connect(_quit_to_title)
-	hud.retry_pressed.connect(func(): if state == State.DEAD and not hud.armory_visible(): _on_screen_tapped())
+	hud.retry_pressed.connect(func(): if state == State.DEAD and not hud.armory_visible() and not hud.heroes_visible(): _on_screen_tapped())
 	hud.music_toggled.connect(_set_music)
 	hud.sounds_toggled.connect(_set_sounds)
 	hud.graphics_toggled.connect(_set_graphics)
@@ -382,6 +382,12 @@ func _notification(what: int) -> void:
 		if hud.omens_visible():
 			hud.show_omens(false)
 			return
+		if hud.heroes_visible():
+			hud.show_heroes(false)
+			return
+		if hud.modes_visible():
+			hud.show_modes(false)
+			return
 		match state:
 			State.PLAYING:
 				_pause()
@@ -389,6 +395,10 @@ func _notification(what: int) -> void:
 				if Telemetry.instance:
 					Telemetry.instance.session_open(false)
 				get_tree().quit()
+
+
+## The game's Google Play page, for the Daily Crypt share text.
+const PLAY_URL := "https://play.google.com/store/apps/details?id=com.Bone_Chain_Dungeon_Roguelite.myapp"
 
 
 ## How much tougher skeletons are on the current floor.
@@ -579,6 +589,7 @@ func perfect_dodge(pos: Vector3) -> void:
 			Sfx.play("vo_combo", 0.8)
 		if not _rep.is_empty():
 			_rep.best_chain = maxf(_rep.best_chain, chain)
+			_rep.room_chain = maxf(_rep.room_chain, chain)
 	var cfg := _load_save()
 	_perfect_total = int(cfg.get_value("stats", "perfect_total", 0)) + 1
 	cfg.set_value("stats", "perfect_total", _perfect_total)
@@ -819,7 +830,8 @@ static func _mult_text(m: float) -> String:
 
 func _reset_report() -> void:
 	_rep = {"damage": {}, "hits": 0, "healed": 0.0, "dash": 0, "ward": 0, "second_wind": 0,
-		"best_combo": 0, "best_chain": 1.0, "perfect": 0, "special": 0, "rooms": [], "room_start": 0.0, "killed_by": ""}
+		"best_combo": 0, "best_chain": 1.0, "perfect": 0, "special": 0, "rooms": [], "room_start": 0.0, "killed_by": "",
+		"chains": [], "room_chain": 1.0}
 	_fps_sum = 0.0
 	_fps_n = 0
 	_fps_low = 999.0
@@ -845,6 +857,7 @@ func _report_room_done(label: String) -> void:
 	if _rep.is_empty():
 		return
 	_rep.rooms.append("%s %s" % [label, _format_time(_run_time - _rep.room_start)])
+	_rep.chains.append(_rep.room_chain)
 
 
 ## The text that the COPY RUN REPORT button puts on the clipboard.
@@ -1142,6 +1155,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), floor_num)
 	if not _rep.is_empty():
 		_rep.room_start = _run_time
+		_rep.room_chain = chain
 	if not _in_boss_room():
 		hud.banner("Room %d" % (index + 1))
 	if first_run:
@@ -1387,6 +1401,7 @@ func on_enemy_died(e: Enemy) -> void:
 	if not _rep.is_empty():
 		_rep.best_combo = maxi(_rep.best_combo, _combo)
 		_rep.best_chain = maxf(_rep.best_chain, chain)
+		_rep.room_chain = maxf(_rep.room_chain, chain)
 	if e.is_boss:
 		_bosses.erase(e)
 		_boss_lost += e.max_health
@@ -1577,7 +1592,7 @@ func _win() -> void:
 	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, extra],
 		tap, false, score, best, _free_end)
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
-	hud.show_share(daily)
+	_show_share_card()
 	_state_time = 0.0
 	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")])
 	print("[report]\n" + _last_report)
@@ -1609,7 +1624,7 @@ func on_hero_died() -> void:
 		coin_line += "\n\nThe Crypt Pass opens endless floors,\nevery hero and the Daily Crypt."
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
 		"", true, score, best)
-	hud.show_share(daily)
+	_show_share_card()
 	hud.show_end_pass(note)
 	_state_time = 0.0
 	_last_report = run_report("Died on floor %d, %s" % [floor_num, "boss room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]])
@@ -1711,7 +1726,7 @@ func _ask_reports() -> void:
 	if not Telemetry.configured() or _load_save().has_section_key("settings", "reports"):
 		return
 	await get_tree().create_timer(1.6, true, false, true).timeout
-	if state in [State.DEAD, State.VICTORY] and not hud.armory_visible() and not hud.pass_visible() \
+	if state in [State.DEAD, State.VICTORY] and not hud.armory_visible() and not hud.pass_visible() and not hud.heroes_visible() \
 			and not _load_save().has_section_key("settings", "reports"):
 		hud.show_reports_ask(true)
 
@@ -1762,8 +1777,7 @@ func _hero_rows() -> Array:
 		var m := Curses.mastery(cfg, h.id)
 		var badge := Curses.mastery_title(m)
 		var unlocked := Heroes.unlocked(cfg, h.id)
-		rows.append({"id": h.id, "title": h.title + ("  ·  " + badge if badge != "" else ""), "text": "%s Special: %s.%s" % [h.text, h.special,
-			"\nBest Curse Level beaten: %d" % m if m > 0 else ""], "cost": h.cost,
+		rows.append({"id": h.id, "name": h.title, "badge": badge, "mastery": m, "cost": h.cost,
 			"unlocked": unlocked, "selected": h.id == chosen and _trial_hero == "",
 			"trial": state == State.TITLE and not unlocked and not bool(cfg.get_value(TRIAL_SECTION, h.id, false)),
 			"trying": h.id == _trial_hero})
@@ -1885,19 +1899,55 @@ func _show_daily() -> void:
 
 
 ## The Daily Crypt result as text to paste anywhere: one square per room.
+## The Daily Crypt result to paste anywhere: the result first, then one square per room
+## (coloured by the chain, a skull per boss), the streak and where to get the game.
 func _share_text() -> String:
+	var num := Curses.day_number(_daily_date)
+	var head := ""
+	if _daily_done:
+		head = "🏆 Bone Chain Daily #%d: CLEARED!" % num
+	elif state == State.VICTORY:
+		head = "⚔️ Bone Chain Daily #%d: floor %d of %d beaten" % [num, floor_num, Curses.DAILY_FLOORS]
+	else:
+		head = "☠️ Bone Chain Daily #%d: fell on floor %d" % [num, floor_num]
+	if _daily_practice:
+		head += " (practice)"
+	var about := [Heroes.get_hero(hero.hero_id).title if hero else "", Curses.theme(_daily_date).name]
+	var days := Curses.streak(_load_save())
+	if days >= 2:
+		about.append("🔥 %d days in a row" % days)
+	return "%s\n%s points · best chain x%.1f\n%s\n%s\nPlay: %s" % [head, Hud.thousands(score), _rep.get("best_chain", 1.0),
+		ShareCard.emoji(_share_rows()), " · ".join(about.filter(func(s): return s != "")), PLAY_URL]
+
+
+## The Daily Crypt as ShareCard codes: one row per floor, one code per room.
+func _share_rows() -> Array:
 	var per_floor := _run.size()
 	var cleared := (floor_num - 1) * per_floor + _room_index + (1 if state == State.VICTORY else 0)
+	var chains: Array = _rep.get("chains", [])
+	var first := cleared - chains.size()   # rooms before a continued run have no chain on record
 	var rows := []
 	for f in Curses.DAILY_FLOORS:
-		var row := ""
+		var row := []
 		for r in per_floor:
 			var i := f * per_floor + r
-			row += "🟩" if i < cleared else ("🟥" if i == cleared and state == State.DEAD else "⬛")
+			if i < cleared:
+				row.append(ShareCard.BOSS if r == per_floor - 1 else ShareCard.bucket(chains[i - first] if i >= first else 1.0, chain_max()))
+			elif i == cleared and state == State.DEAD:
+				row.append(ShareCard.FELL)
+			else:
+				row.append(ShareCard.DARK)
 		rows.append(row)
-	return "Bone Chain · Daily Crypt #%d\n%s · %s\n%s\n%s points · chain x%.1f%s" % [Curses.day_number(_daily_date),
-		Curses.theme(_daily_date).name, Heroes.get_hero(hero.hero_id).title if hero else "", "\n".join(rows),
-		Hud.thousands(score), _rep.get("best_chain", 1.0), " · practice" if _daily_practice else ""]
+	return rows
+
+
+## Daily Crypt end screens show the result card and SHARE RESULT.
+func _show_share_card() -> void:
+	if not daily:
+		hud.show_share(false)
+		return
+	var days := Curses.streak(_load_save())
+	hud.show_share(true, _share_rows(), "%d days in a row!" % days if days >= 2 else "Play tomorrow to start a streak")
 
 
 ## The Pass was bought, restored or refunded, or Google Play sent the price.
@@ -1906,7 +1956,7 @@ func _on_store_changed() -> void:
 		hud.show_pass(true, Store.owned(), Store.instance.price, Store.instance.status)
 	if hud.title_visible():
 		hud.show_title(true, _best_text(), coins)
-	if hud.armory_visible() and hud._shop_heroes:
+	if hud.heroes_visible():
 		hud.show_heroes(true, _hero_rows(), coins)
 	if hud.armory_visible() and hud._shop_curses:
 		_show_curses()

@@ -34,6 +34,16 @@ const LIST := [
 const SAVE_SECTION := "heroes"
 
 
+## How a hero looks (CharacterVisual.build), in a run and on the Heroes screen.
+static func look(def: Dictionary) -> Dictionary:
+	var l := {"key": def.key, "height": 2.1, "body": def.body, "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0),
+		"hide": def.hide, "attack_anim": def.attack_anim, "rim": Color(def.ring, 0.9)}
+	for extra in ["hood", "helmet", "hat", "horns"]:
+		if def.has(extra):
+			l[extra] = def[extra]
+	return l
+
+
 static func get_hero(id: String) -> Dictionary:
 	for h: Dictionary in LIST:
 		if h.id == id:
