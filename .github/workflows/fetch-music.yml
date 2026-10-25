@@ -1,0 +1,77 @@
+# Downloads free CC0 music tracks from OpenGameArt, checks each page still says CC0,
+# turns them into .ogg files and posts them as one zip on the "music-pack" release so
+# they can be added to the game.
+
+name: Fetch CC0 music
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/fetch-music.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download the tracks
+        run: |
+          set -e
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+          mkdir -p src out
+          # name|page|file
+          cat > tracks.txt <<'EOF'
+          evil_approach|https://opengameart.org/content/evil-approach|https://opengameart.org/sites/default/files/Evil%20Approach.wav
+          epic_boss_battle|https://opengameart.org/content/boss-battle-music|https://opengameart.org/sites/default/files/Juhani%20Junkala%20-%20Epic%20Boss%20Battle%20%5BSeamlessly%20Looping%5D.wav
+          determined_pursuit|https://opengameart.org/content/determined-pursuit-epic-orchestra-loop|https://opengameart.org/sites/default/files/determined_pursuit_loop.wav
+          siberian_intro|https://opengameart.org/content/siberian-intro|https://opengameart.org/sites/default/files/Vehicle%20-%20OGA%20-%20Siberian%20Intro.wav
+          col_legno|https://opengameart.org/content/col-legno|https://opengameart.org/sites/default/files/Vehicle%20-%20OGA%20-%20Col%20Legno.wav
+          battlegrounds|https://opengameart.org/content/fantasy-battlegrounds|https://opengameart.org/sites/default/files/battleground_remastered_0.mp3
+          serpents|https://opengameart.org/content/ancient-power-of-serpents|https://opengameart.org/sites/default/files/Ancient_Power_Of_Serpents_0.ogg
+          fantasy_choir|https://opengameart.org/content/fantasy-choir-3-orchestral-pieces|https://opengameart.org/sites/default/files/FantasyChoir24bit.zip
+          EOF
+          echo "Track | Page | Licence check" > out/SOURCES.txt
+          while IFS='|' read -r name page file; do
+            name=$(echo "$name" | xargs)
+            [ -z "$name" ] && continue
+            html=$(curl -sSL "$page" || true)
+            if ! grep -q 'CC0' <<< "$html"; then
+              echo "$name: page no longer says CC0, skipped"
+              echo "$name | $page | NOT CC0, skipped" >> out/SOURCES.txt
+              continue
+            fi
+            ext="${file##*.}"
+            curl -sSL -o "src/$name.$ext" "$file" || { echo "$name: download failed"; continue; }
+            if [ "$ext" = "zip" ]; then
+              mkdir -p "src/$name"
+              unzip -q -o "src/$name.zip" -d "src/$name"
+              i=1
+              find "src/$name" -type f \( -iname '*.wav' -o -iname '*.mp3' -o -iname '*.ogg' \) | sort | while read -r f; do
+                ffmpeg -loglevel error -y -i "$f" -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "out/${name}_$i.ogg"
+                i=$((i + 1))
+              done
+            else
+              ffmpeg -loglevel error -y -i "src/$name.$ext" -ac 2 -ar 44100 -c:a libvorbis -q:a 4 "out/$name.ogg"
+            fi
+            echo "$name | $page | CC0" >> out/SOURCES.txt
+          done < tracks.txt
+          for f in out/*.ogg; do
+            d=$(ffprobe -v quiet -show_entries format=duration -of csv=p=0 "$f")
+            echo "$(basename "$f") ${d}s $(du -h "$f" | cut -f1)"
+          done
+          (cd out && zip -q -r ../cc0-music.zip .)
+          ls -la cc0-music.zip
+
+      - name: Publish as the "music-pack" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete music-pack --yes --cleanup-tag || true
+          gh release create music-pack cc0-music.zip --prerelease --target "$GITHUB_SHA" \
+            --title "CC0 music pack" \
+            --notes "Orchestral music tracks from OpenGameArt, each marked CC0 (public domain) on its page. See SOURCES.txt in the zip."
