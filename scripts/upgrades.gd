@@ -62,6 +62,9 @@ const SYNERGIES := [
 	{"id": "shatter", "family": "frost", "rarity": "synergy", "title": "Shatter", "text": "Fire + Frost: chilled skeletons burst into ice when they die", "max": 1, "parts": ["fire", "frost"]},
 	{"id": "bonestorm", "family": "bolt", "rarity": "synergy", "title": "Bone Storm", "text": "Fan + Pierce: every 3rd volley adds a ring of piercing shards", "max": 1, "parts": ["diagonal", "pierce"]},
 	{"id": "ossuary", "family": "bone", "rarity": "synergy", "title": "Ossuary", "text": "Ward + Vitality: reaching Chain x2 recharges a Bone Ward", "max": 1, "parts": ["ward", "vitality"]},
+	{"id": "wildfire", "family": "flame", "rarity": "synergy", "title": "Wildfire", "text": "Fire + Twin Shots: burning spreads to a skeleton nearby", "max": 1, "parts": ["fire", "multishot"]},
+	{"id": "glacier", "family": "frost", "rarity": "synergy", "title": "Glacier", "text": "Frost + Ward: blocking a hit freezes every skeleton near you", "max": 1, "parts": ["frost", "ward"]},
+	{"id": "deadeye", "family": "bolt", "rarity": "synergy", "title": "Deadeye", "text": "Keen Eye + Pierce: critical hits fly through every skeleton", "max": 1, "parts": ["crit", "pierce"]},
 ]
 
 

@@ -82,6 +82,9 @@ func _draw() -> void:
 		"volatile": _orb_burst()
 		"flow": _orb_flow()
 		"meteors": _meteor_storm()
+		"wildfire": _wildfire()
+		"glacier": _glacier()
+		"deadeye": _crosshair()
 		_:
 			match family:
 				"bolt": _bolt()
@@ -535,3 +538,29 @@ func _meteor_storm() -> void:
 		_poly([at + n * r, at - n * r, at + d * r * 3.2], Color(EMBER, 0.75))
 		_dot(at, r, EMBER)
 		_dot(at - Vector2(r, r) * 0.25, r * 0.45, HOT)
+
+
+func _wildfire() -> void:
+	# Wildfire: one flame catching another.
+	_flame(Vector2(-6, 2), 0.75)
+	_flame(Vector2(8, -2), 0.6)
+	_ln(Vector2(-1, -8), Vector2(5, -12), 2.0, HOT)
+
+
+func _glacier() -> void:
+	# Glacier: a shield of ice.
+	var pts := [Vector2(-14, -13), Vector2(0, -17), Vector2(14, -13), Vector2(14, 0), Vector2(8, 10),
+		Vector2(0, 17), Vector2(-8, 10), Vector2(-14, 0)]
+	_poly(pts, Color(color, 0.35))
+	_outline(pts, 2.5)
+	for i in 3:
+		var d := Vector2.UP.rotated(PI / 3.0 * i) * 9.0
+		_ln(-d, d, 2.5, Color.WHITE)
+
+
+func _crosshair() -> void:
+	# Deadeye: a crosshair locked on.
+	_arc(Vector2.ZERO, 13.0, 0.0, TAU, 3.0)
+	for d: Vector2 in [Vector2.UP, Vector2.DOWN, Vector2.LEFT, Vector2.RIGHT]:
+		_ln(d * 8.0, d * 19.0, 3.0)
+	_dot(Vector2.ZERO, 3.5, Color(1, 0.3, 0.3))

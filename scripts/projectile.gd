@@ -174,7 +174,9 @@ func _process(delta: float) -> void:
 			_explode(next, target, a)
 		if owner_team == Actor.Team.HERO:
 			Sfx.play("hit", 0.6)
-		pierce -= 1
+		# Deadeye: critical hits keep flying through.
+		if not (crit and owner_team == Actor.Team.HERO and Game.hero and Game.hero.perks.has("deadeye")):
+			pierce -= 1
 		if pierce < 0:
 			queue_free()
 			return

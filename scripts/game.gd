@@ -666,6 +666,14 @@ func _build_run() -> void:
 	_run.append(Layouts.BOSS)
 
 
+## The skeleton only this floor's theme has: Frost Wraiths on the Frozen Ossuary ("f"),
+## Cinder Skeletons in the Ember Catacomb ("e"), none in the Bone Crypt.
+func theme_enemy() -> String:
+	if first_run:
+		return ""
+	return ["", "f", "e"][(maxi(floor_num, 1) - 1) % 3]
+
+
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may be mirrored, and from
 ## floor 3 its far half may be joined to the near half of another room from the same pool.
 func _twist_room(layout: Array, pool: Array, rng: RandomNumberGenerator) -> Array:
@@ -1148,8 +1156,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner("Blessed: " + u.title, Upgrades.color(u)))
 	_wave_kinds.clear()
 	var mages := 0
+	var theme_kind := theme_enemy()
 	for s in room.spawns:
 		var kind: String = s.kind
+		# Ice and fire floors swap one minion in every room for their own skeleton.
+		if kind == "m" and theme_kind != "" and not _wave_kinds.has(theme_kind):
+			kind = theme_kind
 		if kind == "K" and floor_num % 2 == 0:
 			kind = "L"   # every second floor is ruled by the Lich instead
 		# Floor 1 is for learning: never more than one skeleton mage in a wave.
@@ -1509,7 +1521,7 @@ func _clear_enemy_attacks() -> void:
 	if Room.current == null:
 		return
 	for n in Room.current.get_children():
-		if n is Projectile and (n as Projectile).owner_team == Actor.Team.UNDEAD:
+		if (n is Projectile and (n as Projectile).owner_team == Actor.Team.UNDEAD) or n is FirePatch:
 			n.queue_free()
 		elif n is Telegraph:
 			(n as Telegraph).cancel()

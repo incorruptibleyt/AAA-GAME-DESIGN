@@ -12,6 +12,8 @@ class_name Layouts
 ##   x  bone bomber (runs at you and explodes)
 ##   t  bone spitter (stays put, spits three shards)
 ##   s  bone spider (zig-zags, then pounces)
+##   f  frost wraith (ice beam down a marked line; Frozen Ossuary floors swap one in)
+##   e  cinder skeleton (leaves fire on the floor; Ember Catacomb floors swap one in)
 ##   ^  spike trap (glows red, then spikes shoot up)
 ##   K  the boss (the Skeleton King, or the Lich on every second floor)
 ##

@@ -40,6 +40,8 @@ var _spin_left := 0.0
 var _spin_tick := 0.0
 var magnet := 1.0
 var coin_bonus := 0.0
+## Frozen slow by a Frost Wraith's beam: seconds left.
+var chill_left := 0.0
 ## Hero blessings (upgrades.gd) tune these.
 var dash_cooldown_time := DASH_COOLDOWN
 var crit_mult := 2.0
@@ -357,8 +359,12 @@ func _process(delta: float) -> void:
 	_moving = move.length_squared() > 0.02
 	visual.set_moving(_moving)
 
+	if chill_left > 0.0:
+		chill_left -= delta
+		if randf() < delta * 8.0:
+			Fx.magic(center(), Color(0.6, 0.9, 1.0), 2)
 	if _moving:
-		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * delta, delta)
+		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * delta, delta)
 		face(move, 18.0, delta)
 		_shot_timer = maxf(_shot_timer, 0.12)   # firing resumes shortly after you stop
 	else:
@@ -443,6 +449,12 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		Game.report_event("ward")
 		_invulnerable = 0.7
 		Fx.magic(center(), Color(0.8, 0.9, 1.0), 24)
+		if perks.has("glacier"):
+			# Glacier: the blocked hit freezes every skeleton nearby.
+			Fx.shockwave(global_position, Color(0.6, 0.9, 1.0), 5.0)
+			for a: Actor in Actor.all:
+				if a is Enemy and a.can_be_hit() and a.global_position.distance_to(global_position) < 5.0 + a.radius:
+					(a as Enemy).chill(2.5)
 		Sfx.play("upgrade", 0.6)
 		Game.shake(0.2)
 		return
@@ -538,6 +550,14 @@ func _update_dash_ring() -> void:
 	_ring_was_ready = ready
 	if ready and not was_ready:
 		Fx.magic(global_position + Vector3.UP * 0.2, Color(0.5, 0.85, 1.0), 10)
+
+
+## Slowed to 60% speed for a moment (Frost Wraith beams).
+func chill(seconds: float) -> void:
+	if chill_left <= 0.0:
+		Fx.magic(center(), Color(0.6, 0.9, 1.0), 16)
+		Game.hud.callout("FROZEN!", Color(0.6, 0.9, 1.0))
+	chill_left = maxf(chill_left, seconds)
 
 
 ## Refills Bone Ward at the start of each room.

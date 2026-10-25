@@ -422,9 +422,9 @@ func _gallery_step(delta: float) -> void:
 			for a in Actor.all:
 				a.rotation.y = PI
 			return
-		var kinds := ["m", "w", "a", "g", "x", "t"]
+		var kinds := ["m", "w", "a", "g", "x", "t", "f", "e"]
 		for i in kinds.size():
-			var e := Game.spawn_enemy(kinds[i], Vector3(-4.0 + (i % 3) * 4.0, 0, 1.5 + (i / 3) * 3.0))
+			var e := Game.spawn_enemy(kinds[i], Vector3(-4.5 + (i % 4) * 3.0, 0, 1.5 + (i / 4) * 3.0))
 			if elites and i < 3:
 				e.make_elite()
 		if elites:
