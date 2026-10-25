@@ -155,6 +155,8 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.1.0" > /dev/null
           # Every upload to Play needs a bigger version code, so use the build number.
           sed -i "s/^version\/code=.*/version\/code=${GITHUB_RUN_NUMBER}/" export_presets.cfg
+          # Testers see the version name on the Play page; give each build its own.
+          sed -i "s/^version\/name=.*/version\/name=\"0.9.${GITHUB_RUN_NUMBER}\"/" export_presets.cfg
           $GODOT --headless --install-android-build-template --export-release "Android Play" build/crypt-crawl.aab
           ls -la build/crypt-crawl.aab
           curl -sSL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar

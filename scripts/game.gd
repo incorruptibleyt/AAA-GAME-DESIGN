@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25x"
+const BUILD := "2026-10-25y"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -53,6 +53,13 @@ var _fps_n := 0
 var _fps_low := 999.0
 var _fps_t := 0.0
 var _high_graphics := true
+## Slow phones: until the player picks a graphics setting, the game watches the frame rate
+## during play, and if it can't keep up it switches to Low by itself (and remembers it).
+var _auto_graphics := false
+var _auto_fps: Array[float] = []
+var _auto_seen := 0
+## The robot's "slowphone" test sets this to pretend the phone is slow (-1 = really measure).
+var fps_override := -1.0
 var _combo := 0
 ## Bone Chain: kills close together grow a multiplier on damage and coins.
 ## +0.1 per kill (+0.3 for elites), up to x3, gone after 2.5 s without a kill.
@@ -280,6 +287,7 @@ func _ready() -> void:
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
+	_auto_graphics = not cfg.has_section_key("settings", "high_graphics") and not "autoplay" in OS.get_cmdline_user_args()
 	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
 	Engine.max_fps = 60   # no need to drain the battery past what phones show
 	hud.set_coins(coins)
@@ -345,10 +353,12 @@ func _process(delta: float) -> void:
 		_fps_t += delta
 		if _fps_t >= 1.0:
 			_fps_t = 0.0
-			var f := Engine.get_frames_per_second()
+			var f := Engine.get_frames_per_second() if fps_override < 0.0 else fps_override
 			_fps_sum += f
 			_fps_n += 1
 			_fps_low = minf(_fps_low, f)
+			if _auto_graphics:
+				_watch_frame_rate(f)
 		if _combo_left > 0.0:
 			_combo_left -= delta
 			if _combo_left <= 0.0:
@@ -1875,6 +1885,27 @@ func where_text() -> String:
 		hero.hero_id if hero else "no hero", _format_time(_run_time)]
 
 
+## Called once a second of play. Eight slow seconds in a row (under 45 frames a second on
+## average) turn on Low graphics; three good minutes and it stops watching until next time.
+func _watch_frame_rate(fps: float) -> void:
+	_auto_fps.append(fps)
+	if _auto_fps.size() > 8:
+		_auto_fps.pop_front()
+	_auto_seen += 1
+	if _auto_fps.size() == 8 and _high_graphics:
+		var avg := 0.0
+		for v in _auto_fps:
+			avg += v
+		if avg / 8.0 < 45.0:
+			_auto_graphics = false
+			_set_graphics(false)
+			if not first_run:
+				hud.tip("Low graphics on, for a smoother game. Change it in Pause.", 4.0)
+			return
+	if _auto_seen >= 180:
+		_auto_graphics = false
+
+
 func _set_graphics(high: bool, save := true) -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED
@@ -1886,6 +1917,7 @@ func _set_graphics(high: bool, save := true) -> void:
 		Room.current.apply_graphics(high)
 	hud.set_graphics_label(high)
 	if save:
+		_auto_graphics = false   # the player (or the check above) has chosen
 		var cfg := _load_save()
 		cfg.set_value("settings", "high_graphics", high)
 		cfg.save(SAVE_PATH)

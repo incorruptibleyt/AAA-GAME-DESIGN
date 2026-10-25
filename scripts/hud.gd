@@ -1141,6 +1141,8 @@ func _build_pause() -> void:
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
+	# Testers can say which build they were playing.
+	col.add_child(label("Build " + Game.BUILD, 16, Color(0.6, 0.57, 0.65)))
 
 
 ## Quitting loses the run, so the first tap only asks; a second tap within 3 s quits.

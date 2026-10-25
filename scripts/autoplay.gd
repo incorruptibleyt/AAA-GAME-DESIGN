@@ -18,6 +18,7 @@ extends Node
 ## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
+## `slowphone` feeds the frame-rate watcher 30 frames a second, to check the switch to Low graphics.
 ## `heromenu` pictures every hero on the Heroes screen (then taps UNLOCK on the Mage); `modesmenu` pictures the title and
 ## the Modes screen, `newfoes` (with `floor=2 god`) the Frost Wraith and Cinder Skeleton up
 ## close, `props` (with `floor=N`) the floor's own props, and `bigshots` draws at half size
@@ -77,6 +78,10 @@ var _answering := false
 var _die := false
 ## "icons": a picture of every blessing's badge, then quit.
 var _icons := false
+## "slowphone": pretends the phone only manages 30 frames a second, to check that the game
+## switches itself to Low graphics (and that a chosen setting is left alone).
+var _slow_phone := false
+var _slow_t := -1.0
 ## "cards=a,b,c": the first blessing pick offers exactly these cards (for pictures).
 var _force_cards: Array = []
 
@@ -86,6 +91,8 @@ func _ready() -> void:
 	for a in OS.get_cmdline_user_args():
 		if a == "god":
 			god = true
+		elif a == "slowphone":
+			_slow_phone = true
 		elif a.begins_with("floor="):
 			Game.floor_num = int(a.substr(6))
 		elif a == "shop":
@@ -200,6 +207,18 @@ func _process(delta: float) -> void:
 		print("[autoplay] hero %s hp=%d" % [Game.hero.hero_id, Game.hero.max_health])
 		_hero_choice = ""
 	_t += delta
+	if _slow_phone and Game.state == Game.State.PLAYING:
+		if _slow_t < 0.0:
+			Game._auto_graphics = true   # the robot normally switches the watcher off
+			Game.fps_override = 30.0
+			_slow_t = 0.0
+		_slow_t += delta
+		if _slow_t >= 1.0:
+			_slow_t = 0.0
+			print("[autoplay] slow phone: high graphics %s, watching %s" % [Game._high_graphics, Game._auto_graphics])
+			if not Game._auto_graphics:
+				_slow_phone = false
+				Game.fps_override = -1.0
 	if _icons and _t > 0.5:
 		_icons = false
 		await _icon_sheet()
