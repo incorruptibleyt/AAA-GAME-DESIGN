@@ -796,6 +796,8 @@ func show_modes(v: bool) -> void:
 	if v and not _modes_box.visible:
 		Sfx.play("click")
 	_modes_box.visible = v
+	# The title's own buttons would show faintly through; hide them while MODES is open.
+	_title_box.get_child(0).visible = not v
 	if not v:
 		_disarm(_modes_tutorial)
 		return

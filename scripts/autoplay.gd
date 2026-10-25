@@ -17,7 +17,8 @@ extends Node
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
 ## `heromenu` pictures every hero on the Heroes screen; `modesmenu` pictures the title and
-## the Modes screen. `chains=1.2,2,3` (with `die`) fills in the chain reached in each room
+## the Modes screen, `newfoes` (with `floor=2 god`) the Frost Wraith and Cinder Skeleton up
+## close. `chains=1.2,2,3` (with `die`) fills in the chain reached in each room
 ## before, to picture the Daily Crypt share card.
 
 var god := false
@@ -58,6 +59,7 @@ var _trial := ""
 var _daily_menu := false
 var _modes_menu := false
 var _chains: Array = []
+var _new_foes := false
 var _title_shot := false
 var _share := false
 var _bank := false
@@ -104,6 +106,9 @@ func _ready() -> void:
 			_force_special = true
 		elif a == "gallery":
 			gallery = true
+		elif a == "newfoes":
+			gallery = true
+			_new_foes = true
 		elif a == "pass":
 			Store.test_owned = true
 		elif a == "daily":
@@ -261,6 +266,8 @@ func _process(delta: float) -> void:
 				return
 			if _modes_menu and _t > 1.2 and not _shopped:
 				_shopped = true
+				Game.hud.show_title(true, Game._best_text(), Game.coins)   # with MODES, now the first run is done
+				await get_tree().create_timer(0.3).timeout
 				await _shot()
 				Game.hud.show_modes(true)
 				await get_tree().create_timer(0.5).timeout
@@ -312,6 +319,7 @@ func _process(delta: float) -> void:
 					if Game._daily_requested:
 						Game.daily = true
 						Game._begin_daily()
+					Game._reset_report()   # so the run report counts damage from the jumped-to room
 					Game._pick_curses()
 					Game._apply_armory()
 					Game._go_to_room(start_room - 1)
@@ -445,6 +453,18 @@ func _gallery_step(delta: float) -> void:
 				h.rotation.y = PI
 			Game.hero.place_at(Vector3(0, 0, 30))
 			Game.state = Game.State.TRANSITION
+			return
+		if _new_foes:
+			# The two theme skeletons up close and attacking: pictures at 1.3, 2.3 and 3.3 s.
+			Game.spawn_enemy("f", Vector3(-2.2, 0, 1.5))
+			Game.spawn_enemy("f", Vector3(2.4, 0, 0.5))
+			Game.spawn_enemy("e", Vector3(-1.0, 0, 3.5))
+			Game.spawn_enemy("e", Vector3(1.4, 0, 3.0))
+			Game.hero.place_at(Vector3(0, 0, 7.0))
+			for t in [1.3, 2.3, 3.3]:
+				get_tree().create_timer(t).timeout.connect(_shot)
+			get_tree().create_timer(3.8).timeout.connect(get_tree().quit)
+			_gallery_t = 200.0
 			return
 		if spider_shot:
 			for i in 3:
