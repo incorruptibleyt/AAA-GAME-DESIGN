@@ -138,7 +138,6 @@ var _title_continue: Control
 var _continue_where: Label
 var _title_spacer: Control
 var _title_daily: Button
-var _title_tutorial_button: Button
 var _timer_label: Label
 var _share_button: Button
 var _end_pass: Control
@@ -678,7 +677,6 @@ func _build_title() -> void:
 	var tutorial := button("Tutorial run", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	tutorial.custom_minimum_size = Vector2(222, 66)
 	tutorial.pressed.connect(func(): _guarded(tutorial, tutorial_pressed))
-	_title_tutorial_button = tutorial
 	_title_tutorial = tutorial
 	col.add_child(_pair(pass_button, tutorial))
 
@@ -687,19 +685,22 @@ func _build_title() -> void:
 ## second tap within 3 seconds starts it (giving up the saved run).
 func _guarded(b: Button, sig: Signal) -> void:
 	if not _title_continue.visible or b.has_meta("armed"):
-		if b.has_meta("armed"):
-			b.text = b.get_meta("armed")
-			b.remove_meta("armed")
+		_disarm(b)
 		sig.emit()
 		return
-	b.set_meta("armed", b.text)
+	b.set_meta("armed", [b.text, b.get_theme_font_size("font_size")])
 	b.text = "Tap again: new run"
 	b.add_theme_font_size_override("font_size", 20)
-	get_tree().create_timer(3.0, true, false, true).timeout.connect(func():
-		if b.has_meta("armed"):
-			b.text = b.get_meta("armed")
-			b.remove_meta("armed")
-			b.add_theme_font_size_override("font_size", 38 if b == _title_play else 20))
+	get_tree().create_timer(3.0, true, false, true).timeout.connect(_disarm.bind(b))
+
+
+## Puts a `_guarded` button's own text and size back.
+func _disarm(b: Button) -> void:
+	if b.has_meta("armed"):
+		var was: Array = b.get_meta("armed")
+		b.text = was[0]
+		b.add_theme_font_size_override("font_size", was[1])
+		b.remove_meta("armed")
 
 
 ## Two buttons side by side, centred.
@@ -1110,7 +1111,8 @@ func _input(event: InputEvent) -> void:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
 			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _armory_box.visible \
-					and not _pass_box.visible and not _copy_button.get_global_rect().has_point(t.position):
+					and not _pass_box.visible and not _copy_button.get_global_rect().has_point(t.position) \
+					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
 				return
 			if _safe.visible and _pause_button.get_global_rect().has_point(t.position):

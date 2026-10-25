@@ -2,7 +2,7 @@
 
     python3 tools/store/pass_tiles.py <render folder> <output folder, usually art/ui>
 """
-import math, sys
+import sys
 from PIL import Image, ImageDraw, ImageFilter
 src, out = sys.argv[1], sys.argv[2]
 W, H = 936, 448
@@ -13,7 +13,6 @@ TINTS = {  # inner glow, outer
     "curses": ((150, 20, 30), (18, 8, 16)),
 }
 for name, (inner, outer) in TINTS.items():
-    bg = Image.new("RGB", (W, H), outer)
     glow = Image.new("RGB", (W, H), outer)
     d = ImageDraw.Draw(glow)
     for i in range(40, 0, -1):

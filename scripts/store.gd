@@ -39,6 +39,7 @@ var _play: Object   # the plugin's JNI singleton, only in the Play build
 var _have_details := false
 var _buy_when_ready := false
 var _last_check := -100000
+var _connecting := false
 
 
 static func owned(cfg: ConfigFile = null) -> bool:
@@ -62,13 +63,24 @@ func _ready() -> void:
 	_play = Engine.get_singleton(PLUGIN)
 	_play.initPlugin()
 	_play.connect("connected", _on_connected)
-	_play.connect("disconnected", func(): _have_details = false)
+	_play.connect("disconnected", func():
+		_have_details = false
+		_connecting = false)
 	_play.connect("connect_error", _on_connect_error)
 	_play.connect("query_product_details_response", _on_details)
 	_play.connect("query_purchases_response", _on_owned_list)
 	_play.connect("on_purchase_updated", _on_purchase_updated)
 	_play.connect("acknowledge_purchase_response", _on_acknowledged)
-	_play.startConnection()
+	_last_check = Time.get_ticks_msec()
+	_connect()
+
+
+## Starts connecting to Google Play, unless that's already under way (a second
+## startConnection while the first is running fails with an error).
+func _connect() -> void:
+	if not _connecting:
+		_connecting = true
+		_play.startConnection()
 
 
 ## Called when the Pass screen opens: fetch the price if we don't have it yet.
@@ -76,7 +88,7 @@ func refresh() -> void:
 	if _play == null:
 		return
 	if not _play.isReady():
-		_play.startConnection()
+		_connect()
 	elif not _have_details:
 		_play.queryProductDetails(PackedStringArray([PASS_ID]), "inapp")
 
@@ -112,7 +124,7 @@ func restore() -> void:
 	if _play.isReady():
 		_play.queryPurchases("inapp", false)
 	else:
-		_play.startConnection()
+		_connect()
 
 
 ## Asks Google Play again when the game comes back from the background, so a purchase
@@ -124,16 +136,18 @@ func recheck() -> void:
 	if _play.isReady():
 		_play.queryPurchases("inapp", false)
 	else:
-		_play.startConnection()
+		_connect()
 
 
 func _on_connected() -> void:
+	_connecting = false
 	_last_check = Time.get_ticks_msec()
 	_play.queryProductDetails(PackedStringArray([PASS_ID]), "inapp")
 	_play.queryPurchases("inapp", false)
 
 
 func _on_connect_error(code: int, message: String) -> void:
+	_connecting = false
 	print("[store] can't connect to Google Play (%d): %s" % [code, message])
 	if _buy_when_ready:
 		_buy_when_ready = false

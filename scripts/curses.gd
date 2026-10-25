@@ -42,7 +42,10 @@ const MASTERY := [
 
 
 static func get_curse(id: String) -> Dictionary:
-	for c: Dictionary in LIST + RULES:
+	for c: Dictionary in LIST:
+		if c.id == id:
+			return c
+	for c: Dictionary in RULES:
 		if c.id == id:
 			return c
 	return {}
@@ -148,6 +151,8 @@ const RULES := [
 ]
 ## Curses that can be the daily's "harm" rule (Gilded Horde is left out: Elite Hunt does it).
 const DAILY_CURSES := ["restless", "narrow", "blood", "fragile", "famine", "hourglass", "gravepact", "twin", "brittle"]
+## Rules that cancel each other out never come on the same day.
+const CLASHES := [["dice", "narrow"], ["hearty", "famine"]]
 
 ## One theme per weekday (0 = Sunday), so the week has a rhythm.
 const THEMES := [
@@ -229,22 +234,47 @@ static func _pool(kind: String) -> Array:
 	return RULES.filter(func(r): return r.kind == kind).map(func(r): return r.id)
 
 
+static func _clash(a: String, b: String) -> bool:
+	return CLASHES.any(func(pair): return pair.has(a) and pair.has(b) and a != b)
+
+
+## Rules worked out so far, by date. Each day avoids the rules really shown the day before,
+## so days are worked out in order from Daily Crypt #1.
+static var _rules_by_day := {}
+
+
 ## The three rules for `date` (today by default). No rule comes back on two days running.
-static func daily_rules(date := "", avoid_yesterday := true) -> Array:
+static func daily_rules(date := "") -> Array:
 	if date == "":
 		date = today()
+	if _unix(date) < _unix(FIRST_DAY):
+		return _pick_rules(date, [])
+	if not _rules_by_day.has(date):
+		var prev := []
+		var day := _unix(FIRST_DAY)
+		while day <= _unix(date):
+			var d := Time.get_date_string_from_unix_time(day)
+			if not _rules_by_day.has(d):
+				_rules_by_day[d] = _pick_rules(d, prev)
+			prev = _rules_by_day[d]
+			day += 86400
+	return (_rules_by_day[date] as Array).duplicate()
+
+
+static func _pick_rules(date: String, avoid: Array) -> Array:
 	var t := theme(date)
 	var slots: Array = t.get("slots", ["help", "harm", "trade"])
-	var avoid := []
-	if avoid_yesterday:
-		avoid = daily_rules(Time.get_date_string_from_unix_time(_unix(date) - 86400), false)
+	var force: String = t.get("force", "")
+	# Tomorrow's set rule (Frenzy Friday, Swarm Saturday) isn't picked today, so it isn't on two days running.
+	var tomorrow: String = theme(Time.get_date_string_from_unix_time(_unix(date) + 86400)).get("force", "")
 	var rng := daily_rng(1, date)
 	var out := []
 	for i in slots.size():
-		if t.has("force") and i == slots.size() - 1:
-			out.append(t.force)
+		if force != "" and i == slots.size() - 1:
+			out.append(force)
 			continue
-		var pool := _pool(slots[i]).filter(func(id): return not out.has(id) and not avoid.has(id) and id != t.get("force", ""))
+		var pool := _pool(slots[i]).filter(func(id): return not out.has(id) and not avoid.has(id) and id != force and id != tomorrow \
+				and not out.any(func(o): return _clash(o, id)) and not _clash(force, id))
 		out.append(pool[rng.randi() % pool.size()])
 	return out
 

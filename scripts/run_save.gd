@@ -16,10 +16,6 @@ const HERO_PROPS := ["max_health", "health", "move_speed", "damage", "shots_per_
 	"perks", "special_charge", "magnet", "coin_bonus", "ward_max"]
 
 
-static func exists() -> bool:
-	return not read().is_empty()
-
-
 ## The saved run, or {} if there isn't one (or it's from an older version of the game).
 static func read() -> Dictionary:
 	var cfg := ConfigFile.new()
@@ -42,13 +38,34 @@ static func clear() -> void:
 
 
 ## Coins are saved as soon as they're picked up. Remembering how many this run had when they
-## were last saved lets CONTINUE take back the ones from the room that gets replayed.
+## were last saved tells us which ones came from the room that CONTINUE replays.
 static func bank(run_coins: int) -> void:
 	var data := read()
 	if data.is_empty():
 		return
 	data.banked = run_coins
 	write(data)
+
+
+## Called as the game starts. Coins from the room that CONTINUE will replay drop again
+## when it's replayed, so they're held back now (they can't be spent and then earned a
+## second time). Returns the coins the player has to spend; `held()` gives the rest back
+## if the saved run is given up.
+static func hold_replayed(coins: int) -> int:
+	var data := read()
+	if data.is_empty():
+		return coins
+	var take := mini(coins, int(data.get("banked", data.run_coins)) - int(data.run_coins))
+	if take <= 0:
+		return coins
+	data.held = int(data.get("held", 0)) + take
+	data.banked = data.run_coins
+	write(data)
+	return coins - take
+
+
+static func held() -> int:
+	return int(read().get("held", 0))
 
 
 static func hero_state(h: Hero) -> Dictionary:

@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25o"
+const BUILD := "2026-10-25p"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -244,6 +244,11 @@ func _ready() -> void:
 
 	var cfg := _load_save()
 	coins = int(cfg.get_value("stats", "coins", 0))
+	var spendable := RunSave.hold_replayed(coins)
+	if spendable != coins:
+		coins = spendable
+		cfg.set_value("stats", "coins", coins)
+		cfg.save(SAVE_PATH)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
@@ -302,7 +307,7 @@ func _process(delta: float) -> void:
 	_state_time += delta
 	if state == State.PLAYING:
 		_run_time += delta
-		if curses.has("hourglass") and not _hourglass_out:
+		if curses.has("hourglass") and not _hourglass_out and alive_enemies > 0:
 			_hourglass_left -= delta
 			if _hourglass_left <= 0.0:
 				_hourglass_out = true
@@ -347,6 +352,12 @@ func _notification(what: int) -> void:
 		# Android's back button pauses the game; from the pause or title screen it leaves.
 		if hud.armory_visible():
 			hud.show_armory(false)
+			return
+		if hud.pass_visible():
+			hud.show_pass(false)
+			return
+		if hud.daily_visible():
+			hud.show_daily(false)
 			return
 		match state:
 			State.PLAYING:
@@ -660,6 +671,11 @@ func _on_play_pressed() -> void:
 
 
 func _start_run() -> void:
+	var held := RunSave.held()
+	if held > 0:
+		coins += held   # giving up the saved run gives its held-back coins back
+		hud.set_coins(coins)
+		_save_coins()
 	RunSave.clear()   # starting something new gives up a saved run
 	first_run = first_run_pending() or _tutorial_requested
 	_tutorial_requested = false
@@ -668,14 +684,7 @@ func _start_run() -> void:
 	_daily_done = false
 	_run_hero_id = ""
 	if daily:
-		# One Official run a day counts for the day's best; after that it's Practice.
-		_daily_date = Curses.today()
-		var cfg := _load_save()
-		_daily_practice = Curses.official_used(cfg, _daily_date)
-		if not _daily_practice:
-			Curses.use_official(cfg, _daily_date)
-			cfg.save(SAVE_PATH)
-		_run_hero_id = Curses.daily_hero(_daily_date)
+		_begin_daily()
 	elif _trial_hero != "" and not first_run:
 		_run_hero_id = _trial_hero
 		var cfg := _load_save()
@@ -697,15 +706,33 @@ func _start_run() -> void:
 	_mode_banner()
 
 
+## Today's Daily Crypt: its date and hero, and whether this is the day's Official run
+## (one a day counts for the day's best; after that it's Practice).
+func _begin_daily() -> void:
+	_daily_date = Curses.today()
+	var cfg := _load_save()
+	_daily_practice = Curses.official_used(cfg, _daily_date)
+	if not _daily_practice:
+		Curses.use_official(cfg, _daily_date)
+		cfg.save(SAVE_PATH)
+	_run_hero_id = Curses.daily_hero(_daily_date)
+	_daily_done = false
+
+
 ## Swaps the hero standing on the title screen for this run's hero, if that's a different one.
 func _use_run_hero() -> void:
-	var id := _run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save())
+	_swap_hero(_run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save()))
+
+
+## Puts hero `id` where the current hero stands. Returns false if it's already that hero.
+func _swap_hero(id: String) -> bool:
 	if hero and hero.hero_id == id:
-		return
+		return false
 	var at := hero.global_position if hero else Vector3.ZERO
 	if hero:
 		hero.queue_free()
 	hero = Hero.spawn(world, at, id)
+	return true
 
 
 ## Curses chosen on the Curses screen, or the day's rules in the Daily Crypt.
@@ -863,7 +890,14 @@ func _restart() -> void:
 		hero.queue_free()
 		hero = null
 	_reset_run_stats()
-	if daily:
+	if daily and _daily_date != Curses.today():
+		# A new day started while on the end screen: retry on today's Daily Crypt.
+		daily = Curses.open_today(Store.owned())
+		if daily:
+			_begin_daily()
+		else:
+			_run_hero_id = ""
+	elif daily:
 		_daily_practice = true   # the Official run is used up
 		_daily_done = false
 	else:
@@ -885,7 +919,6 @@ func _quit_to_title() -> void:
 		return
 	hud.show_pause(false)
 	get_tree().paused = false
-	RunSave.clear()
 	Telemetry.instance.send("run", run_report("Quit on floor %d, room %d" % [floor_num, _room_index + 1]))
 	_back_to_title()
 
@@ -1000,13 +1033,17 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		if _roll_elite(e, index):
 			e.make_elite()
 		_wave_kinds.append(kind)
-		# Twin Wardens: a second boss beside the first, each with a third less health.
+		# Twin Wardens: a second boss beside the first, each with 35% less health.
 		if e.is_boss and curses.has("twin"):
 			var twin := spawn_enemy(kind, s.pos + Vector3(2.4, 0, 0))
 			e.global_position = s.pos - Vector3(2.4, 0, 0)
 			for b: Enemy in [e, twin]:
 				b.max_health *= 0.65
 				b.health = b.max_health
+	# Swarm: the first wave gets its extra skeleton too.
+	if curses.has("swarm") and not _in_boss_room() and not _wave_kinds.is_empty():
+		var extra := spawn_enemy(_wave_kinds[0], _wave_spots(1)[0])
+		extra.rotation.y = PI
 	_wave_pending = false
 	if _in_boss_room() or _wave_kinds.is_empty():
 		_wave_total = 1
@@ -1035,7 +1072,8 @@ func _checkpoint(next_floor := false) -> void:
 	RunSave.write({"floor": floor_num + (1 if next_floor else 0), "room": 0 if next_floor else _room_index,
 		"hero_id": hero.hero_id, "hero": h, "taken": _taken.duplicate(), "rerolls": rerolls, "score": score,
 		"run_coins": run_coins, "banked": run_coins, "kills": _kills, "time": _run_time, "curses": curses.duplicate(),
-		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id})
+		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
+		"heart_bonus": heart_bonus})
 
 
 ## "Floor 3 · Room 2" for the CONTINUE button, or "" when there's no saved run.
@@ -1076,16 +1114,12 @@ func _continue_run() -> void:
 	_daily_done = false
 	_run_hero_id = str(s.run_hero)
 	_score_mult = Curses.score_mult(curses)
-	# Coins picked up after the room started were saved already and come back when the
-	# room is replayed, so they're taken back here.
-	var replayed := int(s.get("banked", s.run_coins)) - run_coins
-	if replayed > 0:
-		coins = maxi(0, coins - replayed)
-		hud.set_coins(coins)
-		_save_coins()
+	heart_bonus = float(s.get("heart_bonus", Armory.heart_bonus(_load_save())))
+	# (Coins from the room being replayed were held back when the game started: RunSave.hold_replayed.)
 	if hero:
 		hero.queue_free()
-	hero = Hero.spawn(world, Vector3.ZERO, str(s.hero_id))
+		hero = null
+	_swap_hero(str(s.hero_id))
 	RunSave.apply_hero(hero, s.hero)
 	_build_run()
 	_go_to_room(int(s.room))
@@ -1551,7 +1585,8 @@ func _hero_rows() -> Array:
 		rows.append({"id": h.id, "title": h.title + ("  ·  " + badge if badge != "" else ""), "text": "%s Special: %s.%s" % [h.text, h.special,
 			"\nBest Curse Level beaten: %d" % m if m > 0 else ""], "cost": h.cost,
 			"unlocked": unlocked, "selected": h.id == chosen and _trial_hero == "",
-			"trial": not unlocked and not bool(cfg.get_value(TRIAL_SECTION, h.id, false)), "trying": h.id == _trial_hero})
+			"trial": state == State.TITLE and not unlocked and not bool(cfg.get_value(TRIAL_SECTION, h.id, false)),
+			"trying": h.id == _trial_hero})
 	return rows
 
 
@@ -1565,10 +1600,7 @@ func _try_hero(id: String) -> void:
 	var def := Heroes.get_hero(id)
 	hud.set_title_hero(def.title + " (free trial run)")
 	hud.show_heroes(false)
-	if hero and hero.hero_id != id:
-		var at := hero.global_position
-		hero.queue_free()
-		hero = Hero.spawn(world, at, id)
+	if _swap_hero(id):
 		Fx.magic(hero.center(), def.bolt_color, 30)
 
 
@@ -1593,10 +1625,7 @@ func _pick_hero(id: String) -> void:
 	hud.set_title_hero(def.title)
 	hud.show_heroes(true, _hero_rows(), coins)
 	# On the title screen, swap the hero standing in the room straight away.
-	if state == State.TITLE and hero and hero.hero_id != id:
-		var at := hero.global_position
-		hero.queue_free()
-		hero = Hero.spawn(world, at, id)
+	if state == State.TITLE and _swap_hero(id):
 		Fx.magic(hero.center(), def.bolt_color, 30)
 
 

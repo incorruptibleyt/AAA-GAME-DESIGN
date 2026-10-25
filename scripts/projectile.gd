@@ -19,6 +19,7 @@ var source := "Shot"
 var life := 4.0
 var dir := Vector3.FORWARD
 var _hit := {}
+var _first_frame := true
 var _look: Node3D
 var _pulse := 0.0
 
@@ -100,6 +101,14 @@ func shatter() -> void:
 	queue_free()
 
 
+## Squared distance on the floor from `p` to the line from `a` to `b`.
+static func _flat_dist_sq(p: Vector3, a: Vector3, b: Vector3) -> float:
+	var ab := Vector2(b.x - a.x, b.z - a.z)
+	var ap := Vector2(p.x - a.x, p.z - a.z)
+	var t := clampf(ap.dot(ab) / maxf(ab.length_squared(), 0.0001), 0.0, 1.0)
+	return (ap - ab * t).length_squared()
+
+
 func _process(delta: float) -> void:
 	life -= delta
 	if _look:
@@ -107,6 +116,13 @@ func _process(delta: float) -> void:
 		var k := 1.0 + 0.14 * sin(_pulse)
 		_look.scale = Vector3(k, k, k)
 	var next := global_position + dir * speed * delta
+	# Hero bolts check the whole stretch they flew this frame. The first frame starts back at
+	# the hero (bolts appear a little in front), so a skeleton pressed right up against the
+	# hero is hit too instead of being shot past.
+	var from := global_position
+	if _first_frame and owner_team == Actor.Team.HERO:
+		from -= dir * 0.6
+	_first_frame = false
 	if life <= 0.0 or (Room.current and Room.current.blocks_shot(next, radius * 0.5)):
 		Fx.sparks(global_position, Color(1, 0.85, 0.5) if owner_team == Actor.Team.HERO else DANGER)
 		queue_free()
@@ -117,10 +133,10 @@ func _process(delta: float) -> void:
 	for a: Actor in Actor.all.duplicate():
 		if a.team != target or not a.can_be_hit() or _hit.has(a):
 			continue
-		var d := a.global_position - next
-		d.y = 0.0
 		var reach := a.radius + radius
-		if d.length_squared() > reach * reach:
+		var dist_sq := _flat_dist_sq(a.global_position, from, next) if owner_team == Actor.Team.HERO \
+				else Vector2(a.global_position.x - next.x, a.global_position.z - next.z).length_squared()
+		if dist_sq > reach * reach:
 			continue
 		_hit[a] = true
 		var crit := randf() < crit_chance
