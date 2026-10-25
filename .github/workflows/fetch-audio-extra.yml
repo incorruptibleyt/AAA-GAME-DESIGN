@@ -1,0 +1,62 @@
+# Downloads more free CC0 sounds (explosions, a victory jingle, creature roars and fire) and
+# posts them as one zip on the "audio-pack-2" release so they can be added to the game.
+# Kenney packs come from kenney.nl; the rest from OpenGameArt.org, all marked CC0.
+
+name: Fetch more CC0 audio
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/fetch-audio-extra.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Download the packs
+        run: |
+          set -e
+          mkdir -p out src
+          for pack in sci-fi-sounds music-jingles; do
+            url=$(curl -sSL "https://kenney.nl/assets/$pack" | grep -oE 'https://kenney\.nl/media/pages/assets/[^"]+\.zip' | head -1 || true)
+            echo "$pack -> $url"
+            if [ -z "$url" ]; then continue; fi
+            curl -sSL -o "$pack.zip" "$url"
+            mkdir -p "src/$pack" "out/$pack"
+            unzip -q "$pack.zip" -d "src/$pack"
+            find "src/$pack" -type f \( -iname '*.ogg' -o -iname 'license*' \) -exec cp {} "out/$pack/" \;
+          done
+          # OpenGameArt (CC0): rubberduck's two creature packs, AntumDeluge's fire crackle,
+          # LEGIT Audio's fire staff.
+          get() {
+            echo "$1 <- $2"
+            mkdir -p "out/$1"
+            curl -sSL -f -o "src/$1.${2##*.}" "$2" || { echo "failed: $2"; return 0; }
+            case "$2" in
+              *.zip) unzip -q -o "src/$1.zip" -d "src/$1" && find "src/$1" -type f \( -iname '*.ogg' -o -iname '*.wav' -o -iname '*.mp3' -o -iname '*.txt' \) -exec cp {} "out/$1/" \; ;;
+              *) cp "src/$1.${2##*.}" "out/$1/" ;;
+            esac
+          }
+          get creatures-1 https://opengameart.org/sites/default/files/80-CC0-creature-SFX_0.zip
+          get creatures-2 https://opengameart.org/sites/default/files/80-CC0-creature-sfx-2.zip
+          get fire-crackle https://opengameart.org/sites/default/files/fire-1_0.ogg
+          get fire-staff https://opengameart.org/sites/default/files/legit_audio_fire_staff_-_free_0.zip
+          find out -type f | sort
+          du -sh out
+          (cd out && zip -q -r ../cc0-audio-2.zip .)
+          ls -la cc0-audio-2.zip
+
+      - name: Publish as the "audio-pack-2" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete audio-pack-2 --yes --cleanup-tag || true
+          gh release create audio-pack-2 cc0-audio-2.zip --prerelease --target "$GITHUB_SHA" \
+            --title "More CC0 audio" \
+            --notes "Kenney's Sci-Fi Sounds and Music Jingles; from OpenGameArt: rubberduck's 80 CC0 creature SFX (1 and 2), AntumDeluge's fire crackling, LEGIT Audio's fire staff. All CC0."
