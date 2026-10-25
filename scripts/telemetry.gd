@@ -4,7 +4,8 @@ extends Node
 ## error, or seems to have crashed last time) it posts a short text report to a Google
 ## Form, whose answers land in a Google Sheet. No account, ad ID or personal data:
 ## just a random install number made on the phone, the build, the phone model and
-## the run report. Players can switch it off in the pause menu ("Send reports").
+## the run report. It's off until the player says yes (they're asked once, after a run),
+## and can be switched either way in the pause menu ("Send reports").
 ##
 ## To point it at a different form, change FORM_ID and ENTRY (from the form's
 ## "Get pre-filled link"). Leaving FORM_ID empty switches reports off completely.
@@ -68,7 +69,7 @@ func active() -> bool:
 
 
 func enabled() -> bool:
-	return active() and bool(Game._load_save().get_value("settings", "reports", true))
+	return active() and bool(Game._load_save().get_value("settings", "reports", false))
 
 
 func send(kind: String, body: String) -> void:
@@ -148,7 +149,7 @@ static func install_id(cfg: ConfigFile) -> String:
 
 
 func _flush() -> void:
-	if _busy or _queue.is_empty():
+	if _busy or _queue.is_empty() or not enabled():
 		return
 	_busy = true
 	var url := "https://docs.google.com/forms/d/e/%s/formResponse" % FORM_ID
@@ -170,6 +171,12 @@ func _load_queue() -> void:
 	var parsed = JSON.parse_string(FileAccess.get_file_as_string(QUEUE_PATH)) if FileAccess.file_exists(QUEUE_PATH) else null
 	_queue = parsed if parsed is Array else []
 	_flush()
+
+
+## Reports were switched off: drop any still waiting to be sent.
+func clear_queue() -> void:
+	_queue.clear()
+	_save_queue()
 
 
 func _save_queue() -> void:

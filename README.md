@@ -75,7 +75,7 @@ scripts/
   hero.gd, upgrades.gd
   armory.gd           permanent upgrades bought with coins
   chain_spine.gd      the Bone Chain spine meter at the top
-  telemetry.gd        anonymous run/error/crash reports to a Google Form (opt-out in pause menu)
+  telemetry.gd        anonymous run/error/crash reports to a Google Form (opt-in: asked once after a run; pause menu switch)
   store.gd            the Crypt Pass purchase through Google Play (buy, restore, offline cache)
   curses.gd           Curses, Curse Levels, hero rewards and the Daily Crypt (day, theme, rules)
   run_save.gd         saves the run at every room for CONTINUE

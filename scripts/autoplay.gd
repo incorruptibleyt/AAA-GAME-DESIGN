@@ -15,6 +15,7 @@ extends Node
 ## then banks. `bank` banks at once, and `loopquit` closes the game on the end-of-loop screen.
 ## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
+## `die` lets the hero fall a second into the run (for pictures of the end screens).
 
 var god := false
 var start_room := 1
@@ -56,6 +57,8 @@ var _share := false
 var _bank := false
 var _loop_quit := false
 var _loop_menu := false
+var _answering := false
+var _die := false
 
 
 func _ready() -> void:
@@ -126,6 +129,8 @@ func _ready() -> void:
 			_loop_quit = true
 		elif a == "loopmenu":
 			_loop_menu = true
+		elif a == "die":
+			_die = true
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
 		elif a.begins_with("room="):
@@ -151,6 +156,15 @@ func _process(delta: float) -> void:
 		print("[autoplay] hero %s hp=%d" % [Game.hero.hero_id, Game.hero.max_health])
 		_hero_choice = ""
 	_t += delta
+	if Game.hud.reports_ask_visible() and not _answering:
+		# The once-only "send reports?" question after a run: picture it, then say no.
+		_answering = true
+		print("[autoplay] reports question shown after a run")
+		if shots_dir != "":
+			await _shot()
+		Game.hud.reports_answered.emit(false)
+		_answering = false
+		return
 	if not _perks.is_empty() and Game.state == Game.State.PLAYING and Game.hero:
 		for id in _perks:
 			Game._taken[id] = Game._taken.get(id, 0) + 1
@@ -332,6 +346,10 @@ func _process(delta: float) -> void:
 			_gallery_step(delta)
 		Game.State.TRANSITION when gallery and _gallery_t >= 0.0:
 			_gallery_step(delta)
+		Game.State.PLAYING when _die:
+			if Game._state_time > 1.0:
+				_die = false
+				Game.hero.take_damage(1e9, Vector3.ZERO, 0.0)
 		Game.State.PLAYING when _loop_menu:
 			if is_instance_valid(Game.boss) and not Game.boss.dead and Game._state_time > 1.0:
 				Game.boss.take_damage(1e9, Vector3.ZERO, 0.0)

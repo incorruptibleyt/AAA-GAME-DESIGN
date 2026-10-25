@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25q"
+const BUILD := "2026-10-25r"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -254,6 +254,9 @@ func _ready() -> void:
 	hud.loop_deeper.connect(_open_omens)
 	hud.loop_bank.connect(_bank_run)
 	hud.omen_picked.connect(_pick_omen)
+	hud.reports_answered.connect(func(on: bool):
+		hud.show_reports_ask(false)
+		_set_reports(on))
 
 	var cfg := _load_save()
 	coins = int(cfg.get_value("stats", "coins", 0))
@@ -265,7 +268,7 @@ func _ready() -> void:
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
-	hud.set_reports_label(bool(cfg.get_value("settings", "reports", true)), Telemetry.configured())
+	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
 	Engine.max_fps = 60   # no need to drain the battery past what phones show
 	hud.set_coins(coins)
 
@@ -363,6 +366,10 @@ func _notification(what: int) -> void:
 			Telemetry.instance.session_open(false)
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		# Android's back button pauses the game; from the pause or title screen it leaves.
+		if hud.reports_ask_visible():
+			hud.show_reports_ask(false)
+			_set_reports(false)   # backing out of the question is a no
+			return
 		if hud.armory_visible():
 			hud.show_armory(false)
 			return
@@ -1535,6 +1542,7 @@ func _win() -> void:
 	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")])
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
+	_ask_reports()
 
 
 func on_hero_died() -> void:
@@ -1567,6 +1575,7 @@ func on_hero_died() -> void:
 	_last_report = run_report("Died on floor %d, %s" % [floor_num, "boss room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]])
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
+	_ask_reports()
 
 
 func _on_pause_pressed() -> void:
@@ -1651,7 +1660,20 @@ func _set_reports(on: bool) -> void:
 	cfg.set_value("settings", "reports", on)
 	cfg.save(SAVE_PATH)
 	hud.set_reports_label(on, Telemetry.configured())
+	if not on and Telemetry.instance:
+		Telemetry.instance.clear_queue()   # nothing waiting goes out after a no
 	Sfx.play("click")
+
+
+## Reports are off until the player says yes. The game asks once, a moment after a run
+## ends (normally the tutorial run), unless they've already chosen in the pause menu.
+func _ask_reports() -> void:
+	if not Telemetry.configured() or _load_save().has_section_key("settings", "reports"):
+		return
+	await get_tree().create_timer(1.6, true, false, true).timeout
+	if state in [State.DEAD, State.VICTORY] and not hud.armory_visible() and not hud.pass_visible() \
+			and not _load_save().has_section_key("settings", "reports"):
+		hud.show_reports_ask(true)
 
 
 ## A short "where are we" line for error and crash reports.

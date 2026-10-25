@@ -39,6 +39,7 @@ signal share_pressed
 signal loop_deeper
 signal loop_bank
 signal omen_picked(id: String)
+signal reports_answered(on: bool)
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
 const FLICK_TIME := 0.22
@@ -103,7 +104,7 @@ var _sounds_on := true
 var _graphics_button: Button
 var _graphics_high := true
 var _reports_button: Button
-var _reports_on := true
+var _reports_on := false
 var _stick_start := Vector2.ZERO
 var _stick_age := 0.0
 var _chain_box: Control
@@ -161,6 +162,7 @@ var _end_loop: Control
 var _loop_deeper_button: Button
 var _loop_bank_button: Button
 var _omen_box: Control
+var _ask_box: Control
 var _omen_info: Label
 var _omen_rows: VBoxContainer
 var _omen_have: Label
@@ -188,6 +190,7 @@ func _ready() -> void:
 	_build_armory()
 	_build_daily()
 	_build_omens()
+	_build_reports_ask()
 	_build_pass()
 	_build_boss_card()
 	_flash = ColorRect.new()
@@ -850,7 +853,7 @@ func _build_pause() -> void:
 	_graphics_button = button("Graphics: High", 26)
 	_graphics_button.pressed.connect(func(): graphics_toggled.emit(not _graphics_high))
 	col.add_child(_centered(_graphics_button))
-	_reports_button = button("Send reports: On", 22)
+	_reports_button = button("Send reports: Off", 22)
 	_reports_button.pressed.connect(func(): reports_toggled.emit(not _reports_on))
 	col.add_child(_centered(_reports_button))
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
@@ -1122,6 +1125,42 @@ func omens_visible() -> bool:
 	return _omen_box.visible
 
 
+# ---------------------------------------------------------------- Reports question
+
+## Asked once, at the end of a run: reports stay off unless the player says yes.
+func _build_reports_ask() -> void:
+	_ask_box = overlay(Color(0.02, 0.01, 0.03, 1.0))
+	add_child(_ask_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 30
+	col.offset_right = -30
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 18)
+	_ask_box.add_child(col)
+	col.add_child(label("HELP FIX BUGS?", 40, GOLD))
+	var text := label("Send anonymous run and crash reports to the developer?\n\nNo account, name or ad ID. Just the run summary, the phone model and any error messages.\n\nYou can change this any time in the pause menu.", 19, Color(0.9, 0.88, 0.84))
+	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(text)
+	var yes := button("YES, SEND REPORTS", 26, Color(0.2, 0.32, 0.18, 0.97), Color(0.6, 0.95, 0.55))
+	yes.custom_minimum_size = Vector2(360, 80)
+	yes.pressed.connect(func(): reports_answered.emit(true))
+	col.add_child(_centered(yes))
+	var no := button("NO THANKS", 24)
+	no.custom_minimum_size = Vector2(360, 70)
+	no.pressed.connect(func(): reports_answered.emit(false))
+	col.add_child(_centered(no))
+
+
+func show_reports_ask(v: bool) -> void:
+	_ask_box.visible = v
+
+
+func reports_ask_visible() -> bool:
+	return _ask_box.visible
+
+
 ## A daily rule: green helps, red is a curse, gold is a trade-off.
 func _rule_row(r: Dictionary) -> Control:
 	var kinds := {"help": ["HELP", Color(0.5, 0.95, 0.55)], "harm": ["CURSE", Color(0.95, 0.4, 0.42)], "trade": ["TRADE", GOLD]}
@@ -1181,7 +1220,7 @@ func _apply_safe_area() -> void:
 
 func _overlay_open() -> bool:
 	return _cards_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
-		or _daily_box.visible or _omen_box.visible
+		or _daily_box.visible or _omen_box.visible or _ask_box.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -1189,7 +1228,8 @@ func _input(event: InputEvent) -> void:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
 			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _end_loop.visible \
-					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _copy_button.get_global_rect().has_point(t.position) \
+					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible \
+					and not _copy_button.get_global_rect().has_point(t.position) \
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
 				return
@@ -1477,7 +1517,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_daily.text = "DAILY · FREE!" if Curses.free_today() and not has_pass else "DAILY CRYPT"
 	_title_lock.visible = locked
 	_title_tutorial.visible = not locked
-	_title_free.visible = not has_pass
+	_title_free.visible = not has_pass and not locked   # not before the tutorial run is done
 	_title_best.text = best
 	_title_coins.text = str(coins)
 	var where := Game.continue_text()
