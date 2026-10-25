@@ -44,7 +44,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25z"
+const BUILD := "2026-10-25z2"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -312,12 +312,12 @@ func _ready() -> void:
 		add_child(Autoplay.new())
 
 
-## The opening animation, which hands over to the title screen (and its music).
+## The opening scene, which hands over to the title screen (the music starts on its big hit).
 func _play_intro() -> void:
 	intro = Intro.new()
 	intro.logo = hud.title_logo()
 	intro.logo.modulate.a = 0.0
-	intro.handoff.connect(func(): Music.play("dungeon"))
+	intro.music.connect(func(): Music.play("dungeon"))
 	add_child(intro)
 
 

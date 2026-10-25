@@ -19,7 +19,7 @@ extends Node
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
 ## `intro` plays the opening animation first (other robot runs skip it) and, with `shots=`, takes
-## pictures through it; `introskip` taps the screen half a second in.
+## pictures through it (`intromarks=1.2,1.5` picks the moments); `introskip` taps the screen half a second in.
 ## `slowphone` feeds the frame-rate watcher 30 frames a second, to check the switch to Low graphics.
 ## `heromenu` pictures every hero on the Heroes screen (then taps UNLOCK on the Mage); `modesmenu` pictures the title and
 ## the Modes screen, `newfoes` (with `floor=2 god`) the Frost Wraith and Cinder Skeleton up
@@ -83,7 +83,7 @@ var _icons := false
 var _intro_skip := false
 var _intro_seen := false
 ## Moments of the opening animation to picture (seconds into it).
-var _intro_marks: Array = [0.3, 0.6, 0.95, 1.1, 1.33, 1.42, 1.7, 2.1, 2.45, 2.62, 2.78]
+var _intro_marks: Array = [0.1, 0.3, 0.6, 1.0, 1.3, 1.7, 1.95, 2.06, 2.2, 2.6, 3.0, 3.4, 3.6, 3.75]
 ## "slowphone": pretends the phone only manages 30 frames a second, to check that the game
 ## switches itself to Low graphics (and that a chosen setting is left alone).
 var _slow_phone := false
@@ -101,6 +101,8 @@ func _ready() -> void:
 			_slow_phone = true
 		elif a == "introskip":
 			_intro_skip = true
+		elif a.begins_with("intromarks="):
+			_intro_marks = Array(a.substr(11).split(",")).map(func(m): return float(m))
 		elif a.begins_with("floor="):
 			Game.floor_num = int(a.substr(6))
 		elif a == "shop":

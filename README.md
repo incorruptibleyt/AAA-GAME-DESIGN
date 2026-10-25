@@ -43,7 +43,7 @@ and face the Skeleton King at the end of the floor.
   - **Curses:** 10 curses, each with a level; switched-on curses add up to a Curse Level (+15% score per level, up to 17). Beating the floor 5 boss at a Curse Level earns that hero titles and looks (red lantern, red aura, gold bolts). Restless Dead is free for everyone.
   - **Free tastes:** each locked hero can be played once for free, and free players hear about the Pass once a session after reaching floor 3.
 - **Continue:** the run is saved at the start of every room (scripts/run_save.gd), so if Android closes the game, CONTINUE on the title screen picks it up at the start of that room. Purchases use the official Godot Google Play Billing plugin in addons/ (Play build only); the product ID in Play Console must be `crypt_pass`.
-- **Opening animation** ([scripts/intro.gd](scripts/intro.gd)): bone links fly in and lock into a ring, two eyes light up inside it, BONE CHAIN slams down in a burst of embers, and the words glide up onto the title screen's logo. About three seconds; a tap skips it. Robot check: `intro` (with `shots=` for pictures) and `introskip`.
+- **Opening animation** ([scripts/intro.gd](scripts/intro.gd)): a small 3D crypt built from the game's own models. Two torches catch, three skeletons wake, the warrior's eyes light up and it roars, then it leaps and its sword lands as BONE CHAIN slams down in a burst of embers, and the words glide up onto the title screen's logo. About four seconds; a tap skips it. Robot check: `intro` (with `shots=` and `intromarks=` for pictures) and `introskip`.
 - **Phone-ready:** portrait layout, notch-safe HUD, pause button, Android back pauses, low-health warning and vibration, best floor saved.
 
 ## Art
