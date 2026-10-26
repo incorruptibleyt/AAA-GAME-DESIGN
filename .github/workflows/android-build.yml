@@ -1,5 +1,6 @@
 # Builds Crypt Crawl into an Android app in the cloud. No computer or licence needed.
-#  - crypt-crawl.apk: a test build you can install straight on your phone.
+#  - crypt-crawl.apk: a test build you can install straight on your phone. It is called
+#    "Bone Chain (test)" and has its own app id, so it sits beside the Play version.
 #  - crypt-crawl.aab: the signed release for Google Play. This one is only made once the
 #    ANDROID_UPLOAD_PASSWORD secret exists (Settings > Secrets and variables > Actions).
 #    The first time, the build makes an upload key, locks it with that password, and saves

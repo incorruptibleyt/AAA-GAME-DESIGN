@@ -30,6 +30,8 @@ var heart_bonus := 0.0
 var _camera: Camera3D
 var _cam_focus := Vector3.ZERO
 var _shake := 0.0
+var shake_scale := 1.0   # the Screen shake setting
+var vibration := true    # the Vibration setting
 var _run: Array = []
 var _room_index := 0
 var _taken := {}
@@ -44,7 +46,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-25z7"
+const BUILD := "2026-10-26a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -160,6 +162,8 @@ func first_run_pending() -> bool:
 	var cfg := _load_save()
 	if bool(cfg.get_value("stats", "first_run_done", false)):
 		return false
+	if int(cfg.get_value("stats", "tutorial_deaths", 0)) > 0:
+		return true   # died in the tutorial once: it starts again
 	return int(cfg.get_value("stats", "best_room", 0)) == 0 and int(cfg.get_value("stats", "wins", 0)) == 0
 
 
@@ -178,6 +182,18 @@ func chain_unlocked() -> bool:
 
 func special_unlocked() -> bool:
 	return ftue_room() >= 4
+
+
+## A new player who dies in the tutorial gets it once more from room 1. A second death (or
+## dying in a replay from Modes) ends it, and everything opens as after a win.
+func _tutorial_retry() -> bool:
+	var cfg := _load_save()
+	if bool(cfg.get_value("stats", "first_run_done", false)):
+		return false
+	var deaths := int(cfg.get_value("stats", "tutorial_deaths", 0)) + 1
+	cfg.set_value("stats", "tutorial_deaths", deaths)
+	cfg.save(SAVE_PATH)
+	return deaths < 2
 
 
 func _finish_first_run() -> void:
@@ -256,6 +272,8 @@ func _ready() -> void:
 	hud.music_toggled.connect(_set_music)
 	hud.sounds_toggled.connect(_set_sounds)
 	hud.graphics_toggled.connect(_set_graphics)
+	hud.shake_changed.connect(_set_shake)
+	hud.vibration_toggled.connect(_set_vibration)
 	hud.reports_toggled.connect(_set_reports)
 	hud.dash_flicked.connect(func(d: Vector2): if hero: hero.dash(Vector3(d.x, 0, d.y)))
 	hud.pass_pressed.connect(_open_pass)
@@ -268,7 +286,7 @@ func _ready() -> void:
 			_on_play_pressed())
 	hud.curses_pressed.connect(_open_curses)
 	hud.curse_toggled.connect(_toggle_curse)
-	hud.title_pressed.connect(func(): if state == State.VICTORY and _free_end: _back_to_title())
+	hud.title_pressed.connect(_end_to_title)
 	hud.continue_pressed.connect(_continue_run)
 	hud.hero_trial.connect(_try_hero)
 	hud.share_pressed.connect(_share)
@@ -289,6 +307,8 @@ func _ready() -> void:
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
+	_set_shake(int(cfg.get_value("settings", "shake", 2)), false)
+	_set_vibration(bool(cfg.get_value("settings", "vibration", true)), false)
 	_auto_graphics = not cfg.has_section_key("settings", "high_graphics") and not "autoplay" in OS.get_cmdline_user_args()
 	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
 	Engine.max_fps = 60   # no need to drain the battery past what phones show
@@ -403,8 +423,8 @@ func _notification(what: int) -> void:
 		if Telemetry.instance:
 			Telemetry.instance.session_open(false)
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
-		# Android's back button pauses the game and resumes it again; from the title or end
-		# screens it leaves.
+		# Android's back button pauses the game and resumes it again; from the end screens it
+		# goes to the title, and from the title it leaves.
 		if hud.reports_ask_visible():
 			hud.show_reports_ask(false)
 			_set_reports(false)   # backing out of the question is a no
@@ -432,7 +452,9 @@ func _notification(what: int) -> void:
 				_pause()
 			State.PAUSED:
 				_resume()
-			State.TITLE, State.DEAD, State.VICTORY:
+			State.DEAD, State.VICTORY:
+				_end_to_title()
+			State.TITLE:
 				if Telemetry.instance:
 					Telemetry.instance.session_open(false)
 				get_tree().quit()
@@ -643,11 +665,14 @@ func perfect_dodge(pos: Vector3) -> void:
 	cfg.save(SAVE_PATH)
 
 
-## The DASH button dashes the way you're moving, or the way you face if you're still.
+## The DASH button dashes the way you're moving (or were moving a moment ago, before the
+## thumb left the stick to tap it), or the way you face if you've been still.
 func _dash_from_button() -> void:
 	if hero == null:
 		return
 	var m := hud.joystick + keyboard_move()
+	if m.length() <= 0.2 and Time.get_ticks_msec() - hud.last_move_ms < 450:
+		m = hud.last_move
 	hero.dash(Vector3(m.x, 0, m.y) if m.length() > 0.2 else -hero.global_transform.basis.z)
 
 
@@ -692,7 +717,7 @@ func _end_dash_lesson() -> void:
 
 
 func shake(amount: float) -> void:
-	_shake = maxf(_shake, amount)
+	_shake = maxf(_shake, amount * shake_scale)
 
 
 ## Specials fill the screen with bright bolts and shockwaves; for a moment the bloom is
@@ -950,7 +975,7 @@ func _report_room_done(label: String) -> void:
 	_rep.chains.append(_rep.room_chain)
 
 
-## The text that the COPY RUN REPORT button puts on the clipboard.
+## The text that the COPY REPORT button puts on the clipboard.
 func run_report(result: String) -> String:
 	var cfg := _load_save()
 	var lines := []
@@ -1077,7 +1102,7 @@ func _restart() -> void:
 	else:
 		_run_hero_id = ""   # a free trial is one run
 	_build_run()
-	first_run = false
+	first_run = first_run_pending()   # true only after a first death in the tutorial
 	_pick_curses()
 	hud.show_hud(true)
 	_load_room(0, false)
@@ -1097,10 +1122,22 @@ func _quit_to_title() -> void:
 	_back_to_title()
 
 
-func _back_to_title() -> void:
+## TITLE (or Android Back) on the end screens. A won run stays saved, so CONTINUE on the
+## title picks it up again.
+func _end_to_title() -> void:
+	if not hud.end_visible():
+		return
+	if state == State.DEAD:
+		_back_to_title()
+	elif state == State.VICTORY:
+		_back_to_title(true)
+
+
+func _back_to_title(keep_run := false) -> void:
 	_set_state(State.TRANSITION)
 	_save_coins()
-	RunSave.clear()
+	if not keep_run:
+		RunSave.clear()
 	_free_end = false
 	await _fade(0.0, 1.0, 0.4)
 	hud.show_end(false)
@@ -1209,6 +1246,12 @@ func _pick_omen(id: String) -> void:
 func _resume_loop_end() -> void:
 	_load_room(_run.size() - 1, false)
 	_set_state(State.VICTORY)
+	if not Store.owned() and floor_num >= Store.FREE_FLOORS:
+		# Floor 5 cleared without the Crypt Pass: its offer again; buying it carries on.
+		_free_end = true
+		hud.show_end(true, true, "Run continued.\n\nYou beat the free crypt!\nThe Crypt Pass opens floor %d and beyond." % (floor_num + 1),
+			"", false, score, int(_load_save().get_value("stats", "best_score", 0)), true)
+		return
 	_loop_choice = true
 	hud.show_end(true, true, "Run continued.\n\n" + _loop_text(), "", false, score, int(_load_save().get_value("stats", "best_score", 0)))
 	hud.show_end_loop(true, _bank_bonus(), Loops.loop_of(floor_num) + 1)
@@ -1356,6 +1399,8 @@ func continue_text() -> String:
 	var where := "Floor %d · %s" % [s.floor, "Boss" if s.room >= EASY_ROOMS + MEDIUM_ROOMS + HARD_ROOMS else "Room %d" % (s.room + 1)]
 	if s.get("loop_end", false):
 		where = "Loop %d cleared" % Loops.loop_of(int(s.floor))
+		if not Store.owned() and int(s.floor) <= Store.FREE_FLOORS:
+			where = "Floor %d cleared" % int(s.floor)
 	return ("Daily Crypt · " if s.daily else "") + where
 
 
@@ -1730,19 +1775,22 @@ func _win() -> void:
 		cfg.save(SAVE_PATH)
 	var was_first := first_run
 	_finish_first_run()
+	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
 	Music.play("dungeon")
 	_daily_done = daily and floor_num >= Curses.DAILY_FLOORS
 	_free_end = not daily and floor_num >= Store.FREE_FLOORS and not Store.owned()
 	_loop_choice = not daily and not _free_end and Loops.loop_end(floor_num)
-	if _daily_done or _free_end:
+	if _daily_done:
 		RunSave.clear()
-	elif _loop_choice:
+	elif _loop_choice or _free_end:
+		# At the free end the run is kept too: a Pass bought later (a pending payment, or
+		# after going back to the title) carries it on from here.
 		_checkpoint(false, true)
 	else:
 		_checkpoint(true)
 	var extra := ""
 	if was_first:
-		extra = "\n\nHeroes and the Armory are open!"
+		extra = "\n\nHeroes and the Armory are open:\nfind them on the title screen."
 	elif _daily_done:
 		extra = "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
 	elif _free_end:
@@ -1754,6 +1802,7 @@ func _win() -> void:
 	var tap := "Tap to return to the title" if _daily_done else "Tap to descend to floor %d" % (floor_num + 1)
 	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, extra],
 		tap, false, score, best, _free_end)
+	hud.show_end_title(not _daily_done and not _free_end, "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	_show_share_card()
 	_state_time = 0.0
@@ -1775,18 +1824,23 @@ func on_hero_died() -> void:
 	var best := _save_score(cfg)
 	_save_best(cfg, _room_index + 1)
 	var was_first := first_run
-	_finish_first_run()
+	var tutorial_again := first_run and _tutorial_retry()
+	if not tutorial_again:
+		_finish_first_run()
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
 	if floor_num > 1:
 		where += " on floor %d" % floor_num
 	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d  (spend them in the Armory)" % run_coins
+	if tutorial_again:
+		coin_line = "You keep the %d coins you earned.\nThe tutorial starts again from room 1." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
 	var note := not Store.owned() and floor_num >= 3 and not _pass_note_shown
 	if note:
 		_pass_note_shown = true
 		coin_line += "\n\nThe Crypt Pass opens endless floors,\nevery hero and the Daily Crypt."
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
-		"", true, score, best)
+		"Tap to try again", not tutorial_again, score, best)
+	hud.show_end_title(true)
 	_show_share_card()
 	hud.show_end_pass(note)
 	_state_time = 0.0
@@ -1868,6 +1922,27 @@ func _set_sounds(on: bool, save := true) -> void:
 	if save:
 		var cfg := _load_save()
 		cfg.set_value("settings", "sounds", on)
+		cfg.save(SAVE_PATH)
+
+
+## Screen shake: 2 full, 1 reduced (a third as strong), 0 off.
+func _set_shake(level: int, save := true) -> void:
+	level = clampi(level, 0, 2)
+	shake_scale = [0.0, 0.35, 1.0][level]
+	hud.set_shake_label(level)
+	if save:
+		var cfg := _load_save()
+		cfg.set_value("settings", "shake", level)
+		cfg.save(SAVE_PATH)
+
+
+## The short buzz when the hero is hit.
+func _set_vibration(on: bool, save := true) -> void:
+	vibration = on
+	hud.set_vibration_label(on)
+	if save:
+		var cfg := _load_save()
+		cfg.set_value("settings", "vibration", on)
 		cfg.save(SAVE_PATH)
 
 

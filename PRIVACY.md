@@ -12,7 +12,7 @@ Bone Chain has no accounts and no ads, and it never collects your name, email, c
 
 If you have turned reports on, then when a run ends, when the game hits an error, or when it didn't close properly last time, the game sends a short text report containing:
 
-- **The run summary:** hero, floor and room reached, time, score, kills, coins, damage taken and what dealt it, blessings and Armory upgrades, and frame rate. This is the same text as the **COPY RUN REPORT** button.
+- **The run summary:** hero, floor and room reached, time, score, kills, coins, damage taken and what dealt it, blessings and Armory upgrades, and frame rate. This is the same text as the **COPY REPORT** button.
 - **Error and crash details:** the error message, where in the game it happened, and the last lines of the game's own log.
 - **A random install number** made on your phone the first time you play. It is not linked to you, your Google account or your phone's advertising ID, and it changes if you reinstall.
 - **Technical details:** the game version, phone model, Android version and graphics chip name.
@@ -32,14 +32,15 @@ The game saves your progress (coins, unlocked heroes, Armory upgrades, best floo
 ## Permissions
 
 - **Internet:** only to send the anonymous game reports described above, and only if you've turned them on.
-- **Vibrate:** the phone buzzes briefly when your hero is hit.
+- **Vibrate:** the phone buzzes briefly when your hero is hit (switch it off under Pause, Vibration).
 - **Google Play billing:** only to buy the Crypt Pass through Google Play.
+- **Network state:** added by Google Play billing, to check whether the phone is online before talking to Google Play. It can't see what you do online.
 
 The game asks for no other permissions. It cannot see your contacts, photos, location, microphone or camera.
 
 ## Deleting reports
 
-Because reports are anonymous, the developer can't tell which ones are yours unless you share your install number. To have your reports deleted, email the developer (address on the Google Play page) with the install number, which is shown at the top of every report you copy with **COPY RUN REPORT**.
+Because reports are anonymous, the developer can't tell which ones are yours unless you share your install number. To have your reports deleted, email the developer (address on the Google Play page) with the install number, which is shown at the top of every report you copy with **COPY REPORT** (on the end screen when reports are on).
 
 ## Children
 

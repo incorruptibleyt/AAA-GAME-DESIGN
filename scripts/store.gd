@@ -16,8 +16,10 @@ signal changed   # owned, price or status changed
 
 const PASS_ID := "crypt_pass"
 const FREE_FLOORS := 5
-## Shown on the buy button until Google Play sends the local price.
+## Shown on the buy button where the Pass can't be bought from Google Play (test builds).
 const FALLBACK_PRICE := "$4.99"
+## How long "Connecting..." or "Checking..." may wait for Google Play before saying so.
+const PLAY_TIMEOUT := 10.0
 const SAVE_SECTION := "pass"
 const PLUGIN := "GodotGooglePlayBilling"
 
@@ -42,6 +44,8 @@ var _have_details := false
 var _buy_when_ready := false
 var _last_check := -100000
 var _connecting := false
+var _restoring := false
+var _wait_token := 0
 
 
 static func owned(cfg: ConfigFile = null) -> bool:
@@ -107,7 +111,7 @@ func buy() -> void:
 		return
 	if not _play.isReady() or not _have_details:
 		_buy_when_ready = true
-		_set_status("Connecting to Google Play...")
+		_wait_for_play("Connecting to Google Play...")
 		refresh()
 		return
 	_buy_when_ready = false
@@ -122,7 +126,8 @@ func restore() -> void:
 	if _play == null:
 		_set_status("Install Bone Chain from Google Play to restore the Crypt Pass.")
 		return
-	_set_status("Checking with Google Play...")
+	_restoring = true
+	_wait_for_play("Checking with Google Play...")
 	if _play.isReady():
 		_play.queryPurchases("inapp", false)
 	else:
@@ -151,14 +156,15 @@ func _on_connected() -> void:
 func _on_connect_error(code: int, message: String) -> void:
 	_connecting = false
 	print("[store] can't connect to Google Play (%d): %s" % [code, message])
-	if _buy_when_ready:
-		_buy_when_ready = false
-		_set_status("Google Play isn't available right now. Check your connection and try again.")
+	if _buy_when_ready or _restoring:
+		_play_failed("Google Play isn't available right now. Check your connection and try again.")
 
 
 func _on_details(r: Dictionary) -> void:
 	if int(r.get("response_code", -1)) != OK:
 		print("[store] product details failed: %s" % r.get("debug_message", ""))
+		if _buy_when_ready:
+			_play_failed("Couldn't reach Google Play (error %d). Check your connection and try again." % int(r.get("response_code", -1)))
 		return
 	for p: Dictionary in r.get("product_details", []):
 		if str(p.get("product_id", "")) != PASS_ID:
@@ -181,7 +187,10 @@ func _on_details(r: Dictionary) -> void:
 ## Everything this account owns. Also takes the Pass away again if it was refunded.
 func _on_owned_list(r: Dictionary) -> void:
 	if int(r.get("response_code", -1)) != OK:
+		if _restoring:
+			_play_failed("Couldn't reach Google Play (error %d). Check your connection and try again." % int(r.get("response_code", -1)))
 		return
+	_restoring = false
 	var has_it := _handle(r.get("purchases", []))
 	if not has_it and owned() and not test_owned:
 		_save_owned(false)
@@ -243,3 +252,21 @@ func _save_owned(v: bool) -> void:
 func _set_status(text: String) -> void:
 	status = text
 	changed.emit()
+
+
+## Shows a waiting line, and if Google Play still hasn't answered after PLAY_TIMEOUT
+## seconds, says so instead of waiting forever.
+func _wait_for_play(text: String) -> void:
+	_wait_token += 1
+	var token := _wait_token
+	_set_status(text)
+	get_tree().create_timer(PLAY_TIMEOUT, true, false, true).timeout.connect(func():
+		if token == _wait_token and status == text:
+			_play_failed("Google Play didn't answer. Check your connection and try again."))
+
+
+func _play_failed(text: String) -> void:
+	_buy_when_ready = false
+	_restoring = false
+	_wait_token += 1
+	_set_status(text)

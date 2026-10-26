@@ -24,6 +24,8 @@ signal retry_pressed
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
 signal graphics_toggled(high: bool)
+signal shake_changed(level: int)
+signal vibration_toggled(on: bool)
 signal reports_toggled(on: bool)
 signal dash_flicked(dir: Vector2)
 signal pass_pressed
@@ -55,6 +57,10 @@ const LOGO_WIDTH := 490.0
 const STICK_RADIUS := 70.0
 
 var joystick := Vector2.ZERO
+## Where the stick last pointed, and when (Time.get_ticks_msec()): DASH uses it for a moment
+## after the thumb lifts, since one thumb can't hold the stick and tap the button.
+var last_move := Vector2.ZERO
+var last_move_ms := -100000
 
 var _safe: MarginContainer
 var _hp_fill: ColorRect
@@ -113,12 +119,18 @@ var _shop_coins := 0
 var _title_hero: Label
 var _copy_button: Button
 var _end_buttons: Control
+var _end_title_button: Control
+var _end_title_btn: Button
 var _music_button: Button
 var _sounds_button: Button
 var _music_on := true
 var _sounds_on := true
 var _graphics_button: Button
 var _graphics_high := true
+var _shake_button: Button
+var _shake_level := 2
+var _vibration_button: Button
+var _vibration_on := true
 var _reports_button: Button
 var _reports_on := false
 var _hud_before_end := false
@@ -1068,11 +1080,12 @@ func _build_end() -> void:
 	_share_button.pressed.connect(func():
 		_share_button.disabled = true
 		share_pressed.emit())
-	# Copies a detailed report of the run, to paste to Claude for balancing.
-	_copy_button = button("COPY RUN REPORT", 20, Color(0.1, 0.12, 0.18, 0.95), Color(0.5, 0.75, 1.0, 0.7))
+	# Copies a detailed report of the run (with the install number the privacy policy asks
+	# for), for players who send reports and want to share one.
+	_copy_button = button("COPY REPORT", 20, Color(0.1, 0.12, 0.18, 0.95), Color(0.5, 0.75, 1.0, 0.7))
 	_copy_button.custom_minimum_size = Vector2(240, 56)
 	_copy_button.pressed.connect(func():
-		_copy_button.text = "Copied! Paste it to Claude"
+		_copy_button.text = "Copied!"
 		copy_report_pressed.emit())
 	col.add_child(_pair(_share_button, _copy_button))
 	var spacer := Control.new()
@@ -1104,6 +1117,13 @@ func _build_end() -> void:
 	_end_pass.visible = false
 	buttons.add_child(_end_pass)
 	_end_buttons = buttons
+	# Back to the title from the death screen, or after a win (the run stays saved).
+	_end_title_btn = button("TITLE", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_end_title_btn.custom_minimum_size = Vector2(222, 66)
+	_end_title_btn.pressed.connect(func(): title_pressed.emit())
+	_end_title_button = _centered(_end_title_btn)
+	_end_title_button.visible = false
+	col.add_child(_end_title_button)
 	# After the last free floor: the Crypt Pass, or back to the title.
 	var offer := VBoxContainer.new()
 	offer.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1143,11 +1163,12 @@ func _build_pause() -> void:
 	full(col)
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 18)
+	# Tight enough that the whole menu fits a 16:9 phone.
+	col.add_theme_constant_override("separation", 12)
 	_pause_box.add_child(col)
 	col.add_child(label("Paused", 52, Color(1, 0.85, 0.55)))
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 20)
+	gap.custom_minimum_size = Vector2(0, 8)
 	col.add_child(gap)
 	var resume := button("RESUME", 32, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
 	resume.custom_minimum_size = Vector2(300, 86)
@@ -1162,6 +1183,13 @@ func _build_pause() -> void:
 	_graphics_button = button("Graphics: High", 26)
 	_graphics_button.pressed.connect(func(): graphics_toggled.emit(not _graphics_high))
 	col.add_child(_centered(_graphics_button))
+	# Full, Reduced, Off, then back to Full.
+	_shake_button = button("Screen shake: Full", 22)
+	_shake_button.pressed.connect(func(): shake_changed.emit((_shake_level + 2) % 3))
+	col.add_child(_centered(_shake_button))
+	_vibration_button = button("Vibration: On", 22)
+	_vibration_button.pressed.connect(func(): vibration_toggled.emit(not _vibration_on))
+	col.add_child(_centered(_vibration_button))
 	_reports_button = button("Send reports: Off", 22)
 	_reports_button.pressed.connect(func(): reports_toggled.emit(not _reports_on))
 	col.add_child(_centered(_reports_button))
@@ -1326,7 +1354,10 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
 	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
 	_pass_buy.disabled = owned
-	_pass_buy.text = "OWNED - THANK YOU!" if owned else "UNLOCK  " + (price if price != "" else Store.FALLBACK_PRICE)
+	# On a Play install the button waits for Play's price in the player's own currency;
+	# elsewhere (the test build, which can't buy) it shows the US price.
+	var shown_price := price if price != "" else ("" if Store.can_buy() else Store.FALLBACK_PRICE)
+	_pass_buy.text = "OWNED - THANK YOU!" if owned else ("UNLOCK  " + shown_price).strip_edges()
 	_pass_buy.add_theme_font_size_override("font_size", 26 if owned else 32)
 	_pass_status.text = status
 	_pass_status.visible = status != ""
@@ -1556,6 +1587,7 @@ func _input(event: InputEvent) -> void:
 					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible \
 					and not _heroes_box.visible \
 					and not _copy_button.get_global_rect().has_point(t.position) \
+					and not (_end_title_button.visible and _end_title_btn.get_global_rect().has_point(t.position)) \
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
 				return
@@ -1595,9 +1627,14 @@ func _input(event: InputEvent) -> void:
 			_stick.knob = delta
 			var v := delta / STICK_RADIUS
 			joystick = Vector2.ZERO if v.length() < 0.15 else v
+			if joystick != Vector2.ZERO:
+				last_move = joystick.normalized()
+				last_move_ms = Time.get_ticks_msec()
 
 
 func _release_stick() -> void:
+	if joystick != Vector2.ZERO:
+		last_move_ms = Time.get_ticks_msec()
 	_stick_touch = -1
 	_stick.visible = false
 	joystick = Vector2.ZERO
@@ -1903,6 +1940,17 @@ func set_graphics_label(high: bool) -> void:
 	_graphics_button.text = "Graphics: High" if high else "Graphics: Low"
 
 
+## Screen shake level: 2 full, 1 reduced, 0 off.
+func set_shake_label(level: int) -> void:
+	_shake_level = level
+	_shake_button.text = "Screen shake: " + ["Off", "Reduced", "Full"][clampi(level, 0, 2)]
+
+
+func set_vibration_label(on: bool) -> void:
+	_vibration_on = on
+	_vibration_button.text = "Vibration: On" if on else "Vibration: Off"
+
+
 func armory_visible() -> bool:
 	return _armory_box.visible
 
@@ -2088,11 +2136,12 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_score.text = "SCORE  0"
 	_end_best.text = ""
 	_end_tap.text = tap_text
-	_copy_button.text = "COPY RUN REPORT"
+	_copy_button.text = "COPY REPORT"
 	# A tool for balancing the game, only for players who chose to send reports.
 	_copy_button.visible = _reports_on
 	_end_tap.visible = not buttons and not offer
 	_end_buttons.visible = buttons
+	_end_title_button.visible = false
 	_end_pass.visible = false
 	_share_button.visible = false
 	_share_card.visible = false
@@ -2147,10 +2196,21 @@ func show_end_pass(v: bool) -> void:
 
 
 ## The end of a loop: DESCEND DEEPER into `next_loop`, or BANK AND LEAVE with `bonus` coins.
+## The TITLE button under the end screen's other buttons.
+func show_end_title(v: bool, text := "TITLE") -> void:
+	_end_title_btn.text = text
+	_end_title_button.visible = v and _end_box.visible
+
+
+func end_visible() -> bool:
+	return _end_box.visible
+
+
 func show_end_loop(v: bool, bonus := 0, next_loop := 2) -> void:
 	_end_loop.visible = v
 	if not v:
 		return
+	_end_title_button.visible = false
 	_end_offer.visible = false
 	_end_tap.visible = false
 	_end_spacer.custom_minimum_size.y = 24.0

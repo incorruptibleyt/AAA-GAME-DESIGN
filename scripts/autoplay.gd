@@ -18,6 +18,8 @@ extends Node
 ## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
 ## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
 ## `die` lets the hero fall a second into the run (for pictures of the end screens).
+## `endback` presses Android Back on the first end screen (death, victory or the end of the
+## free game) and prints what the title offers afterwards.
 ## `intro` plays the opening animation first (other robot runs skip it) and, with `shots=`, takes
 ## pictures through it (`intromarks=1.2,1.5` picks the moments); `introskip` taps the screen half a second in.
 ## `slowphone` feeds the frame-rate watcher 30 frames a second, to check the switch to Low graphics.
@@ -78,6 +80,7 @@ var _loop_quit := false
 var _loop_menu := false
 var _answering := false
 var _die := false
+var _end_back := false
 ## "icons": a picture of every blessing's badge, then quit.
 var _icons := false
 var _intro_skip := false
@@ -188,6 +191,8 @@ func _ready() -> void:
 			_loop_menu = true
 		elif a == "die":
 			_die = true
+		elif a == "endback":
+			_end_back = true
 		elif a == "icons":
 			_icons = true
 		elif a.begins_with("cards="):
@@ -199,6 +204,21 @@ func _ready() -> void:
 		elif a.begins_with("shots="):
 			shots_dir = a.substr(6)
 			DirAccess.make_dir_recursive_absolute(shots_dir)
+
+
+## `endback`: Android Back on the end screen, then what the title offers.
+func _back_at_end() -> void:
+	set_process(false)
+	print("[autoplay] back button on %s, floor %d: saved run %s, first run %s, end text: %s" % [Game.State.keys()[Game.state], Game.floor_num,
+		not RunSave.read().is_empty(), Game.first_run, Game.hud._end_stats.text.replace("\n", " / ")])
+	if shots_dir != "":
+		await _shot()
+	Game._notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	await get_tree().create_timer(1.5).timeout
+	print("[autoplay] after back: state=%s, title CONTINUE '%s'" % [Game.State.keys()[Game.state], Game.continue_text()])
+	if shots_dir != "":
+		await _shot()
+	get_tree().quit()
 
 
 ## Daily Crypt and Curses aren't offered on the very first run.
@@ -408,6 +428,9 @@ func _process(delta: float) -> void:
 				print("[autoplay] rerolled: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
 				Game.hud._cards_age = 0.45
 			Game.hud._on_card(0)
+		Game.State.VICTORY when Game._free_end and _end_back:
+			if Game._state_time > 2.5:
+				_back_at_end()
 		Game.State.VICTORY when Game._free_end:
 			if Game._state_time > 2.5 and not _free_end_done:
 				_free_end_done = true
@@ -449,6 +472,9 @@ func _process(delta: float) -> void:
 					runs -= 1
 					Game.hud.loop_deeper.emit()
 		Game.State.DEAD, Game.State.VICTORY:
+			if _end_back and Game._state_time > 2.5:
+				_back_at_end()
+				return
 			if _share and Game.daily and Game._state_time > 2.0:
 				_share = false
 				print("[autoplay] share text:\n" + Game._share_text())

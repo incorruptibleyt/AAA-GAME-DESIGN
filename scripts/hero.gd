@@ -15,8 +15,10 @@ var pierce := 0
 var crit_chance := 0.05
 var burn_dps := 0.0
 var heal_on_kill := 0.0
-## From Bone Harvest: only heals while the Bone Chain is x2 or higher.
+## From Bone Harvest: only heals while the Bone Chain is x2 or higher, and only up to 4% of
+## max health per pick in each room (three picks used to heal back about 80% of all damage).
 var harvest_heal := 0.0
+var harvest_left := 0.0
 ## Set by the chosen hero (heroes.gd).
 var hero_id := "rogue"
 var bolt_size := 0.22
@@ -329,8 +331,10 @@ func _whirlwind(delta: float) -> void:
 
 func on_kill() -> void:
 	var amount := heal_on_kill
-	if Game.chain >= 2.0:
-		amount += harvest_heal
+	if Game.chain >= 2.0 and harvest_left > 0.0:
+		var h := minf(harvest_heal, harvest_left)
+		harvest_left -= h
+		amount += h
 	if amount > 0.0:
 		heal(amount)
 
@@ -483,7 +487,8 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	if dead:
 		return
 	Sfx.play("hurt")
-	Input.vibrate_handheld(45)
+	if Game.vibration:
+		Input.vibrate_handheld(45)
 	Game.shake(0.35)
 	Game.hit_stop(0.06)
 	_invulnerable = 0.7
@@ -571,9 +576,10 @@ func chill(seconds: float) -> void:
 	chill_left = maxf(chill_left, seconds)
 
 
-## Refills Bone Ward at the start of each room.
+## Refills Bone Ward and Bone Harvest's healing at the start of each room.
 func new_room() -> void:
 	ward = ward_max
+	harvest_left = max_health * 0.02 * harvest_heal   # harvest_heal is 2 per pick
 
 
 ## A faint bubble around the hero while Bone Ward is up.

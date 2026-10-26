@@ -6,7 +6,7 @@ Bone Chain: Dungeon Roguelite
 
 ## Short description (80 characters max)
 
-Free to try: floors 1-5. Dash, chain kills and fight down a skeleton crypt.
+One-thumb dungeon roguelite: dash through shots, chain kills, break the crypt.
 
 ## Full description (4000 characters max)
 
