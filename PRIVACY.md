@@ -40,7 +40,7 @@ The game asks for no other permissions. It cannot see your contacts, photos, loc
 
 ## Deleting reports
 
-Because reports are anonymous, the developer can't tell which ones are yours unless you share your install number. To have your reports deleted, email the developer (address on the Google Play page) with the install number, which is shown at the top of every report you copy with **COPY REPORT** (on the end screen when reports are on).
+Because reports are anonymous, the developer can't tell which ones are yours unless you share your install number. To have your reports deleted, email the developer at egence9965@gmail.com with the install number, which is shown at the top of every report you copy with **COPY REPORT** (on the end screen when reports are on).
 
 ## Children
 
@@ -52,4 +52,4 @@ If a future version collects anything else (for example ads), this policy will b
 
 ## Contact
 
-Questions about this policy can be sent to the developer email address listed on the game's Google Play page.
+Questions about this policy, or requests to delete your reports, can be sent to the developer at **egence9965@gmail.com**.
