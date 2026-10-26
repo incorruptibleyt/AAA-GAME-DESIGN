@@ -462,7 +462,7 @@ func _notification(what: int) -> void:
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
 ## menu, the reports question and the Crypt Pass screen.
-const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/d30aafd344c2104089a7ebc310e330de25242267/PRIVACY.md"
+const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/ba45885e863bb29dd10e3a9b1a34487ac3f3b278/PRIVACY.md"
 
 
 ## The game's Google Play page, for the Daily Crypt share text.
