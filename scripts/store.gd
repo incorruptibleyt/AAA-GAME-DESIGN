@@ -21,6 +21,9 @@ const FALLBACK_PRICE := "$4.99"
 ## How long "Connecting..." or "Checking..." may wait for Google Play before saying so.
 const PLAY_TIMEOUT := 10.0
 const SAVE_SECTION := "pass"
+const CONNECTING := "Connecting to Google Play..."
+const CHECKING := "Checking with Google Play..."
+const PENDING_TEXT := "Your payment is pending. The Pass unlocks as soon as it goes through."
 const PLUGIN := "GodotGooglePlayBilling"
 
 # Google Play Billing values (see the plugin's BillingClient.gd).
@@ -111,7 +114,7 @@ func buy() -> void:
 		return
 	if not _play.isReady() or not _have_details:
 		_buy_when_ready = true
-		_wait_for_play("Connecting to Google Play...")
+		_wait_for_play(CONNECTING)
 		refresh()
 		return
 	_buy_when_ready = false
@@ -127,11 +130,21 @@ func restore() -> void:
 		_set_status("Install Bone Chain from Google Play to restore the Crypt Pass.")
 		return
 	_restoring = true
-	_wait_for_play("Checking with Google Play...")
+	_wait_for_play(CHECKING)
 	if _play.isReady():
 		_play.queryPurchases("inapp", false)
 	else:
 		_connect()
+
+
+## The Pass screen closed: a purchase still waiting for Google Play to connect is dropped,
+## so Play's buy sheet can't open later over a run. (A restore's answer still counts.)
+func cancel_wait() -> void:
+	_buy_when_ready = false
+	if status == CONNECTING or status == CHECKING:
+		_restoring = false
+		_wait_token += 1
+		status = ""
 
 
 ## Asks Google Play again when the game comes back from the background, so a purchase
@@ -180,8 +193,9 @@ func _on_details(r: Dictionary) -> void:
 			_set_status("The Crypt Pass isn't on sale yet.")
 		return
 	changed.emit()
-	if _buy_when_ready:
+	if _buy_when_ready and Game.hud and Game.hud.pass_visible():
 		buy()
+	_buy_when_ready = false
 
 
 ## Everything this account owns. Also takes the Pass away again if it was refunded.
@@ -191,12 +205,16 @@ func _on_owned_list(r: Dictionary) -> void:
 			_play_failed("Couldn't reach Google Play (error %d). Check your connection and try again." % int(r.get("response_code", -1)))
 		return
 	_restoring = false
+	var was_pending := status == PENDING_TEXT
 	var has_it := _handle(r.get("purchases", []))
 	if not has_it and owned() and not test_owned:
 		_save_owned(false)
 		changed.emit()
-	if status == "Checking with Google Play...":
+	if status == CHECKING:
 		_set_status("" if has_it else "No Crypt Pass found on this Google account.")
+	elif was_pending and status == PENDING_TEXT and not _has_pending(r.get("purchases", [])):
+		# Google Play dropped the pending payment (it ran out of time, or was declined).
+		_set_status("Your pending payment was cancelled. Nothing was charged.")
 
 
 func _on_purchase_updated(r: Dictionary) -> void:
@@ -227,8 +245,15 @@ func _handle(purchases: Array) -> bool:
 				if not owned():
 					_grant()
 			PENDING:
-				_set_status("Your payment is pending. The Pass unlocks as soon as it goes through.")
+				_set_status(PENDING_TEXT)
 	return has_it
+
+
+func _has_pending(purchases: Array) -> bool:
+	for p: Dictionary in purchases:
+		if PASS_ID in Array(p.get("product_ids", [])) and int(p.get("purchase_state", 0)) == PENDING:
+			return true
+	return false
 
 
 func _on_acknowledged(r: Dictionary) -> void:
@@ -246,7 +271,7 @@ func _grant() -> void:
 func _save_owned(v: bool) -> void:
 	var cfg := Game._load_save()
 	cfg.set_value(SAVE_SECTION, "owned", v)
-	cfg.save(Game.SAVE_PATH)
+	Game.write_save(cfg)
 
 
 func _set_status(text: String) -> void:
@@ -270,3 +295,8 @@ func _play_failed(text: String) -> void:
 	_restoring = false
 	_wait_token += 1
 	_set_status(text)
+	# A connection that never answered would otherwise block every later try until a
+	# restart: drop it so the next tap connects afresh.
+	if _connecting and _play:
+		_connecting = false
+		_play.endConnection()

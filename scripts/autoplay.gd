@@ -115,7 +115,7 @@ func _ready() -> void:
 			var cfg := Game._load_save()
 			for v: Dictionary in Armory.VAULT:
 				cfg.set_value(Armory.VAULT_SECTION, v.id, true)
-			cfg.save(Game.SAVE_PATH)
+			Game.write_save(cfg)
 		elif a == "quittest":
 			quit_test = true
 		elif a.begins_with("coins="):
@@ -158,7 +158,7 @@ func _ready() -> void:
 			var cfg := Game._load_save()
 			for id in a.substr(7).split(","):
 				cfg.set_value(Curses.SAVE_SECTION, id, true)
-			cfg.save(Game.SAVE_PATH)
+			Game.write_save(cfg)
 			_skip_first_run()
 		elif a == "passmenu":
 			_pass_menu = true
@@ -225,7 +225,7 @@ func _back_at_end() -> void:
 func _skip_first_run() -> void:
 	var cfg := Game._load_save()
 	cfg.set_value("stats", "first_run_done", true)
-	cfg.save(Game.SAVE_PATH)
+	Game.write_save(cfg)
 
 
 func _process(delta: float) -> void:

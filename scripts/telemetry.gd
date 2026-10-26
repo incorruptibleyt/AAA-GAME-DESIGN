@@ -115,7 +115,7 @@ func session_open(open: bool) -> void:
 	var cfg := Game._load_save()
 	cfg.set_value("telemetry", "open", open)
 	cfg.set_value("telemetry", "where", Game.where_text())
-	cfg.save(Game.SAVE_PATH)
+	Game.write_save(cfg)
 
 
 func _check_last_session() -> void:
@@ -144,7 +144,7 @@ static func install_id(cfg: ConfigFile) -> String:
 	if id == "":
 		id = "%08x" % (randi() & 0x7fffffff)
 		cfg.set_value("telemetry", "id", id)
-		cfg.save(Game.SAVE_PATH)
+		Game.write_save(cfg)
 	return id
 
 

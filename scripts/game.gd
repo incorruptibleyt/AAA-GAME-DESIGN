@@ -9,6 +9,7 @@ const EASY_ROOMS := 2
 const MEDIUM_ROOMS := 2
 const HARD_ROOMS := 1
 const SAVE_PATH := "user://save.cfg"
+const SAVE_BACKUP := "user://save.cfg.bak"
 
 const CAMERA_PITCH := 58.0
 const CAMERA_FOV := 42.0
@@ -40,13 +41,18 @@ var _kills := 0
 var _run_time := 0.0
 var _state_time := 0.0
 var _state_before_pause := State.PLAYING
+## Set when the app loses focus (or Back is pressed) during a room fade or boss intro, which
+## can't pause; the game pauses as soon as play starts instead of starting without the player.
+var _pause_wanted := false
+## Counts rooms loaded, so a wait that began in one room never acts in the next.
+var _room_serial := 0
 var _hit_stop_left := 0.0
 var _choices: Array = []
 var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-26a"
+const BUILD := "2026-10-26b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -192,7 +198,7 @@ func _tutorial_retry() -> bool:
 		return false
 	var deaths := int(cfg.get_value("stats", "tutorial_deaths", 0)) + 1
 	cfg.set_value("stats", "tutorial_deaths", deaths)
-	cfg.save(SAVE_PATH)
+	write_save(cfg)
 	return deaths < 2
 
 
@@ -201,7 +207,7 @@ func _finish_first_run() -> void:
 		return
 	var cfg := _load_save()
 	cfg.set_value("stats", "first_run_done", true)
-	cfg.save(SAVE_PATH)
+	write_save(cfg)
 
 
 ## Ends the chain. The spine shatters on screen if it had got anywhere.
@@ -303,7 +309,7 @@ func _ready() -> void:
 	if spendable != coins:
 		coins = spendable
 		cfg.set_value("stats", "coins", coins)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
@@ -376,6 +382,12 @@ func _setup_environment() -> void:
 
 func _process(delta: float) -> void:
 	_state_time += delta
+	if _pause_wanted:
+		if state == State.PLAYING:
+			_pause_wanted = false
+			_pause()
+		elif state not in [State.TRANSITION, State.UPGRADE]:
+			_pause_wanted = false
 	if state == State.PLAYING:
 		_run_time += delta
 		if curses.has("hourglass") and not _hourglass_out and alive_enemies > 0:
@@ -412,6 +424,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if state == State.PLAYING:
 			_pause()
+		elif state == State.TRANSITION:
+			_pause_wanted = true
 		if Telemetry.instance:
 			Telemetry.instance.session_open(false)
 	elif what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
@@ -450,6 +464,8 @@ func _notification(what: int) -> void:
 		match state:
 			State.PLAYING:
 				_pause()
+			State.TRANSITION:
+				_pause_wanted = true
 			State.PAUSED:
 				_resume()
 			State.DEAD, State.VICTORY:
@@ -659,10 +675,9 @@ func perfect_dodge(pos: Vector3) -> void:
 		if not _rep.is_empty():
 			_rep.best_chain = maxf(_rep.best_chain, chain)
 			_rep.room_chain = maxf(_rep.room_chain, chain)
-	var cfg := _load_save()
-	_perfect_total = int(cfg.get_value("stats", "perfect_total", 0)) + 1
-	cfg.set_value("stats", "perfect_total", _perfect_total)
-	cfg.save(SAVE_PATH)
+	if _perfect_total < 0:
+		_perfect_total = int(_load_save().get_value("stats", "perfect_total", 0))
+	_perfect_total += 1   # saved with the coins (_save_coins), not on every dodge
 
 
 ## The DASH button dashes the way you're moving (or were moving a moment ago, before the
@@ -681,6 +696,7 @@ func _dash_from_button() -> void:
 var _lesson_left := 0.0
 var _lessons_this_run := 0
 var _perfect_total := -1
+var _save_fell_back := false
 
 
 func dash_lesson_active() -> bool:
@@ -866,7 +882,7 @@ func _start_run() -> void:
 		_run_hero_id = _trial_hero
 		var cfg := _load_save()
 		cfg.set_value(TRIAL_SECTION, _trial_hero, true)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 		_trial_hero = ""
 	hud.show_title(false)
 	hud.show_armory(false)
@@ -891,7 +907,7 @@ func _begin_daily() -> void:
 	_daily_practice = Curses.official_used(cfg, _daily_date)
 	if not _daily_practice:
 		Curses.use_official(cfg, _daily_date)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 	_run_hero_id = Curses.daily_hero(_daily_date)
 	_daily_done = false
 
@@ -976,12 +992,13 @@ func _report_room_done(label: String) -> void:
 
 
 ## The text that the COPY REPORT button puts on the clipboard.
-func run_report(result: String) -> String:
+## `was_first`: the run that just won the tutorial floor (first_run is already cleared then).
+func run_report(result: String, was_first := false) -> String:
 	var cfg := _load_save()
 	var lines := []
 	lines.append("Bone Chain run report (build %s, install %s)" % [BUILD, Telemetry.install_id(cfg)])
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
-	lines.append("Score %d | First run %s" % [score, "yes" if first_run else "no"])
+	lines.append("Score %d | First run %s" % [score, "yes" if first_run or was_first else "no"])
 	if daily or not curses.is_empty():
 		lines.append("Mode: %s | %s: %s (Curse Level %d, score x%s)" % ["Daily Crypt #%d %s%s" % [Curses.day_number(_daily_date), _daily_date, " practice" if _daily_practice else ""] if daily else "Normal",
 			"Rules" if daily else "Curses", Curses.names(curses) if curses else "none", Curses.level_of(curses), _mult_text(_score_mult)])
@@ -1249,12 +1266,16 @@ func _resume_loop_end() -> void:
 	if not Store.owned() and floor_num >= Store.FREE_FLOORS:
 		# Floor 5 cleared without the Crypt Pass: its offer again; buying it carries on.
 		_free_end = true
-		hud.show_end(true, true, "Run continued.\n\nYou beat the free crypt!\nThe Crypt Pass opens floor %d and beyond." % (floor_num + 1),
+		hud.show_end(true, true, "Run continued.\n\n" + _free_end_text(),
 			"", false, score, int(_load_save().get_value("stats", "best_score", 0)), true)
 		return
 	_loop_choice = true
 	hud.show_end(true, true, "Run continued.\n\n" + _loop_text(), "", false, score, int(_load_save().get_value("stats", "best_score", 0)))
 	hud.show_end_loop(true, _bank_bonus(), Loops.loop_of(floor_num) + 1)
+
+
+func _free_end_text() -> String:
+	return "You beat the free crypt!\nThe Crypt Pass opens floor %d and beyond.\nThis run stays saved until you get it." % (floor_num + 1)
 
 
 func _loop_text() -> String:
@@ -1278,6 +1299,7 @@ func _go_to_room(index: int) -> void:
 
 func _load_room(index: int, spawn_enemies: bool) -> void:
 	_room_index = index
+	_room_serial += 1
 	alive_enemies = 0
 	boss = null
 	_bosses.clear()
@@ -1401,13 +1423,35 @@ func continue_text() -> String:
 		where = "Loop %d cleared" % Loops.loop_of(int(s.floor))
 		if not Store.owned() and int(s.floor) <= Store.FREE_FLOORS:
 			where = "Floor %d cleared" % int(s.floor)
+	if _save_needs_pass(s):
+		where += " · Crypt Pass"
 	return ("Daily Crypt · " if s.daily else "") + where
+
+
+## A saved run only the Crypt Pass can carry on (past the free floors, a practice Daily or
+## a Pass-only curse). After a refund, CONTINUE opens the Pass screen instead of resuming it.
+func _save_needs_pass(s: Dictionary) -> bool:
+	if Store.owned():
+		return false
+	if bool(s.daily):
+		return bool(s.practice)
+	if s.get("loop_end", false) and int(s.floor) <= Store.FREE_FLOORS:
+		return false   # the free end: CONTINUE shows it again, with its Pass offer
+	if int(s.floor) > Store.FREE_FLOORS:
+		return true
+	for c in s.curses:
+		if not Curses.available(str(c), false):
+			return true
+	return false
 
 
 ## CONTINUE on the title screen: back into the saved run, at the start of its room.
 func _continue_run() -> void:
 	var s := RunSave.read()
 	if s.is_empty() or state != State.TITLE:
+		return
+	if _save_needs_pass(s):
+		_open_pass()
 		return
 	Sfx.play("click")
 	first_run = false
@@ -1649,9 +1693,12 @@ func _room_cleared() -> void:
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
 	_save_coins()
 	hud.set_wave(0, 0)
-	# Straight to the blessing cards once the slow-motion finish has played.
-	await get_tree().create_timer(0.75, true, false, true).timeout
-	if state != State.PLAYING:
+	# Straight to the blessing cards once the slow-motion finish has played. The wait stops
+	# while the game is paused, so pausing here (II, Back, leaving the app) only delays the
+	# cards instead of losing them.
+	var serial := _room_serial
+	await get_tree().create_timer(0.75, false, false, true).timeout
+	if state != State.PLAYING or serial != _room_serial:
 		return
 	var step := ftue_room()
 	# The door picked before this room shapes the blessings after it.
@@ -1772,7 +1819,7 @@ func _win() -> void:
 	var rewards := []
 	if not daily and floor_num >= Store.FREE_FLOORS and Curses.level_of(curses) > 0 and hero:
 		rewards = Curses.record_mastery(cfg, hero.hero_id, Curses.level_of(curses))
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 	var was_first := first_run
 	_finish_first_run()
 	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
@@ -1794,7 +1841,7 @@ func _win() -> void:
 	elif _daily_done:
 		extra = "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
 	elif _free_end:
-		extra = "\n\nYou beat the free crypt!\nThe Crypt Pass opens floor %d and beyond." % (floor_num + 1)
+		extra = "\n\n" + _free_end_text()
 	elif _loop_choice:
 		extra = "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
@@ -1806,7 +1853,7 @@ func _win() -> void:
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	_show_share_card()
 	_state_time = 0.0
-	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")])
+	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")], was_first)
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
 	_ask_reports()
@@ -1832,12 +1879,12 @@ func on_hero_died() -> void:
 		where += " on floor %d" % floor_num
 	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d  (spend them in the Armory)" % run_coins
 	if tutorial_again:
-		coin_line = "You keep the %d coins you earned.\nThe tutorial starts again from room 1." % run_coins
+		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nThe tutorial starts again from room 1." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
 	var note := not Store.owned() and floor_num >= 3 and not _pass_note_shown
 	if note:
 		_pass_note_shown = true
-		coin_line += "\n\nThe Crypt Pass opens endless floors,\nevery hero and the Daily Crypt."
+		coin_line += "\n\nThe Crypt Pass opens endless floors,\nevery hero, Daily practice and Curses."
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again", not tutorial_again, score, best)
 	hud.show_end_title(true)
@@ -1889,8 +1936,36 @@ func _fade(from: float, to: float, seconds: float) -> void:
 
 func _load_save() -> ConfigFile:
 	var cfg := ConfigFile.new()
-	cfg.load(SAVE_PATH)
+	var err := cfg.load(SAVE_PATH)
+	if err == OK and cfg.has_section_key("saved", "complete"):
+		return cfg
+	# save.cfg is missing its end mark (cut off mid-write, or written by an older version)
+	# or unreadable: the last good copy is the better bet, if there is one.
+	var bak := ConfigFile.new()
+	if FileAccess.file_exists(SAVE_BACKUP) and bak.load(SAVE_BACKUP) == OK:
+		if not _save_fell_back:
+			_save_fell_back = true
+			print("[save] save.cfg unreadable or cut off (error %d): using save.cfg.bak" % err)
+			if Telemetry.instance:
+				Telemetry.instance.catch_error("save.cfg was cut off (error %d); restored the backup" % err)
+		return bak
 	return cfg
+
+
+## Writes save.cfg safely: the new file is written beside it and then swapped in, keeping
+## the last good one as save.cfg.bak, so a crash or a flat battery mid-write can't wipe
+## coins, heroes or the Armory. The "saved" section goes last and marks a complete file.
+static func write_save(cfg: ConfigFile) -> void:
+	if cfg.has_section("saved"):
+		cfg.erase_section("saved")
+	cfg.set_value("saved", "complete", true)
+	var tmp := SAVE_PATH + ".tmp"
+	if cfg.save(tmp) != OK:
+		push_error("couldn't write " + tmp)
+		return
+	if FileAccess.file_exists(SAVE_PATH):
+		DirAccess.rename_absolute(SAVE_PATH, SAVE_BACKUP)
+	DirAccess.rename_absolute(tmp, SAVE_PATH)
 
 
 func add_coins(n: int) -> void:
@@ -1902,7 +1977,9 @@ func add_coins(n: int) -> void:
 func _save_coins() -> void:
 	var cfg := _load_save()
 	cfg.set_value("stats", "coins", coins)
-	cfg.save(SAVE_PATH)
+	if _perfect_total >= 0:
+		cfg.set_value("stats", "perfect_total", _perfect_total)
+	write_save(cfg)
 	if state != State.TITLE:
 		RunSave.bank(run_coins)
 
@@ -1913,7 +1990,7 @@ func _set_music(on: bool, save := true) -> void:
 	if save:
 		var cfg := _load_save()
 		cfg.set_value("settings", "music", on)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 
 
 func _set_sounds(on: bool, save := true) -> void:
@@ -1922,7 +1999,7 @@ func _set_sounds(on: bool, save := true) -> void:
 	if save:
 		var cfg := _load_save()
 		cfg.set_value("settings", "sounds", on)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 
 
 ## Screen shake: 2 full, 1 reduced (a third as strong), 0 off.
@@ -1933,7 +2010,7 @@ func _set_shake(level: int, save := true) -> void:
 	if save:
 		var cfg := _load_save()
 		cfg.set_value("settings", "shake", level)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 
 
 ## The short buzz when the hero is hit.
@@ -1943,7 +2020,7 @@ func _set_vibration(on: bool, save := true) -> void:
 	if save:
 		var cfg := _load_save()
 		cfg.set_value("settings", "vibration", on)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 
 
 ## High looks best; Low turns off shadows and glow and draws the 3D world at a lower
@@ -1951,7 +2028,7 @@ func _set_vibration(on: bool, save := true) -> void:
 func _set_reports(on: bool) -> void:
 	var cfg := _load_save()
 	cfg.set_value("settings", "reports", on)
-	cfg.save(SAVE_PATH)
+	write_save(cfg)
 	hud.set_reports_label(on, Telemetry.configured())
 	if not on and Telemetry.instance:
 		Telemetry.instance.clear_queue()   # nothing waiting goes out after a no
@@ -2010,7 +2087,7 @@ func _set_graphics(high: bool, save := true) -> void:
 		_auto_graphics = false   # the player (or the check above) has chosen
 		var cfg := _load_save()
 		cfg.set_value("settings", "high_graphics", high)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 
 
 # ---------------------------------------------------------------- armory
@@ -2074,7 +2151,7 @@ func _pick_hero(id: String) -> void:
 	else:
 		Sfx.play("upgrade")
 	cfg.set_value(Heroes.SAVE_SECTION, "selected", id)
-	cfg.save(SAVE_PATH)
+	write_save(cfg)
 	_trial_hero = ""
 	hud.set_title_hero(def.title)
 	hud.show_heroes(true, _hero_rows(), coins)
@@ -2123,7 +2200,7 @@ func _toggle_curse(id: String) -> void:
 	var cfg := _load_save()
 	var on := not bool(cfg.get_value(Curses.SAVE_SECTION, id, false))
 	cfg.set_value(Curses.SAVE_SECTION, id, on)
-	cfg.save(SAVE_PATH)
+	write_save(cfg)
 	Sfx.play("hurt" if on else "click", 0.6)
 	_show_curses()
 
@@ -2257,8 +2334,10 @@ func _on_store_changed() -> void:
 		if Loops.loop_end(floor_num):
 			_loop_choice = true
 			_checkpoint(false, true)
+			hud.set_end_stats("Crypt Pass unlocked. Thank you!\n\n" + _loop_text())
 			hud.show_end_loop(true, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 		else:
+			hud.set_end_stats("Crypt Pass unlocked. Thank you!")
 			hud.end_offer_done("Tap to descend to floor %d" % (floor_num + 1))
 
 
@@ -2287,7 +2366,7 @@ func _buy_upgrade(id: String) -> void:
 		coins -= price
 		cfg.set_value("stats", "coins", coins)
 		cfg.set_value(Armory.VAULT_SECTION, id, true)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 		Sfx.play("victory", 0.6)
 		hud.set_coins(coins)
 		hud.show_armory(true, _armory_rows(), coins)
@@ -2303,7 +2382,7 @@ func _buy_upgrade(id: String) -> void:
 		coins -= cost
 		cfg.set_value("stats", "coins", coins)
 		cfg.set_value(Armory.SAVE_SECTION, id, Armory.level(cfg, id) + 1)
-		cfg.save(SAVE_PATH)
+		write_save(cfg)
 		Sfx.play("upgrade")
 		hud.set_coins(coins)
 		hud.show_armory(true, _armory_rows(), coins)
@@ -2332,7 +2411,7 @@ func _save_best(cfg: ConfigFile, room_reached: int) -> void:
 		cfg.set_value("stats", "best_floor", floor_num)
 	if room_reached > int(cfg.get_value("stats", "best_room", 0)):
 		cfg.set_value("stats", "best_room", room_reached)
-	cfg.save(SAVE_PATH)
+	write_save(cfg)
 
 
 func _best_text() -> String:

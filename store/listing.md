@@ -39,7 +39,7 @@ FREE TO TRY, ONE OPTIONAL PASS
 The first five floors are free, with no ads and no energy timers, and everyone gets one Daily Crypt run a day. The one-time Crypt Pass opens the rest:
 - Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
 - Daily Crypt practice: replay the day's three floors as often as you like after your Official run.
-- Ten Curses that stack into a Curse Level for bigger scores, with hero rewards to earn.
+- Nine more Curses (ten in all) that stack into a Curse Level for bigger scores, with hero rewards to earn.
 - Every hero, ready to play.
 
 MADE FOR PHONES
@@ -54,7 +54,7 @@ How deep can you go?
 
 - Product ID: `crypt_pass` (must be exactly this; the game asks Google Play for it)
 - Name: Crypt Pass
-- Description: Endless floors, Daily Crypt practice runs, 10 Curses with hero rewards, and every hero. One-time purchase.
+- Description: Endless floors, Daily Crypt practice runs, all 10 Curses with hero rewards, and every hero. One-time purchase.
 - Price: $4.99 (US), let Play convert it for other countries
 
 ## Category and tags

@@ -1,6 +1,6 @@
 # Bone Chain privacy policy
 
-_Last updated: October 25, 2026_
+_Last updated: October 26, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
@@ -27,7 +27,7 @@ The Crypt Pass is a one-time purchase made through Google Play. Google handles t
 
 ## What stays on your phone
 
-The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, Daily Crypt best scores, chosen Curses, Curse rewards, free hero trials used, whether you own the Crypt Pass, settings and simple play counts such as perfect dodges) in a file on your own phone. A run in progress is saved in a second file on your phone so you can continue it. Both files are deleted when you uninstall the game.
+The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, Daily Crypt best scores, chosen Curses, Curse rewards, free hero trials used, whether you own the Crypt Pass, settings and simple play counts such as perfect dodges) in a file on your own phone, with a backup copy in case the phone shuts down while saving. A run in progress is saved in another file on your phone so you can continue it. All of these files are deleted when you uninstall the game.
 
 ## Permissions
 
@@ -40,7 +40,7 @@ The game asks for no other permissions. It cannot see your contacts, photos, loc
 
 ## Deleting reports
 
-Because reports are anonymous, the developer can't tell which ones are yours unless you share your install number. To have your reports deleted, email the developer at egence9965@gmail.com with the install number, which is shown at the top of every report you copy with **COPY REPORT** (on the end screen when reports are on).
+Because reports are anonymous, the developer can't tell which ones are yours unless you share your install number. To have your reports deleted, email the developer at egence9965@gmail.com with your install number. It is shown in the pause menu under the build number, whether reports are on or off, and at the top of every report you copy with **COPY REPORT**.
 
 ## Children
 

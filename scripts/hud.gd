@@ -93,6 +93,8 @@ var _title_box: Control
 var _title_logo: TextureRect
 var _title_best: Label
 var _end_box: Control
+var _end_col: VBoxContainer
+var _pause_build: Label
 var _end_title: Label
 var _end_stats: Label
 var _pause_box: Control
@@ -896,7 +898,7 @@ func _build_title() -> void:
 	_title_pass_row = pass_button
 	_title_modes_row = _pair(modes, pass_button)
 	col.add_child(_title_modes_row)
-	_title_lock = label("Heroes and the Armory open\nafter your first run", 20, Color(0.7, 0.68, 0.62))
+	_title_lock = label("Finish the tutorial to open\nHeroes and the Armory", 20, Color(0.7, 0.68, 0.62))
 	col.add_child(_title_lock)
 
 
@@ -1062,6 +1064,8 @@ func _build_end() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 24)
 	_end_box.add_child(col)
+	_end_col = col
+	_end_box.resized.connect(_fit_end)
 	_end_title = label("", 60)
 	col.add_child(_end_title)
 	_end_score = label("", 40, Color(1, 0.85, 0.45))
@@ -1134,7 +1138,7 @@ func _build_end() -> void:
 	get_pass.custom_minimum_size = Vector2(340, 86)
 	get_pass.pressed.connect(func(): pass_pressed.emit())
 	offer.add_child(_centered(get_pass))
-	var to_title := button("BACK TO TITLE", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	var to_title := button("BACK TO TITLE  (RUN SAVED)", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	to_title.pressed.connect(func(): title_pressed.emit())
 	offer.add_child(_centered(to_title))
 	_end_offer = offer
@@ -1197,8 +1201,10 @@ func _build_pause() -> void:
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
-	# Testers can say which build they were playing.
-	col.add_child(label("Build " + Game.BUILD, 16, Color(0.6, 0.57, 0.65)))
+	# Testers can say which build they were playing; the install number is what the privacy
+	# policy asks for to delete someone's reports (shown even with reports off).
+	_pause_build = label("Build " + Game.BUILD, 16, Color(0.6, 0.57, 0.65))
+	col.add_child(_pause_build)
 
 
 ## Quitting loses the run, so the first tap only asks; a second tap within 3 s quits.
@@ -1283,7 +1289,7 @@ func _build_pass() -> void:
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(_centered(grid))
-	for tile in [["floors", "Endless loops"], ["heroes", "All 4 heroes now"], ["daily", "Daily practice"], ["curses", "10 Curses"]]:
+	for tile in [["floors", "Endless loops"], ["heroes", "All 4 heroes now"], ["daily", "Daily practice"], ["curses", "All 10 Curses"]]:
 		grid.add_child(_pass_tile(tile[0], tile[1]))
 	_pass_buy = button("UNLOCK", 32, Color(0.45, 0.3, 0.08, 0.98), GOLD)
 	_pass_buy.custom_minimum_size = Vector2(320, 86)
@@ -1345,12 +1351,14 @@ func _pass_tile(pic: String, title: String) -> Control:
 func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_box.visible = v
 	if not v:
+		if Store.instance:
+			Store.instance.cancel_wait()
 		return
 	var coins_of_heroes := 0
 	for h: Dictionary in Heroes.LIST:
 		coins_of_heroes += int(h.cost)
 	_pass_tiles[0].text = "Floor %d and as deep\nas you dare" % (Store.FREE_FLOORS + 1)
-	_pass_tiles[1].text = "Knight, Barbarian and Mage,\nno coins needed (%d)" % coins_of_heroes
+	_pass_tiles[1].text = "Knight, Barbarian and Mage,\nno need to spend %d coins" % coins_of_heroes
 	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
 	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
 	_pass_buy.disabled = owned
@@ -1495,7 +1503,7 @@ func _build_reports_ask() -> void:
 	col.add_theme_constant_override("separation", 18)
 	_ask_box.add_child(col)
 	col.add_child(label("HELP FIX BUGS?", 40, GOLD))
-	var text := label("Send anonymous run and crash reports to the developer?\n\nNo account, name or ad ID. Just the run summary, the phone model and any error messages.\n\nYou can change this any time in the pause menu.", 19, Color(0.9, 0.88, 0.84))
+	var text := label("Send anonymous run and crash reports to the developer?\n\nNo account, name or ad ID. A run summary, a random install number, your phone model and Android version, and error messages with the game's recent log.\n\nYou can change this any time in the pause menu.", 19, Color(0.9, 0.88, 0.84))
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(text)
 	var yes := button("YES, SEND REPORTS", 26, Color(0.2, 0.32, 0.18, 0.97), Color(0.6, 0.95, 0.55))
@@ -2149,6 +2157,27 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_end_stats.text = stats
+	_fit_end.call_deferred()
+
+
+## Short screens (16:9 phones, tablets): the end screen tightens its gaps and, if it still
+## doesn't fit, shrinks as a whole so the last button stays on screen.
+func _fit_end() -> void:
+	if not _end_box.visible:
+		return
+	var shown := 0
+	for c in _end_col.get_children():
+		if (c as Control).visible:
+			shown += 1
+	var room := _end_box.size.y - 32.0
+	var need := _end_col.get_combined_minimum_size().y - float(_end_col.get_theme_constant("separation")) * (shown - 1)
+	var gap := 24.0 if need + 24.0 * (shown - 1) <= room else 10.0
+	_end_col.add_theme_constant_override("separation", int(gap))
+	need += gap * (shown - 1)
+	var k := minf(1.0, room / maxf(need, 1.0))
+	_end_col.pivot_offset = Vector2(_end_box.size.x * 0.5, 0.0)
+	_end_col.scale = Vector2(k, k)
+	_end_col.position.y = 16.0 if k < 1.0 else 0.0
 
 
 func _update_end_count(delta: float) -> void:
@@ -2188,11 +2217,13 @@ func show_share(v: bool, rows := [], caption := "") -> void:
 	_share_button.text = "SHARE RESULT"
 	_share_button.add_theme_font_size_override("font_size", 20)
 	_copy_button.custom_minimum_size.x = 240.0 if v else 300.0
+	_fit_end.call_deferred()
 
 
 ## A CRYPT PASS button among the death-screen buttons (after a deep death, once a session).
 func show_end_pass(v: bool) -> void:
 	_end_pass.visible = v
+	_fit_end.call_deferred()
 
 
 ## The end of a loop: DESCEND DEEPER into `next_loop`, or BANK AND LEAVE with `bonus` coins.
@@ -2200,6 +2231,7 @@ func show_end_pass(v: bool) -> void:
 func show_end_title(v: bool, text := "TITLE") -> void:
 	_end_title_btn.text = text
 	_end_title_button.visible = v and _end_box.visible
+	_fit_end.call_deferred()
 
 
 func end_visible() -> bool:
@@ -2216,6 +2248,13 @@ func show_end_loop(v: bool, bonus := 0, next_loop := 2) -> void:
 	_end_spacer.custom_minimum_size.y = 24.0
 	_loop_deeper_button.text = "DESCEND INTO LOOP %d" % next_loop
 	_loop_bank_button.text = "BANK AND LEAVE  (+%d coins)" % bonus
+	_fit_end.call_deferred()
+
+
+## Replaces the end screen's middle text (after buying the Pass at the free end).
+func set_end_stats(text: String) -> void:
+	_end_stats.text = text
+	_fit_end.call_deferred()
 
 
 ## The Pass was bought on the end screen: carry on deeper instead.
@@ -2223,10 +2262,13 @@ func end_offer_done(tap_text: String) -> void:
 	_end_offer.visible = false
 	_end_tap.text = tap_text
 	_end_tap.visible = true
+	_fit_end.call_deferred()
 
 
 func show_pause(v: bool) -> void:
 	_pause_box.visible = v
+	if v:
+		_pause_build.text = "Build %s  ·  Install %s" % [Game.BUILD, Telemetry.install_id(Game._load_save())]
 	if _quit_armed:
 		_disarm_quit()
 

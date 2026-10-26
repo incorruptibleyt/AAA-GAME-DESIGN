@@ -114,6 +114,7 @@ func _charge() -> void:
 	t = 0.0
 	while t < 0.6:
 		if not _alive():
+			contact_damage = 18.0   # a pause mid-rush must not leave the charge's touch damage on
 			return
 		var dt := get_process_delta_time()
 		move_by(d * 17.0 * dt, dt)
@@ -131,6 +132,7 @@ func _meteors() -> void:
 		return
 	visual.attack(true)
 	var n := 5 if _enraged else 3
+	var source := kind_name()   # reported as the King's damage, not a skeleton mage's
 	for i in n:
 		if not _alive():
 			return
@@ -138,7 +140,7 @@ func _meteors() -> void:
 		if i > 0:
 			spot += Vector3(randf_range(-3, 3), 0, randf_range(-3, 3))
 		spot = Room.current.resolve_move(spot, Vector3.ZERO, 0.5)
-		track(Telegraph.circle(spot, 1.9, 1.1, func(): SkeletonMage.explode(spot, 1.9, 20.0)))
+		track(Telegraph.circle(spot, 1.9, 1.1, func(): SkeletonMage.explode(spot, 1.9, 20.0, source)))
 		await _wait(0.25)
 	await _wait(0.9)
 

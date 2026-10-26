@@ -52,7 +52,8 @@ func _think(hero: Hero, delta: float) -> void:
 		track(Telegraph.circle(spot, 1.7, 1.7 if _gentle() else 1.2, func(): SkeletonMage.explode(spot, 1.7, 18.0)))
 
 
-static func explode(spot: Vector3, r: float, dmg: float) -> void:
+## `source`: who the run report blames for the hit (the King's meteors use this too).
+static func explode(spot: Vector3, r: float, dmg: float, source := "Magic blast") -> void:
 	Fx.magic(spot + Vector3.UP * 0.3, Color(0.75, 0.45, 1.0), 30)
 	Sfx.play("boom", 0.7)
 	Game.shake(0.15)
@@ -62,5 +63,5 @@ static func explode(spot: Vector3, r: float, dmg: float) -> void:
 	var d := hero.global_position - spot
 	d.y = 0.0
 	if d.length() < r + hero.radius * 0.5:
-		Game.hit_source = "Magic blast"
+		Game.hit_source = source
 		hero.take_damage(dmg, d, 8.0)
