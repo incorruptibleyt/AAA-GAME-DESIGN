@@ -6,7 +6,7 @@ Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy ex
 
 ## The short version
 
-Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. Reports are off until then. The game asks you once, at the end of a run, and you can change your answer at any time in the pause menu (**Send reports**). There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
+Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. Reports are off until then. The game asks you once, at the end of a run or when you open it again, and you can change your answer at any time in the pause menu (**Send reports**). There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
 
 ## What the game reports
 

@@ -46,13 +46,15 @@ var _state_before_pause := State.PLAYING
 var _pause_wanted := false
 ## Counts rooms loaded, so a wait that began in one room never acts in the next.
 var _room_serial := 0
+## The save already had stats when the game opened, so this isn't the very first launch.
+var _returning := false
 var _hit_stop_left := 0.0
 var _choices: Array = []
 var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-26b"
+const BUILD := "2026-10-26c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -309,7 +311,9 @@ func _ready() -> void:
 	if spendable != coins:
 		coins = spendable
 		cfg.set_value("stats", "coins", coins)
-		write_save(cfg)
+	_returning = cfg.has_section("stats")   # the first launch writes stats, even mid-tutorial
+	cfg.set_value("stats", "launches", int(cfg.get_value("stats", "launches", 0)) + 1)
+	write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
@@ -332,6 +336,7 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if not "autoplay" in args or "intro" in args:
 		_play_intro()
+		intro.finished.connect(_ask_reports_on_title)
 	else:
 		Music.play("dungeon")
 	if "autoplay" in args:
@@ -2036,12 +2041,28 @@ func _set_reports(on: bool) -> void:
 
 
 ## Reports are off until the player says yes. The game asks once, a moment after a run
-## ends (normally the tutorial run), unless they've already chosen in the pause menu.
+## ends (normally the tutorial run), or on the title from the second launch on (below),
+## unless they've already chosen in the pause menu.
 func _ask_reports() -> void:
 	if not Telemetry.configured() or _load_save().has_section_key("settings", "reports"):
 		return
 	await get_tree().create_timer(1.6, true, false, true).timeout
 	if state in [State.DEAD, State.VICTORY] and not hud.armory_visible() and not hud.pass_visible() and not hud.heroes_visible() \
+			and not _load_save().has_section_key("settings", "reports"):
+		hud.show_reports_ask(true)
+
+
+## Players who leave in the middle of a run never see the end-of-run question, so once the
+## opening scene hands over to the title, a returning player is asked there instead.
+func _ask_reports_on_title() -> void:
+	var cfg := _load_save()
+	if not Telemetry.configured() or cfg.has_section_key("settings", "reports"):
+		return
+	if not _returning:
+		return   # the very first launch goes straight to the tutorial
+	await get_tree().create_timer(0.6, true, false, true).timeout
+	if state == State.TITLE and hud.title_visible() and not hud.armory_visible() and not hud.pass_visible() \
+			and not hud.heroes_visible() and not hud.daily_visible() and not hud.modes_visible() \
 			and not _load_save().has_section_key("settings", "reports"):
 		hud.show_reports_ask(true)
 
