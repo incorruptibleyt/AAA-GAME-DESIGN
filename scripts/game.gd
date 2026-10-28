@@ -54,7 +54,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-26c"
+const BUILD := "2026-10-27a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -62,6 +62,11 @@ var _fps_sum := 0.0
 var _fps_n := 0
 var _fps_low := 999.0
 var _fps_t := 0.0
+## The longest single frame during play and where it was: a one-second "lowest" can't
+## tell one long freeze from a slow second.
+var _frame_us := 0
+var _longest_ms := 0.0
+var _longest_at := ""
 var _high_graphics := true
 ## Slow phones: until the player picks a graphics setting, the game watches the frame rate
 ## during play, and if it can't keep up it switches to Low by itself (and remembers it).
@@ -330,6 +335,7 @@ func _ready() -> void:
 	_snap_camera()
 	_set_state(State.TITLE)
 	hud.show_hud(false)
+	await Warmup.run()   # while the screen is still black, before the title can be tapped
 	hud.show_title(true, _best_text(), coins)
 	hud.set_title_hero(Heroes.get_hero(hero.hero_id).title)
 	_fade(1.0, 0.0, 0.6)
@@ -387,6 +393,9 @@ func _setup_environment() -> void:
 
 func _process(delta: float) -> void:
 	_state_time += delta
+	var now := Time.get_ticks_usec()
+	var frame_ms := (now - _frame_us) / 1000.0 if _frame_us > 0 else 0.0
+	_frame_us = now
 	if _pause_wanted:
 		if state == State.PLAYING:
 			_pause_wanted = false
@@ -402,6 +411,9 @@ func _process(delta: float) -> void:
 				hud.callout("TIME'S UP!", Color(1, 0.4, 0.35))
 				Sfx.play("warn")
 			hud.set_timer(_hourglass_left)
+		if frame_ms > _longest_ms and _state_time > 0.5:   # not the room's own loading
+			_longest_ms = frame_ms
+			_longest_at = "F%d R%d" % [floor_num, _room_index + 1]
 		_fps_t += delta
 		if _fps_t >= 1.0:
 			_fps_t = 0.0
@@ -971,6 +983,8 @@ func _reset_report() -> void:
 	_fps_sum = 0.0
 	_fps_n = 0
 	_fps_low = 999.0
+	_longest_ms = 0.0
+	_longest_at = ""
 
 
 func report_damage(amount: float) -> void:
@@ -1036,8 +1050,9 @@ func run_report(result: String, was_first := false) -> String:
 			arm.append("%s %d" % [u.title, lv])
 	lines.append("Armory: " + (", ".join(arm) if arm else "none"))
 	lines.append("Rooms: " + ", ".join(_rep.get("rooms", [])))
-	lines.append("Graphics %s | FPS avg %d, lowest %d" % ["High" if _high_graphics else "Low",
-		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0)])
+	lines.append("Graphics %s | FPS avg %d, lowest %d | longest frame %d ms%s | warm-up %d ms" % ["High" if _high_graphics else "Low",
+		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0), roundi(_longest_ms),
+		(" (%s)" % _longest_at) if _longest_at != "" else "", Warmup.last_ms])
 	return "\n".join(lines)
 
 
