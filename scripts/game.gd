@@ -54,7 +54,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-27a"
+const BUILD := "2026-10-29a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -308,7 +308,11 @@ func _ready() -> void:
 	hud.omen_picked.connect(_pick_omen)
 	hud.reports_answered.connect(func(on: bool):
 		hud.show_reports_ask(false)
-		_set_reports(on))
+		_set_reports(on)
+		if on and state in [State.DEAD, State.VICTORY] and _last_report != "":
+			# The run that brought the question up wasn't sent (reports were still off), and
+			# many testers only ever play that one.
+			Telemetry.instance.send("run", _last_report))
 
 	var cfg := _load_save()
 	coins = int(cfg.get_value("stats", "coins", 0))
