@@ -155,6 +155,8 @@ func skip() -> void:
 
 func _input(event: InputEvent) -> void:
 	# Nothing underneath gets a touch while the intro plays; a tap skips it.
+	if PlayUpdate.instance and PlayUpdate.instance.showing():
+		return   # except the UPDATE screen, which sits on top
 	var press := (event is InputEventScreenTouch or event is InputEventMouseButton or event is InputEventKey) and event.is_pressed()
 	if press:
 		skip()

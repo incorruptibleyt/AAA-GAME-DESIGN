@@ -54,7 +54,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-29a"
+const BUILD := "2026-10-29b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -248,6 +248,7 @@ func _ready() -> void:
 	add_child(Sfx.new())
 	add_child(Music.new())
 	add_child(Telemetry.new())
+	add_child(PlayUpdate.new())   # asks Google Play for a newer version straight away
 	add_child(Store.new())
 	Store.instance.changed.connect(_on_store_changed)
 	_setup_environment()
@@ -460,6 +461,11 @@ func _notification(what: int) -> void:
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		# Android's back button pauses the game and resumes it again; from the end screens it
 		# goes to the title, and from the title it leaves.
+		if PlayUpdate.instance and PlayUpdate.instance.showing():
+			if Telemetry.instance:
+				Telemetry.instance.session_open(false)
+			get_tree().quit()   # an old version can't be played, so back leaves
+			return
 		if hud.reports_ask_visible():
 			hud.show_reports_ask(false)
 			_set_reports(false)   # backing out of the question is a no

@@ -35,3 +35,8 @@ export_credentials.cfg
 /build/*
 !/build/debug.keystore
 *.idsig
+
+# Android plugins built by CI (android_plugins/)
+/addons/PlayUpdate/bin/
+/android_plugins/*/build/
+/android_plugins/*/.gradle/

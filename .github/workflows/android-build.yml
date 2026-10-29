@@ -68,6 +68,20 @@ jobs:
           echo "export/android/android_sdk_path = \"$ANDROID_HOME\"" >> "$settings"
           echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$settings"
 
+      # Forced updates: a small Android plugin (android_plugins/PlayUpdate) that opens Google
+      # Play's own update page. Its .aar files go to addons/PlayUpdate/bin/ for the export.
+      - name: Build the Play update plugin
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" > /dev/null
+          curl -sSL -o gradle.zip https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+          unzip -q gradle.zip -d "$RUNNER_TEMP" && rm gradle.zip
+          "$RUNNER_TEMP/gradle-8.11.1/bin/gradle" -p android_plugins/PlayUpdate --no-daemon -q assembleRelease assembleDebug
+          for kind in release debug; do
+            mkdir -p addons/PlayUpdate/bin/$kind
+            cp android_plugins/PlayUpdate/build/outputs/aar/PlayUpdate-$kind.aar addons/PlayUpdate/bin/$kind/
+          done
+          ls -la addons/PlayUpdate/bin/*
+
       # KayKit packs uploaded as .zip files to the ArtZips folder are unpacked into the game here.
       - name: Unpack KayKit art
         run: |
@@ -167,7 +181,8 @@ jobs:
           # The Crypt Pass needs Google Play Billing (addons/GodotGooglePlayBilling).
           java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -q 'com.android.vending.BILLING' || { echo "::error::The Play build is missing the billing permission"; exit 1; }
           java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -q 'org.godotengine.plugin.v2.GodotGooglePlayBilling' || { echo "::error::The Play build is missing the billing plugin"; exit 1; }
-          echo "Billing plugin and permission are in the Play build."
+          java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -q 'org.godotengine.plugin.v2.PlayUpdate' || { echo "::error::The Play build is missing the update plugin"; exit 1; }
+          echo "Billing and update plugins are in the Play build."
           rm -rf aabcheck && mkdir aabcheck && unzip -qo build/crypt-crawl.aab 'base/lib/arm64-v8a/*' -d aabcheck
           for so in aabcheck/base/lib/arm64-v8a/*.so; do
             align=$(readelf -lW "$so" | awk '$1=="LOAD"{print $NF}' | sort -u)

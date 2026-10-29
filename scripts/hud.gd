@@ -1588,6 +1588,8 @@ func _overlay_open() -> bool:
 
 
 func _input(event: InputEvent) -> void:
+	if PlayUpdate.instance and PlayUpdate.instance.showing():
+		return   # the UPDATE screen covers everything
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
