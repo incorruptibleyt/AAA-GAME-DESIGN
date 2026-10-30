@@ -1,5 +1,7 @@
 class_name Armory
 ## Permanent upgrades bought with coins on the title screen. They stay between runs.
+## Later levels cost more (Oct 30 balance pass: the whole Armory was 1,590 coins, about one
+## good run; it's now 2,425, with coins dropping at 60%).
 ## To add one: copy an entry in LIST, then say what it does in `apply_to_hero` (or where
 ## the game checks it).
 ##
@@ -7,13 +9,13 @@ class_name Armory
 ## turn up in the blessing picks of every run after.
 
 const LIST := [
-	{"id": "vigor", "title": "Vigor", "text": "+10 max health", "max": 5, "costs": [15, 30, 50, 80, 120]},
-	{"id": "might", "title": "Might", "text": "+8% damage", "max": 5, "costs": [15, 30, 50, 80, 120]},
-	{"id": "haste", "title": "Haste", "text": "+6% attack speed", "max": 5, "costs": [20, 40, 60, 90, 130]},
-	{"id": "swift", "title": "Fleet Foot", "text": "+5% move speed", "max": 3, "costs": [20, 45, 80]},
-	{"id": "luck", "title": "Lucky Bones", "text": "Hearts drop more often", "max": 3, "costs": [25, 50, 90]},
-	{"id": "blessed", "title": "Blessed Start", "text": "Begin each run with a blessing", "max": 1, "costs": [150]},
-	{"id": "second_wind", "title": "Second Wind", "text": "Once per run, survive a killing blow", "max": 1, "costs": [200]},
+	{"id": "vigor", "title": "Vigor", "text": "+10 max health", "max": 5, "costs": [15, 40, 80, 130, 200]},
+	{"id": "might", "title": "Might", "text": "+8% damage", "max": 5, "costs": [15, 40, 80, 130, 200]},
+	{"id": "haste", "title": "Haste", "text": "+6% attack speed", "max": 5, "costs": [20, 50, 90, 140, 210]},
+	{"id": "swift", "title": "Fleet Foot", "text": "+5% move speed", "max": 3, "costs": [20, 60, 120]},
+	{"id": "luck", "title": "Lucky Bones", "text": "Hearts drop more often", "max": 3, "costs": [25, 70, 140]},
+	{"id": "blessed", "title": "Blessed Start", "text": "Begin each run with a blessing", "max": 1, "costs": [250]},
+	{"id": "second_wind", "title": "Second Wind", "text": "Once per run, survive a killing blow", "max": 1, "costs": [300]},
 ]
 
 const SAVE_SECTION := "armory"
@@ -66,4 +68,4 @@ static func vault_owned(cfg: ConfigFile) -> Array:
 
 
 static func heart_bonus(cfg: ConfigFile) -> float:
-	return 0.04 * level(cfg, "luck")
+	return 0.03 * level(cfg, "luck")

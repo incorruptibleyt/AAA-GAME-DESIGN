@@ -18,7 +18,7 @@ func _setup() -> void:
 	radius = 0.55
 	center_height = 0.5
 	knockback_scale = 1.2
-	drop_chance = 0.15
+	drop_chance = 0.11
 	var look := bones("Bone_Spider", 1.15, Color(0.3, 1.0, 0.55))
 	look.attack_anim = "Attack"
 	make_visual(look)

@@ -14,11 +14,17 @@ var rear_bolts := 0
 var pierce := 0
 var crit_chance := 0.05
 var burn_dps := 0.0
+## Healing per kill (the Barbarian, Bloodlust), up to 4% of max health per point in each
+## room: 8% for the Barbarian, 16% and 24% with Bloodlust (uncapped, it healed back most of
+## the damage taken on floors 1-4).
 var heal_on_kill := 0.0
+var kill_heal_left := 0.0
 ## From Bone Harvest: only heals while the Bone Chain is x2 or higher, and only up to 4% of
 ## max health per pick in each room (three picks used to heal back about 80% of all damage).
 var harvest_heal := 0.0
 var harvest_left := 0.0
+## Soul Siphon's healing left in this room: 12% of max health per pick.
+var siphon_left := 0.0
 ## Set by the chosen hero (heroes.gd).
 var hero_id := "rogue"
 var bolt_size := 0.22
@@ -60,6 +66,7 @@ var _ward_bubble: MeshInstance3D
 const DASH_SPEED := 21.0
 const DASH_TIME := 0.17
 const DASH_COOLDOWN := 1.1
+const TWIN_GAIN := 1.4
 var _dash_left := 0.0
 var _dash_cooldown := 0.0
 var _last_dash_ms := -100000
@@ -193,7 +200,10 @@ func _perfect_dodge() -> void:
 	Game.perfect_dodge(center())
 	# Soul Siphon heals; Frozen Ground chills every skeleton within 5 m.
 	if perks.has("siphon"):
-		heal(10.0 * perks.siphon)
+		var h := minf(minf(10.0 * perks.siphon, siphon_left), max_health - health)
+		if h > 0.0:
+			siphon_left -= h
+			heal(h)
 	if perks.has("frozen_ground"):
 		Fx.shockwave(global_position, Color(0.6, 0.92, 1.0), 5.0)
 		for a: Actor in Actor.all:
@@ -329,10 +339,14 @@ func _whirlwind(delta: float) -> void:
 		visual.rotation.y = 0.0
 
 
+## Kill healing. Only what actually heals is taken from the room's allowance, so kills at
+## full health don't use it up (three Bone Harvests used to heal about 13 a floor).
 func on_kill() -> void:
-	var amount := heal_on_kill
+	var missing := max_health - health
+	var amount := minf(minf(heal_on_kill, kill_heal_left), missing)
+	kill_heal_left -= amount
 	if Game.chain >= 2.0 and harvest_left > 0.0:
-		var h := minf(harvest_heal, harvest_left)
+		var h := minf(minf(harvest_heal, harvest_left), missing - amount)
 		harvest_left -= h
 		amount += h
 	if amount > 0.0:
@@ -424,9 +438,10 @@ func _shoot(fwd: Vector3) -> void:
 	var right := fwd.cross(Vector3.UP).normalized()
 	var origin := global_position + Vector3.UP * 1.1 + fwd * 0.6
 	var col := Color(1.0, 0.55, 0.2) if burn_dps > 0.0 else bolt_color
+	var share := front_share()
 	for i in front_bolts:
 		var offset := (i - (front_bolts - 1) * 0.5) * 0.35
-		_fire(origin + right * offset, fwd, col)
+		_fire(origin + right * offset, fwd, col, share)
 	for i in diagonal_bolts:
 		var angle := deg_to_rad(30.0 + i * 15.0)
 		_fire(origin, fwd.rotated(Vector3.UP, angle), col)
@@ -443,8 +458,15 @@ func _shoot(fwd: Vector3) -> void:
 			p.push = bolt_push * 0.5
 
 
-func _fire(origin: Vector3, d: Vector3, col: Color) -> void:
-	var p := Projectile.fire(Team.HERO, origin, d, damage * Game.chain_damage(), bolt_speed, col, bolt_size)
+## Twin Shots: each pick adds a forward shot and 40% to the forward volley, shared between
+## its shots (2 shots hit 70% each, 3 hit 65%, 4 hit 69%). Each pick used to add about 80%,
+## four times a Sharpened Shots.
+func front_share() -> float:
+	return pow(TWIN_GAIN, front_bolts - 1) / front_bolts
+
+
+func _fire(origin: Vector3, d: Vector3, col: Color, share := 1.0) -> void:
+	var p := Projectile.fire(Team.HERO, origin, d, damage * share * Game.chain_damage(), bolt_speed, col, bolt_size)
 	p.pierce = pierce
 	p.push = bolt_push
 	p.splash = splash
@@ -576,10 +598,12 @@ func chill(seconds: float) -> void:
 	chill_left = maxf(chill_left, seconds)
 
 
-## Refills Bone Ward and Bone Harvest's healing at the start of each room.
+## Refills Bone Ward and the healing allowances at the start of each room.
 func new_room() -> void:
 	ward = ward_max
 	harvest_left = max_health * 0.02 * harvest_heal   # harvest_heal is 2 per pick
+	kill_heal_left = max_health * 0.04 * heal_on_kill   # heal_on_kill: 2 for the Barbarian, +2 per Bloodlust
+	siphon_left = max_health * 0.12 * perks.get("siphon", 0)
 
 
 ## A faint bubble around the hero while Bone Ward is up.

@@ -7,7 +7,7 @@ var move_speed := 2.5
 var contact_damage := 10.0
 var knockback_scale := 1.0
 ## Chance of dropping a healing heart when destroyed.
-var drop_chance := 0.12
+var drop_chance := 0.09
 ## Bosses use the big bar at the top of the screen instead of a little one.
 var is_boss := false
 ## Elite skeletons are golden, bigger and tougher, and drop more coins.
@@ -129,6 +129,11 @@ func chill(seconds: float) -> void:
 	if _slow_left <= 0.0:
 		Fx.magic(center(), Color(0.6, 0.9, 1.0), 8)
 	_slow_left = maxf(_slow_left, seconds)
+
+
+## Every drop is cut to 60%, rounded up or down at random so a single coin keeps its
+## worth on average. Before, one full run of floors 1-5 bought the whole Armory.
+const COIN_RATE := 0.6
 
 
 ## Coins dropped when destroyed. Deeper floors pay a little more.
@@ -263,7 +268,7 @@ func _on_death() -> void:
 		Pickup.drop(global_position)
 	var coins := coin_value()
 	if Game.hero and coins > 0:
-		coins = roundi(coins * (1.0 + Game.hero.coin_bonus) * Game.chain_coins() * Game.coin_mult())
+		coins = U.round_random(coins * COIN_RATE * (1.0 + Game.hero.coin_bonus) * Game.chain_coins() * Game.coin_mult())
 	Pickup.drop_coins(global_position, coins)
 	Game.on_enemy_died(self)
 	get_tree().create_timer(2.5, false).timeout.connect(queue_free)

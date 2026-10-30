@@ -15,7 +15,7 @@ func _setup() -> void:
 	contact_damage = 0.0
 	radius = 0.45
 	center_height = 0.75
-	drop_chance = 0.1
+	drop_chance = 0.075
 	var look := bones(Art.SKELETON_MINION, 1.55, Color(1.0, 0.55, 0.1))
 	look.bomb = true
 	look.tint = Color(0.3, 0.12, 0.0, 1.0)

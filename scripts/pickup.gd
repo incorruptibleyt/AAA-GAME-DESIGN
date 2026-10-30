@@ -4,7 +4,9 @@ extends Node3D
 ## (spend them in the Armory). Walk near to collect. Once a room is cleared, anything
 ## left on the floor flies to the hero by itself.
 
+## Before the floor's growth (Game.heart_mult) and Treasure Magnet.
 const HEAL := 12.0
+const MAGNET_HEAL := 1.3
 const MAGNET_RANGE := 2.6
 const COIN_MAGNET_RANGE := 3.6
 
@@ -70,6 +72,11 @@ func _ready() -> void:
 	Fx.magic(global_position + Vector3.UP * 0.6, Color(1, 0.3, 0.4), 8)
 
 
+## What one heart heals. Treasure Magnet's hearts heal 30% more.
+static func heart_heal(hero: Hero) -> float:
+	return HEAL * Game.heart_mult() * (MAGNET_HEAL if hero.magnet > 1.0 else 1.0)
+
+
 ## Collect everything at once (before leaving a room), so nothing is lost.
 static func grant_all() -> void:
 	var hero := Game.hero
@@ -77,7 +84,7 @@ static func grant_all() -> void:
 		if p.coin:
 			Game.add_coins(p.value)
 		elif hero and not hero.dead:
-			hero.heal(HEAL * Game.heart_mult())
+			hero.heal(heart_heal(hero))
 		p.queue_free()
 	all.clear()
 
@@ -115,7 +122,7 @@ func _process(delta: float) -> void:
 			Game.add_coins(value)
 			Sfx.play("coin", 0.45)
 		else:
-			hero.heal(HEAL * Game.heart_mult())
+			hero.heal(heart_heal(hero))
 			Sfx.play("pickup", 0.6)
 			Fx.magic(hero.center(), Color(1, 0.35, 0.45), 14)
 		queue_free()

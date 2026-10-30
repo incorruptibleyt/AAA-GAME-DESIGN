@@ -8,6 +8,22 @@ static var _ring: ImageTexture
 static var _stone: ImageTexture
 
 
+## `x` rounded up or down at random, in proportion (2.3 is 3 three times in ten), so many
+## small amounts add up to the right total.
+static func round_random(x: float) -> int:
+	var whole := floori(x)
+	return whole + (1 if randf() < x - whole else 0)
+
+
+## Shuffle `list` in place with `rng`, like Array.shuffle (the Daily Crypt's rng is seeded).
+static func shuffle(list: Array, rng: RandomNumberGenerator) -> void:
+	for i in range(list.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t = list[i]
+		list[i] = list[j]
+		list[j] = t
+
+
 ## A solid, lit material. Emission above zero makes it glow (eyes, flames, bolts).
 static func mat(color: Color, roughness := 0.8, emission := 0.0) -> StandardMaterial3D:
 	var key := "L%s%.2f%.2f" % [color.to_html(), roughness, emission]

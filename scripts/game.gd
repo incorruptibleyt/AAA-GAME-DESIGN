@@ -54,7 +54,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-30a"
+const BUILD := "2026-10-30b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -166,6 +166,10 @@ var _picked := {}
 ## What the door before this room promised the blessing pick after it.
 var _pick_family := ""
 var _pick_better := false
+## In the Daily Crypt these are seeded, so everyone gets the same blessing cards (and
+## rerolls), elites and waves; in other runs they're random (_pick_rng null).
+var _pick_rng: RandomNumberGenerator
+var _room_rng := RandomNumberGenerator.new()
 
 
 ## How many times Omen `id` has been taken this run.
@@ -549,17 +553,18 @@ const PLAY_URL := "https://play.google.com/store/apps/details?id=com.Bone_Chain_
 ## How much tougher skeletons are on the current floor.
 ## Skeleton health grows 55% per floor (compounding), so it keeps pace with a hero whose
 ## blessings stack up. Floor 4 skeletons have about 3.7x their floor 1 health.
-## Floor 5 adds 70%, because a hero that deep is very strong. The endless loops below it
+## Floor 5 adds 60%, because a hero that deep is very strong. The endless loops below it
 ## add 45% a floor, and each Omen of Bones 25%.
 func health_scale() -> float:
-	return pow(1.55, mini(floor_num, 4) - 1) * pow(1.7, clampi(floor_num - 4, 0, 1)) \
+	return pow(1.55, mini(floor_num, 4) - 1) * pow(1.6, clampi(floor_num - 4, 0, 1)) \
 		* pow(1.45, maxi(floor_num - 5, 0)) * pow(1.25, _omen("bones"))
 
 
-## Skeletons hit 35% harder per floor, and 50% per floor from floor 5 on.
+## Skeletons hit 35% harder per floor, and 50% per floor below floor 5 (the endless loops).
 ## When the Hourglass runs out they hit 25% harder still, and each Omen of Blades adds 25%.
+## (Floor 5 used to jump by 50% too, and the free game ended on a wall of King hits.)
 func damage_scale() -> float:
-	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 4, 0)) * (1.25 if _hourglass_out else 1.0) \
+	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 5, 0)) * (1.25 if _hourglass_out else 1.0) \
 		* pow(1.25, _omen("blades"))
 
 
@@ -574,8 +579,10 @@ func coin_mult() -> float:
 	return (1.5 if curses.has("rich") else 1.0) * pow(1.5, _omen("gold")) * treasure
 
 
+## Hearts heal 20% more per floor, so they keep up with skeletons that hit harder deeper
+## down (a flat 12 healed nearly every hit on floor 1 and barely dented floor 5).
 func heart_mult() -> float:
-	return (2.0 if curses.has("hearty") else 1.0) * pow(0.7, _omen("ash"))
+	return (1.0 + 0.2 * (floor_num - 1)) * (2.0 if curses.has("hearty") else 1.0) * pow(0.7, _omen("ash"))
 
 
 ## A golden arrow at the hero's feet pointing to the open door, so nobody gets lost.
@@ -1131,7 +1138,7 @@ func _apply_armory() -> void:
 	Armory.apply_to_hero(cfg, hero)
 	heart_bonus = Armory.heart_bonus(cfg)
 	if Armory.level(cfg, "blessed") > 0:
-		var pick := Upgrades.roll(_taken, 1)
+		var pick := Upgrades.roll(_taken, 1, false, "", false, Curses.daily_rng(499, _daily_date) if daily else null)
 		if not pick.is_empty():
 			var u: Dictionary = pick[0]
 			_taken[u.id] = 1
@@ -1365,6 +1372,10 @@ func _go_to_room(index: int) -> void:
 func _load_room(index: int, spawn_enemies: bool) -> void:
 	_room_index = index
 	_room_serial += 1
+	if daily:
+		_room_rng = Curses.daily_rng(700 + floor_num * 10 + index, _daily_date)
+	else:
+		_room_rng.randomize()
 	alive_enemies = 0
 	boss = null
 	_bosses.clear()
@@ -1474,7 +1485,7 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 		"rerolls": rerolls + (1 if next_floor and not curses.has("narrow") else 0),   # as _descend adds
 		"run_coins": run_coins, "banked": run_coins, "kills": _kills, "time": _run_time, "curses": curses.duplicate(),
 		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
-		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate(),
+		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate(), "balance": 2,
 		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {}})
 
 
@@ -1552,6 +1563,8 @@ func _continue_run() -> void:
 		hero = null
 	_swap_hero(str(s.hero_id))
 	RunSave.apply_hero(hero, s.hero)
+	if int(s.get("balance", 1)) < 2 and hero.perks.has("multishot"):
+		hero.damage /= pow(0.9, hero.perks.multishot)   # Twin Shots used to cut damage 10% a pick
 	_seen_rooms = (s.get("seen_rooms", []) as Array).duplicate()
 	_build_run()
 	if s.get("loop_end", false):
@@ -1629,7 +1642,7 @@ func _roll_elite(e: Enemy, room_index: int) -> bool:
 	var chance := minf(0.3, 0.07 + 0.05 * (floor_num - 1))
 	if curses.has("gilded") or curses.has("hunt"):
 		chance *= 2.0
-	return randf() < minf(0.6, chance * pow(2.0, _omen("gold")))
+	return _room_rng.randf() < minf(0.6, chance * pow(2.0, _omen("gold")))
 
 
 ## Points for a kill, before the chain and curse multipliers.
@@ -1705,7 +1718,7 @@ func _next_wave() -> void:
 	hud.banner("Wave %d" % wave, Color(1, 0.55, 0.4))
 	Sfx.play("warn")
 	var kinds := _wave_kinds.duplicate()
-	kinds.shuffle()
+	U.shuffle(kinds, _room_rng)
 	# Later waves bring one extra skeleton (two with the Swarm rule, and one per Omen of the Horde).
 	kinds.append(kinds[0])
 	if curses.has("swarm"):
@@ -1770,7 +1783,8 @@ func _room_cleared() -> void:
 	_pick_family = str(_door.get("family", ""))
 	_pick_better = _door.get("kind", "") == "champion"
 	_door = {}
-	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better)
+	_pick_rng = Curses.daily_rng(500 + floor_num * 10 + _room_index, _daily_date) if daily else null
+	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better, _pick_rng)
 	if _choices.is_empty():
 		Pickup.grant_all()
 		_save_coins()
@@ -1787,7 +1801,7 @@ func _on_reroll() -> void:
 	if state != State.UPGRADE or rerolls <= 0 or ftue_room() < 3:
 		return
 	rerolls -= 1
-	_choices = Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, false, _pick_family, _pick_better)
+	_choices = Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, false, _pick_family, _pick_better, _pick_rng)
 	Sfx.play("click")
 	hud.show_cards(_choices, rerolls, true)
 

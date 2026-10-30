@@ -26,7 +26,7 @@ const LIST := [
 	{"id": "damage", "family": "bolt", "rarity": "common", "title": "Sharpened Shots", "text": "+20% damage", "max": 99},
 	{"id": "speed", "family": "bolt", "rarity": "common", "title": "Quick Draw", "text": "+15% attack speed", "max": 99},
 	{"id": "crit", "family": "bolt", "rarity": "common", "title": "Keen Eye", "text": "+15% critical hit chance", "max": 3},
-	{"id": "multishot", "family": "bolt", "rarity": "rare", "title": "Twin Shots", "text": "+1 shot forward (each hits 10% softer)", "max": 3},
+	{"id": "multishot", "family": "bolt", "rarity": "rare", "title": "Twin Shots", "text": "+1 shot forward: +40% damage in all", "max": 3},
 	{"id": "rear", "family": "bolt", "rarity": "rare", "title": "Eyes in the Back", "text": "+1 shot backward", "max": 1},
 	{"id": "pierce", "family": "bolt", "rarity": "rare", "title": "Piercing Shot", "text": "Shots pass through 1 more enemy", "max": 2},
 	{"id": "diagonal", "family": "bolt", "rarity": "epic", "title": "Fan of Shots", "text": "+2 shots at an angle", "max": 2},
@@ -38,7 +38,7 @@ const LIST := [
 	{"id": "deepfreeze", "family": "frost", "rarity": "rare", "title": "Deep Freeze", "text": "Chilled skeletons take +30% damage", "max": 1, "needs": "frost"},
 	{"id": "vitality", "family": "bone", "rarity": "common", "title": "Vitality", "text": "+30 max health and heal 30", "max": 99},
 	{"id": "boots", "family": "bone", "rarity": "common", "title": "Swift Boots", "text": "+12% move speed", "max": 3},
-	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Pick up hearts and coins from twice as far", "max": 1},
+	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Hearts heal 30% more, and fly to you from twice as far", "max": 1},
 	{"id": "greed", "family": "bone", "rarity": "common", "title": "Golden Touch", "text": "+30% coins from skeletons", "max": 2},
 	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 2 per kill at chain x2+, up to 4% of your health each room", "max": 3},
 	{"id": "ward", "family": "bone", "rarity": "rare", "title": "Bone Ward", "text": "Block the first hit in every room", "max": 2},
@@ -51,14 +51,14 @@ const LIST := [
 	{"id": "bulwark", "hero": "knight", "family": "bone", "rarity": "rare", "title": "Bulwark", "text": "Take 10% less damage", "max": 2},
 	{"id": "broad", "hero": "knight", "family": "bolt", "rarity": "common", "title": "Broad Swing", "text": "Sword waves 25% wider and 10% harder", "max": 2},
 	{"id": "aftershock", "hero": "knight", "family": "bone", "rarity": "epic", "title": "Aftershock", "text": "Shield Slam reaches 40% further and freezes longer", "max": 1},
-	{"id": "bloodlust", "hero": "barbarian", "family": "bone", "rarity": "rare", "title": "Bloodlust", "text": "Heal 2 more for every kill", "max": 2},
+	{"id": "bloodlust", "hero": "barbarian", "family": "bone", "rarity": "rare", "title": "Bloodlust", "text": "Heal 2 more per kill, up to 8% more of your health each room", "max": 2},
 	{"id": "heavy", "hero": "barbarian", "family": "bolt", "rarity": "common", "title": "Heavy Axes", "text": "Axes hit 10% harder and knock skeletons further", "max": 2},
 	{"id": "whirl", "hero": "barbarian", "family": "bolt", "rarity": "epic", "title": "Endless Whirl", "text": "Whirlwind lasts twice as long", "max": 1},
 	{"id": "volatile", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Volatile Orbs", "text": "Orb blasts are 35% wider", "max": 2},
 	{"id": "flow", "hero": "mage", "family": "frost", "rarity": "common", "title": "Arcane Flow", "text": "Orbs fly 20% faster, cast 10% faster", "max": 2},
 	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Meteor hits 3 more skeletons", "max": 1},
 	# Vault blessings: bought once with coins in the Armory, then they can turn up in runs.
-	{"id": "siphon", "vault": true, "family": "bone", "rarity": "rare", "title": "Soul Siphon", "text": "Perfect dodges heal 10", "max": 2},
+	{"id": "siphon", "vault": true, "family": "bone", "rarity": "rare", "title": "Soul Siphon", "text": "Perfect dodges heal 10, up to 12% of your health each room", "max": 2},
 	{"id": "frozen_ground", "vault": true, "family": "frost", "rarity": "rare", "title": "Frozen Ground", "text": "Perfect dodges chill skeletons near you", "max": 1},
 	{"id": "executioner", "vault": true, "family": "bolt", "rarity": "rare", "title": "Executioner", "text": "+50% damage to nearly dead skeletons", "max": 1},
 	{"id": "flashfire", "vault": true, "family": "flame", "rarity": "rare", "title": "Flashfire", "text": "Critical hits set skeletons on fire", "max": 1},
@@ -103,9 +103,7 @@ static func apply(id: String, h: Hero) -> void:
 	match id:
 		"damage": h.damage *= 1.2
 		"speed": h.shots_per_second *= 1.15
-		"multishot":
-			h.front_bolts += 1
-			h.damage *= 0.9
+		"multishot": h.front_bolts += 1   # the forward shots share the extra damage (Hero.front_share)
 		"diagonal": h.diagonal_bolts += 1
 		"rear": h.rear_bolts += 1
 		"pierce": h.pierce += 1
@@ -150,8 +148,9 @@ static func apply(id: String, h: Hero) -> void:
 ## less likely, and a synergy the hero has just unlocked always takes the first slot.
 ## `finish_synergy` (first run) also offers the missing half of a synergy you half own.
 ## `family` (a door's path) makes all but one card that family when it can, and
-## `better` (the Champion's Door) leaves out common cards.
-static func roll(taken: Dictionary, count := 3, finish_synergy := false, family := "", better := false) -> Array:
+## `better` (the Champion's Door) leaves out common cards. `rng` (the Daily Crypt's, seeded)
+## gives everyone with the same blessings the same cards; without it they're random.
+static func roll(taken: Dictionary, count := 3, finish_synergy := false, family := "", better := false, rng: RandomNumberGenerator = null) -> Array:
 	var out := []
 	for s in SYNERGIES:
 		if not taken.has(s.id) and taken.has(s.parts[0]) and taken.has(s.parts[1]):
@@ -182,18 +181,18 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 			var same := pool.filter(func(u): return u.family == family)
 			if not same.is_empty():
 				from = same
-		var u := _weighted(from)
+		var u := _weighted(from, rng)
 		out.append(u)
 		pool.erase(u)
 	return out
 
 
 ## One blessing from `pool`, rarer ones less likely.
-static func _weighted(pool: Array) -> Dictionary:
+static func _weighted(pool: Array, rng: RandomNumberGenerator = null) -> Dictionary:
 	var total := 0
 	for u in pool:
 		total += RARITIES[u.rarity].weight
-	var r := randi() % total
+	var r := (rng.randi() if rng else randi()) % total
 	for u in pool:
 		r -= RARITIES[u.rarity].weight
 		if r < 0:

@@ -110,7 +110,7 @@ func _charge() -> void:
 		await get_tree().process_frame
 		t += get_process_delta_time()
 	visual.attack()
-	contact_damage = 28.0
+	contact_damage = 24.0   # was 28: on floor 5 one rush took 45% of a Mage's health
 	t = 0.0
 	while t < 0.6:
 		if not _alive():
@@ -131,7 +131,7 @@ func _meteors() -> void:
 	if hero == null:
 		return
 	visual.attack(true)
-	var n := 5 if _enraged else 3
+	var n := 4 if _enraged else 3
 	var source := kind_name()   # reported as the King's damage, not a skeleton mage's
 	for i in n:
 		if not _alive():
