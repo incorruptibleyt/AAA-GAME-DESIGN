@@ -54,7 +54,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-29b"
+const BUILD := "2026-10-30a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -67,6 +67,9 @@ var _fps_t := 0.0
 var _frame_us := 0
 var _longest_ms := 0.0
 var _longest_at := ""
+var _longest_new := ""   # what appeared during the longest frame
+var _added_now := {}
+var _added_before := {}
 var _high_graphics := true
 ## Slow phones: until the player picks a graphics setting, the game watches the frame rate
 ## during play, and if it can't keep up it switches to Low by itself (and remembers it).
@@ -249,6 +252,7 @@ func _ready() -> void:
 	add_child(Music.new())
 	add_child(Telemetry.new())
 	add_child(PlayUpdate.new())   # asks Google Play for a newer version straight away
+	get_tree().node_added.connect(_count_added)
 	add_child(Store.new())
 	Store.instance.changed.connect(_on_store_changed)
 	_setup_environment()
@@ -396,11 +400,40 @@ func _setup_environment() -> void:
 
 # ---------------------------------------------------------------- per frame
 
+## Counts what's added to the game during play, so the run report can say what appeared
+## in the longest frame (a hitch the first time something is drawn names its culprit).
+func _count_added(n: Node) -> void:
+	if state != State.PLAYING:
+		return
+	var key := n.get_class()
+	var s: Script = n.get_script()
+	if s and s.resource_path != "":
+		key = s.resource_path.get_file().get_basename()
+	_added_now[key] = int(_added_now.get(key, 0)) + 1
+
+
+## "projectile 3, CPUParticles3D 2" from the last two frames' additions, most first.
+static func _added_text(a: Dictionary, b: Dictionary) -> String:
+	var all := a.duplicate()
+	for k in b:
+		all[k] = int(all.get(k, 0)) + int(b[k])
+	var keys := all.keys()
+	keys.sort_custom(func(x, y): return all[x] > all[y])
+	var parts := []
+	for k in keys.slice(0, 5):
+		parts.append("%s %d" % [k, all[k]])
+	return ", ".join(parts)
+
+
 func _process(delta: float) -> void:
 	_state_time += delta
 	var now := Time.get_ticks_usec()
 	var frame_ms := (now - _frame_us) / 1000.0 if _frame_us > 0 else 0.0
 	_frame_us = now
+	var added := _added_now
+	var added_before := _added_before
+	_added_before = added
+	_added_now = {}
 	if _pause_wanted:
 		if state == State.PLAYING:
 			_pause_wanted = false
@@ -419,6 +452,7 @@ func _process(delta: float) -> void:
 		if frame_ms > _longest_ms and _state_time > 0.5:   # not the room's own loading
 			_longest_ms = frame_ms
 			_longest_at = "F%d R%d" % [floor_num, _room_index + 1]
+			_longest_new = _added_text(added_before, added)
 		_fps_t += delta
 		if _fps_t >= 1.0:
 			_fps_t = 0.0
@@ -995,6 +1029,7 @@ func _reset_report() -> void:
 	_fps_low = 999.0
 	_longest_ms = 0.0
 	_longest_at = ""
+	_longest_new = ""
 
 
 func report_damage(amount: float) -> void:
@@ -1062,7 +1097,7 @@ func run_report(result: String, was_first := false) -> String:
 	lines.append("Rooms: " + ", ".join(_rep.get("rooms", [])))
 	lines.append("Graphics %s | FPS avg %d, lowest %d | longest frame %d ms%s | warm-up %d ms" % ["High" if _high_graphics else "Low",
 		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0), roundi(_longest_ms),
-		(" (%s)" % _longest_at) if _longest_at != "" else "", Warmup.last_ms])
+		(" (%s%s)" % [_longest_at, "; added " + _longest_new if _longest_new != "" else ""]) if _longest_at != "" else "", Warmup.last_ms])
 	return "\n".join(lines)
 
 

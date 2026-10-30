@@ -48,3 +48,4 @@ anti_aliasing/quality/msaa_3d=1
 [debug]
 
 file_logging/enable_file_logging=true
+settings/gdscript/always_track_call_stacks=true
