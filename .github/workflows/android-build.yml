@@ -1,0 +1,213 @@
+# Builds Crypt Crawl into an Android app in the cloud. No computer or licence needed.
+#  - crypt-crawl.apk: a test build you can install straight on your phone. It is called
+#    "Bone Chain (test)" and has its own app id, so it sits beside the Play version.
+#  - crypt-crawl.aab: the signed release for Google Play. This one is only made once the
+#    ANDROID_UPLOAD_PASSWORD secret exists (Settings > Secrets and variables > Actions).
+#    The first time, the build makes an upload key, locks it with that password, and saves
+#    the locked file as signing/upload-keystore.p12.enc. Without the password it's useless.
+# When it finishes, the newest files are always at:
+#   https://github.com/incorruptibleyt/AAA-GAME-DESIGN/releases/tag/latest-build
+# (it's also attached to each run on the Actions tab, under "Artifacts").
+
+name: Build Android
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.7.2
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Godot and export templates
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}
+
+      - name: Download Godot
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable
+          curl -sSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          unzip -q godot.zip -d ~/godot
+          curl -sSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_export_templates.tpz"
+          unzip -q templates.tpz -d tpl
+          mv tpl/templates/android_* ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          mv tpl/templates/version.txt ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
+          rm -rf godot.zip templates.tpz tpl
+
+      - name: Point Godot at the Android tools
+        run: |
+          echo "GODOT=$HOME/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64" >> "$GITHUB_ENV"
+          ~/godot/Godot_v${GODOT_VERSION}-stable_linux.x86_64 --headless --editor --quit || true
+          settings=$(ls ~/.config/godot/editor_settings-*.tres | head -n1)
+          echo "export/android/android_sdk_path = \"$ANDROID_HOME\"" >> "$settings"
+          echo "export/android/java_sdk_path = \"$JAVA_HOME\"" >> "$settings"
+
+      # Forced updates: a small Android plugin (android_plugins/PlayUpdate) that opens Google
+      # Play's own update page. Its .aar files go to addons/PlayUpdate/bin/ for the export.
+      - name: Build the Play update plugin
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-35" > /dev/null
+          curl -sSL -o gradle.zip https://services.gradle.org/distributions/gradle-8.11.1-bin.zip
+          unzip -q gradle.zip -d "$RUNNER_TEMP" && rm gradle.zip
+          "$RUNNER_TEMP/gradle-8.11.1/bin/gradle" -p android_plugins/PlayUpdate --no-daemon -q assembleRelease assembleDebug
+          for kind in release debug; do
+            mkdir -p addons/PlayUpdate/bin/$kind
+            cp android_plugins/PlayUpdate/build/outputs/aar/PlayUpdate-$kind.aar addons/PlayUpdate/bin/$kind/
+          done
+          ls -la addons/PlayUpdate/bin/*
+
+      # KayKit packs uploaded as .zip files to the ArtZips folder are unpacked into the game here.
+      - name: Unpack KayKit art
+        run: |
+          shopt -s nullglob
+          for z in ArtZips/*.zip; do
+            name=$(basename "$z" .zip)
+            echo "Unpacking $name"
+            mkdir -p "art/kaykit/$name"
+            unzip -o -q "$z" '*.gltf' '*.glb' '*.bin' '*.png' -d "art/kaykit/$name" || true
+          done
+
+      - name: Import the project
+        run: $GODOT --headless --import || true
+
+      - name: Smoke test (a robot plays a full run)
+        run: |
+          timeout 600 $GODOT --headless --fixed-fps 60 --disable-vsync --max-fps 0 --log-file smoke.log -- autoplay god runs=2 || true
+          grep -E "END|TIMEOUT" smoke.log || true
+          if grep -q "SCRIPT ERROR" smoke.log; then grep -A3 "SCRIPT ERROR" smoke.log; exit 1; fi
+          grep -q "END .*state=VICTORY" smoke.log
+
+      - name: Export the Android app
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ github.workspace }}/build/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: |
+          $GODOT --headless --export-debug "Android" build/crypt-crawl.apk
+          ls -la build/crypt-crawl.apk
+
+      # Play needs target API 36, and phones with 16 KB memory pages need 16 KB-aligned code.
+      - name: Check target API and 16 KB alignment
+        run: |
+          aapt2=$(ls -d $ANDROID_HOME/build-tools/*/ | sort -V | tail -n1)aapt2
+          $aapt2 dump badging build/crypt-crawl.apk | grep -E "sdkVersion|targetSdkVersion"
+          $aapt2 dump badging build/crypt-crawl.apk | grep -q "targetSdkVersion:'36'"
+          mkdir -p apkcheck && unzip -qo build/crypt-crawl.apk 'lib/arm64-v8a/*' -d apkcheck
+          for so in apkcheck/lib/arm64-v8a/*.so; do
+            align=$(readelf -lW "$so" | awk '$1=="LOAD"{print $NF}' | sort -u)
+            echo "$so: $align"
+            for a in $align; do [ $((a)) -ge 16384 ] || { echo "::error::$so is not 16 KB aligned"; exit 1; }; done
+          done
+
+      - name: Unlock or make the upload key
+        id: key
+        env:
+          PW: ${{ secrets.ANDROID_UPLOAD_PASSWORD }}
+        run: |
+          if [ -z "$PW" ]; then
+            # No password yet: still test the Play build with a throwaway key, but don't publish it.
+            echo "::notice::No ANDROID_UPLOAD_PASSWORD secret yet, so the Play release (.aab) is only a test this time."
+            PW=$(openssl rand -hex 24)
+            echo "::add-mask::$PW"
+            keytool -genkeypair -keystore "$RUNNER_TEMP/upload.p12" -storetype PKCS12 -alias upload \
+              -keyalg RSA -keysize 2048 -validity 1 -dname "CN=Throwaway" -storepass:env PW -keypass:env PW
+            echo "KEY_PW=$PW" >> "$GITHUB_ENV"
+            echo "mode=test" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "KEY_PW=$PW" >> "$GITHUB_ENV"
+          enc=signing/upload-keystore.p12.enc
+          if [ ! -f "$enc" ]; then
+            echo "Making a new upload key"
+            mkdir -p signing
+            keytool -genkeypair -keystore "$RUNNER_TEMP/upload.p12" -storetype PKCS12 -alias upload \
+              -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Crypt Crawl" \
+              -storepass:env PW -keypass:env PW
+            openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt -pass env:PW -in "$RUNNER_TEMP/upload.p12" -out "$enc"
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add "$enc"
+            git commit -m "Add the locked Play upload key"
+            git pull --rebase --autostash origin "$GITHUB_REF_NAME"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          else
+            openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 -pass env:PW -in "$enc" -out "$RUNNER_TEMP/upload.p12"
+          fi
+          echo "mode=real" >> "$GITHUB_OUTPUT"
+
+      - name: Export the Play release (.aab)
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: ${{ runner.temp }}/upload.p12
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: upload
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: ${{ env.KEY_PW }}
+          MODE: ${{ steps.key.outputs.mode }}
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-36" "build-tools;36.1.0" > /dev/null
+          # Every upload to Play needs a bigger version code, so use the build number.
+          sed -i "s/^version\/code=.*/version\/code=${GITHUB_RUN_NUMBER}/" export_presets.cfg
+          # Testers see the version name on the Play page; give each build its own.
+          sed -i "s/^version\/name=.*/version\/name=\"0.9.${GITHUB_RUN_NUMBER}\"/" export_presets.cfg
+          $GODOT --headless --install-android-build-template --export-release "Android Play" build/crypt-crawl.aab
+          ls -la build/crypt-crawl.aab
+          curl -sSL -o bundletool.jar https://github.com/google/bundletool/releases/download/1.17.2/bundletool-all-1.17.2.jar
+          java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -oE 'android:(versionCode|minSdkVersion|targetSdkVersion)="[0-9]+"'
+          java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -q 'targetSdkVersion="36"'
+          java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -o "package=\"[^\"]*\""
+          # The Crypt Pass needs Google Play Billing (addons/GodotGooglePlayBilling).
+          java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -q 'com.android.vending.BILLING' || { echo "::error::The Play build is missing the billing permission"; exit 1; }
+          java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -q 'org.godotengine.plugin.v2.GodotGooglePlayBilling' || { echo "::error::The Play build is missing the billing plugin"; exit 1; }
+          java -jar bundletool.jar dump manifest --bundle build/crypt-crawl.aab | grep -q 'org.godotengine.plugin.v2.PlayUpdate' || { echo "::error::The Play build is missing the update plugin"; exit 1; }
+          echo "Billing and update plugins are in the Play build."
+          rm -rf aabcheck && mkdir aabcheck && unzip -qo build/crypt-crawl.aab 'base/lib/arm64-v8a/*' -d aabcheck
+          for so in aabcheck/base/lib/arm64-v8a/*.so; do
+            align=$(readelf -lW "$so" | awk '$1=="LOAD"{print $NF}' | sort -u)
+            echo "$so: $align"
+            for a in $align; do [ $((a)) -ge 16384 ] || { echo "::error::$so is not 16 KB aligned"; exit 1; }; done
+          done
+          rm -f "$RUNNER_TEMP/upload.p12"
+          if [ "$MODE" != "real" ]; then rm build/crypt-crawl.aab; echo "Test Play build worked (not published)."; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CryptCrawl-Android
+          path: |
+            build/crypt-crawl.apk
+            build/crypt-crawl.aab
+          if-no-files-found: ignore
+
+      - name: Publish to the "latest-build" download page
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest-build --yes --cleanup-tag || true
+          files=build/crypt-crawl.apk
+          [ -f build/crypt-crawl.aab ] && files="$files build/crypt-crawl.aab"
+          gh release create latest-build $files \
+            --prerelease --target "$GITHUB_SHA" \
+            --title "Crypt Crawl (latest build)" \
+            --notes "Newest Android build from ${GITHUB_REF_NAME} (${GITHUB_SHA::7}). On your phone: tap crypt-crawl.apk below, then open it to install. crypt-crawl.aab (when present) is the signed file to upload to Google Play."

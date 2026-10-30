@@ -1,0 +1,743 @@
+class_name Autoplay
+extends Node
+## A simple robot player used to test the game without a person holding the phone.
+## Start Godot with:  -- autoplay [god] [shop] [shots=<folder>]
+## `shop` buys what it can afford in the Armory and its Vault before the first run (`coins=N`
+## gives it N coins first). `vault` owns every Vault blessing without paying.
+## `quittest` quits the first run from the pause menu and starts again.
+## After a blessing it picks one of the two doors at random.
+## It walks through every room, picks the first blessing each time, and prints what happened.
+## Crypt Pass: `pass` plays as if it were owned, `daily` starts the Daily Crypt, `curses=a,b`
+## switches curses on, `passmenu` / `cursemenu` take pictures of those screens, and
+## `freeend` buys the Pass on the end-of-free-game screen (try with `floor=5`).
+## Saved runs: `killat=N` closes the game as room N starts (like Android killing it), and
+## `continue` presses CONTINUE on the title screen. `trial=mage` plays a free trial run,
+## `dailymenu` takes a picture of the Daily Crypt screen, and `share` prints the share text.
+## Endless loops: at the end of a loop it descends and takes the first Omen while `runs` lasts,
+## then banks. `bank` banks at once, and `loopquit` closes the game on the end-of-loop screen.
+## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
+## pictures of the end-of-loop screen, the Omens and the first room of loop 2.
+## `die` lets the hero fall a second into the run (for pictures of the end screens).
+## `endback` presses Android Back on the first end screen (death, victory or the end of the
+## free game) and prints what the title offers afterwards.
+## `intro` plays the opening animation first (other robot runs skip it) and, with `shots=`, takes
+## pictures through it (`intromarks=1.2,1.5` picks the moments); `introskip` taps the screen half a second in.
+## `slowphone` feeds the frame-rate watcher 30 frames a second, to check the switch to Low graphics.
+## `heromenu` pictures every hero on the Heroes screen (then taps UNLOCK on the Mage); `modesmenu` pictures the title and
+## the Modes screen, `newfoes` (with `floor=2 god`) the Frost Wraith and Cinder Skeleton up
+## close, `props` (with `floor=N`) the floor's own props, and `bigshots` draws at half size
+## between pictures (for 1080 x 1920 store screenshots). `chains=1.2,2,3` (with `die`)
+## fills in the chain reached in each room before, to picture the Daily Crypt share card.
+
+var god := false
+var start_room := 1
+var runs := 1
+var gallery := false
+var elites := false
+var hero_lineup := false
+var hero_menu := false
+var spider_shot := false
+var _hero_choice := ""
+var shop := false
+var quit_test := false
+var _quit_done := false
+var _shopped := false
+var _gallery_t := -1.0
+var _paused_once := false
+var _dumped_room := -1
+var shots_dir := ""
+var _t := 0.0
+var _next_shot := 1.0
+var _shot_n := 0
+var _dodge := Vector3.ZERO
+var _last_state := -1
+var _dashes := 0
+var _perfect_shots := 0
+var _special_shots := 0
+var _force_special := false
+var _perks: PackedStringArray = []
+var _card_shot := false
+var _door_shot := false
+var _pass_menu := false
+var _curse_menu := false
+var _free_end_test := false
+var _free_end_done := false
+var _kill_at := 0
+var _continue := false
+var _trial := ""
+var _daily_menu := false
+var _modes_menu := false
+var _chains: Array = []
+var _new_foes := false
+var _props := false
+## "bigshots": draw the 3D at half size between pictures, so a 1080 x 1920 window plays
+## fast enough to reach the blessing and door screens (store screenshots).
+var _big_shots := false
+var _title_shot := false
+var _share := false
+var _bank := false
+var _loop_quit := false
+var _loop_menu := false
+var _answering := false
+var _die := false
+var _end_back := false
+## "icons": a picture of every blessing's badge, then quit.
+var _icons := false
+var _intro_skip := false
+var _intro_seen := false
+## Moments of the opening animation to picture (seconds into it).
+var _intro_marks: Array = [0.1, 0.3, 0.6, 1.0, 1.3, 1.7, 1.95, 2.06, 2.2, 2.6, 3.0, 3.4, 3.6, 3.75]
+## "slowphone": pretends the phone only manages 30 frames a second, to check that the game
+## switches itself to Low graphics (and that a chosen setting is left alone).
+var _slow_phone := false
+var _slow_t := -1.0
+## "cards=a,b,c": the first blessing pick offers exactly these cards (for pictures).
+var _force_cards: Array = []
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	for a in OS.get_cmdline_user_args():
+		if a == "god":
+			god = true
+		elif a == "slowphone":
+			_slow_phone = true
+		elif a == "introskip":
+			_intro_skip = true
+		elif a.begins_with("intromarks="):
+			_intro_marks = Array(a.substr(11).split(",")).map(func(m): return float(m))
+		elif a.begins_with("floor="):
+			Game.floor_num = int(a.substr(6))
+		elif a == "shop":
+			shop = true
+		elif a == "vault":
+			# Every Vault blessing owned, so they can turn up in the blessing picks.
+			var cfg := Game._load_save()
+			for v: Dictionary in Armory.VAULT:
+				cfg.set_value(Armory.VAULT_SECTION, v.id, true)
+			Game.write_save(cfg)
+		elif a == "quittest":
+			quit_test = true
+		elif a.begins_with("coins="):
+			Game.coins = int(a.substr(6))
+		elif a == "elites":
+			elites = true
+		elif a == "spiderroom":
+			# Test the spider rooms: make the first rooms the spider nest and spider hall.
+			Game._run[0] = Layouts.MEDIUM[0]
+			Game._run[1] = Layouts.HARD[0]
+		elif a == "spiders":
+			spider_shot = true
+		elif a == "heromenu":
+			hero_menu = true
+		elif a == "heroes":
+			hero_lineup = true
+		elif a.begins_with("hero="):
+			_hero_choice = a.substr(5)
+		elif a.begins_with("perks="):
+			_perks = a.substr(6).split(",")
+		elif a == "special":
+			_force_special = true
+		elif a == "gallery":
+			gallery = true
+		elif a == "newfoes":
+			gallery = true
+			_new_foes = true
+		elif a == "bigshots":
+			_big_shots = true
+			get_viewport().scaling_3d_scale = 0.5
+		elif a == "props":
+			gallery = true
+			_props = true
+		elif a == "pass":
+			Store.test_owned = true
+		elif a == "daily":
+			Game._daily_requested = true
+			_skip_first_run()
+		elif a.begins_with("curses="):
+			var cfg := Game._load_save()
+			for id in a.substr(7).split(","):
+				cfg.set_value(Curses.SAVE_SECTION, id, true)
+			Game.write_save(cfg)
+			_skip_first_run()
+		elif a == "passmenu":
+			_pass_menu = true
+		elif a == "cursemenu":
+			_curse_menu = true
+		elif a == "freeend":
+			_free_end_test = true
+		elif a.begins_with("killat="):
+			_kill_at = int(a.substr(7))
+		elif a == "continue":
+			_continue = true
+		elif a.begins_with("trial="):
+			_trial = a.substr(6)
+			_skip_first_run()
+		elif a.begins_with("chains="):
+			_chains = Array(a.substr(7).split(",")).map(func(c): return float(c))
+		elif a == "modesmenu":
+			_modes_menu = true
+			_skip_first_run()
+		elif a == "dailymenu":
+			_daily_menu = true
+			_skip_first_run()
+		elif a == "share":
+			_share = true
+		elif a == "bank":
+			_bank = true
+		elif a == "loopquit":
+			_loop_quit = true
+		elif a == "loopmenu":
+			_loop_menu = true
+		elif a == "die":
+			_die = true
+		elif a == "endback":
+			_end_back = true
+		elif a == "icons":
+			_icons = true
+		elif a.begins_with("cards="):
+			_force_cards = Array(a.substr(6).split(","))
+		elif a.begins_with("runs="):
+			runs = int(a.substr(5))
+		elif a.begins_with("room="):
+			start_room = int(a.substr(5))
+		elif a.begins_with("shots="):
+			shots_dir = a.substr(6)
+			DirAccess.make_dir_recursive_absolute(shots_dir)
+
+
+## `endback`: Android Back on the end screen, then what the title offers.
+func _back_at_end() -> void:
+	set_process(false)
+	print("[autoplay] back button on %s, floor %d: saved run %s, first run %s, end text: %s" % [Game.State.keys()[Game.state], Game.floor_num,
+		not RunSave.read().is_empty(), Game.first_run, Game.hud._end_stats.text.replace("\n", " / ")])
+	if shots_dir != "":
+		await _shot()
+	Game._notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+	await get_tree().create_timer(1.5).timeout
+	print("[autoplay] after back: state=%s, title CONTINUE '%s'" % [Game.State.keys()[Game.state], Game.continue_text()])
+	if shots_dir != "":
+		await _shot()
+	get_tree().quit()
+
+
+## Daily Crypt and Curses aren't offered on the very first run.
+func _skip_first_run() -> void:
+	var cfg := Game._load_save()
+	cfg.set_value("stats", "first_run_done", true)
+	Game.write_save(cfg)
+
+
+func _process(delta: float) -> void:
+	if is_instance_valid(Game.intro):
+		_watch_intro()
+		return
+	if _intro_seen:
+		_intro_seen = false
+		print("[autoplay] intro finished, logo alpha %.2f, state %s" % [Game.hud.title_logo().modulate.a, Game.State.keys()[Game.state]])
+	if _hero_choice != "" and Game.hero:
+		# Pick (and if needed unlock) a hero before the first run.
+		Game.coins += Heroes.get_hero(_hero_choice).cost
+		Game._pick_hero(_hero_choice)
+		Game.hud.show_heroes(false)
+		print("[autoplay] hero %s hp=%d" % [Game.hero.hero_id, Game.hero.max_health])
+		_hero_choice = ""
+	_t += delta
+	if _slow_phone and Game.state == Game.State.PLAYING:
+		if _slow_t < 0.0:
+			Game._auto_graphics = true   # the robot normally switches the watcher off
+			Game.fps_override = 30.0
+			_slow_t = 0.0
+		_slow_t += delta
+		if _slow_t >= 1.0:
+			_slow_t = 0.0
+			print("[autoplay] slow phone: high graphics %s, watching %s" % [Game._high_graphics, Game._auto_graphics])
+			if not Game._auto_graphics:
+				_slow_phone = false
+				Game.fps_override = -1.0
+	if _icons and _t > 0.5:
+		_icons = false
+		await _icon_sheet()
+		get_tree().quit()
+		return
+	if Game.hud.reports_ask_visible() and not _answering:
+		# The once-only "send reports?" question after a run: picture it, then say no.
+		_answering = true
+		print("[autoplay] reports question shown after a run")
+		if shots_dir != "":
+			await _shot()
+		Game.hud.reports_answered.emit(false)
+		_answering = false
+		return
+	if not _perks.is_empty() and Game.state == Game.State.PLAYING and Game.hero:
+		for id in _perks:
+			Game._taken[id] = Game._taken.get(id, 0) + 1
+			Upgrades.apply(id, Game.hero)
+		print("[autoplay] perks %s" % ", ".join(_perks))
+		_perks = []
+	if Game.state != _last_state:
+		_last_state = Game.state
+		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
+		if Game.state == Game.State.UPGRADE and not _force_cards.is_empty():
+			Game._choices = _force_cards.map(func(id): return Upgrades.get_def(id))
+			Game.hud.show_cards(Game._choices, Game.rerolls, true)
+			_force_cards = []
+		if shots_dir != "" and Game.state in [Game.State.UPGRADE, Game.State.VICTORY, Game.State.DEAD, Game.State.PAUSED]:
+			_shot.call_deferred()
+		if shots_dir != "" and Game.state == Game.State.PLAYING and Room.current and Room.current.door_open:
+			_next_shot = _t + 0.3   # catch the exit arrow right after a blessing
+	if shots_dir != "" and _t > _next_shot and Game.state == Game.State.PLAYING:
+		_next_shot = _t + 4.0
+		_shot()
+
+	if shots_dir != "" and _perfect_shots < 2 and Game.hud._callout_time > 0.85:
+		_perfect_shots += 1
+		_shot()
+	if shots_dir != "" and not _card_shot and Game.hud._boss_card.visible and Game.hud._boss_card.modulate.a > 0.95:
+		_card_shot = true
+		_shot()
+
+	match Game.state:
+		Game.State.TITLE:
+			if shots_dir != "" and _shot_n == 0 and _t > 1.0 and not _title_shot:
+				_title_shot = true
+				_shot_n = -1
+				_shot()
+			if hero_menu and _t > 1.2 and not _shopped:
+				_shopped = true
+				Game._open_heroes()
+				for i in Heroes.LIST.size():
+					Game.hud._heroes_box.show_index(i)
+					await get_tree().create_timer(1.2).timeout
+					await _shot()
+					print("[autoplay] heroes screen: %s" % Heroes.LIST[i].title)
+				# UNLOCK without enough coins shows how many more are needed (the Mage costs the most).
+				Game.hud._heroes_box.show_index(Heroes.LIST.size() - 1)
+				await get_tree().create_timer(0.6).timeout
+				Game.hud._heroes_box._on_action()
+				await get_tree().create_timer(0.5).timeout
+				await _shot()
+				print("[autoplay] heroes screen: unlock without coins says \"%s\"" % Game.hud._heroes_box._badge.text)
+				get_tree().quit()
+				return
+			if hero_menu:
+				return
+			if (_pass_menu or _curse_menu) and _t > 1.2 and not _shopped:
+				_shopped = true
+				if _pass_menu:
+					Game._open_pass()
+				else:
+					Game._open_curses()
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				await get_tree().create_timer(0.3).timeout
+				if _pass_menu:
+					Game.hud.pass_buy.emit()
+				else:
+					Game.hud.curse_toggled.emit(Curses.LIST[2].id)
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				print("[autoplay] pass owned=%s curses=%s" % [Store.owned(), Curses.chosen(Game._load_save())])
+				if _pass_menu:
+					Game.hud.show_pass(false)
+					await get_tree().create_timer(0.3).timeout
+					_shot()   # the title with Daily Crypt and Curses
+				get_tree().quit()
+				return
+			if _pass_menu or _curse_menu:
+				return
+			if _modes_menu and _t > 1.2 and not _shopped:
+				_shopped = true
+				Game.hud.show_title(true, Game._best_text(), Game.coins)   # with MODES, now the first run is done
+				await get_tree().create_timer(0.3).timeout
+				await _shot()
+				Game.hud.show_modes(true)
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				print("[autoplay] modes: daily %s, curses %s" % [Game.hud._mode_daily_tag.text, Game.hud._mode_curses_tag.text])
+				get_tree().quit()
+				return
+			if _modes_menu:
+				return
+			if _daily_menu and _t > 1.2 and not _shopped:
+				_shopped = true
+				Game._open_daily()
+				await get_tree().create_timer(0.5).timeout
+				_shot()
+				print("[autoplay] daily #%d %s hero=%s rules=%s" % [Curses.day_number(), Curses.theme().name, Curses.daily_hero(), Curses.daily_rules()])
+				await get_tree().create_timer(0.3).timeout
+				get_tree().quit()
+				return
+			if _daily_menu:
+				return
+			if _continue and _t > 1.2:
+				_continue = false
+				print("[autoplay] title says CONTINUE %s" % Game.continue_text())
+				if shots_dir != "":
+					_shot()
+					await get_tree().create_timer(0.3).timeout
+				Game.hud.continue_pressed.emit()
+				return
+			if _trial != "" and _t > 1.2:
+				Game._try_hero(_trial)
+				print("[autoplay] trying %s for free: %s" % [_trial, Game._trial_hero])
+				_trial = ""
+			if shop and not _shopped and _t > 1.2:
+				_shopped = true
+				Game._open_armory()
+				for u: Dictionary in Armory.LIST + Armory.VAULT:
+					Game._buy_upgrade(u.id)
+				print("[autoplay] shop: coins left %d, hero hp before run %d, vault %s" % [Game.coins, Game.hero.max_health, Armory.vault_owned(Game._load_save())])
+				if shots_dir != "":
+					await _shot()
+					Game.hud._armory_tab = "vault"
+					Game.hud._fill_shop(Game.hud._shop_rows, Game.hud._shop_coins)
+					await _shot()
+					Game.hud._armory_tab = "upgrades"
+					return   # later frames start the run
+			if shop and _t < 3.0:
+				return
+			if Game.hud.armory_visible():
+				Game.hud.show_armory(false)
+			if _t > 1.5:
+				if start_room > 1 or Game.floor_num > 1:
+					Game.hud.show_title(false)
+					Game.hud.show_hud(true)
+					if Game._daily_requested:
+						Game.daily = true
+						Game._begin_daily()
+					Game._reset_report()   # so the run report counts damage from the jumped-to room
+					Game._pick_curses()
+					Game._apply_armory()
+					Game._go_to_room(start_room - 1)
+					Game._mode_banner()
+				else:
+					Game._on_screen_tapped()
+		Game.State.UPGRADE when Game.hud.doors_visible():
+			if shots_dir != "" and not _door_shot and Game.hud._doors_age > 0.5:
+				_door_shot = true
+				_shot()
+			if Game.hud._doors_age > 1.0:
+				var pick := randi() % Game._doors.size()
+				print("[autoplay] doors: %s -> %s" % [" or ".join(Game._doors.map(func(d): return Doors.describe(d).title)), Doors.describe(Game._doors[pick]).title])
+				Game.hud._on_door(pick)
+		Game.State.UPGRADE:
+			if Game.rerolls > 0 and Game.hud._cards_age >= 0.45:
+				print("[autoplay] reroll: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
+				Game._on_reroll()
+				print("[autoplay] rerolled: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
+				Game.hud._cards_age = 0.45
+			Game.hud._on_card(0)
+		Game.State.VICTORY when Game._free_end and _end_back:
+			if Game._state_time > 2.5:
+				_back_at_end()
+		Game.State.VICTORY when Game._free_end:
+			if Game._state_time > 2.5 and not _free_end_done:
+				_free_end_done = true
+				print("[autoplay] free game over on floor %d" % Game.floor_num)
+				if shots_dir != "":
+					_shot()
+				if _free_end_test:
+					Game.hud.pass_pressed.emit()
+					Game.hud.pass_buy.emit()
+					Game.hud.show_pass(false)
+					print("[autoplay] bought the Pass: owned=%s free_end=%s" % [Store.owned(), Game._free_end])
+				else:
+					get_tree().quit()
+		Game.State.VICTORY when Game._loop_choice:
+			if Game.hud.omens_visible():
+				if Game._state_time > 3.5:
+					if shots_dir != "":
+						_shot()
+					var pick: Dictionary = Game._omen_choices[0]
+					print("[autoplay] omen picked: %s (of %s)" % [pick.title, ", ".join(Game._omen_choices.map(func(o): return o.title))])
+					Game.hud.omen_picked.emit(pick.id)
+			elif Game._state_time > 2.5:
+				print("[autoplay] loop %d cleared on floor %d: score %d, run coins %d, bank bonus %d" % [Loops.loop_of(Game.floor_num), Game.floor_num, Game.score, Game.run_coins, Game._bank_bonus()])
+				if shots_dir != "":
+					_shot()
+				if _loop_quit:
+					_loop_quit = false
+					print("[autoplay] closing the game on the end-of-loop screen")
+					get_tree().quit()
+				elif _bank or runs <= 1:
+					var before := Game.coins
+					Game.hud.loop_bank.emit()
+					print("[autoplay] banked: coins %d -> %d" % [before, Game.coins])
+					get_tree().create_timer(1.5).timeout.connect(func():
+						print("[autoplay] after bank: state=%s saved run=%s coins in save=%d" % [Game.State.keys()[Game.state], not RunSave.read().is_empty(), int(Game._load_save().get_value("stats", "coins", 0))])
+						get_tree().quit())
+					set_process(false)
+				else:
+					runs -= 1
+					Game.hud.loop_deeper.emit()
+		Game.State.DEAD, Game.State.VICTORY:
+			if _end_back and Game._state_time > 2.5:
+				_back_at_end()
+				return
+			if _share and Game.daily and Game._state_time > 2.0:
+				_share = false
+				print("[autoplay] share text:\n" + Game._share_text())
+				if shots_dir != "":
+					_shot()
+					_share_picture()
+			if Game._state_time > 2.5:
+				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
+				runs -= 1
+				if runs <= 0:
+					get_tree().quit()
+				else:
+					Game._on_screen_tapped()   # try again
+		Game.State.PAUSED:
+			if Game._state_time > 1.0:
+				if quit_test and not _quit_done:
+					_quit_done = true
+					_t = 0.0
+					Game.hud._on_quit_pressed()
+					print("[autoplay] quit run test: first tap %s" % ("asks" if Game.state == Game.State.PAUSED else "QUIT TOO EARLY"))
+					Game.hud._on_quit_pressed()
+				else:
+					# Android's Back button on the pause menu goes back into the run.
+					Game._notification(NOTIFICATION_WM_GO_BACK_REQUEST)
+					print("[autoplay] back button on pause: %s" % ("resumed" if Game.state != Game.State.PAUSED else "STILL PAUSED"))
+
+		Game.State.PLAYING when gallery:
+			_gallery_step(delta)
+		Game.State.TRANSITION when gallery and _gallery_t >= 0.0:
+			_gallery_step(delta)
+		Game.State.PLAYING when _die:
+			if Game._state_time > 1.0:
+				_die = false
+				if not _chains.is_empty():
+					if Game._rep.is_empty():
+						Game._reset_report()
+					Game._rep.chains = _chains   # a made-up chain in each room so far, for the share card
+				Game.hero.take_damage(1e9, Vector3.ZERO, 0.0)
+		Game.State.PLAYING when _loop_menu:
+			if is_instance_valid(Game.boss) and not Game.boss.dead and Game._state_time > 1.0:
+				Game.boss.take_damage(1e9, Vector3.ZERO, 0.0)
+			elif Loops.loop_of(Game.floor_num) > 1 and Game._state_time > 2.5:
+				_loop_menu = false
+				await _shot()
+				get_tree().quit()
+		Game.State.PLAYING:
+			if _kill_at > 0 and Game._room_index == _kill_at - 1 and Game._state_time > 1.0:
+				print("[autoplay] closing the game on floor %d room %d: hp %d/%d score %d coins %d run coins %d" % [Game.floor_num, Game._room_index + 1, Game.hero.health, Game.hero.max_health, Game.score, Game.coins, Game.run_coins])
+				get_tree().quit()
+				return
+			if not _paused_once and Game._room_index == 1 and Game._state_time > 2.0:
+				_paused_once = true
+				print("[autoplay] pause test")
+				Game._on_pause_pressed()
+				return
+			if Game._state_time > 60.0 and _dumped_room != Game._room_index:
+				_dumped_room = Game._room_index
+				print("[autoplay] SLOW time_scale=%.2f dashes=%d room=%d alive_enemies=%d door=%s" % [Engine.time_scale, _dashes, Game._room_index + 1, Game.alive_enemies, Room.current.door_open])
+				for a: Actor in Actor.all:
+					print("   ", a.get_script().get_global_name(), " pos=", a.global_position, " hp=", a.health)
+			_drive(delta)
+	if _t > 600.0:
+		print("[autoplay] TIMEOUT room=%d hero=%s" % [Game._room_index + 1, Game.hero.global_position])
+		for a: Actor in Actor.all:
+			print("   ", a.name, " ", a.get_script().get_global_name(), " pos=", a.global_position, " hp=", a.health, " dead=", a.dead)
+		get_tree().quit(1)
+
+
+## Lines up one of every skeleton type for a close look, takes a picture and quits.
+func _gallery_step(delta: float) -> void:
+	if _gallery_t < 0.0:
+		_gallery_t = 0.0
+		for a: Actor in Actor.all.duplicate():
+			if a is Enemy:
+				a.queue_free()
+		if hero_lineup:
+			var ids := ["rogue", "knight", "barbarian", "mage"]
+			for i in ids.size():
+				var h := Hero.spawn(Room.current, Vector3(-4.5 + i * 3.0, 0, 3.0), ids[i])
+				h.rotation.y = PI
+			Game.hero.place_at(Vector3(0, 0, 30))
+			Game.state = Game.State.TRANSITION
+			return
+		if _props:
+			# The floor's own props: a near corner and wall, the other wall, then the far end.
+			var spots := [Vector3(-4.6, 0, 8.4), Vector3(4.6, 0, 2.0), Vector3(-2.5, 0, -7.0)]
+			for i in spots.size():
+				get_tree().create_timer(0.6 + i * 1.4).timeout.connect(func():
+					Game.hero.place_at(spots[i])
+					Game._snap_camera())
+				get_tree().create_timer(1.4 + i * 1.4).timeout.connect(_shot)
+			get_tree().create_timer(5.0).timeout.connect(get_tree().quit)
+			_gallery_t = 200.0
+			return
+		if _new_foes:
+			# The two theme skeletons up close and attacking: pictures at 1.3, 2.3, 3.3 and 4.45 s
+			# (the last as the first ice beams fire).
+			Game.spawn_enemy("f", Vector3(-2.2, 0, 1.5))
+			Game.spawn_enemy("f", Vector3(2.4, 0, 0.5))
+			Game.spawn_enemy("e", Vector3(-1.0, 0, 3.5))
+			Game.spawn_enemy("e", Vector3(1.4, 0, 3.0))
+			Game.hero.place_at(Vector3(0, 0, 7.0))
+			for t in [1.3, 2.3, 3.3, 4.45]:
+				get_tree().create_timer(t).timeout.connect(_shot)
+			get_tree().create_timer(4.9).timeout.connect(get_tree().quit)
+			_gallery_t = 200.0
+			return
+		if spider_shot:
+			for i in 3:
+				var sp := Game.spawn_enemy("s", Vector3(-2.5 + i * 2.5, 0, 4.0 - absf(i - 1) * 1.0))
+				sp.rotation.y = PI
+			Game.spawn_enemy("w", Vector3(0, 0, 0.5))
+			Game.hero.place_at(Vector3(0, 0, 8.0))
+			Game.state = Game.State.TRANSITION
+			for a in Actor.all:
+				a.rotation.y = PI
+			return
+		var kinds := ["m", "w", "a", "g", "x", "t", "f", "e"]
+		for i in kinds.size():
+			var e := Game.spawn_enemy(kinds[i], Vector3(-4.5 + (i % 4) * 3.0, 0, 1.5 + (i / 4) * 3.0))
+			if elites and i < 3:
+				e.make_elite()
+		if elites:
+			Game.hero.ward = 1
+		Game.spawn_enemy("K", Vector3(-3, 0, -5))
+		Game.spawn_enemy("L", Vector3(3, 0, -5))
+		Game.hero.place_at(Vector3(0, 0, 7.5))
+		Game.state = Game.State.TRANSITION   # everyone stands still
+		for a: Actor in Actor.all:
+			a.rotation.y = PI   # face the camera
+		return
+	_gallery_t += delta
+	if _gallery_t > 2.0 and _gallery_t < 100.0:
+		_gallery_t = 100.0
+		_shot()
+		await get_tree().create_timer(0.5).timeout
+		get_tree().quit()
+
+
+func _drive(delta: float) -> void:
+	var hero := Game.hero
+	if hero == null:
+		return
+	if god:
+		hero.health = hero.max_health
+	var move := Vector3.ZERO
+	var room := Room.current
+	if _force_special and Game.alive_enemies >= 4 and Game._state_time > 2.0:
+		_force_special = false
+		hero.special_charge = 1.0
+	if hero.special_ready() and Game.alive_enemies >= 3:
+		hero.use_special()
+		if shots_dir != "" and _special_shots < 2:
+			_special_shots += 1
+			get_tree().create_timer(0.35, true, false, true).timeout.connect(_shot)
+	# Grave Dash: dash sideways through a shot that is about to land.
+	if hero.dash_ready():
+		for p in Projectile.danger:
+			if is_instance_valid(p) and p.time_to_hit(hero.global_position, hero.radius + 0.15) < 0.12:
+				hero.dash(p.dir.cross(Vector3.UP) * (1.0 if randf() < 0.5 else -1.0))
+				break
+	if room.door_open:
+		move = Vector3(0, 0, -Room.HALF_L - 1.0) - hero.global_position
+		if absf(hero.global_position.x) > 0.6 and hero.global_position.z < -Room.HALF_L + 2.0:
+			move = Vector3(-hero.global_position.x, 0, 0.3)
+	elif not god:
+		# Step out of any warning marker, and keep away from skeletons that get close.
+		for t in room.get_children():
+			if t is Telegraph:
+				var d: Vector3 = hero.global_position - (t as Telegraph).global_position
+				d.y = 0
+				if d.length() < 2.4:
+					move += d.normalized() * (2.4 - d.length())
+				if d.length() < 1.6 and hero.dash_ready():
+					hero.dash(d if d.length() > 0.1 else Vector3.RIGHT)
+					_dashes += 1
+					if _dashes == 1:
+						print("[autoplay] first dash")
+		for a: Actor in Actor.all:
+			if a.team == Actor.Team.UNDEAD and not a.dead:
+				var d := hero.global_position - a.global_position
+				d.y = 0
+				if d.length() < 2.2:
+					move += d.normalized() * (2.2 - d.length())
+		# Drift back towards the middle when idle so the hero doesn't get cornered.
+		if move.length() > 0.05:
+			move += (Vector3(0, 0, 4) - hero.global_position) * 0.08
+	if move.length() < 0.05 and not room.door_open:
+		# No clear shot at anything? Walk towards the target until there is one.
+		var target := hero._pick_target()
+		if target and not room.clear_shot(hero.global_position, target.global_position):
+			move = target.global_position - hero.global_position
+			move.y = 0.0
+	if move.length() > 0.05:
+		move = room.steer(hero.global_position, move.normalized(), hero.radius)
+	var stick := Vector2(move.x, move.z)
+	Game.hud.joystick = stick.normalized() if stick.length() > 0.05 else Vector2.ZERO
+
+
+## Every blessing's badge on one page, with its name, to check the pictures.
+## Saves the Daily Crypt share picture next to the other pictures.
+func _share_picture() -> void:
+	var img: Image = await Share.picture(Game.hud, Game._share_lines(), Game._share_rows(), Game._share_caption())
+	if img:
+		img.save_png(shots_dir.path_join("share_picture.png"))
+		print("[autoplay] share picture %dx%d" % [img.get_width(), img.get_height()])
+
+
+func _icon_sheet() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	var bg := ColorRect.new()
+	bg.color = Color(0.16, 0.12, 0.2)
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(bg)
+	var all: Array = Upgrades.LIST + Upgrades.SYNERGIES
+	for i in all.size():
+		var u: Dictionary = all[i]
+		var icon := BlessingIcon.new()
+		icon.position = Vector2(14 + (i % 6) * 88, 10 + (i / 6) * 104)
+		bg.add_child(icon)
+		icon.show_for(u)
+		var l := Hud.label(u.title, 11)
+		l.position = icon.position + Vector2(-14, 66)
+		l.size = Vector2(92, 18)
+		bg.add_child(l)
+	for f in 6:
+		await get_tree().process_frame
+	if shots_dir != "":
+		await _shot()
+
+
+func _watch_intro() -> void:
+	var it := Game.intro
+	if not _intro_seen:
+		_intro_seen = true
+		print("[autoplay] intro playing")
+	if _intro_skip and it.t >= 0.5:
+		_intro_skip = false
+		print("[autoplay] intro skipped at %.2f" % it.t)
+		it.skip()
+	if shots_dir != "" and not _intro_marks.is_empty() and it.t >= _intro_marks[0]:
+		var img := get_viewport().get_texture().get_image()
+		if img and not img.is_empty():
+			var path := shots_dir.path_join("intro_%.2f.png" % _intro_marks[0])
+			img.save_png(path)
+			print("[autoplay] intro picture ", path)
+		_intro_marks.pop_front()
+
+
+func _shot() -> void:
+	if _big_shots:
+		get_viewport().scaling_3d_scale = 1.0
+		await get_tree().process_frame
+		await get_tree().process_frame
+	await RenderingServer.frame_post_draw
+	var img := get_viewport().get_texture().get_image()
+	if _big_shots:
+		get_viewport().scaling_3d_scale = 0.5
+	if img == null or img.is_empty():
+		return
+	_shot_n += 1
+	var path := shots_dir.path_join("shot_%02d_%s.png" % [_shot_n, Game.State.keys()[Game.state].to_lower()])
+	img.save_png(path)
+	print("[autoplay] screenshot ", path)

@@ -1,0 +1,42 @@
+
+# IDE files
+.vs/
+.vscode/
+.idea/
+*.csproj
+*.sln
+*.suo
+*.user
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Build outputs
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Godot
+.godot/
+/android/
+*.import.tmp
+export_credentials.cfg
+
+# Build folder (only the shared debug signing key is kept)
+/build/*
+!/build/debug.keystore
+*.idsig
+
+# Android plugins built by CI (android_plugins/)
+/addons/PlayUpdate/bin/
+/android_plugins/*/build/
+/android_plugins/*/.gradle/
