@@ -24,9 +24,9 @@ func _draw() -> void:
 	for a: Actor in Actor.all:
 		if a.team == Actor.Team.UNDEAD and not a.dead:
 			points.append(a.global_position)
-	for t in Room.current.get_children():
-		if t is Telegraph:
-			points.append((t as Telegraph).global_position)
+	for t: Telegraph in Telegraph.active:
+		if is_instance_valid(t):
+			points.append(t.global_position)
 	var view := get_viewport_rect().size
 	var mid := view / 2.0
 	var inner := Rect2(Vector2(MARGIN, MARGIN), view - Vector2(MARGIN, MARGIN) * 2.0)

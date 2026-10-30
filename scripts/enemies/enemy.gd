@@ -40,8 +40,10 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	e.global_position = pos
 	e._setup()
 	# Deeper floors make skeletons tougher and a little quicker.
-	# Bosses get an extra 30% per floor on top, so deep bosses are a real fight.
-	e.init_health(e.max_health * Game.health_scale() * ((1.0 + 0.3 * (Game.floor_num - 1)) if e.is_boss else 1.0))
+	# Bosses get an extra 30% per floor on top, so deep bosses are a real fight. The tutorial's
+	# King has 70%.
+	var boss_scale := (1.0 + 0.3 * (Game.floor_num - 1)) * (0.7 if Game.first_run else 1.0)
+	e.init_health(e.max_health * Game.health_scale() * (boss_scale if e.is_boss else 1.0))
 	e.move_speed *= Game.speed_scale()
 	e._bar = HealthBar.attach(e)
 	Fx.dust(pos, 18)
@@ -134,6 +136,8 @@ func chill(seconds: float) -> void:
 ## Every drop is cut to 60%, rounded up or down at random so a single coin keeps its
 ## worth on average. Before, one full run of floors 1-5 bought the whole Armory.
 const COIN_RATE := 0.6
+## The tutorial drops hearts a third more often (as every floor did before the Nov 2 update).
+const FIRST_RUN_HEARTS := 4.0 / 3.0
 
 
 ## Coins dropped when destroyed. Deeper floors pay a little more.
@@ -264,7 +268,8 @@ func _on_death() -> void:
 		_death_burst(Game.hero)
 		if Game.hero.perks.has("splinters"):
 			_splinters(Game.hero)
-	if randf() < drop_chance + (Game.heart_bonus if drop_chance > 0.0 else 0.0) and not Game.curses.has("famine"):
+	var hearts := FIRST_RUN_HEARTS if Game.first_run else 1.0
+	if randf() < drop_chance * hearts + (Game.heart_bonus if drop_chance > 0.0 else 0.0) and not Game.curses.has("famine"):
 		Pickup.drop(global_position)
 	var coins := coin_value()
 	if Game.hero and coins > 0:

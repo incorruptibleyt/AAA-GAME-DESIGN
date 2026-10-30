@@ -76,6 +76,8 @@ var _trail_t := 0.0
 var _ring_was_ready := true
 
 var _shot_timer := 0.4
+var _target: Actor
+var _retarget := 0.0
 var _invulnerable := 0.0
 var _moving := false
 
@@ -394,6 +396,7 @@ func _process(delta: float) -> void:
 		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * delta, delta)
 		face(move, 18.0, delta)
 		_shot_timer = maxf(_shot_timer, 0.12)   # firing resumes shortly after you stop
+		_retarget = 0.0   # and aims from where you stopped
 	else:
 		move_by(Vector3.ZERO, delta)
 		if playing:
@@ -405,7 +408,13 @@ func _process(delta: float) -> void:
 
 func _auto_attack(delta: float) -> void:
 	_shot_timer -= delta
-	var target := _pick_target()
+	# Checking every skeleton's line of fire is costly, so the target is re-picked a few
+	# times a second, or straight away when it dies.
+	_retarget -= delta
+	if _retarget <= 0.0 or not is_instance_valid(_target) or not _target.can_be_hit():
+		_target = _pick_target()
+		_retarget = 0.15
+	var target := _target
 	if target == null:
 		return
 	var to := target.global_position - global_position
@@ -417,19 +426,20 @@ func _auto_attack(delta: float) -> void:
 
 
 ## The nearest skeleton the hero can actually hit; if every one is behind cover, just the nearest.
+## Lines of fire are checked nearest first, so usually only one is.
 func _pick_target() -> Actor:
-	var best: Actor = null
-	var best_sq := INF
+	var near: Array = []
 	for a: Actor in Actor.all:
-		if a.team != Team.UNDEAD or not a.can_be_hit():
-			continue
-		var sq := (a.global_position - global_position).length_squared()
-		if Room.current and not Room.current.clear_shot(global_position, a.global_position):
-			sq += 10000.0
-		if sq < best_sq:
-			best_sq = sq
-			best = a
-	return best
+		if a.team == Team.UNDEAD and a.can_be_hit():
+			near.append([(a.global_position - global_position).length_squared(), a])
+	if near.is_empty():
+		return null
+	near.sort_custom(func(x, y): return x[0] < y[0])
+	if Room.current:
+		for n in near:
+			if Room.current.clear_shot(global_position, n[1].global_position):
+				return n[1]
+	return near[0][1]
 
 
 func _shoot(fwd: Vector3) -> void:

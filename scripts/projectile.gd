@@ -153,13 +153,16 @@ func _process(delta: float) -> void:
 	global_position = next
 
 	var target := Actor.Team.UNDEAD if owner_team == Actor.Team.HERO else Actor.Team.HERO
+	# Most frames hit nothing: check first without copying the list (a hit can change it).
+	var touching := false
+	for a: Actor in Actor.all:
+		if _touches(a, target, from, next):
+			touching = true
+			break
+	if not touching:
+		return
 	for a: Actor in Actor.all.duplicate():
-		if a.team != target or not a.can_be_hit() or _hit.has(a):
-			continue
-		var reach := a.radius + radius
-		var dist_sq := _flat_dist_sq(a.global_position, from, next) if owner_team == Actor.Team.HERO \
-				else Vector2(a.global_position.x - next.x, a.global_position.z - next.z).length_squared()
-		if dist_sq > reach * reach:
+		if not _touches(a, target, from, next):
 			continue
 		_hit[a] = true
 		var crit := randf() < crit_chance
@@ -182,6 +185,15 @@ func _process(delta: float) -> void:
 		if pierce < 0:
 			queue_free()
 			return
+
+
+func _touches(a: Actor, target: int, from: Vector3, next: Vector3) -> bool:
+	if a.team != target or not a.can_be_hit() or _hit.has(a):
+		return false
+	var reach := a.radius + radius
+	var dist_sq := _flat_dist_sq(a.global_position, from, next) if owner_team == Actor.Team.HERO \
+			else Vector2(a.global_position.x - next.x, a.global_position.z - next.z).length_squared()
+	return dist_sq <= reach * reach
 
 
 func _explode(at: Vector3, target: int, already: Actor) -> void:

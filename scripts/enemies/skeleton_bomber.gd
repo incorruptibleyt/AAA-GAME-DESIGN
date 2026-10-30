@@ -62,4 +62,4 @@ func _blow_up() -> void:
 	# The blast takes the bomber with it.
 	drop_chance = 0.0
 	_exploded = true
-	take_damage(9999.0, Vector3.ZERO, 0.0)
+	take_damage(Actor.KILL, Vector3.ZERO, 0.0)

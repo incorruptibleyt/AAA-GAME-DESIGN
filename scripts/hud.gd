@@ -89,6 +89,10 @@ var _special: SpecialButton
 var _dash_button: DashButton
 var _quit_button: Button
 var _quit_armed := false
+var _pause_title: Label
+var _resume_button: Button
+## The pause menu opened from the title screen as Settings: BACK instead of RESUME, no Quit run.
+var _settings_only := false
 var _title_box: Control
 var _title_logo: TextureRect
 var _title_best: Label
@@ -482,6 +486,7 @@ func _build_hud() -> void:
 	_hint.offset_top = -150
 	_hint.offset_bottom = -90
 	_hint.set_script(Pulse)
+	_hint.set("low", 0.75)   # a lesson must stay readable at every point of the pulse
 	_hint.visible = false
 	root.add_child(_hint)
 
@@ -808,6 +813,12 @@ func _build_title() -> void:
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	full(holder)
 	_title_box.add_child(holder)
+	# Sound, screen shake, vibration and reports can be set before the first run too.
+	var settings := button("SETTINGS", 18)
+	settings.custom_minimum_size = Vector2(150, 66)
+	settings.position = Vector2(20, 20)
+	settings.pressed.connect(func(): show_settings(true))
+	holder.add_child(settings)
 	var top := VBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -1170,13 +1181,15 @@ func _build_pause() -> void:
 	# Tight enough that the whole menu fits a 16:9 phone.
 	col.add_theme_constant_override("separation", 12)
 	_pause_box.add_child(col)
-	col.add_child(label("Paused", 52, Color(1, 0.85, 0.55)))
+	_pause_title = label("Paused", 52, Color(1, 0.85, 0.55))
+	col.add_child(_pause_title)
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 8)
 	col.add_child(gap)
 	var resume := button("RESUME", 32, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
 	resume.custom_minimum_size = Vector2(300, 86)
-	resume.pressed.connect(func(): resume_pressed.emit())
+	resume.pressed.connect(_on_resume_pressed)
+	_resume_button = resume
 	col.add_child(_centered(resume))
 	_music_button = button("Music: On", 26)
 	_music_button.pressed.connect(func(): music_toggled.emit(not _music_on))
@@ -1205,6 +1218,13 @@ func _build_pause() -> void:
 	# policy asks for to delete someone's reports (shown even with reports off).
 	_pause_build = label("Build " + Game.BUILD, 16, Color(0.6, 0.57, 0.65))
 	col.add_child(_pause_build)
+
+
+func _on_resume_pressed() -> void:
+	if _settings_only:
+		show_settings(false)
+	else:
+		resume_pressed.emit()
 
 
 ## Quitting loses the run, so the first tap only asks; a second tap within 3 s quits.
@@ -1601,7 +1621,10 @@ func _input(event: InputEvent) -> void:
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
 				return
-			if _safe.visible and _pause_button.get_global_rect().has_point(t.position):
+			# The pause button looks small but answers a little way around it too.
+			if _safe.visible and _pause_button.get_global_rect().grow(12.0).has_point(t.position):
+				if not _pause_button.get_global_rect().has_point(t.position) and _pause_button.is_visible_in_tree() and not _overlay_open():
+					pause_pressed.emit()
 				return
 			if _safe.visible and _special.visible and not _overlay_open() \
 					and _special.get_global_rect().grow(12.0).has_point(t.position):
@@ -1831,8 +1854,9 @@ func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 
 
 ## A quick white (or coloured) flash over the whole screen.
+## Flashes are softer with Screen shake reduced or off, for anyone who finds them too much.
 func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
-	_flash.color = Color(col.r, col.g, col.b, strength)
+	_flash.color = Color(col.r, col.g, col.b, strength * lerpf(0.3, 1.0, Game.shake_scale))
 
 
 func show_boss_card(title: String, subtitle: String) -> void:
@@ -2267,12 +2291,27 @@ func end_offer_done(tap_text: String) -> void:
 	_fit_end.call_deferred()
 
 
-func show_pause(v: bool) -> void:
+func show_pause(v: bool, settings_only := false) -> void:
+	_settings_only = v and settings_only
+	_pause_title.text = "Settings" if _settings_only else "Paused"
+	_resume_button.text = "BACK" if _settings_only else "RESUME"
+	_quit_button.visible = not _settings_only
+	# Darker over the busy title screen than over a paused room.
+	(_pause_box as ColorRect).color.a = 0.9 if _settings_only else 0.7
 	_pause_box.visible = v
 	if v:
 		_pause_build.text = "Build %s  ·  Install %s" % [Game.BUILD, Telemetry.install_id(Game._load_save())]
 	if _quit_armed:
 		_disarm_quit()
+
+
+## The pause menu's settings, from the SETTINGS button on the title screen.
+func show_settings(v: bool) -> void:
+	show_pause(v, true)
+
+
+func settings_visible() -> bool:
+	return _settings_only and _pause_box.visible
 
 
 func set_fade(a: float) -> void:

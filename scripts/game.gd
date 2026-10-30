@@ -54,7 +54,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-30b"
+const BUILD := "2026-10-30c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -464,7 +464,7 @@ func _process(delta: float) -> void:
 			_fps_sum += f
 			_fps_n += 1
 			_fps_low = minf(_fps_low, f)
-			if _auto_graphics:
+			if _auto_graphics and _state_time >= 3.0:   # not a room's first-draw hitches
 				_watch_frame_rate(f)
 		if _combo_left > 0.0:
 			_combo_left -= delta
@@ -525,6 +525,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.modes_visible():
 			hud.show_modes(false)
+			return
+		if hud.settings_visible():
+			hud.show_settings(false)
 			return
 		match state:
 			State.PLAYING:
@@ -702,7 +705,8 @@ func _snap_camera() -> void:
 
 func _update_camera(real_delta: float) -> void:
 	_zoom_hold -= real_delta
-	var zoom_goal := 1.0 if _zoom_hold > 0.0 else (0.5 if _intro_focus else 0.0)
+	# The close-up punch follows the Screen shake setting (the boss intro's camera move doesn't).
+	var zoom_goal := shake_scale if _zoom_hold > 0.0 else (0.5 if _intro_focus else 0.0)
 	_zoom = lerpf(_zoom, zoom_goal, 1.0 - exp(-(10.0 if zoom_goal > _zoom else 4.0) * real_delta))
 	_cam_focus = _cam_focus.lerp(_focus_goal(), 1.0 - exp(-8.0 * real_delta))
 	_shake = move_toward(_shake, 0.0, real_delta * 2.5)
@@ -789,7 +793,9 @@ func _update_dash_lesson(real_delta: float) -> void:
 			_lesson_left = 1.8
 			Engine.time_scale = 0.12
 			hud.callout("DASH THROUGH IT!", Color(0.6, 0.9, 1.0))
-			hud.show_hint("Flick your thumb, or tap DASH")
+			# One message at a time: the room tip goes so the lesson isn't buried in text.
+			hud.tip("", 0.0)
+			hud.show_hint("Flick, or tap DASH")
 			return
 
 
@@ -846,6 +852,8 @@ func _build_run() -> void:
 	# The Daily Crypt picks the same rooms for everyone that day.
 	var rng := Curses.daily_rng(100 + floor_num, _daily_date) if daily else null
 	var piles := [[Layouts.EASY, EASY_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, HARD_ROOMS]]
+	if first_run:
+		piles = [[Layouts.EASY, EASY_ROOMS + HARD_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, 0]]   # no hard room in the tutorial
 	for p in piles.size():
 		var all: Array = piles[p][0]
 		var count: int = piles[p][1]
@@ -1190,8 +1198,8 @@ func _restart() -> void:
 		_daily_done = false
 	else:
 		_run_hero_id = ""   # a free trial is one run
-	_build_run()
 	first_run = first_run_pending()   # true only after a first death in the tutorial
+	_build_run()
 	_pick_curses()
 	hud.show_hud(true)
 	_load_room(0, false)
@@ -1420,6 +1428,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	var theme_kind := theme_enemy()
 	for s in room.spawns:
 		var kind: String = s.kind
+		# The tutorial teaches the basics first: bone spiders and bombers wait for floor 2.
+		if first_run and (kind == "s" or kind == "x"):
+			kind = "m"
 		# Ice and fire floors swap one minion in every room for their own skeleton.
 		if kind == "m" and theme_kind != "" and not _wave_kinds.has(theme_kind):
 			kind = theme_kind
@@ -1459,7 +1470,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_wave_total = 1
 	else:
 		# The first room is gentle; later and deeper rooms get three waves.
-		_wave_total = 2 if (index == 0 and floor_num == 1) else (3 if index >= 2 or floor_num > 1 else 2)
+		_wave_total = 2 if first_run or (index == 0 and floor_num == 1) else (3 if index >= 2 or floor_num > 1 else 2)
 	_waves_left = _wave_total - 1
 	hud.set_wave(1, _wave_total)
 	if is_instance_valid(boss):
@@ -1486,6 +1497,7 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 		"run_coins": run_coins, "banked": run_coins, "kills": _kills, "time": _run_time, "curses": curses.duplicate(),
 		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
 		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate(), "balance": 2,
+		"rooms": [] if next_floor or loop_end else _run.duplicate(true),   # this floor's rooms, to come back to
 		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {}})
 
 
@@ -1566,7 +1578,13 @@ func _continue_run() -> void:
 	if int(s.get("balance", 1)) < 2 and hero.perks.has("multishot"):
 		hero.damage /= pow(0.9, hero.perks.multishot)   # Twin Shots used to cut damage 10% a pick
 	_seen_rooms = (s.get("seen_rooms", []) as Array).duplicate()
-	_build_run()
+	# The same rooms as before the game was closed. Building new ones would change the rest
+	# of the floor (and of a Daily Crypt) and use up five more rooms each time.
+	var rooms: Array = s.get("rooms", [])
+	if rooms.size() == EASY_ROOMS + MEDIUM_ROOMS + HARD_ROOMS + 1 and int(s.room) < rooms.size():
+		_run = rooms.duplicate(true)
+	else:
+		_build_run()
 	if s.get("loop_end", false):
 		_resume_loop_end()
 	else:
@@ -1700,7 +1718,7 @@ func on_enemy_died(e: Enemy) -> void:
 		# Any minions left crumble with their master.
 		for a: Actor in Actor.all.duplicate():
 			if a != e and a.team == Actor.Team.UNDEAD and not a.dead and a.can_be_hit():
-				a.take_damage(9999.0, Vector3.ZERO, 0.0)
+				a.take_damage(Actor.KILL, Vector3.ZERO, 0.0)
 		_win()
 	elif not _in_boss_room() and _waves_left > 0 and not _wave_pending and alive_enemies <= (1 if _wave_kinds.size() <= 4 else 2):
 		_wave_pending = true
@@ -2147,18 +2165,18 @@ func where_text() -> String:
 		hero.hero_id if hero else "no hero", _format_time(_run_time)]
 
 
-## Called once a second of play. Eight slow seconds in a row (under 45 frames a second on
-## average) turn on Low graphics; three good minutes and it stops watching until next time.
+## Called once a second of play, after a room's first 3 seconds. When most of the last eight
+## seconds ran under 45 frames a second (the median, so one hitch can't do it), Low graphics
+## goes on; three good minutes and it stops watching until next time.
 func _watch_frame_rate(fps: float) -> void:
 	_auto_fps.append(fps)
 	if _auto_fps.size() > 8:
 		_auto_fps.pop_front()
 	_auto_seen += 1
 	if _auto_fps.size() == 8 and _high_graphics:
-		var avg := 0.0
-		for v in _auto_fps:
-			avg += v
-		if avg / 8.0 < 45.0:
+		var sorted := _auto_fps.duplicate()
+		sorted.sort()
+		if sorted[4] < 45.0:
 			_auto_graphics = false
 			_set_graphics(false)
 			if not first_run:

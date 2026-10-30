@@ -5,6 +5,9 @@ extends Node3D
 enum Team { HERO, UNDEAD }
 
 static var all: Array[Actor] = []
+## Damage that always kills, for scripted deaths (a bomber's blast, minions crumbling with
+## their boss). It shows no number.
+const KILL := 9999.0
 
 signal died(actor: Actor)
 
@@ -55,7 +58,8 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	direction.y = 0.0
 	if direction.length_squared() > 0.0001:
 		knockback += direction.normalized() * push
-	DamageNumber.hit(self, amount, crit)
+	if amount < KILL:
+		DamageNumber.hit(self, amount, crit)
 	Fx.sparks(center())
 	if visual:
 		visual.hit()
@@ -70,8 +74,11 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 func heal(amount: float) -> void:
 	if dead:
 		return
+	var before := health
 	health = minf(max_health, health + amount)
-	DamageNumber.healed(self, amount)
+	# Show only what was really healed, and nothing when already full.
+	if health - before >= 0.5:
+		DamageNumber.healed(self, health - before)
 
 
 func _on_damaged() -> void:

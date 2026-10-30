@@ -788,7 +788,7 @@ func _move_camera() -> void:
 	_cam.fov = lerpf(40.0, FIGHT_FOV, leap)
 	_cam.look_at_from_position(from, at)
 	_cam.rotate_object_local(Vector3(0, 0, 1), -sin(dodge * PI) * 0.14)
-	var shake := _shake / 600.0
+	var shake := _shake * Game.shake_scale / 600.0
 	_cam.h_offset = randf_range(-1, 1) * shake
 	_cam.v_offset = randf_range(-1, 1) * shake
 
@@ -860,7 +860,7 @@ func _paint() -> void:
 	var slow := _slowness()
 	if slow > 0.0:
 		_canvas.draw_rect(Rect2(Vector2.ZERO, vp), Color(0.25, 0.35, 0.85, 0.12 * slow))
-	_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake
+	_off = Vector2(randf_range(-1, 1), randf_range(-1, 1)) * _shake * Game.shake_scale
 	_canvas.draw_set_transform(_off)
 	_draw_impact(fade)
 	_draw_words_glow(glide)
