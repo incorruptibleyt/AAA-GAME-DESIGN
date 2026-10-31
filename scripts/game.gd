@@ -47,14 +47,13 @@ var _pause_wanted := false
 ## Counts rooms loaded, so a wait that began in one room never acts in the next.
 var _room_serial := 0
 ## The save already had stats when the game opened, so this isn't the very first launch.
-var _returning := false
 var _hit_stop_left := 0.0
 var _choices: Array = []
 var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-10-30c"
+const BUILD := "2026-10-31a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -318,6 +317,8 @@ func _ready() -> void:
 	hud.reports_answered.connect(func(on: bool):
 		hud.show_reports_ask(false)
 		_set_reports(on)
+		if on:
+			Telemetry.instance.daily_open()
 		if on and state in [State.DEAD, State.VICTORY] and _last_report != "":
 			# The run that brought the question up wasn't sent (reports were still off), and
 			# many testers only ever play that one.
@@ -329,7 +330,6 @@ func _ready() -> void:
 	if spendable != coins:
 		coins = spendable
 		cfg.set_value("stats", "coins", coins)
-	_returning = cfg.has_section("stats")   # the first launch writes stats, even mid-tutorial
 	cfg.set_value("stats", "launches", int(cfg.get_value("stats", "launches", 0)) + 1)
 	write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
@@ -339,6 +339,7 @@ func _ready() -> void:
 	_set_vibration(bool(cfg.get_value("settings", "vibration", true)), false)
 	_auto_graphics = not cfg.has_section_key("settings", "high_graphics") and not "autoplay" in OS.get_cmdline_user_args()
 	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
+	Telemetry.instance.daily_open()
 	Engine.max_fps = 60   # no need to drain the battery past what phones show
 	hud.set_coins(coins)
 
@@ -546,7 +547,7 @@ func _notification(what: int) -> void:
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
 ## menu, the reports question and the Crypt Pass screen.
-const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/5073bc2077949486e4176015113c8b7ea59d3d19/PRIVACY.md"
+const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/1a667f4f0f7b9fc5c7dbb0f128cecfc50874fd29/PRIVACY.md"
 
 
 ## The game's Google Play page, for the Daily Crypt share text.
@@ -2132,9 +2133,9 @@ func _set_reports(on: bool) -> void:
 	Sfx.play("click")
 
 
-## Reports are off until the player says yes. The game asks once, a moment after a run
-## ends (normally the tutorial run), or on the title from the second launch on (below),
-## unless they've already chosen in the pause menu.
+## Reports are off until the player says yes. The game asks once: on the title after the
+## opening scene (below), or a moment after a run ends if that question was skipped by
+## starting a run, unless they've already chosen in the pause menu.
 func _ask_reports() -> void:
 	if not Telemetry.configured() or _load_save().has_section_key("settings", "reports"):
 		return
@@ -2144,19 +2145,28 @@ func _ask_reports() -> void:
 		hud.show_reports_ask(true)
 
 
-## Players who leave in the middle of a run never see the end-of-run question, so once the
-## opening scene hands over to the title, a returning player is asked there instead.
+## Asked as soon as the opening scene hands over to the title, from the very first launch:
+## testers often open the game without finishing a run, so the end-of-run question alone
+## left almost everyone unasked.
 func _ask_reports_on_title() -> void:
 	var cfg := _load_save()
 	if not Telemetry.configured() or cfg.has_section_key("settings", "reports"):
 		return
-	if not _returning:
-		return   # the very first launch goes straight to the tutorial
 	await get_tree().create_timer(0.6, true, false, true).timeout
 	if state == State.TITLE and hud.title_visible() and not hud.armory_visible() and not hud.pass_visible() \
 			and not hud.heroes_visible() and not hud.daily_visible() and not hud.modes_visible() \
 			and not _load_save().has_section_key("settings", "reports"):
 		hud.show_reports_ask(true)
+
+
+## The note sent once a day when the game opens (with reports on), so the developer can
+## see who is playing even when nobody finishes a run.
+func open_text() -> String:
+	var cfg := _load_save()
+	return "Opened the game (launch %d) | Tutorial done %s | Best floor %d | Wins %d | Crypt Pass %s | Hero %s" % [
+		int(cfg.get_value("stats", "launches", 1)), "no" if first_run_pending() else "yes",
+		int(cfg.get_value("stats", "best_floor", 1)), int(cfg.get_value("stats", "wins", 0)),
+		"yes" if Store.owned(cfg) else "no", Heroes.get_hero(Heroes.selected(cfg)).title]
 
 
 ## A short "where are we" line for error and crash reports.

@@ -109,6 +109,20 @@ func _process(_delta: float) -> void:
 
 ## Marks the game as running. If it's still marked next launch, the game didn't close
 ## normally (a crash, or Android killing it while open), so the next launch reports it.
+## With reports on, one short note a day when the game opens (Game.open_text), so testers
+## who play without finishing a run still show up.
+func daily_open() -> void:
+	if not enabled():
+		return
+	var cfg := Game._load_save()
+	var today := Time.get_date_string_from_system(true)
+	if str(cfg.get_value("telemetry", "open_day", "")) == today:
+		return
+	cfg.set_value("telemetry", "open_day", today)
+	Game.write_save(cfg)
+	send("open", Game.open_text())
+
+
 func session_open(open: bool) -> void:
 	if not active():
 		return
