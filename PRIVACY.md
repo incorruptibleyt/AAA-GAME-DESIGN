@@ -1,18 +1,19 @@
 # Bone Chain privacy policy
 
-_Last updated: October 26, 2026_
+_Last updated: October 31, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
 ## The short version
 
-Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. Reports are off until then. The game asks you once, at the end of a run or when you open it again, and you can change your answer at any time in the pause menu (**Send reports**). There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
+Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. Reports are off until then. The game asks you once, when you open it (or at the end of a run, if you started playing before answering), and you can change your answer at any time in the pause menu (**Send reports**). There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
 
 ## What the game reports
 
-If you have turned reports on, then when a run ends, when the game hits an error, or when it didn't close properly last time, the game sends a short text report containing:
+If you have turned reports on, then when a run ends, when the game hits an error, when it didn't close properly last time, or when you open the game (at most once a day), the game sends a short text report containing:
 
 - **The run summary:** hero, floor and room reached, time, score, kills, coins, damage taken and what dealt it, blessings and Armory upgrades, and frame rate. This is the same text as the **COPY REPORT** button.
+- **The daily opening note:** how many times you've opened the game, whether you've finished the tutorial, your best floor, how many runs you've won, whether you own the Crypt Pass, and which hero you've picked.
 - **Error and crash details:** the error message, where in the game it happened, and the last lines of the game's own log.
 - **A random install number** made on your phone the first time you play. It is not linked to you, your Google account or your phone's advertising ID, and it changes if you reinstall.
 - **Technical details:** the game version, phone model, Android version and graphics chip name.
