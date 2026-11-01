@@ -2,12 +2,28 @@ class_name Fx
 ## One-shot particle effects built in code: hit sparks, bone bursts, dust and magic.
 
 static var _quad: QuadMesh
+static var _shrink: Curve
+## At most this many hit-spark and bone bursts start in one frame. A mass kill (Shatter,
+## chained explosions) used to start 20 at once, a 93 ms hitch on a warm phone (Nov 1
+## report); the extras in that frame are skipped, which nobody can see in the crowd. Other
+## effects (spawn dust, beams, explosions) always show: they tell you what's coming.
+const BURSTS_PER_FRAME := 8
+static var _burst_frame := -1
+static var _bursts_now := 0
 
 
-static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: float, life: float, gravity: float) -> void:
+static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: float, life: float, gravity: float, capped := false) -> void:
 	var world := Game.world
 	if world == null:
 		return
+	if capped:
+		var frame := Engine.get_process_frames()
+		if frame != _burst_frame:
+			_burst_frame = frame
+			_bursts_now = 0
+		_bursts_now += 1
+		if _bursts_now > BURSTS_PER_FRAME:
+			return
 	_burst_material()
 
 	var p := CPUParticles3D.new()
@@ -25,10 +41,7 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 	p.damping_max = 3.0
 	p.scale_amount_min = size * 0.5
 	p.scale_amount_max = size
-	var curve := Curve.new()
-	curve.add_point(Vector2(0, 1))
-	curve.add_point(Vector2(1, 0))
-	p.scale_amount_curve = curve
+	p.scale_amount_curve = _shrink
 	p.color = color
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	p.emission_sphere_radius = 0.15
@@ -41,6 +54,9 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 static func _burst_material() -> void:
 	if _quad != null:
 		return
+	_shrink = Curve.new()   # every burst shrinks its particles the same way: one shared curve
+	_shrink.add_point(Vector2(0, 1))
+	_shrink.add_point(Vector2(1, 0))
 	_quad = QuadMesh.new()
 	var m := StandardMaterial3D.new()
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -53,11 +69,11 @@ static func _burst_material() -> void:
 
 
 static func sparks(pos: Vector3, color := Color(1.0, 0.85, 0.5)) -> void:
-	_burst(pos, 10, color, 0.25, 7.0, 0.35, 0.5)
+	_burst(pos, 10, color, 0.25, 7.0, 0.35, 0.5, true)
 
 
 static func bones(pos: Vector3) -> void:
-	_burst(pos + Vector3.UP * 0.6, 22, Color(0.95, 0.92, 0.82), 0.35, 6.0, 0.8, 2.0)
+	_burst(pos + Vector3.UP * 0.6, 22, Color(0.95, 0.92, 0.82), 0.35, 6.0, 0.8, 2.0, true)
 
 
 static func dust(pos: Vector3, count := 14) -> void:
