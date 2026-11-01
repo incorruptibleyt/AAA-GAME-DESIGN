@@ -9,6 +9,8 @@ const LIFE := 0.75
 const MERGE := 0.4
 ## Where numbers sit, from the middle of whatever was hit: above it and to the right.
 const OFFSET := Vector3(0.75, 0.8, 0)
+## In a big fight only this many numbers stay up; older ones start fading early (A-7).
+const MAX_LIVE := 10
 
 var _age := 0.0
 var _size := 1.0
@@ -41,6 +43,7 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n._age = 0.0
 		n._size = minf(n._size + 0.06, 1.8)
 	else:
+		_trim()
 		n = DamageNumber.new()
 		n.modulate = col
 		n.outline_modulate = Color(0, 0, 0, 0.85)
@@ -63,6 +66,19 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n.modulate = Color(1, 0.85, 0.2)
 		n._size = maxf(n._size, 1.5)
 	n.text = n._prefix + str(maxi(1, roundi(n._total)))
+
+
+## Makes room for one more number: when MAX_LIVE are still bright, the oldest fade out now.
+static func _trim() -> void:
+	var bright: Array = []
+	for o in _live.values():
+		if is_instance_valid(o) and o._age < LIFE * 0.6:
+			bright.append(o)
+	if bright.size() < MAX_LIVE:
+		return
+	bright.sort_custom(func(a, b): return a._age > b._age)
+	for i in bright.size() - MAX_LIVE + 1:
+		bright[i]._age = LIFE * 0.6
 
 
 ## How far to raise a new number so it doesn't sit on top of one already showing

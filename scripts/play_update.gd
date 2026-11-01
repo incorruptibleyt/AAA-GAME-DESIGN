@@ -1,4 +1,4 @@
-class_name PlayUpdate
+class_name UpdateGate
 extends CanvasLayer
 ## Forced updates. At launch the game asks Google Play whether a newer version of Bone
 ## Chain is out (Google's in-app update library, through addons/PlayUpdate). If one is,
@@ -6,11 +6,16 @@ extends CanvasLayer
 ## only this UPDATE screen, so nobody keeps playing an old version. Copies that didn't
 ## come from Google Play (the test APK, the robot) and phones that can't reach Play
 ## (offline, say) find no update and play as normal: only a yes from Play blocks the game.
+##
+## The class must not be called PlayUpdate: on Android the Java plugin registers an engine
+## singleton with that name, GDScript looks engine singletons up before script classes, and
+## PlayUpdate.new() then quietly gave null ("rp_child is null" at every launch, versions 66-70),
+## so the check never ran. Never give a class_name the name of an Android plugin.
 
 const PLUGIN := "PlayUpdate"
 const STORE_URL := "https://play.google.com/store/apps/details?id=com.Bone_Chain_Dungeon_Roguelite.myapp"
 
-static var instance: PlayUpdate
+static var instance: UpdateGate
 
 ## True once Google Play has said a newer version is out.
 var needed := false

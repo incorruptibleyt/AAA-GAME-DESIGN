@@ -34,6 +34,15 @@ static func _core(alpha: float) -> Color:
 	return Color(1, 0.86, 0.5, alpha) if Floors.hot() else Color(1, 0.2, 0.1, alpha)
 
 
+## The faint area a warning covers before its middle fills in. TC-6: on the Ember floor it
+## is amber, not red, and each endless loop (darker, redder rooms) makes it a bit stronger,
+## so a deep Ember warning reads as clearly as one on floor 3.
+static func _area(alpha: float) -> Color:
+	var deeper := 1.0 + 0.25 * clampi(Loops.loop_of(Game.floor_num) - 1, 0, 3)
+	var a := minf(alpha * deeper, 0.9)
+	return Color(1, 0.62, 0.22, minf(a * 1.4, 0.9)) if Floors.hot() else Color(1, 0.15, 0.1, a)
+
+
 ## Is `pos` (with radius `r`) inside a warning that lands within `window` seconds, or
 ## landed less than AFTER seconds ago? The hero's Grave Dash asks this.
 static func dodged(pos: Vector3, r: float, window: float) -> bool:
@@ -68,7 +77,7 @@ static func circle(pos: Vector3, r: float, seconds: float, done: Callable) -> Te
 	t.global_position = Vector3(pos.x, 0.03, pos.z)
 	t._radius = r
 	U.floor_quad(t, Vector2(r * 2.3, r * 2.3), U.unlit(Color(0.04, 0.0, 0.0, 0.8), U.ring()), Vector3(0, -0.006, 0))
-	U.floor_quad(t, Vector2(r * 2, r * 2), U.unlit(Color(1, 0.15, 0.1, 0.55), U.ring()))
+	U.floor_quad(t, Vector2(r * 2, r * 2), U.unlit(_area(0.55), U.ring()))
 	t._fill_mat = U.unlit(_core(0.7), U.soft_circle()).duplicate()
 	t._fill = U.floor_quad(t, Vector2(r * 2, r * 2), t._fill_mat, Vector3(0, 0.01, 0))
 	t._fill.scale = Vector3.ZERO
@@ -90,7 +99,7 @@ static func line(origin: Vector3, direction: Vector3, length: float, width: floa
 	t._width = width
 	t._length = length
 	U.floor_quad(t, Vector2(width + 0.3, length + 0.3), U.unlit(Color(0.04, 0.0, 0.0, 0.55)), Vector3(0, -0.006, -length / 2))
-	U.floor_quad(t, Vector2(width, length), U.unlit(Color(1, 0.15, 0.1, 0.25)), Vector3(0, 0, -length / 2))
+	U.floor_quad(t, Vector2(width, length), U.unlit(_area(0.25)), Vector3(0, 0, -length / 2))
 	t._fill_mat = U.unlit(_core(0.6)).duplicate()
 	t._fill = U.floor_quad(t, Vector2(width, length), t._fill_mat, Vector3(0, 0.01, 0))
 	t._full = Vector3(1, 1, length)

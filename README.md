@@ -63,7 +63,8 @@ The logo lettering is **Fruktur** by The Fruktur Project Authors (SIL Open Font 
 Every push runs [.github/workflows/android-build.yml](.github/workflows/android-build.yml), which:
 1. unpacks any KayKit zips,
 2. lets a robot play a full run (it must beat the boss with no script errors),
-3. exports a test app (`crypt-crawl.apk`) and checks it targets Android API 36 and is 16 KB page aligned,
+3. exports a test app (`crypt-crawl.apk`, a release export signed with the test key, so it isn't
+   debuggable) and checks it targets Android API 36, is 16 KB page aligned and not debuggable,
 4. builds the signed Google Play release (`crypt-crawl.aab`) with Gradle, using the upload key
    (locked in `signing/upload-keystore.p12.enc`, unlocked by the `ANDROID_UPLOAD_PASSWORD` secret;
    without that secret the Play build is only a test and isn't published),

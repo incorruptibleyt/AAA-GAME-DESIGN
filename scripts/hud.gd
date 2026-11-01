@@ -347,7 +347,7 @@ static func coin_icon(size: float) -> Panel:
 static func privacy_button() -> Button:
 	var b := button("Privacy policy", 18, Color(0.08, 0.07, 0.1, 0.85), Color(0.6, 0.55, 0.6, 0.4))
 	b.add_theme_color_override("font_color", Color(0.75, 0.72, 0.78))
-	b.custom_minimum_size = Vector2(200, 48)
+	b.custom_minimum_size = Vector2(200, 58)
 	b.pressed.connect(func(): OS.shell_open(Game.PRIVACY_URL))
 	return b
 
@@ -1266,7 +1266,7 @@ func _build_armory() -> void:
 	var tabs := []
 	for tab in [["upgrades", "UPGRADES"], ["vault", "VAULT"]]:
 		var tb := button(tab[1], 20)
-		tb.custom_minimum_size = Vector2(200, 52)
+		tb.custom_minimum_size = Vector2(200, 60)
 		var id: String = tab[0]
 		tb.pressed.connect(func():
 			Sfx.play("click")
@@ -1323,7 +1323,7 @@ func _build_pass() -> void:
 	_pass_back.custom_minimum_size = Vector2(320, 70)
 	_pass_back.pressed.connect(func(): show_pass(false))
 	_pass_restore = button("Restore purchase", 18, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
-	_pass_restore.custom_minimum_size = Vector2(220, 50)
+	_pass_restore.custom_minimum_size = Vector2(220, 58)
 	_pass_restore.pressed.connect(func(): pass_restore.emit())
 	col.add_child(_centered(_pass_back))
 	col.add_child(_pair(_pass_restore, privacy_button()))
@@ -1608,7 +1608,7 @@ func _overlay_open() -> bool:
 
 
 func _input(event: InputEvent) -> void:
-	if PlayUpdate.instance and PlayUpdate.instance.showing():
+	if UpdateGate.instance and UpdateGate.instance.showing():
 		return   # the UPDATE screen covers everything
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
@@ -1693,6 +1693,7 @@ func _process(delta: float) -> void:
 	_stick_age += delta
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
+	_see_through(delta)
 	_chain_box.offset_top = 122.0 if _boss_box.visible else 88.0
 	_chain_box.offset_bottom = _chain_box.offset_top + 122.0
 	# Hidden behind the pause menu, where it would cross "Paused".
@@ -1755,6 +1756,24 @@ func _process(delta: float) -> void:
 		_banner.pivot_offset = _banner.size / 2
 
 
+## A-8: the DASH and special buttons and the boss bar sit over the arena. When the hero or
+## an enemy goes behind one, it turns see-through so the fight under it stays readable.
+## The buttons still answer taps.
+func _see_through(delta: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	var fighting := Game.state == Game.State.PLAYING and cam != null
+	for c: Control in [_special, _dash_button, _boss_box]:
+		var want := 1.0
+		if fighting and c.visible:
+			var r := c.get_global_rect().grow(14.0)
+			for a in Actor.all:
+				if is_instance_valid(a) and not a.dead and not cam.is_position_behind(a.center()) \
+						and r.has_point(cam.unproject_position(a.center())):
+					want = 0.35
+					break
+		c.modulate.a = move_toward(c.modulate.a, want, delta * 5.0)
+
+
 # ---------------------------------------------------------------- API used by game.gd
 
 func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
@@ -1797,6 +1816,8 @@ func clear_banner() -> void:
 
 
 func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:
+	# A-7: the banner takes the spot, so a callout still showing there fades out now.
+	_callout_time = minf(_callout_time, 0.25)
 	_banner.text = text
 	_banner.label_settings.font_color = col
 	_banner.label_settings.font_size = 48 if text.length() <= 16 else 38
@@ -1850,6 +1871,10 @@ func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 	_callout.text = text
 	_callout.label_settings.font_color = col
 	_callout.label_settings.font_size = 46 if text.length() <= 10 else 34
+	# A-7: while a room banner shows, the callout drops just below it instead of on it.
+	var drop := 60.0 if _banner_time > 0.3 else 0.0
+	_callout.offset_top = -190.0 + drop
+	_callout.offset_bottom = -130.0 + drop
 	_callout_time = 1.1
 
 
