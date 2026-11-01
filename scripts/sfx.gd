@@ -4,7 +4,9 @@ extends Node
 ## fire from OpenGameArt; see audio/sfx/CREDITS.md), named <sound>_<n>.ogg, one picked at
 ## random each time. The code-made sounds below are only fallbacks for a sound with no files;
 ## the Frost Wraith's cry and beam and the Cinder Skeleton's burst ("wraith", "beam",
-## "ignite") are files only.
+## "ignite") are files only. The low-health heartbeat ("heart") is code-made on purpose.
+## Game sounds play through the "Effects" bus (a short crypt echo); menu sounds and the
+## announcer skip it (see make_buses).
 
 const RATE := 22050
 
@@ -16,6 +18,9 @@ var _next := 0
 
 static var enabled := true
 
+## Sounds that are the game talking to the player (menus, the announcer) skip the echo.
+const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", "vo_combo"]
+
 
 static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
 	if not enabled or _instance == null or not _instance._clips.has(sound):
@@ -24,6 +29,7 @@ static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
 	_instance._next = (_instance._next + 1) % _instance._players.size()
 	var clip = _instance._clips[sound]
 	p.stream = clip.pick_random() if clip is Array else clip
+	p.bus = &"Master" if sound in DRY else &"Effects"
 	p.volume_db = linear_to_db(volume * randf_range(0.85, 1.0))
 	p.pitch_scale = pitch * randf_range(0.95, 1.05)
 	p.play()
@@ -32,6 +38,7 @@ static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
 func _ready() -> void:
 	_instance = self
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	make_buses()
 	for i in 10:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
@@ -51,6 +58,8 @@ func _ready() -> void:
 	_clips["dash"] = _synth(0.22, func(t): return (_noise() * 0.6 + _sweep(t, 300, 1400) * 0.25) * _env(t, 0.22) * 0.4)
 	_clips["slam"] = _synth(0.9, func(t): return (_sweep(t, 120, 35) * 0.7 + _noise() * 0.35 * exp(-t * 8.0)) * _env(t, 0.9) * 0.6)
 	_clips["crack"] = _synth(0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
+	# A heartbeat for low health (code-made on purpose: two soft low thumps).
+	_clips["heart"] = _synth(0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
 	_load_samples()
 
@@ -82,6 +91,44 @@ func _synth(seconds: float, wave: Callable) -> AudioStreamWAV:
 	s.stereo = false
 	s.data = data
 	return s
+
+
+## Two buses under Master. "Effects" has a short, quiet echo, as if the sounds bounce off
+## crypt stone. "Music" has a low-pass filter that Music turns down to muffle the music
+## while the game is paused, a blessing is being picked or the death screen shows.
+static func make_buses() -> void:
+	if AudioServer.get_bus_index(&"Effects") == -1:
+		var echo := AudioEffectReverb.new()
+		echo.room_size = 0.5
+		echo.damping = 0.6
+		echo.spread = 0.6
+		echo.hipass = 0.2
+		echo.predelay_msec = 35.0
+		echo.predelay_feedback = 0.15
+		echo.dry = 1.0
+		echo.wet = 0.14
+		_add_bus(&"Effects", echo)
+	if AudioServer.get_bus_index(&"Music") == -1:
+		var low := AudioEffectLowPassFilter.new()
+		low.cutoff_hz = 20000.0
+		_add_bus(&"Music", low)
+		AudioServer.set_bus_effect_enabled(AudioServer.get_bus_index(&"Music"), 0, false)
+
+
+static func _add_bus(bus_name: StringName, effect: AudioEffect) -> void:
+	AudioServer.add_bus()
+	var i := AudioServer.bus_count - 1
+	AudioServer.set_bus_name(i, bus_name)
+	AudioServer.set_bus_send(i, &"Master")
+	AudioServer.add_bus_effect(i, effect)
+
+
+static func _thump(t: float) -> float:
+	if t < 0.0:
+		return 0.0
+	# 62 Hz is felt in headphones; the overtones keep it audible on a phone speaker.
+	return (sin(TAU * 62.0 * t) * 0.8 + sin(TAU * 124.0 * t) * 0.35 + sin(TAU * 190.0 * t) * 0.15) \
+		* clampf(t / 0.004, 0.0, 1.0) * exp(-t * 22.0)
 
 
 static func _noise() -> float: return randf() * 2.0 - 1.0

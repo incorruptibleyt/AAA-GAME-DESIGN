@@ -78,53 +78,125 @@ func _build_shell() -> void:
 	apply_graphics(Game._high_graphics)
 
 
-static var _seam_shader: Shader
+static var _floor_shader: Shader
 
-## Flagstones in the floor's colour. A floor with "seams" (the Ember Catacomb) has fire
-## glowing in the gaps between its charcoal slabs, slowly pulsing, and a few cracked slabs.
+## Worn flagstones in the floor's colour, drawn by one shader for every theme: uneven slabs
+## laid in staggered rows, grime that gathers in big patches and along the walls (moss and
+## dirt, frost, soot), a second kind of patch (damp stone, glassy ice, ash), a few cracked
+## slabs and darker floor by the walls. A floor with "seams" (the Ember Catacomb) has fire
+## glowing in the gaps and cracks, hot in some places and cooled in others. Deeper endless
+## loops add blood. Everything is worked out from where the point is in the room, so there
+## is no tiling pattern to spot.
 static func _floor_material(look: Dictionary) -> Material:
-	if not look.has("seams"):
-		var m := StandardMaterial3D.new()
-		m.albedo_texture = U.stone()
-		m.albedo_color = look.floor
-		m.roughness = 0.75
-		m.uv1_scale = Vector3(3, 5, 1)
-		m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-		return m
-	if _seam_shader == null:
-		_seam_shader = Shader.new()
-		_seam_shader.code = """
+	if _floor_shader == null:
+		_floor_shader = Shader.new()
+		_floor_shader.code = """
 shader_type spatial;
-uniform sampler2D stone : source_color, repeat_enable, filter_linear_mipmap;
-uniform vec4 tint : source_color = vec4(1.0);
-uniform vec4 seam : source_color = vec4(1.0, 0.35, 0.08, 1.0);
+uniform sampler2D grain : repeat_enable, filter_linear_mipmap;
+uniform sampler2D blobs_a : repeat_enable, filter_linear_mipmap;
+uniform sampler2D blobs_b : repeat_enable, filter_linear_mipmap;
+// Colours go straight to ALBEDO with no sRGB step, as the old flagstone texture did, so
+// the floor keeps the brightness the fights were tuned on.
+uniform vec4 tint = vec4(1.0);
+uniform vec4 grout = vec4(0.07, 0.06, 0.07, 1.0);
+uniform vec4 grime = vec4(0.2, 0.19, 0.13, 1.0);
+uniform float grime_amount = 0.6;
+uniform vec4 patch_tint = vec4(0.75, 0.76, 0.82, 1.0);
+uniform float patch_rough = 0.3;
+uniform float blood = 0.0;
+uniform vec4 seam : source_color = vec4(0.0);
+uniform vec2 half_size = vec2(6.0, 10.0);
+varying vec2 pos;
+
 float h(vec2 q) {
 	return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453);
 }
+
+void vertex() {
+	pos = VERTEX.xz;
+}
+
 void fragment() {
-	vec2 uv = UV * vec2(3.0, 5.0);
-	ALBEDO = texture(stone, uv).rgb * tint.rgb;
-	ROUGHNESS = 0.8;
-	// The stone texture has 4 x 4 slabs: how near is this point to the gap between two?
-	vec2 s = uv * 4.0;
-	vec2 f = fract(s) - 0.5;
-	float gap = 1.0 - smoothstep(0.0, 0.028, 0.5 - max(abs(f.x), abs(f.y)));
+	// Slabs 1.5 m wide and 1.1 m deep, each row shifted sideways by its own amount.
+	const vec2 SLAB = vec2(1.5, 1.1);
+	float row = floor(pos.y / SLAB.y);
+	vec2 s = vec2(pos.x / SLAB.x + h(vec2(row, 3.7)), pos.y / SLAB.y);
 	vec2 cell = floor(s);
+	vec2 f = fract(s) - 0.5;            // -0.5 .. 0.5 across the slab
+	vec2 e = (0.5 - abs(f)) * SLAB;     // metres to the slab's edges
+	float edge = min(e.x, e.y);
 	float r = h(cell);
-	// Some slabs have a crack of their own, a wobbly line across the middle.
-	float a = h(cell + 7.0) * 3.1416;
+	float r2 = h(cell + 13.7);
+
+	float fine = texture(grain, pos * 0.23).r;
+	float big = texture(blobs_a, pos * 0.05 + vec2(0.37, 0.11)).r;
+	float big2 = texture(blobs_b, pos * 0.065 + vec2(0.71, 0.53)).r;
+
+	// Stone: every slab a little lighter or darker, some warmer, all mottled.
+	vec3 c = vec3(0.37, 0.34, 0.39) * (0.84 + 0.3 * r) * (0.72 + 0.56 * fine);
+	c *= mix(vec3(1.0), vec3(1.07, 1.0, 0.9), step(0.6, r2));
+	c *= tint.rgb;
+
+	// Darker by the walls (light does not reach the corners), a little by the low near ledge.
+	float wall = min(half_size.x - abs(pos.x), pos.y + half_size.y);
+	float shade = mix(0.62, 1.0, smoothstep(0.0, 1.3, wall)) * mix(0.85, 1.0, smoothstep(0.0, 0.8, half_size.y - pos.y));
+
+	// Grime gathers in big patches and along the walls.
+	float g = smoothstep(0.58, 0.85, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.25) * grime_amount;
+	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g);
+
+	// The second kind of patch changes colour and shine (wet stone and ice catch the torches).
+	float p = smoothstep(0.6, 0.72, big2);
+	c *= mix(vec3(1.0), patch_tint.rgb, p);
+	float rough = mix(0.82, patch_rough, p);
+
+	if (blood > 0.0) {
+		float b = smoothstep(0.7, 0.78, texture(grain, pos * 0.07 + vec2(0.5, 0.2)).r) * blood;
+		c = mix(c, vec3(0.3, 0.03, 0.03), b);
+		rough = mix(rough, 0.35, b);
+	}
+
+	// Gaps between slabs, kept smooth at any distance.
+	float aa = fwidth(edge);
+	float gap = 1.0 - smoothstep(0.022 - aa, 0.022 + aa, edge);
+
+	// About one slab in six has a crack: a wobbly line across its middle.
+	float a = r2 * 3.1416;
 	vec2 dir = vec2(cos(a), sin(a));
 	float off = dot(f, vec2(-dir.y, dir.x)) + 0.035 * sin(dot(f, dir) * 13.0 + r * 30.0);
-	float crack = (1.0 - smoothstep(0.0, 0.018, abs(off))) * step(0.86, r) * (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
-	float pulse = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + s.x * 0.7 + s.y * 0.4), 2.0);
-	EMISSION = seam.rgb * max(gap, crack) * pulse * mix(0.6, 1.2, r);
+	float crack = (1.0 - smoothstep(0.0, 0.014 + fwidth(off), abs(off))) * step(0.84, r)
+		* (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
+
+	c = mix(c, grout.rgb, gap);
+	c *= (1.0 - crack * 0.55) * shade;
+	ALBEDO = clamp(c, 0.0, 1.0);
+	ROUGHNESS = mix(rough, 0.95, max(gap, crack));
+
+	// Slab edges are worn round and every slab sits a little crooked, so torchlight picks
+	// out each one.
+	vec2 bevel = sign(f) * (1.0 - smoothstep(0.0, 0.09, e)) * 0.6;
+	vec3 n = normalize(vec3(bevel.x + (r - 0.5) * 0.1, 1.0, bevel.y + (r2 - 0.5) * 0.1));
+	NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
+
+	if (seam.a > 0.0) {
+		float heat = smoothstep(0.42, 0.62, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
+		float pulse = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + pos.x * 0.6 + pos.y * 0.35), 2.0);
+		EMISSION = seam.rgb * max(gap, crack) * pulse * mix(0.6, 1.2, r) * mix(0.06, 1.4, heat);
+	}
 }
 """
 	var sm := ShaderMaterial.new()
-	sm.shader = _seam_shader
-	sm.set_shader_parameter("stone", U.stone())
+	sm.shader = _floor_shader
+	sm.set_shader_parameter("grain", U.noise_tex(0.045, 11, 4))
+	sm.set_shader_parameter("blobs_a", U.noise_tex(0.016, 23))
+	sm.set_shader_parameter("blobs_b", U.noise_tex(0.018, 37))
 	sm.set_shader_parameter("tint", look.floor)
-	sm.set_shader_parameter("seam", look.seams)
+	for key in ["grout", "grime", "grime_amount", "patch_tint", "patch_rough"]:
+		if look.has(key):
+			sm.set_shader_parameter(key, look[key])
+	sm.set_shader_parameter("blood", look.get("blood", 0.0))
+	sm.set_shader_parameter("seam", look.get("seams", Color(0, 0, 0, 0)))
+	sm.set_shader_parameter("half_size", Vector2(HALF_W, HALF_L))
 	return sm
 
 

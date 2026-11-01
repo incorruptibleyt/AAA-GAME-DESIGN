@@ -19,6 +19,8 @@ const FADE := 1.5
 static var _instance: Music
 static var enabled := true
 
+## How far the music is muffled: 0 clear, 1 fully (paused, picking a blessing, dead).
+var _muffle := 0.0
 var _a: AudioStreamPlayer
 var _b: AudioStreamPlayer
 var _current: AudioStream
@@ -48,8 +50,10 @@ func _ready() -> void:
 			s.loop = list.size() == 1   # a lone track loops; playlists move on instead
 	_a = AudioStreamPlayer.new()
 	_b = AudioStreamPlayer.new()
+	Sfx.make_buses()
 	for p in [_a, _b]:
 		p.volume_db = -60.0
+		p.bus = &"Music"
 		add_child(p)
 
 
@@ -67,13 +71,30 @@ func _take_next() -> AudioStream:
 	return tracks[i]
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_update_muffle(delta)
 	# Near the end of a playlist track, cross-fade into the next one.
 	if _current == null or _current.get("loop") or not _a.playing or _a.stream_paused:
 		return
 	if _a.get_playback_position() > _current.get_length() - FADE:
 		_current = null
 		_switch(_take_next())
+
+
+## Paused, picking a blessing or dead: the music sounds as if heard through a wall, and
+## clears again when play goes on. The filter is switched off when not in use.
+func _update_muffle(delta: float) -> void:
+	var want := 1.0 if Game.state in [Game.State.PAUSED, Game.State.UPGRADE, Game.State.DEAD] else 0.0
+	if is_equal_approx(_muffle, want):
+		return
+	_muffle = move_toward(_muffle, want, delta * (3.0 if want > _muffle else 1.5))
+	var bus := AudioServer.get_bus_index(&"Music")
+	if bus == -1:
+		return
+	var low := AudioServer.get_bus_effect(bus, 0) as AudioEffectLowPassFilter
+	low.cutoff_hz = 20000.0 * pow(700.0 / 20000.0, _muffle)   # 20 kHz down to 700 Hz
+	AudioServer.set_bus_effect_enabled(bus, 0, _muffle > 0.001)
+	AudioServer.set_bus_volume_db(bus, -3.0 * _muffle)
 
 
 func _switch(stream: AudioStream) -> void:

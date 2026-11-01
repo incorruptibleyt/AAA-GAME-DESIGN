@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-01b"
+const BUILD := "2026-11-01c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1759,7 +1759,14 @@ func _next_wave() -> void:
 	if state != State.PLAYING or Room.current == null:
 		_wave_pending = false
 		return
+	# One skeleton a frame: each is a full 3D model, and building a whole wave in one frame
+	# was a visible hitch on phones. They still climb out of the floor together.
+	var serial := _room_serial
 	for i in mini(kinds.size(), spots.size()):
+		if i > 0:
+			await get_tree().process_frame
+			if state == State.DEAD or _room_serial != serial or not is_instance_valid(Room.current):
+				break
 		var e := spawn_enemy(kinds[i], spots[i])
 		if _roll_elite(e, _room_index):
 			e.make_elite()

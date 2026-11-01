@@ -6,6 +6,7 @@ static var _mat_cache := {}
 static var _soft_circle: ImageTexture
 static var _ring: ImageTexture
 static var _stone: ImageTexture
+static var _noise_cache := {}
 
 
 ## `x` rounded up or down at random, in proportion (2.3 is 3 three times in ten), so many
@@ -142,6 +143,23 @@ static func ring() -> ImageTexture:
 			img.set_pixel(x, y, Color(1, 1, 1, maxf(fill, rim)))
 	_ring = ImageTexture.create_from_image(img)
 	return _ring
+
+
+## A tiling grey noise for shaders (the room floor uses three): bigger frequency means
+## smaller blobs. Made once per kind and kept.
+static func noise_tex(frequency: float, seed: int, octaves := 3) -> ImageTexture:
+	var key := "%s/%d/%d" % [frequency, seed, octaves]
+	if _noise_cache.has(key):
+		return _noise_cache[key]
+	var fn := FastNoiseLite.new()
+	fn.frequency = frequency
+	fn.seed = seed
+	fn.fractal_octaves = octaves
+	var img := fn.get_seamless_image(256, 256)
+	img.generate_mipmaps()
+	var tex := ImageTexture.create_from_image(img)
+	_noise_cache[key] = tex
+	return tex
 
 
 ## Flagstone floor: 4x4 slabs with dark grout and gentle colour variation.

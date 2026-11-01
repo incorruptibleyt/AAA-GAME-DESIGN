@@ -104,6 +104,7 @@ var _end_stats: Label
 var _pause_box: Control
 var _pause_button: Button
 var _danger: TextureRect
+var _beat_phase := 0.0
 var _hint: Label
 var _end_tap: Label
 var _boss_name: Label
@@ -613,8 +614,28 @@ func _build_boss_card() -> void:
 	_boss_card.add_child(_boss_card_sub)
 
 
-## A red glow around the screen edges when health is low.
+## A soft dark vignette round the screen edges, under everything else on the HUD (it
+## frames the crypt like a lantern's reach), then a red glow there when health is low.
 func _build_danger() -> void:
+	var v := Gradient.new()
+	v.set_color(0, Color(0, 0, 0, 0))
+	v.set_color(1, Color(0, 0, 0, 0.5))
+	v.add_point(0.55, Color(0, 0, 0, 0))
+	v.add_point(0.8, Color(0, 0, 0, 0.16))
+	var vt := GradientTexture2D.new()
+	vt.gradient = v
+	vt.fill = GradientTexture2D.FILL_RADIAL
+	vt.fill_from = Vector2(0.5, 0.5)
+	vt.fill_to = Vector2(0.97, 0.97)
+	vt.width = 128
+	vt.height = 128
+	var vig := TextureRect.new()
+	vig.texture = vt
+	vig.stretch_mode = TextureRect.STRETCH_SCALE
+	vig.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(vig)
+	add_child(vig)
 	var g := Gradient.new()
 	g.set_color(0, Color(0.7, 0, 0, 0))
 	g.set_color(1, Color(0.7, 0, 0, 0.75))
@@ -1745,6 +1766,11 @@ func _process(delta: float) -> void:
 			low = 0.0
 		var beat := 0.75 + 0.25 * sin(Time.get_ticks_msec() * 0.008)
 		_danger.modulate.a = move_toward(_danger.modulate.a, low * beat, delta * 3.0)
+		# Below about a fifth of health a quiet heartbeat keeps time with the red glow.
+		var phase := fmod(Time.get_ticks_msec() * 0.008 / TAU, 1.0)
+		if low > 0.4 and Game.state == Game.State.PLAYING and phase < _beat_phase:
+			Sfx.play("heart", 0.35 + 0.4 * low)
+		_beat_phase = phase
 	var boss := Game.boss
 	if boss and is_instance_valid(boss):
 		_boss_fill.anchor_right = Game.boss_bar()
