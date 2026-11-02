@@ -93,6 +93,18 @@ func _synth(seconds: float, wave: Callable) -> AudioStreamWAV:
 	return s
 
 
+## Coins picked up in quick succession chime up a major scale; a pause starts it again.
+const COIN_SCALE := [0, 2, 4, 5, 7, 9, 11, 12]
+static var _coin_step := 0
+static var _coin_at := -10.0
+
+static func coin(volume := 1.0) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	_coin_step = mini(_coin_step + 1, COIN_SCALE.size() - 1) if now - _coin_at < 0.45 else 0
+	_coin_at = now
+	play("coin", volume, pow(2.0, COIN_SCALE[_coin_step] / 12.0))
+
+
 ## Two buses under Master. "Effects" has a short, quiet echo, as if the sounds bounce off
 ## crypt stone. "Music" has a low-pass filter that Music turns down to muffle the music
 ## while the game is paused, a blessing is being picked or the death screen shows.

@@ -258,7 +258,9 @@ func _on_death() -> void:
 	_telegraphs.clear()
 	visual.die()
 	Fx.bones(global_position)
-	Sfx.play("die", 0.8)
+	# The crunch climbs as the chain grows (x3 is about two semitones up), so a good streak
+	# sounds like one.
+	Sfx.play("die", 0.8, 1.0 + 0.065 * clampf(Game.chain - 1.0, 0.0, 3.0))
 	Game.hit_stop(0.035)
 	Game.shake(0.12)
 	if _bar:

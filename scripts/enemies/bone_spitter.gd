@@ -36,7 +36,7 @@ func _think(hero: Hero, delta: float) -> void:
 	_timer -= delta
 	if _timer <= 0.0:
 		_timer = randf_range(2.4, 3.0)
-		_charging = 0.7
+		_charging = 0.85   # a longer glow before the spit (was 0.7)
 		Fx.magic(center() + Vector3.UP * 0.3, Color(0.5, 1.0, 0.3), 12)
 		Sfx.play("warn", 0.4)
 
@@ -46,4 +46,5 @@ func _spit(d: Vector3) -> void:
 	Sfx.play("shoot", 0.7)
 	for angle in [-0.28, 0.0, 0.28]:
 		var dir := d.rotated(Vector3.UP, angle)
-		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + dir * 0.6, dir, 10.0, 8.0, Color(0.6, 1.0, 0.4), 0.22, "Bone Spitter")
+		# 7 a shard (was 8): it was a top-three damage source on floor 3 in every run report.
+		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + dir * 0.6, dir, 10.0, 7.0, Color(0.6, 1.0, 0.4), 0.22, "Bone Spitter")

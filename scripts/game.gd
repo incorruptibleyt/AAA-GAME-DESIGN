@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-01c"
+const BUILD := "2026-11-02a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -61,6 +61,7 @@ var _fps_sum := 0.0
 var _fps_n := 0
 var _fps_low := 999.0
 var _fps_t := 0.0
+var _hitch_second := false   # a frame in this second took over 250 ms
 ## The longest single frame during play and where it was: a one-second "lowest" can't
 ## tell one long freeze from a slow second.
 var _frame_us := 0
@@ -459,14 +460,21 @@ func _process(delta: float) -> void:
 			_longest_at = "F%d R%d" % [floor_num, _room_index + 1]
 			_longest_new = _added_text(added_before, added)
 		_fps_t += delta
+		if frame_ms > 250.0:
+			_hitch_second = true
 		if _fps_t >= 1.0:
 			_fps_t = 0.0
 			var f := Engine.get_frames_per_second() if fps_override < 0.0 else fps_override
 			_fps_sum += f
 			_fps_n += 1
 			_fps_low = minf(_fps_low, f)
-			if _auto_graphics and _state_time >= 3.0:   # not a room's first-draw hitches
+			# Not a room's first-draw hitches, and not a second with one long freeze in it: on a
+			# new install a fast phone still prepares a few looks the first time they're drawn,
+			# and that once switched a Galaxy S23 Ultra to Low graphics. A slow phone is slow
+			# every second, with no single freeze needed.
+			if _auto_graphics and _state_time >= 3.0 and (not _hitch_second or fps_override >= 0.0):
 				_watch_frame_rate(f)
+			_hitch_second = false
 		if _combo_left > 0.0:
 			_combo_left -= delta
 			if _combo_left <= 0.0:
@@ -567,9 +575,11 @@ func health_scale() -> float:
 ## Skeletons hit 35% harder per floor, and 50% per floor below floor 5 (the endless loops).
 ## When the Hourglass runs out they hit 25% harder still, and each Omen of Blades adds 25%.
 ## (Floor 5 used to jump by 50% too, and the free game ended on a wall of King hits.)
+## The very first run's floor hits a quarter softer: a brand-new player who hadn't found
+## the dash yet could fall in the first room in 17 seconds.
 func damage_scale() -> float:
 	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 5, 0)) * (1.25 if _hourglass_out else 1.0) \
-		* pow(1.25, _omen("blades"))
+		* pow(1.25, _omen("blades")) * (0.75 if first_run and floor_num == 1 else 1.0)
 
 
 func speed_scale() -> float:
@@ -1287,7 +1297,10 @@ func _descend() -> void:
 		if not curses.has("narrow"):   # Narrow Path means no rerolls at all
 			rerolls += Loops.LOOP_REROLLS
 	else:
-		hero.heal(hero.max_health * 0.3)
+		# 30% back, and never fewer than 60% to start the floor: a hero who scraped past the
+		# boss used to walk into a harder floor's first room on a sliver and die there
+		# (run reports: Rogue 25/100 after the Lich, dead in floor 3's first room).
+		hero.heal(maxf(hero.max_health * 0.3, hero.max_health * 0.6 - hero.health))
 		if not curses.has("narrow"):
 			rerolls += 1
 	_build_run()
@@ -2210,6 +2223,7 @@ func _set_graphics(high: bool, save := true) -> void:
 	_env.glow_enabled = high
 	_moon.shadow_enabled = high
 	_high_graphics = high
+	Actor.show_blobs(not high)
 	if Room.current:
 		Room.current.apply_graphics(high)
 	hud.set_graphics_label(high)

@@ -519,6 +519,8 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	if dead:
 		return
 	Sfx.play("hurt")
+	if before - health >= max_health * 0.12:
+		Music.duck(7.0)
 	if Game.vibration:
 		Input.vibrate_handheld(45)
 	Game.shake(0.35)

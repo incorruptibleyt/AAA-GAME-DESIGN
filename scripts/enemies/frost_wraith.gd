@@ -149,7 +149,7 @@ func _think(hero: Hero, delta: float) -> void:
 		var dir := to.normalized()
 		var from := global_position + dir * 0.6
 		Fx.magic(center() + Vector3.UP * 0.3, Color(0.6, 0.9, 1.0), 14)
-		track(Telegraph.line(from, dir, 10.0, 1.3, 0.9, func(): _beam(from, dir)))
+		track(Telegraph.line(from, dir, 10.0, 1.3, 1.0, func(): _beam(from, dir)))
 
 
 func _beam(from: Vector3, dir: Vector3) -> void:
@@ -168,9 +168,11 @@ func _beam(from: Vector3, dir: Vector3) -> void:
 		return
 	var before := hero.health
 	Game.hit_source = "Frost Wraith"
-	hero.take_damage(14.0, dir, 6.0)
+	# 11 and a 1.1 s chill (were 14 and 1.6 s, with a 0.9 s warning): wraiths did nearly half
+	# of all damage on floor 2, two or three beams in a row on a hero still slowed by the first.
+	hero.take_damage(11.0, dir, 6.0)
 	if hero.health < before:
-		hero.chill(1.6)
+		hero.chill(1.1)
 
 
 ## The beam itself: a bright shaft of ice down the marked line that thins and fades.

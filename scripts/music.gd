@@ -21,6 +21,9 @@ static var enabled := true
 
 ## How far the music is muffled: 0 clear, 1 fully (paused, picking a blessing, dead).
 var _muffle := 0.0
+## Decibels the music is dipped by after a big hit to the hero; it comes back in about half
+## a second.
+var _duck := 0.0
 var _a: AudioStreamPlayer
 var _b: AudioStreamPlayer
 var _current: AudioStream
@@ -85,16 +88,23 @@ func _process(delta: float) -> void:
 ## clears again when play goes on. The filter is switched off when not in use.
 func _update_muffle(delta: float) -> void:
 	var want := 1.0 if Game.state in [Game.State.PAUSED, Game.State.UPGRADE, Game.State.DEAD] else 0.0
-	if is_equal_approx(_muffle, want):
+	if is_equal_approx(_muffle, want) and _duck <= 0.0:
 		return
 	_muffle = move_toward(_muffle, want, delta * (3.0 if want > _muffle else 1.5))
+	_duck = move_toward(_duck, 0.0, delta * 12.0)
 	var bus := AudioServer.get_bus_index(&"Music")
 	if bus == -1:
 		return
 	var low := AudioServer.get_bus_effect(bus, 0) as AudioEffectLowPassFilter
 	low.cutoff_hz = 20000.0 * pow(700.0 / 20000.0, _muffle)   # 20 kHz down to 700 Hz
 	AudioServer.set_bus_effect_enabled(bus, 0, _muffle > 0.001)
-	AudioServer.set_bus_volume_db(bus, -3.0 * _muffle)
+	AudioServer.set_bus_volume_db(bus, -3.0 * _muffle - _duck)
+
+
+## A big hit to the hero: the music dips for a moment so the hit lands.
+static func duck(db: float) -> void:
+	if _instance:
+		_instance._duck = maxf(_instance._duck, db)
 
 
 func _switch(stream: AudioStream) -> void:

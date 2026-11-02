@@ -120,7 +120,7 @@ func _process(delta: float) -> void:
 	if dist < hero.radius + 0.35 and (wanted or _homing):
 		if coin:
 			Game.add_coins(value)
-			Sfx.play("coin", 0.45)
+			Sfx.coin(0.45)
 		else:
 			hero.heal(heart_heal(hero))
 			Sfx.play("pickup", 0.6)

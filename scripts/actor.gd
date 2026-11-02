@@ -48,7 +48,43 @@ func make_visual(look: Dictionary) -> CharacterVisual:
 	visual = CharacterVisual.new()
 	add_child(visual)
 	visual.build(look)
+	if team == Team.UNDEAD:
+		_add_blob()
 	return visual
+
+
+## Low graphics has no real shadows, which left skeletons looking as if they floated over the
+## floor. A soft dark spot under each one stands in for the shadow there (the hero has its
+## own dark disc and ring).
+static var _blob_mesh: PlaneMesh
+static var _blob_mat: StandardMaterial3D
+var _blob: MeshInstance3D
+
+func _add_blob() -> void:
+	if _blob_mesh == null:
+		_blob_mesh = PlaneMesh.new()
+		_blob_mesh.size = Vector2(1, 1)
+		_blob_mat = StandardMaterial3D.new()
+		_blob_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_blob_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_blob_mat.albedo_texture = U.soft_circle()
+		_blob_mat.albedo_color = Color(0, 0, 0, 0.85)
+		_blob_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+	_blob = MeshInstance3D.new()
+	_blob.mesh = _blob_mesh
+	_blob.material_override = _blob_mat
+	_blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_blob.position = Vector3(0, 0.025, 0)
+	_blob.scale = Vector3.ONE * radius * 3.2
+	_blob.visible = not Game._high_graphics
+	add_child(_blob)
+
+
+## Graphics changed: blob shadows show only on Low.
+static func show_blobs(on: bool) -> void:
+	for a in all:
+		if is_instance_valid(a) and a._blob:
+			a._blob.visible = on
 
 
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
