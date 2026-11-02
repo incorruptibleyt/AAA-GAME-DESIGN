@@ -40,3 +40,6 @@ export_credentials.cfg
 /addons/PlayUpdate/bin/
 /android_plugins/*/build/
 /android_plugins/*/.gradle/
+
+# Python caches
+__pycache__/

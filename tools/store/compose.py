@@ -22,10 +22,10 @@ GOLD = (255, 205, 110)
 EMBER = (255, 120, 40)
 NIGHT = (24, 16, 38)
 
-# (screenshot, caption, sub-caption)
+# (screenshot, caption, sub-caption). The chain comes first: it's the game's name.
 SHOTS = [
-    ("dodge", "DASH THROUGH DANGER", "Perfect dodges slow time and shatter shots"),
     ("ember", "CHAIN YOUR KILLS", "The higher the chain, the harder you hit"),
+    ("dodge", "DASH THROUGH DANGER", "Perfect dodges slow time and shatter shots"),
     ("doors", "CHOOSE YOUR PATH", "Pick a door after every room"),
     ("blessings", "A NEW BUILD EVERY RUN", "Fire, frost, bolts and bone blessings"),
     ("heroes", "FOUR HEROES", "Each with their own special move"),
