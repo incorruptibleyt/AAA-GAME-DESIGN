@@ -12,7 +12,8 @@ extends Node
 ## `freeend` buys the Pass on the end-of-free-game screen (try with `floor=5`).
 ## Saved runs: `killat=N` closes the game as room N starts (like Android killing it), and
 ## `continue` presses CONTINUE on the title screen. `trial=mage` plays a free trial run,
-## `dailymenu` takes a picture of the Daily Crypt screen, and `share` prints the share text.
+## `dailymenu` takes a picture of the Daily Crypt screen, and `share` prints the first share
+## text offered (a Daily Crypt, a first boss kill or a new best score).
 ## Endless loops: at the end of a loop it descends and takes the first Omen while `runs` lasts,
 ## then banks. `bank` banks at once, and `loopquit` closes the game on the end-of-loop screen.
 ## `loopmenu` (with `floor=5 room=6 runs=2 shots=...`) fells the boss at once and takes
@@ -475,13 +476,15 @@ func _process(delta: float) -> void:
 			if _end_back and Game._state_time > 2.5:
 				_back_at_end()
 				return
-			if _share and Game.daily and Game._state_time > 2.0:
+			if _share and (Game.daily or Game._share_reason != "") and Game._state_time > 2.0:
 				_share = false
 				print("[autoplay] share text:\n" + Game._share_text())
 				if shots_dir != "":
 					_shot()
 					_share_picture()
 			if Game._state_time > 2.5:
+				if Game.hud._end_goal.visible:
+					print("[autoplay] end goal: " + Game.hud._end_goal.text)
 				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
 				runs -= 1
 				if runs <= 0:

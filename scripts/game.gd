@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-02b"
+const BUILD := "2026-11-02c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -559,8 +559,17 @@ func _notification(what: int) -> void:
 const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/1a667f4f0f7b9fc5c7dbb0f128cecfc50874fd29/PRIVACY.md"
 
 
-## The game's Google Play page, for the Daily Crypt share text.
+## The game's Google Play page, for the share text.
 const PLAY_URL := "https://play.google.com/store/apps/details?id=com.Bone_Chain_Dungeon_Roguelite.myapp"
+
+## The first run each Daily day (from 07:00 UTC) to end pays this much more of its coins:
+## a death, a cleared Daily Crypt, the end of the free floors, or BANK AND LEAVE.
+const DAY_BONUS := 0.5
+## Normal runs show SHARE RESULT too when a floor's boss falls for the first time ("boss")
+## or a death sets a new best score ("best"). Set on each end screen; empty for none.
+var _share_reason := ""
+## Floors shown on the share card of a normal run (the last ones reached).
+const SHARE_FLOORS := 3
 
 
 ## How much tougher skeletons are on the current floor.
@@ -1325,6 +1334,7 @@ func _bank_run() -> void:
 		return
 	var bonus := _bank_bonus()
 	_loop_choice = false
+	_claim_day_bonus()   # before the bank adds to this run's coins
 	add_coins(bonus)
 	Sfx.play("upgrade")
 	print("[run] banked after loop %d: +%d coins, %d in all" % [Loops.loop_of(floor_num), bonus, coins])
@@ -1931,6 +1941,12 @@ func _win() -> void:
 	Sfx.play("victory")
 	Sfx.play("vo_win", 0.8)
 	var cfg := _load_save()
+	# A floor's boss beaten for the first time (not in the Daily Crypt): worth sharing,
+	# unless it's the tutorial.
+	var prev_boss := _best_boss(cfg)
+	_share_reason = "boss" if not daily and not first_run and floor_num > prev_boss else ""
+	if not daily and floor_num > prev_boss:
+		cfg.set_value("stats", "best_boss", floor_num)
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	var best := _save_score(cfg)
 	_save_best(cfg, _run.size())
@@ -1954,15 +1970,16 @@ func _win() -> void:
 		_checkpoint(false, true)
 	else:
 		_checkpoint(true)
-	var extra := ""
+	var day_bonus := _claim_day_bonus() if _daily_done or _free_end else 0
+	var extra := "  (+%d first run today)" % day_bonus if day_bonus > 0 else ""
 	if was_first:
-		extra = "\n\nHeroes and the Armory are open:\nfind them on the title screen."
+		extra += "\n\nHeroes and the Armory are open:\nfind them on the title screen."
 	elif _daily_done:
-		extra = "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
+		extra += "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
 	elif _free_end:
-		extra = "\n\n" + _free_end_text()
+		extra += "\n\n" + _free_end_text()
 	elif _loop_choice:
-		extra = "\n\n" + _loop_text()
+		extra += "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
 	var tap := "Tap to return to the title" if _daily_done else "Tap to descend to floor %d" % (floor_num + 1)
@@ -1970,6 +1987,8 @@ func _win() -> void:
 		tap, false, score, best, _free_end)
 	hud.show_end_title(not _daily_done and not _free_end, "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
+	if _daily_done:
+		hud.set_end_goal(_daily_goal())
 	_show_share_card()
 	_state_time = 0.0
 	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")], was_first)
@@ -1990,13 +2009,17 @@ func on_hero_died() -> void:
 	var best := _save_score(cfg)
 	_save_best(cfg, _room_index + 1)
 	var was_first := first_run
+	_share_reason = "best" if not daily and not was_first and score > best and score > 0 else ""
+	var day_bonus := _claim_day_bonus()
 	var tutorial_again := first_run and _tutorial_retry()
 	if not tutorial_again:
 		_finish_first_run()
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
 	if floor_num > 1:
 		where += " on floor %d" % floor_num
-	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d  (spend them in the Armory)" % run_coins
+	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d" % run_coins
+	if day_bonus > 0:
+		coin_line += "  (+%d first run today)" % day_bonus
 	if tutorial_again:
 		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nThe tutorial starts again from room 1." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
@@ -2007,6 +2030,7 @@ func on_hero_died() -> void:
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again", not tutorial_again, score, best)
 	hud.show_end_title(true)
+	hud.set_end_goal(_daily_goal() if daily else next_goal())
 	_show_share_card()
 	hud.show_end_pass(note)
 	_state_time = 0.0
@@ -2381,10 +2405,11 @@ func _show_daily() -> void:
 		"next": "Next Daily Crypt in %dh %02dm" % [left / 3600, (left % 3600) / 60]})
 
 
-## The Daily Crypt result as text to paste anywhere: one square per room.
-## The Daily Crypt result to paste anywhere: the result first, then one square per room
-## (coloured by the chain, a skull per boss), the streak and where to get the game.
+## The result to paste anywhere: the result first, then one square per room (coloured by
+## the chain, a skull per boss), the streak and where to get the game.
 func _share_text() -> String:
+	if not daily:
+		return _run_share_text()
 	var num := Curses.day_number(_daily_date)
 	var head := ""
 	if _daily_done:
@@ -2398,13 +2423,31 @@ func _share_text() -> String:
 	var about := [Heroes.get_hero(hero.hero_id).title if hero else "", Curses.theme(_daily_date).name]
 	var days := Curses.streak(_load_save())
 	if days >= 2:
-		about.append("🔥 %d days in a row" % days)
+		about.append("🔥 %d-day streak" % days)
 	return "%s\n%s points · best chain x%.1f\n%s\n%s\nPlay: %s" % [head, Hud.thousands(score), _rep.get("best_chain", 1.0),
 		ShareCard.emoji(_share_rows()), " · ".join(about.filter(func(s): return s != "")), PLAY_URL]
 
 
+## A normal run's share text: a floor's boss beaten for the first time, or a new best score.
+func _run_share_text() -> String:
+	var head := "🏆 Bone Chain: beat the floor %d boss for the first time!" % floor_num
+	if _share_reason == "best":
+		head = "⭐ Bone Chain: new best score! (fell on floor %d)" % floor_num
+	var about := [Heroes.get_hero(hero.hero_id).title if hero else "", Floors.current().name]
+	return "%s\n%s points · best chain x%.1f\n%s\n%s\nPlay: %s" % [head, Hud.thousands(score), _rep.get("best_chain", 1.0),
+		ShareCard.emoji(_share_rows()), " · ".join(about.filter(func(t): return t != "")), PLAY_URL]
+
+
 ## The same result for the share picture: [text, size, colour] lines under the game's name.
 func _share_lines() -> Array:
+	if not daily:
+		var hero_name: String = Heroes.get_hero(hero.hero_id).title if hero else ""
+		var head := ["Floor %d boss beaten!" % floor_num, 46, Color(1.0, 0.85, 0.45)]
+		if _share_reason == "best":
+			head = ["New best score!", 50, Color(0.55, 1.0, 0.6)]
+		return [[" · ".join([hero_name, Floors.current().name].filter(func(t): return t != "")), 30, Color(0.95, 0.9, 0.8)],
+			head,
+			["%s points · best chain x%.1f" % [Hud.thousands(score), _rep.get("best_chain", 1.0)], 28, Hud.GOLD]]
 	var num := Curses.day_number(_daily_date)
 	var result := "Fell on floor %d" % floor_num
 	var col := Color(1.0, 0.55, 0.45)
@@ -2425,17 +2468,19 @@ func _share_lines() -> Array:
 func _share() -> void:
 	Sfx.play("click")
 	var picture: Image = await Share.picture(hud, _share_lines(), _share_rows(), _share_caption())
-	hud.share_done(Share.send(_share_text(), picture))
+	hud.share_done(Share.send(_share_text(), picture, "Share your Daily Crypt" if daily else "Share your run"))
 
 
-## The Daily Crypt as ShareCard codes: one row per floor, one code per room.
+## The run as ShareCard codes: one row per floor, one code per room. The Daily Crypt shows
+## all its floors; a normal run the last SHARE_FLOORS it reached.
 func _share_rows() -> Array:
 	var per_floor := _run.size()
 	var cleared := (floor_num - 1) * per_floor + _room_index + (1 if state == State.VICTORY else 0)
 	var chains: Array = _rep.get("chains", [])
 	var first := cleared - chains.size()   # rooms before a continued run have no chain on record
 	var rows := []
-	for f in Curses.DAILY_FLOORS:
+	var last := Curses.DAILY_FLOORS if daily else floor_num
+	for f in range(maxi(0, last - (Curses.DAILY_FLOORS if daily else SHARE_FLOORS)), last):
 		var row := []
 		for r in per_floor:
 			var i := f * per_floor + r
@@ -2449,9 +2494,10 @@ func _share_rows() -> Array:
 	return rows
 
 
-## Daily Crypt end screens show the result card and SHARE RESULT.
+## End screens show the result card and SHARE RESULT: every Daily Crypt one, and normal
+## runs that beat a floor's boss for the first time or died with a new best score.
 func _show_share_card() -> void:
-	if not daily:
+	if not daily and _share_reason == "":
 		hud.show_share(false)
 		return
 	hud.show_share(true, _share_rows(), _share_caption())
@@ -2459,7 +2505,9 @@ func _show_share_card() -> void:
 
 func _share_caption() -> String:
 	var days := Curses.streak(_load_save())
-	return "%d days in a row!" % days if days >= 2 else "Play tomorrow to start a streak"
+	if days >= 2:
+		return "%d-day Daily streak!" % days
+	return "Play tomorrow to start a streak" if daily else ""
 
 
 ## The Pass was bought, restored or refunded, or Google Play sent the price.
@@ -2516,6 +2564,7 @@ func _buy_upgrade(id: String) -> void:
 		hud.set_coins(coins)
 		hud.show_armory(true, _armory_rows(), coins)
 		hud.show_title(hud.title_visible(), _best_text(), coins)
+		_refresh_end_goal()
 		return
 	for u: Dictionary in Armory.LIST:
 		if u.id != id:
@@ -2532,7 +2581,14 @@ func _buy_upgrade(id: String) -> void:
 		hud.set_coins(coins)
 		hud.show_armory(true, _armory_rows(), coins)
 		hud.show_title(hud.title_visible(), _best_text(), coins)
+		_refresh_end_goal()
 		return
+
+
+## After shopping from the death screen, its NEXT line moves on too.
+func _refresh_end_goal() -> void:
+	if state == State.DEAD and not daily:
+		hud.set_end_goal(next_goal())
 
 
 ## Saves the best score and returns the best from before this run.
@@ -2557,6 +2613,98 @@ func _save_best(cfg: ConfigFile, room_reached: int) -> void:
 	if room_reached > int(cfg.get_value("stats", "best_room", 0)):
 		cfg.set_value("stats", "best_room", room_reached)
 	write_save(cfg)
+
+
+## The deepest floor whose boss has fallen outside the Daily Crypt. Saves from before
+## version 76 don't have it, so the floor before the deepest one reached stands in.
+func _best_boss(cfg: ConfigFile) -> int:
+	if cfg.has_section_key("stats", "best_boss"):
+		return int(cfg.get_value("stats", "best_boss"))
+	if int(cfg.get_value("stats", "wins", 0)) <= 0:
+		return 0
+	return maxi(0, int(cfg.get_value("stats", "best_floor", 1)) - 1)
+
+
+## True while today's first-run coin bonus (DAY_BONUS) is still to be had.
+func day_bonus_ready() -> bool:
+	return str(_load_save().get_value("stats", "bonus_day", "")) != Curses.today()
+
+
+## Pays today's first-run bonus on the coins this run picked up, once per Daily day. The
+## tutorial doesn't use it up. Returns the coins added (0 if there were none to add).
+func _claim_day_bonus() -> int:
+	if first_run or run_coins <= 0 or not day_bonus_ready():
+		return 0
+	var bonus := ceili(run_coins * DAY_BONUS)
+	coins += bonus
+	var cfg := _load_save()
+	cfg.set_value("stats", "bonus_day", Curses.today())
+	cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	hud.set_coins(coins)
+	print("[run] first run today: +%d coins" % bonus)
+	return bonus
+
+
+## The closest thing to work toward, in one line, for the death screen and the title:
+## something the coins can buy in the Armory now, else the next floor's boss (up to the
+## end of the free floors), else what the cheapest upgrade still needs, else a deeper
+## floor or the best score. Empty until the tutorial is done.
+func next_goal() -> String:
+	if first_run_pending():
+		return ""
+	var cfg := _load_save()
+	var cheapest := {}
+	for u: Dictionary in Armory.LIST:
+		var cost := Armory.next_cost(cfg, u)
+		if cost > 0 and (cheapest.is_empty() or cost < int(cheapest.cost)):
+			var named: String = u.title if int(u.max) == 1 else "%s level %d" % [u.title, Armory.level(cfg, u.id) + 1]
+			cheapest = {"name": named, "cost": cost}
+	for v: Dictionary in Armory.VAULT:
+		if not Armory.vault_has(cfg, v.id) and (cheapest.is_empty() or int(v.cost) < int(cheapest.cost)):
+			cheapest = {"name": str(Upgrades.get_def(v.id).get("title", v.id)), "cost": int(v.cost)}
+	if not cheapest.is_empty() and coins >= int(cheapest.cost):
+		return "NEXT: buy %s in the Armory" % cheapest.name
+	var beaten := _best_boss(cfg)
+	if beaten < Store.FREE_FLOORS:
+		return "NEXT: beat the floor %d boss" % (beaten + 1)
+	if not cheapest.is_empty():
+		return "NEXT: %d more coins for %s" % [int(cheapest.cost) - coins, cheapest.name]
+	if Store.owned():
+		return "NEXT: beat the floor %d boss" % (beaten + 1)
+	var top := int(cfg.get_value("stats", "best_score", 0))
+	return "NEXT: beat your best score of %s" % Hud.thousands(top) if top > 0 else ""
+
+
+## The title's gold lines (two at most): the Daily streak while today's run is still to
+## play (or once it's two days or more), today's first-run coin bonus, then the next goal.
+func title_goal() -> String:
+	if first_run_pending():
+		return ""
+	var cfg := _load_save()
+	var lines := []
+	var days := Curses.streak(cfg)
+	var played := Curses.official_used(cfg)
+	if days >= 1 and not played:
+		lines.append("Daily streak %d · play today's Daily to keep it" % days)
+	elif days >= 2:
+		lines.append("Daily streak: %d days" % days)
+	if day_bonus_ready():
+		lines.append("Today's first run: +%d%% coins" % roundi(DAY_BONUS * 100))
+	if lines.size() < 2:
+		var goal := next_goal()
+		if goal != "":
+			lines.append(goal)
+	return "\n".join(lines)
+
+
+## After the Daily Crypt: the streak and when the next one opens.
+func _daily_goal() -> String:
+	var left := Curses.seconds_left()
+	var days := Curses.streak(_load_save())
+	var streak_text := "Daily streak: %d day%s" % [days, "" if days == 1 else "s"] if days >= 1 else ""
+	var next_text := "Next Daily Crypt in %dh %02dm" % [left / 3600, (left % 3600) / 60]
+	return streak_text + ("  ·  " if streak_text != "" else "") + next_text
 
 
 func _best_text() -> String:

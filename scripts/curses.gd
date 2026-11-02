@@ -296,13 +296,26 @@ static func official_used(cfg: ConfigFile, date := "") -> bool:
 	return bool(cfg.get_value("daily", (date if date != "" else today()) + "_official", false))
 
 
-## Days in a row with a Daily Crypt run: up to today, or up to yesterday while today's
-## hasn't been played yet.
+## Missing one day of the Daily Crypt doesn't break the streak, as long as the last missed
+## day was at least this many days earlier (so about one a week). Two days in a row do.
+const STREAK_GRACE := 7
+
+
+## Daily Crypt days in the current streak: counted back from today, or from yesterday while
+## today's hasn't been played yet. A forgiven day (see STREAK_GRACE) keeps the streak going
+## but isn't counted.
 static func streak(cfg: ConfigFile) -> int:
-	var start := 0 if official_used(cfg) else -1
+	var d := 0 if official_used(cfg) else -1
 	var n := 0
-	while n < 3650 and official_used(cfg, today(start - n)):
-		n += 1
+	var forgiven := 1   # the day offset last forgiven; 1 = none yet
+	for i in 3650:
+		if official_used(cfg, today(d)):
+			n += 1
+		elif forgiven == 1 or forgiven - d >= STREAK_GRACE:
+			forgiven = d
+		else:
+			break
+		d -= 1
 	return n
 
 

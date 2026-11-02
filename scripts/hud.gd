@@ -96,11 +96,15 @@ var _settings_only := false
 var _title_box: Control
 var _title_logo: TextureRect
 var _title_best: Label
+## Gold lines under the best score: the Daily streak, today's coin bonus, the next goal.
+var _title_goal: Label
 var _end_box: Control
 var _end_col: VBoxContainer
 var _pause_build: Label
 var _end_title: Label
 var _end_stats: Label
+## A gold line under the stats: the next goal after a death, the streak after the Daily.
+var _end_goal: Label
 var _pause_box: Control
 var _pause_button: Button
 var _danger: TextureRect
@@ -869,6 +873,9 @@ func _build_title() -> void:
 	col.offset_bottom = -40
 	col.add_theme_constant_override("separation", 14)
 	holder.add_child(col)
+	# Gold lines under the hero, just above PLAY: why to play today and what's next.
+	_title_goal = label("", 18, Color(1.0, 0.82, 0.42))
+	col.add_child(_title_goal)
 	_title_hero = label("", 20, Color(0.75, 0.85, 1.0))
 	col.add_child(_title_hero)
 	_title_spacer = Control.new()
@@ -1106,6 +1113,9 @@ func _build_end() -> void:
 	col.add_child(_end_best)
 	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
 	col.add_child(_end_stats)
+	_end_goal = label("", 22, Color(1.0, 0.82, 0.42))
+	_end_goal.visible = false
+	col.add_child(_end_goal)
 	# Daily Crypt: the result card, and the same as text to paste anywhere.
 	_share_card = ShareCard.new()
 	_share_card.visible = false
@@ -1991,6 +2001,13 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_coins.text = str(coins)
 	var where := Game.continue_text()
 	_title_continue.visible = where != "" and not locked
+	# On short screens a saved run's CONTINUE button leaves room for one gold line only.
+	var goal := Game.title_goal() if v else ""
+	var view := get_viewport().get_visible_rect().size
+	if _title_continue.visible and view.y < view.x * 1.9:
+		goal = goal.get_slice("\n", 0)
+	_title_goal.text = goal
+	_title_goal.visible = goal != ""
 	_continue_where.text = where
 	_title_spacer.visible = not _title_continue.visible
 	_title_play.text = "NEW RUN" if _title_continue.visible else "PLAY"
@@ -2235,6 +2252,14 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_end_stats.text = stats
+	_end_goal.visible = false
+	_fit_end.call_deferred()
+
+
+## The gold line under the end screen's stats (hidden when empty).
+func set_end_goal(text: String) -> void:
+	_end_goal.text = text
+	_end_goal.visible = text != "" and _end_box.visible
 	_fit_end.call_deferred()
 
 
@@ -2243,6 +2268,11 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 func _fit_end() -> void:
 	if not _end_box.visible:
 		return
+	# Fill the box again first. Moving the column (below) fixes its size at whatever it was
+	# then, so after one tall end screen the next ones stayed stretched past the bottom and
+	# their buttons were centred off the screen.
+	_end_col.scale = Vector2.ONE
+	_end_col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var shown := 0
 	for c in _end_col.get_children():
 		if (c as Control).visible:
@@ -2276,6 +2306,7 @@ func _update_end_count(delta: float) -> void:
 		else:
 			_end_best.text = "Best  " + thousands(_end_best_value)
 			_end_best.label_settings.font_color = Color(0.8, 0.78, 0.7)
+		_fit_end.call_deferred()   # the best line has words in it now
 
 
 ## Daily Crypt runs get their result card (rows of ShareCard codes) and a SHARE RESULT

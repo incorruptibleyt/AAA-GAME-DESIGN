@@ -1,15 +1,16 @@
 class_name Share
-## SHARE RESULT on the Daily Crypt end screen. On Android it opens the phone's share menu
+## SHARE RESULT on the end screen (every Daily Crypt, and normal runs that beat a floor's
+## boss for the first time or set a new best score). On Android it opens the phone's share menu
 ## with the result as words and as a picture (saved under user://, which Godot's own file
 ## provider lets other apps read). The words are always copied too, for apps that keep only
 ## the picture; on other systems copying is all it does.
 
-const PICTURE := "user://share/bone-chain-daily.png"
+const PICTURE := "user://share/bone-chain.png"
 const SIZE := Vector2i(720, 720)
 
 
-## Returns true when the phone's share menu was asked to open.
-static func send(text: String, picture: Image) -> bool:
+## Returns true when the phone's share menu was asked to open. `title` heads that menu.
+static func send(text: String, picture: Image, title := "Share your result") -> bool:
 	DisplayServer.clipboard_set(text)
 	if OS.get_name() != "Android" or not Engine.has_singleton("AndroidRuntime"):
 		return false
@@ -30,7 +31,7 @@ static func send(text: String, picture: Image) -> bool:
 		if clips:
 			intent.setClipData(clips.newRawUri("", uri))
 		intent.addFlags(intents.FLAG_GRANT_READ_URI_PERMISSION)
-	var chooser = intents.createChooser(intent, "Share your Daily Crypt")
+	var chooser = intents.createChooser(intent, title)
 	if chooser == null:
 		return false
 	activity.runOnUiThread(runtime.createRunnableFromGodotCallable(func(): activity.startActivity(chooser)))
