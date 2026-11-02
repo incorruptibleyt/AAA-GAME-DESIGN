@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-02a"
+const BUILD := "2026-11-02b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -254,6 +254,7 @@ func _ready() -> void:
 	add_child(world)
 	add_child(Sfx.new())
 	add_child(Music.new())
+	add_child(Ambience.new())
 	add_child(Telemetry.new())
 	add_child(UpdateGate.new())   # asks Google Play for a newer version straight away
 	get_tree().node_added.connect(_count_added)

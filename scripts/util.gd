@@ -5,7 +5,6 @@ class_name U
 static var _mat_cache := {}
 static var _soft_circle: ImageTexture
 static var _ring: ImageTexture
-static var _stone: ImageTexture
 static var _noise_cache := {}
 
 
@@ -160,34 +159,3 @@ static func noise_tex(frequency: float, seed: int, octaves := 3) -> ImageTexture
 	var tex := ImageTexture.create_from_image(img)
 	_noise_cache[key] = tex
 	return tex
-
-
-## Flagstone floor: 4x4 slabs with dark grout and gentle colour variation.
-static func stone() -> ImageTexture:
-	if _stone:
-		return _stone
-	var n := 256
-	var slabs := 4
-	var s := n / slabs
-	var img := Image.create(n, n, false, Image.FORMAT_RGB8)
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 7
-	var tint := []
-	for i in slabs * slabs:
-		tint.append(0.85 + rng.randf() * 0.3)
-	var noise := FastNoiseLite.new()
-	noise.frequency = 0.05
-	var base := Color(0.36, 0.33, 0.38)
-	for y in n:
-		for x in n:
-			var lx := x % s
-			var ly := y % s
-			var edge := mini(mini(lx, s - 1 - lx), mini(ly, s - 1 - ly))
-			var grout := 0.35 if edge < 2 else (0.75 if edge < 4 else 1.0)
-			var nz := 0.88 + noise.get_noise_2d(x, y) * 0.2
-			var c: Color = base * tint[(y / s) * slabs + (x / s)] * nz * grout
-			c.a = 1.0
-			img.set_pixel(x, y, c)
-	img.generate_mipmaps()
-	_stone = ImageTexture.create_from_image(img)
-	return _stone

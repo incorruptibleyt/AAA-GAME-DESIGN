@@ -1719,7 +1719,8 @@ func _process(delta: float) -> void:
 	_chain_box.offset_bottom = _chain_box.offset_top + 122.0
 	# Hidden behind the pause menu, where it would cross "Paused".
 	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.UPGRADE]
-	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.6) if meter else 0.0
+	# With no chain going it stays faint (it sits over the far end of the room).
+	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.45) if meter else 0.0
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)

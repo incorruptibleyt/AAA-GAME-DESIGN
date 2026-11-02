@@ -62,8 +62,10 @@ func _build_shell() -> void:
 	var t := 1.0
 	U.box(self, Vector3(t, WALL_H, HALF_L * 2 + t * 2), wall, Vector3(-HALF_W - t / 2, WALL_H / 2, 0))
 	U.box(self, Vector3(t, WALL_H, HALF_L * 2 + t * 2), wall, Vector3(HALF_W + t / 2, WALL_H / 2, 0))
-	# The near wall is only a low ledge so it never hides the hero from the camera.
-	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.5, t), trim, Vector3(0, 0.25, HALF_L + t / 2))
+	# The near wall is only a low ledge so it never hides the hero from the camera. It is
+	# laid with darker stone than the floor, so the bottom of the screen reads as the top
+	# of a wall instead of a flat coloured bar.
+	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.5, t), _ledge_material(look), Vector3(0, 0.25, HALF_L + t / 2))
 	var side := HALF_W - DOOR_HALF
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(-DOOR_HALF - side / 2, WALL_H / 2, -HALF_L - t / 2))
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(DOOR_HALF + side / 2, WALL_H / 2, -HALF_L - t / 2))
@@ -106,14 +108,19 @@ uniform float patch_rough = 0.3;
 uniform float blood = 0.0;
 uniform vec4 seam : source_color = vec4(0.0);
 uniform vec2 half_size = vec2(6.0, 10.0);
+// 1 on the near ledge's box: its front face takes the pattern from its own plane and
+// keeps its real normal.
+uniform float ledge = 0.0;
 varying vec2 pos;
+varying float up;
 
 float h(vec2 q) {
 	return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453);
 }
 
 void vertex() {
-	pos = VERTEX.xz;
+	up = NORMAL.y;
+	pos = (ledge > 0.5 && abs(NORMAL.y) < 0.5) ? VERTEX.xy : VERTEX.xz;
 }
 
 void fragment() {
@@ -176,12 +183,14 @@ void fragment() {
 	// out each one.
 	vec2 bevel = sign(f) * (1.0 - smoothstep(0.0, 0.09, e)) * 0.6;
 	vec3 n = normalize(vec3(bevel.x + (r - 0.5) * 0.1, 1.0, bevel.y + (r2 - 0.5) * 0.1));
-	NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
+	if (up > 0.5) {
+		NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
+	}
 
 	if (seam.a > 0.0) {
-		float heat = smoothstep(0.42, 0.62, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
+		float heat = smoothstep(0.56, 0.76, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
 		float pulse = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + pos.x * 0.6 + pos.y * 0.35), 2.0);
-		EMISSION = seam.rgb * max(gap, crack) * pulse * mix(0.6, 1.2, r) * mix(0.06, 1.4, heat);
+		EMISSION = seam.rgb * max(gap, crack) * pulse * mix(0.6, 1.2, r) * mix(0.05, 1.25, heat);
 	}
 }
 """
@@ -198,6 +207,18 @@ void fragment() {
 	sm.set_shader_parameter("seam", look.get("seams", Color(0, 0, 0, 0)))
 	sm.set_shader_parameter("half_size", Vector2(HALF_W, HALF_L))
 	return sm
+
+
+## The low near ledge: the floor's stone, darker, without the floor's fire or blood.
+static func _ledge_material(look: Dictionary) -> Material:
+	var m := _floor_material(look) as ShaderMaterial
+	m.set_shader_parameter("tint", (look.floor as Color) * 0.6)
+	m.set_shader_parameter("grime_amount", 0.0)
+	m.set_shader_parameter("blood", 0.0)
+	m.set_shader_parameter("seam", Color(0, 0, 0, 0))
+	m.set_shader_parameter("half_size", Vector2(100, 100))
+	m.set_shader_parameter("ledge", 1.0)
+	return m
 
 
 ## Every light costs a lot on phones, so High keeps the far and near pairs of torch

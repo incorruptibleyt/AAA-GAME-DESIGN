@@ -25,11 +25,21 @@ const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", 
 static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
 	if not enabled or _instance == null or not _instance._clips.has(sound):
 		return
-	var p := _instance._players[_instance._next]
-	_instance._next = (_instance._next + 1) % _instance._players.size()
 	var clip = _instance._clips[sound]
-	p.stream = clip.pick_random() if clip is Array else clip
-	p.bus = &"Master" if sound in DRY else &"Effects"
+	_instance._start(clip.pick_random() if clip is Array else clip, &"Master" if sound in DRY else &"Effects", volume, pitch)
+
+
+## Plays a sound made elsewhere (the room tone's drips and pops) through the echo.
+static func play_stream(stream: AudioStream, volume := 1.0, pitch := 1.0) -> void:
+	if enabled and _instance != null and stream != null:
+		_instance._start(stream, &"Effects", volume, pitch)
+
+
+func _start(stream: AudioStream, bus: StringName, volume: float, pitch: float) -> void:
+	var p := _players[_next]
+	_next = (_next + 1) % _players.size()
+	p.stream = stream
+	p.bus = bus
 	p.volume_db = linear_to_db(volume * randf_range(0.85, 1.0))
 	p.pitch_scale = pitch * randf_range(0.95, 1.05)
 	p.play()
@@ -106,8 +116,10 @@ static func coin(volume := 1.0) -> void:
 
 
 ## Two buses under Master. "Effects" has a short, quiet echo, as if the sounds bounce off
-## crypt stone. "Music" has a low-pass filter that Music turns down to muffle the music
-## while the game is paused, a blessing is being picked or the death screen shows.
+## crypt stone, then a low-pass filter that dulls everything for a moment in slow motion.
+## "Music" has a low-pass filter that Music turns down to muffle the music (and the room
+## tone) while the game is paused, a blessing is being picked or the death screen shows.
+## Music works both filters and switches each off when it's not in use.
 static func make_buses() -> void:
 	if AudioServer.get_bus_index(&"Effects") == -1:
 		var echo := AudioEffectReverb.new()
@@ -120,6 +132,11 @@ static func make_buses() -> void:
 		echo.dry = 1.0
 		echo.wet = 0.14
 		_add_bus(&"Effects", echo)
+		var dull := AudioEffectLowPassFilter.new()
+		dull.cutoff_hz = 20000.0
+		var fx := AudioServer.get_bus_index(&"Effects")
+		AudioServer.add_bus_effect(fx, dull)
+		AudioServer.set_bus_effect_enabled(fx, 1, false)
 	if AudioServer.get_bus_index(&"Music") == -1:
 		var low := AudioEffectLowPassFilter.new()
 		low.cutoff_hz = 20000.0

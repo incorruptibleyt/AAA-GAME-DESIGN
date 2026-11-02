@@ -198,12 +198,11 @@ func _build_crypt() -> void:
 	we.environment = env
 	world.add_child(we)
 
-	var stone := StandardMaterial3D.new()
-	stone.albedo_texture = U.stone()
-	stone.albedo_color = Color(0.78, 0.74, 0.82)
-	stone.roughness = 0.8
-	stone.uv1_scale = Vector3(5, 5, 1)
-	stone.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	# The same worn flagstones as the Bone Crypt's rooms.
+	var look: Dictionary = (Floors.THEMES[0] as Dictionary).duplicate()
+	look["floor"] = Color(0.78, 0.74, 0.82)
+	var stone := Room._floor_material(look) as ShaderMaterial
+	stone.set_shader_parameter("half_size", Vector2(7, 7))
 	U.floor_quad(world, Vector2(14, 14), stone)
 	var wall_scene := Art.get_model("wall")
 	for x in [-4.0, 0.0, 4.0]:
