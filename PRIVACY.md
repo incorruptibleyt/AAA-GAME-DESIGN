@@ -1,6 +1,6 @@
 # Bone Chain privacy policy
 
-_Last updated: October 31, 2026_
+_Last updated: November 2, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
@@ -14,9 +14,9 @@ If you have turned reports on, then when a run ends, when the game hits an error
 
 - **The run summary:** hero, floor and room reached, time, score, kills, coins, damage taken and what dealt it, blessings and Armory upgrades, and frame rate. This is the same text as the **COPY REPORT** button.
 - **The daily opening note:** how many times you've opened the game, whether you've finished the tutorial, your best floor, how many runs you've won, whether you own the Crypt Pass, and which hero you've picked.
-- **Error and crash details:** the error message, where in the game it happened, and the last lines of the game's own log.
+- **Error and crash details:** the error message, where in the game it happened (including how long the game had been open), and the last lines of the game's own log.
 - **A random install number** made on your phone the first time you play. It is not linked to you, your Google account or your phone's advertising ID, and it changes if you reinstall.
-- **Technical details:** the game version, phone model, Android version and graphics chip name.
+- **Technical details:** the game version, phone model, Android version, graphics chip name, how much memory the phone has, and how much memory the game is using.
 
 Reports are sent over an encrypted (HTTPS) connection to a Google Form owned by the developer, and stored in the developer's Google account (Google acts as a service provider). They are used only to fix bugs and balance the game. They are never sold, shared with anyone else, or used for advertising. Reports are kept for up to 12 months and then deleted.
 
