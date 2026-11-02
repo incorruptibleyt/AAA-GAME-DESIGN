@@ -65,8 +65,51 @@ static func get_model(key: String) -> PackedScene:
 			scene = load(path) as PackedScene
 			if scene:
 				break
+	if scene:
+		_share_textures(scene)
 	_cache[key] = scene
 	return scene
+
+
+## KayKit gives every model file its own copy of its pack's colour texture: the 14 dungeon
+## props all carry the same 1024 px picture, and so do the 5 skeleton files. Each copy took
+## about 5 MB of graphics memory (over 90 MB in all), enough to run cheap phones out of
+## memory. Point every material at the first copy, so the others are freed.
+const SHARED_TEXTURES := ["dungeon_texture.png", "skeleton_texture.png"]
+static var _shared := {}
+
+
+static func _share_textures(scene: PackedScene) -> void:
+	var root := scene.instantiate()
+	_share_in(root)
+	root.free()
+
+
+static func _share_in(n: Node) -> void:
+	var mi := n as MeshInstance3D
+	if mi:
+		if mi.mesh:
+			for i in mi.mesh.get_surface_count():
+				_share_material(mi.mesh.surface_get_material(i))
+		_share_material(mi.material_override)
+	for c in n.get_children():
+		_share_in(c)
+
+
+static func _share_material(m: Material) -> void:
+	var bm := m as BaseMaterial3D
+	if bm == null or bm.albedo_texture == null:
+		return
+	var tex := bm.albedo_texture
+	var file := tex.resource_path.get_file().to_lower()
+	for k: String in SHARED_TEXTURES:
+		if file.ends_with(k):
+			var first: Texture2D = _shared.get(k)
+			if first == null:
+				_shared[k] = tex
+			elif first != tex and first.get_size() == tex.get_size():
+				bm.albedo_texture = first
+			return
 
 
 static func has_model(key: String) -> bool:

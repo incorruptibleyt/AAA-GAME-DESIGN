@@ -96,6 +96,8 @@ static func run() -> void:
 	# Draw each batch for two frames. Frames, not frame_post_draw: that signal never comes
 	# without a screen (robot test runs).
 	for n in steps.size():
+		Game.loading = "loading %d/%d" % [n + 1, steps.size()]
+		Game.note_spot()   # if a phone dies while loading, the report says at which step
 		steps[n].call()
 		# Shots, warnings, fire and pickups land in the room: they mustn't hurt or be collected.
 		for c in _new(room, old_room) + _new(Game.world, old_world):
@@ -122,6 +124,7 @@ static func run() -> void:
 	for i in 3:
 		await tree.process_frame
 	bar.progress(1.0, Time.get_ticks_msec() - started)
+	Game.loading = ""
 
 	for c in made:
 		if is_instance_valid(c):

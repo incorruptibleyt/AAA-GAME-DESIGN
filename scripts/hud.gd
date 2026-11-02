@@ -1554,7 +1554,7 @@ func _build_reports_ask() -> void:
 	col.add_theme_constant_override("separation", 18)
 	_ask_box.add_child(col)
 	col.add_child(label("HELP FIX BUGS?", 40, GOLD))
-	var text := label("Send anonymous run and crash reports to the developer?\n\nNo account, name or ad ID. A run summary, a short note once a day when you open the game, a random install number, your phone model and Android version, and error messages with the game's recent log.\n\nYou can change this any time in Settings or the pause menu.", 19, Color(0.9, 0.88, 0.84))
+	var text := label("Send anonymous run and crash reports to the developer?\n\nNo account, name or ad ID. A run summary, a short note once a day when you open the game, a random install number, your phone model, Android version and memory, and error messages with the game's recent log.\n\nYou can change this any time in Settings or the pause menu.", 19, Color(0.9, 0.88, 0.84))
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(text)
 	var yes := button("YES, SEND REPORTS", 26, Color(0.2, 0.32, 0.18, 0.97), Color(0.6, 0.95, 0.55))

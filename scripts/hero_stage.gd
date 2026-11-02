@@ -9,6 +9,7 @@ const RENDER_SCALE := 2.0
 const FRONT := PI - 0.35
 
 var _vp: SubViewport
+var _full_size: Vector2i
 var _root: Node3D
 var _pivot: Node3D
 var _visual: CharacterVisual
@@ -26,7 +27,8 @@ func _init(stage_size: Vector2) -> void:
 	stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_vp = SubViewport.new()
-	_vp.size = Vector2i(stage_size * RENDER_SCALE)
+	_full_size = Vector2i(stage_size * RENDER_SCALE)
+	_vp.size = Vector2i.ONE   # full size only while the Heroes screen is open (set_active)
 	_vp.own_world_3d = true
 	_vp.transparent_bg = true
 	_vp.msaa_3d = Viewport.MSAA_4X
@@ -104,8 +106,10 @@ func show_hero(def: Dictionary) -> void:
 	_back_light.light_color = col
 
 
-## Only draws while the Heroes screen is open.
+## Only draws while the Heroes screen is open. Closed, its picture shrinks to 1 pixel, so the
+## big smoothed (4x) picture doesn't hold graphics memory the rest of the time.
 func set_active(on: bool) -> void:
+	_vp.size = _full_size if on else Vector2i.ONE
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
 	set_process(on)
 

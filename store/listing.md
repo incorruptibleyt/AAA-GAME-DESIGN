@@ -64,7 +64,7 @@ How deep can you go?
 
 ## Privacy policy link
 
-https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/1a667f4f0f7b9fc5c7dbb0f128cecfc50874fd29/PRIVACY.md
+https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/a0cedc5043c08b6f3456bf7b1a35197d514e892f/PRIVACY.md
 
 This link is pinned to one saved version of the policy, so it keeps working even after this branch is merged or deleted. When the policy changes, this link is updated too.
 

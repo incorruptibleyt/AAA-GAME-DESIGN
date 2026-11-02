@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-02c"
+const BUILD := "2026-11-02d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -336,7 +336,7 @@ func _ready() -> void:
 	write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
-	_set_graphics(bool(cfg.get_value("settings", "high_graphics", true)), false)
+	_set_graphics(bool(cfg.get_value("settings", "high_graphics", not low_memory_phone())), false)
 	_set_shake(int(cfg.get_value("settings", "shake", 2)), false)
 	_set_vibration(bool(cfg.get_value("settings", "vibration", true)), false)
 	_auto_graphics = not cfg.has_section_key("settings", "high_graphics") and not "autoplay" in OS.get_cmdline_user_args()
@@ -353,6 +353,7 @@ func _ready() -> void:
 	hud.show_hud(false)
 	await Warmup.run()   # while the screen is still black, before the title can be tapped
 	hud.show_title(true, _best_text(), coins)
+	note_spot()
 	hud.set_title_hero(Heroes.get_hero(hero.hero_id).title)
 	_fade(1.0, 0.0, 0.6)
 	var args := OS.get_cmdline_user_args()
@@ -556,7 +557,7 @@ func _notification(what: int) -> void:
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
 ## menu, the reports question and the Crypt Pass screen.
-const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/1a667f4f0f7b9fc5c7dbb0f128cecfc50874fd29/PRIVACY.md"
+const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/a0cedc5043c08b6f3456bf7b1a35197d514e892f/PRIVACY.md"
 
 
 ## The game's Google Play page, for the share text.
@@ -1134,6 +1135,7 @@ func run_report(result: String, was_first := false) -> String:
 	lines.append("Graphics %s | FPS avg %d, lowest %d | longest frame %d ms%s | warm-up %d ms" % ["High" if _high_graphics else "Low",
 		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0), roundi(_longest_ms),
 		(" (%s%s)" % [_longest_at, "; added " + _longest_new if _longest_new != "" else ""]) if _longest_at != "" else "", Warmup.last_ms])
+	lines.append("Memory: most %d MB (graphics %d MB) | phone RAM %s" % [_mem_peak, _mem_peak_video, ram_text()])
 	return "\n".join(lines)
 
 
@@ -1505,6 +1507,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if alive_enemies == 0:
 		room.open_door()
 	_checkpoint()
+	note_spot()
 
 
 ## Saves the run as it is at the start of this room (or of the next floor, after a boss),
@@ -2216,8 +2219,79 @@ func open_text() -> String:
 
 ## A short "where are we" line for error and crash reports.
 func where_text() -> String:
-	return "%s, floor %d room %d, %s, %s into the run" % [State.keys()[state], floor_num, _room_index + 1,
-		hero.hero_id if hero else "no hero", _format_time(_run_time)]
+	return "%s%s, floor %d room %d, %s, %s into the run | %d s after launch, %s" % [State.keys()[state],
+		" (" + loading + ")" if loading != "" else "", floor_num, _room_index + 1,
+		hero.hero_id if hero else "no hero", _format_time(_run_time), Time.get_ticks_msec() / 1000, memory_text()]
+
+
+## Saves where the game is now, so if it crashes the next launch's report says where (only
+## with reports on). Called at launch, during loading, on the title and as each room starts.
+func note_spot() -> void:
+	_note_memory()
+	if Telemetry.instance:
+		Telemetry.instance.session_open(true)
+
+
+# ---------------------------------------------------------------- memory
+
+## Phones with less memory than this start on Low graphics, which needs less graphics memory
+## (no glow, shadows or smoothing, and a smaller 3D picture). On version 59 a vivo Y27 crashed
+## when its graphics driver ran out of memory. Players can still pick High in Pause.
+const LOW_MEMORY_GB := 5.0
+## What the loading screen is doing ("loading 3/6"), for crash reports.
+var loading := ""
+var _mem_peak := 0
+var _mem_peak_video := 0
+static var _ram_gb := -2.0
+
+
+## The phone's memory in GB (-1 if unknown).
+static func ram_gb() -> float:
+	if _ram_gb > -2.0:
+		return _ram_gb
+	var bytes := float(OS.get_memory_info().get("physical", -1))
+	if bytes <= 0.0:
+		bytes = _proc_kb("/proc/meminfo", "MemTotal:") * 1024.0
+	_ram_gb = bytes / 1073741824.0 if bytes > 0.0 else -1.0
+	return _ram_gb
+
+
+static func ram_text() -> String:
+	var gb := ram_gb()
+	return "%.1f GB" % gb if gb > 0.0 else "unknown"
+
+
+static func low_memory_phone() -> bool:
+	var gb := ram_gb()
+	return gb > 0.0 and gb < LOW_MEMORY_GB
+
+
+## Memory the game is using right now, as Android counts it, and the graphics part.
+static func memory_text() -> String:
+	return "memory %d MB (graphics %d MB)" % [_proc_kb("/proc/self/status", "VmRSS:") / 1024, _video_mb()]
+
+
+static func _video_mb() -> int:
+	return int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0)
+
+
+func _note_memory() -> void:
+	_mem_peak = maxi(_mem_peak, _proc_kb("/proc/self/status", "VmRSS:") / 1024)
+	_mem_peak_video = maxi(_mem_peak_video, _video_mb())
+
+
+## A number (in kB) from a /proc file line such as "VmRSS:   123456 kB"; 0 if unreadable.
+static func _proc_kb(path: String, key: String) -> int:
+	var f := FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return 0
+	for i in 80:
+		var line := f.get_line()
+		if line.begins_with(key):
+			return int(line.substr(key.length()).strip_edges().get_slice(" ", 0))
+		if f.eof_reached():
+			break
+	return 0
 
 
 ## Called once a second of play, after a room's first 3 seconds. When most of the last eight

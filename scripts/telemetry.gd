@@ -76,8 +76,8 @@ func send(kind: String, body: String) -> void:
 	if not enabled():
 		return
 	var cfg := Game._load_save()
-	var head := "%s | build %s | install %s | %s | Android %s | %s" % [kind, Game.BUILD, install_id(cfg),
-		OS.get_model_name(), OS.get_version(), RenderingServer.get_video_adapter_name()]
+	var head := "%s | build %s | install %s | %s | Android %s | %s | RAM %s" % [kind, Game.BUILD, install_id(cfg),
+		OS.get_model_name(), OS.get_version(), RenderingServer.get_video_adapter_name(), Game.ram_text()]
 	_queue.append(head + "\n" + body)
 	while _queue.size() > MAX_QUEUE:
 		_queue.pop_front()
