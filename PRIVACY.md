@@ -1,12 +1,12 @@
 # Bone Chain privacy policy
 
-_Last updated: November 2, 2026_
+_Last updated: November 3, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
 ## The short version
 
-Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. Reports are off until then. The game asks you once, when you open it (or at the end of a run, if you started playing before answering), and you can change your answer at any time in the pause menu (**Send reports**). There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
+Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. Reports are off until then. The game asks you once, when you open it (or at the end of a run, if you started playing before answering), and you can change your answer at any time in the pause menu (**Send reports**). You can also type a note to the developer with **Send feedback** in the pause menu. There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
 
 ## What the game reports
 
@@ -18,9 +18,11 @@ If you have turned reports on, then when a run ends, when the game hits an error
 - **A random install number** made on your phone the first time you play. It is not linked to you, your Google account or your phone's advertising ID, and it changes if you reinstall.
 - **Technical details:** the game version, phone model, Android version, graphics chip name, how much memory the phone has, and how much memory the game is using.
 
+**Feedback you type:** if you open **Send feedback** in the pause menu and tap **SEND**, your note is sent the same way, with the random install number, the technical details above and where you were in the game. This happens even if reports are off, because you chose to send it. Please don't include your name, email or other personal details in the note.
+
 Reports are sent over an encrypted (HTTPS) connection to a Google Form owned by the developer, and stored in the developer's Google account (Google acts as a service provider). They are used only to fix bugs and balance the game. They are never sold, shared with anyone else, or used for advertising. Reports are kept for up to 12 months and then deleted.
 
-If you're offline, up to 20 reports wait on your phone and are sent later. Turning reports off stops new ones being sent and deletes any still waiting on your phone. With reports off, the game sends nothing.
+If you're offline, up to 20 reports wait on your phone and are sent later. Turning reports off stops new ones being sent and deletes any still waiting on your phone. With reports off, the game sends nothing except a note you choose to send with **Send feedback**.
 
 ## The Crypt Pass (in-app purchase)
 
@@ -32,7 +34,7 @@ The game saves your progress (coins, unlocked heroes, Armory upgrades, best floo
 
 ## Permissions
 
-- **Internet:** only to send the anonymous game reports described above, and only if you've turned them on.
+- **Internet:** only to send the anonymous game reports described above (if you've turned them on) and feedback you choose to send.
 - **Vibrate:** the phone buzzes briefly when your hero is hit (switch it off under Pause, Vibration).
 - **Google Play billing:** only to buy the Crypt Pass through Google Play.
 - **Network state:** added by Google Play billing, to check whether the phone is online before talking to Google Play. It can't see what you do online.
