@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-03e"
+const BUILD := "2026-11-03f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -491,6 +491,32 @@ func _process(delta: float) -> void:
 	_update_glow(delta / maxf(Engine.time_scale, 0.01))
 	_update_camera(delta / maxf(Engine.time_scale, 0.01))
 	_update_exit_arrow()
+	if state == State.TITLE and Engine.get_process_frames() % 60 == 0:
+		_check_new_day()
+
+
+## The Daily day turns over at 07:00 UTC, often while the game waits on the title or in the
+## background. The title's gold lines (streak, today's coin bonus), the Daily's PLAYED or
+## READY tag and an open Daily Crypt screen are worked out again for the new day; before,
+## they said "played" and offered no START until the screen was opened again.
+var _shown_day := ""
+
+
+func _check_new_day() -> void:
+	var day := Curses.today()
+	if day == _shown_day or hud == null:
+		return
+	var first := _shown_day == ""
+	_shown_day = day
+	if first or state != State.TITLE:
+		return
+	print("[run] a new Daily day: %s" % day)
+	if hud.title_visible():
+		hud.show_title(true, _best_text(), coins)
+	if hud.modes_visible():
+		hud.show_modes(true)
+	if hud.daily_visible():
+		_show_daily()
 
 
 func _notification(what: int) -> void:
@@ -506,6 +532,7 @@ func _notification(what: int) -> void:
 			Telemetry.instance.session_open(true)
 		if Store.instance:
 			Store.instance.recheck()
+		_check_new_day()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
 		if Telemetry.instance:
 			Telemetry.instance.session_open(false)
@@ -1189,13 +1216,8 @@ func _apply_armory() -> void:
 	vault = Armory.vault_owned(cfg)
 	Armory.apply_to_hero(cfg, hero)
 	heart_bonus = Armory.heart_bonus(cfg)
-	if Armory.level(cfg, "blessed") > 0:
-		var pick := Upgrades.roll(_taken, 1, false, "", false, Curses.daily_rng(499, _daily_date) if daily else null)
-		if not pick.is_empty():
-			var u: Dictionary = pick[0]
-			_taken[u.id] = 1
-			Upgrades.apply(u.id, hero)
-			_start_blessing = u
+	# The Daily Crypt's own gifts come first, so the Armory's Blessed Start below can't roll a
+	# blessing the day already gives (Marrow twice on a Marrow Monday was one wasted).
 	if daily:
 		var gifts := []
 		if curses.has("blessed"):
@@ -1205,6 +1227,15 @@ func _apply_armory() -> void:
 		for id in gifts:
 			_taken[id] = _taken.get(id, 0) + 1
 			Upgrades.apply(id, hero)
+	if Armory.level(cfg, "blessed") > 0:
+		# (Two rolled, so a synergy the day's gifts complete can't be the start blessing.)
+		var pick := Upgrades.roll(_taken, 2, false, "", false, Curses.daily_rng(499, _daily_date) if daily else null) \
+				.filter(func(x: Dictionary): return x.rarity != "synergy")
+		if not pick.is_empty():
+			var u: Dictionary = pick[0]
+			_taken[u.id] = _taken.get(u.id, 0) + 1
+			Upgrades.apply(u.id, hero)
+			_start_blessing = u
 	if curses.has("brittle"):
 		hero.max_health = roundf(hero.max_health * 0.5)
 		hero.health = minf(hero.health, hero.max_health)

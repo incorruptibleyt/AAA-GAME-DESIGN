@@ -11,7 +11,7 @@ const LIST := [
 		"health": 100.0, "move_speed": 5.2, "damage": 12.0, "rate": 1.8, "bolt_speed": 17.0, "bolt_size": 0.22,
 		"bolt_color": Color(0.55, 0.85, 1.0),
 		"special": "Shadow Volley", "special_text": "Three rings of bolts in every direction."},
-	{"id": "knight", "title": "Knight", "text": "Tough and armoured. Slow sword waves cut through enemies.", "cost": 100,
+	{"id": "knight", "title": "Knight", "text": "Tough and armored. Slow sword waves cut through enemies.", "cost": 100,
 		"key": "Knight", "hide": ["1H_Sword_Offhand", "Badge_Shield", "Rectangle_Shield", "Spike_Shield", "2H_Sword"],
 		"attack_anim": "1H_Melee_Attack_Slice_Horizontal", "body": Color(0.6, 0.62, 0.7), "helmet": true, "ring": Color(1.0, 0.85, 0.35),
 		"health": 150.0, "move_speed": 4.7, "damage": 22.0, "rate": 1.0, "bolt_speed": 13.0, "bolt_size": 0.4,

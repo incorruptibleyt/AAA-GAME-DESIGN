@@ -283,7 +283,14 @@ static func daily_blessing(date := "") -> Dictionary:
 	var hero := daily_hero(date)
 	var pool := Upgrades.LIST.filter(func(u: Dictionary): return not u.has("needs") and u.id != "vitality" \
 			and u.get("hero", hero) == hero and not u.has("vault"))
-	return pool[daily_rng(2, date).randi() % pool.size()]
+	var rng := daily_rng(2, date)
+	var pick: Dictionary = pool[rng.randi() % pool.size()]
+	var perk: String = theme(date).get("perk", "")
+	if pick.id == perk and pick.max <= 1:
+		# Not the blessing the day already gives (Marrow on a Marrow Monday): the next one.
+		pool.erase(pick)
+		pick = pool[rng.randi() % pool.size()]
+	return pick
 
 
 ## The best Official score on `date`.

@@ -108,7 +108,7 @@ static func apply(id: String, h: Hero) -> void:
 		"rear": h.rear_bolts += 1
 		"pierce": h.pierce += 1
 		"crit": h.crit_chance += 0.15
-		"fire": h.burn_dps += 8.0
+		"fire": h.burn_dps += 8.0 * (2.0 if h.perks.has("kindling") else 1.0)   # Kindling doubles a later Fire Shots too
 		"kindling": h.burn_dps *= 2.0
 		"vitality":
 			h.max_health += 30.0

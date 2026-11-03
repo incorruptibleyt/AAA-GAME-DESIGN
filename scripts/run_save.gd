@@ -29,7 +29,13 @@ static func write(data: Dictionary) -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("run", "version", VERSION)
 	cfg.set_value("run", "data", data)
-	cfg.save(PATH)
+	# Written beside it and then swapped in (like save.cfg), so a crash or a flat battery
+	# mid-write can't leave half a file, which would lose the run and any coins held for it.
+	var tmp := PATH + ".tmp"
+	if cfg.save(tmp) != OK:
+		push_error("couldn't write " + tmp)
+		return
+	DirAccess.rename_absolute(tmp, PATH)
 
 
 static func clear() -> void:
