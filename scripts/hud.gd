@@ -143,6 +143,10 @@ var _shake_level := 2
 var _vibration_button: Button
 var _vibration_on := true
 var _reports_button: Button
+var _fb_box: Control
+var _fb_text: TextEdit
+var _fb_note: Label
+var _fb_send: Button
 var _reports_on := false
 var _hud_before_end := false
 var _stick_start := Vector2.ZERO
@@ -234,6 +238,7 @@ func _ready() -> void:
 	_build_title()
 	_build_end()
 	_build_pause()
+	_build_feedback()
 	_build_modes()
 	_build_armory()
 	_build_heroes()
@@ -1241,7 +1246,17 @@ func _build_pause() -> void:
 	_reports_button = button("Send reports: Off", 22)
 	_reports_button.pressed.connect(func(): reports_toggled.emit(not _reports_on))
 	col.add_child(_centered(_reports_button))
-	col.add_child(_centered(privacy_button()))
+	# Two small buttons side by side, so the menu still fits a 16:9 phone.
+	var small := HBoxContainer.new()
+	small.alignment = BoxContainer.ALIGNMENT_CENTER
+	small.add_theme_constant_override("separation", 12)
+	small.add_child(privacy_button())
+	var fb := button("Send feedback", 18, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
+	fb.add_theme_color_override("font_color", Color(1, 0.88, 0.62))
+	fb.custom_minimum_size = Vector2(200, 58)
+	fb.pressed.connect(show_feedback.bind(true))
+	small.add_child(fb)
+	col.add_child(small)
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
@@ -1249,6 +1264,103 @@ func _build_pause() -> void:
 	# policy asks for to delete someone's reports (shown even with reports off).
 	_pause_build = label("Build " + Game.BUILD, 16, Color(0.6, 0.57, 0.65))
 	col.add_child(_pause_build)
+
+
+## SEND FEEDBACK (pause menu and settings): testers type a note that goes to the
+## developer's reports sheet with the build, phone and where they are in the game.
+## It sits near the top so the phone's keyboard doesn't cover the box.
+const FEEDBACK_MAX := 1500
+
+
+func _build_feedback() -> void:
+	_fb_box = overlay(Color(0.03, 0.02, 0.05, 0.96))
+	_fb_box.visible = false
+	add_child(_fb_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	col.offset_left = 24
+	col.offset_right = -24
+	col.offset_top = 56
+	col.add_theme_constant_override("separation", 12)
+	_fb_box.add_child(col)
+	col.add_child(label("Send feedback", 40, Color(1, 0.85, 0.55)))
+	col.add_child(label("What did you enjoy? What felt too hard, unfair or broken? Every note is read.", 19, Color(0.85, 0.83, 0.9)))
+	_fb_text = TextEdit.new()
+	_fb_text.custom_minimum_size = Vector2(0, 210)
+	_fb_text.placeholder_text = "Type your note here..."
+	_fb_text.wrap_mode = TextEdit.LINE_WRAPPING_BOUNDARY
+	_fb_text.add_theme_font_size_override("font_size", 22)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.08, 0.13)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(1, 0.8, 0.45, 0.5)
+	sb.set_corner_radius_all(10)
+	sb.set_content_margin_all(12)
+	_fb_text.add_theme_stylebox_override("normal", sb)
+	_fb_text.add_theme_stylebox_override("focus", sb)
+	_fb_text.text_changed.connect(_on_feedback_changed)
+	col.add_child(_fb_text)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	var cancel := button("CANCEL", 24)
+	cancel.custom_minimum_size = Vector2(190, 72)
+	cancel.pressed.connect(show_feedback.bind(false))
+	row.add_child(cancel)
+	_fb_send = button("SEND", 26, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
+	_fb_send.custom_minimum_size = Vector2(190, 72)
+	_fb_send.pressed.connect(_on_feedback_send)
+	row.add_child(_fb_send)
+	col.add_child(row)
+	_fb_note = label("", 16, Color(0.65, 0.62, 0.7))
+	col.add_child(_fb_note)
+
+
+const FEEDBACK_NOTE := "Sent with the build, your phone model and where you are in the game, even with reports off. No name or account, so please leave out personal details."
+
+
+func show_feedback(on: bool) -> void:
+	_fb_box.visible = on
+	if on:
+		_fb_note.text = FEEDBACK_NOTE
+		_fb_note.label_settings.font_color = Color(0.65, 0.62, 0.7)
+		_on_feedback_changed()
+		_fb_text.grab_focus()
+	else:
+		_fb_text.release_focus()
+		DisplayServer.virtual_keyboard_hide()
+
+
+func feedback_visible() -> bool:
+	return _fb_box.visible
+
+
+func _on_feedback_changed() -> void:
+	if _fb_text.text.length() > FEEDBACK_MAX:
+		_fb_text.text = _fb_text.text.left(FEEDBACK_MAX)
+		_fb_text.set_caret_column(_fb_text.get_line(_fb_text.get_line_count() - 1).length())
+		_fb_text.set_caret_line(_fb_text.get_line_count() - 1)
+	_fb_send.disabled = _fb_text.text.strip_edges().length() < 3
+
+
+func _on_feedback_send() -> void:
+	var note := _fb_text.text.strip_edges()
+	if note.length() < 3:
+		return
+	if Telemetry.instance == null or not Telemetry.instance.send_feedback(note):
+		_fb_note.text = "Feedback can only be sent from the Google Play version of the game."
+		_fb_note.label_settings.font_color = Color(1, 0.6, 0.5)
+		return
+	_fb_text.text = ""
+	_fb_send.disabled = true
+	_fb_text.release_focus()
+	DisplayServer.virtual_keyboard_hide()
+	_fb_note.text = "Thanks! Your note is on its way (it waits on your phone if you're offline)."
+	_fb_note.label_settings.font_color = Color(0.6, 1, 0.65)
+	get_tree().create_timer(1.8, true, false, true).timeout.connect(func():
+		if _fb_text.text == "":
+			show_feedback(false))
 
 
 func _on_resume_pressed() -> void:
@@ -1635,7 +1747,8 @@ func _apply_safe_area() -> void:
 
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
-		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible
+		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
+		or _fb_box.visible
 
 
 func _input(event: InputEvent) -> void:

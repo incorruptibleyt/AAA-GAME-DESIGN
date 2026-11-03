@@ -5,7 +5,8 @@ extends Node
 ## Form, whose answers land in a Google Sheet. No account, ad ID or personal data:
 ## just a random install number made on the phone, the build, the phone model and
 ## the run report. It's off until the player says yes (they're asked once, after a run),
-## and can be switched either way in the pause menu ("Send reports").
+## and can be switched either way in the pause menu ("Send reports"). SEND FEEDBACK in the
+## pause menu posts a typed note the same way, even with reports off.
 ##
 ## To point it at a different form, change FORM_ID and ENTRY (from the form's
 ## "Get pre-filled link"). Leaving FORM_ID empty switches reports off completely.
@@ -75,6 +76,20 @@ func enabled() -> bool:
 func send(kind: String, body: String) -> void:
 	if not enabled():
 		return
+	_post(kind, body)
+
+
+## A note the player typed in SEND FEEDBACK. Sent even with reports off, because pressing
+## SEND is asking for it to go; it carries the same anonymous header as a report.
+## False where nothing can be sent (the robot, the editor, or no form set up).
+func send_feedback(note: String) -> bool:
+	if not active():
+		return false
+	_post("feedback", note + "\nWhere: " + Game.where_text())
+	return true
+
+
+func _post(kind: String, body: String) -> void:
 	var cfg := Game._load_save()
 	var head := "%s | build %s | install %s | %s | Android %s | %s | RAM %s" % [kind, Game.BUILD, install_id(cfg),
 		OS.get_model_name(), OS.get_version(), RenderingServer.get_video_adapter_name(), Game.ram_text()]
@@ -163,7 +178,9 @@ static func install_id(cfg: ConfigFile) -> String:
 
 
 func _flush() -> void:
-	if _busy or _queue.is_empty() or not enabled():
+	# With reports off only typed feedback can be waiting here (switching reports off
+	# clears the rest), and the player asked for that to go.
+	if _busy or _queue.is_empty() or not active():
 		return
 	_busy = true
 	var url := "https://docs.google.com/forms/d/e/%s/formResponse" % FORM_ID
@@ -187,9 +204,9 @@ func _load_queue() -> void:
 	_flush()
 
 
-## Reports were switched off: drop any still waiting to be sent.
+## Reports were switched off: drop any still waiting to be sent (typed feedback stays).
 func clear_queue() -> void:
-	_queue.clear()
+	_queue = _queue.filter(func(q): return str(q).begins_with("feedback |"))
 	_save_queue()
 
 

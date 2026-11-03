@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-02d"
+const BUILD := "2026-11-03a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -515,6 +515,9 @@ func _notification(what: int) -> void:
 				Telemetry.instance.session_open(false)
 			get_tree().quit()   # an old version can't be played, so back leaves
 			return
+		if hud.feedback_visible():
+			hud.show_feedback(false)
+			return
 		if hud.reports_ask_visible():
 			hud.show_reports_ask(false)
 			_set_reports(false)   # backing out of the question is a no
@@ -557,7 +560,7 @@ func _notification(what: int) -> void:
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
 ## menu, the reports question and the Crypt Pass screen.
-const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/a0cedc5043c08b6f3456bf7b1a35197d514e892f/PRIVACY.md"
+const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/c18f8d0cecd4889723f0cc5d8c67b3f4e9c658e9/PRIVACY.md"
 
 
 ## The game's Google Play page, for the share text.
