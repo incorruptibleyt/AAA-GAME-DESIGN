@@ -16,6 +16,7 @@ signal play_pressed
 signal armory_pressed
 signal armory_buy(id: String)
 signal heroes_pressed
+signal records_pressed
 signal hero_pick(id: String)
 signal copy_report_pressed
 signal resume_pressed
@@ -175,6 +176,10 @@ var _title_pass_row: Control
 var _title_modes_row: Control
 var _title_modes_badge: Label
 var _modes_box: Control
+var _records_box: Control
+var _records_grid: GridContainer
+var _records_note: Label
+var _title_records: Control
 var _mode_daily_text: Label
 var _mode_daily_tag: Label
 var _mode_curses_tag: Label
@@ -240,6 +245,7 @@ func _ready() -> void:
 	_build_pause()
 	_build_feedback()
 	_build_modes()
+	_build_records()
 	_build_armory()
 	_build_heroes()
 	_build_daily()
@@ -849,6 +855,12 @@ func _build_title() -> void:
 	settings.position = Vector2(20, 20)
 	settings.pressed.connect(func(): show_settings(true))
 	holder.add_child(settings)
+	var records := button("RECORDS", 18)
+	records.custom_minimum_size = Vector2(150, 66)
+	records.position = Vector2(184, 20)
+	records.pressed.connect(func(): records_pressed.emit())
+	holder.add_child(records)
+	_title_records = records
 	var top := VBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -1045,6 +1057,70 @@ func show_modes(v: bool) -> void:
 	_mode_daily_tag.text = "PLAYED" if Curses.official_used(cfg) else "READY"
 	var level := Curses.level_of(Curses.chosen(cfg, owned))
 	_mode_curses_tag.text = "LEVEL %d" % level if level > 0 else "OFF"
+
+
+## RECORDS on the title: lifetime bests and totals (rows of [name, value] from game.gd).
+func _build_records() -> void:
+	_records_box = overlay(Color(0.03, 0.02, 0.05, 0.95))
+	add_child(_records_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 28
+	col.offset_right = -28
+	col.offset_top = 24
+	col.offset_bottom = -24
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 16)
+	_records_box.add_child(col)
+	col.add_child(label("RECORDS", 46, Color(1, 0.85, 0.55)))
+	col.add_child(label("Everything you've done in the crypt.", 18, Color(0.8, 0.8, 0.85)))
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.08, 0.13, 0.95)
+	sb.border_color = Color(GOLD, 0.45)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 22
+	sb.content_margin_right = 22
+	sb.content_margin_top = 16
+	sb.content_margin_bottom = 16
+	panel.add_theme_stylebox_override("panel", sb)
+	col.add_child(panel)
+	_records_grid = GridContainer.new()
+	_records_grid.columns = 2
+	_records_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_records_grid.add_theme_constant_override("h_separation", 12)
+	_records_grid.add_theme_constant_override("v_separation", 10)
+	panel.add_child(_records_grid)
+	_records_note = label("", 15, Color(0.65, 0.63, 0.7))
+	col.add_child(_records_note)
+	var back := button("BACK", 26)
+	back.pressed.connect(func(): show_records(false))
+	col.add_child(_centered(back))
+
+
+func show_records(v: bool, rows := [], note := "") -> void:
+	_records_box.visible = v   # (_process hides the title's buttons behind it)
+	if not v:
+		return
+	for c in _records_grid.get_children():
+		c.free()
+	for r: Array in rows:
+		var what := label(str(r[0]), 21, Color(0.85, 0.85, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
+		what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		what.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_records_grid.add_child(what)
+		var value := label(str(r[1]), 22, GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+		value.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_records_grid.add_child(value)
+	_records_note.text = note
+	_records_note.visible = note != ""
+
+
+func records_visible() -> bool:
+	return _records_box.visible
 
 
 func modes_visible() -> bool:
@@ -1748,7 +1824,7 @@ func _apply_safe_area() -> void:
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
-		or _fb_box.visible
+		or _fb_box.visible or _records_box.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -1833,7 +1909,7 @@ func _process(delta: float) -> void:
 	# The title's words and buttons would show faintly through the screens opened over it.
 	if _title_box.visible:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
-			or _pass_box.visible or _heroes_box.visible)
+			or _pass_box.visible or _heroes_box.visible or _records_box.visible)
 	_stick_age += delta
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
@@ -2105,10 +2181,12 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_shop_row.visible = not locked
 	_title_pass_row.visible = not locked and not has_pass
 	_title_modes_row.visible = not locked
+	_title_records.visible = not locked
 	_title_modes_badge.visible = not Curses.official_used(Game._load_save())
 	_title_lock.visible = locked
 	if not v:
 		show_modes(false)
+		show_records(false)
 	_title_free.visible = not has_pass and not locked   # not before the tutorial run is done
 	_title_best.text = best
 	_title_coins.text = str(coins)

@@ -74,8 +74,14 @@ static func get_model(key: String) -> PackedScene:
 ## KayKit gives every model file its own copy of its pack's colour texture: the 14 dungeon
 ## props all carry the same 1024 px picture, and so do the 5 skeleton files. Each copy took
 ## about 5 MB of graphics memory (over 90 MB in all), enough to run cheap phones out of
-## memory. Point every material at the first copy, so the others are freed.
-const SHARED_TEXTURES := ["dungeon_texture.png", "skeleton_texture.png"]
+## memory. Point every material at one copy, so the others are freed.
+## The copy named here is the one imported "VRAM compressed" (ETC2 on phones): about 0.7 MB
+## of graphics memory instead of 5.6, with colours within 8/255 of the original. Only these
+## (and the 4 hero textures) are compressed, so the download doesn't carry 23 big copies.
+const SHARED_TEXTURES := {
+	"dungeon_texture.png": "res://art/kaykit/dungeon/wall_dungeon_texture.png",
+	"skeleton_texture.png": "res://art/kaykit/weapons/skeleton_texture.png",
+}
 static var _shared := {}
 
 
@@ -106,8 +112,13 @@ static func _share_material(m: Material) -> void:
 		if file.ends_with(k):
 			var first: Texture2D = _shared.get(k)
 			if first == null:
-				_shared[k] = tex
-			elif first != tex and first.get_size() == tex.get_size():
+				var path: String = SHARED_TEXTURES[k]
+				if ResourceLoader.exists(path):
+					first = load(path) as Texture2D
+				if first == null or first.get_size() != tex.get_size():
+					first = tex   # the named copy is missing: share the first one met instead
+				_shared[k] = first
+			if first != tex and first.get_size() == tex.get_size():
 				bm.albedo_texture = first
 			return
 

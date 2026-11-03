@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-03a"
+const BUILD := "2026-11-03b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -285,6 +285,7 @@ func _ready() -> void:
 	hud.armory_pressed.connect(_open_armory)
 	hud.armory_buy.connect(_buy_upgrade)
 	hud.heroes_pressed.connect(_open_heroes)
+	hud.records_pressed.connect(_open_records)
 	hud.copy_report_pressed.connect(func():
 		DisplayServer.clipboard_set(_last_report)
 		Sfx.play("click"))
@@ -450,6 +451,7 @@ func _process(delta: float) -> void:
 			_pause_wanted = false
 	if state == State.PLAYING:
 		_run_time += delta
+		record_add("time", delta)
 		if curses.has("hourglass") and not _hourglass_out and alive_enemies > 0:
 			_hourglass_left -= delta
 			if _hourglass_left <= 0.0:
@@ -539,6 +541,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.modes_visible():
 			hud.show_modes(false)
+			return
+		if hud.records_visible():
+			hud.show_records(false)
 			return
 		if hud.settings_visible():
 			hud.show_settings(false)
@@ -991,6 +996,7 @@ func _start_run() -> void:
 	hud.show_daily(false)
 	hud.show_hud(true)
 	_reset_run_stats()
+	record_add("runs", 1)
 	_pick_curses()
 	if daily:
 		_build_run()   # the day's rooms
@@ -1208,6 +1214,7 @@ func _restart() -> void:
 		hero.queue_free()
 		hero = null
 	_reset_run_stats()
+	record_add("runs", 1)
 	if daily and _daily_date != Curses.today():
 		# A new day started while on the end screen: retry on today's Daily Crypt.
 		daily = Curses.can_play(Store.owned(), _load_save())
@@ -1707,6 +1714,7 @@ func _kill_points(e: Enemy) -> float:
 func on_enemy_died(e: Enemy) -> void:
 	alive_enemies = maxi(0, alive_enemies - 1)
 	_kills += 1
+	record_add("kills", 1)
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
@@ -1715,6 +1723,7 @@ func on_enemy_died(e: Enemy) -> void:
 		_combo = 0
 		chain = 1.0
 	_combo += 1
+	record_max("best_combo", _combo)
 	_combo_left = chain_time()
 	var before := chain
 	# Grave Pact: only kills right after a dash grow the chain (others still keep it alive).
@@ -2108,18 +2117,102 @@ static func write_save(cfg: ConfigFile) -> void:
 	if cfg.has_section("saved"):
 		cfg.erase_section("saved")
 	cfg.set_value("saved", "complete", true)
+	_merge_records(cfg)
 	var tmp := SAVE_PATH + ".tmp"
 	if cfg.save(tmp) != OK:
 		push_error("couldn't write " + tmp)
 		return
+	_rec_add.clear()
+	_rec_max.clear()
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.rename_absolute(SAVE_PATH, SAVE_BACKUP)
 	DirAccess.rename_absolute(tmp, SAVE_PATH)
 
 
+# ---------------------------------------------------------------- records
+
+## Lifetime records for the RECORDS screen (runs, skeletons, time played, best combo...).
+## They're counted as they happen and added to the save with its next write, so a busy
+## room never writes the save on every kill.
+const RECORDS := "records"
+static var _rec_add := {}
+static var _rec_max := {}
+
+
+static func record_add(key: String, n: float) -> void:
+	_rec_add[key] = float(_rec_add.get(key, 0.0)) + n
+
+
+static func record_max(key: String, v: int) -> void:
+	if v > int(_rec_max.get(key, 0)):
+		_rec_max[key] = v
+
+
+## A record as saved plus what's counted since the last write.
+static func record(cfg: ConfigFile, key: String) -> float:
+	return float(cfg.get_value(RECORDS, key, 0.0)) + float(_rec_add.get(key, 0.0))
+
+
+static func record_best(cfg: ConfigFile, key: String) -> int:
+	return maxi(int(cfg.get_value(RECORDS, key, 0)), int(_rec_max.get(key, 0)))
+
+
+static func _merge_records(cfg: ConfigFile) -> void:
+	if not cfg.has_section_key(RECORDS, "since"):
+		# Saves from before version 79 played without counting: the screen says from when.
+		var played := int(cfg.get_value("stats", "best_room", 0)) > 0 or int(cfg.get_value("stats", "wins", 0)) > 0
+		cfg.set_value(RECORDS, "since", Time.get_date_string_from_system() if played else "")
+	for k: String in _rec_add:
+		cfg.set_value(RECORDS, k, float(cfg.get_value(RECORDS, k, 0.0)) + float(_rec_add[k]))
+	for k: String in _rec_max:
+		cfg.set_value(RECORDS, k, maxi(int(cfg.get_value(RECORDS, k, 0)), int(_rec_max[k])))
+
+
+func _open_records() -> void:
+	if state != State.TITLE:
+		return
+	Sfx.play("click")
+	var cfg := _load_save()
+	var perfect := _perfect_total if _perfect_total >= 0 else int(cfg.get_value("stats", "perfect_total", 0))
+	var dailies := 0
+	if cfg.has_section("daily"):
+		for k: String in cfg.get_section_keys("daily"):
+			if k.ends_with("_official"):
+				dailies += 1
+	var rows := [
+		["Best score", Hud.thousands(int(cfg.get_value("stats", "best_score", 0)))],
+		["Deepest floor", str(int(cfg.get_value("stats", "best_floor", 1)))],
+		["Bosses defeated", Hud.thousands(int(cfg.get_value("stats", "wins", 0)))],
+		["Runs played", Hud.thousands(roundi(record(cfg, "runs")))],
+		["Skeletons destroyed", Hud.thousands(roundi(record(cfg, "kills")))],
+		["Time in the crypt", _long_time(record(cfg, "time"))],
+		["Best combo", "x%d" % record_best(cfg, "best_combo")],
+		["Perfect dodges", Hud.thousands(perfect)],
+		["Coins found", Hud.thousands(roundi(record(cfg, "coins")))],
+		["Daily Crypts played", str(dailies)],
+		["Daily Crypt streak", "%d day%s" % [Curses.streak(cfg), "" if Curses.streak(cfg) == 1 else "s"]],
+	]
+	var since := str(cfg.get_value(RECORDS, "since", ""))
+	var note := ""
+	if since.length() == 10:
+		const MONTHS := ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+		var m := clampi(since.substr(5, 2).to_int(), 1, 12)
+		note = "Runs, skeletons, time, combo and coins\nare counted from %s %d, %s." % [MONTHS[m - 1], since.substr(8, 2).to_int(), since.substr(0, 4)]
+	hud.show_records(true, rows, note)
+
+
+## "2h 05m" or "12m 30s".
+static func _long_time(seconds: float) -> String:
+	var s := int(seconds)
+	if s >= 3600:
+		return "%dh %02dm" % [s / 3600, (s % 3600) / 60]
+	return "%dm %02ds" % [s / 60, s % 60]
+
+
 func add_coins(n: int) -> void:
 	coins += n
 	run_coins += n
+	record_add("coins", n)
 	hud.set_coins(coins)
 
 
@@ -2205,7 +2298,7 @@ func _ask_reports_on_title() -> void:
 		return
 	await get_tree().create_timer(0.6, true, false, true).timeout
 	if state == State.TITLE and hud.title_visible() and not hud.armory_visible() and not hud.pass_visible() \
-			and not hud.heroes_visible() and not hud.daily_visible() and not hud.modes_visible() \
+			and not hud.heroes_visible() and not hud.daily_visible() and not hud.modes_visible() and not hud.records_visible() \
 			and not _load_save().has_section_key("settings", "reports"):
 		hud.show_reports_ask(true)
 

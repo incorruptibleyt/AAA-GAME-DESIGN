@@ -108,8 +108,11 @@ func show_hero(def: Dictionary) -> void:
 
 ## Only draws while the Heroes screen is open. Closed, its picture shrinks to 1 pixel, so the
 ## big smoothed (4x) picture doesn't hold graphics memory the rest of the time.
+## On Low graphics it's drawn at 1.5x with 2x smoothing: about a quarter of the memory.
 func set_active(on: bool) -> void:
-	_vp.size = _full_size if on else Vector2i.ONE
+	var low := not Game._high_graphics
+	_vp.msaa_3d = Viewport.MSAA_2X if low else Viewport.MSAA_4X
+	_vp.size = (Vector2i(_full_size * 0.75) if low else _full_size) if on else Vector2i.ONE
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
 	set_process(on)
 
