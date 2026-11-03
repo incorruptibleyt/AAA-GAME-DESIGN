@@ -9,9 +9,10 @@ extends SceneTree
 ## For the Bone King icon: jaw=<degrees> opens the jaw, nosword drops the blade, lights=king
 ## lights it from behind in purple, and only=chain renders just the chain (icon_compose.py
 ## uses that picture to make the chain glow).
-## The app icon since version 84 (the roaring Bone King) is these two renders:
+## The app icon since version 85 (the roaring Bone King) is these two renders:
 ##   ... -- look=king lights=king nosword cam=0.2,1.2,6 tgt=-0.06,1.68,0 fov=19 crowny=0.84
-##          crowns=0.82 yaw=-4 anim=Idle_Combat@0.3 chainy=0.62 jaw=38 headtilt=18 out=king.png
+##          crowns=0.82 yaw=-4 anim=Idle_Combat@0.3 jaw=38 headtilt=18 chainy=0.84 tilt=0.38
+##          chainscale=1.3 out=king.png
 ##   (the same with only=chain, out=king_chain.png)
 ## then: python3 tools/store/icon_compose.py king.png royal <dir> chain=king_chain.png sparks
 ## and copy icon-512.png to icon.png and store/, the other layers to art/launcher/.
@@ -37,6 +38,7 @@ var _only := ""
 var _yaw := -12.0
 var _chain_glow := 0.35
 var _head_tilt := 0.0
+var _chain_scale := 1.0
 
 
 func _initialize() -> void:
@@ -77,6 +79,8 @@ func _initialize() -> void:
 			_only = a.substr(5)
 		elif a.begins_with("yaw="):
 			_yaw = float(a.substr(4))
+		elif a.begins_with("chainscale="):
+			_chain_scale = float(a.substr(11))
 		elif a.begins_with("headtilt="):
 			_head_tilt = float(a.substr(9))
 		elif a.begins_with("glow="):
@@ -127,8 +131,8 @@ func _initialize() -> void:
 	if _lights == "king":
 		# Warm gold from the front, purple and pink rims from behind so the skull's edge glows
 		# against the purple background.
-		_light(world, Vector3(-1.2, 2.8, 3.0), Color(1.0, 0.93, 0.82), 1.9)
-		_light(world, Vector3(1.6, 1.2, 2.2), Color(1.0, 0.6, 0.3), 1.0)
+		_light(world, Vector3(-1.2, 2.8, 3.0), Color(1.0, 0.96, 0.9), 2.2)
+		_light(world, Vector3(1.6, 1.2, 2.2), Color(0.95, 0.92, 1.0), 0.9)
 		_light(world, Vector3(2.2, 2.6, -1.4), Color(1.0, 0.45, 0.9), 4.0)
 		_light(world, Vector3(-2.2, 2.6, -1.4), Color(0.55, 0.45, 1.0), 4.0)
 		_light(world, Vector3(0.0, 4.0, -0.5), Color(1.0, 0.85, 0.6), 1.5)
@@ -152,15 +156,15 @@ func _initialize() -> void:
 ## A thick chain sweeping across the chest, in front of the body and back round behind it.
 func _wrap_chain(world: Node3D) -> void:
 	var mesh := TorusMesh.new()
-	mesh.inner_radius = 0.06
-	mesh.outer_radius = 0.13
+	mesh.inner_radius = 0.06 * _chain_scale
+	mesh.outer_radius = 0.13 * _chain_scale
 	mesh.rings = 24
 	mesh.ring_segments = 10
 	var metal := U.mat(LINK, 0.35, _chain_glow)
 	metal.metallic = 0.5
 	var pts: Array[Vector3] = []
 	# An ellipse round the body, tilted so it rises from the lower left to the upper right.
-	var n := 16
+	var n := int(round(16 / _chain_scale))
 	for i in n:
 		var t := TAU * i / n
 		var p := Vector3(cos(t) * 0.74, 0.0, sin(t) * 0.52)
