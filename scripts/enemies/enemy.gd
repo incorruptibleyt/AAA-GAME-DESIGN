@@ -35,6 +35,8 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"s": e = BoneSpider.new()
 		"f": e = FrostWraith.new()
 		"e": e = CinderSkeleton.new()
+		"d": e = DrownedSkeleton.new()
+		"T": e = Tidecaller.new()
 		_: e = SkeletonMinion.new()
 	e.team = Team.UNDEAD
 	parent.add_child(e)

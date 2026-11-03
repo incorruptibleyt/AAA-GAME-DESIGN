@@ -2,7 +2,8 @@ class_name Props
 ## Each floor has its own things in the corners and on the walls, so floors differ in shape
 ## and not just in colour: skull piles and candles in the Bone Crypt, icicles and ice
 ## crystals in the Frozen Ossuary, braziers and lava grates in the Ember Catacomb (on the
-## walls, so they never look like fire on the floor). The pieces are simple shapes baked
+## walls, so they never look like fire on the floor), broken columns grown over with kelp
+## and drains pouring water in the Drowned Vault. The pieces are simple shapes baked
 ## into one mesh per material and add no lights, so they stay cheap on phones. A corner
 ## piece only goes where the room's layout leaves that corner empty.
 
@@ -37,6 +38,8 @@ static func dress(room: Room, layout: Array) -> void:
 				_mesh(n, _brazier())
 				Fx.flame(n, Vector2(0.7, 0.95), Vector3(0, 0.8, 0))
 				Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.15, 0.8, 0.1))
+			"water":
+				_mesh(n, _kelp_column())
 		room._add_obstacle(p, 0.55)
 	for side in [-1.0, 1.0]:
 		for z in WALL_Z:
@@ -52,6 +55,10 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_mesh(n, _grate())
+				"water":
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_add_spout(n)
 	# Two more on the far wall, either side of the door.
 	for x in [-3.6, 3.6]:
 		match kind:
@@ -63,6 +70,10 @@ static func dress(room: Room, layout: Array) -> void:
 				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
 				_mesh(n, _grate())
+			"water":
+				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_add_spout(n)
 
 
 static func _place(room: Room, p: Vector3, turn := true) -> Node3D:
@@ -244,3 +255,98 @@ static func _grate() -> ArrayMesh:
 		parts.append([_cube(), _xf(Vector3(0.05, 0.9, z), Vector3(0.1, 1.1, 0.1)), iron])
 	_baked["grate"] = _bake(parts)
 	return _baked["grate"]
+
+
+## A broken column in the corner, slick and green, with kelp growing up around it.
+static func _kelp_column() -> ArrayMesh:
+	if _baked.has("kelp_column"):
+		return _baked["kelp_column"]
+	var stone := U.mat(Color(0.36, 0.46, 0.44), 0.35)
+	var moss := U.mat(Color(0.14, 0.32, 0.18), 0.8)
+	var kelp := U.mat(Color(0.2, 0.52, 0.26), 0.55, 0.3)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	var parts := []
+	parts.append([_cone(0.36, 0.42, 0.9, 10), _xf(Vector3(0, 0.45, 0), Vector3.ONE), stone])
+	parts.append([_cone(0.44, 0.48, 0.14, 10), _xf(Vector3(0, 0.07, 0), Vector3.ONE), stone])
+	# The broken-off top, lying against the stump.
+	parts.append([_cone(0.3, 0.33, 0.55, 10), _xf(Vector3(0.45, 0.28, 0.2), Vector3.ONE, Basis(Vector3.FORWARD, 1.35)), stone])
+	parts.append([_sphere(), _xf(Vector3(0, 0.88, 0), Vector3(0.37, 0.07, 0.37)), moss])
+	for i in 7:
+		var a := i / 7.0 * TAU + rng.randf() * 0.6
+		var h := rng.randf_range(0.8, 1.7)
+		var b := Basis(Vector3.UP, a) * Basis(Vector3.RIGHT, rng.randf_range(0.1, 0.35))
+		var at := Vector3(cos(a), 0, sin(a)) * rng.randf_range(0.42, 0.62)
+		parts.append([_cone(0.0, 0.06, h, 5), Transform3D(b * Basis.from_scale(Vector3(1.0, 1.0, 0.4)), at + b * Vector3(0, h * 0.5, 0)), kelp])
+	_baked["kelp_column"] = _bake(parts)
+	return _baked["kelp_column"]
+
+
+## A stone drain in the wall pouring a thin fall of water into a splash; +X points out of
+## the wall. The falling water is drawn by a little shader, so it runs.
+static func _add_spout(n: Node3D) -> void:
+	_mesh(n, _spout())
+	var splash := U.floor_quad(n, Vector2(1.3, 1.3), _splash_mat(), Vector3(0.4, 0.03, 0))
+	splash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var foam := U.floor_quad(n, Vector2(0.9, 0.9), _foam_mat(), Vector3(0.4, 0.04, 0))
+	foam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+static func _spout() -> ArrayMesh:
+	if _baked.has("spout"):
+		return _baked["spout"]
+	var stone := U.mat(Color(0.34, 0.44, 0.43), 0.5)
+	var dark := U.mat(Color(0.02, 0.04, 0.05), 1.0)
+	var parts := []
+	parts.append([_cube(), _xf(Vector3(0.05, 1.75, 0), Vector3(0.1, 0.7, 0.7)), stone])
+	parts.append([_cube(), _xf(Vector3(0.22, 1.62, 0), Vector3(0.36, 0.12, 0.3)), stone])
+	parts.append([_cube(), _xf(Vector3(0.11, 1.8, 0), Vector3(0.04, 0.3, 0.36)), dark])
+	parts.append([_cube(), _xf(Vector3(0.38, 0.8, 0), Vector3(0.22, 1.6, 0.34)), _falling_water()])
+	_baked["spout"] = _bake(parts)
+	return _baked["spout"]
+
+
+static func _falling_water() -> ShaderMaterial:
+	if _baked.has("fall_mat"):
+		return _baked["fall_mat"]
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.45, 0.95, 0.85, 1.0);
+varying vec3 p;
+void vertex() {
+	p = VERTEX;
+}
+float h(float x) {
+	return fract(sin(x * 127.1) * 43758.5453);
+}
+void fragment() {
+	// Streaks that run down at slightly different speeds, brighter where they land.
+	float lane = floor(p.z * 30.0 + p.x * 20.0);
+	float s = fract(p.y * 1.4 + TIME * (1.8 + h(lane)) + h(lane + 3.0));
+	float streak = smoothstep(0.0, 0.6, s) * (0.4 + 0.6 * h(lane + 7.0));
+	float foot = 1.0 - smoothstep(0.0, 0.5, p.y);
+	ALBEDO = col.rgb * (0.06 + 0.4 * streak + 0.45 * foot);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	_baked["fall_mat"] = m
+	return m
+
+
+static func _foam_mat() -> StandardMaterial3D:
+	if not _baked.has("foam_mat"):
+		var m := U.unlit(Color(0.7, 1.0, 0.95, 0.4), U.soft_circle()).duplicate()
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_baked["foam_mat"] = m
+	return _baked["foam_mat"]
+
+
+static func _splash_mat() -> StandardMaterial3D:
+	if not _baked.has("splash_mat"):
+		var m := U.unlit(Color(0.55, 1.0, 0.9, 0.35), U.ring()).duplicate()
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_baked["splash_mat"] = m
+	return _baked["splash_mat"]

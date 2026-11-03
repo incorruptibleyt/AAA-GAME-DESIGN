@@ -1,6 +1,7 @@
 extends SceneTree
 ## Renders the 3D parts of the store art (icon and banner) and the Crypt Pass screen's
 ## pictures (tile_floors, tile_heroes, tile_daily, tile_curses) with a transparent background.
+## tile_floors shows the Drowned Vault (the floor only the Pass opens) since version 81.
 ## Run under a display:  godot --rendering-driver opengl3 -s tools/store/render_art.gd -- shot=icon out=<file.png>
 
 const KNIGHT_HIDE := ["1H_Sword_Offhand", "Badge_Shield", "Rectangle_Shield", "Spike_Shield", "2H_Sword"]
@@ -70,16 +71,19 @@ func _tile(world: Node3D, cam: Camera3D) -> void:
 	cam.fov = 30.0
 	match _shot:
 		"tile_floors":
-			# A crowd of skeletons climbing out of the dark: the floors never end.
-			_skeleton(world, "Skeleton_Warrior", Vector3(0.0, 0.0, 0.4), -5.0, "Walking_D_Skeletons", 0.2, "Skeleton_Blade")
-			_skeleton(world, "Skeleton_Minion", Vector3(-1.9, 0.0, -0.4), 15.0, "Walking_D_Skeletons", 0.6, "Skeleton_Axe")
-			_skeleton(world, "Skeleton_Rogue", Vector3(1.9, 0.0, -0.3), -20.0, "Walking_D_Skeletons", 0.9, "Skeleton_Crossbow")
-			_skeleton(world, "Skeleton_Mage", Vector3(-0.9, 0.0, -2.4), 5.0, "Walking_D_Skeletons", 0.4, "Skeleton_Staff")
-			_skeleton(world, "Skeleton_Warrior", Vector3(1.1, 0.0, -2.8), -10.0, "Walking_D_Skeletons", 0.0, "Skeleton_Blade")
-			cam.look_at_from_position(Vector3(-0.4, 2.4, 7.0), Vector3(-0.4, 1.0, -0.6))
-			_light(world, Vector3(0.0, 1.0, 3.0), Color(1.0, 0.55, 0.2), 2.6)
-			_light(world, Vector3(-3.0, 3.0, -3.0), Color(0.55, 0.4, 1.0), 2.5)
-			_light(world, Vector3(3.0, 3.0, 2.0), Color(1.0, 0.9, 0.8), 0.8)
+			# The Drowned Vault, the Pass's own floor: the Tidecaller raising its staff between
+			# two Drowned Skeletons, all wet and weed-grown as in the game.
+			var boss := _skeleton(world, "Skeleton_Rogue", Vector3(0.0, 0.0, -1.8), 0.0, "Spellcast_Raise", 0.55, "Skeleton_Staff")
+			boss.scale = Vector3.ONE * 1.75
+			_wet(boss, 0.3)
+			for side: float in [-1.0, 1.0]:
+				var d := _skeleton(world, "Skeleton_Rogue", Vector3(side * 2.0, 0.0, 0.3), -side * 25.0, "Walking_D_Skeletons", 0.45 + side * 0.25, "Skeleton_Blade")
+				Art.hide_parts(d, ["Skeleton_Rogue_Hood", "Skeleton_Rogue_Cape"])
+				_wet(d, 0.12)
+			cam.look_at_from_position(Vector3(0.0, 2.3, 8.2), Vector3(0.0, 1.55, -0.8))
+			_light(world, Vector3(0.0, 1.0, 3.0), Color(0.45, 1.0, 0.9), 2.2)
+			_light(world, Vector3(-3.0, 3.0, -3.0), Color(0.35, 0.6, 1.0), 2.5)
+			_light(world, Vector3(3.0, 3.0, 2.0), Color(0.9, 1.0, 0.95), 0.8)
 		"tile_heroes":
 			# Every hero, side by side.
 			# (Heroes.LIST can't be used here: it needs the running game. These match its "hide" lists.)
@@ -117,6 +121,14 @@ func _tile(world: Node3D, cam: Camera3D) -> void:
 			_light(world, Vector3(-3.0, 3.0, -2.5), Color(0.8, 0.2, 0.3), 3.0)
 			_light(world, Vector3(3.0, 3.0, -2.5), Color(0.6, 0.3, 1.0), 2.2)
 			_light(world, Vector3(0.0, 4.0, 4.0), Color(1.0, 0.9, 0.85), 0.6)
+
+
+## The Drowned Vault's wet, weed-grown look over every part of a model (WetLook).
+func _wet(n: Node, glow: float) -> void:
+	if n is MeshInstance3D:
+		(n as MeshInstance3D).material_overlay = WetLook.overlay(glow)
+	for c in n.get_children():
+		_wet(c, glow)
 
 
 func _skeleton(parent: Node3D, key: String, pos: Vector3, yaw_deg: float, anim: String, at: float, weapon: String) -> Node3D:

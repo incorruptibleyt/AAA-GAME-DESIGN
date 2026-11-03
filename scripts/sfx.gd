@@ -69,6 +69,8 @@ func _ready() -> void:
 	_clips["slam"] = _synth(0.9, func(t): return (_sweep(t, 120, 35) * 0.7 + _noise() * 0.35 * exp(-t * 8.0)) * _env(t, 0.9) * 0.6)
 	_clips["crack"] = _synth(0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
 	# A heartbeat for low health (code-made on purpose: two soft low thumps).
+	# Water: a wash of noise that dies away with a little rising bloop (the Drowned Vault).
+	_clips["splash"] = _synth(0.5, func(t): return (_noise() * exp(-t * 7.0) * 0.55 + _sweep(t, 260, 760) * exp(-t * 16.0) * 0.3) * _env(t, 0.5) * 0.5)
 	_clips["heart"] = _synth(0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
 	_load_samples()

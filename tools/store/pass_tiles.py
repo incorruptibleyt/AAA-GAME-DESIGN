@@ -7,7 +7,7 @@ from PIL import Image, ImageDraw, ImageFilter
 src, out = sys.argv[1], sys.argv[2]
 W, H = 936, 448
 TINTS = {  # inner glow, outer
-    "floors": ((150, 60, 25), (16, 10, 22)),
+    "floors": ((25, 115, 110), (8, 16, 22)),   # the Drowned Vault's sea-green
     "heroes": ((50, 70, 150), (14, 12, 30)),
     "daily": ((150, 105, 30), (20, 14, 18)),
     "curses": ((150, 20, 30), (18, 8, 16)),

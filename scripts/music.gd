@@ -10,8 +10,9 @@ const PLAYLISTS := {
 	"ember": [preload("res://audio/music/ember_determined_pursuit.ogg"), preload("res://audio/music/ember_prepare_to_fight.ogg")],
 	"boss": [preload("res://audio/music/boss_epic_boss_battle.ogg")],
 }
-## One playlist per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember"]
+## One playlist per floor theme, in the order of Floors.THEMES (the Drowned Vault borrows
+## the choir, which sounds like it is under water).
+const THEMES := ["crypt", "ice", "ember", "ice"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5
@@ -40,7 +41,7 @@ var _next := {}
 ## "dungeon" plays the current floor's theme; "boss" the boss theme.
 static func play(track: String) -> void:
 	if _instance:
-		_instance._play_list("boss" if track == "boss" else THEMES[(maxi(Game.floor_num, 1) - 1) % THEMES.size()])
+		_instance._play_list("boss" if track == "boss" else THEMES[Floors.index(Game.floor_num)])
 
 
 static func set_enabled(on: bool) -> void:

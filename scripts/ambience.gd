@@ -2,7 +2,8 @@ class_name Ambience
 extends Node
 ## Room tone under the music, one for each floor theme: a slow cold draught in the Bone
 ## Crypt with water dripping somewhere, a thin whistling wind in the Frozen Ossuary with
-## ice ticking now and then, and a low fire roar in the Ember Catacomb with embers popping.
+## ice ticking now and then, a low fire roar in the Ember Catacomb with embers popping, and
+## water lapping in the Drowned Vault with bubbles rising.
 ## All of it is made in code. The draught loops play on the Music bus, so they muffle with
 ## the music when the game is paused; the drips and pops go through the Effects echo. It
 ## follows the Sounds setting, and is silent on the title screen.
@@ -17,11 +18,11 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5)]
 
 static var _instance: Ambience
-var _beds: Array = [null, null, null]
-var _ones: Array = [null, null, null]
+var _beds: Array = [null, null, null, null]
+var _ones: Array = [null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -53,7 +54,7 @@ func _process(delta: float) -> void:
 	# loops aren't made yet).
 	var want := -1
 	if _task == -1 and Sfx.enabled and Game.state != Game.State.TITLE and Game.floor_num >= 1:
-		want = (Game.floor_num - 1) % 3
+		want = Floors.index(Game.floor_num)
 	if want != _theme:
 		# Fade the old one out first, then start the new one somewhere in its loop.
 		_level = move_toward(_level, 0.0, delta / FADE)
@@ -66,7 +67,7 @@ func _process(delta: float) -> void:
 	else:
 		_level = move_toward(_level, 1.0 if _theme >= 0 else 0.0, delta / FADE)
 	_player.volume_db = VOLUME_DB + linear_to_db(maxf(_level, 0.0001))
-	# Now and then a drip, a tick of ice or a popping ember, but only while fighting.
+	# Now and then a drip, a tick of ice, a popping ember or a bubble, but only while fighting.
 	if Game.state == Game.State.PLAYING and _theme >= 0 and _level > 0.5:
 		_next_one -= delta
 		if _next_one <= 0.0:
@@ -85,6 +86,8 @@ func _build_all() -> void:
 	_ones[1] = _one(0.6, _tick)
 	_beds[2] = _loop(_ember_bed)
 	_ones[2] = _one(0.35, _pop)
+	_beds[3] = _loop(_water_bed)
+	_ones[3] = _one(0.4, _bubble)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -168,6 +171,38 @@ func _ember_bed(n: int) -> PackedFloat32Array:
 			crackle = rng.randf_range(0.08, 0.25) * (1.0 if rng.randf() < 0.5 else -1.0)
 		x[i] += crackle * (rng.randf() * 2.0 - 1.0)
 		crackle *= 0.86
+	return x
+
+
+## Water lapping at stone: a low wash that rises and falls with the swell (two waves out of
+## step), and a faint high trickle running somewhere.
+func _water_bed(n: int) -> PackedFloat32Array:
+	var wash := _wind(n, 160.0, 650.0, 3.0, 1.6, 31)
+	var a := _wind(n, 1300.0, 2400.0, 2.0, 1.0, 32)
+	var b := _wind(n, 900.0, 1700.0, 2.0, 1.0, 32)
+	for i in n:
+		var t := float(i) / RATE
+		# 2 and 3 seconds: the loop is 6, so both swells meet up again at its seam.
+		var swell := 0.35 + 0.65 * pow(0.5 + 0.5 * sin(TAU * t / 2.0) * sin(TAU * t / 3.0 + 0.8), 2.0)
+		wash[i] = wash[i] * swell + (a[i] - b[i]) * 0.5
+	return wash
+
+
+## Two bubbles rising out of deep water: low "bloops" that slide up.
+func _bubble(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	for k in 2:
+		var start := 0.0 if k == 0 else 0.13
+		var base := 260.0 if k == 0 else 340.0
+		var phase := 0.0
+		for i in n:
+			var t := float(i) / Sfx.RATE - start
+			if t < 0.0:
+				continue
+			var hz := base * (1.0 + 1.6 * minf(t / 0.07, 1.0))
+			phase += TAU * hz / Sfx.RATE
+			x[i] += sin(phase) * exp(-t * 30.0) * minf(t / 0.004, 1.0) * (0.6 - 0.2 * k)
 	return x
 
 

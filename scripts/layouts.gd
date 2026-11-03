@@ -14,8 +14,10 @@ class_name Layouts
 ##   s  bone spider (zig-zags, then pounces)
 ##   f  frost wraith (ice beam down a marked line; Frozen Ossuary floors swap one in)
 ##   e  cinder skeleton (leaves fire on the floor; Ember Catacomb floors swap one in)
+##   d  drowned skeleton (swims under the water and bursts up; Drowned Vault floors swap one in)
 ##   ^  spike trap (glows red, then spikes shoot up)
-##   K  the boss (the Skeleton King, the Lich or the Cinder Colossus: see Game.boss_kind)
+##   K  the boss (the Skeleton King, the Lich, the Cinder Colossus or the Tidecaller: see
+##      Game.boss_kind)
 ##
 ## Rooms are drawn the same on both sides. From floor 2 a room may take its right-hand side
 ## from another room, and from floor 3 the far half of one room may be joined to the near

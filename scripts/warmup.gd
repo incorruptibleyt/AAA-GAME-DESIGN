@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "L", "K", "C"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "L", "K", "C", "T"]
 
 static var last_ms := 0
 
@@ -84,14 +84,19 @@ static func run() -> void:
 		Fx.flame(holder, Vector2(0.5, 0.7), at + Vector3(0, 0, 0.6)))
 
 	# Each floor's own flagstones and props (the Frozen Ossuary's ice, the Ember
-	# Catacomb's fire seams and braziers).
+	# Catacomb's fire seams and braziers, the Drowned Vault's water and falling water), and
+	# the Tidecaller's wave.
 	steps.append(func():
 		for i in Floors.THEMES.size():
 			U.floor_quad(holder, Vector2(1, 1), Room._floor_material(Floors.THEMES[i]), spots[i] + Vector3(0, 0.02, 0.6)))
 	steps.append(func():
-		var props := [Props._skull_pile(true), Props._skull_pile(false), Props._crystals(), Props._icicles(), Props._brazier(), Props._grate()]
+		var props := [Props._skull_pile(true), Props._skull_pile(false), Props._crystals(), Props._icicles(), Props._brazier(), Props._grate(),
+			Props._kelp_column(), Props._spout()]
 		for i in props.size():
-			Props._mesh(holder, props[i]).position = spots[5 + i] + Vector3(0, 0, -0.6))
+			Props._mesh(holder, props[i]).position = spots[5 + i] + Vector3(0, 0, -0.6)
+		U.floor_quad(holder, Vector2(1, 1), Props._splash_mat(), spots[14] + Vector3(0, 0.03, 0))
+		U.floor_quad(holder, Vector2(1, 1), Props._foam_mat(), spots[16] + Vector3(0, 0.03, 0))
+		U.box(holder, Vector3(1, 0.6, 0.3), Tidecaller._foam_material(), spots[15] + Vector3(0, 0.3, 0)))
 
 	# Draw each batch for two frames. Frames, not frame_post_draw: that signal never comes
 	# without a screen (robot test runs).

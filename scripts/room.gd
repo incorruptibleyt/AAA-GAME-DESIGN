@@ -86,8 +86,9 @@ static var _floor_shader: Shader
 ## laid in staggered rows, grime that gathers in big patches and along the walls (moss and
 ## dirt, frost, soot), a second kind of patch (damp stone, glassy ice, ash), a few cracked
 ## slabs and darker floor by the walls. A floor with "seams" (the Ember Catacomb) has fire
-## glowing in the gaps and cracks, hot in some places and cooled in others. Deeper endless
-## loops add blood. Everything is worked out from where the point is in the room, so there
+## glowing in the gaps and cracks, hot in some places and cooled in others. A floor with
+## "water" (the Drowned Vault) has shallow water in the low places and the gaps, rippling,
+## glossy and lit from below by moving light. Deeper endless loops add blood. Everything is worked out from where the point is in the room, so there
 ## is no tiling pattern to spot.
 static func _floor_material(look: Dictionary) -> Material:
 	if _floor_shader == null:
@@ -107,6 +108,8 @@ uniform vec4 patch_tint = vec4(0.75, 0.76, 0.82, 1.0);
 uniform float patch_rough = 0.3;
 uniform float blood = 0.0;
 uniform vec4 seam : source_color = vec4(0.0);
+// Shallow water's colour; alpha is how much of the floor it covers (0 = dry).
+uniform vec4 water = vec4(0.0);
 uniform vec2 half_size = vec2(6.0, 10.0);
 // 1 on the near ledge's box: its front face takes the pattern from its own plane and
 // keeps its real normal.
@@ -176,13 +179,35 @@ void fragment() {
 
 	c = mix(c, grout.rgb, gap);
 	c *= (1.0 - crack * 0.55) * shade;
-	ALBEDO = clamp(c, 0.0, 1.0);
-	ROUGHNESS = mix(rough, 0.95, max(gap, crack));
+	rough = mix(rough, 0.95, max(gap, crack));
 
 	// Slab edges are worn round and every slab sits a little crooked, so torchlight picks
 	// out each one.
 	vec2 bevel = sign(f) * (1.0 - smoothstep(0.0, 0.09, e)) * 0.6;
 	vec3 n = normalize(vec3(bevel.x + (r - 0.5) * 0.1, 1.0, bevel.y + (r2 - 0.5) * 0.1));
+
+	if (water.a > 0.0) {
+		// Pools where the second patch lies, water standing in every gap and crack, and the
+		// rest of the stone just wet. Two sets of ripples cross; light from the surface
+		// moves over the bottom of the pools.
+		float pool = max(smoothstep(0.57, 0.6, big2), max(gap, crack) * 0.9) * water.a;
+		// Deeper (darker) towards the middle of a pool, with a pale wet line at its edge.
+		float deep = smoothstep(0.6, 0.8, big2);
+		float rim = smoothstep(0.555, 0.57, big2) * (1.0 - smoothstep(0.575, 0.59, big2));
+		vec2 q = pos * 1.6;
+		vec2 rip = vec2(sin(q.x * 2.3 + TIME * 1.4 + sin(q.y * 1.4 + TIME * 0.6)),
+			sin(q.y * 2.1 - TIME * 1.2 + sin(q.x * 1.6 - TIME * 0.5)));
+		float light = pow(0.5 + 0.5 * sin(q.x * 3.1 + rip.y * 1.6 + TIME * 0.9) * sin(q.y * 2.9 + rip.x * 1.6 - TIME * 0.7), 9.0);
+		vec3 wet = water.rgb * mix(1.3, 0.8, deep) * (0.85 + 0.3 * fine);
+		c = mix(c * mix(1.0, 0.82, water.a), wet, pool * 0.9);
+		c += vec3(0.32, 0.45, 0.42) * rim * water.a * 0.3;
+		rough = mix(mix(rough, 0.5, water.a * 0.6), 0.03, pool);
+		n = normalize(n * (1.0 - pool) + vec3(rip.x * 0.12, 1.0, rip.y * 0.12) * pool);
+		EMISSION = water.rgb * light * pool * (1.0 - deep * 0.5) * 0.5 * shade;
+	}
+
+	ALBEDO = clamp(c, 0.0, 1.0);
+	ROUGHNESS = rough;
 	if (up > 0.5) {
 		NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
 	}
@@ -205,17 +230,19 @@ void fragment() {
 			sm.set_shader_parameter(key, look[key])
 	sm.set_shader_parameter("blood", look.get("blood", 0.0))
 	sm.set_shader_parameter("seam", look.get("seams", Color(0, 0, 0, 0)))
+	sm.set_shader_parameter("water", look.get("water", Color(0, 0, 0, 0)))
 	sm.set_shader_parameter("half_size", Vector2(HALF_W, HALF_L))
 	return sm
 
 
-## The low near ledge: the floor's stone, darker, without the floor's fire or blood.
+## The low near ledge: the floor's stone, darker, without the floor's fire, water or blood.
 static func _ledge_material(look: Dictionary) -> Material:
 	var m := _floor_material(look) as ShaderMaterial
 	m.set_shader_parameter("tint", (look.floor as Color) * 0.6)
 	m.set_shader_parameter("grime_amount", 0.0)
 	m.set_shader_parameter("blood", 0.0)
 	m.set_shader_parameter("seam", Color(0, 0, 0, 0))
+	m.set_shader_parameter("water", Color(0, 0, 0, 0))
 	m.set_shader_parameter("half_size", Vector2(100, 100))
 	m.set_shader_parameter("ledge", 1.0)
 	return m

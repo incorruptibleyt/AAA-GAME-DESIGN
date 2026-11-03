@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-03c"
+const BUILD := "2026-11-03d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -909,20 +909,24 @@ func _build_run() -> void:
 	_run.append(Layouts.BOSS)
 
 
-## The skeleton only this floor's theme has: Frost Wraiths on the Frozen Ossuary ("f"),
-## Cinder Skeletons in the Ember Catacomb ("e"), none in the Bone Crypt.
-## Who rules this floor: the Ember Catacomb (floors 3, 6, 9...) has the Cinder Colossus;
-## elsewhere the Skeleton King and the Lich take turns (the King on odd floors).
+## Who rules this floor: the Ember Catacomb (floor 3, then every Ember floor) has the
+## Cinder Colossus, the Drowned Vault (floor 6, 10, 14...) the Tidecaller; elsewhere the
+## Skeleton King and the Lich take turns (the King on odd floors).
 func boss_kind() -> String:
 	if Floors.hot() and not first_run:
 		return "C"
+	if Floors.drowned() and not first_run:
+		return "T"
 	return "L" if floor_num % 2 == 0 else "K"
 
 
+## The skeleton only this floor's theme has: Frost Wraiths on the Frozen Ossuary ("f"),
+## Cinder Skeletons in the Ember Catacomb ("e"), Drowned Skeletons in the Drowned Vault
+## ("d"), none in the Bone Crypt.
 func theme_enemy() -> String:
 	if first_run:
 		return ""
-	return ["", "f", "e"][(maxi(floor_num, 1) - 1) % 3]
+	return ["", "f", "e", "d"][Floors.index(floor_num)]
 
 
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
@@ -1400,7 +1404,7 @@ func _resume_loop_end() -> void:
 
 
 func _free_end_text() -> String:
-	return "You beat the free crypt!\nThe Crypt Pass opens floor %d and beyond.\nThis run stays saved until you get it." % (floor_num + 1)
+	return "You beat the free crypt!\nBelow lies the Drowned Vault.\nThe Crypt Pass opens floor %d and beyond.\nThis run stays saved until you get it." % (floor_num + 1)
 
 
 func _loop_text() -> String:
