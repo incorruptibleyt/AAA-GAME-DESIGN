@@ -153,6 +153,17 @@ func attack(spell := false) -> void:
 	_play("cast" if spell and _anim_names.has("cast") else "attack", true)
 
 
+## Plays one of the model's own animations once, by name (a boss's leap or summon).
+## Returns false when the model doesn't have it.
+func play_named(n: String) -> bool:
+	if _dead or _anim == null or not _anim.has_animation(n):
+		return false
+	_punch = 1.0
+	_anim.play(n, 0.1)
+	_anim.seek(0.0, true)
+	return true
+
+
 func hit() -> void:
 	if _dead:
 		return

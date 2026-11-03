@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-03b"
+const BUILD := "2026-11-03c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -911,6 +911,14 @@ func _build_run() -> void:
 
 ## The skeleton only this floor's theme has: Frost Wraiths on the Frozen Ossuary ("f"),
 ## Cinder Skeletons in the Ember Catacomb ("e"), none in the Bone Crypt.
+## Who rules this floor: the Ember Catacomb (floors 3, 6, 9...) has the Cinder Colossus;
+## elsewhere the Skeleton King and the Lich take turns (the King on odd floors).
+func boss_kind() -> String:
+	if Floors.hot() and not first_run:
+		return "C"
+	return "L" if floor_num % 2 == 0 else "K"
+
+
 func theme_enemy() -> String:
 	if first_run:
 		return ""
@@ -1471,8 +1479,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		# Ice and fire floors swap one minion in every room for their own skeleton.
 		if kind == "m" and theme_kind != "" and not _wave_kinds.has(theme_kind):
 			kind = theme_kind
-		if kind == "K" and floor_num % 2 == 0:
-			kind = "L"   # every second floor is ruled by the Lich instead
+		if kind == "K":
+			kind = boss_kind()
 		# Floor 1 is for learning: never more than one skeleton mage in a wave.
 		if kind == "g" and floor_num == 1:
 			mages += 1

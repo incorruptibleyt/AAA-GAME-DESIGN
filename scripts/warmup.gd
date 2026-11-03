@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "L", "K"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "L", "K", "C"]
 
 static var last_ms := 0
 
@@ -30,7 +30,7 @@ static func run() -> void:
 	room.add_child(holder)   # skeletons only stand still on the title screen
 	var at := hero.global_position
 	var spots: Array[Vector3] = []
-	for i in 15:
+	for i in 20:
 		spots.append(at + Vector3((i % 5 - 2) * 1.3, 0, (i / 5 - 1) * 1.3))
 	var tree := Game.get_tree()
 	var made: Array = []

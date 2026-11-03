@@ -29,6 +29,7 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"g": e = SkeletonMage.new()
 		"K": e = SkeletonKing.new()
 		"L": e = Lich.new()
+		"C": e = CinderColossus.new()
 		"x": e = SkeletonBomber.new()
 		"t": e = BoneSpitter.new()
 		"s": e = BoneSpider.new()
