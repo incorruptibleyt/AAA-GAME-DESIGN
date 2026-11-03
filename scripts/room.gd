@@ -387,8 +387,8 @@ func resolve_move(pos: Vector3, delta: Vector3, r: float) -> Vector3:
 		d.y = 0.0
 		var m: float = o.r + r
 		if d.length_squared() < m * m:
-			var len := d.length()
-			p = o.pos + (d / len * m if len > 0.0001 else Vector3.RIGHT * m)
+			var dist := d.length()
+			p = o.pos + (d / dist * m if dist > 0.0001 else Vector3.RIGHT * m)
 			p.y = 0.0
 	return p
 
@@ -411,7 +411,10 @@ func steer(pos: Vector3, dir: Vector3, r: float) -> Vector3:
 		elif side.length_squared() < 0.0001 and fmod(pos.x + pos.z, 2.0) < 1.0:
 			tangent = -tangent
 		# A pillar next to a wall: go round the open side instead of pushing into the wall.
-		var probe: Vector3 = pos + tangent * (o.r + r + 0.4)
+		# The gap is measured from the pillar itself. It used to be measured from the skeleton,
+		# so one a little to the side of a pillar one column in from the wall (where there is
+		# room to pass) flipped its mind every frame and stood there pushing into the pillar.
+		var probe: Vector3 = o.pos + tangent * (o.r + r + 0.1)
 		if absf(probe.x) > HALF_W - r or absf(probe.z) > HALF_L - r:
 			tangent = -tangent
 		return (dir + tangent * 1.5).normalized()

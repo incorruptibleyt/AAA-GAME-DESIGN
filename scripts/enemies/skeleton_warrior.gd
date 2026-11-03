@@ -46,13 +46,13 @@ func _think(hero: Hero, delta: float) -> void:
 				_mode = Mode.LUNGE
 				_timer = 0.32
 				visual.attack()
-				contact_damage = (14.0 if _gentle() else 22.0) * _elite_mult()
+				contact_damage = (14.0 if _gentle() else 22.0) * elite_mult()
 		Mode.LUNGE:
 			move_by(_lunge_dir * 14.0 * delta, delta)
 			if _timer <= 0.0:
 				_mode = Mode.RECOVER
 				_timer = 0.9
-				contact_damage = (9.0 if _gentle() else 12.0) * _elite_mult()
+				contact_damage = (9.0 if _gentle() else 12.0) * elite_mult()
 				Fx.dust(global_position, 8)
 		Mode.RECOVER:
 			stand(delta)
@@ -64,7 +64,3 @@ func _think(hero: Hero, delta: float) -> void:
 func _gentle() -> bool:
 	return Game.floor_num == 1
 
-
-## Elites hit 30% harder (make_elite), lunge included.
-func _elite_mult() -> float:
-	return 1.3 if elite else 1.0

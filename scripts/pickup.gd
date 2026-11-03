@@ -58,8 +58,8 @@ func _ready() -> void:
 		var gold := U.mat(Color(1.0, 0.78, 0.2), 0.25, 1.2)
 		var c := U.cylinder(_gem, 0.22, 0.06, gold, Vector3(0, -0.03, 0))
 		c.rotation.x = PI / 2
-		var glow := U.floor_quad(self, Vector2(0.8, 0.8), U.unlit(Color(1, 0.8, 0.3, 0.4), U.soft_circle()), Vector3(0, 0.04, 0))
-		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var shine := U.floor_quad(self, Vector2(0.8, 0.8), U.unlit(Color(1, 0.8, 0.3, 0.4), U.soft_circle()), Vector3(0, 0.04, 0))
+		shine.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		return
 	var red := U.mat(Color(1.0, 0.2, 0.3), 0.3, 2.2)
 	# Two bumps and a point: a little heart.

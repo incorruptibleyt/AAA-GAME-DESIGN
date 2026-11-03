@@ -30,13 +30,14 @@ FOUR HEROES, FOUR SPECIAL MOVES
 - Mage: exploding magic orbs and a rain of Meteors.
 
 A CRYPT THAT FIGHTS BACK
-Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus golden elites. At the bottom of each floor waits a boss: the Skeleton King or the Lich. Descend through the Bone Crypt, the Frozen Ossuary and the Ember Catacomb, each with its own skeletons: floating Frost Wraiths that fire ice beams and burning Cinder Skeletons that leave fire in their path.
+Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus golden elites. At the bottom of each floor waits a boss: the Skeleton King, the Lich or the Cinder Colossus. Descend through the Bone Crypt, the Frozen Ossuary and the Ember Catacomb, each with its own skeletons: floating Frost Wraiths that fire ice beams and burning Cinder Skeletons that leave fire in their path.
 
 GET STRONGER BETWEEN RUNS
 Keep the gold you find and spend it in the Armory on permanent upgrades, new blessings from the Vault, or new heroes. Pick your door after every room: treasure, a healing spring, a champion to fight, or a path to the blessings you want.
 
 FREE TO TRY, ONE OPTIONAL PASS
 The first five floors are free, with no ads and no energy timers, and everyone gets one Daily Crypt run a day. The one-time Crypt Pass opens the rest:
+- The Drowned Vault: a flooded floor where Drowned Skeletons swim under the water, ruled by the Tidecaller.
 - Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
 - Daily Crypt practice: replay the day's three floors as often as you like after your Official run.
 - Nine more Curses (ten in all) that stack into a Curse Level for bigger scores, with hero rewards to earn.
@@ -54,7 +55,7 @@ How deep can you go?
 
 - Product ID: `crypt_pass` (must be exactly this; the game asks Google Play for it)
 - Name: Crypt Pass
-- Description: Endless floors, Daily Crypt practice runs, all 10 Curses with hero rewards, and every hero. One-time purchase.
+- Description: The Drowned Vault, endless floors, Daily Crypt practice runs, all 10 Curses with hero rewards, and every hero. One-time purchase.
 - Price: $4.99 (US), let Play convert it for other countries
 
 ## Category and tags

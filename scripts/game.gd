@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-03d"
+const BUILD := "2026-11-03e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1540,7 +1540,11 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 		return
 	var h := RunSave.hero_state(hero)
 	if next_floor:
-		h.health = minf(hero.max_health, hero.health + hero.max_health * 0.3)   # as _descend heals
+		# As _descend heals: 30% back and at least 60% to start the floor (a full heal at the end
+		# of a loop). Before, only the 30% was saved, so a closed and continued game started the
+		# floor weaker than one played straight through.
+		var back := hero.max_health if Loops.loop_end(floor_num) else maxf(hero.max_health * 0.3, hero.max_health * 0.6 - hero.health)
+		h.health = minf(hero.max_health, hero.health + back)
 	RunSave.write({"floor": floor_num + (1 if next_floor else 0), "room": 0 if next_floor else _room_index,
 		"hero_id": hero.hero_id, "hero": h, "taken": _taken.duplicate(), "score": score,
 		"rerolls": rerolls + (1 if next_floor and not curses.has("narrow") else 0),   # as _descend adds
@@ -1767,10 +1771,11 @@ func on_enemy_died(e: Enemy) -> void:
 			hud.callout("ONE DOWN!", Color(1, 0.6, 0.4))
 			print("[run] one boss down, %d to go" % _bosses.size())
 			return
-		# Any minions left crumble with their master.
+		# Any minions left crumble with their master, even ones still climbing out of the floor
+		# or swimming under the water (those used to be left standing on the victory screen).
 		for a: Actor in Actor.all.duplicate():
-			if a != e and a.team == Actor.Team.UNDEAD and not a.dead and a.can_be_hit():
-				a.take_damage(Actor.KILL, Vector3.ZERO, 0.0)
+			if a != e and a is Enemy and not a.dead:
+				(a as Enemy).crumble()
 		_win()
 	elif not _in_boss_room() and _waves_left > 0 and not _wave_pending and alive_enemies <= (1 if _wave_kinds.size() <= 4 else 2):
 		_wave_pending = true
@@ -2277,8 +2282,8 @@ func _set_vibration(on: bool, save := true) -> void:
 		write_save(cfg)
 
 
-## High looks best; Low turns off shadows and glow and draws the 3D world at a lower
-## resolution, for smoother play on older phones.
+## Send reports on or off, from Settings or the pause menu. Off also deletes any reports
+## still waiting on the phone.
 func _set_reports(on: bool) -> void:
 	var cfg := _load_save()
 	cfg.set_value("settings", "reports", on)
@@ -2423,6 +2428,8 @@ func _watch_frame_rate(fps: float) -> void:
 		_auto_graphics = false
 
 
+## High looks best; Low turns off shadows and glow and draws the 3D world at a lower
+## resolution, for smoother play on older phones.
 func _set_graphics(high: bool, save := true) -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED

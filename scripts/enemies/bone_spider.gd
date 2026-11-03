@@ -52,13 +52,13 @@ func _think(hero: Hero, delta: float) -> void:
 				_timer = 0.3
 				visual.position.y = 0.0
 				visual.attack()
-				contact_damage = 15.0
+				contact_damage = 15.0 * elite_mult()
 		Mode.POUNCE:
 			move_by(_dir * 17.0 * delta, delta)
 			if _timer <= 0.0:
 				_mode = Mode.REST
 				_timer = 0.8
-				contact_damage = 8.0
+				contact_damage = 8.0 * elite_mult()
 				Fx.dust(global_position, 8)
 		Mode.REST:
 			stand(delta)

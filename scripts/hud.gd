@@ -1415,8 +1415,8 @@ func feedback_visible() -> bool:
 func _on_feedback_changed() -> void:
 	if _fb_text.text.length() > FEEDBACK_MAX:
 		_fb_text.text = _fb_text.text.left(FEEDBACK_MAX)
-		_fb_text.set_caret_column(_fb_text.get_line(_fb_text.get_line_count() - 1).length())
 		_fb_text.set_caret_line(_fb_text.get_line_count() - 1)
+		_fb_text.set_caret_column(_fb_text.get_line(_fb_text.get_line_count() - 1).length())
 	_fb_send.disabled = _fb_text.text.strip_edges().length() < 3
 
 
@@ -1657,6 +1657,7 @@ func _build_daily() -> void:
 ## info: {title, theme, theme_text, hero, mult, rules: [{title, text, kind}], status, open, practice, next}
 func show_daily(v: bool, info := {}) -> void:
 	_daily_box.visible = v
+	_disarm(_daily_go)   # a first tap from before (then BACK) mustn't make the next tap start
 	if not v:
 		return
 	_daily_open = info.open

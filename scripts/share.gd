@@ -10,7 +10,7 @@ const SIZE := Vector2i(720, 720)
 
 
 ## Returns true when the phone's share menu was asked to open. `title` heads that menu.
-static func send(text: String, picture: Image, title := "Share your result") -> bool:
+static func send(text: String, image: Image, title := "Share your result") -> bool:
 	DisplayServer.clipboard_set(text)
 	if OS.get_name() != "Android" or not Engine.has_singleton("AndroidRuntime"):
 		return false
@@ -19,7 +19,7 @@ static func send(text: String, picture: Image, title := "Share your result") -> 
 	var intents = JavaClassWrapper.wrap("android.content.Intent")
 	if activity == null or intents == null:
 		return false
-	var uri = _picture_uri(activity, picture)
+	var uri = _picture_uri(activity, image)
 	var intent = intents.Intent(intents.ACTION_SEND)
 	if intent == null:
 		return false
@@ -39,11 +39,11 @@ static func send(text: String, picture: Image, title := "Share your result") -> 
 
 
 ## The picture saved as a file, as a content:// address other apps may read (or null).
-static func _picture_uri(activity, picture: Image):
-	if picture == null or picture.is_empty():
+static func _picture_uri(activity, image: Image):
+	if image == null or image.is_empty():
 		return null
 	DirAccess.make_dir_recursive_absolute(PICTURE.get_base_dir())
-	if picture.save_png(PICTURE) != OK:
+	if image.save_png(PICTURE) != OK:
 		return null
 	var provider = JavaClassWrapper.wrap("androidx.core.content.FileProvider")
 	var files = JavaClassWrapper.wrap("java.io.File")

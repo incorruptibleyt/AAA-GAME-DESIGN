@@ -146,13 +146,13 @@ static func ring() -> ImageTexture:
 
 ## A tiling grey noise for shaders (the room floor uses three): bigger frequency means
 ## smaller blobs. Made once per kind and kept.
-static func noise_tex(frequency: float, seed: int, octaves := 3) -> ImageTexture:
-	var key := "%s/%d/%d" % [frequency, seed, octaves]
+static func noise_tex(frequency: float, noise_seed: int, octaves := 3) -> ImageTexture:
+	var key := "%s/%d/%d" % [frequency, noise_seed, octaves]
 	if _noise_cache.has(key):
 		return _noise_cache[key]
 	var fn := FastNoiseLite.new()
 	fn.frequency = frequency
-	fn.seed = seed
+	fn.seed = noise_seed
 	fn.fractal_octaves = octaves
 	var img := fn.get_seamless_image(256, 256)
 	img.generate_mipmaps()

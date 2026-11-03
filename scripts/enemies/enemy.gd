@@ -91,6 +91,28 @@ func make_elite() -> void:
 		_bar = HealthBar.attach(self)
 
 
+## Elites hit 30% harder (make_elite). Skeletons that change their touch damage mid-fight
+## (a pounce, a lunge, coming up out of the water) multiply by this so elites keep it.
+func elite_mult() -> float:
+	return 1.3 if elite else 1.0
+
+
+## Its boss has fallen: it crumbles at once, even while still climbing out of the floor
+## (or, for a Drowned Skeleton, under the water), when it can't otherwise be hit.
+func crumble() -> void:
+	if dead:
+		return
+	_spawn_timer = 0.0
+	visual.position.y = 0.0
+	_surface()
+	take_damage(Actor.KILL, Vector3.ZERO, 0.0)
+
+
+## Back up where it can be hit (only Drowned Skeletons ever go under).
+func _surface() -> void:
+	pass
+
+
 ## Pyre and Shatter: burning or chilled skeletons take their neighbours with them.
 func _death_burst(h: Hero) -> void:
 	var burning := get_node_or_null("Burning") != null
@@ -198,8 +220,8 @@ func _separate() -> void:
 		var m := radius + a.radius
 		var sq := d.length_squared()
 		if sq < m * m and sq > 0.0001:
-			var len := sqrt(sq)
-			var push_out := d / len * (m - len) * 0.5
+			var dist := sqrt(sq)
+			var push_out := d / dist * (m - dist) * 0.5
 			global_position = Room.current.resolve_move(global_position, push_out, radius) if Room.current else global_position + push_out
 
 

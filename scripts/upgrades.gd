@@ -178,7 +178,7 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 		var from := pool
 		if lean > 0:
 			lean -= 1
-			var same := pool.filter(func(u): return u.family == family)
+			var same := pool.filter(func(x): return x.family == family)
 			if not same.is_empty():
 				from = same
 		var u := _weighted(from, rng)

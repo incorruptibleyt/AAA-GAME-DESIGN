@@ -734,17 +734,17 @@ func _animate(dt: float) -> void:
 
 func _light_up() -> void:
 	var hit := clampf(1.0 - (t - HIT) / 0.5, 0.0, 1.0) * float(t >= HIT)
-	for tr in _torches:
-		var since: float = t - tr.at
+	for torch in _torches:
+		var since: float = t - torch.at
 		var on := 0.0
 		if since > 0.0:
 			# Flares up as it catches, then settles to a flicker.
 			on = minf(since / 0.06, 1.0) * (1.0 + 0.7 * exp(-since * 6.0))
-		var flicker := 0.88 + sin(t * 9.0 + tr.at * 40.0) * 0.07 + sin(t * 23.0 + tr.at * 90.0) * 0.05
-		(tr.light as OmniLight3D).light_energy = 1.9 * on * flicker * (1.0 + hit * 0.8)
-		var flame := tr.flame as MeshInstance3D
+		var flicker := 0.88 + sin(t * 9.0 + torch.at * 40.0) * 0.07 + sin(t * 23.0 + torch.at * 90.0) * 0.05
+		(torch.light as OmniLight3D).light_energy = 1.9 * on * flicker * (1.0 + hit * 0.8)
+		var flame := torch.flame as MeshInstance3D
 		flame.visible = on > 0.0
-		flame.scale = (tr.size as Vector3) * (0.6 + 0.4 * minf(on, 1.6)) * (1.0 + hit * 0.3)
+		flame.scale = (torch.size as Vector3) * (0.6 + 0.4 * minf(on, 1.6)) * (1.0 + hit * 0.3)
 	_rim.light_energy = 2.2 * clampf((t - 0.1) / 0.6, 0.0, 1.0)
 	var flare := clampf(1.0 - (t - _impact_at) / 0.35, 0.0, 1.0)
 	_impact.light_energy = 6.0 * flare * flare
@@ -902,32 +902,32 @@ func _draw_impact(fade: float) -> void:
 
 
 ## Where BONE CHAIN is and how big: it slams down from big, then glides up onto the title
-## screen's logo. [centre, scale, alpha, hot]
+## screen's logo. [centre, zoom, alpha, hot]
 func _words_place(glide: float) -> Array:
 	var slam := HIT - SLAM_LEN
 	var k := clampf((t - slam) / SLAM_LEN, 0.0, 1.0)
-	var scale := lerpf(2.6, 1.12, k * k)
+	var zoom := lerpf(2.6, 1.12, k * k)
 	if t > HIT:
-		scale = 1.12 * (1.0 - 0.05 * exp(-(t - HIT) * 9.0) * cos((t - HIT) * 30.0))
+		zoom = 1.12 * (1.0 - 0.05 * exp(-(t - HIT) * 9.0) * cos((t - HIT) * 30.0))
 	var centre := _words_center()
 	if glide > 0.0 and logo:
 		centre = centre.lerp(logo.get_global_rect().get_center(), glide)
-		scale = lerpf(1.12, 1.0, glide)
+		zoom = lerpf(1.12, 1.0, glide)
 	var hot := clampf(1.0 - (t - HIT) / 0.4, 0.0, 1.0) * float(t > HIT)
-	return [centre, scale, maxf(k, glide), hot]
+	return [centre, zoom, maxf(k, glide), hot]
 
 
 ## The warm glow behind the words.
 func _draw_words_glow(glide: float) -> void:
 	var place := _words_place(glide)
 	var centre: Vector2 = place[0]
-	var scale: float = place[1]
+	var zoom: float = place[1]
 	var alpha: float = place[2]
 	var hot: float = place[3]
 	if alpha <= 0.0:
 		return
-	var gw := Hud.logo_size().x * 0.65 * scale
-	_canvas.draw_texture_rect(_glow, Rect2(centre - Vector2(gw, 80 * scale), Vector2(gw, 80 * scale) * 2.0), false,
+	var gw := Hud.logo_size().x * 0.65 * zoom
+	_canvas.draw_texture_rect(_glow, Rect2(centre - Vector2(gw, 80 * zoom), Vector2(gw, 80 * zoom) * 2.0), false,
 		Color(1.0, 0.4, 0.1, (0.15 + hot * 0.45) * alpha * (1.0 - glide)))
 
 
@@ -935,14 +935,14 @@ func _draw_words_glow(glide: float) -> void:
 func _draw_words() -> void:
 	var place := _words_place(_glide())
 	var centre: Vector2 = place[0]
-	var scale: float = place[1]
+	var zoom: float = place[1]
 	var alpha: float = place[2]
 	var hot: float = place[3]
 	if alpha <= 0.0:
 		return
 	var ls := Hud.logo_size()
 	# Drawn around the middle of the words, so they grow and shrink in place.
-	_words.draw_set_transform(centre + _off, 0.0, Vector2(scale, scale))
+	_words.draw_set_transform(centre + _off, 0.0, Vector2(zoom, zoom))
 	# White-hot for a moment as the letters land.
 	var heat := 1.0 + hot * 0.9
 	_words.draw_texture_rect(Hud.LOGO, Rect2(-ls * 0.5, ls), false, Color(heat, heat, 1.0 + hot * 0.7, alpha))

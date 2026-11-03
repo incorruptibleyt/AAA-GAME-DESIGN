@@ -125,9 +125,9 @@ func _wav(x: PackedFloat32Array, rate: int) -> AudioStreamWAV:
 
 ## Noise through a one-pole low-pass whose corner drifts between two frequencies, with
 ## a slow swell in loudness: the sound of air moving through stone.
-func _wind(n: int, low_hz: float, high_hz: float, swell_s: float, gain: float, seed: int) -> PackedFloat32Array:
+func _wind(n: int, low_hz: float, high_hz: float, swell_s: float, gain: float, rng_seed: int) -> PackedFloat32Array:
 	var rng := RandomNumberGenerator.new()
-	rng.seed = seed
+	rng.seed = rng_seed
 	var x := PackedFloat32Array()
 	x.resize(n)
 	var y := 0.0

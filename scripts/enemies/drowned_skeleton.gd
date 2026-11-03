@@ -98,7 +98,7 @@ func _burst_up(at: Vector3) -> void:
 		return
 	_mode = Mode.UP
 	_timer = randf_range(2.8, 3.6)
-	contact_damage = _touch_damage
+	contact_damage = _touch_damage * elite_mult()
 	visual.visible = true
 	visual.position.y = 0.0
 	visual.attack()
@@ -113,6 +113,11 @@ func _burst_up(at: Vector3) -> void:
 	if d.length() < 1.2 + hero.radius * 0.5:
 		Game.hit_source = kind_name()
 		hero.take_damage(12.0, d, 9.0)
+
+
+func _surface() -> void:
+	_mode = Mode.UP
+	visual.visible = true
 
 
 func _on_death() -> void:

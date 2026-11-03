@@ -128,6 +128,12 @@ func place_at(pos: Vector3) -> void:
 	rotation = Vector3.ZERO
 	knockback = Vector3.ZERO
 	_shot_timer = 0.4
+	# A Whirlwind or a chill still running when the last room ended doesn't follow the hero
+	# into the next one (the spin used to start the new room by itself, half a turn round).
+	_spin_left = 0.0
+	chill_left = 0.0
+	if visual:
+		visual.rotation.y = 0.0
 
 
 func can_be_hit() -> bool:
@@ -591,14 +597,14 @@ func _update_dash_ring() -> void:
 		_aura.scale = Vector3(s, 1, s)
 	if _dash_ring == null:
 		return
-	var ready := dash_ready()
+	var can_dash := dash_ready()
 	var a := 0.12 + 0.12 * (1.0 - clampf(_dash_cooldown / dash_cooldown_time, 0.0, 1.0))
-	if ready:
+	if can_dash:
 		a = 0.45 + sin(Time.get_ticks_msec() * 0.006) * 0.1
 	_ring_mat.albedo_color.a = a
 	var was_ready := _ring_was_ready
-	_ring_was_ready = ready
-	if ready and not was_ready:
+	_ring_was_ready = can_dash
+	if can_dash and not was_ready:
 		Fx.magic(global_position + Vector3.UP * 0.2, Color(0.5, 0.85, 1.0), 10)
 
 

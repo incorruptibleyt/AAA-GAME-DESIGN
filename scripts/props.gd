@@ -213,9 +213,9 @@ static func _icicles() -> ArrayMesh:
 	rng.seed = 9
 	var parts := []
 	for i in 7:
-		var len := rng.randf_range(0.35, 1.0) * (1.3 if i == 3 else 1.0)
+		var length := rng.randf_range(0.35, 1.0) * (1.3 if i == 3 else 1.0)
 		var z := (i - 3) * 0.2 + rng.randf_range(-0.05, 0.05)
-		parts.append([_cone(0.08, 0.0, len, 6), _xf(Vector3(0.08, -len * 0.5, z), Vector3.ONE), _ice()])
+		parts.append([_cone(0.08, 0.0, length, 6), _xf(Vector3(0.08, -length * 0.5, z), Vector3.ONE), _ice()])
 	parts.append([_cube(), _xf(Vector3(0.05, -0.04, 0), Vector3(0.12, 0.1, 1.5)), _ice()])
 	_baked["icicles"] = _bake(parts)
 	return _baked["icicles"]

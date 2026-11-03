@@ -111,10 +111,10 @@ func _teleport() -> void:
 	_hidden = true
 	await _wait(0.8)
 	_hidden = false
+	visual.visible = true   # even if the fight ended meanwhile, so it isn't left invisible
 	if not _alive():
 		return
 	global_position = spot
-	visual.visible = true
 	Fx.magic(center(), Color(0.4, 0.9, 1.0), 25)
 	Sfx.play("boom", 0.6)
 	var count := 14 if _enraged else 10

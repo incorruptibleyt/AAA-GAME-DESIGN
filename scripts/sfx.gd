@@ -78,16 +78,16 @@ func _ready() -> void:
 
 ## Looks for audio/sfx/<name>_0.ogg, _1.ogg ... and uses them instead of the synth.
 func _load_samples() -> void:
-	for name in ["shoot", "hit", "die", "hurt", "door", "upgrade", "coin", "click", "dash", "slam", "crack", "pickup",
+	for sound in ["shoot", "hit", "die", "hurt", "door", "upgrade", "coin", "click", "dash", "slam", "crack", "pickup",
 			"warn", "boom", "roar", "victory", "wraith", "beam", "ignite", "vo_prepare", "vo_win", "vo_lose", "vo_combo"]:
 		var found := []
 		for i in 10:
-			var path := "res://audio/sfx/%s_%d.ogg" % [name, i]
+			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]
 			if not ResourceLoader.exists(path):
 				break
 			found.append(load(path))
 		if not found.is_empty():
-			_clips[name] = found
+			_clips[sound] = found
 
 
 func _synth(seconds: float, wave: Callable) -> AudioStreamWAV:
