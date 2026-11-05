@@ -26,8 +26,10 @@ NIGHT = (24, 16, 38)
 SHOTS = [
     ("ember", "CHAIN YOUR KILLS", "The higher the chain, the harder you hit"),
     ("dodge", "DASH THROUGH DANGER", "Perfect dodges slow time and shatter shots"),
-    ("doors", "CHOOSE YOUR PATH", "Pick a door after every room"),
+    ("colossus", "FIGHT GIANT BOSSES", "Four bosses, each with its own tricks"),
     ("blessings", "A NEW BUILD EVERY RUN", "Fire, frost, bolts and bone blessings"),
+    ("lich", "OUTSMART THE LICH", "Read the warnings, dash, strike back"),
+    ("tide", "THE DROWNED VAULT", "Crypt Pass: face the Tidecaller below"),
     ("heroes", "FOUR HEROES", "Each with their own special move"),
     ("daily", "A NEW CRYPT EVERY DAY", "The same rooms for everyone, then share"),
 ]
