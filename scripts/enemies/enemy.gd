@@ -15,6 +15,17 @@ var elite := false
 
 var _slow_left := 0.0
 
+## Seconds a melee skeleton winds up a swipe before its touch hurts: a small warning circle
+## fills in front of it, so a step aside or a Grave Dash answers it (and dashing out of it
+## is a PERFECT). 0 = the old instant touch, for attacks that have their own warning
+## (a warrior's lunge, a spider's leap, a boss's rush, a Drowned Skeleton's burst).
+var swipe_time := 0.0
+## A swipe starts this much further out than the touch itself.
+const SWIPE_REACH := 0.35
+const SWIPE_RADIUS := 0.75
+var _swipe: Telegraph
+var _swipe_dir := Vector3.FORWARD
+
 var _spawn_timer := 0.9
 var _contact_cooldown := 0.0
 var _bar: HealthBar
@@ -206,7 +217,12 @@ func _process(delta: float) -> void:
 	if Game.state != Game.State.PLAYING or hero == null or hero.dead:
 		stand(delta)
 		return
-	_think(hero, delta)
+	if is_instance_valid(_swipe):
+		# Rooted while the swipe winds up, facing where it will land.
+		stand(delta)
+		face(_swipe_dir, 20.0, delta)
+	else:
+		_think(hero, delta)
 	_separate()
 	_touch(hero, delta)
 
@@ -227,15 +243,39 @@ func _separate() -> void:
 
 func _touch(hero: Hero, delta: float) -> void:
 	_contact_cooldown -= delta
-	if contact_damage <= 0.0 or _contact_cooldown > 0.0:
+	if contact_damage <= 0.0 or _contact_cooldown > 0.0 or is_instance_valid(_swipe):
 		return
 	var d := hero.global_position - global_position
 	d.y = 0.0
 	var reach := radius + hero.radius + 0.1
+	if swipe_time > 0.0:
+		if d.length_squared() < (reach + SWIPE_REACH) * (reach + SWIPE_REACH):
+			_start_swipe(d)
+		return
 	if d.length_squared() < reach * reach:
 		_contact_cooldown = 0.8
 		Game.hit_source = kind_name()
 		hero.take_damage(contact_damage, d, 9.0)
+
+
+func _start_swipe(d: Vector3) -> void:
+	_swipe_dir = d.normalized() if d.length_squared() > 0.0001 else -global_basis.z
+	var at := global_position + _swipe_dir * (radius + 0.3)
+	_swipe = track(Telegraph.circle(at, SWIPE_RADIUS, swipe_time, _land_swipe, 0.22))
+	visual.attack()
+
+
+## The swipe lands where its circle was: only a hero still inside it is hurt.
+func _land_swipe() -> void:
+	var t := _swipe
+	_swipe = null
+	_contact_cooldown = 0.8
+	var hero := Game.hero
+	if dead or hero == null or hero.dead or not is_instance_valid(t):
+		return
+	if t._covers(hero.global_position, hero.radius * 0.6):
+		Game.hit_source = kind_name()
+		hero.take_damage(contact_damage, _swipe_dir, 9.0)
 
 
 func walk(dir: Vector3, delta: float, speed_scale := 1.0) -> void:

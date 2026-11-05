@@ -74,8 +74,9 @@ func _exit_tree() -> void:
 	active.erase(self)
 
 
-## A circle of `r` around a point.
-static func circle(pos: Vector3, r: float, seconds: float, done: Callable) -> Telegraph:
+## A circle of `r` around a point. `volume`: how loud its warning beep is (0 = none; a
+## minion's swipe beeps softly, or a pack would beep all the time).
+static func circle(pos: Vector3, r: float, seconds: float, done: Callable, volume := 0.6) -> Telegraph:
 	var t := Telegraph.new()
 	_parent().add_child(t)
 	t.global_position = Vector3(pos.x, 0.03, pos.z)
@@ -88,7 +89,8 @@ static func circle(pos: Vector3, r: float, seconds: float, done: Callable) -> Te
 	t._full = Vector3.ONE
 	t.duration = seconds
 	t.on_done = done
-	Sfx.play("warn", 0.6)
+	if volume > 0.0:
+		Sfx.play("warn", volume)
 	return t
 
 

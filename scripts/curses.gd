@@ -326,5 +326,14 @@ static func streak(cfg: ConfigFile) -> int:
 	return n
 
 
+## Coins for reaching a Daily streak day: day 3, then every 7th day (7, 14, 21...).
+static func streak_reward(day: int) -> int:
+	if day == 3:
+		return 100
+	if day > 0 and day % 7 == 0:
+		return 300
+	return 0
+
+
 static func use_official(cfg: ConfigFile, date: String) -> void:
 	cfg.set_value("daily", date + "_official", true)

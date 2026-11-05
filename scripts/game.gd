@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-05a"
+const BUILD := "2026-11-05b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1056,6 +1056,17 @@ func _begin_daily() -> void:
 	_daily_practice = Curses.official_used(cfg, _daily_date)
 	if not _daily_practice:
 		Curses.use_official(cfg, _daily_date)
+		# Streak rewards: coins on day 3 and every 7th day, paid as the day's run starts.
+		var day := Curses.streak(cfg)
+		var gift := Curses.streak_reward(day)
+		if gift > 0 and not bool(cfg.get_value("daily", _daily_date + "_streak_paid", false)):
+			cfg.set_value("daily", _daily_date + "_streak_paid", true)
+			coins += gift
+			cfg.set_value("stats", "coins", coins)
+			var line := "Daily streak day %d: +%d coins!" % [day, gift]
+			get_tree().create_timer(2.6, false).timeout.connect(func():
+				hud.banner(line, Color(1.0, 0.82, 0.3))
+				Sfx.play("coin", 0.9))
 		write_save(cfg)
 	_run_hero_id = Curses.daily_hero(_daily_date)
 	_daily_done = false
@@ -2634,6 +2645,9 @@ func _show_daily() -> void:
 	var used := Curses.official_used(cfg)
 	var best := Curses.daily_best(cfg)
 	var status := "Your Official run is ready. Only that one counts, so make it good!"
+	var gift := Curses.streak_reward(Curses.streak(cfg) + 1)
+	if not used and gift > 0:
+		status += "\nPlaying it today: streak day %d, +%d coins!" % [Curses.streak(cfg) + 1, gift]
 	var best_text := "  ·  best " + Hud.thousands(best) if best > 0 else ""
 	if used and not owned:
 		status = "Official run done%s.\nCome back tomorrow, or get the Crypt Pass\nfor practice runs." % best_text
@@ -2934,7 +2948,9 @@ func title_goal() -> String:
 	var days := Curses.streak(cfg)
 	var played := Curses.official_used(cfg)
 	if days >= 1 and not played:
-		lines.append("Daily streak %d · play today's Daily to keep it" % days)
+		var gift := Curses.streak_reward(days + 1)
+		lines.append(("Daily streak %d · play today's Daily for +%d coins" % [days, gift]) if gift > 0 \
+			else "Daily streak %d · play today's Daily to keep it" % days)
 	elif days >= 2:
 		lines.append("Daily streak: %d days" % days)
 	if day_bonus_ready():

@@ -9,6 +9,7 @@ func _setup() -> void:
 	init_health(22.0)
 	move_speed = 3.1
 	contact_damage = 10.0
+	swipe_time = 0.5 if Game.floor_num == 1 else 0.4   # a short warning before each swipe
 	drop_chance = 0.05
 	radius = 0.45
 	center_height = 0.75
