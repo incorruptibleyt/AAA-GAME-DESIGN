@@ -187,6 +187,16 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 	return out
 
 
+## How many blessings of `family` the hero could still be offered (a door's path promises
+## 2 of 3 cards of one family, so it is only offered while at least 2 are left).
+static func family_left(taken: Dictionary, family: String) -> int:
+	var n := 0
+	for u in LIST:
+		if u.family == family and taken.get(u.id, 0) < u.max and (not u.has("needs") or taken.has(u.needs)) and fits_hero(u) and unlocked(u):
+			n += 1
+	return n
+
+
 ## One blessing from `pool`, rarer ones less likely.
 static func _weighted(pool: Array, rng: RandomNumberGenerator = null) -> Dictionary:
 	var total := 0

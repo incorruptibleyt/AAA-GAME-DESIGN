@@ -13,15 +13,18 @@ const PATHS := {"bolt": "Hunter's Path", "flame": "Burning Path", "frost": "Froz
 
 
 ## Two different doors. `boss_next`: no Champion's Door before the boss.
-## `can_reroll`: no Shrine with Narrow Path. The Daily Crypt passes its own `rng`, so
-## everyone gets the same doors.
-static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool) -> Array:
-	var kinds := KINDS.filter(func(k): return not (k == "champion" and boss_next) and not (k == "shrine" and not can_reroll))
+## `can_reroll`: no Shrine with Narrow Path. `taken`: the hero's blessings; a path is only
+## offered for a family with at least 2 cards the hero can still get, so its promise ("2 of 3
+## are ... blessings") is kept. The Daily Crypt passes its own `rng`, so everyone gets the
+## same doors.
+static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool, taken := {}) -> Array:
+	var families: Array = PATHS.keys().filter(func(f): return Upgrades.family_left(taken, f) >= 2)
+	var kinds := KINDS.filter(func(k): return not (k == "champion" and boss_next) and not (k == "shrine" and not can_reroll) \
+		and not (k == "path" and families.is_empty()))
 	var out := []
 	while out.size() < 2 and not kinds.is_empty():
 		var kind: String = kinds[rng.randi() % kinds.size()]
 		kinds.erase(kind)
-		var families: Array = PATHS.keys()
 		out.append({"kind": kind, "family": families[rng.randi() % families.size()] if kind == "path" else ""})
 	return out
 

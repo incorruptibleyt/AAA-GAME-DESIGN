@@ -22,6 +22,7 @@ var _bob := 0.0
 var _punch := 0.0
 var _dead := false
 var _flash := 0.0
+var _last_flash_ms := -100000
 var _meshes: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
 var _tint_mat: Material
@@ -164,10 +165,20 @@ func play_named(n: String) -> bool:
 	return true
 
 
+## The white hit flash. It runs on real time, not game time, and starts again at most
+## every FLASH_GAP seconds: in slow motion (the dash lesson, perfect dodges, specials) a
+## boss hit by a ring of bolts used to stay white the whole time, a flat white blob.
+const FLASH_TIME := 0.07
+const FLASH_GAP := 0.25
+
 func hit() -> void:
 	if _dead:
 		return
-	_flash = 0.07
+	var now := Time.get_ticks_msec()
+	if now - _last_flash_ms < int(FLASH_GAP * 1000.0):
+		return
+	_last_flash_ms = now
+	_flash = FLASH_TIME
 	_set_flash(true)
 
 
@@ -207,7 +218,7 @@ func _play(action: String, restart := false) -> void:
 
 func _process(delta: float) -> void:
 	if _flash > 0.0:
-		_flash -= delta
+		_flash -= delta / maxf(Engine.time_scale, 0.01)   # real seconds, even in slow motion
 		if _flash <= 0.0:
 			_set_flash(false)
 

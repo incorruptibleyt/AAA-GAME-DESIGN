@@ -22,9 +22,11 @@ import java.util.Set;
  * full-screen update page (an "immediate" in-app update). Used by scripts/play_update.gd.
  *
  * Signals:
- *  - update_checked(state, detail): state 1 = an update is out, 2 = an update was already
- *    started (resume it), 0 = none, -1 = Play couldn't be asked (not installed from Play,
- *    offline, ...). detail is a short description for the log.
+ *  - update_checked(state, detail, version, staleDays): state 1 = an update is out, 2 = an
+ *    update was already started (resume it), 0 = none, -1 = Play couldn't be asked (not
+ *    installed from Play, offline, ...). detail is a short description for the log, version
+ *    the update's version code (0 if none) and staleDays how many days ago Play on this phone
+ *    learned of the update (-1 if Play doesn't say). The game lets an update wait a few days.
  *  - update_finished(result): what came back from Google's page. -1 = accepted (Play installs
  *    it and restarts the game), 0 = backed out, 1 = failed, 2 = no update to start any more.
  *
@@ -45,7 +47,7 @@ public class PlayUpdatePlugin extends GodotPlugin {
     @Override
     public Set<SignalInfo> getPluginSignals() {
         Set<SignalInfo> signals = new HashSet<>();
-        signals.add(new SignalInfo("update_checked", Integer.class, String.class));
+        signals.add(new SignalInfo("update_checked", Integer.class, String.class, Integer.class, Integer.class));
         signals.add(new SignalInfo("update_finished", Integer.class));
         return signals;
     }
@@ -61,6 +63,11 @@ public class PlayUpdatePlugin extends GodotPlugin {
         return 0;
     }
 
+    private static int staleDays(AppUpdateInfo info) {
+        Integer days = info.clientVersionStalenessDays();
+        return days == null ? -1 : days;
+    }
+
     private AppUpdateManager manager(Activity activity) {
         if (manager == null) {
             manager = AppUpdateManagerFactory.create(activity.getApplicationContext());
@@ -72,17 +79,17 @@ public class PlayUpdatePlugin extends GodotPlugin {
     public void check() {
         final Activity activity = getActivity();
         if (activity == null) {
-            emitSignal("update_checked", -1, "no activity");
+            emitSignal("update_checked", -1, "no activity", 0, -1);
             return;
         }
         activity.runOnUiThread(() -> {
             try {
                 manager(activity).getAppUpdateInfo()
                         .addOnSuccessListener(info -> emitSignal("update_checked", stateOf(info),
-                                "availability " + info.updateAvailability() + ", version " + info.availableVersionCode()))
-                        .addOnFailureListener(e -> emitSignal("update_checked", -1, String.valueOf(e)));
+                                "availability " + info.updateAvailability(), info.availableVersionCode(), staleDays(info)))
+                        .addOnFailureListener(e -> emitSignal("update_checked", -1, String.valueOf(e), 0, -1));
             } catch (Throwable t) {
-                emitSignal("update_checked", -1, String.valueOf(t));
+                emitSignal("update_checked", -1, String.valueOf(t), 0, -1);
             }
         });
     }

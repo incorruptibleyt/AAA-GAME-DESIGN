@@ -808,6 +808,7 @@ func _build_doors() -> void:
 
 ## doors: Doors.describe() of each door. `boss_next`: the boss waits behind them.
 func show_doors(doors: Array, boss_next := false) -> void:
+	DamageNumber.clear_all()
 	_doors_next.text = "The boss waits beyond either one" if boss_next else "Both lead on to the next room"
 	for i in _door_buttons.size():
 		var b := _door_buttons[i]
@@ -876,7 +877,7 @@ func _build_title() -> void:
 	top.add_child(gap)
 	_title_logo = logo_rect()
 	top.add_child(_title_logo)
-	top.add_child(label("Drag to move. Stand still to shoot.", 20, Color(0.85, 0.85, 0.9)))
+	top.add_child(label("Drag to move. Let go to shoot.", 20, Color(0.85, 0.85, 0.9)))
 	# Said up front, so nobody is surprised when the free floors end.
 	_title_free = label("Free to try: floors 1-%d. The Crypt Pass opens the rest." % Store.FREE_FLOORS, 17, Color(0.95, 0.78, 0.45))
 	top.add_child(_title_free)
@@ -1910,7 +1911,8 @@ func _process(delta: float) -> void:
 	# The title's words and buttons would show faintly through the screens opened over it.
 	if _title_box.visible:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
-			or _pass_box.visible or _heroes_box.visible or _records_box.visible)
+			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible \
+			or (_settings_only and _pause_box.visible))
 	_stick_age += delta
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
@@ -2147,6 +2149,7 @@ func top_band() -> float:
 ## Each card shows the family icon, the title in the family colour, and the rarity
 ## as a tag and border colour. `rerolls` is how many free rerolls are left.
 func show_cards(choices: Array, rerolls := 0, tags := true) -> void:
+	DamageNumber.clear_all()
 	for i in _cards.size():
 		var b := _cards[i]
 		b.visible = i < choices.size()

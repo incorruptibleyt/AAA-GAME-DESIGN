@@ -105,7 +105,9 @@ func _teleport() -> void:
 		if c.distance_to(hero.global_position) > 4.5:
 			spot = c
 			break
-	track(Telegraph.circle(spot, 1.6, 0.8, Callable()))
+	var mark := Telegraph.circle(spot, 1.6, 0.8, Callable())
+	mark.harmless = true   # only shows where it comes back; it never hurts
+	track(mark)
 	Fx.magic(center(), Color(0.4, 0.9, 1.0), 25)
 	visual.visible = false
 	_hidden = true

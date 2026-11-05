@@ -68,6 +68,15 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 	n.text = n._prefix + str(maxi(1, roundi(n._total)))
 
 
+## Takes every number off the screen at once (the blessing cards and doors cover the room,
+## and a number frozen under them showed through).
+static func clear_all() -> void:
+	for o in _live.values():
+		if is_instance_valid(o):
+			o.queue_free()
+	_live.clear()
+
+
 ## Makes room for one more number: when MAX_LIVE are still bright, the oldest fade out now.
 static func _trim() -> void:
 	var bright: Array = []

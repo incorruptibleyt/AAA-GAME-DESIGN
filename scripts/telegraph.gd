@@ -5,8 +5,9 @@ extends Node3D
 ## Every warning has a dark rim so it reads on any floor; on the red Ember floor its
 ## middle burns yellow-white. Dashing out of one as it lands is a perfect dodge (dodged()).
 
-## How long after a warning lands it still counts for a perfect dodge (charges and
-## lunges hit just after their strip fills).
+## How long after a line warning lands it still counts for a perfect dodge (charges and
+## lunges hit just after their strip fills). A circle has already hit once it lands, so
+## dashing out of it afterwards is not a dodge.
 const AFTER := 0.3
 
 ## Warnings on the floor right now, plus ones that landed in the last AFTER seconds.
@@ -23,6 +24,8 @@ var _radius := 0.0
 var _width := 0.0
 var _length := 0.0
 var _fired := false
+## A marker that never hurts (the Lich showing where it will reappear): no PERFECT for it.
+var harmless := false
 
 
 static func _parent() -> Node:
@@ -43,14 +46,15 @@ static func _area(alpha: float) -> Color:
 	return Color(1, 0.62, 0.22, minf(a * 1.4, 0.9)) if Floors.hot() else Color(1, 0.15, 0.1, a)
 
 
-## Is `pos` (with radius `r`) inside a warning that lands within `window` seconds, or
-## landed less than AFTER seconds ago? The hero's Grave Dash asks this.
+## Is `pos` (with radius `r`) inside a warning that lands within `window` seconds, or (a
+## line) landed less than AFTER seconds ago? The hero's Grave Dash asks this.
 static func dodged(pos: Vector3, r: float, window: float) -> bool:
 	for t in active:
-		if not is_instance_valid(t) or t.is_queued_for_deletion():
+		if not is_instance_valid(t) or t.is_queued_for_deletion() or t.harmless:
 			continue
 		var left := t.duration - t.elapsed
-		if left <= window and left >= -AFTER and t._covers(pos, r):
+		var late := -AFTER if t._is_line else 0.0
+		if left <= window and left >= late and t._covers(pos, r):
 			return true
 	return false
 

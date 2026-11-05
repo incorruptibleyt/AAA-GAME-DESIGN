@@ -124,6 +124,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 
 
 func place_at(pos: Vector3) -> void:
+	visible = true   # hidden on the VICTORY screen
 	global_position = pos
 	rotation = Vector3.ZERO
 	knockback = Vector3.ZERO
@@ -132,12 +133,13 @@ func place_at(pos: Vector3) -> void:
 	# into the next one (the spin used to start the new room by itself, half a turn round).
 	_spin_left = 0.0
 	chill_left = 0.0
+	_safe_left = 0.0
 	if visual:
 		visual.rotation.y = 0.0
 
 
 func can_be_hit() -> bool:
-	return not dead and _invulnerable <= 0.0 and _dash_left <= 0.0 and Game.state == Game.State.PLAYING
+	return not dead and _invulnerable <= 0.0 and _dash_left <= 0.0 and _safe_left <= 0.0 and Game.state == Game.State.PLAYING
 
 
 func heal(amount: float) -> void:
@@ -183,12 +185,19 @@ func dash(dir: Vector3) -> void:
 ## Time slows, nearby shots shatter, and the hero answers with a ring of bolts.
 const PERFECT_WINDOW := 0.22
 var _perfect_done := false
+## A PERFECT is only for an attack you really avoided: none in the moment after you were
+## hurt (a blast that already hit you used to still count as you dashed out of it), and after
+## a perfect dash a short safety covers the gap between the dash (DASH_TIME) and the window,
+## so "PERFECT!" and your own damage never show together.
+const HURT_GRACE_MS := 350
+var _hurt_ms := -100000
+var _safe_left := 0.0
 ## The dark disc and coloured ring at the hero's feet (hidden when they die).
 var _rings: Array[Node3D] = []
 
 
 func _check_perfect(window: float) -> void:
-	if _perfect_done:
+	if _perfect_done or Time.get_ticks_msec() - _hurt_ms < HURT_GRACE_MS:
 		return
 	for p in Projectile.danger:
 		if is_instance_valid(p) and not p.is_queued_for_deletion() and p.time_to_hit(global_position, radius + 0.15) <= window:
@@ -200,6 +209,7 @@ func _check_perfect(window: float) -> void:
 
 func _perfect_dodge() -> void:
 	_perfect_done = true
+	_safe_left = maxf(_safe_left, PERFECT_WINDOW - DASH_TIME + 0.05)
 	_dash_cooldown = 0.0
 	add_charge(0.25)
 	for p in Projectile.danger.duplicate():
@@ -367,6 +377,8 @@ func _process(delta: float) -> void:
 	_update_ward_bubble()
 	_update_dash_ring()
 	_dash_cooldown -= delta
+	if _safe_left > 0.0 and _dash_left <= 0.0:
+		_safe_left -= delta
 	if _dash_left > 0.0:
 		_dash_left -= delta
 		move_by(_dash_dir * DASH_SPEED * delta, delta)
@@ -522,6 +534,8 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	var before := health
 	super.take_damage(amount * Game.damage_scale() * (1.0 - armor), direction, push, crit)
 	Game.report_damage(before - health)
+	if health < before:
+		_hurt_ms = Time.get_ticks_msec()
 	if dead:
 		return
 	Sfx.play("hurt")

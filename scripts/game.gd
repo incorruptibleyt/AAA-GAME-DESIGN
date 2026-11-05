@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-03h"
+const BUILD := "2026-11-05a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -540,9 +540,12 @@ func _notification(what: int) -> void:
 		# Android's back button pauses the game and resumes it again; from the end screens it
 		# goes to the title, and from the title it leaves.
 		if UpdateGate.instance and UpdateGate.instance.showing():
+			if not UpdateGate.instance.forced():
+				UpdateGate.instance.later()   # the update can still wait: back is LATER
+				return
 			if Telemetry.instance:
 				Telemetry.instance.session_open(false)
-			get_tree().quit()   # an old version can't be played, so back leaves
+			get_tree().quit()   # a version days out of date can't be played, so back leaves
 			return
 		if hud.feedback_visible():
 			hud.show_feedback(false)
@@ -1506,10 +1509,18 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	_wave_kinds.clear()
 	var mages := 0
 	var theme_kind := theme_enemy()
+	# The tutorial teaches the basics first: bone spiders and bombers wait for floor 2. They
+	# are left out (they used to turn into extra minions, a bigger pack for a new player),
+	# unless that would leave fewer than two skeletons in the room.
+	var plain := 0
+	for s in room.spawns:
+		if s.kind != "s" and s.kind != "x":
+			plain += 1
 	for s in room.spawns:
 		var kind: String = s.kind
-		# The tutorial teaches the basics first: bone spiders and bombers wait for floor 2.
 		if first_run and (kind == "s" or kind == "x"):
+			if plain >= 2:
+				continue
 			kind = "m"
 		# Ice and fire floors swap one minion in every room for their own skeleton.
 		if kind == "m" and theme_kind != "" and not _wave_kinds.has(theme_kind):
@@ -1549,8 +1560,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if _in_boss_room() or _wave_kinds.is_empty():
 		_wave_total = 1
 	else:
-		# The first room is gentle; later and deeper rooms get three waves.
-		_wave_total = 2 if first_run or (index == 0 and floor_num == 1) else (3 if index >= 2 or floor_num > 1 else 2)
+		# The first room is gentle (the tutorial's first room is a single wave, so a new
+		# player isn't swarmed before the dash lesson); later and deeper rooms get three waves.
+		if first_run and index == 0:
+			_wave_total = 1
+		else:
+			_wave_total = 2 if first_run or (index == 0 and floor_num == 1) else (3 if index >= 2 or floor_num > 1 else 2)
 	_waves_left = _wave_total - 1
 	hud.set_wave(1, _wave_total)
 	if is_instance_valid(boss):
@@ -1946,7 +1961,7 @@ func _door_offer() -> Array:
 		rng = Curses.daily_rng(300 + floor_num * 10 + _room_index, _daily_date)
 	else:
 		rng.randomize()
-	return Doors.offer(rng, _room_index + 2 >= _run.size(), not curses.has("narrow"))
+	return Doors.offer(rng, _room_index + 2 >= _run.size(), not curses.has("narrow"), _taken)
 
 
 func _on_door_picked(i: int) -> void:
@@ -2048,6 +2063,10 @@ func _win() -> void:
 	var tap := "Tap to return to the title" if _daily_done else "Tap to descend to floor %d" % (floor_num + 1)
 	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, extra],
 		tap, false, score, best, _free_end)
+	# The hero and the rings at their feet would show between the end screen's buttons
+	# (as YOU DIED hides them); they come back as the next room starts (place_at).
+	if hero:
+		hero.visible = false
 	hud.show_end_title(not _daily_done and not _free_end, "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
@@ -2227,14 +2246,17 @@ func _open_records() -> void:
 		for k: String in cfg.get_section_keys("daily"):
 			if k.ends_with("_official"):
 				dailies += 1
+	# A fresh save shows "-" for the floor and the combo, not "1" and "x0".
+	var played := roundi(record(cfg, "runs")) > 0 or int(cfg.get_value("stats", "best_score", 0)) > 0
+	var combo := record_best(cfg, "best_combo")
 	var rows := [
 		["Best score", Hud.thousands(int(cfg.get_value("stats", "best_score", 0)))],
-		["Deepest floor", str(int(cfg.get_value("stats", "best_floor", 1)))],
+		["Deepest floor", str(int(cfg.get_value("stats", "best_floor", 1))) if played else "-"],
 		["Bosses defeated", Hud.thousands(int(cfg.get_value("stats", "wins", 0)))],
 		["Runs played", Hud.thousands(roundi(record(cfg, "runs")))],
 		["Skeletons destroyed", Hud.thousands(roundi(record(cfg, "kills")))],
 		["Time in the crypt", _long_time(record(cfg, "time"))],
-		["Best combo", "x%d" % record_best(cfg, "best_combo")],
+		["Best combo", "x%d" % combo if combo > 0 else "-"],
 		["Perfect dodges", Hud.thousands(perfect)],
 		["Coins found", Hud.thousands(roundi(record(cfg, "coins")))],
 		["Daily Crypts played", str(dailies)],
@@ -2888,6 +2910,12 @@ func next_goal() -> String:
 	var beaten := _best_boss(cfg)
 	if beaten < Store.FREE_FLOORS:
 		return "NEXT: beat the floor %d boss" % (beaten + 1)
+	# The hero's next Curse reward (the free curse earns the first one; the Crypt Pass opens
+	# the rest). With the Pass it takes turns with the other goals, run by run.
+	var reward := Curses.next_reward(Curses.mastery(cfg, Heroes.selected(cfg)))
+	if not reward.is_empty() and (Store.owned() or int(reward.level) <= 1) \
+			and (not Store.owned() or roundi(record(cfg, "runs")) % 2 == 0):
+		return "NEXT: Curse Level %d on the floor %d boss: %s" % [int(reward.level), Store.FREE_FLOORS, reward.title]
 	if not cheapest.is_empty():
 		return "NEXT: %d more coins for %s" % [int(cheapest.cost) - coins, cheapest.name]
 	if Store.owned():
