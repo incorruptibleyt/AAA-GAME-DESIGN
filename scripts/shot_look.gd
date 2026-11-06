@@ -198,7 +198,7 @@ static func danger(p: Projectile, r: float, height: float) -> Node3D:
 
 ## Builds a hero shot on `p`. `kind` is "bolt", "wave", "axe", "orb" or "shard".
 ## Returns the glow that flashes big as the shot leaves (a muzzle flash) and settles.
-static func hero(p: Projectile, kind: String, col: Color, size: float, height: float) -> Node3D:
+static func hero(p: Projectile, kind: String, col: Color, size: float, _height: float) -> Node3D:
 	_shaders()
 	var glow_col := Color(col.r, col.g, col.b, 0.75)
 	var glow := 3.2
@@ -222,7 +222,8 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, height: f
 			glow = 2.0
 		_:
 			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 2.4, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
-	_put(p, _flat, floor_mat(Color(col.r, col.g, col.b, 0.3)), Vector3(size * 5.0, 1.0, size * 5.0), Vector3(0, 0.05 - height, 0))
+	# (No pool of light on the floor under hero shots: a Mage with Twin Shots and Fan of Shots
+	# has dozens in the air, and each pool was one more thing to draw. Undead shots keep theirs.)
 	if glow <= 0.0:
 		return null
 	return _put(p, _card, hero_mat(K_GLOW, glow_col, true), Vector3(size * glow, size * glow, 1.0))

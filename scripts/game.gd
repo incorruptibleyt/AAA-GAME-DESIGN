@@ -62,7 +62,7 @@ var _road_unsaved := 0
 var _road_shown := 0
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06e"
+const BUILD := "2026-11-06f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1235,7 +1235,7 @@ func run_report(result: String, was_first := false) -> String:
 			arm.append("%s %d" % [u.title, lv])
 	lines.append("Armory: " + (", ".join(arm) if arm else "none"))
 	lines.append("Rooms: " + ", ".join(_rep.get("rooms", [])))
-	lines.append("Graphics %s | FPS avg %d, lowest %d | longest frame %d ms%s | warm-up %d ms" % ["High" if _high_graphics else "Low",
+	lines.append("Graphics %s (3D %s) | FPS avg %d, lowest %d | longest frame %d ms%s | warm-up %d ms" % ["High" if _high_graphics else "Low", _draw_size_text(),
 		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0), roundi(_longest_ms),
 		(" (%s%s)" % [_longest_at, "; added " + _longest_new if _longest_new != "" else ""]) if _longest_at != "" else "", Warmup.last_ms])
 	lines.append("Memory: most %d MB (graphics %d MB) | phone RAM %s" % [_mem_peak, _mem_peak_video, ram_text()])
@@ -2660,12 +2660,32 @@ func _watch_frame_rate(fps: float) -> void:
 		_auto_graphics = false
 
 
+## How sharp the 3D world is drawn: 0.85 of the screen on High (0.7 on Low), but never more
+## than about 1.9 million pixels (1.2 on Low). A phone set to its sharpest screen mode (a
+## Galaxy S23 Ultra at 1440 x 3088 has 4.4 million pixels) would otherwise draw almost twice
+## as much as at its usual 1080 x 2316, for a difference too small to see on a phone.
+const PIXELS_HIGH := 1.9e6
+const PIXELS_LOW := 1.2e6
+
+func _scale_3d(high: bool) -> float:
+	var win := get_window().size
+	var px := maxf(1.0, float(win.x) * float(win.y))
+	return clampf(sqrt((PIXELS_HIGH if high else PIXELS_LOW) / px), 0.5, 0.85 if high else 0.7)
+
+
+## The size the 3D world is drawn at, and the screen's, for run reports ("918x1969 of 1080x2316").
+func _draw_size_text() -> String:
+	var win := get_window().size
+	var k := get_viewport().scaling_3d_scale
+	return "%dx%d of %dx%d" % [roundi(win.x * k), roundi(win.y * k), win.x, win.y]
+
+
 ## High looks best; Low turns off shadows and glow and draws the 3D world at a lower
 ## resolution, for smoother play on older phones.
 func _set_graphics(high: bool, save := true) -> void:
 	var vp := get_viewport()
 	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED
-	vp.scaling_3d_scale = 0.85 if high else 0.7
+	vp.scaling_3d_scale = _scale_3d(high)
 	_env.glow_enabled = high
 	_moon.shadow_enabled = high
 	_high_graphics = high

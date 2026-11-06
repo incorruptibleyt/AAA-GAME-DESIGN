@@ -92,6 +92,11 @@ static func impact(pos: Vector3, color: Color, size := 1.0) -> void:
 	_impacts_now += 1
 	if _impacts_now > BURSTS_PER_FRAME:
 		return
+	# At most MAX_IMPACTS on screen: a Mage with Twin Shots, Fan of Shots and Piercing Shot
+	# lands a dozen hits a frame, and each flash is one more thing to draw.
+	_live_impacts = _live_impacts.filter(func(n): return is_instance_valid(n))
+	if _live_impacts.size() >= MAX_IMPACTS:
+		return
 	if _impact_quad == null:
 		_impact_quad = QuadMesh.new()
 	var f := MeshInstance3D.new()
@@ -99,6 +104,7 @@ static func impact(pos: Vector3, color: Color, size := 1.0) -> void:
 	f.material_override = ShotLook.hero_mat(ShotLook.K_GLOW, Color(color.r, color.g, color.b, 1.0), true)
 	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	world.add_child(f)
+	_live_impacts.append(f)
 	f.global_position = pos
 	f.scale = Vector3(size * 0.4, size * 0.4, 1.0)
 	var tw := f.create_tween()
@@ -107,6 +113,8 @@ static func impact(pos: Vector3, color: Color, size := 1.0) -> void:
 	tw.tween_callback(f.queue_free)
 
 static var _impact_quad: QuadMesh
+static var _live_impacts: Array = []
+const MAX_IMPACTS := 10
 static var _impact_frame := -1
 static var _impacts_now := 0
 
