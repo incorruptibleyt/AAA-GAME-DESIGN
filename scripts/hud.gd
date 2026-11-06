@@ -2018,6 +2018,11 @@ func _process(delta: float) -> void:
 			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible or _drops.visible or _road.visible \
 			or (_settings_only and _pause_box.visible))
 	_stick_age += delta
+	# The OPEN BONE DROP buttons glow gently, so a drop waiting isn't missed.
+	if _title_drops.is_visible_in_tree() or _end_drop.is_visible_in_tree():
+		var glow := 1.0 + 0.16 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.2))
+		_title_drops.modulate = Color(glow, glow, glow)
+		_end_drop.modulate = Color(glow, glow, glow)
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
 	_see_through(delta)
