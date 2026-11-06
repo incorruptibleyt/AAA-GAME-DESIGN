@@ -68,7 +68,7 @@ var _mastery_run := 0
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06h"
+const BUILD := "2026-11-06i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}

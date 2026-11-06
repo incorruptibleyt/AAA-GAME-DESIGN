@@ -160,6 +160,17 @@ func _show_tab(slot: String, to_top := false) -> void:
 		if it.slot == slot:
 			_grid.add_child(_card(it))
 	_scroll.scroll_vertical = 0 if to_top else keep
+	if not to_top and keep > 0:
+		_keep_scroll(keep)
+
+
+## Back to where the list was once the new cards are laid out (until then the list is too
+## short to scroll, so it would jump to the top whenever a look is tapped).
+func _keep_scroll(to: int) -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(_scroll):
+		_scroll.scroll_vertical = to
 
 
 func _card(it: Dictionary) -> Button:

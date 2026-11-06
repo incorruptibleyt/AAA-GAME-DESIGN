@@ -23,10 +23,8 @@ const CHANNELS := {
 }
 ## The meshes of each model that take the outfit colours (not the weapons).
 const PREFIX := {"rogue": "Rogue_", "knight": "Knight_", "barbarian": "Barbarian_", "mage": "Mage_"}
-const MODEL := {"rogue": "Rogue_Hooded", "knight": "Knight", "barbarian": "Barbarian", "mage": "Mage"}
-## Each hero's own hat or helmet and cape, and what they hold.
+## Each hero's own hat or helmet.
 const OWN_HAT := {"knight": "Knight_Helmet", "barbarian": "Barbarian_Hat", "mage": "Mage_Hat"}
-const OWN_CAPE := {"rogue": "Rogue_Cape", "knight": "Knight_Cape", "barbarian": "Barbarian_Cape", "mage": "Mage_Cape"}
 
 ## The top of each hero's head, in the head bone's space (where a crown sits).
 const HEAD_TOP := {"rogue": 0.74, "knight": 0.86, "barbarian": 0.74, "mage": 0.72}
@@ -37,7 +35,7 @@ const HEAD_TOP := {"rogue": 0.74, "knight": 0.86, "barbarian": 0.74, "mage": 0.7
 ## Barbarian's shirt), the Knight's armour and the Rogue's leather. null = as painted.
 const OUTFITS := {
 	"crimson": {"name": "Crimson", "a": Color(0.62, 0.08, 0.12), "b": Color(1.0, 0.78, 0.3), "leather": Color(0.24, 0.17, 0.14)},
-	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "leather": Color(0.5, 0.33, 0.18)},
+	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.55, 0.64, 0.52), "leather": Color(0.5, 0.33, 0.18)},
 	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.3, 0.33, 0.45)},
 	"ivory": {"name": "Ivory", "a": Color(0.94, 0.91, 0.83), "b": Color(0.35, 0.6, 0.95), "armor": Color(0.88, 0.88, 0.86), "leather": Color(0.62, 0.45, 0.3)},
 	"shadow": {"name": "Shadow", "a": Color(0.14, 0.12, 0.17), "b": Color(0.6, 0.25, 0.9), "armor": Color(0.2, 0.19, 0.23), "leather": Color(0.16, 0.14, 0.16)},
@@ -107,8 +105,8 @@ const GLOWS := {
 	"lime": {"name": "Lime", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
 }
 
-## The order each hero's looks are unlocked in: three for each Mastery level from 2 to 10,
-## the grandest last. [slot, key].
+## The order each hero's looks are unlocked in: three for each Mastery level from 2 to 10
+## (27 each), the grandest last. [slot, key].
 const ORDER := {
 	"rogue": [["outfit", "crimson"], ["glow", "emerald"], ["hold", "knife"],
 		["outfit", "forest"], ["head", "horns"], ["glow", "ember"],
@@ -117,8 +115,8 @@ const ORDER := {
 		["outfit", "ivory"], ["hold", "twin_knives"], ["glow", "lime"],
 		["outfit", "rose"], ["head", "bear"], ["glow", "silver"],
 		["outfit", "sea"], ["outfit", "ember"], ["outfit", "bone"],
-		["outfit", "royal"], ["head", "halo"], ["glow", "gold"],
-		["outfit", "gold"], ["head", "crown"]],
+		["outfit", "royal"], ["head", "helm"], ["head", "halo"],
+		["glow", "gold"], ["outfit", "gold"], ["head", "crown"]],
 	"knight": [["outfit", "midnight"], ["glow", "azure"], ["hold", "badge"],
 		["outfit", "forest"], ["head", "bare"], ["glow", "ember"],
 		["outfit", "ivory"], ["hold", "tower"], ["glow", "emerald"],
@@ -284,12 +282,12 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	return d
 
 
-static var _shader: Shader
+static var _shaders := {}
 static var _mats := {}
 
 
-## Dresses a KayKit hero `model` (CharacterVisual) in `style`: {id, outfit: {a, b}, head,
-## hold, ...} as made by look_for().
+## Dresses a KayKit hero `model` (CharacterVisual) in `style`: {id, outfit: {a, b}, hide,
+## show, borrow, extras, hat, hat_h} as made by dressed().
 static func dress(model: Node3D, style: Dictionary) -> void:
 	var id := str(style.get("id", ""))
 	var skel := Art._find_skeleton(model)
@@ -343,7 +341,6 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 	if mi and str(mi.name).begins_with(PREFIX[id]) and mi.mesh:
 		var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
 		if src and src.albedo_texture:
-			# (The trim colour stays off the face: on the Rogue it's the colour of skin in shadow.)
 			# (The trim colour stays off the Rogue's face, where it's the colour of skin in shadow,
 			# and the Barbarian's fur colours off his beard.)
 			var o := outfit
@@ -359,14 +356,17 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 
 ## One material per hero and outfit, shared by every copy of that hero.
 static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> ShaderMaterial:
-	var key := "%s %s %s" % [id, outfit.get("a", null), outfit.get("b", null)]
+	# Capes are single sheets drawn from both sides: the copy must be too, or they vanish.
+	var both := src.cull_mode == BaseMaterial3D.CULL_DISABLED
+	var key := "%s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both]
 	if _mats.has(key):
 		return _mats[key]
-	if _shader == null:
-		_shader = Shader.new()
-		_shader.code = SHADER
+	if not _shaders.has(both):
+		var sh := Shader.new()
+		sh.code = SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode cull_disabled;" if both else "shader_type spatial;")
+		_shaders[both] = sh
 	var m := ShaderMaterial.new()
-	m.shader = _shader
+	m.shader = _shaders[both]
 	m.set_shader_parameter("tex", src.albedo_texture)
 	m.set_shader_parameter("rough", src.roughness)
 	m.set_shader_parameter("metal", src.metallic)
@@ -460,12 +460,13 @@ vec3 swap(vec3 col, vec3 hsv, vec4 src, vec3 ref, vec4 dst) {
 }
 
 void fragment() {
-	// The colours are judged as painted (sRGB), as the channels were measured that way.
-	vec3 c = pow(texture(tex, UV).rgb, vec3(1.0 / 2.2));
+	// The game's renderer (Compatibility) hands the texture over as painted (sRGB) and
+	// takes ALBEDO the same way, so the colours are judged just as they were measured.
+	vec3 c = texture(tex, UV).rgb;
 	vec3 hsv = rgb2hsv(c);
 	vec3 o = swap(c, hsv, a_src, a_ref, a_dst);
 	o = swap(o, hsv, b_src, b_ref, b_dst);
-	ALBEDO = pow(o, vec3(2.2));
+	ALBEDO = o;
 	ROUGHNESS = rough;
 	METALLIC = metal;
 }

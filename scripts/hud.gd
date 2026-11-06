@@ -183,6 +183,7 @@ var _title_shop_row: Control
 var _title_pass_row: Control
 var _title_modes_row: Control
 var _title_modes_badge: Label
+var _title_heroes_badge: Label
 var _modes_box: Control
 var _records_box: Control
 var _records_grid: GridContainer
@@ -991,6 +992,9 @@ func _build_title() -> void:
 	heroes.custom_minimum_size = Vector2(222, 74)
 	heroes.pressed.connect(func(): heroes_pressed.emit())
 	_title_heroes = heroes
+	# A gold tag when a hero has new looks to try on the Style screen.
+	_title_heroes_badge = _badge_pill("NEW LOOKS")
+	heroes.add_child(_title_heroes_badge)
 	var armory := button("ARMORY", 26)
 	armory.custom_minimum_size = Vector2(222, 74)
 	armory.pressed.connect(func(): armory_pressed.emit())
@@ -1002,21 +1006,7 @@ func _build_title() -> void:
 	modes.custom_minimum_size = Vector2(222, 74)
 	modes.pressed.connect(func(): show_modes(true))
 	# A little gold tag when today's Daily Crypt is waiting.
-	_title_modes_badge = label("DAILY READY", 13, Color(0.12, 0.08, 0.02))
-	_title_modes_badge.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_title_modes_badge.label_settings.outline_size = 0
-	var pill := StyleBoxFlat.new()
-	pill.bg_color = GOLD
-	pill.set_corner_radius_all(9)
-	pill.content_margin_left = 8
-	pill.content_margin_right = 8
-	_title_modes_badge.add_theme_stylebox_override("normal", pill)
-	_title_modes_badge.anchor_left = 1.0
-	_title_modes_badge.anchor_right = 1.0
-	_title_modes_badge.offset_left = -104
-	_title_modes_badge.offset_right = 4
-	_title_modes_badge.offset_top = -10
-	_title_modes_badge.offset_bottom = 10
+	_title_modes_badge = _badge_pill("DAILY READY")
 	modes.add_child(_title_modes_badge)
 	var pass_button := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	pass_button.custom_minimum_size = Vector2(222, 74)
@@ -2315,6 +2305,35 @@ func show_cards(choices: Array, rerolls := 0, tags := true) -> void:
 	_cards_age = 0.0
 
 
+## A little gold tag for the top right corner of a title button.
+func _badge_pill(text: String) -> Label:
+	var l := label(text, 13, Color(0.12, 0.08, 0.02))
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.label_settings.outline_size = 0
+	var pill := StyleBoxFlat.new()
+	pill.bg_color = GOLD
+	pill.set_corner_radius_all(9)
+	pill.content_margin_left = 8
+	pill.content_margin_right = 8
+	l.add_theme_stylebox_override("normal", pill)
+	l.anchor_left = 1.0
+	l.anchor_right = 1.0
+	l.offset_left = -104
+	l.offset_right = 4
+	l.offset_top = -10
+	l.offset_bottom = 10
+	return l
+
+
+## The title's NEW LOOKS tag: shown while any hero has looks the Style screen hasn't shown.
+func refresh_looks_badge() -> void:
+	var cfg := Game._load_save()
+	var n := 0
+	for h: Dictionary in Heroes.LIST:
+		n += HeroStyle.unseen(cfg, h.id)
+	_title_heroes_badge.visible = n > 0
+
+
 func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_box.visible = v
 	var locked := Game.first_run_pending()
@@ -2331,6 +2350,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		_title_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
 				BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
 	_title_modes_badge.visible = not Curses.official_used(Game._load_save())
+	refresh_looks_badge()
 	_title_lock.visible = locked
 	if not v:
 		show_modes(false)
@@ -2631,6 +2651,7 @@ func open_style(cfg: ConfigFile, id: String) -> void:
 	if _heroes_box.visible:
 		_heroes_box._stage.set_active(false)
 	_style.open_hero(cfg, id)
+	refresh_looks_badge()
 
 
 func close_style() -> void:
