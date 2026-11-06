@@ -68,7 +68,7 @@ var _mastery_run := 0
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06g"
+const BUILD := "2026-11-06h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -307,7 +307,8 @@ func _ready() -> void:
 	hud.road_claim.connect(_claim_road)
 	hud.road_closed.connect(_drops_closed)
 	hud.mastery_pressed.connect(_open_mastery)
-	hud.mastery_color.connect(_set_mastery_color)
+	hud.style_pressed.connect(_open_style)
+	hud.style_wear.connect(_wear_look)
 	hud.copy_report_pressed.connect(func():
 		DisplayServer.clipboard_set(_last_report)
 		Sfx.play("click"))
@@ -604,6 +605,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.omens_visible():
 			hud.show_omens(false)
+			return
+		if hud.style_visible():
+			hud.close_style()
 			return
 		if hud.mastery_visible():
 			hud.close_mastery()
@@ -1229,6 +1233,10 @@ func run_report(result: String, was_first := false) -> String:
 		if p > 0:
 			masteries.append("%s %d (%d)" % [h.title, HeroMastery.level_for(p), p])
 	lines.append("Hero Mastery +%d this run | %s" % [_mastery_run, ", ".join(masteries) if masteries else "none yet"])
+	if hero:
+		var p := HeroStyle.picks(cfg, hero.hero_id)
+		var worn := HeroStyle.SLOTS.map(func(slot: String) -> String: return str(p[slot]) if p[slot] != "" else "-")
+		lines.append("Look %s (outfit/head/weapon/glow)" % "/".join(worn))
 	if daily or not curses.is_empty():
 		lines.append("Mode: %s | %s: %s (Curse Level %d, score x%s)" % ["Daily Crypt #%d %s%s" % [Curses.day_number(_daily_date), _daily_date, " practice" if _daily_practice else ""] if daily else "Normal",
 			"Rules" if daily else "Curses", Curses.names(curses) if curses else "none", Curses.level_of(curses), _mult_text(_score_mult)])
@@ -2466,7 +2474,7 @@ func _bank_mastery(cfg: ConfigFile) -> Dictionary:
 	_mastery_shown = 0
 	var after := HeroMastery.points(cfg, id)
 	var g := _give_mastery(cfg, id)
-	var def := HeroMastery.styled(cfg, Heroes.get_hero(id))
+	var def := HeroStyle.styled(cfg, Heroes.get_hero(id))
 	return {"id": id, "name": def.title, "color": def.ring, "before": after - gained, "after": after, "gained": gained, "levels": g.levels}
 
 
@@ -2830,8 +2838,8 @@ func _hero_rows() -> Array:
 		rows.append({"id": h.id, "name": h.title, "badge": badge, "mastery": m, "cost": h.cost,
 			"unlocked": unlocked, "selected": h.id == chosen and _trial_hero == "",
 			"trial": state == State.TITLE and not unlocked and not bool(cfg.get_value(TRIAL_SECTION, h.id, false)),
-			"trying": h.id == _trial_hero, "def": HeroMastery.styled(cfg, h), "points": HeroMastery.points(cfg, h.id),
-			"frame": HeroMastery.has_frame(cfg, h.id)})
+			"trying": h.id == _trial_hero, "def": HeroStyle.styled(cfg, h), "points": HeroMastery.points(cfg, h.id),
+			"frame": HeroMastery.has_frame(cfg, h.id), "new_looks": HeroStyle.unseen(cfg, h.id)})
 	return rows
 
 
@@ -2840,16 +2848,26 @@ func _open_mastery(id: String) -> void:
 	hud.open_mastery(_load_save(), id)
 
 
-## WEAR IT / WEARING on the Mastery screen: the hero's mastery color on or off.
-func _set_mastery_color(id: String, on: bool) -> void:
+## The Style screen for hero `id` (from the Heroes or Mastery screen).
+func _open_style(id: String) -> void:
 	var cfg := _load_save()
-	if not HeroMastery.has_color(cfg, id):
-		return
-	HeroMastery.set_color(cfg, id, on)
+	HeroStyle.mark_seen(cfg, id)
 	write_save(cfg)
-	hud.open_mastery(cfg, id)
-	hud.show_heroes(true, _hero_rows(), coins)
-	# The hero standing on the title changes color too.
+	hud.open_style(cfg, id)
+	if hud._heroes_box.visible:
+		hud.show_heroes(true, _hero_rows(), coins)
+
+
+## A look picked on the Style screen: worn from now on, and on the hero on the title too.
+func _wear_look(id: String, slot: String, key: String) -> void:
+	var cfg := _load_save()
+	if HeroStyle.item_level(id, slot, key) > HeroMastery.level(cfg, id):
+		return
+	HeroStyle.wear(cfg, id, slot, key)
+	write_save(cfg)
+	hud.open_style(cfg, id)
+	if hud._heroes_box.visible:
+		hud.show_heroes(true, _hero_rows(), coins)
 	if state == State.TITLE and hero and hero.hero_id == id and _swap_hero(id, true):
 		Fx.magic(hero.center(), hero.bolt_color, 24)
 

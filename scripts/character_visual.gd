@@ -97,6 +97,8 @@ func _dress_model(look: Dictionary) -> void:
 		Art.attach_to_bone(_model, "handslot.r", look.weapon)
 	if look.has("offhand"):
 		Art.attach_to_bone(_model, "handslot.l", look.offhand)
+	if look.has("style"):
+		HeroStyle.dress(_model, look.style)   # a hero's chosen look (hero_style.gd)
 	var skel := Art._find_skeleton(_model)
 	if skel == null:
 		return

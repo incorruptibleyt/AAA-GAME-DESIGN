@@ -7,6 +7,7 @@ extends ColorRect
 signal pick(id: String)
 signal trial(id: String)
 signal mastery(id: String)
+signal style(id: String)
 signal closed
 
 ## The stat bars: [key in Heroes.LIST, name, how the number is shown].
@@ -27,6 +28,7 @@ var _coin_label: Label
 var _name: Label
 var _badge: Label
 var _mastery_bar: MasteryBar
+var _style_button: Button
 var _text: Label
 var _fills: Array[ColorRect] = []
 var _values: Array[Label] = []
@@ -91,13 +93,26 @@ func _init() -> void:
 	_badge = Hud.label("", 16, Hud.GOLD)
 	col.add_child(_badge)
 	# Hero Mastery: tap for every level and the mastery color.
+	var mrow := HBoxContainer.new()
+	mrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mrow.add_theme_constant_override("separation", 10)
+	col.add_child(mrow)
 	_mastery_bar = MasteryBar.new()
 	_mastery_bar.custom_minimum_size = Vector2(0, 76)
+	_mastery_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_mastery_bar.make_tappable()
 	_mastery_bar.tapped.connect(func():
 		Sfx.play("click")
 		mastery.emit(_row().id))
-	col.add_child(_mastery_bar)
+	mrow.add_child(_mastery_bar)
+	# The Style screen: outfits, hats, weapons and glows unlocked by Mastery.
+	_style_button = Hud.button("STYLE", 19)
+	_style_button.custom_minimum_size = Vector2(112, 70)
+	_style_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_style_button.pressed.connect(func():
+		Sfx.play("click")
+		style.emit(_row().id))
+	mrow.add_child(_style_button)
 	_text = Hud.label("", 17, TEXT)
 	col.add_child(_text)
 	col.add_child(_build_stats())
@@ -337,6 +352,14 @@ func _refresh() -> void:
 	_badge.visible = not bits.is_empty()
 	_text.text = def.text
 	_mastery_bar.set_points(r.id, def.title, ring, int(r.get("points", 0)))
+	# New looks waiting: the Style button says so, in gold.
+	var fresh := int(r.get("new_looks", 0))
+	_style_button.text = "STYLE\n%d NEW" % fresh if fresh > 0 else "STYLE"
+	_style_button.add_theme_font_size_override("font_size", 16 if fresh > 0 else 19)
+	var ssb := _style_button.get_theme_stylebox("normal") as StyleBoxFlat
+	ssb.border_color = Hud.GOLD if fresh > 0 else Color(1, 0.8, 0.45, 0.6)
+	ssb.set_border_width_all(3 if fresh > 0 else 2)
+	ssb.bg_color = Color(0.3, 0.22, 0.08, 0.97) if fresh > 0 else Color(0.16, 0.12, 0.2, 0.95)
 	for i in STATS.size():
 		var key: String = STATS[i][0]
 		_values[i].text = STATS[i][2] % def[key]

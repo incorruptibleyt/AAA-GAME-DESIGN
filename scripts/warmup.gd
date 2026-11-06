@@ -61,7 +61,8 @@ static func run() -> void:
 			var v := CharacterVisual.new()
 			holder.add_child(v)
 			v.position = spots[FOES.size() + i]
-			v.build(Heroes.look(Heroes.LIST[i]))
+			# (The first in an outfit, so the outfit shader is ready: hero_style.gd.)
+			v.build(Heroes.look(HeroStyle.dressed(Heroes.LIST[i], {"outfit": "crimson"} if i == 0 else {})))
 			heroes.append(v)
 		DamageNumber.healed(hero, 9876543210.0))
 

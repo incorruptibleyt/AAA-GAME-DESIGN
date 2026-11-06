@@ -60,6 +60,10 @@ func _init() -> void:
 	_bar.custom_minimum_size = Vector2(0, 16)
 	col.add_child(_bar)
 	_sub = Hud.label("", 15, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	_sub.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_sub.clip_text = true
+	_sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_child(_sub)
 	_news = Hud.label("", 17, Hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
 	_news.visible = false
@@ -89,7 +93,7 @@ func set_points(id: String, hero_name: String, col: Color, p: int, header := "")
 	_setup(id, hero_name, col)
 	if header != "":
 		_name.text = header
-	_gain.text = "ALL LEVELS  >" if mouse_filter == Control.MOUSE_FILTER_STOP else ""
+	_gain.text = "LEVELS  >" if mouse_filter == Control.MOUSE_FILTER_STOP else ""
 	_gain.label_settings.font_size = 15 if _gain.text != "" else 19
 	_news.visible = false
 	_t = -1.0

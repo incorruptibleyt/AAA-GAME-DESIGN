@@ -84,7 +84,7 @@ var _moving := false
 
 static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	var cfg := Game._load_save()
-	var def := HeroMastery.styled(cfg, Heroes.get_hero(id))   # the mastery color, if it's on
+	var def := HeroStyle.styled(cfg, Heroes.get_hero(id))   # the looks picked on the Style screen
 	var h := Hero.new()
 	h.name = "Hero"
 	h.team = Team.HERO

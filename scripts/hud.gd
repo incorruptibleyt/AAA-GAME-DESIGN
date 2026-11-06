@@ -23,7 +23,8 @@ signal road_claim(index: int)
 signal road_closed
 signal drops_closed
 signal mastery_pressed(id: String)
-signal mastery_color(id: String, on: bool)
+signal style_pressed(id: String)
+signal style_wear(id: String, slot: String, key: String)
 signal hero_pick(id: String)
 signal copy_report_pressed
 signal resume_pressed
@@ -191,6 +192,7 @@ var _title_drops: Button
 var _end_drop: Button
 var _end_mastery: MasteryBar
 var _mastery: MasteryScreen
+var _style: StyleScreen
 var _drops: DropScreen
 var _title_road: RoadScreen.Bar
 var _title_hint: Label
@@ -273,7 +275,14 @@ func _ready() -> void:
 	_road.closed.connect(func(): road_closed.emit())
 	_mastery = MasteryScreen.new()
 	add_child(_mastery)
-	_mastery.color_toggled.connect(func(id: String, on: bool): mastery_color.emit(id, on))
+	_mastery.style.connect(func(id: String): style_pressed.emit(id))
+	_style = StyleScreen.new()
+	add_child(_style)
+	_style.wear.connect(func(id: String, slot: String, key: String): style_wear.emit(id, slot, key))
+	_style.closed.connect(func():
+		# The Heroes screen's pedestal draws again once the Style screen is gone.
+		if _heroes_box.visible:
+			_heroes_box._stage.set_active(true))
 	_build_daily()
 	_build_omens()
 	_build_reports_ask()
@@ -1244,6 +1253,7 @@ func _build_heroes() -> void:
 	_heroes_box.trial.connect(func(id: String): hero_trial.emit(id))
 	_heroes_box.closed.connect(func(): show_heroes(false))
 	_heroes_box.mastery.connect(func(id: String): mastery_pressed.emit(id))
+	_heroes_box.style.connect(func(id: String): style_pressed.emit(id))
 
 
 ## With a saved run waiting, starting a new one asks first: the first tap warns, and a
@@ -1942,7 +1952,7 @@ func _apply_safe_area() -> void:
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
-		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible
+		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -2613,6 +2623,22 @@ func open_mastery(cfg: ConfigFile, id: String) -> void:
 
 func close_mastery() -> void:
 	_mastery.visible = false
+
+
+## The Style screen for hero `id` (style_screen.gd). The Heroes screen's pedestal stops
+## drawing underneath it.
+func open_style(cfg: ConfigFile, id: String) -> void:
+	if _heroes_box.visible:
+		_heroes_box._stage.set_active(false)
+	_style.open_hero(cfg, id)
+
+
+func close_style() -> void:
+	_style.close()
+
+
+func style_visible() -> bool:
+	return _style.visible
 
 
 func mastery_visible() -> bool:

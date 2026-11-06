@@ -38,7 +38,7 @@ const SAVE_SECTION := "heroes"
 static func look(def: Dictionary) -> Dictionary:
 	var l := {"key": def.key, "height": 2.1, "body": def.body, "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0),
 		"hide": def.hide, "attack_anim": def.attack_anim, "rim": Color(def.ring, 0.9)}
-	for extra in ["hood", "helmet", "hat", "horns"]:
+	for extra in ["hood", "helmet", "hat", "horns", "style"]:
 		if def.has(extra):
 			l[extra] = def[extra]
 	return l
