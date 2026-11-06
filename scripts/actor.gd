@@ -44,7 +44,15 @@ func can_be_hit() -> bool:
 	return not dead
 
 
+const ENEMY_RIM := Color(0.72, 0.8, 1.0, 0.5)
+
+
 func make_visual(look: Dictionary) -> CharacterVisual:
+	# High graphics: a faint cold glow on the edges of plain skeletons lifts them off the floor
+	# (tinted and charred ones already stand out).
+	if team == Team.UNDEAD and Game._high_graphics and not (look.has("tint") or look.has("overlay") or look.has("rim")):
+		look = look.duplicate()
+		look.rim = ENEMY_RIM
 	visual = CharacterVisual.new()
 	add_child(visual)
 	visual.build(look)

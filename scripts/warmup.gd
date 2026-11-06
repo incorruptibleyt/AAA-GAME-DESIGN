@@ -67,7 +67,10 @@ static func run() -> void:
 
 	# Shots, warnings, fire, pickups and every particle effect.
 	steps.append(func():
-		Projectile.fire(Actor.Team.HERO, at + Vector3(-1, 1, 1), Vector3.FORWARD, 0.0, 0.0, hero.bolt_color)
+		for i in 5:   # every hero's shot (the Barbarian's axe model loads here too)
+			Projectile.fire(Actor.Team.HERO, at + Vector3(-1 - i * 0.4, 1, 1), Vector3.FORWARD, 0.0, 0.0, hero.bolt_color, 0.3, "Shot",
+				["bolt", "wave", "axe", "orb", "shard"][i])
+		Fx.impact(at + Vector3.UP, hero.bolt_color)
 		Projectile.fire(Actor.Team.UNDEAD, at + Vector3(1, 1, 1), Vector3.FORWARD, 0.0, 0.0, Color.WHITE)
 		Telegraph.circle(at + Vector3(-1.5, 0, 0), 1.0, 9.0, func(): pass)
 		Telegraph.line(at, Vector3.FORWARD, 3.0, 1.0, 9.0, func(): pass)

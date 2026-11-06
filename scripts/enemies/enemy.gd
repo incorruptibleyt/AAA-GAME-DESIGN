@@ -158,7 +158,7 @@ func _splinters(h: Hero) -> void:
 	for i in 3:
 		var d := Vector3.FORWARD.rotated(Vector3.UP, turn + TAU * i / 3.0)
 		var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 0.9 + d * 0.4, d, h.damage * 0.6 * Game.chain_damage(),
-			h.bolt_speed * 0.8, Color(0.95, 0.92, 0.8), h.bolt_size * 0.8)
+			h.bolt_speed * 0.8, Color(0.95, 0.92, 0.8), h.bolt_size * 0.8, "Shot", "shard")
 		p.pierce = 1
 
 

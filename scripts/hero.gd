@@ -481,7 +481,7 @@ func _shoot(fwd: Vector3) -> void:
 	if perks.has("bonestorm") and _volleys % 3 == 0:
 		for i in 10:
 			var d := fwd.rotated(Vector3.UP, TAU * (i + 0.5) / 10.0)
-			var p := Projectile.fire(Team.HERO, origin - fwd * 0.6 + d * 0.5, d, damage * 0.7 * Game.chain_damage(), bolt_speed * 0.85, Color(0.95, 0.92, 0.8), bolt_size * 0.9)
+			var p := Projectile.fire(Team.HERO, origin - fwd * 0.6 + d * 0.5, d, damage * 0.7 * Game.chain_damage(), bolt_speed * 0.85, Color(0.95, 0.92, 0.8), bolt_size * 0.9, "Shot", "shard")
 			p.pierce = 2
 			p.push = bolt_push * 0.5
 

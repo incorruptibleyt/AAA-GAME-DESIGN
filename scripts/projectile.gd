@@ -23,21 +23,21 @@ var dir := Vector3.FORWARD
 var _hit := {}
 var _first_frame := true
 var _look: Node3D
-var _pulse := 0.0
+var _glow: Node3D
+var _glow_size := 1.0
+var _age := 0.0
+var _col := Color.WHITE
+## The Barbarian's axe turns on this.
+var spin: Node3D
 
-## Every undead shot shares one look so danger reads at a glance on every floor: a big
-## white-hot core in a red-magenta shell, a near-black outline and a faint white halo
-## underneath, a little bigger than it hits, pulsing.
-const DANGER := Color(1.0, 0.12, 0.38)
-static var _outline_mat: StandardMaterial3D
-static var _shell_mat: StandardMaterial3D
-static var _core_mat: StandardMaterial3D
-static var _halo_mat: StandardMaterial3D
+## Undead shots share one look on every floor (see ShotLook).
+const DANGER := ShotLook.DANGER
 ## Undead shots in flight, for Grave Dash to check against.
 static var danger: Array[Projectile] = []
 
 
-static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd: float, col: Color, size := 0.22, src := "Shot") -> Projectile:
+## `style` picks a hero shot's look ("shard" for bone shards); empty means the hero's own.
+static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd: float, col: Color, size := 0.22, src := "Shot", style := "") -> Projectile:
 	var p := Projectile.new()
 	p.source = src
 	direction.y = 0.0
@@ -53,55 +53,18 @@ static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd
 		danger.append(p)
 		p.tree_exiting.connect(func(): danger.erase(p))
 	p.rotation.y = atan2(-p.dir.x, -p.dir.z)
+	p._col = col if team == Actor.Team.HERO else DANGER
 	if team == Actor.Team.HERO:
-		p._hero_look(col, size)
+		if style == "":
+			style = ShotLook.HERO_KIND.get(Game.hero.hero_id if Game.hero else "", "bolt")
+		p._glow = ShotLook.hero(p, style, col, size, origin.y)
+		if p._glow:
+			p._glow_size = p._glow.scale.x
+			p._glow.scale = Vector3(p._glow_size * 2.2, p._glow_size * 2.2, 1.0)   # muzzle flash: starts big, settles
 	else:
-		p._danger_look(size)
+		p._look = ShotLook.danger(p, maxf(size, 0.2) * 1.3, origin.y)
+		p._look.scale = Vector3.ONE * 0.3
 	return p
-
-
-## Hero bolts are small and see-through so they never hide what is coming at you.
-func _hero_look(col: Color, size: float) -> void:
-	var core := U.sphere(self, size * 0.75, U.unlit(Color(col.r, col.g, col.b, 0.55)))
-	core.scale = Vector3(1, 1, 2.6)
-	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var tail := U.sphere(self, size * 0.55, U.unlit(Color(col.r, col.g, col.b, 0.2)), Vector3(0, 0, size * 2.4))
-	tail.scale = Vector3(0.7, 0.7, 4.0)
-	tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-
-func _danger_look(size: float) -> void:
-	if _outline_mat == null:
-		_outline_mat = StandardMaterial3D.new()
-		_outline_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_outline_mat.cull_mode = BaseMaterial3D.CULL_FRONT
-		_outline_mat.albedo_color = Color(0.03, 0.0, 0.02)
-		# See-through layers draw in priority order, so the white core always shows on top
-		# of the shell instead of flickering behind it.
-		_halo_mat = _layer(Color(1, 1, 1, 0.3), 0)
-		_shell_mat = _layer(DANGER, 1)
-		_core_mat = _layer(Color(1, 0.97, 0.98), 2)
-	var r := maxf(size, 0.2) * 1.3
-	_look = Node3D.new()
-	add_child(_look)
-	for part in [[r * 1.35, _outline_mat], [r, _shell_mat], [r * 0.55, _core_mat]]:
-		var m := U.sphere(_look, part[0], part[1])
-		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var halo := U.sphere(_look, r * 1.9, _halo_mat, Vector3(0, -r * 1.6, 0))
-	halo.scale = Vector3(1, 0.08, 1)
-	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var tail := U.sphere(self, r * 0.7, U.unlit(Color(DANGER.r, DANGER.g, DANGER.b, 0.4)), Vector3(0, 0, r * 2.2))
-	tail.scale = Vector3(0.7, 0.7, 3.0)
-	tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-
-
-static func _layer(col: Color, priority: int) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.albedo_color = col
-	m.render_priority = priority
-	return m
 
 
 ## Seconds until this shot would reach `pos` (a body of radius `r`), or INF if it will miss.
@@ -134,10 +97,16 @@ static func _flat_dist_sq(p: Vector3, a: Vector3, b: Vector3) -> float:
 
 func _process(delta: float) -> void:
 	life -= delta
-	if _look:
-		_pulse += delta * 14.0
-		var k := 1.0 + 0.14 * sin(_pulse)
-		_look.scale = Vector3(k, k, k)
+	if _age < 0.12:
+		_age += delta
+		var k := minf(_age / 0.12, 1.0)
+		if _look:
+			_look.scale = Vector3.ONE * lerpf(0.3, 1.0, k)   # undead orbs swell into being
+		elif _glow:
+			var g := lerpf(_glow_size * 2.2, _glow_size, k)
+			_glow.scale = Vector3(g, g, 1.0)
+	if spin:
+		spin.rotation.y -= delta * 22.0
 	var next := global_position + dir * speed * delta
 	# Hero bolts check the whole stretch they flew this frame. The first frame starts back at
 	# the hero (bolts appear a little in front), so a skeleton pressed right up against the
@@ -148,6 +117,7 @@ func _process(delta: float) -> void:
 	_first_frame = false
 	if life <= 0.0 or (Room.current and Room.current.blocks_shot(next, radius * 0.5)):
 		Fx.sparks(global_position, Color(1, 0.85, 0.5) if owner_team == Actor.Team.HERO else DANGER)
+		Fx.impact(global_position, _col, radius * 3.0)
 		queue_free()
 		return
 	global_position = next
@@ -166,6 +136,7 @@ func _process(delta: float) -> void:
 			continue
 		_hit[a] = true
 		var crit := randf() < crit_chance
+		Fx.impact(Vector3(next.x, global_position.y, next.z), Color.WHITE.lerp(_col, 0.5) if crit else _col, radius * (6.0 if crit else 4.0))
 		if a is Hero:
 			Game.hit_source = source
 		a.take_damage(damage * crit_mult if crit else damage, dir, push, crit)

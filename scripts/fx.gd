@@ -80,6 +80,37 @@ static func dust(pos: Vector3, count := 14) -> void:
 	_burst(pos + Vector3.UP * 0.2, count, Color(0.55, 0.5, 0.62, 0.5), 0.8, 1.6, 0.9, -0.05)
 
 
+## A quick flash of light where a shot lands: pops big, then shrinks away (0.14 s).
+static func impact(pos: Vector3, color: Color, size := 1.0) -> void:
+	var world := Game.world
+	if world == null:
+		return
+	var key := Engine.get_process_frames()
+	if key != _impact_frame:
+		_impact_frame = key
+		_impacts_now = 0
+	_impacts_now += 1
+	if _impacts_now > BURSTS_PER_FRAME:
+		return
+	if _impact_quad == null:
+		_impact_quad = QuadMesh.new()
+	var f := MeshInstance3D.new()
+	f.mesh = _impact_quad
+	f.material_override = ShotLook.hero_mat(ShotLook.K_GLOW, Color(color.r, color.g, color.b, 1.0), true)
+	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(f)
+	f.global_position = pos
+	f.scale = Vector3(size * 0.4, size * 0.4, 1.0)
+	var tw := f.create_tween()
+	tw.tween_property(f, "scale", Vector3(size, size, 1.0), 0.05).set_ease(Tween.EASE_OUT)
+	tw.tween_property(f, "scale", Vector3(0.01, 0.01, 1.0), 0.09).set_ease(Tween.EASE_IN)
+	tw.tween_callback(f.queue_free)
+
+static var _impact_quad: QuadMesh
+static var _impact_frame := -1
+static var _impacts_now := 0
+
+
 ## A glowing after-image left behind by the dash.
 static func trail(pos: Vector3, color: Color) -> void:
 	_burst(pos, 6, color, 0.7, 0.6, 0.35, 0.0)
