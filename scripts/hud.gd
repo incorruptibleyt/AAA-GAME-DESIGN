@@ -17,6 +17,11 @@ signal armory_pressed
 signal armory_buy(id: String)
 signal heroes_pressed
 signal records_pressed
+signal drops_pressed
+signal road_pressed
+signal road_claim(index: int)
+signal road_closed
+signal drops_closed
 signal hero_pick(id: String)
 signal copy_report_pressed
 signal resume_pressed
@@ -180,6 +185,13 @@ var _records_box: Control
 var _records_grid: GridContainer
 var _records_note: Label
 var _title_records: Control
+var _title_drops: Button
+var _end_drop: Button
+var _drops: DropScreen
+var _title_road: RoadScreen.Bar
+var _title_hint: Label
+var _title_gap: Control
+var _road: RoadScreen
 var _mode_daily_text: Label
 var _mode_daily_tag: Label
 var _mode_curses_tag: Label
@@ -248,6 +260,13 @@ func _ready() -> void:
 	_build_records()
 	_build_armory()
 	_build_heroes()
+	_drops = DropScreen.new()
+	add_child(_drops)
+	_drops.closed.connect(func(): drops_closed.emit())
+	_road = RoadScreen.new()
+	add_child(_road)
+	_road.claim.connect(func(i: int): road_claim.emit(i))
+	_road.closed.connect(func(): road_closed.emit())
 	_build_daily()
 	_build_omens()
 	_build_reports_ask()
@@ -896,14 +915,28 @@ func _build_title() -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 40)
 	top.add_child(gap)
+	_title_gap = gap
 	_title_logo = logo_rect()
 	top.add_child(_title_logo)
-	top.add_child(label("Drag to move. Lift to shoot.", 20, Color(0.85, 0.85, 0.9)))
+	_title_hint = label("Drag to move. Lift to shoot.", 20, Color(0.85, 0.85, 0.9))
+	top.add_child(_title_hint)
 	# Said up front, so nobody is surprised when the free floors end.
 	_title_free = label("Free to try: floors 1-%d. The Crypt Pass opens the rest." % Store.FREE_FLOORS, 17, Color(0.95, 0.78, 0.45))
 	top.add_child(_title_free)
 	_title_best = label("", 18, Color(0.7, 0.7, 0.8))
 	top.add_child(_title_best)
+	# The Bone Road's bar (bone_road.gd): bones so far, and the next reward.
+	# Side by side, so the hero below stays in view on short phones.
+	_title_road = RoadScreen.Bar.new()
+	_title_road.custom_minimum_size = Vector2(250, 58)
+	_title_road.pressed.connect(func(): road_pressed.emit())
+	# Bone Drops waiting to be opened (drops.gd).
+	_title_drops = _drop_button()
+	_title_drops.custom_minimum_size = Vector2(240, 58)
+	_title_drops.add_theme_font_size_override("font_size", 17)
+	var row := _pair(_title_road, _title_drops)
+	(row as HBoxContainer).add_theme_constant_override("separation", 10)
+	top.add_child(row)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -978,6 +1011,53 @@ func _build_title() -> void:
 	col.add_child(_title_modes_row)
 	_title_lock = label("Finish the tutorial to open\nHeroes and the Armory", 20, Color(0.7, 0.68, 0.62))
 	col.add_child(_title_lock)
+
+
+## The gold OPEN BONE DROP button (title and end screens), hidden until one is earned.
+func _drop_button() -> Button:
+	var b := button("OPEN BONE DROP", 22, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	b.add_theme_color_override("font_color", GOLD)
+	b.custom_minimum_size = Vector2(320, 64)
+	b.visible = false
+	b.pressed.connect(func(): drops_pressed.emit())
+	return b
+
+
+## Shows or hides the OPEN BONE DROP buttons for `n` waiting drops.
+func set_drops(n: int) -> void:
+	for b in [_title_drops, _end_drop]:
+		b.visible = n > 0
+		b.text = "OPEN BONE DROP" if n == 1 else "OPEN %d BONE DROPS" % n
+	_fit_end.call_deferred()
+
+
+## The Bone Drop screen (drop_screen.gd); `opener` opens one and returns what was inside.
+func open_drops(n: int, opener: Callable) -> void:
+	_drops.opener = opener
+	_drops.open_screen(n)
+
+
+## The Bone Road screen (road_screen.gd), filled from `cfg`.
+func open_road(cfg: ConfigFile, keep_scroll := false) -> void:
+	_road.open_road(cfg, keep_scroll)
+
+
+func close_road() -> void:
+	if _road.visible:
+		_road.visible = false
+		road_closed.emit()
+
+
+func road_visible() -> bool:
+	return _road.visible
+
+
+func close_drops() -> void:
+	_drops.close()
+
+
+func drops_visible() -> bool:
+	return _drops.visible
 
 
 ## Daily Crypt, Curses and the tutorial run, all behind MODES on the title screen.
@@ -1219,6 +1299,8 @@ func _build_end() -> void:
 	_end_goal = label("", 22, Color(1.0, 0.82, 0.42))
 	_end_goal.visible = false
 	col.add_child(_end_goal)
+	_end_drop = _drop_button()
+	col.add_child(_centered(_end_drop))
 	# Daily Crypt: the result card, and the same as text to paste anywhere.
 	_share_card = ShareCard.new()
 	_share_card.visible = false
@@ -1847,7 +1929,7 @@ func _apply_safe_area() -> void:
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
-		or _fb_box.visible or _records_box.visible
+		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -1858,7 +1940,8 @@ func _input(event: InputEvent) -> void:
 		if t.pressed:
 			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _end_loop.visible \
 					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible \
-					and not _heroes_box.visible \
+					and not _heroes_box.visible and not _drops.visible \
+					and not (_end_drop.visible and _end_drop.get_global_rect().has_point(t.position)) \
 					and not _copy_button.get_global_rect().has_point(t.position) \
 					and not (_end_title_button.visible and _end_title_btn.get_global_rect().has_point(t.position)) \
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
@@ -1932,7 +2015,7 @@ func _process(delta: float) -> void:
 	# The title's words and buttons would show faintly through the screens opened over it.
 	if _title_box.visible:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
-			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible \
+			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible or _drops.visible or _road.visible \
 			or (_settings_only and _pause_box.visible))
 	_stick_age += delta
 	if _flash.color.a > 0.0:
@@ -2212,6 +2295,13 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_pass_row.visible = not locked and not has_pass
 	_title_modes_row.visible = not locked
 	_title_records.visible = not locked
+	_title_road.visible = not locked
+	if v:
+		var cfg := Game._load_save()
+		set_drops(0 if locked else Drops.waiting(cfg))
+		var ni := BoneRoad.next_index(cfg)
+		_title_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
+				BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
 	_title_modes_badge.visible = not Curses.official_used(Game._load_save())
 	_title_lock.visible = locked
 	if not v:
@@ -2229,6 +2319,11 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		goal = goal.get_slice("\n", 0)
 	_title_goal.text = goal
 	_title_goal.visible = goal != ""
+	# Short screens: the how-to line makes room for the Bone Road row, so the hero shows.
+	var tight := view.y < view.x * 1.9 and _title_road.visible
+	_title_hint.visible = not tight
+	_title_best.visible = not tight   # (the Records screen has it)
+	_title_gap.custom_minimum_size.y = 14.0 if tight else 40.0
 	_continue_where.text = where
 	_title_spacer.visible = not _title_continue.visible
 	_title_play.text = "NEW RUN" if _title_continue.visible else "PLAY"

@@ -51,9 +51,18 @@ var _hit_stop_left := 0.0
 var _choices: Array = []
 var _exit_arrow: Node3D
 var _start_blessing := {}
+## A Lucky Start (from a Bone Drop) given at the start of this run, for its banner.
+var _lucky_blessing := {}
+## Bone Drops earned this run (drops.gd: at most Drops.MAX_PER_RUN).
+var _drops_run := 0
+## Bone Road bones (bone_road.gd): not yet in the save, and earned since the last end
+## screen (which shows them). They're saved with the coins (_save_coins, after every room),
+## so leaving the game mid-run never loses them.
+var _road_unsaved := 0
+var _road_shown := 0
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06d"
+const BUILD := "2026-11-06e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -286,6 +295,11 @@ func _ready() -> void:
 	hud.armory_buy.connect(_buy_upgrade)
 	hud.heroes_pressed.connect(_open_heroes)
 	hud.records_pressed.connect(_open_records)
+	hud.drops_pressed.connect(_open_drops)
+	hud.drops_closed.connect(_drops_closed)
+	hud.road_pressed.connect(_open_road)
+	hud.road_claim.connect(_claim_road)
+	hud.road_closed.connect(_drops_closed)
 	hud.copy_report_pressed.connect(func():
 		DisplayServer.clipboard_set(_last_report)
 		Sfx.play("click"))
@@ -334,6 +348,12 @@ func _ready() -> void:
 		coins = spendable
 		cfg.set_value("stats", "coins", coins)
 	cfg.set_value("stats", "launches", int(cfg.get_value("stats", "launches", 0)) + 1)
+	# Players from before Bone Drops find one waiting, so they see what the new button
+	# does. (New players get their first for winning the tutorial.)
+	if not cfg.has_section_key(Drops.SECTION, "gift"):
+		cfg.set_value(Drops.SECTION, "gift", true)
+		if bool(cfg.get_value("stats", "first_run_done", false)):
+			Drops.add(cfg)
 	write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
@@ -573,6 +593,12 @@ func _notification(what: int) -> void:
 			return
 		if hud.modes_visible():
 			hud.show_modes(false)
+			return
+		if hud.drops_visible():
+			hud.close_drops()
+			return
+		if hud.road_visible():
+			hud.close_road()
 			return
 		if hud.records_visible():
 			hud.show_records(false)
@@ -1175,6 +1201,8 @@ func run_report(result: String, was_first := false) -> String:
 	lines.append("Bone Chain run report (build %s, install %s)" % [BUILD, Telemetry.install_id(cfg)])
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
 	lines.append("Score %d | First run %s" % [score, "yes" if first_run or was_first else "no"])
+	lines.append("Bone Road %d bones (%d to claim) | Bone Drops waiting %d, opened %d, this run %d | Lucky Starts %d" % [BoneRoad.bones(cfg),
+		BoneRoad.ready_count(cfg), Drops.waiting(cfg), int(cfg.get_value(Drops.SECTION, "opened", 0)), _drops_run, Drops.lucky(cfg)])
 	if daily or not curses.is_empty():
 		lines.append("Mode: %s | %s: %s (Curse Level %d, score x%s)" % ["Daily Crypt #%d %s%s" % [Curses.day_number(_daily_date), _daily_date, " practice" if _daily_practice else ""] if daily else "Normal",
 			"Rules" if daily else "Curses", Curses.names(curses) if curses else "none", Curses.level_of(curses), _mult_text(_score_mult)])
@@ -1220,6 +1248,8 @@ func _reset_run_stats() -> void:
 	_run_time = 0.0
 	_kills = 0
 	run_coins = 0
+	_drops_run = 0
+	_road_shown = 0
 	_combo = 0
 	chain = 1.0
 	score = 0
@@ -1264,6 +1294,17 @@ func _apply_armory() -> void:
 			_taken[u.id] = _taken.get(u.id, 0) + 1
 			Upgrades.apply(u.id, hero)
 			_start_blessing = u
+	# A Lucky Start from a Bone Drop: one more blessing, in the next normal run.
+	if not daily and not first_run and Drops.lucky(cfg) > 0:
+		var lucky := Upgrades.roll(_taken, 2, false, "", false, null) \
+				.filter(func(x: Dictionary): return x.rarity != "synergy")
+		if not lucky.is_empty():
+			var u: Dictionary = lucky[0]
+			_taken[u.id] = _taken.get(u.id, 0) + 1
+			Upgrades.apply(u.id, hero)
+			_lucky_blessing = u
+			Drops.use_lucky(cfg)
+			write_save(cfg)
 	if curses.has("brittle"):
 		hero.max_health = roundf(hero.max_health * 0.5)
 		hero.health = minf(hero.health, hero.max_health)
@@ -1320,7 +1361,7 @@ func _quit_to_title() -> void:
 	hud.show_pause(false)
 	get_tree().paused = false
 	Telemetry.instance.send("run", run_report("Quit on floor %d, room %d" % [floor_num, _room_index + 1]))
-	_back_to_title()
+	_back_to_title()   # (its _save_coins keeps the Bone Road bones)
 
 
 ## TITLE (or Android Back) on the end screens. A won run stays saved, so CONTINUE on the
@@ -1531,6 +1572,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		var u := _start_blessing
 		_start_blessing = {}
 		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner("Blessed: " + u.title, Upgrades.color(u)))
+	if not _lucky_blessing.is_empty():
+		var u := _lucky_blessing
+		_lucky_blessing = {}
+		get_tree().create_timer(3.4, false).timeout.connect(func(): hud.banner("Lucky Start: " + u.title, Upgrades.color(u)))
 	_wave_kinds.clear()
 	var mages := 0
 	var theme_kind := theme_enemy()
@@ -1939,6 +1984,7 @@ func _wave_spots(count: int) -> Array:
 
 func _room_cleared() -> void:
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
+	_add_bones(BoneRoad.ROOM_BONES)
 	_save_coins()
 	hud.set_wave(0, 0)
 	# Straight to the blessing cards once the slow-motion finish has played. The wait stops
@@ -2068,6 +2114,9 @@ func _win() -> void:
 	if not daily and floor_num > prev_boss:
 		cfg.set_value("stats", "best_boss", floor_num)
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
+	_earn_drop(cfg)   # every boss beaten, the tutorial's too (saved just below)
+	_add_bones(BoneRoad.BOSS_BONES)
+	var bones := _bank_bones(cfg)
 	var best := _save_score(cfg)
 	_save_best(cfg, _run.size())
 	# Curse mastery: beating the floor 5 boss (or a deeper one) at a Curse Level.
@@ -2103,7 +2152,7 @@ func _win() -> void:
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
 	var tap := "Tap to return to the title" if _daily_done else "Tap to descend to floor %d" % (floor_num + 1)
-	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, extra],
+	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d\nBone Road  +%d bones%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, bones, extra],
 		tap, false, score, best, _free_end)
 	# The hero and the rings at their feet would show between the end screen's buttons
 	# (as YOU DIED hides them); they come back as the next room starts (place_at).
@@ -2113,6 +2162,7 @@ func _win() -> void:
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
 		hud.set_end_goal(_daily_goal())
+	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
 	_state_time = 0.0
 	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")], was_first)
@@ -2130,6 +2180,11 @@ func on_hero_died() -> void:
 	Sfx.play("vo_lose", 0.8)
 	await get_tree().create_timer(1.4, true, false, true).timeout
 	var cfg := _load_save()
+	# A Bone Drop for getting somewhere: room 3 or further, or any deeper floor. Not in the
+	# tutorial (its win gives the first one).
+	if not first_run and (_room_index >= 2 or floor_num > 1):
+		_earn_drop(cfg)
+	var bones := _bank_bones(cfg)
 	var best := _save_score(cfg)
 	_save_best(cfg, _room_index + 1)
 	var was_first := first_run
@@ -2144,6 +2199,8 @@ func on_hero_died() -> void:
 	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d" % run_coins
 	if day_bonus > 0:
 		coin_line += "  (+%d first run today)" % day_bonus
+	if bones > 0:
+		coin_line += "\nBone Road  +%d bones" % bones
 	if tutorial_again:
 		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nThe tutorial starts again from room 1." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
@@ -2155,6 +2212,7 @@ func on_hero_died() -> void:
 		"Tap to try again", not tutorial_again, score, best)
 	hud.show_end_title(true)
 	hud.set_end_goal(_daily_goal() if daily else next_goal())
+	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
 	hud.show_end_pass(note)
 	_state_time = 0.0
@@ -2302,6 +2360,7 @@ func _open_records() -> void:
 		["Perfect dodges", Hud.thousands(perfect)],
 		["Coins found", Hud.thousands(roundi(record(cfg, "coins")))],
 		["Daily Crypts played", str(dailies)],
+		["Bone Drops opened", Hud.thousands(int(cfg.get_value(Drops.SECTION, "opened", 0)))],
 		["Daily Crypt streak", "%d day%s" % [Curses.streak(cfg), "" if Curses.streak(cfg) == 1 else "s"]],
 	]
 	var since := str(cfg.get_value(RECORDS, "since", ""))
@@ -2321,6 +2380,82 @@ static func _long_time(seconds: float) -> String:
 	return "%dm %02ds" % [s / 60, s % 60]
 
 
+## One Bone Drop earned, into `cfg` (the caller saves it). At most Drops.MAX_PER_RUN a run.
+func _earn_drop(cfg: ConfigFile) -> void:
+	if _drops_run >= Drops.MAX_PER_RUN:
+		return
+	_drops_run += 1
+	Drops.add(cfg)
+
+
+func _add_bones(n: int) -> void:
+	_road_unsaved += n
+	_road_shown += n
+
+
+## Unsaved Bone Road bones into `cfg` (the caller saves it). Returns the bones earned since
+## the last end screen, for this one to show.
+func _bank_bones(cfg: ConfigFile) -> int:
+	BoneRoad.add(cfg, _road_unsaved)
+	_road_unsaved = 0
+	var n := _road_shown
+	_road_shown = 0
+	return n
+
+
+func _open_road() -> void:
+	if state == State.TITLE:
+		Sfx.play("click")
+		hud.open_road(_load_save())
+
+
+func _claim_road(i: int) -> void:
+	var cfg := _load_save()
+	var s := BoneRoad.claim(cfg, i)
+	if s.is_empty():
+		return
+	if s.kind == "coins":
+		coins += int(s.n)
+		cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	if s.kind == "coins":
+		record_add("coins", s.n)
+	hud.set_coins(coins)
+	Sfx.play("upgrade")
+	Sfx.play("coin", 0.6, 1.2)
+	print("[road] claimed %d: %s" % [i, BoneRoad.reward_text(s)])
+	hud.open_road(_load_save(), true)
+
+
+func _open_drops() -> void:
+	if state in [State.TITLE, State.DEAD, State.VICTORY]:
+		Sfx.play("click")
+		hud.open_drops(Drops.waiting(_load_save()), _open_one_drop)
+
+
+## Opens one waiting Bone Drop and gives what's inside (the drop screen shows it).
+func _open_one_drop() -> Dictionary:
+	var cfg := _load_save()
+	var r := Drops.open(cfg)
+	if r.is_empty():
+		return r
+	if int(r.coins) > 0:
+		coins += int(r.coins)
+		cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	if int(r.coins) > 0:
+		record_add("coins", r.coins)
+	hud.set_coins(coins)
+	print("[drop] %s %s" % [r.name, str(r.text).replace("\n", " ")])
+	return r
+
+
+func _drops_closed() -> void:
+	hud.set_drops(Drops.waiting(_load_save()))
+	if state == State.TITLE and hud.title_visible():
+		hud.show_title(true, _best_text(), coins)
+
+
 func add_coins(n: int) -> void:
 	coins += n
 	run_coins += n
@@ -2331,6 +2466,8 @@ func add_coins(n: int) -> void:
 func _save_coins() -> void:
 	var cfg := _load_save()
 	cfg.set_value("stats", "coins", coins)
+	BoneRoad.add(cfg, _road_unsaved)
+	_road_unsaved = 0
 	if _perfect_total >= 0:
 		cfg.set_value("stats", "perfect_total", _perfect_total)
 	write_save(cfg)
