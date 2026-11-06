@@ -65,13 +65,17 @@ static func run() -> void:
 			heroes.append(v)
 		DamageNumber.healed(hero, 9876543210.0))
 
-	# Shots, warnings, fire, pickups and every particle effect.
+	# Shots, warnings, fire, pickups and every particle effect: a few at a time, so a slow
+	# phone never spends long on one frame (Android closes an app that stops answering),
+	# and a report from a phone that dies here names the very effect (Game.loading).
 	steps.append(func():
 		for i in 5:   # every hero's shot (the Barbarian's axe model loads here too)
 			Projectile.fire(Actor.Team.HERO, at + Vector3(-1 - i * 0.4, 1, 1), Vector3.FORWARD, 0.0, 0.0, hero.bolt_color, 0.3, "Shot",
-				["bolt", "wave", "axe", "orb", "shard"][i])
+				["bolt", "wave", "axe", "orb", "shard"][i]))
+	steps.append(func():
 		Fx.impact(at + Vector3.UP, hero.bolt_color)
-		Projectile.fire(Actor.Team.UNDEAD, at + Vector3(1, 1, 1), Vector3.FORWARD, 0.0, 0.0, Color.WHITE)
+		Projectile.fire(Actor.Team.UNDEAD, at + Vector3(1, 1, 1), Vector3.FORWARD, 0.0, 0.0, Color.WHITE))
+	steps.append(func():
 		Telegraph.circle(at + Vector3(-1.5, 0, 0), 1.0, 9.0, func(): pass)
 		Telegraph.line(at, Vector3.FORWARD, 3.0, 1.0, 9.0, func(): pass)
 		FirePatch.spawn(at + Vector3(1.5, 0, 0), 1.0, 9.0)
@@ -79,11 +83,14 @@ static func run() -> void:
 		Pickup.drop_coins(at + Vector3(0, 0, -1), 3))
 	steps.append(func():
 		Fx.sparks(at + Vector3.UP)
-		Fx.bones(at)
+		Fx.bones(at))
+	steps.append(func():
 		Fx.dust(at)
-		Fx.trail(at + Vector3.UP, Color(0.45, 0.8, 1.0))
+		Fx.trail(at + Vector3.UP, Color(0.45, 0.8, 1.0)))
+	steps.append(func():
 		Fx.magic(at + Vector3.UP, Color(1, 0.6, 0.2))
-		Fx.shockwave(at, Color(1, 0.9, 0.6), 2.0)
+		Fx.shockwave(at, Color(1, 0.9, 0.6), 2.0))
+	steps.append(func():
 		Fx.flame(holder, Vector2(0.5, 0.7), at + Vector3(0, 0, 0.6)))
 
 	# Each floor's own flagstones and props (the Frozen Ossuary's ice, the Ember
