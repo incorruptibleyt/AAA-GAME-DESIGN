@@ -300,7 +300,7 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 			n.visible = true
 	Art.hide_parts(model, style.get("hide", []))
 	for part: Array in style.get("borrow", []):
-		_borrow(skel, str(part[0]), str(part[1]))
+		_borrow(skel, str(part[0]), str(part[1]), id)
 	var outfit: Dictionary = style.get("outfit", {})
 	if not outfit.is_empty():
 		_recolour(skel, id, outfit)
@@ -309,20 +309,42 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 
 
 ## A part (hat, cape, weapon) from another hero's model, worn on this skeleton on the same
-## bone (in the models they hang from the head, chest and hand bones).
-static func _borrow(skel: Skeleton3D, model_key: String, part: String) -> void:
-	var scene := Art.get_model(model_key)
-	if scene == null:
+## bone (in the models they hang from the head, chest and hand bones). A hat made for a
+## smaller head grows to fit (the Knight's head is the biggest: his head would poke through).
+static func _borrow(skel: Skeleton3D, model_key: String, part: String, id := "") -> void:
+	var p := _part(model_key, part)
+	if p.is_empty():
 		return
-	var other := scene.instantiate()
-	var src := other.find_child(part, true, false) as MeshInstance3D
-	var holder := src.get_parent() as BoneAttachment3D if src else null
-	if src and holder:
-		var mi := src.duplicate() as MeshInstance3D
-		mi.visible = true
-		mi.name = "Borrowed_" + part
-		_attachment(skel, holder.bone_name).add_child(mi)
-	other.free()
+	var mi := MeshInstance3D.new()
+	mi.mesh = p.mesh
+	mi.material_override = p.material
+	mi.name = "Borrowed_" + part
+	mi.transform = p.transform
+	var grow := float(HEAD_TOP.get(id, 0.74)) / float(HEAD_TOP.get(model_key.to_lower(), 0.74))
+	if p.bone == "head" and grow > 1.01:
+		mi.transform = Transform3D(Basis.from_scale(Vector3.ONE * grow), Vector3.ZERO) * mi.transform
+	_attachment(skel, p.bone).add_child(mi)
+
+
+static var _parts := {}
+
+
+## A part of another hero's model: its mesh, where it sits and on which bone. Looked up once
+## (making a whole hero just to find a hat each time a hero appears is slow on a phone).
+static func _part(model_key: String, part: String) -> Dictionary:
+	var key := model_key + "/" + part
+	if not _parts.has(key):
+		var found := {}
+		var scene := Art.get_model(model_key)
+		if scene:
+			var other := scene.instantiate()
+			var src := other.find_child(part, true, false) as MeshInstance3D
+			var holder := src.get_parent() as BoneAttachment3D if src else null
+			if src and holder and src.mesh:
+				found = {"mesh": src.mesh, "transform": src.transform, "bone": str(holder.bone_name), "material": src.material_override}
+			other.free()
+		_parts[key] = found
+	return _parts[key]
 
 
 ## The bone attachment for `bone` (the model's own, or a new one).

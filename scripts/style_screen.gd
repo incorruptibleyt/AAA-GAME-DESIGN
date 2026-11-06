@@ -29,6 +29,7 @@ var _note: Label
 var _tabs := {}
 var _grid: GridContainer
 var _scroll: ScrollContainer
+var _down_at := 0   # where the list was when a card was touched
 
 
 func _init() -> void:
@@ -197,12 +198,18 @@ func _card(it: Dictionary) -> Button:
 	sw.setup(_id, it.slot, it.key, _base)
 	sw.modulate = Color.WHITE if got else Color(1, 1, 1, 0.45)
 	v.add_child(sw)
-	var name_l := Hud.label(it.name, 15, TEXT if got else DIM)
+	var name_l := Hud.label(it.name, 16, TEXT if got else DIM)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
 	var state := "WEARING" if worn else ("TAP TO WEAR" if got else "LEVEL %d" % it.level)
-	v.add_child(Hud.label(state, 12, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else DIM)))
-	b.pressed.connect(_tap.bind(it))
+	v.add_child(Hud.label(state, 13, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else DIM)))
+	# The finger can drag the list from on top of a card (PASS lets the list see the drag),
+	# and a card the list was dragged on isn't worn when the finger lifts.
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	b.button_down.connect(func(): _down_at = _scroll.scroll_vertical)
+	b.pressed.connect(func():
+		if absi(_scroll.scroll_vertical - _down_at) <= 6:
+			_tap(it))
 	return b
 
 
