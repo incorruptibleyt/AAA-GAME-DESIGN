@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-05b"
+const BUILD := "2026-11-06a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -521,6 +521,8 @@ func _check_new_day() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		if what == NOTIFICATION_APPLICATION_PAUSED:
+			_report_left()
 		if state == State.PLAYING:
 			_pause()
 		elif state == State.TRANSITION:
@@ -591,6 +593,17 @@ func _notification(what: int) -> void:
 				if Telemetry.instance:
 					Telemetry.instance.session_open(false)
 				get_tree().quit()
+
+
+## Testers often leave mid-run (Home, or another app), and a run report only went out
+## when a run ended, so those runs never showed. Once a run, leaving the game during it
+## sends the run so far (if they come back and finish, the end report follows as usual).
+func _report_left() -> void:
+	if not (state in [State.PLAYING, State.PAUSED, State.UPGRADE, State.TRANSITION]) or hero == null or hero.dead \
+			or _rep.get("left", false) or Telemetry.instance == null:
+		return
+	_rep["left"] = true
+	Telemetry.instance.send("run", run_report("Left the game on floor %d, room %d" % [floor_num, _room_index + 1]))
 
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
@@ -2388,8 +2401,8 @@ func _ask_reports_on_title() -> void:
 ## see who is playing even when nobody finishes a run.
 func open_text() -> String:
 	var cfg := _load_save()
-	return "Opened the game (launch %d) | Tutorial done %s | Best floor %d | Wins %d | Crypt Pass %s | Hero %s" % [
-		int(cfg.get_value("stats", "launches", 1)), "no" if first_run_pending() else "yes",
+	return "Opened the game (launch %d) | Runs started %d | Tutorial done %s | Best floor %d | Wins %d | Crypt Pass %s | Hero %s" % [
+		int(cfg.get_value("stats", "launches", 1)), roundi(record(cfg, "runs")), "no" if first_run_pending() else "yes",
 		int(cfg.get_value("stats", "best_floor", 1)), int(cfg.get_value("stats", "wins", 0)),
 		"yes" if Store.owned(cfg) else "no", Heroes.get_hero(Heroes.selected(cfg)).title]
 
