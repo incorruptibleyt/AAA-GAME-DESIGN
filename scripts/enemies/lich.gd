@@ -12,9 +12,16 @@ var _float_t := 0.0
 var _hidden := false
 
 
+## In the free floors (2 and 4) the Lich is about 10% gentler: a little less health and
+## one or two fewer bolts in each ring, so the gaps are easier to slip through. It ended
+## the deepest free runs of the closed test on floor 4; deeper Liches are unchanged.
+func _gentle() -> bool:
+	return Game.floor_num <= 4
+
+
 func _setup() -> void:
 	is_boss = true
-	init_health(650.0)
+	init_health(590.0 if _gentle() else 650.0)
 	move_speed = 0.0
 	contact_damage = 14.0
 	radius = 1.0
@@ -81,7 +88,7 @@ func _spiral() -> void:
 	visual.attack(true)
 	var arms := 3 if _enraged else 2
 	var spin := 0.0
-	var shots := 24
+	var shots := 21 if _gentle() else 24
 	for i in shots:
 		if not _alive():
 			return
@@ -119,7 +126,7 @@ func _teleport() -> void:
 	global_position = spot
 	Fx.magic(center(), Color(0.4, 0.9, 1.0), 25)
 	Sfx.play("boom", 0.6)
-	var count := 14 if _enraged else 10
+	var count := (12 if _enraged else 9) if _gentle() else (14 if _enraged else 10)
 	for i in count:
 		var d := Vector3.FORWARD.rotated(Vector3.UP, i * TAU / count)
 		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 7.0, Color(0.5, 0.95, 1.0), 0.25, "Lich")

@@ -263,6 +263,7 @@ func _start_swipe(d: Vector3) -> void:
 	var at := global_position + _swipe_dir * (radius + 0.3)
 	_swipe = track(Telegraph.circle(at, SWIPE_RADIUS, swipe_time, _land_swipe, 0.22))
 	visual.attack()
+	Game.on_swipe_warning()
 
 
 ## The swipe lands where its circle was: only a hero still inside it is hurt.

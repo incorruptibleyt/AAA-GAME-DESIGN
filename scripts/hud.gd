@@ -285,6 +285,18 @@ static func label(text: String, size: int, col := Color.WHITE, align := HORIZONT
 	return l
 
 
+## A soft dark panel behind teaching text, so it reads on any floor.
+static func _text_panel() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.02, 0.01, 0.04, 0.62)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	return sb
+
+
 ## The logo picture's size on screen.
 static func logo_size() -> Vector2:
 	return Vector2(LOGO_WIDTH, LOGO_WIDTH * LOGO.get_height() / LOGO.get_width())
@@ -497,10 +509,15 @@ func _build_hud() -> void:
 	root.add_child(_pause_button)
 
 	# A tip in the empty space at the bottom of the screen during the first room.
-	_hint = label("", 24, Color(1, 0.92, 0.75))
-	_hint.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	_hint.offset_top = -150
-	_hint.offset_bottom = -90
+	_hint = label("", 27, Color(1, 0.94, 0.78))
+	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	_hint.offset_left = -210
+	_hint.offset_right = 210
+	_hint.offset_top = -128
+	_hint.offset_bottom = -88
+	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN   # two lines grow up, never off the bottom
+	_hint.label_settings.outline_size = 7
+	_hint.add_theme_stylebox_override("normal", _text_panel())
 	_hint.set_script(Pulse)
 	_hint.set("low", 0.75)   # a lesson must stay readable at every point of the pulse
 	_hint.visible = false
@@ -557,14 +574,18 @@ func _build_hud() -> void:
 	_chain_box.add_child(_broken_label)
 
 	# First-run tips ("Kill fast. Your chain grows.") sit just under the chain meter.
-	_tip = label("", 22, Color(1, 0.95, 0.8))
+	# Big, short and on a dark panel, so young players and anyone on a small screen can
+	# read them over the fight.
+	_tip = label("", 27, Color(1, 0.96, 0.84))
 	_tip.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_tip.offset_left = -240
-	_tip.offset_right = 240
+	_tip.offset_left = -250
+	_tip.offset_right = 250
 	_tip.offset_top = 214
-	_tip.offset_bottom = 274
-	_tip.label_settings.outline_size = 6
-	_tip.label_settings.outline_color = Color(0, 0, 0, 0.85)
+	_tip.offset_bottom = 254
+	_tip.grow_vertical = Control.GROW_DIRECTION_END   # longer tips grow down, clear of the chain meter
+	_tip.label_settings.outline_size = 7
+	_tip.label_settings.outline_color = Color(0, 0, 0, 0.9)
+	_tip.add_theme_stylebox_override("normal", _text_panel())
 	_tip.visible = false
 	root.add_child(_tip)
 
@@ -2083,6 +2104,11 @@ func tip(text: String, seconds := 5.0, delay := 0.0) -> void:
 	_tip.visible = text != "" and seconds > 0.0 and _tip_delay <= 0.0
 	_tip.modulate.a = 1.0
 	_tip_time = seconds if text != "" else 0.0
+
+
+## A tip is showing, or waiting to show.
+func tip_busy() -> bool:
+	return _tip_time > 0.0 or _tip_delay > 0.0
 
 
 ## 12345 -> "12,345"

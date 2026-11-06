@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06a"
+const BUILD := "2026-11-06b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -868,7 +868,7 @@ func _update_dash_lesson(real_delta: float) -> void:
 			hud.callout("DASH THROUGH IT!", Color(0.6, 0.9, 1.0))
 			# One message at a time: the room tip goes so the lesson isn't buried in text.
 			hud.tip("", 0.0)
-			hud.show_hint("Flick, or tap DASH")
+			hud.show_hint("Flick your thumb\nor tap DASH!")
 			return
 
 
@@ -1216,6 +1216,7 @@ func run_report(result: String, was_first := false) -> String:
 
 func _reset_run_stats() -> void:
 	_reset_report()
+	_swipe_tips = 0
 	_run_time = 0.0
 	_kills = 0
 	run_coins = 0
@@ -1521,10 +1522,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if Doors.room_tip(_door) != "":
 		hud.tip(Doors.room_tip(_door), 3.5, 1.4)
 	if first_run:
-		hud.show_hint("Drag to move  ·  Let go to shoot" if index == 0 else "")
+		hud.show_hint("Drag your thumb to move.\nLift it to shoot!" if index == 0 else "")
 		_ftue_room_intro()
 	else:
-		hud.show_hint("Drag to move  ·  Let go to shoot\nFlick your thumb to dash" if floor_num == 1 and index == 0 else "")
+		hud.show_hint("Drag to move. Lift to shoot.\nFlick your thumb to dash!" if floor_num == 1 and index == 0 else "")
 	Music.play("boss" if _in_boss_room() else "dungeon")
 	if not _start_blessing.is_empty():
 		var u := _start_blessing
@@ -1717,17 +1718,34 @@ func _continue_run() -> void:
 	print("[run] continued floor %d room %d hp %d/%d score %d omens %s door %s" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score, Loops.names(omens), Doors.describe(_door).get("title", "none")])
 
 
+## The tutorial explains a skeleton's red swipe circle the first time one shows: step out
+## of it in room 1 (before the dash is taught), then once more with the dash. It waits
+## while another tip is up, so the room's own lesson isn't covered.
+var _swipe_tips := 0
+
+func on_swipe_warning() -> void:
+	if not first_run or floor_num != 1 or hud.tip_busy():
+		return
+	if dash_unlocked():
+		if _swipe_tips < 2:
+			_swipe_tips = 2
+			hud.tip("Red circle? A hit is coming!\nFlick your thumb to DASH out.", 4.0)
+	elif _swipe_tips < 1:
+		_swipe_tips = 1
+		hud.tip("Red circle? A hit is coming!\nStep out of it!", 4.0)
+
+
 ## The one new thing each first-run room teaches.
 func _ftue_room_intro() -> void:
 	match ftue_room():
-		2: hud.tip("New: DASH. Flick your thumb, or tap DASH,\nto dodge right through arrows", 6.0, 1.8)
+		2: hud.tip("NEW: DASH!\nFlick your thumb or tap DASH\nto zip through arrows.", 6.0, 1.8)
 		3:
-			hud.tip("Kill fast. Your chain grows.", 6.0, 1.8)
+			hud.tip("Quick kills grow your chain.\nA big chain hits harder!", 6.0, 1.8)
 			Sfx.play("upgrade", 0.5)
 		4:
 			hero.special_charge = 1.0
-			hud.tip("Your special is ready. Tap to unleash!", 999.0, 1.8)
-		5: hud.tip("Two matching blessings make a gold SYNERGY card", 5.0, 1.8)
+			hud.tip("Your special move is ready!\nTap the star button to use it.", 999.0, 1.8)
+		5: hud.tip("Pick two blessings that match\nto get a gold SYNERGY card!", 5.0, 1.8)
 		_: hud.tip("", 0.0)
 
 
@@ -2657,7 +2675,7 @@ func _show_daily() -> void:
 		rules.append({"title": r.title, "text": r.text, "kind": r.get("kind", "harm")})
 	var used := Curses.official_used(cfg)
 	var best := Curses.daily_best(cfg)
-	var status := "Your Official run is ready. Only that one counts, so make it good!"
+	var status := "Your Official run is ready.\nOnly that one counts!"
 	var gift := Curses.streak_reward(Curses.streak(cfg) + 1)
 	if not used and gift > 0:
 		status += "\nPlaying it today: streak day %d, +%d coins!" % [Curses.streak(cfg) + 1, gift]
