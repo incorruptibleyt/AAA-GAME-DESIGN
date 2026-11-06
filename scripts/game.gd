@@ -2424,7 +2424,7 @@ func _claim_road(i: int) -> void:
 	Sfx.play("upgrade")
 	Sfx.play("coin", 0.6, 1.2)
 	print("[road] claimed %d: %s" % [i, BoneRoad.reward_text(s)])
-	hud.open_road(_load_save(), true)
+	hud.open_road(_load_save())
 
 
 func _open_drops() -> void:

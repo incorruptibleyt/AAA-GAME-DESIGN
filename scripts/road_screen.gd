@@ -55,9 +55,8 @@ func _init() -> void:
 
 
 ## Fills the screen from the save and shows it, scrolled to the first step to claim (or the
-## next one to reach). `keep_scroll`: after a claim, stay where the player was.
-func open_road(cfg: ConfigFile, keep_scroll := false) -> void:
-	var was := _scroll.scroll_vertical
+## next one to reach), also after a claim.
+func open_road(cfg: ConfigFile) -> void:
 	visible = true
 	# (queue_free: this runs inside a CLAIM button's own press, which must not be freed then)
 	for c in _list.get_children():
@@ -79,15 +78,24 @@ func open_road(cfg: ConfigFile, keep_scroll := false) -> void:
 		_list.add_child(row)
 		if focus == null and (i == ni or (b >= int(BoneRoad.STEPS[i].at) and not BoneRoad.claimed(cfg, i))):
 			focus = row
-	if keep_scroll:
-		_scroll.set_deferred("scroll_vertical", was)
-	elif focus:
-		_scroll_to.call_deferred(focus)
+	if focus:
+		_scroll_to(focus)
 
 
+var _scroll_ask := 0
+
+
+## Scrolls so `row` sits a third of the way down. Waits for the list to be laid out first:
+## until then the rows' word-wrapped labels are taller than they will be, and the list
+## scrolled far past the step it meant to show.
 func _scroll_to(row: Control) -> void:
-	if is_instance_valid(row):
-		_scroll.scroll_vertical = int(maxf(0.0, row.position.y - _scroll.size.y * 0.35))
+	_scroll_ask += 1
+	var ask := _scroll_ask
+	for i in 2:
+		await get_tree().process_frame
+	if ask != _scroll_ask or not is_instance_valid(row) or not visible:
+		return
+	_scroll.scroll_vertical = int(maxf(0.0, row.position.y - _scroll.size.y * 0.35))
 
 
 func _row(cfg: ConfigFile, i: int, b: int) -> Control:

@@ -1038,8 +1038,8 @@ func open_drops(n: int, opener: Callable) -> void:
 
 
 ## The Bone Road screen (road_screen.gd), filled from `cfg`.
-func open_road(cfg: ConfigFile, keep_scroll := false) -> void:
-	_road.open_road(cfg, keep_scroll)
+func open_road(cfg: ConfigFile) -> void:
+	_road.open_road(cfg)
 
 
 func close_road() -> void:
@@ -2307,6 +2307,9 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	if not v:
 		show_modes(false)
 		show_records(false)
+		_road.visible = false
+		if not _end_box.visible:
+			_drops.visible = false
 	_title_free.visible = not has_pass and not locked   # not before the tutorial run is done
 	_title_best.text = best
 	_title_coins.text = str(coins)
@@ -2546,6 +2549,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_offer.visible = v and offer
 	_end_loop.visible = false
 	if not v:
+		_drops.visible = false   # (never left over a run that's starting)
 		return
 	_end_score.visible = score >= 0
 	_end_best.visible = score >= 0
