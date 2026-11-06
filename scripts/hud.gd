@@ -898,7 +898,7 @@ func _build_title() -> void:
 	top.add_child(gap)
 	_title_logo = logo_rect()
 	top.add_child(_title_logo)
-	top.add_child(label("Drag to move. Let go to shoot.", 20, Color(0.85, 0.85, 0.9)))
+	top.add_child(label("Drag to move. Lift to shoot.", 20, Color(0.85, 0.85, 0.9)))
 	# Said up front, so nobody is surprised when the free floors end.
 	_title_free = label("Free to try: floors 1-%d. The Crypt Pass opens the rest." % Store.FREE_FLOORS, 17, Color(0.95, 0.78, 0.45))
 	top.add_child(_title_free)

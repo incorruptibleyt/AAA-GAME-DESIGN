@@ -53,7 +53,7 @@ var _exit_arrow: Node3D
 var _start_blessing := {}
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06c"
+const BUILD := "2026-11-06d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
