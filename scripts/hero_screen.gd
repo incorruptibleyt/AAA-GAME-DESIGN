@@ -6,6 +6,7 @@ extends ColorRect
 
 signal pick(id: String)
 signal trial(id: String)
+signal mastery(id: String)
 signal closed
 
 ## The stat bars: [key in Heroes.LIST, name, how the number is shown].
@@ -13,7 +14,9 @@ const STATS := [["health", "Health", "%d"], ["damage", "Damage", "%d"], ["rate",
 const TEXT := Color(0.85, 0.85, 0.9)
 const DIM := Color(0.62, 0.6, 0.68)
 
-## rows: [{id, name, badge, mastery, cost, unlocked, selected, trial, trying}] from game.gd.
+## rows: [{id, name, badge, mastery, cost, unlocked, selected, trial, trying, def, points,
+## frame}] from game.gd (def: the hero as they look, in their mastery color if it's on;
+## points: Hero Mastery points; frame: a Master's gold frame).
 var _rows: Array = []
 var _coins := 0
 var _index := 0
@@ -23,6 +26,7 @@ var _tabs: Array[Button] = []
 var _coin_label: Label
 var _name: Label
 var _badge: Label
+var _mastery_bar: MasteryBar
 var _text: Label
 var _fills: Array[ColorRect] = []
 var _values: Array[Label] = []
@@ -36,6 +40,12 @@ var _action: Button
 var _action_text: Label
 var _action_cost: Label
 var _try: Button
+var _col: VBoxContainer
+var _stage_box: Control
+## The pedestal's height; on short (16:9) screens it gives up what the rest needs, down to
+## STAGE_MIN, so the buttons at the bottom always fit.
+const STAGE_H := 250.0
+const STAGE_MIN := 130.0
 
 
 func _init() -> void:
@@ -53,6 +63,8 @@ func _init() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 6)
 	add_child(col)
+	_col = col
+	resized.connect(_fit)
 	# HEROES, and your coins.
 	var head := HBoxContainer.new()
 	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -78,6 +90,14 @@ func _init() -> void:
 	col.add_child(_name)
 	_badge = Hud.label("", 16, Hud.GOLD)
 	col.add_child(_badge)
+	# Hero Mastery: tap for every level and the mastery color.
+	_mastery_bar = MasteryBar.new()
+	_mastery_bar.custom_minimum_size = Vector2(0, 76)
+	_mastery_bar.make_tappable()
+	_mastery_bar.tapped.connect(func():
+		Sfx.play("click")
+		mastery.emit(_row().id))
+	col.add_child(_mastery_bar)
 	_text = Hud.label("", 17, TEXT)
 	col.add_child(_text)
 	col.add_child(_build_stats())
@@ -91,8 +111,10 @@ func _init() -> void:
 func _build_stage() -> Control:
 	var box := Control.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.custom_minimum_size = Vector2(0, 250)
-	_stage = HeroStage.new(Vector2(504, 250))
+	box.custom_minimum_size = Vector2(0, STAGE_H)
+	_stage_box = box
+	_stage = HeroStage.new(Vector2(504, STAGE_H))
+	_stage.custom_minimum_size = Vector2.ZERO   # the box sets the size (_fit)
 	Hud.full(_stage)
 	box.add_child(_stage)
 	for side in [-1, 1]:
@@ -244,6 +266,15 @@ func open(rows: Array, coins: int) -> void:
 	_refresh()
 
 
+## Shrinks the pedestal just enough for everything else to fit on screen.
+func _fit() -> void:
+	if not visible or _col == null:
+		return
+	_stage_box.custom_minimum_size.y = STAGE_H
+	var over := _col.get_combined_minimum_size().y - (size.y - 32.0)
+	_stage_box.custom_minimum_size.y = clampf(STAGE_H - over, STAGE_MIN, STAGE_H)
+
+
 func close() -> void:
 	visible = false
 	_stage.set_active(false)
@@ -268,17 +299,22 @@ func _refresh() -> void:
 	if _rows.is_empty():
 		return
 	var r := _row()
-	var def := Heroes.get_hero(r.id)
+	var def: Dictionary = r.get("def", Heroes.get_hero(r.id))
 	var ring: Color = def.ring
-	if r.id != _shown_id:
-		_shown_id = r.id
-		_stage.show_hero(def)
+	var frame := bool(r.get("frame", false))
+	# A new hero, or the same one in a new color or frame, goes back on the pedestal.
+	var look_key := "%s %s %s" % [r.id, def.ring, frame]
+	if look_key != _shown_id:
+		_shown_id = look_key
+		_stage.show_hero(def, frame)
 	_coin_label.text = str(_coins)
 	for i in _tabs.size():
 		var t := _tabs[i]
 		var on := i == _index
 		var sb := t.get_theme_stylebox("normal") as StyleBoxFlat
-		var col: Color = Heroes.LIST[i].ring
+		var col: Color = _rows[i].get("def", Heroes.LIST[i]).ring
+		if _rows[i].get("frame", false):
+			col = Hud.GOLD   # a Master's tab has a gold frame
 		sb.border_color = col if on else Color(col, 0.35)
 		sb.set_border_width_all(3 if on else 2)
 		sb.bg_color = Color(0.2, 0.16, 0.26, 0.98) if on else Color(0.12, 0.1, 0.16, 0.9)
@@ -287,6 +323,9 @@ func _refresh() -> void:
 	_name.text = def.title.to_upper()
 	_name.label_settings.font_color = ring.lightened(0.25)
 	var bits := []
+	var title := HeroMastery.title_for(HeroMastery.level_for(int(r.get("points", 0))))
+	if title != "":
+		bits.append(title)
 	if r.badge != "":
 		bits.append(r.badge)
 	if r.mastery > 0:
@@ -297,6 +336,7 @@ func _refresh() -> void:
 	_badge.text = "  ·  ".join(bits)
 	_badge.visible = not bits.is_empty()
 	_text.text = def.text
+	_mastery_bar.set_points(r.id, def.title, ring, int(r.get("points", 0)))
 	for i in STATS.size():
 		var key: String = STATS[i][0]
 		_values[i].text = STATS[i][2] % def[key]
@@ -316,6 +356,7 @@ func _refresh() -> void:
 			_icons[i].show_for(own[i])
 			_icon_names[i].text = own[i].title
 	_fill_action(r, ring)
+	_fit.call_deferred()
 
 
 ## How full a stat bar is: the weakest hero gets a third of a bar, the strongest a full one.

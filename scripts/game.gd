@@ -60,9 +60,15 @@ var _drops_run := 0
 ## so leaving the game mid-run never loses them.
 var _road_unsaved := 0
 var _road_shown := 0
+## Hero Mastery points (hero_mastery.gd), kept like the bones: not yet saved, earned since
+## the last end screen, and earned this whole run (for the run report), for _mastery_hero.
+var _mastery_unsaved := 0
+var _mastery_shown := 0
+var _mastery_run := 0
+var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06f"
+const BUILD := "2026-11-06g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -300,6 +306,8 @@ func _ready() -> void:
 	hud.road_pressed.connect(_open_road)
 	hud.road_claim.connect(_claim_road)
 	hud.road_closed.connect(_drops_closed)
+	hud.mastery_pressed.connect(_open_mastery)
+	hud.mastery_color.connect(_set_mastery_color)
 	hud.copy_report_pressed.connect(func():
 		DisplayServer.clipboard_set(_last_report)
 		Sfx.play("click"))
@@ -354,6 +362,15 @@ func _ready() -> void:
 		cfg.set_value(Drops.SECTION, "gift", true)
 		if bool(cfg.get_value("stats", "first_run_done", false)):
 			Drops.add(cfg)
+	# Hero Mastery levels reached in a run the app was closed during (points are saved after
+	# every room, rewards at the end screen) are given now.
+	for h: Dictionary in Heroes.LIST:
+		var g := HeroMastery.grant(cfg, h.id)
+		if int(g.coins) > 0:
+			coins += int(g.coins)
+			cfg.set_value("stats", "coins", coins)
+		for l: Dictionary in g.levels:
+			print("[mastery] %s level %d (on launch): %s" % [h.id, l.level, HeroMastery.level_text(l.level, h.id)])
 	write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
@@ -375,7 +392,7 @@ func _ready() -> void:
 	await Warmup.run()   # while the screen is still black, before the title can be tapped
 	hud.show_title(true, _best_text(), coins)
 	note_spot()
-	hud.set_title_hero(Heroes.get_hero(hero.hero_id).title)
+	_title_hero_line(hero.hero_id)
 	_fade(1.0, 0.0, 0.6)
 	var args := OS.get_cmdline_user_args()
 	if not "autoplay" in args or "intro" in args:
@@ -587,6 +604,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.omens_visible():
 			hud.show_omens(false)
+			return
+		if hud.mastery_visible():
+			hud.close_mastery()
 			return
 		if hud.heroes_visible():
 			hud.show_heroes(false)
@@ -1117,8 +1137,8 @@ func _use_run_hero() -> void:
 
 
 ## Puts hero `id` where the current hero stands. Returns false if it's already that hero.
-func _swap_hero(id: String) -> bool:
-	if hero and hero.hero_id == id:
+func _swap_hero(id: String, again := false) -> bool:
+	if hero and hero.hero_id == id and not again:
 		return false
 	var at := hero.global_position if hero else Vector3.ZERO
 	if hero:
@@ -1203,6 +1223,12 @@ func run_report(result: String, was_first := false) -> String:
 	lines.append("Score %d | First run %s" % [score, "yes" if first_run or was_first else "no"])
 	lines.append("Bone Road %d bones (%d to claim) | Bone Drops waiting %d, opened %d, this run %d | Lucky Starts %d" % [BoneRoad.bones(cfg),
 		BoneRoad.ready_count(cfg), Drops.waiting(cfg), int(cfg.get_value(Drops.SECTION, "opened", 0)), _drops_run, Drops.lucky(cfg)])
+	var masteries := []
+	for h: Dictionary in Heroes.LIST:
+		var p := HeroMastery.points(cfg, h.id) + (_mastery_unsaved if h.id == _mastery_hero else 0)
+		if p > 0:
+			masteries.append("%s %d (%d)" % [h.title, HeroMastery.level_for(p), p])
+	lines.append("Hero Mastery +%d this run | %s" % [_mastery_run, ", ".join(masteries) if masteries else "none yet"])
 	if daily or not curses.is_empty():
 		lines.append("Mode: %s | %s: %s (Curse Level %d, score x%s)" % ["Daily Crypt #%d %s%s" % [Curses.day_number(_daily_date), _daily_date, " practice" if _daily_practice else ""] if daily else "Normal",
 			"Rules" if daily else "Curses", Curses.names(curses) if curses else "none", Curses.level_of(curses), _mult_text(_score_mult)])
@@ -1250,6 +1276,8 @@ func _reset_run_stats() -> void:
 	run_coins = 0
 	_drops_run = 0
 	_road_shown = 0
+	_mastery_shown = 0
+	_mastery_run = 0
 	_combo = 0
 	chain = 1.0
 	score = 0
@@ -1378,6 +1406,7 @@ func _end_to_title() -> void:
 func _back_to_title(keep_run := false) -> void:
 	_set_state(State.TRANSITION)
 	_save_coins()
+	var mastery_note := _give_mastery_on_title()   # before the hero is made again, in a new color
 	if not keep_run:
 		RunSave.clear()
 	_free_end = false
@@ -1404,11 +1433,14 @@ func _back_to_title(keep_run := false) -> void:
 	_load_room(0, false)
 	hero.place_at(Vector3(0, 0, 2))
 	_snap_camera()
-	hud.set_title_hero(Heroes.get_hero(hero.hero_id).title)
+	_title_hero_line(hero.hero_id)
 	hud.show_hud(false)
 	hud.hide_boss()
 	hud.show_hint("")
 	hud.show_title(true, _best_text(), coins)
+	if mastery_note != "":
+		hud.set_drops(Drops.waiting(_load_save()))
+		hud.tip(mastery_note, 4.5, 0.5)
 	Music.play("dungeon")
 	_set_state(State.TITLE)
 	await _fade(1.0, 0.0, 0.4)
@@ -1985,6 +2017,7 @@ func _wave_spots(count: int) -> Array:
 func _room_cleared() -> void:
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
 	_add_bones(BoneRoad.ROOM_BONES)
+	_add_mastery(HeroMastery.ROOM_POINTS)
 	_save_coins()
 	hud.set_wave(0, 0)
 	# Straight to the blessing cards once the slow-motion finish has played. The wait stops
@@ -2116,7 +2149,9 @@ func _win() -> void:
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	_earn_drop(cfg)   # every boss beaten, the tutorial's too (saved just below)
 	_add_bones(BoneRoad.BOSS_BONES)
+	_add_mastery(HeroMastery.BOSS_POINTS)
 	var bones := _bank_bones(cfg)
+	var mastery := _bank_mastery(cfg)
 	var best := _save_score(cfg)
 	_save_best(cfg, _run.size())
 	# Curse mastery: beating the floor 5 boss (or a deeper one) at a Curse Level.
@@ -2158,6 +2193,7 @@ func _win() -> void:
 	# (as YOU DIED hides them); they come back as the next room starts (place_at).
 	if hero:
 		hero.visible = false
+	hud.show_mastery(mastery)
 	hud.show_end_title(not _daily_done and not _free_end, "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
@@ -2185,6 +2221,7 @@ func on_hero_died() -> void:
 	if not first_run and (_room_index >= 2 or floor_num > 1):
 		_earn_drop(cfg)
 	var bones := _bank_bones(cfg)
+	var mastery := _bank_mastery(cfg)
 	var best := _save_score(cfg)
 	_save_best(cfg, _room_index + 1)
 	var was_first := first_run
@@ -2210,6 +2247,7 @@ func on_hero_died() -> void:
 		coin_line += "\n\nThe Crypt Pass opens endless floors,\nevery hero, Daily practice and Curses."
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again", not tutorial_again, score, best)
+	hud.show_mastery(mastery)
 	hud.show_end_title(true)
 	hud.set_end_goal(_daily_goal() if daily else next_goal())
 	hud.set_drops(Drops.waiting(_load_save()))
@@ -2403,6 +2441,69 @@ func _bank_bones(cfg: ConfigFile) -> int:
 	return n
 
 
+## Hero Mastery points for this run's hero, saved with the coins like the bones.
+func _add_mastery(n: int) -> void:
+	if hero == null:
+		return
+	if hero.hero_id != _mastery_hero and _mastery_unsaved > 0:
+		_save_coins()   # (never happens mid-run, but points always go to the hero who earned them)
+	_mastery_hero = hero.hero_id
+	_mastery_unsaved += n
+	_mastery_shown += n
+	_mastery_run += n
+
+
+## Saves this run's unsaved mastery points into `cfg`, gives the rewards of any level reached
+## (coins straight into the purse) and returns what the end screen shows: {id, name, color,
+## before, after, gained, levels} (see Hud.show_mastery), or {} with no hero.
+func _bank_mastery(cfg: ConfigFile) -> Dictionary:
+	var id := _mastery_hero if _mastery_hero != "" else (hero.hero_id if hero else "")
+	if id == "":
+		return {}
+	HeroMastery.add(cfg, id, _mastery_unsaved)
+	_mastery_unsaved = 0
+	var gained := _mastery_shown
+	_mastery_shown = 0
+	var after := HeroMastery.points(cfg, id)
+	var g := _give_mastery(cfg, id)
+	var def := HeroMastery.styled(cfg, Heroes.get_hero(id))
+	return {"id": id, "name": def.title, "color": def.ring, "before": after - gained, "after": after, "gained": gained, "levels": g.levels}
+
+
+## Gives the rewards of levels reached since the last time into `cfg` (the caller saves it).
+func _give_mastery(cfg: ConfigFile, id: String) -> Dictionary:
+	var g := HeroMastery.grant(cfg, id)
+	if int(g.coins) > 0:
+		coins += int(g.coins)
+		cfg.set_value("stats", "coins", coins)
+		record_add("coins", g.coins)
+		hud.set_coins(coins)
+	for l: Dictionary in g.levels:
+		print("[mastery] %s level %d: %s" % [id, l.level, HeroMastery.level_text(l.level, id)])
+	return g
+
+
+## Back on the title after leaving a run mid-way (or the end screen): levels reached on the
+## way that weren't given yet are given here. Returns the note to show on the title ("").
+func _give_mastery_on_title() -> String:
+	_mastery_shown = 0
+	if _mastery_hero == "":
+		return ""
+	var cfg := _load_save()
+	var g := _give_mastery(cfg, _mastery_hero)
+	if g.levels.is_empty():
+		return ""
+	write_save(cfg)
+	var last: Dictionary = g.levels[-1]
+	return "%s MASTERY %d!\n%s" % [Heroes.get_hero(_mastery_hero).title.to_upper(), last.level,
+		" + ".join(g.levels.map(func(l): return HeroMastery.level_text(l.level, _mastery_hero)))]
+
+
+func _title_hero_line(id: String, trial := false) -> void:
+	var cfg := _load_save()
+	hud.set_title_hero(Heroes.get_hero(id).title + (" (free trial run)" if trial else ""), HeroMastery.level(cfg, id), HeroMastery.has_frame(cfg, id))
+
+
 func _open_road() -> void:
 	if state == State.TITLE:
 		Sfx.play("click")
@@ -2468,6 +2569,8 @@ func _save_coins() -> void:
 	cfg.set_value("stats", "coins", coins)
 	BoneRoad.add(cfg, _road_unsaved)
 	_road_unsaved = 0
+	HeroMastery.add(cfg, _mastery_hero, _mastery_unsaved)
+	_mastery_unsaved = 0
 	if _perfect_total >= 0:
 		cfg.set_value("stats", "perfect_total", _perfect_total)
 	write_save(cfg)
@@ -2727,8 +2830,28 @@ func _hero_rows() -> Array:
 		rows.append({"id": h.id, "name": h.title, "badge": badge, "mastery": m, "cost": h.cost,
 			"unlocked": unlocked, "selected": h.id == chosen and _trial_hero == "",
 			"trial": state == State.TITLE and not unlocked and not bool(cfg.get_value(TRIAL_SECTION, h.id, false)),
-			"trying": h.id == _trial_hero})
+			"trying": h.id == _trial_hero, "def": HeroMastery.styled(cfg, h), "points": HeroMastery.points(cfg, h.id),
+			"frame": HeroMastery.has_frame(cfg, h.id)})
 	return rows
+
+
+## The Mastery screen for hero `id` (from the Heroes screen).
+func _open_mastery(id: String) -> void:
+	hud.open_mastery(_load_save(), id)
+
+
+## WEAR IT / WEARING on the Mastery screen: the hero's mastery color on or off.
+func _set_mastery_color(id: String, on: bool) -> void:
+	var cfg := _load_save()
+	if not HeroMastery.has_color(cfg, id):
+		return
+	HeroMastery.set_color(cfg, id, on)
+	write_save(cfg)
+	hud.open_mastery(cfg, id)
+	hud.show_heroes(true, _hero_rows(), coins)
+	# The hero standing on the title changes color too.
+	if state == State.TITLE and hero and hero.hero_id == id and _swap_hero(id, true):
+		Fx.magic(hero.center(), hero.bolt_color, 24)
 
 
 ## TRY FREE on a locked hero: the next run is played as them, once.
@@ -2739,7 +2862,7 @@ func _try_hero(id: String) -> void:
 	Sfx.play("upgrade")
 	_trial_hero = id
 	var def := Heroes.get_hero(id)
-	hud.set_title_hero(def.title + " (free trial run)")
+	_title_hero_line(id, true)
 	hud.show_heroes(false)
 	if _swap_hero(id):
 		Fx.magic(hero.center(), def.bolt_color, 30)
@@ -2763,11 +2886,11 @@ func _pick_hero(id: String) -> void:
 	cfg.set_value(Heroes.SAVE_SECTION, "selected", id)
 	write_save(cfg)
 	_trial_hero = ""
-	hud.set_title_hero(def.title)
+	_title_hero_line(id)
 	hud.show_heroes(true, _hero_rows(), coins)
 	# On the title screen, swap the hero standing in the room straight away.
 	if state == State.TITLE and _swap_hero(id):
-		Fx.magic(hero.center(), def.bolt_color, 30)
+		Fx.magic(hero.center(), hero.bolt_color, 30)   # (in the mastery color if worn)
 
 
 func _open_pass() -> void:

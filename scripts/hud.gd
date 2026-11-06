@@ -22,6 +22,8 @@ signal road_pressed
 signal road_claim(index: int)
 signal road_closed
 signal drops_closed
+signal mastery_pressed(id: String)
+signal mastery_color(id: String, on: bool)
 signal hero_pick(id: String)
 signal copy_report_pressed
 signal resume_pressed
@@ -187,6 +189,8 @@ var _records_note: Label
 var _title_records: Control
 var _title_drops: Button
 var _end_drop: Button
+var _end_mastery: MasteryBar
+var _mastery: MasteryScreen
 var _drops: DropScreen
 var _title_road: RoadScreen.Bar
 var _title_hint: Label
@@ -267,6 +271,9 @@ func _ready() -> void:
 	add_child(_road)
 	_road.claim.connect(func(i: int): road_claim.emit(i))
 	_road.closed.connect(func(): road_closed.emit())
+	_mastery = MasteryScreen.new()
+	add_child(_mastery)
+	_mastery.color_toggled.connect(func(id: String, on: bool): mastery_color.emit(id, on))
 	_build_daily()
 	_build_omens()
 	_build_reports_ask()
@@ -1236,6 +1243,7 @@ func _build_heroes() -> void:
 	_heroes_box.pick.connect(func(id: String): hero_pick.emit(id))
 	_heroes_box.trial.connect(func(id: String): hero_trial.emit(id))
 	_heroes_box.closed.connect(func(): show_heroes(false))
+	_heroes_box.mastery.connect(func(id: String): mastery_pressed.emit(id))
 
 
 ## With a saved run waiting, starting a new one asks first: the first tap warns, and a
@@ -1296,6 +1304,11 @@ func _build_end() -> void:
 	col.add_child(_end_best)
 	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
 	col.add_child(_end_stats)
+	# Hero Mastery: the run's points filling the hero's bar (mastery_bar.gd).
+	_end_mastery = MasteryBar.new()
+	_end_mastery.custom_minimum_size = Vector2(470, 84)
+	_end_mastery.visible = false
+	col.add_child(_centered(_end_mastery))
 	_end_goal = label("", 22, Color(1.0, 0.82, 0.42))
 	_end_goal.visible = false
 	col.add_child(_end_goal)
@@ -1929,7 +1942,7 @@ func _apply_safe_area() -> void:
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
-		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible
+		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -2421,8 +2434,10 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 		_armory_rows.add_child(_curse_row(r))
 
 
-func set_title_hero(hero_name: String) -> void:
-	_title_hero.text = "Playing as the " + hero_name
+## "Playing as the Mage  ·  Mastery 4" (in gold once they're a Master, at level 10).
+func set_title_hero(hero_name: String, mastery := 0, master := false) -> void:
+	_title_hero.text = "Playing as the " + hero_name + ("  ·  Mastery %d" % mastery if mastery > 1 else "")
+	_title_hero.label_settings.font_color = GOLD if master else Color(0.75, 0.85, 1.0)
 
 
 ## Shows the rows of the open tab: Armory upgrades, or the Vault's blessings.
@@ -2578,7 +2593,30 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_end_stats.text = stats
 	_end_goal.visible = false
+	_end_mastery.visible = false
 	_fit_end.call_deferred()
+
+
+## The end screen's Hero Mastery bar, filling with this run's points (`info` from
+## Game._bank_mastery; {} hides it).
+func show_mastery(info: Dictionary) -> void:
+	_end_mastery.visible = not info.is_empty() and _end_box.visible
+	if _end_mastery.visible:
+		_end_mastery.play(info)
+	_fit_end.call_deferred()
+
+
+## The Mastery screen for hero `id` (mastery_screen.gd), filled from `cfg`.
+func open_mastery(cfg: ConfigFile, id: String) -> void:
+	_mastery.open_hero(cfg, id)
+
+
+func close_mastery() -> void:
+	_mastery.visible = false
+
+
+func mastery_visible() -> bool:
+	return _mastery.visible
 
 
 ## The gold line under the end screen's stats (hidden when empty).

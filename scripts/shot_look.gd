@@ -204,7 +204,7 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 	var glow := 3.2
 	match kind:
 		"wave":
-			col = col.lerp(Color(1.0, 0.78, 0.3), 0.55)   # a golden sword wave
+			# (The Knight's own bolt colour is the gold of the wave: a mastery color shows as is.)
 			glow_col = Color(col.r, col.g, col.b, 0.6)
 			_put(p, _flat, hero_mat(K_WAVE, col), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
 			glow = 2.6

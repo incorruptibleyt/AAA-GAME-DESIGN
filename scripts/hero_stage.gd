@@ -14,6 +14,7 @@ var _root: Node3D
 var _pivot: Node3D
 var _visual: CharacterVisual
 var _ring_mat: StandardMaterial3D
+var _gold_ring: MeshInstance3D
 var _glow_mat: StandardMaterial3D
 var _back_light: OmniLight3D
 var _time := 0.0
@@ -79,6 +80,17 @@ func _build_scene() -> void:
 	ring.material_override = _ring_mat
 	ring.scale = Vector3(1, 0.4, 1)
 	_root.add_child(ring)
+	# Hero Mastery level 10: a gold frame round the pedestal.
+	var gold := TorusMesh.new()
+	gold.inner_radius = 1.22
+	gold.outer_radius = 1.3
+	_gold_ring = MeshInstance3D.new()
+	_gold_ring.mesh = gold
+	_gold_ring.material_override = U.unlit(Color(1.0, 0.8, 0.3))
+	_gold_ring.scale = Vector3(1, 0.4, 1)
+	_gold_ring.position = Vector3(0, -0.02, 0)
+	_gold_ring.visible = false
+	_root.add_child(_gold_ring)
 	_glow_mat = U.unlit(Color.WHITE, U.soft_circle()).duplicate()
 	_glow_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	U.floor_quad(_root, Vector2(2.6, 2.6), _glow_mat, Vector3(0, 0.01, 0))
@@ -87,8 +99,10 @@ func _build_scene() -> void:
 	_root.add_child(_pivot)
 
 
-## Puts `def` (an entry of Heroes.LIST) on the pedestal, with a little flourish.
-func show_hero(def: Dictionary) -> void:
+## Puts `def` (an entry of Heroes.LIST) on the pedestal, with a little flourish; `gold` adds
+## a Master's gold frame round it.
+func show_hero(def: Dictionary, gold := false) -> void:
+	_gold_ring.visible = gold
 	if _visual:
 		_visual.queue_free()
 	_visual = CharacterVisual.new()

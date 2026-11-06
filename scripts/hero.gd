@@ -83,7 +83,8 @@ var _moving := false
 
 
 static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
-	var def := Heroes.get_hero(id)
+	var cfg := Game._load_save()
+	var def := HeroMastery.styled(cfg, Heroes.get_hero(id))   # the mastery color, if it's on
 	var h := Hero.new()
 	h.name = "Hero"
 	h.team = Team.HERO
@@ -106,9 +107,11 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
 	h._build_feet_marker(def.ring)
+	if HeroMastery.has_frame(cfg, def.id):
+		h._build_gold_ring()   # Hero Mastery level 10
 	h._build_dash_ring()
 	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.
-	var mastery := Curses.mastery(Game._load_save(), def.id)
+	var mastery := Curses.mastery(cfg, def.id)
 	if mastery >= 10:
 		h.bolt_color = Color(1.0, 0.8, 0.3)
 	if mastery >= 6:
@@ -582,6 +585,23 @@ func _build_feet_marker(col: Color) -> void:
 	ring.material_override = U.unlit(Color(col, 0.95))
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ring.position = Vector3(0, 0.04, 0)
+	ring.scale = Vector3(1, 0.12, 1)
+	add_child(ring)
+	_rings.append(ring)
+
+
+## Hero Mastery level 10: a thin gold ring just inside the one in the hero's colour.
+func _build_gold_ring() -> void:
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.4
+	torus.outer_radius = 0.46
+	torus.rings = 32
+	torus.ring_segments = 4
+	var ring := MeshInstance3D.new()
+	ring.mesh = torus
+	ring.material_override = U.unlit(Color(1.0, 0.82, 0.32, 0.95))
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.position = Vector3(0, 0.045, 0)
 	ring.scale = Vector3(1, 0.12, 1)
 	add_child(ring)
 	_rings.append(ring)
