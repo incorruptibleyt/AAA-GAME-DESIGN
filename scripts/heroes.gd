@@ -16,7 +16,7 @@ const LIST := [
 		"attack_anim": "1H_Melee_Attack_Slice_Horizontal", "body": Color(0.6, 0.62, 0.7), "helmet": true, "ring": Color(1.0, 0.85, 0.35),
 		"health": 150.0, "move_speed": 4.7, "damage": 22.0, "rate": 1.0, "bolt_speed": 13.0, "bolt_size": 0.4,
 		"bolt_color": Color(1.0, 0.86, 0.5), "pierce": 1, "armor": 0.15,
-		"special": "Shield Slam", "special_text": "A huge shockwave that stuns and shoves everything nearby."},
+		"special": "Shield Slam", "special_text": "A huge shockwave that slows and shoves everything nearby."},
 	{"id": "barbarian", "title": "Barbarian", "text": "Hurls heavy axes and heals a little with every kill.", "cost": 200,
 		"key": "Barbarian", "hide": ["1H_Axe_Offhand", "Barbarian_Round_Shield", "2H_Axe", "Mug"], "attack_anim": "Throw",
 		"body": Color(0.7, 0.45, 0.3), "horns": true, "ring": Color(0.35, 1.0, 0.5),

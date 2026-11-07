@@ -365,10 +365,14 @@ func _whirlwind(delta: float) -> void:
 	if _spin_tick <= 0.0:
 		_spin_tick = 0.16
 		Fx.trail(center(), Color(1, 0.7, 0.4))
+		var hit_any := false
 		for a: Actor in Actor.all.duplicate():
 			if a.team == Team.UNDEAD and a.can_be_hit() and a.global_position.distance_to(global_position) < 2.8 + a.radius:
 				_special_hit(a, damage * 0.8, global_position, 5.0)
-				heal(1.0)
+				hit_any = true
+		# One heal per spin tick, not one per enemy caught (a big crowd healed to full).
+		if hit_any:
+			heal(1.0)
 	if _spin_left <= 0.0:
 		visual.rotation.y = 0.0
 

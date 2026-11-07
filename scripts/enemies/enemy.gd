@@ -233,6 +233,9 @@ func _process(delta: float) -> void:
 
 
 func _separate() -> void:
+	# Add up the push from every overlapping ally, then check the walls once (a pile of 6
+	# used to run the wall check 5 times per enemy per frame).
+	var push := Vector3.ZERO
 	for a in Actor.all:
 		if a == self or a.team != team or a.dead:
 			continue
@@ -242,8 +245,9 @@ func _separate() -> void:
 		var sq := d.length_squared()
 		if sq < m * m and sq > 0.0001:
 			var dist := sqrt(sq)
-			var push_out := d / dist * (m - dist) * 0.5
-			global_position = Room.current.resolve_move(global_position, push_out, radius) if Room.current else global_position + push_out
+			push += d / dist * (m - dist) * 0.5
+	if push != Vector3.ZERO:
+		global_position = Room.current.resolve_move(global_position, push, radius) if Room.current else global_position + push
 
 
 func _touch(hero: Hero, delta: float) -> void:

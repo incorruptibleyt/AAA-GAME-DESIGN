@@ -231,21 +231,34 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 
 static var _axe_scene: PackedScene
 static var _axe_checked := false
+## One axe built (and sized to 1 m) the first time, then copied for every throw. Making a
+## fresh model from the scene each shot was the Barbarian's slowest per-shot cost.
+static var _axe_proto: Node3D
+static var _axe_holder: Node3D
 
 ## The Barbarian's real axe, laid flat and spinning (the shot turns `p.spin`).
 static func _axe(p: Projectile, length: float) -> void:
 	if not _axe_checked:
 		_axe_checked = true
 		_axe_scene = Art.get_model("Skeleton_Axe")
-	if _axe_scene == null:
+		if _axe_scene != null:
+			_axe_holder = Node3D.new()   # kept hidden under Game, so it's freed with the game
+			_axe_holder.name = "AxeProto"
+			_axe_holder.visible = false
+			Game.add_child(_axe_holder)
+			_axe_proto = Art.place_prop(_axe_scene, _axe_holder, 1.0)
+			for m in _axe_proto.find_children("*", "GeometryInstance3D", true, false):
+				(m as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	if _axe_proto == null:
 		return
 	var spin := Node3D.new()
 	p.add_child(spin)
 	var lay := Node3D.new()
 	lay.rotation.x = -PI / 2.0   # handle along the floor
 	spin.add_child(lay)
-	var axe := Art.place_prop(_axe_scene, lay, length)
+	var axe := _axe_proto.duplicate() as Node3D
+	lay.add_child(axe)
+	axe.scale = _axe_proto.scale * length
+	axe.position = _axe_proto.position * length
 	axe.position.y -= length * 0.6   # turn around a point near the head, like a real throw
-	for m in axe.find_children("*", "GeometryInstance3D", true, false):
-		(m as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	p.spin = spin

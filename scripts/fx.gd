@@ -28,10 +28,8 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 			return
 	_burst_material()
 
-	var p := CPUParticles3D.new()
+	var p := _take_burst(world)
 	p.mesh = _shaped(shape)
-	p.one_shot = true
-	p.explosiveness = 1.0
 	p.amount = count
 	p.lifetime = life
 	p.direction = Vector3.UP
@@ -48,9 +46,36 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
 	p.emission_sphere_radius = 0.15
 	p.position = pos
+	p.restart()
+
+
+## Finished bursts wait here to be used again, instead of a new emitter (and a free a moment
+## later) for every hit, kill and puff. Past POOL_MAX idle ones, extras are freed.
+const POOL_MAX := 48
+static var _free_bursts: Array[CPUParticles3D] = []
+
+
+static func _take_burst(world: Node3D) -> CPUParticles3D:
+	while not _free_bursts.is_empty():
+		var old: CPUParticles3D = _free_bursts.pop_back()
+		if is_instance_valid(old) and old.get_parent() == world:
+			return old
+	var p := CPUParticles3D.new()
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.emitting = false
 	world.add_child(p)
-	p.emitting = true
-	p.get_tree().create_timer(life + 0.2).timeout.connect(p.queue_free)
+	p.finished.connect(_return_burst.bind(p))
+	return p
+
+
+static func _return_burst(p: CPUParticles3D) -> void:
+	if not is_instance_valid(p):
+		return
+	if _free_bursts.size() >= POOL_MAX:
+		p.queue_free()
+	elif not _free_bursts.has(p):
+		_free_bursts.append(p)
 
 
 static func _burst_material() -> void:

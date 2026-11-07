@@ -18,6 +18,12 @@ var _next := 0
 
 static var enabled := true
 
+## Most copies of one sound allowed to start in a single frame. A big crowd dying at once
+## used to start ten copies of "die" and cut off every other sound in the 10-player pool.
+const PER_FRAME := {"hit": 2, "shoot": 2, "die": 3}
+static var _frame := -1
+static var _started := {}
+
 ## Sounds that are the game talking to the player (menus, the announcer) skip the echo.
 const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", "vo_combo"]
 
@@ -25,6 +31,15 @@ const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", 
 static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
 	if not enabled or _instance == null or not _instance._clips.has(sound):
 		return
+	if PER_FRAME.has(sound):
+		var f := Engine.get_process_frames()
+		if f != _frame:
+			_frame = f
+			_started.clear()
+		var n: int = _started.get(sound, 0)
+		if n >= PER_FRAME[sound]:
+			return
+		_started[sound] = n + 1
 	var clip = _instance._clips[sound]
 	_instance._start(clip.pick_random() if clip is Array else clip, &"Master" if sound in DRY else &"Effects", volume, pitch)
 
