@@ -67,6 +67,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 
 ★ FREE TO TRY, ONE OPTIONAL PASS
 The first five floors of this dungeon roguelite are free, with no ads. The one-time Crypt Pass opens the rest:
+• The Crypt King set for every hero: obsidian armour veined with molten gold, a floating Crypt Crown, and a turning gold sigil under your feet. Try it on for free in the Style screen.
 • The Drowned Vault: a flooded floor where Drowned Skeletons swim under the water, ruled by the Tidecaller.
 • Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
 • Daily Crypt practice: replay the day's floors as often as you like after your official run.

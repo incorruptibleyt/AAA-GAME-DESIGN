@@ -72,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07n"
+const BUILD := "2026-11-08a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -2346,7 +2346,7 @@ func on_hero_died() -> void:
 	var note := not Store.owned() and floor_num >= 3 and not _pass_note_shown
 	if note:
 		_pass_note_shown = true
-		coin_line += "\n\nThe Crypt Pass opens endless floors,\nevery hero, Daily practice and Curses."
+		coin_line += "\n\nThe Crypt Pass: the Crypt King looks,\nendless floors, every hero and more."
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again", not tutorial_again, score, best)
 	hud.show_mastery(mastery)
@@ -2991,7 +2991,7 @@ func _open_style(id: String) -> void:
 ## A look picked on the Style screen: worn from now on, and on the hero on the title too.
 func _wear_look(id: String, slot: String, key: String) -> void:
 	var cfg := _load_save()
-	if HeroStyle.item_level(id, slot, key) > HeroMastery.level(cfg, id):
+	if not HeroStyle.has_look(cfg, id, slot, key):
 		return
 	HeroStyle.wear(cfg, id, slot, key)
 	write_save(cfg)
@@ -3002,6 +3002,20 @@ func _wear_look(id: String, slot: String, key: String) -> void:
 		hud.show_heroes(true, _hero_rows(), coins)
 	if state == State.TITLE and hero and hero.hero_id == id and _swap_hero(id, true):
 		Fx.magic(hero.center(), hero.bolt_color, 24)
+
+
+## Bought the Crypt Pass on the Style screen: that hero puts on the whole Crypt King set
+## (once; after that the screen just shows the set as theirs).
+func _dress_crypt_king(id: String) -> void:
+	var cfg := _load_save()
+	if Store.owned(cfg) and not bool(cfg.get_value(HeroStyle.SECTION, "crypt_dressed", false)):
+		cfg.set_value(HeroStyle.SECTION, "crypt_dressed", true)
+		for slot: String in HeroStyle.PASS_SLOTS:
+			HeroStyle.wear(cfg, id, slot, HeroStyle.pass_key(slot))
+		write_save(cfg)
+		if state == State.TITLE and hero and hero.hero_id == id:
+			_swap_hero(id, true)
+	hud.open_style(cfg, id)
 
 
 ## TRY FREE on a locked hero: the next run is played as them, once.
@@ -3245,6 +3259,8 @@ func _on_store_changed() -> void:
 		hud.show_title(true, _best_text(), coins)
 	if hud.heroes_visible():
 		hud.show_heroes(true, _hero_rows(), coins)
+	if hud.style_visible():
+		_dress_crypt_king(hud._style._id)
 	if hud.armory_visible() and hud._shop_curses:
 		_show_curses()
 	if hud.daily_visible():

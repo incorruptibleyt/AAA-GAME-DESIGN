@@ -137,6 +137,25 @@ const AURAS := {
 ## Each hero's own trail of light for their auras (Fx.motif).
 const MOTIFS := {"rogue": "wisps", "knight": "motes", "barbarian": "embers", "mage": "stars"}
 
+## The Crypt King set: four looks every hero gets with the Crypt Pass, one for each of the
+## outfit, head, glow and aura slots, the grandest in the game. Free players can try them on
+## (the Style screen shows them first, on every tab). Their keys start with "crypt".
+## The outfit is obsidian black veined with glowing molten gold, trimmed in polished gold,
+## and a band of light runs up the hero every couple of seconds. It is the opposite of the
+## all-gold Gilded outfit (Mastery 10), so the two are never mistaken for each other: the
+## big part of each hero is obsidian (the Rogue's and Mage's cloth, the Knight's armour,
+## the Barbarian's furs) and the trim is gold.
+const PASS_KEY := "crypt"
+const PASS_OUTFIT := {"name": "Crypt Gold", "pass": true,
+	"gold": Color(1.0, 0.77, 0.26), "obsidian": Color(0.1, 0.075, 0.14),
+	"gold_on": {"rogue": "b", "knight": "a", "barbarian": "b", "mage": "b"}}
+const PASS_HEAD := {"name": "Crypt Crown", "hat": true, "extras": ["crypt_crown"], "pass": true}
+const PASS_GLOW := {"name": "Crypt Gold", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
+## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
+## turning gold sigil on the floor under the hero, the one thing seen from anywhere in a room.
+const PASS_AURA := {"name": "Crypt King", "pass": true, "ink": Color(1.0, 0.78, 0.22), "ink2": Color(1.0, 0.95, 0.72),
+	"spark": Color(1.0, 0.86, 0.42), "motif": "regal", "shine": true, "sigil": true}
+
 ## The order each hero's looks are unlocked in: three for each Mastery level from 2 to 10
 ## (27 each), the grandest last. [slot, key].
 const ORDER := {
@@ -194,17 +213,42 @@ static func items(id: String) -> Array:
 	var auras: Dictionary = AURAS.get(id, {})
 	for key: String in auras:
 		out.append({"slot": "aura", "key": key, "name": auras[key].name, "level": int(auras[key].level), "only": true})
+	for slot: String in PASS_SLOTS:
+		out.append({"slot": slot, "key": pass_key(slot), "name": item_name(id, slot, pass_key(slot)), "level": 1, "pass": true})
 	return out
+
+
+## The slots the Crypt King set fills, and each look's key ("crypt", "crypt_crown"...).
+const PASS_SLOTS := ["outfit", "head", "glow", "aura"]
+
+static func pass_key(slot: String) -> String:
+	return "crypt_crown" if slot == "head" else ("crypt_king" if slot == "aura" else PASS_KEY)
+
+
+static func is_pass(key: String) -> bool:
+	return key.begins_with(PASS_KEY)
+
+
+## Whether hero `id` may wear `key` in `slot`: a Mastery look once its level is reached, a
+## Crypt King look with the Crypt Pass.
+static func has_look(cfg: ConfigFile, id: String, slot: String, key: String) -> bool:
+	if key == "":
+		return true
+	if is_pass(key):
+		return pass_key(slot) == key and Store.owned(cfg)
+	return item_level(id, slot, key) <= HeroMastery.level(cfg, id)
 
 
 ## The looks hero `id` gets at Mastery level `lv`.
 static func level_items(id: String, lv: int) -> Array:
-	return items(id).filter(func(it: Dictionary) -> bool: return it.level == lv and it.key != "")
+	return items(id).filter(func(it: Dictionary) -> bool: return it.level == lv and it.key != "" and not it.get("pass", false))
 
 
 static func item_name(id: String, slot: String, key: String) -> String:
 	if key == "":
 		return "No aura" if slot == "aura" else "Classic"
+	if is_pass(key):
+		return str({"outfit": PASS_OUTFIT, "head": PASS_HEAD, "glow": PASS_GLOW, "aura": PASS_AURA}.get(slot, {}).get("name", key))
 	match slot:
 		"outfit":
 			return OUTFITS.get(key, {}).get("name", key)
@@ -228,12 +272,14 @@ static func item_label(id: String, slot: String, key: String) -> String:
 		"glow":
 			return n + " glow"
 		"aura":
+			if is_pass(key):
+				return n + " aura"
 			return n if key == "" else n + " aura (%s only)" % str(Heroes.get_hero(id).title)
 	return n
 
 
 static func item_level(id: String, slot: String, key: String) -> int:
-	if key == "":
+	if key == "" or is_pass(key):
 		return 1
 	for it: Dictionary in items(id):
 		if it.slot == slot and it.key == key:
@@ -247,8 +293,8 @@ static func item_level(id: String, slot: String, key: String) -> int:
 ## save) is worn as Classic.
 static func worn(cfg: ConfigFile, id: String, slot: String) -> String:
 	var key := str(cfg.get_value(SECTION, "%s_%s" % [id, slot], ""))
-	if key != "" and item_level(id, slot, key) > HeroMastery.level(cfg, id):
-		return ""
+	if not has_look(cfg, id, slot, key):
+		return ""   # (a Crypt King look after a refund, too)
 	return key
 
 
@@ -293,20 +339,24 @@ static func styled(cfg: ConfigFile, def: Dictionary) -> Dictionary:
 static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	var d := def.duplicate()
 	var id: String = def.id
-	var glow: Dictionary = GLOWS.get(p.get("glow", ""), {})
+	var glow: Dictionary = PASS_GLOW if is_pass(p.get("glow", "")) else GLOWS.get(p.get("glow", ""), {})
 	if not glow.is_empty():
 		d.ring = glow.ring
 		d.bolt_color = glow.bolt
 	var style := {"id": id, "hide": [], "show": [], "borrow": [], "extras": []}
 	var outfit: Dictionary = OUTFITS.get(p.get("outfit", ""), {})
-	if not outfit.is_empty():
+	if is_pass(p.get("outfit", "")):
+		var on: String = PASS_OUTFIT.gold_on.get(id, "a")
+		style.outfit = {"a": PASS_OUTFIT.gold if on == "a" else PASS_OUTFIT.obsidian,
+			"b": PASS_OUTFIT.gold if on == "b" else PASS_OUTFIT.obsidian, "gold": on}
+	elif not outfit.is_empty():
 		var b = outfit.get("b")
 		if id == "knight":
 			b = outfit.get("armor")
 		elif id == "rogue":
 			b = outfit.get("leather")
 		style.outfit = {"a": outfit.a, "b": b}
-	var head: Dictionary = HEADS.get(p.get("head", ""), {})
+	var head: Dictionary = PASS_HEAD if is_pass(p.get("head", "")) else HEADS.get(p.get("head", ""), {})
 	var has_hat := OWN_HAT.has(id)
 	if not head.is_empty():
 		if not head.get("hat", true) and OWN_HAT.has(id):
@@ -325,10 +375,11 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		style.hide.append_array(hold.get("hide", []))
 		style.show = hold.get("show", [])
 	d.style = style
-	var aura: Dictionary = AURAS.get(id, {}).get(p.get("aura", ""), {})
+	var aura: Dictionary = PASS_AURA if is_pass(p.get("aura", "")) else AURAS.get(id, {}).get(p.get("aura", ""), {})
 	if not aura.is_empty():
 		d.aura = aura.duplicate()
-		d.aura.motif = MOTIFS.get(id, "wisps")
+		if not d.aura.has("motif"):
+			d.aura.motif = MOTIFS.get(id, "wisps")
 	return d
 
 
@@ -441,7 +492,7 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> ShaderMaterial:
 	# Capes are single sheets drawn from both sides: the copy must be too, or they vanish.
 	var both := src.cull_mode == BaseMaterial3D.CULL_DISABLED
-	var key := "%s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both]
+	var key := "%s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", "")]
 	if _mats.has(key):
 		return _mats[key]
 	if not _shaders.has(both):
@@ -461,6 +512,8 @@ static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> Sh
 		m.set_shader_parameter(k + "_ref", Vector3(c[4], c[5], c[6] if c.size() > 6 else 0.0))
 		var col: Color = outfit.get(k) if on else Color.BLACK
 		m.set_shader_parameter(k + "_dst", Vector4(col.h, col.s, col.v, 1.0 if on else 0.0))
+		m.set_shader_parameter(k + "_gold", 1.0 if outfit.get("gold", "") == k else 0.0)
+		m.set_shader_parameter(k + "_dark", 1.0 if outfit.has("gold") and outfit.get("gold", "") != k else 0.0)
 	_mats[key] = m
 	return m
 
@@ -474,6 +527,8 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 	match kind:
 		"crown":
 			_crown(att, id, y, hat)
+		"crypt_crown":
+			att.add_child(CryptCrown.make(id, y, hat))
 		"horns":
 			var bone := U.mat(Color(0.9, 0.86, 0.76), 0.6)
 			var k := 1.0   # size
@@ -559,6 +614,18 @@ uniform vec4 a_dst;
 uniform vec4 b_src;
 uniform vec3 b_ref;
 uniform vec4 b_dst;
+// The Crypt King outfit: which channel is polished gold, and which obsidian.
+uniform float a_gold = 0.0;
+uniform float b_gold = 0.0;
+uniform float a_dark = 0.0;
+uniform float b_dark = 0.0;
+varying vec3 wpos;
+varying vec3 opos;
+
+void vertex() {
+	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	opos = NODE_POSITION_WORLD;
+}
 
 vec3 rgb2hsv(vec3 c) {
 	vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
@@ -574,7 +641,7 @@ vec3 hsv2rgb(vec3 c) {
 	return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
 }
 
-vec3 swap(vec3 col, vec3 hsv, vec4 src, vec3 ref, vec4 dst) {
+vec3 swap(vec3 col, vec3 hsv, vec4 src, vec3 ref, vec4 dst, inout float mask) {
 	if (dst.w < 0.5) {
 		return col;
 	}
@@ -585,6 +652,7 @@ vec3 swap(vec3 col, vec3 hsv, vec4 src, vec3 ref, vec4 dst) {
 		m *= 1.0 - smoothstep(src.y, src.y + 0.025, hd);
 	}
 	vec3 n = vec3(dst.x, clamp(dst.y * hsv.y / ref.x, 0.0, 1.0), clamp(dst.z * hsv.z / ref.y, 0.0, 1.0));
+	mask = m;
 	return mix(col, hsv2rgb(n), m);
 }
 
@@ -593,10 +661,34 @@ void fragment() {
 	// takes ALBEDO the same way, so the colours are judged just as they were measured.
 	vec3 c = texture(tex, UV).rgb;
 	vec3 hsv = rgb2hsv(c);
-	vec3 o = swap(c, hsv, a_src, a_ref, a_dst);
-	o = swap(o, hsv, b_src, b_ref, b_dst);
+	float ma = 0.0;
+	float mb = 0.0;
+	vec3 o = swap(c, hsv, a_src, a_ref, a_dst, ma);
+	o = swap(o, hsv, b_src, b_ref, b_dst, mb);
 	ALBEDO = o;
 	ROUGHNESS = rough;
 	METALLIC = metal;
+	float g = ma * a_gold + mb * b_gold;
+	float k = ma * a_dark + mb * b_dark;
+	if (g + k > 0.001) {
+		// Gold: a warm glow at the edges, and a band of light that runs up the hero
+		// every 2.2 seconds. Obsidian: glossy black, veined with molten gold that
+		// slowly breathes, with a violet sheen at the edges.
+		float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+		vec3 lp = wpos - opos;
+		float h = lp.y + 0.35 * (lp.x + lp.z);
+		float vn = sin(lp.x * 11.0 + lp.y * 7.0 + sin(lp.z * 9.0) * 1.6) * sin(lp.z * 10.0 - lp.y * 6.0 + sin(lp.x * 8.0) * 1.4);
+		float vein = (1.0 - smoothstep(0.035, 0.11, abs(vn))) * (0.7 + 0.3 * sin(TIME * 1.7 + lp.y * 3.0));
+		float ph = fract(TIME * 0.45 - h * 0.32);
+		float band = smoothstep(0.0, 0.03, ph) * (1.0 - smoothstep(0.03, 0.09, ph));
+		ALBEDO = mix(ALBEDO, ALBEDO * vec3(1.08, 1.0, 0.86), g);
+		ROUGHNESS = mix(ROUGHNESS, 0.28, g + k * 0.6);
+		METALLIC = mix(METALLIC, 0.7, g);
+		ALBEDO = mix(ALBEDO, vec3(1.0, 0.72, 0.22), k * vein * 0.8);
+		EMISSION = vec3(1.0, 0.72, 0.24) * g * (0.22 + edge * 0.85)
+			+ vec3(1.0, 0.94, 0.75) * band * (g * 1.5 + k * 0.6)
+			+ vec3(1.0, 0.62, 0.16) * k * vein * 1.1
+			+ vec3(0.55, 0.35, 0.9) * k * edge * 0.45;
+	}
 }
 """

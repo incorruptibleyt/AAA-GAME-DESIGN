@@ -231,6 +231,7 @@ var _mode_curses_tag: Label
 var _modes_tutorial: Button
 var _heroes_box: HeroScreen
 var _end_offer: Control
+var _pass_more: Label
 var _pass_box: Control
 var _pass_buy: Button
 var _pass_status: Label
@@ -306,6 +307,7 @@ func _ready() -> void:
 	_style = StyleScreen.new()
 	add_child(_style)
 	_style.wear.connect(func(id: String, slot: String, key: String): style_wear.emit(id, slot, key))
+	_style.get_pass.connect(func(): pass_pressed.emit())
 	_style.closed.connect(func():
 		# The Heroes screen's pedestal draws again once the Style screen is gone.
 		if _heroes_box.visible:
@@ -1943,8 +1945,11 @@ func _build_pass() -> void:
 	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(_centered(grid))
-	for tile in [["floors", "The Drowned Vault"], ["heroes", "All 4 heroes now"], ["daily", "Daily practice"], ["curses", "All 10 Curses"]]:
+	# The Crypt King set first: the one thing you can see on your hero, everywhere.
+	for tile in [["looks", "Crypt King set"], ["floors", "The Drowned Vault"], ["daily", "Daily practice"], ["curses", "All 10 Curses"]]:
 		grid.add_child(_pass_tile(tile[0], tile[1]))
+	_pass_more = label("", 16, Color(0.88, 0.85, 0.78))
+	col.add_child(_pass_more)
 	_pass_buy = button("UNLOCK", 32, Color(0.45, 0.3, 0.08, 0.98), GOLD)
 	_pass_buy.custom_minimum_size = Vector2(320, 86)
 	_pass_buy.pressed.connect(func(): pass_buy.emit())
@@ -2011,10 +2016,11 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	var coins_of_heroes := 0
 	for h: Dictionary in Heroes.LIST:
 		coins_of_heroes += int(h.cost)
-	_pass_tiles[0].text = "A flooded floor and its boss,\nthen endless loops"
-	_pass_tiles[1].text = "Knight, Barbarian and Mage,\nno need to spend %d coins" % coins_of_heroes
+	_pass_tiles[0].text = "The grandest looks, for\nevery hero: try them on!"
+	_pass_tiles[1].text = "A flooded floor and its boss,\nthen endless loops"
 	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
 	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
+	_pass_more.text = "Plus all 4 heroes now (no need to spend %d coins)." % coins_of_heroes
 	_pass_buy.disabled = owned
 	# On a Play install the button waits for Play's price in the player's own currency;
 	# elsewhere (the test build, which can't buy) it shows the US price.

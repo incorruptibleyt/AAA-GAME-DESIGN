@@ -331,6 +331,7 @@ func _with_outline(inner: Material) -> Material:
 		m.set_shader_parameter("ink", ink)
 		m.set_shader_parameter("ink2", _aura.get("ink2", ink))
 		m.set_shader_parameter("cycle", 1.0 if _aura.get("cycle", false) else 0.0)
+		m.set_shader_parameter("shine", 1.0 if _aura.get("shine", false) else 0.0)
 		m.set_shader_parameter("width", AURA_WIDTH * aura_boost)
 	m.next_pass = inner
 	_outlined[inner] = m
@@ -349,6 +350,7 @@ render_mode unshaded, cull_front, shadows_disabled;
 uniform vec4 ink : source_color = vec4(0.07, 0.035, 0.1, 1.0);
 uniform vec4 ink2 : source_color = vec4(0.07, 0.035, 0.1, 1.0);
 uniform float cycle = 0.0;
+uniform float shine = 0.0;
 uniform float width = 0.0026;
 void vertex() {
 	vec4 clip = PROJECTION_MATRIX * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));
@@ -372,6 +374,11 @@ void fragment() {
 	vec3 c = mix(ink.rgb, ink2.rgb, 0.5 + 0.5 * sin(TIME * 3.0));
 	if (cycle > 0.5) {
 		c = hsv2rgb(vec3(mix(0.12, 0.78, 0.5 + 0.5 * sin(TIME * 1.6)), 0.7, 1.0));
+	}
+	// The Crypt King's gold line: white glints sweep across it.
+	if (shine > 0.5) {
+		float s = pow(max(0.0, sin(dot(FRAGCOORD.xy, vec2(0.011, 0.017)) - TIME * 4.0)), 24.0);
+		c = mix(c, vec3(1.0, 0.98, 0.9), s * 0.85);
 	}
 	ALBEDO = c;
 }

@@ -106,8 +106,9 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	var rank := HeroMastery.rank(lv)
 	var t := HeroMastery.title_for(lv)
 	_bar.set_points(id, def.title, def.ring, p, "%s RANK%s" % [str(rank.name).to_upper(), "  ·  " + t.to_upper() if t != "" else ""])
-	var got := HeroStyle.items(id).filter(func(it: Dictionary) -> bool: return it.key != "" and it.level <= lv).size()
-	var all := HeroStyle.items(id).size() - HeroStyle.SLOTS.size()
+	var mastery := HeroStyle.items(id).filter(func(it: Dictionary) -> bool: return it.key != "" and not it.get("pass", false))
+	var got := mastery.filter(func(it: Dictionary) -> bool: return it.level <= lv).size()
+	var all := mastery.size()
 	_style_text.text = "%d of %d looks unlocked\nPick outfits, hats, weapons, glows and auras" % [got, all]
 	for c in _list.get_children():
 		_list.remove_child(c)

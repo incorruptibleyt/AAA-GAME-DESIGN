@@ -53,11 +53,21 @@ func _ready() -> void:
 	texture = _vp.get_texture()
 
 
+var _cam: Camera3D
+
+
+## A crowned hero stands taller: the camera steps back so the crown's points stay in view.
+func _frame_camera(tall: bool) -> void:
+	var eye := Vector3(0, 1.6, 6.0) if tall else Vector3(0, 1.45, 5.2)
+	var at := Vector3(0, 1.1, 0) if tall else Vector3(0, 0.95, 0)
+	_cam.transform = Transform3D(Basis.looking_at(at - eye), eye)
+
+
 func _build_scene() -> void:
 	var cam := Camera3D.new()
 	cam.fov = 30.0
-	var eye := Vector3(0, 1.45, 5.2)
-	cam.transform = Transform3D(Basis.looking_at(Vector3(0, 0.95, 0) - eye), eye)
+	_cam = cam
+	_frame_camera(false)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_CLEAR_COLOR
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
@@ -118,6 +128,8 @@ func show_hero(def: Dictionary, gold := false) -> void:
 	_gold_ring.visible = gold
 	if _visual:
 		_visual.queue_free()
+	var extras: Array = def.get("style", {}).get("extras", [])
+	_frame_camera(extras.has("crown") or extras.has("crypt_crown"))
 	_visual = CharacterVisual.new()
 	_visual.outline_me = true
 	_visual.aura_boost = 1.8   # the hero is drawn big here: a Master aura's line grows to match
@@ -125,6 +137,8 @@ func show_hero(def: Dictionary, gold := false) -> void:
 	_visual.build(Heroes.look(def))
 	if def.has("aura"):
 		_visual.add_child(Fx.motif(str(def.aura.get("motif", "wisps")), def.aura.get("spark", Color.WHITE)))   # a Master aura's trail of light
+		if def.aura.get("sigil", false):
+			CryptSigil.make(_visual, 2.6, 1.2)   # the Crypt King's sigil on the pedestal
 	_visual.attack(def.id == "mage")
 	if _visual._anim:
 		_visual._anim.advance(0.0)   # pose them now, so they never flash up in a T-pose

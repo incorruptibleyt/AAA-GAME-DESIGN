@@ -63,7 +63,15 @@ static func run() -> void:
 			holder.add_child(v)
 			v.position = spots[FOES.size() + i]
 			# (The first in an outfit, so the outfit shader is ready: hero_style.gd.)
-			v.build(Heroes.look(HeroStyle.dressed(Heroes.LIST[i], {"outfit": "crimson"} if i == 0 else {})))
+			var picks := {"outfit": "crimson"} if i == 0 else {}
+			if i == 1 and Store.owned():
+				# A Pass owner's Crypt King set (its crown, gold outfit and sigil shaders).
+				for slot: String in HeroStyle.PASS_SLOTS:
+					picks[slot] = HeroStyle.pass_key(slot)
+			var def := HeroStyle.dressed(Heroes.LIST[i], picks)
+			v.build(Heroes.look(def))
+			if def.has("aura") and def.aura.get("sigil", false):
+				CryptSigil.make(v)
 			heroes.append(v)
 		DamageNumber.healed(hero, 9876543210.0))
 
