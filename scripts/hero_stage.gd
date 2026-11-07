@@ -20,6 +20,12 @@ var _back_light: OmniLight3D
 var _time := 0.0
 ## Seconds left before a dragged hero eases back to the front.
 var _hold := 0.0
+## The hero on show (to put back after a rebuild) and whether the stage is drawing.
+var _def := {}
+var _gold := false
+var _active := false
+var _checking := false
+var _rebuilds := 0   # at most 2 a session, so a phone that can't draw it never loops
 
 
 func _init(stage_size: Vector2) -> void:
@@ -27,8 +33,13 @@ func _init(stage_size: Vector2) -> void:
 	expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_vp = SubViewport.new()
 	_full_size = Vector2i(stage_size * RENDER_SCALE)
+	_make_viewport()
+	set_process(false)
+
+
+func _make_viewport() -> void:
+	_vp = SubViewport.new()
 	_vp.size = Vector2i.ONE   # full size only while the Heroes screen is open (set_active)
 	_vp.own_world_3d = true
 	_vp.transparent_bg = true
@@ -36,7 +47,6 @@ func _init(stage_size: Vector2) -> void:
 	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(_vp)
 	_build_scene()
-	set_process(false)
 
 
 func _ready() -> void:
@@ -103,6 +113,8 @@ func _build_scene() -> void:
 ## Puts `def` (an entry of Heroes.LIST) on the pedestal, with a little flourish; `gold` adds
 ## a Master's gold frame round it.
 func show_hero(def: Dictionary, gold := false) -> void:
+	_def = def
+	_gold = gold
 	_gold_ring.visible = gold
 	if _visual:
 		_visual.queue_free()
@@ -134,6 +146,54 @@ func set_active(on: bool) -> void:
 	_vp.size = (Vector2i(_full_size * 0.75) if low else _full_size) if on else Vector2i.ONE
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
 	set_process(on)
+	_active = on
+	if on:
+		texture = _vp.get_texture()
+		_check_drawn()
+
+
+## A phone once showed an empty stage (no hero, no pedestal) on the Heroes and Style screens
+## until the game was restarted. A moment after the stage starts drawing, look at its
+## picture; if nothing was drawn, build the little 3D world again from scratch.
+func _check_drawn() -> void:
+	if _checking or DisplayServer.get_name() == "headless":
+		return
+	_checking = true
+	for i in 3:
+		await RenderingServer.frame_post_draw
+	_checking = false
+	if not _active or not is_inside_tree():
+		return
+	if _drawn() or _rebuilds >= 2:
+		return
+	_rebuilds += 1
+	push_error("Hero preview drew nothing (%s); rebuilt it" % [_vp.size])
+	_vp.queue_free()
+	_visual = null
+	_make_viewport()
+	if not _def.is_empty():
+		show_hero(_def, _gold)
+	set_active(true)
+
+
+## True when some of the stage's picture is not see-through (the pedestal alone is enough).
+func _drawn() -> bool:
+	var img := _vp.get_texture().get_image()
+	if img == null or img.is_empty():
+		return false
+	var w := img.get_width()
+	var h := img.get_height()
+	for y in range(h / 3, h, 12):
+		for x in range(0, w, 12):
+			if img.get_pixel(x, y).a > 0.3:
+				return true
+	return false
+
+
+func _notification(what: int) -> void:
+	# Coming back to the game while the stage is open: make sure it still draws.
+	if what == NOTIFICATION_APPLICATION_FOCUS_IN and _active:
+		_check_drawn.call_deferred()
 
 
 func _process(delta: float) -> void:
