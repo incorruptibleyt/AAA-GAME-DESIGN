@@ -72,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07e"
+const BUILD := "2026-11-07f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1032,6 +1032,10 @@ func _update_glow(delta: float) -> void:
 ## A tiny freeze when something is hit hard. Small touches like this make combat feel good.
 func hit_stop(seconds: float) -> void:
 	if state != State.PLAYING:
+		return
+	# A longer slow motion is already running (a PERFECT: 30% speed for 0.4 s). Keep it: a kill
+	# inside it used to drop the rest of it to 5%, a near freeze (audit fix 1).
+	if _hit_stop_left > seconds and Engine.time_scale > 0.05:
 		return
 	Engine.time_scale = 0.05
 	_hit_stop_left = maxf(_hit_stop_left, seconds)

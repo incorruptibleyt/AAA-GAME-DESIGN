@@ -175,7 +175,9 @@ var _fb_send: Button
 var _reports_on := false
 var _hud_before_end := false
 var _stick_start := Vector2.ZERO
-var _stick_age := 0.0
+## When the stick's touch began (Time.get_ticks_msec()). Real time, not game time: in slow
+## motion a slow drag used to count as a quick flick and fire a dash (audit fix 2).
+var _stick_start_ms := 0
 var _chain_box: Control
 var _chain_label: Label
 var _chain_pop := 0.0
@@ -2260,14 +2262,14 @@ func _input(event: InputEvent) -> void:
 				_stick_touch = t.index
 				_stick_origin = t.position
 				_stick_start = t.position
-				_stick_age = 0.0
+				_stick_start_ms = Time.get_ticks_msec()
 				_stick.visible = true
 				_stick.position = _stick_origin
 				_stick.knob = Vector2.ZERO
 				joystick = Vector2.ZERO
 		elif t.index == _stick_touch:
 			var flick := t.position - _stick_start
-			if _stick_age < FLICK_TIME and flick.length() > FLICK_DISTANCE:
+			if Time.get_ticks_msec() - _stick_start_ms < int(FLICK_TIME * 1000.0) and flick.length() > FLICK_DISTANCE:
 				dash_flicked.emit(flick.normalized())
 			_release_stick()
 	elif event is InputEventScreenDrag:
@@ -2313,7 +2315,6 @@ func _process(delta: float) -> void:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
 			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible or _drops.visible or _road.visible \
 			or (_settings_only and _pause_box.visible))
-	_stick_age += delta
 	# The OPEN BONE DROP buttons glow gently, so a drop waiting isn't missed.
 	if _title_drops.is_visible_in_tree() or _end_drop.is_visible_in_tree():
 		var glow := 1.0 + 0.16 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.2))

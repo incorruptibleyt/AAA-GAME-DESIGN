@@ -455,7 +455,10 @@ func _auto_attack(delta: float) -> void:
 	face(to, 30.0, delta)
 	if _shot_timer > 0.0:
 		return
-	_shot_timer = 1.0 / shots_per_second
+	# The time left over this frame counts toward the next shot (at most 0.1 s of it, so a
+	# long wait doesn't fire a burst). Resetting to a full gap threw away about half a frame a
+	# shot: 3-11% fewer shots at 30 FPS on cheap phones (audit fix 3).
+	_shot_timer = maxf(_shot_timer, -0.1) + 1.0 / shots_per_second
 	_shoot(to.normalized())
 
 
