@@ -6,51 +6,80 @@ Bone Chain: Dungeon Roguelite
 
 ## Short description (80 characters max)
 
-One-thumb dungeon roguelite: dash through shots, chain kills, break the crypt.
+Dash through bullets and chain kills in a fast, one-thumb dungeon roguelite.
 
 ## Full description (4000 characters max)
 
 Dash through danger. Chain your kills. Break the crypt.
 
-Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb to fire, and fight your way down through a crypt full of skeletons one room at a time. Every run is different, and every floor is harder than the last.
+Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb to fire, and fight down through a crypt full of skeletons one room at a time. Every run is different, and every floor is harder than the last.
 
-GRAVE DASH
-Flick your thumb to dash. Dash through an enemy shot just before it hits and time slows down, the bullets around you shatter, and your hero fires a ring of bolts straight back. Master the perfect dodge and nothing can touch you.
+★ WHY YOU'LL KEEP PLAYING
+• Quick runs of a few minutes that fit any break
+• A new build every run from dozens of blessings
+• Perfect dodges that slow time and fire back for you
+• Progress you never lose: gold, upgrades, Mastery and looks
+• No ads, no energy timers, plays fully offline
 
-THE BONE CHAIN
-Kills close together build your Bone Chain. The higher it climbs, the more damage you deal and the more gold you earn. Keep the chain alive by moving from one fight to the next.
+★ GRAVE DASH
+• Flick your thumb to dash.
+• Dash through an enemy shot just before it hits and time slows down.
+• The bullets around you shatter and your hero fires a ring of bolts straight back.
+• Master the perfect dodge and nothing can touch you.
 
-BUILD A NEW HERO EVERY RUN
-After each room, choose one of three blessings. Set skeletons on fire, freeze them solid, fire fans of piercing bolts, or turn your chain into a weapon. Pair the right blessings to unlock powerful synergies like Shatter and Bone Storm.
+★ MASTER THE CHAIN
+• Kills close together build your Bone Chain.
+• The higher it climbs, the more damage you deal and the more gold you earn.
+• Keep moving from fight to fight to keep the chain alive.
 
-FOUR HEROES, FOUR SPECIAL MOVES
-- Rogue: quick crossbow bolts and the Shadow Volley.
-- Knight: armoured sword waves and a stunning Shield Slam.
-- Barbarian: heavy thrown axes and a healing Whirlwind.
-- Mage: exploding magic orbs and a rain of Meteors.
+★ A NEW BUILD EVERY RUN
+• After each room, choose one of three blessings.
+• Set skeletons on fire, freeze them solid, fire fans of piercing bolts, or turn your chain into a weapon.
+• Pair the right blessings to unlock synergies like Shatter and Bone Storm.
+• Pick your door after every room: treasure, a healing spring, a champion fight, or a path to the blessings you want.
 
-MASTER YOUR HEROES
-Every room you clear and every boss you beat gives your hero Mastery, and it is never lost. Ten Mastery levels per hero bring coins, Bone Drops, titles (Adept, Veteran, Master) and 27 looks to unlock: new outfits, hats, weapons and glows, so your Mage can look completely different from anyone else's. Reach Master for a golden crown and a trail of gold sparkles.
+★ FOUR HEROES, FOUR SPECIAL MOVES
+• Rogue: quick crossbow bolts and the Shadow Volley.
+• Knight: armoured sword waves and a stunning Shield Slam.
+• Barbarian: heavy thrown axes and a healing Whirlwind.
+• Mage: exploding magic orbs and a rain of Meteors.
 
-A CRYPT THAT FIGHTS BACK
-Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus golden elites. At the bottom of each floor waits a boss: the Skeleton King, the Lich or the Cinder Colossus. Descend through the Bone Crypt, the Frozen Ossuary and the Ember Catacomb, each with its own skeletons: floating Frost Wraiths that fire ice beams and burning Cinder Skeletons that leave fire in their path.
+★ MASTER YOUR HEROES
+• Every room cleared and every boss beaten gives your hero Mastery, and it is never lost.
+• Ten Mastery levels per hero bring coins, Bone Drops and titles (Adept, Veteran, Master).
+• Unlock 27 looks per hero: outfits, hats, weapons and glows.
+• Reach Master for a golden crown and a trail of gold sparkles.
 
-GET STRONGER BETWEEN RUNS
-Keep the gold you find and spend it in the Armory on permanent upgrades, new blessings from the Vault, or new heroes. Pick your door after every room: treasure, a healing spring, a champion to fight, or a path to the blessings you want.
+★ A CRYPT THAT FIGHTS BACK
+• Skeleton warriors, archers, mages, bombers, spitters, bone spiders and golden elites.
+• Giant bosses at the bottom of each floor: the Skeleton King, the Lich and the Cinder Colossus.
+• Three crypts to descend: the Bone Crypt, the Frozen Ossuary and the Ember Catacomb.
+• Each crypt has its own skeletons, like Frost Wraiths that fire ice beams and Cinder Skeletons that leave fire behind them.
 
-FREE TO TRY, ONE OPTIONAL PASS
-The first five floors are free, with no ads and no energy timers, and everyone gets one Daily Crypt run a day. The one-time Crypt Pass opens the rest:
-- The Drowned Vault: a flooded floor where Drowned Skeletons swim under the water, ruled by the Tidecaller.
-- Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
-- Daily Crypt practice: replay the day's three floors as often as you like after your Official run.
-- Nine more Curses (ten in all) that stack into a Curse Level for bigger scores, with hero rewards to earn.
-- Every hero, ready to play.
+★ GET STRONGER BETWEEN RUNS
+• Keep the gold you find on every run.
+• Spend it in the Armory on permanent upgrades, new blessings from the Vault, or new heroes.
+• Each death makes the next dive deeper.
 
-MADE FOR PHONES
-- Plays with one thumb in portrait.
-- Short runs you can pick up any time. Close the game and CONTINUE right where the room started.
-- Plays fully offline. No account needed.
-- High and Low graphics settings for older phones.
+★ A NEW CRYPT EVERY DAY
+• Everyone gets one Daily Crypt run a day: the same three floors for every player.
+• Share your result and see who went deepest.
+
+★ FREE TO TRY, ONE OPTIONAL PASS
+The first five floors of this dungeon roguelite are free, with no ads. The one-time Crypt Pass opens the rest:
+• The Drowned Vault: a flooded floor where Drowned Skeletons swim under the water, ruled by the Tidecaller.
+• Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
+• Daily Crypt practice: replay the day's floors as often as you like after your official run.
+• Nine more Curses (ten in all) that stack into a Curse Level for bigger scores, with hero rewards to earn.
+• Every hero, ready to play.
+
+★ MADE FOR PHONES
+• One thumb, portrait mode.
+• Close the game any time and CONTINUE right where the room started.
+• Plays fully offline. No account needed.
+• High and Low graphics settings for older phones.
+
+If you love roguelike action, dungeon crawlers and bullet dodging, Bone Chain is the dungeon roguelite for you.
 
 How deep can you go?
 
