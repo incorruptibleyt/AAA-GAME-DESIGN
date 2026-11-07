@@ -2268,11 +2268,11 @@ func _input(event: InputEvent) -> void:
 					pause_pressed.emit()
 				return
 			if _safe.visible and _special.visible and not _overlay_open() \
-					and _special.get_global_rect().grow(12.0).has_point(t.position):
+					and _special.get_global_rect().grow(4.0).has_point(t.position):
 				special_pressed.emit()
 				return
 			if _safe.visible and _dash_button.visible and not _overlay_open() \
-					and _dash_button.get_global_rect().grow(12.0).has_point(t.position):
+					and _dash_button.get_global_rect().grow(4.0).has_point(t.position):
 				dash_pressed.emit()
 				return
 			if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING:

@@ -24,6 +24,9 @@ var swipe_time := 0.0
 const SWIPE_REACH := 0.35
 const SWIPE_RADIUS := 0.75
 var _swipe: Telegraph
+## A big hit staggers a skeleton briefly: it stands still and starts no new attack.
+const FLINCH_TIME := 0.12
+var _flinch_left := 0.0
 var _swipe_dir := Vector3.FORWARD
 
 var _spawn_timer := 0.9
@@ -222,7 +225,10 @@ func _process(delta: float) -> void:
 	if Game.state != Game.State.PLAYING or hero == null or hero.dead:
 		stand(delta)
 		return
-	if is_instance_valid(_swipe):
+	if _flinch_left > 0.0:
+		_flinch_left -= delta
+		stand(delta)
+	elif is_instance_valid(_swipe):
 		# Rooted while the swipe winds up, facing where it will land.
 		stand(delta)
 		face(_swipe_dir, 20.0, delta)
@@ -252,7 +258,7 @@ func _separate() -> void:
 
 func _touch(hero: Hero, delta: float) -> void:
 	_contact_cooldown -= delta
-	if contact_damage <= 0.0 or _contact_cooldown > 0.0 or is_instance_valid(_swipe):
+	if contact_damage <= 0.0 or _contact_cooldown > 0.0 or is_instance_valid(_swipe) or _flinch_left > 0.0:
 		return
 	var d := hero.global_position - global_position
 	d.y = 0.0
@@ -324,6 +330,14 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	super.take_damage(amount, direction, push * knockback_scale, crit)
 	if _bar:
 		_bar.reveal()
+	# A hit worth a quarter of its health staggers it and breaks a swing still winding up.
+	# Bosses never flinch, and fast weak shots can't lock a skeleton in place.
+	if not dead and not is_boss and amount >= max_health * 0.25:
+		_flinch_left = FLINCH_TIME
+		if is_instance_valid(_swipe):
+			_swipe.cancel()
+			_swipe = null
+			_contact_cooldown = 0.4
 
 
 func _on_death() -> void:
