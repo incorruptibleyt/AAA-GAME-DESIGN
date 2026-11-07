@@ -1,0 +1,5 @@
+Version 100: A brand new look!
+- Bold new font and chunky buttons that press down when you tap them.
+- A soft glow behind every menu.
+- Your hero now stands big and lit on the title screen.
+- Shiny new Bone Road bar.
