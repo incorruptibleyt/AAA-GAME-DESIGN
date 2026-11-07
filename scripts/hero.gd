@@ -73,6 +73,7 @@ var _last_dash_ms := -100000
 var _aura: MeshInstance3D
 var _dash_dir := Vector3.ZERO
 var _trail_t := 0.0
+var _master := false
 var _ring_was_ready := true
 
 var _shot_timer := 0.4
@@ -109,11 +110,14 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h._build_feet_marker(def.ring)
 	if HeroMastery.has_frame(cfg, def.id):
 		h._build_gold_ring()   # Hero Mastery level 10
+		h._master = true
+	if h._master or HeroStyle.worn(cfg, def.id, "glow") == "gold":
+		h._build_sparkles()   # Masters (and the Gold glow) leave a trail of gold sparkles
 	h._build_dash_ring()
 	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.
 	var mastery := Curses.mastery(cfg, def.id)
-	if mastery >= 10:
-		h.bolt_color = Color(1.0, 0.8, 0.3)
+	if mastery >= 10 and HeroStyle.worn(cfg, def.id, "glow") == "":
+		h.bolt_color = Color(1.0, 0.8, 0.3)   # a glow picked on the Style screen wins
 	if mastery >= 6:
 		h._build_aura()
 	# A soft light that travels with the hero so they never get lost in the dark.
@@ -389,7 +393,7 @@ func _process(delta: float) -> void:
 		_trail_t -= delta
 		if _trail_t <= 0.0:
 			_trail_t = 0.025
-			Fx.trail(center(), Color(0.45, 0.8, 1.0))
+			Fx.trail(center(), Color(1.0, 0.8, 0.35) if _master else Color(0.45, 0.8, 1.0))
 		_shot_timer = maxf(_shot_timer, 0.1)
 		_check_perfect(0.0)
 		return
@@ -605,6 +609,15 @@ func _build_gold_ring() -> void:
 	ring.scale = Vector3(1, 0.12, 1)
 	add_child(ring)
 	_rings.append(ring)
+
+
+## Gold sparkles that drift up from the hero and hang in the air behind them as they
+## run: a Master can be told apart at a glance. One small emitter, so it costs little.
+func _build_sparkles() -> void:
+	var p := Fx.sparkle_trail(Color(1.0, 0.86, 0.45))
+	p.position = Vector3(0, 0.15, 0)   # rising from the rings at the hero's feet
+	add_child(p)
+	_rings.append(p)
 
 
 ## A ring around that one: bright when the dash is ready, faint while it recharges.

@@ -30,6 +30,7 @@ var _to := 0
 var _t := -1.0
 var _shown_level := 1
 var _lines: Array[String] = []
+var _last_p := -1
 
 
 func _init() -> void:
@@ -64,6 +65,9 @@ func _init() -> void:
 	_sub.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_sub.clip_text = true
 	_sub.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sub.resized.connect(func():
+		if _last_p >= 0:
+			_show(_last_p))
 	col.add_child(_sub)
 	_news = Hud.label("", 17, Hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
 	_news.visible = false
@@ -120,7 +124,24 @@ func _show(p: int) -> void:
 	if lv >= HeroMastery.MAX_LEVEL:
 		_sub.text = "%s  ·  Every reward earned" % rank.name.to_upper()
 	else:
-		_sub.text = "%d / %d  ·  Level %d: %s" % [pr.into, pr.need, lv + 1, HeroMastery.level_text(lv + 1, _id)]
+		# The next level's rewards, shortened until they fit (the Heroes screen's bar is narrow):
+		# "+ 3 new looks" goes first, then the rewards themselves (the LEVELS screen lists them).
+		var head := "%d / %d  ·  Level %d" % [pr.into, pr.need, lv + 1]
+		var tries: Array[String] = [head + ": " + HeroMastery.level_text(lv + 1, _id),
+			head + ": " + HeroMastery.level_text(lv + 1, _id, false), head + " next"]
+		_sub.text = tries[-1]
+		for t in tries:
+			if _fits(t):
+				_sub.text = t
+				break
+	_last_p = p
+
+
+func _fits(t: String) -> bool:
+	if _sub.size.x <= 1.0:
+		return true   # not laid out yet: resized shows it again
+	var f: Font = _sub.label_settings.font if _sub.label_settings.font else _sub.get_theme_font("font")
+	return f.get_string_size(t, HORIZONTAL_ALIGNMENT_LEFT, -1, _sub.label_settings.font_size).x <= _sub.size.x
 
 
 func _process(delta: float) -> void:

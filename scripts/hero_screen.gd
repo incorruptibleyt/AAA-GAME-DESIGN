@@ -342,7 +342,7 @@ func _refresh() -> void:
 	if title != "":
 		bits.append(title)
 	if r.badge != "":
-		bits.append(r.badge)
+		bits.append("Curse title: " + r.badge)
 	if r.mastery > 0:
 		bits.append("Best Curse Level beaten: %d" % r.mastery)
 	if not r.unlocked:

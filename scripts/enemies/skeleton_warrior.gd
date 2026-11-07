@@ -1,6 +1,7 @@
 class_name SkeletonWarrior
 extends Enemy
-## Slow and tough. Warns with a red strip, then lunges along it.
+## Slow and tough. Warns with a red strip, then lunges along it. Up close it swings its axe
+## with a short warning circle first (Enemy.swipe_time), so it never hurts by just touching.
 ## On floor 1 (and so in the tutorial run) the warning is longer and the lunge softer,
 ## so a new player learns to step aside before it really hurts.
 
@@ -14,6 +15,7 @@ func _setup() -> void:
 	init_health(60.0)
 	move_speed = 2.1
 	contact_damage = 9.0 if _gentle() else 12.0
+	swipe_time = _swing_time()
 	radius = 0.6
 	center_height = 1.15
 	knockback_scale = 0.4
@@ -38,6 +40,7 @@ func _think(hero: Hero, delta: float) -> void:
 				_mode = Mode.WIND_UP
 				_timer = 0.9 if _gentle() else 0.65
 				_lunge_dir = to.normalized()
+				contact_damage = 0.0   # no axe swing while it winds up: the lunge is coming
 				track(Telegraph.line(global_position, _lunge_dir, 5.0, 1.1, _timer, Callable()))
 		Mode.WIND_UP:
 			stand(delta)
@@ -47,18 +50,25 @@ func _think(hero: Hero, delta: float) -> void:
 				_timer = 0.32
 				visual.attack()
 				contact_damage = (14.0 if _gentle() else 22.0) * elite_mult()
+				swipe_time = 0.0   # the red strip was the warning: the lunge hurts at once
 		Mode.LUNGE:
 			move_by(_lunge_dir * 14.0 * delta, delta)
 			if _timer <= 0.0:
 				_mode = Mode.RECOVER
 				_timer = 0.9
 				contact_damage = (9.0 if _gentle() else 12.0) * elite_mult()
+				swipe_time = _swing_time()
 				Fx.dust(global_position, 8)
 		Mode.RECOVER:
 			stand(delta)
 			if _timer <= 0.0:
 				_mode = Mode.APPROACH
 				_timer = 0.8
+
+
+## How long the axe swing's warning circle fills before it lands.
+func _swing_time() -> float:
+	return 0.7 if _gentle() else 0.55
 
 
 func _gentle() -> bool:

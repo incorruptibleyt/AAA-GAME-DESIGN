@@ -24,6 +24,7 @@ signal road_closed
 signal drops_closed
 signal mastery_pressed(id: String)
 signal style_pressed(id: String)
+signal see_looks(id: String, level: int)
 signal style_wear(id: String, slot: String, key: String)
 signal hero_pick(id: String)
 signal copy_report_pressed
@@ -193,6 +194,8 @@ var _records_note: Label
 var _title_records: Control
 var _title_drops: Button
 var _end_drop: Button
+var _end_looks: Button   # SEE 3 NEW LOOKS after a run that reached a Mastery level
+var _end_looks_for := {}
 var _end_mastery: MasteryBar
 var _mastery: MasteryScreen
 var _style: StyleScreen
@@ -1314,6 +1317,14 @@ func _build_end() -> void:
 	_end_mastery.custom_minimum_size = Vector2(470, 84)
 	_end_mastery.visible = false
 	col.add_child(_centered(_end_mastery))
+	_end_looks = button("SEE 3 NEW LOOKS", 20, Color(0.22, 0.14, 0.3, 0.97), GOLD)
+	_end_looks.add_theme_color_override("font_color", GOLD)
+	_end_looks.custom_minimum_size = Vector2(300, 56)
+	_end_looks.visible = false
+	_end_looks.pressed.connect(func():
+		if not _end_looks_for.is_empty():
+			see_looks.emit(str(_end_looks_for.id), int(_end_looks_for.level)))
+	col.add_child(_centered(_end_looks))
 	_end_goal = label("", 22, Color(1.0, 0.82, 0.42))
 	_end_goal.visible = false
 	col.add_child(_end_goal)
@@ -1962,6 +1973,7 @@ func _input(event: InputEvent) -> void:
 					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible \
 					and not _heroes_box.visible and not _drops.visible \
 					and not (_end_drop.visible and _end_drop.get_global_rect().has_point(t.position)) \
+					and not (_end_looks.visible and _end_looks.get_global_rect().has_point(t.position)) and not _style.visible \
 					and not _copy_button.get_global_rect().has_point(t.position) \
 					and not (_end_title_button.visible and _end_title_btn.get_global_rect().has_point(t.position)) \
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
@@ -2627,7 +2639,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_count = 0.0 if score >= 0 else -1.0
 	_end_score.text = "SCORE  0"
 	_end_best.text = ""
-	_end_tap.text = tap_text
+	_set_end_tap(tap_text)
 	_copy_button.text = "COPY REPORT"
 	# A tool for balancing the game, only for players who chose to send reports.
 	_copy_button.visible = _reports_on
@@ -2645,7 +2657,32 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_stats.text = stats
 	_end_goal.visible = false
 	_end_mastery.visible = false
+	_end_looks.visible = false
 	_fit_end.call_deferred()
+
+
+## The end screen's "tap anywhere" line. Going deeper after a win is the main way on, so it
+## looks like a bright button (DESCEND TO FLOOR 3) instead of a faint line; any tap still works.
+func _set_end_tap(tap_text: String) -> void:
+	var deeper := tap_text.begins_with("Tap to descend")
+	_end_tap.text = tap_text.replace("Tap to descend", "DESCEND").to_upper() if deeper else tap_text
+	(_end_tap as Pulse).low = 0.7 if deeper else 0.1
+	_end_tap.label_settings.font_size = 30
+	_end_tap.autowrap_mode = TextServer.AUTOWRAP_OFF if deeper else TextServer.AUTOWRAP_WORD_SMART
+	_end_tap.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if deeper else Control.SIZE_FILL
+	if deeper:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.45, 0.13, 0.08, 0.97)
+		sb.set_corner_radius_all(14)
+		sb.set_border_width_all(2)
+		sb.border_color = GOLD
+		sb.content_margin_left = 34
+		sb.content_margin_right = 34
+		sb.content_margin_top = 14
+		sb.content_margin_bottom = 14
+		_end_tap.add_theme_stylebox_override("normal", sb)
+	else:
+		_end_tap.remove_theme_stylebox_override("normal")
 
 
 ## The end screen's Hero Mastery bar, filling with this run's points (`info` from
@@ -2654,6 +2691,17 @@ func show_mastery(info: Dictionary) -> void:
 	_end_mastery.visible = not info.is_empty() and _end_box.visible
 	if _end_mastery.visible:
 		_end_mastery.play(info)
+	# A level reached this run: a button that shows the hero wearing what it unlocked.
+	_end_looks_for = {}
+	if _end_mastery.visible:
+		for l: Dictionary in info.get("levels", []):
+			var n := HeroStyle.level_items(str(info.id), int(l.level)).size()
+			if n > 0:
+				_end_looks_for = {"id": info.id, "level": int(l.level), "n": n}
+	_end_looks.visible = not _end_looks_for.is_empty()
+	if _end_looks.visible:
+		var n := int(_end_looks_for.n)
+		_end_looks.text = "SEE %d NEW LOOK%s" % [n, "" if n == 1 else "S"]
 	_fit_end.call_deferred()
 
 
@@ -2673,6 +2721,10 @@ func open_style(cfg: ConfigFile, id: String) -> void:
 		_heroes_box._stage.set_active(false)
 	_style.open_hero(cfg, id)
 	refresh_looks_badge()
+
+
+func style_show_new(lv: int) -> void:
+	_style.show_new(lv)
 
 
 func close_style() -> void:
@@ -2800,7 +2852,7 @@ func set_end_stats(text: String) -> void:
 ## The Pass was bought on the end screen: carry on deeper instead.
 func end_offer_done(tap_text: String) -> void:
 	_end_offer.visible = false
-	_end_tap.text = tap_text
+	_set_end_tap(tap_text)
 	_end_tap.visible = true
 	_fit_end.call_deferred()
 

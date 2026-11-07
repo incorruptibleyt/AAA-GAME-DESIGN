@@ -34,18 +34,18 @@ const HEAD_TOP := {"rogue": 0.74, "knight": 0.86, "barbarian": 0.74, "mage": 0.7
 ## Outfit colours: the cloth ("a"), the trim ("b": the Mage's cape lining and collar, the
 ## Barbarian's shirt), the Knight's armour and the Rogue's leather. null = as painted.
 const OUTFITS := {
-	"crimson": {"name": "Crimson", "a": Color(0.62, 0.08, 0.12), "b": Color(1.0, 0.78, 0.3), "leather": Color(0.24, 0.17, 0.14)},
-	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.55, 0.64, 0.52), "leather": Color(0.5, 0.33, 0.18)},
-	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.3, 0.33, 0.45)},
+	"crimson": {"name": "Crimson", "a": Color(0.42, 0.05, 0.12), "b": Color(1.0, 0.78, 0.3), "leather": Color(0.24, 0.17, 0.14)},
+	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.28, 0.54, 0.26), "leather": Color(0.5, 0.33, 0.18)},
+	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.2, 0.26, 0.62)},
 	"ivory": {"name": "Ivory", "a": Color(0.94, 0.91, 0.83), "b": Color(0.35, 0.6, 0.95), "armor": Color(0.88, 0.88, 0.86), "leather": Color(0.62, 0.45, 0.3)},
 	"shadow": {"name": "Shadow", "a": Color(0.14, 0.12, 0.17), "b": Color(0.6, 0.25, 0.9), "armor": Color(0.2, 0.19, 0.23), "leather": Color(0.16, 0.14, 0.16)},
-	"royal": {"name": "Royal", "a": Color(0.44, 0.17, 0.7), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.62, 0.55, 0.72)},
-	"ember": {"name": "Ember", "a": Color(0.95, 0.45, 0.12), "b": Color(0.28, 0.16, 0.12), "armor": Color(0.55, 0.38, 0.3)},
-	"frost": {"name": "Frost", "a": Color(0.55, 0.85, 1.0), "b": Color(0.95, 0.97, 1.0), "armor": Color(0.75, 0.88, 0.98)},
-	"rose": {"name": "Rose", "a": Color(0.88, 0.45, 0.6), "b": Color(1.0, 0.9, 0.94), "leather": Color(0.55, 0.32, 0.36)},
-	"sea": {"name": "Sea", "a": Color(0.1, 0.55, 0.6), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.45, 0.62, 0.64)},
-	"gold": {"name": "Gold", "a": Color(0.95, 0.75, 0.25), "b": Color(1.0, 0.97, 0.9), "armor": Color(0.95, 0.76, 0.3), "leather": Color(0.45, 0.3, 0.16)},
-	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "leather": Color(0.2, 0.19, 0.2)},
+	"royal": {"name": "Royal", "a": Color(0.44, 0.17, 0.7), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.55, 0.3, 0.85)},
+	"ember": {"name": "Ember", "a": Color(0.95, 0.45, 0.12), "b": Color(0.28, 0.16, 0.12), "armor": Color(0.88, 0.48, 0.22)},
+	"frost": {"name": "Frost", "a": Color(0.55, 0.85, 1.0), "b": Color(0.95, 0.97, 1.0), "armor": Color(0.6, 0.88, 1.0)},
+	"rose": {"name": "Rose", "a": Color(0.96, 0.68, 0.8), "b": Color(1.0, 0.9, 0.94), "leather": Color(0.55, 0.32, 0.36)},
+	"sea": {"name": "Sea", "a": Color(0.1, 0.55, 0.6), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.2, 0.66, 0.68)},
+	"gold": {"name": "Gilded", "a": Color(0.95, 0.75, 0.25), "b": Color(1.0, 0.97, 0.9), "armor": Color(0.95, 0.76, 0.3), "leather": Color(0.45, 0.3, 0.16)},
+	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "armor": Color(0.84, 0.8, 0.68), "leather": Color(0.2, 0.19, 0.2)},
 }
 
 ## Each hero's own colours, for the Classic outfit's swatch on the Style screen.
@@ -56,7 +56,7 @@ const CLASSIC_TRIM := {"rogue": Color(0.6, 0.38, 0.25), "knight": Color(0.7, 0.7
 ## extras: a crown, horns or a halo.
 const HEADS := {
 	"bare": {"name": "Bare head", "hat": false},
-	"crown": {"name": "Crown", "hat": false, "extras": ["crown"]},
+	"crown": {"name": "Crown", "hat": true, "extras": ["crown"]},
 	"halo": {"name": "Halo", "hat": true, "extras": ["halo"]},
 	"horns": {"name": "Horns", "hat": false, "extras": ["horns"]},
 	"horned_hat": {"name": "Horned hat", "hat": true, "extras": ["horns"]},
@@ -412,22 +412,19 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 	var y: float = HEAD_TOP.get(id, 0.74)
 	match kind:
 		"crown":
-			var gold := U.mat(Color(1.0, 0.8, 0.3), 0.3, 0.8)
-			var s := 0.9
-			U.cylinder(att, s * 0.5, s * 0.18, gold, Vector3(0, y - 0.06, 0))
-			for i in 6:
-				var a := i / 6.0 * TAU
-				var spike := U.box(att, Vector3(0.12, 0.3, 0.12), gold, Vector3(cos(a) * s * 0.44, y + s * 0.18, sin(a) * s * 0.44))
-				spike.rotation.y = -a
-			U.sphere(att, 0.07, U.mat(Color(0.9, 0.15, 0.3), 0.2, 1.5), Vector3(0, y - 0.04, s * 0.5))
+			_crown(att, id, y, hat)
 		"horns":
 			var bone := U.mat(Color(0.9, 0.86, 0.76), 0.6)
+			var k := 1.0   # size
 			if hat and id != "rogue":
 				y += 0.12   # on a helmet or hat
+			if hat and id == "mage":
+				k = 1.7   # bigger and higher, so they clear the wide brim when seen from above
+				y += 0.14
 			for side in [-1, 1]:
-				var horn := U.capsule(att, 0.07, 0.5, bone, Vector3(side * 0.42, y - 0.3, 0))
+				var horn := U.capsule(att, 0.07 * k, 0.5 * k, bone, Vector3(side * 0.42 * k, y - 0.3 * k, 0))
 				horn.rotation.z = side * -0.9
-				var tip := U.capsule(att, 0.05, 0.3, bone, Vector3(side * 0.62, y - 0.06, 0))
+				var tip := U.capsule(att, 0.05 * k, 0.3 * k, bone, Vector3(side * 0.62 * k, y - 0.06 * k, 0))
 				tip.rotation.z = side * -0.25
 		"halo":
 			var torus := TorusMesh.new()
@@ -439,6 +436,55 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			ring.position = Vector3(0, y + (hat_h if hat else 0.2), 0)
 			ring.scale = Vector3(1, 0.5, 1)
 			att.add_child(ring)
+
+
+## The Master's crown (level 10), like the one on the app icon: a flared gold band set with
+## gems, five points with ball tips and a soft glow, worn over the hero's own hat or helmet
+## (around the Mage's hat, just above the brim).
+static func _crown(att: Node3D, id: String, y: float, hat: bool) -> void:
+	var r := 0.5
+	var base := y - 0.08
+	if hat:
+		match id:
+			"knight":
+				base = y + 0.02
+				r = 0.56
+			"barbarian":
+				base = y + 0.06
+				r = 0.56
+			"mage":
+				base = y + 0.16
+				r = 0.4
+	var gold := U.mat(Color(1.0, 0.78, 0.28), 0.25, 0.55)
+	gold.metallic = 0.6
+	var band := CylinderMesh.new()
+	band.top_radius = r * 1.1
+	band.bottom_radius = r
+	band.height = 0.2
+	band.radial_segments = 20
+	var bm := MeshInstance3D.new()
+	bm.mesh = band
+	bm.material_override = gold
+	bm.position = Vector3(0, base + 0.1, 0)
+	att.add_child(bm)
+	var gems := [U.mat(Color(0.95, 0.12, 0.3), 0.2, 1.6), U.mat(Color(0.25, 0.55, 1.0), 0.2, 1.6)]
+	for i in 5:
+		var a := i / 5.0 * TAU
+		var dir := Vector3(sin(a), 0, cos(a))
+		var point := CylinderMesh.new()
+		point.top_radius = 0.0
+		point.bottom_radius = 0.1
+		point.height = 0.34
+		point.radial_segments = 8
+		var pm := MeshInstance3D.new()
+		pm.mesh = point
+		pm.material_override = gold
+		pm.position = Vector3(0, base + 0.36, 0) + dir * r * 1.12
+		pm.rotation = Vector3(0.22 * dir.z, 0, -0.22 * dir.x)   # leaning out a little
+		att.add_child(pm)
+		U.sphere(att, 0.065, gold, Vector3(0, base + 0.55, 0) + dir * r * 1.22)
+		var b := i / 5.0 * TAU + TAU / 10.0
+		U.sphere(att, 0.06, gems[i % 2], Vector3(0, base + 0.1, 0) + Vector3(sin(b), 0, cos(b)) * r * 1.07)
 
 
 const SHADER := """

@@ -68,6 +68,32 @@ static func _burst_material() -> void:
 	_quad.material = m
 
 
+## A slow stream of gold sparkles for a Master hero (hero.gd _build_sparkles). They are
+## left in the world (not carried along), so they mark the path the hero ran.
+static func sparkle_trail(color: Color) -> CPUParticles3D:
+	_burst_material()
+	var p := CPUParticles3D.new()
+	p.mesh = _quad
+	p.amount = 18
+	p.lifetime = 1.2
+	p.local_coords = false
+	p.direction = Vector3.UP
+	p.spread = 40.0
+	p.initial_velocity_min = 0.4
+	p.initial_velocity_max = 1.0
+	p.gravity = Vector3(0, 0.3, 0)
+	p.scale_amount_min = 0.16
+	p.scale_amount_max = 0.3
+	p.scale_amount_curve = _shrink
+	p.color = color
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = 0.65
+	p.emission_ring_inner_radius = 0.45
+	p.emission_ring_height = 0.1
+	return p
+
+
 static func sparks(pos: Vector3, color := Color(1.0, 0.85, 0.5)) -> void:
 	_burst(pos, 10, color, 0.25, 7.0, 0.35, 0.5, true)
 

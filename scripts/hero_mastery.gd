@@ -9,7 +9,7 @@ class_name HeroMastery
 ## Nothing is bought; the 4 heroes just get a long life of their own.
 ##
 ## A run that clears floor 1 is worth 20 points (level 2 straight after the tutorial); five
-## floors are about 100. Level 10 takes 1,000: roughly 15 to 25 good runs with one hero.
+## floors are about 100. Level 10 (Master) takes 700: roughly 25 runs with one hero.
 ##
 ## (Not the Crypt Pass's Curse rewards, curses.gd MASTERY, which are a separate thing.)
 

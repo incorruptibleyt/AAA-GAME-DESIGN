@@ -12,7 +12,7 @@ One-thumb dungeon roguelite: dash through shots, chain kills, break the crypt.
 
 Dash through danger. Chain your kills. Break the crypt.
 
-Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, stand still to fire, and fight your way down through a crypt full of skeletons one room at a time. Every run is different, and every floor is harder than the last.
+Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb to fire, and fight your way down through a crypt full of skeletons one room at a time. Every run is different, and every floor is harder than the last.
 
 GRAVE DASH
 Flick your thumb to dash. Dash through an enemy shot just before it hits and time slows down, the bullets around you shatter, and your hero fires a ring of bolts straight back. Master the perfect dodge and nothing can touch you.
@@ -28,6 +28,9 @@ FOUR HEROES, FOUR SPECIAL MOVES
 - Knight: armoured sword waves and a stunning Shield Slam.
 - Barbarian: heavy thrown axes and a healing Whirlwind.
 - Mage: exploding magic orbs and a rain of Meteors.
+
+MASTER YOUR HEROES
+Every room you clear and every boss you beat gives your hero Mastery, and it is never lost. Ten Mastery levels per hero bring coins, Bone Drops, titles (Adept, Veteran, Master) and 27 looks to unlock: new outfits, hats, weapons and glows, so your Mage can look completely different from anyone else's. Reach Master for a golden crown and a trail of gold sparkles.
 
 A CRYPT THAT FIGHTS BACK
 Skeleton warriors, archers, mages, bombers, spitters and bone spiders, plus golden elites. At the bottom of each floor waits a boss: the Skeleton King, the Lich or the Cinder Colossus. Descend through the Bone Crypt, the Frozen Ossuary and the Ember Catacomb, each with its own skeletons: floating Frost Wraiths that fire ice beams and burning Cinder Skeletons that leave fire in their path.
@@ -80,7 +83,7 @@ This link is pinned to one saved version of the policy, so it keeps working even
     4. [screenshot-4.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-4.png): A new build every run
     5. [screenshot-5.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-5.png): Outsmart the Lich
     6. [screenshot-6.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-6.png): The Drowned Vault (Crypt Pass, Tidecaller)
-    7. [screenshot-7.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-7.png): Four heroes
+    7. [screenshot-7.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-7.png): Master your heroes (Mastery and 27 looks each)
     8. [screenshot-8.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-8.png): A new crypt every day
 
 The icon, banner and screenshots are made by tools/store/render_art.gd and tools/store/compose.py.

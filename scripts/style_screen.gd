@@ -113,6 +113,28 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	_fit.call_deferred()
 
 
+## Straight after a Mastery level: the hero shown wearing the best of that level's new
+## looks (an outfit first, then headwear, a weapon, a glow), on that look's tab.
+func show_new(lv: int) -> void:
+	var news := HeroStyle.level_items(_id, lv)
+	if news.is_empty():
+		return
+	var best: Dictionary = news[0]
+	for slot: String in ["glow", "hold", "head", "outfit"]:
+		for it: Dictionary in news:
+			if it.slot == slot:
+				best = it
+	_preview = _picks.duplicate()
+	for it: Dictionary in news:
+		if it.slot != best.slot:
+			_preview[it.slot] = it.key   # all of the level's looks at once, where they fit
+	_preview[best.slot] = best.key
+	_show_preview()
+	_note.text = "NEW at level %d: %s  ·  tap a card to wear it" % [lv, ", ".join(news.map(func(it): return it.name))]
+	_note.label_settings.font_color = Hud.GOLD
+	_show_tab(best.slot, true)
+
+
 func close() -> void:
 	if not visible:
 		return

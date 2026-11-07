@@ -69,7 +69,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07a"
+const BUILD := "2026-11-07b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -309,6 +309,9 @@ func _ready() -> void:
 	hud.road_closed.connect(_drops_closed)
 	hud.mastery_pressed.connect(_open_mastery)
 	hud.style_pressed.connect(_open_style)
+	hud.see_looks.connect(func(id: String, lv: int):
+		_open_style(id)
+		hud.style_show_new(lv))
 	hud.style_wear.connect(_wear_look)
 	hud.copy_report_pressed.connect(func():
 		DisplayServer.clipboard_set(_last_report)
@@ -3021,7 +3024,7 @@ func _share_text() -> String:
 		head = "☠️ Bone Chain Daily #%d: fell on floor %d" % [num, floor_num]
 	if _daily_practice:
 		head += " (practice)"
-	var about := [Heroes.get_hero(hero.hero_id).title if hero else "", Curses.theme(_daily_date).name]
+	var about := [_share_hero(), Curses.theme(_daily_date).name]
 	var days := Curses.streak(_load_save())
 	if days >= 2:
 		about.append("🔥 %d-day streak" % days)
@@ -3029,12 +3032,21 @@ func _share_text() -> String:
 		ShareCard.emoji(_share_rows()), " · ".join(about.filter(func(s): return s != "")), PLAY_URL]
 
 
+## The hero's name for a share, with their Hero Mastery title ("Master Knight").
+func _share_hero() -> String:
+	if hero == null:
+		return ""
+	var hero_title: String = Heroes.get_hero(hero.hero_id).title
+	var t := HeroMastery.title(_load_save(), hero.hero_id)
+	return hero_title if t == "" else "%s %s" % [t, hero_title]
+
+
 ## A normal run's share text: a floor's boss beaten for the first time, or a new best score.
 func _run_share_text() -> String:
 	var head := "🏆 Bone Chain: beat the floor %d boss for the first time!" % floor_num
 	if _share_reason == "best":
 		head = "⭐ Bone Chain: new best score! (fell on floor %d)" % floor_num
-	var about := [Heroes.get_hero(hero.hero_id).title if hero else "", Floors.current().name]
+	var about := [_share_hero(), Floors.current().name]
 	return "%s\n%s points · best chain x%.1f\n%s\n%s\nPlay: %s" % [head, Hud.thousands(score), _rep.get("best_chain", 1.0),
 		ShareCard.emoji(_share_rows()), " · ".join(about.filter(func(t): return t != "")), PLAY_URL]
 
@@ -3042,11 +3054,12 @@ func _run_share_text() -> String:
 ## The same result for the share picture: [text, size, colour] lines under the game's name.
 func _share_lines() -> Array:
 	if not daily:
-		var hero_name: String = Heroes.get_hero(hero.hero_id).title if hero else ""
+		var hero_name: String = _share_hero()
 		var head := ["Floor %d boss beaten!" % floor_num, 46, Color(1.0, 0.85, 0.45)]
 		if _share_reason == "best":
 			head = ["New best score!", 50, Color(0.55, 1.0, 0.6)]
-		return [[" · ".join([hero_name, Floors.current().name].filter(func(t): return t != "")), 30, Color(0.95, 0.9, 0.8)],
+		var top_col := Hud.GOLD if hero and hero._master else Color(0.95, 0.9, 0.8)   # a Master shows in gold
+		return [[" · ".join([hero_name, Floors.current().name].filter(func(t): return t != "")), 30, top_col],
 			head,
 			["%s points · best chain x%.1f" % [Hud.thousands(score), _rep.get("best_chain", 1.0)], 28, Hud.GOLD]]
 	var num := Curses.day_number(_daily_date)
@@ -3058,7 +3071,7 @@ func _share_lines() -> Array:
 	elif state == State.VICTORY:
 		result = "Floor %d of %d beaten" % [floor_num, Curses.DAILY_FLOORS]
 		col = Color(1.0, 0.85, 0.45)
-	var about := [Heroes.get_hero(hero.hero_id).title if hero else "", Curses.theme(_daily_date).name]
+	var about := [_share_hero(), Curses.theme(_daily_date).name]
 	return [["Daily Crypt #%d%s" % [num, " (practice)" if _daily_practice else ""], 34, Color(0.95, 0.9, 0.8)],
 		[result, 50, col],
 		["%s points · best chain x%.1f" % [Hud.thousands(score), _rep.get("best_chain", 1.0)], 28, Hud.GOLD],

@@ -30,7 +30,7 @@ SHOTS = [
     ("blessings", "A NEW BUILD EVERY RUN", "Fire, frost, bolts and bone blessings"),
     ("lich", "OUTSMART THE LICH", "Read the warnings, dash, strike back"),
     ("tide", "THE DROWNED VAULT", "Crypt Pass: face the Tidecaller below"),
-    ("heroes", "FOUR HEROES", "Each with their own special move"),
+    ("mastery", "MASTER YOUR HEROES", "27 looks to unlock for every hero"),
     ("daily", "A NEW CRYPT EVERY DAY", "The same rooms for everyone, then share"),
 ]
 
