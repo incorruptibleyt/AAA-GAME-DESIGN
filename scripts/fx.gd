@@ -1,0 +1,358 @@
+class_name Fx
+## One-shot particle effects built in code: hit sparks, bone bursts, dust and magic.
+
+static var _quad: QuadMesh
+static var _shrink: Curve
+## At most this many hit-spark and bone bursts start in one frame. A mass kill (Shatter,
+## chained explosions) used to start 20 at once, a 93 ms hitch on a warm phone (Nov 1
+## report); the extras in that frame are skipped, which nobody can see in the crowd. Other
+## effects (spawn dust, beams, explosions) always show: they tell you what's coming.
+const BURSTS_PER_FRAME := 8
+static var _burst_frame := -1
+static var _bursts_now := 0
+
+
+## `shape`: "glow" (a soft light added to what's behind it), "soft" (a soft puff painted
+## over it), "dot" (a crisp round spark) or "glint" (a four-pointed star). See _shaped.
+static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: float, life: float, gravity: float, capped := false, shape := "glow") -> void:
+	var world := Game.world
+	if world == null:
+		return
+	if capped:
+		var frame := Engine.get_process_frames()
+		if frame != _burst_frame:
+			_burst_frame = frame
+			_bursts_now = 0
+		_bursts_now += 1
+		if _bursts_now > BURSTS_PER_FRAME:
+			return
+	_burst_material()
+
+	var p := CPUParticles3D.new()
+	p.mesh = _shaped(shape)
+	p.one_shot = true
+	p.explosiveness = 1.0
+	p.amount = count
+	p.lifetime = life
+	p.direction = Vector3.UP
+	p.spread = 180.0
+	p.initial_velocity_min = speed * 0.4
+	p.initial_velocity_max = speed
+	p.gravity = Vector3(0, -9.8 * gravity, 0)
+	p.damping_min = 1.0
+	p.damping_max = 3.0
+	p.scale_amount_min = size * 0.5
+	p.scale_amount_max = size
+	p.scale_amount_curve = _shrink
+	p.color = color
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.15
+	p.position = pos
+	world.add_child(p)
+	p.emitting = true
+	p.get_tree().create_timer(life + 0.2).timeout.connect(p.queue_free)
+
+
+static func _burst_material() -> void:
+	if _quad != null:
+		return
+	_shrink = Curve.new()   # every burst shrinks its particles the same way: one shared curve
+	_shrink.add_point(Vector2(0, 1))
+	_shrink.add_point(Vector2(1, 0))
+	_quad = QuadMesh.new()
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.billboard_keep_scale = true
+	m.vertex_color_use_as_albedo = true
+	m.albedo_texture = U.soft_circle()
+	_quad.material = m
+
+
+static var _shapes := {}
+
+
+## The quad a particle is drawn on. Each keeps its scale (billboard_keep_scale): without it
+## every particle was drawn 1 m wide whatever size it was given (until version 102), which
+## made sparks and magic into big soft blobs.
+static func _shaped(shape: String) -> QuadMesh:
+	_burst_material()
+	if shape == "glow":
+		return _quad
+	if not _shapes.has(shape):
+		var q := QuadMesh.new()
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.billboard_keep_scale = true
+		m.vertex_color_use_as_albedo = true
+		m.albedo_texture = {"soft": U.soft_circle(), "dot": U.dot(), "glint": U.glint()}.get(shape, U.soft_circle())
+		q.material = m
+		_shapes[shape] = q
+	return _shapes[shape]
+
+
+## A slow stream of gold sparkles for a Master hero (hero.gd _build_sparkles). They are
+## left in the world (not carried along), so they mark the path the hero ran.
+static func sparkle_trail(color: Color) -> CPUParticles3D:
+	_burst_material()
+	var p := CPUParticles3D.new()
+	p.mesh = _shaped("glint")
+	p.amount = 18
+	p.lifetime = 1.2
+	p.local_coords = false
+	p.direction = Vector3.UP
+	p.spread = 40.0
+	p.initial_velocity_min = 0.4
+	p.initial_velocity_max = 1.0
+	p.gravity = Vector3(0, 0.3, 0)
+	p.scale_amount_min = 0.4
+	p.scale_amount_max = 0.65
+	p.scale_amount_curve = _shrink
+	p.color = color
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	p.emission_ring_axis = Vector3.UP
+	p.emission_ring_radius = 0.65
+	p.emission_ring_inner_radius = 0.45
+	p.emission_ring_height = 0.1
+	return p
+
+
+## A Master aura's trail of light (hero_style.gd), one small emitter like sparkle_trail:
+## "wisps" (the Rogue: dark sparks left hanging behind as they run), "motes" (the Knight:
+## specks of light rising straight up round them), "embers" (the Barbarian: sparks flung up
+## and falling back), "stars" (the Mage: slow twinkles in a ring). They start outside the
+## hero's body (from above, anything over the hero hides them), and are painted over the
+## floor rather than added to it, so they keep their colour on bright floors and never
+## pile up into a white blur.
+static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
+	var p := sparkle_trail(color)
+	# Round sparks for the Rogue's wisps and the Barbarian's embers, four-pointed glints for
+	# the Knight's motes and the Mage's stars.
+	var shape := "dot" if kind in ["wisps", "embers"] else "glint"
+	p.mesh = _shaped(shape)
+	p.color = Color(color, 0.85 if kind == "wisps" else 1.0)
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	match kind:
+		"wisps":
+			p.amount = 26
+			p.lifetime = 0.9
+			p.spread = 180.0
+			p.initial_velocity_min = 0.1
+			p.initial_velocity_max = 0.3
+			p.gravity = Vector3(0, 0.3, 0)
+			p.scale_amount_min = 0.14
+			p.scale_amount_max = 0.24
+			p.emission_ring_radius = 0.72
+			p.emission_ring_inner_radius = 0.55
+			p.position = Vector3(0, 0.3, 0)
+		"motes":
+			p.amount = 18
+			p.lifetime = 1.2
+			p.spread = 5.0
+			p.initial_velocity_min = 0.6
+			p.initial_velocity_max = 1.1
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.45
+			p.scale_amount_max = 0.7
+			p.emission_ring_radius = 0.78
+			p.emission_ring_inner_radius = 0.66
+			p.position = Vector3(0, 0.05, 0)
+		"embers":
+			p.amount = 22
+			p.lifetime = 0.8
+			p.spread = 45.0
+			p.initial_velocity_min = 1.0
+			p.initial_velocity_max = 1.9
+			p.gravity = Vector3(0, -2.0, 0)
+			p.scale_amount_min = 0.14
+			p.scale_amount_max = 0.24
+			p.emission_ring_radius = 0.72
+			p.emission_ring_inner_radius = 0.5
+			p.position = Vector3(0, 0.3, 0)
+		"stars":
+			p.amount = 10
+			p.lifetime = 1.4
+			p.spread = 180.0
+			p.initial_velocity_min = 0.2
+			p.initial_velocity_max = 0.4
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.6
+			p.scale_amount_max = 0.9
+			p.emission_ring_radius = 0.92
+			p.emission_ring_inner_radius = 0.8
+			p.position = Vector3(0, 0.4, 0)
+	p.scale_amount_min *= size
+	p.scale_amount_max *= size
+	return p
+
+
+static func sparks(pos: Vector3, color := Color(1.0, 0.85, 0.5)) -> void:
+	_burst(pos, 10, color, 0.4, 7.0, 0.35, 0.5, true, "dot")
+
+
+static func bones(pos: Vector3) -> void:
+	_burst(pos + Vector3.UP * 0.6, 22, Color(0.95, 0.92, 0.82), 0.42, 6.0, 0.8, 2.0, true, "dot")
+
+
+static func dust(pos: Vector3, count := 14) -> void:
+	_burst(pos + Vector3.UP * 0.2, count, Color(0.62, 0.58, 0.68, 0.5), 1.4, 1.6, 0.9, -0.05, false, "soft")
+
+
+## A quick flash of light where a shot lands: pops big, then shrinks away (0.14 s).
+static func impact(pos: Vector3, color: Color, size := 1.0) -> void:
+	var world := Game.world
+	if world == null:
+		return
+	var key := Engine.get_process_frames()
+	if key != _impact_frame:
+		_impact_frame = key
+		_impacts_now = 0
+	_impacts_now += 1
+	if _impacts_now > BURSTS_PER_FRAME:
+		return
+	# At most MAX_IMPACTS on screen: a Mage with Twin Shots, Fan of Shots and Piercing Shot
+	# lands a dozen hits a frame, and each flash is one more thing to draw.
+	_live_impacts = _live_impacts.filter(func(n): return is_instance_valid(n))
+	if _live_impacts.size() >= MAX_IMPACTS:
+		return
+	if _impact_quad == null:
+		_impact_quad = QuadMesh.new()
+	var f := MeshInstance3D.new()
+	f.mesh = _impact_quad
+	f.material_override = ShotLook.hero_mat(ShotLook.K_GLOW, Color(color.r, color.g, color.b, 1.0), true)
+	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(f)
+	_live_impacts.append(f)
+	f.global_position = pos
+	f.scale = Vector3(size * 0.4, size * 0.4, 1.0)
+	var tw := f.create_tween()
+	tw.tween_property(f, "scale", Vector3(size, size, 1.0), 0.05).set_ease(Tween.EASE_OUT)
+	tw.tween_property(f, "scale", Vector3(0.01, 0.01, 1.0), 0.09).set_ease(Tween.EASE_IN)
+	tw.tween_callback(f.queue_free)
+
+static var _impact_quad: QuadMesh
+static var _live_impacts: Array = []
+const MAX_IMPACTS := 10
+static var _impact_frame := -1
+static var _impacts_now := 0
+
+
+## A glowing after-image left behind by the dash.
+static func trail(pos: Vector3, color: Color) -> void:
+	_burst(pos, 6, color, 1.2, 0.6, 0.35, 0.0)
+
+
+## A ring of light that rushes outwards (the finishing blow of a room).
+static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
+	var world := Game.world
+	if world == null:
+		return
+	var ring := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	# A crisp ring: thin (about 40 cm across at full size, however wide it grows), so it
+	# never turns into a haze over the room.
+	torus.inner_radius = 1.0 - minf(0.15, 0.4 / maxf(radius, 0.1))
+	torus.outer_radius = 1.0
+	torus.rings = 40
+	torus.ring_segments = 6
+	ring.mesh = torus
+	# Its own material (the shared one from U.unlit used to be faded to nothing by the
+	# first ring, so later rings of the same colour never showed). Drawn over the floor,
+	# not added to it, so a gold ring stays gold on a bright floor.
+	var m := U.unlit(Color(color.r, color.g, color.b, 0.85)).duplicate() as StandardMaterial3D
+	ring.material_override = m
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(ring)
+	ring.global_position = pos + Vector3.UP * 0.3
+	ring.scale = Vector3(0.3, 0.3, 0.3)
+	var tw := ring.create_tween().set_parallel(true)
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(ring, "scale", Vector3(radius, 1.0, radius), 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.6)
+	tw.chain().tween_callback(ring.queue_free)
+
+
+## Slowly drifting embers and dust in the air of a room.
+## Drifting motes that give each floor its mood: embers rise, frost flakes fall.
+static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36,
+		colors: Array = [Color(1.0, 0.55, 0.2, 0.9), Color(0.7, 0.6, 1.0, 0.35)], fall := false, size := 1.0) -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.mesh = _shaped("dot")
+	p.amount = amount
+	p.lifetime = 7.0
+	p.preprocess = 7.0
+	p.direction = Vector3.DOWN if fall else Vector3.UP
+	p.spread = 25.0
+	p.initial_velocity_min = 0.15
+	p.initial_velocity_max = 0.45
+	p.gravity = Vector3(0.12, -0.15, 0.05) if fall else Vector3(0.05, 0.02, 0)
+	p.scale_amount_min = 0.1 * size
+	p.scale_amount_max = 0.2 * size
+	var curve := Curve.new()
+	curve.add_point(Vector2(0, 0))
+	curve.add_point(Vector2(0.2, 1))
+	curve.add_point(Vector2(0.8, 1))
+	curve.add_point(Vector2(1, 0))
+	p.scale_amount_curve = curve
+	var g := Gradient.new()
+	g.set_color(0, colors[0])
+	g.set_color(1, colors[1])
+	p.color_initial_ramp = g
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(half_w, 1.2, half_l)
+	p.position = Vector3(0, 2.6 if fall else 1.4, 0)
+	parent.add_child(p)
+	return p
+
+
+static func magic(pos: Vector3, color: Color, count := 18) -> void:
+	_burst(pos, count, color, 1.0, 4.0, 0.6, -0.2, false, "glint")
+
+
+static var _flame_mat: ShaderMaterial
+
+## A flickering flame that always faces the camera, drawn by the graphics card (no script,
+## no light): `size` is its width and height in metres, standing on `pos`.
+static func flame(parent: Node3D, size: Vector2, pos := Vector3.ZERO) -> MeshInstance3D:
+	if _flame_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 hot : source_color = vec4(1.0, 0.85, 0.4, 1.0);
+uniform vec4 cool : source_color = vec4(1.0, 0.3, 0.04, 1.0);
+varying float seed;
+void vertex() {
+	seed = MODEL_MATRIX[3].x * 3.7 + MODEL_MATRIX[3].z * 1.3;
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
+		vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+	float k = sin(TIME * 13.0 + seed) * 0.12 + sin(TIME * 7.3 + seed * 2.0) * 0.08;
+	VERTEX.y = (VERTEX.y + 0.5) * (1.0 + k) - 0.5;
+	VERTEX.x *= 1.0 - k * 0.5;
+}
+void fragment() {
+	float t = 1.0 - UV.y;
+	float x = abs(UV.x * 2.0 - 1.0);
+	float w = 0.85 * (1.0 - t) * smoothstep(0.0, 0.3, t) + 0.03;
+	float inside = (1.0 - smoothstep(w * 0.45, w, x)) * smoothstep(0.0, 0.12, t);
+	ALBEDO = mix(hot.rgb, cool.rgb, smoothstep(0.1, 0.8, t)) * inside * (1.2 - t * 0.5);
+}
+"""
+		_flame_mat = ShaderMaterial.new()
+		_flame_mat.shader = sh
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	var f := MeshInstance3D.new()
+	f.mesh = q
+	f.material_override = _flame_mat
+	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	f.scale = Vector3(size.x, size.y, 1.0)
+	f.position = pos + Vector3.UP * size.y * 0.5
+	parent.add_child(f)
+	return f

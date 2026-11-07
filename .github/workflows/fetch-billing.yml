@@ -1,0 +1,43 @@
+# Downloads the official Godot Google Play Billing plugin (godot-sdk-integrations, MIT
+# licence) and posts it on the "billing-plugin" release so it can be added to the game.
+
+name: Fetch billing plugin
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/fetch-billing.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download the latest release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          src=godot-sdk-integrations/godot-google-play-billing
+          gh api "repos/$src/releases?per_page=5" --jq '.[] | "\(.tag_name)  \(.published_at)  \(.name)  assets: \([.assets[].name] | join(", "))"'
+          tag=$(gh api "repos/$src/releases/latest" --jq .tag_name)
+          echo "Latest: $tag"
+          mkdir -p out
+          gh release download "$tag" -R "$src" -D out
+          gh api "repos/$src/releases/latest" --jq .body > out/RELEASE_NOTES.txt
+          echo "$tag" > out/VERSION.txt
+          ls -la out
+
+      - name: Publish as the "billing-plugin" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete billing-plugin --yes --cleanup-tag || true
+          gh release create billing-plugin out/* --prerelease --target "$GITHUB_SHA" \
+            --title "Godot Google Play Billing plugin" \
+            --notes "Official plugin from godot-sdk-integrations/godot-google-play-billing (MIT licence)."

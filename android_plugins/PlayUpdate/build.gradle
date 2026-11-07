@@ -1,0 +1,24 @@
+// Godot Android plugin (v2) for Google Play in-app updates. CI builds it with
+// `gradle assembleRelease assembleDebug` and copies the .aar files to addons/PlayUpdate/bin/.
+plugins {
+    id 'com.android.library' version '8.7.3'
+}
+
+android {
+    namespace 'org.bonechain.playupdate'
+    compileSdk 35
+    defaultConfig {
+        minSdk 24
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Both come with the game itself: Godot's library, and Google's app-update library,
+    // which addons/PlayUpdate/export_plugin.gd adds to the Android build.
+    compileOnly 'org.godotengine:godot:4.7.2.stable'
+    compileOnly 'com.google.android.play:app-update:2.1.0'
+}
