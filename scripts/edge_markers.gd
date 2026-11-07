@@ -12,8 +12,15 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
 
+var _was_playing := false
+
+
 func _process(_delta: float) -> void:
-	queue_redraw()
+	# Enemies move every frame in a fight; outside one, clear the arrows once and stop.
+	var playing := Game.state == Game.State.PLAYING
+	if playing or _was_playing:
+		queue_redraw()
+	_was_playing = playing
 
 
 func _draw() -> void:

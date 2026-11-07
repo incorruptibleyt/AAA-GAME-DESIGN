@@ -23,8 +23,8 @@ const RARITIES := {
 }
 
 const LIST := [
-	{"id": "damage", "family": "bolt", "rarity": "common", "title": "Sharpened Shots", "text": "+20% damage", "max": 99},
-	{"id": "speed", "family": "bolt", "rarity": "common", "title": "Quick Draw", "text": "+15% attack speed", "max": 99},
+	{"id": "damage", "family": "bolt", "rarity": "common", "title": "Sharpened Shots", "text": "+20% damage", "max": 10},
+	{"id": "speed", "family": "bolt", "rarity": "common", "title": "Quick Draw", "text": "+15% attack speed", "max": 10},
 	{"id": "crit", "family": "bolt", "rarity": "common", "title": "Keen Eye", "text": "+15% critical hit chance", "max": 3},
 	{"id": "multishot", "family": "bolt", "rarity": "rare", "title": "Twin Shots", "text": "+1 shot forward: +40% damage in all", "max": 3},
 	{"id": "rear", "family": "bolt", "rarity": "rare", "title": "Eyes in the Back", "text": "+1 shot backward", "max": 1},

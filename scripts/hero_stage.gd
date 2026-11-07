@@ -70,6 +70,7 @@ func _build_scene() -> void:
 	_root.add_child(_back_light)
 	# The pedestal: a stone drum with a glowing ring and a soft pool of light on top.
 	var drum := U.cylinder(_root, 1.15, 0.3, U.mat(Color(0.16, 0.15, 0.19), 0.9), Vector3(0, -0.3, 0))
+	drum.mesh = drum.mesh.duplicate()   # U's meshes are shared: copy before changing it
 	(drum.mesh as CylinderMesh).radial_segments = 48
 	var torus := TorusMesh.new()
 	torus.inner_radius = 1.08

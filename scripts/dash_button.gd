@@ -17,10 +17,19 @@ func _ready() -> void:
 	add_child(_label)
 
 
+## What the last drawing showed; redraw only when it changes.
+var _drawn := []
+
+
 func _process(_delta: float) -> void:
 	visible = Game.hero != null and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE] and Game.dash_unlocked()
 	if visible:
-		queue_redraw()
+		var h := Game.hero
+		var lesson := Game.dash_lesson_active()
+		var now := [h.get_instance_id(), lesson, h.dash_ready(), snappedf(clampf(h._dash_cooldown / h.dash_cooldown_time, 0.0, 1.0), 0.005), size]
+		if lesson or now != _drawn:   # the lesson pulse animates; otherwise redraw on change
+			_drawn = now
+			queue_redraw()
 
 
 func _draw() -> void:

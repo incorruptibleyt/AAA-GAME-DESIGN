@@ -72,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07g"
+const BUILD := "2026-11-07h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -2200,8 +2200,12 @@ func _leave_room() -> void:
 		Fx.magic(hero.center(), Upgrades.color(_picked), 30)
 		hud.banner(_picked.title, Upgrades.color(_picked))
 		_picked = {}
+	var before := coins
 	Pickup.grant_all()
-	_save_coins()
+	# The room clear already saved; save again only if coins were still on the floor (or
+	# Bone Road / Mastery points came in since). Saves are slow on cheap phones' storage.
+	if coins != before or _road_unsaved > 0 or _mastery_unsaved > 0:
+		_save_coins()
 	enter_next_room()
 
 

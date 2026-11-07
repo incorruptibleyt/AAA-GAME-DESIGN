@@ -87,6 +87,7 @@ var last_move := Vector2.ZERO
 var last_move_ms := -100000
 
 var _safe: MarginContainer
+var _hp_shown := Vector2i(-1, -1)
 var _hp_fill: Control
 var _hp_label: Label
 var _room_label: Label
@@ -208,6 +209,7 @@ var _records_box: Control
 var _records_grid: GridContainer
 var _records_note: Label
 var _title_records: Control
+var _title_settings: Control
 var _title_drops: Button
 var _end_drop: Button
 var _end_looks: Button   # SEE 3 NEW LOOKS after a run that reached a Mastery level
@@ -1199,6 +1201,8 @@ func _build_title() -> void:
 	records.pressed.connect(func(): records_pressed.emit())
 	holder.add_child(records)
 	_title_records = records
+	_title_settings = settings
+	_place_title_buttons()
 	var top := VBoxContainer.new()
 	_title_top = top
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2219,6 +2223,19 @@ func _apply_safe_area() -> void:
 	_safe.add_theme_constant_override("margin_top", maxi(0, int(safe.position.y * sy)))
 	_safe.add_theme_constant_override("margin_right", maxi(0, int((win.x - safe.end.x) * sx)))
 	_safe.add_theme_constant_override("margin_bottom", maxi(0, int((win.y - safe.end.y) * sy)))
+	_place_title_buttons()
+
+
+## The title's SETTINGS and RECORDS sit in the top corner, so they move below a notch or
+## camera hole (the game runs full screen; the margins are 0 off phones).
+func _place_title_buttons() -> void:
+	if _safe == null or _title_settings == null or not is_instance_valid(_title_settings):
+		return
+	var left := float(_safe.get_theme_constant("margin_left"))
+	var top := float(_safe.get_theme_constant("margin_top"))
+	_title_settings.position = Vector2(20 + left, 20 + top)
+	if is_instance_valid(_title_records):
+		_title_records.position = Vector2(184 + left, 20 + top)
 
 
 # ---------------------------------------------------------------- input
@@ -2369,7 +2386,10 @@ func _process(delta: float) -> void:
 	if hero:
 		_shown_hp = move_toward(_shown_hp, hero.health / hero.max_health, delta * 1.5)
 		_hp_fill.anchor_right = clampf(_shown_hp, 0.0, 1.0)
-		_hp_label.text = "%d / %d" % [ceili(hero.health), roundi(hero.max_health)]
+		var hp_text := Vector2i(ceili(hero.health), roundi(hero.max_health))
+		if hp_text != _hp_shown:   # format the text only when the numbers change
+			_hp_shown = hp_text
+			_hp_label.text = "%d / %d" % [hp_text.x, hp_text.y]
 		var low := 1.0 - clampf(hero.health / hero.max_health / 0.35, 0.0, 1.0)
 		if hero.dead or not _safe.visible:
 			low = 0.0

@@ -271,20 +271,27 @@ static func trail(pos: Vector3, color: Color) -> void:
 	_burst(pos, 6, color, 1.2, 0.6, 0.35, 0.0)
 
 
+static var _rings := {}
+
+
 ## A ring of light that rushes outwards (the finishing blow of a room).
 static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
 	var world := Game.world
 	if world == null:
 		return
 	var ring := MeshInstance3D.new()
-	var torus := TorusMesh.new()
 	# A crisp ring: thin (about 40 cm across at full size, however wide it grows), so it
-	# never turns into a haze over the room.
-	torus.inner_radius = 1.0 - minf(0.15, 0.4 / maxf(radius, 0.1))
-	torus.outer_radius = 1.0
-	torus.rings = 40
-	torus.ring_segments = 6
-	ring.mesh = torus
+	# never turns into a haze over the room. One mesh per ring thickness, shared by every
+	# ring of that size (there are only a handful).
+	var inner := snappedf(1.0 - minf(0.15, 0.4 / maxf(radius, 0.1)), 0.01)
+	if not _rings.has(inner):
+		var torus := TorusMesh.new()
+		torus.inner_radius = inner
+		torus.outer_radius = 1.0
+		torus.rings = 40
+		torus.ring_segments = 6
+		_rings[inner] = torus
+	ring.mesh = _rings[inner]
 	# Its own material (the shared one from U.unlit used to be faded to nothing by the
 	# first ring, so later rings of the same colour never showed). Drawn over the floor,
 	# not added to it, so a gold ring stays gold on a bright floor.

@@ -71,44 +71,70 @@ static func _place(parent: Node3D, mesh: Mesh, material: Material, pos: Vector3)
 	return mi
 
 
+## Shapes of the same kind and size share one mesh (coins and hearts used to build 2-4
+## new meshes per drop). Nothing may change a mesh from these helpers afterwards: duplicate
+## it first (hero_stage.gd does). Past MESH_CACHE_MAX sizes, new sizes just aren't kept.
+const MESH_CACHE_MAX := 512
+static var _mesh_cache := {}
+
+
+static func _cached(key: String, make: Callable) -> Mesh:
+	var m: Mesh = _mesh_cache.get(key)
+	if m == null:
+		m = make.call()
+		if _mesh_cache.size() < MESH_CACHE_MAX:
+			_mesh_cache[key] = m
+	return m
+
+
 static func box(parent: Node3D, size: Vector3, material: Material, pos := Vector3.ZERO) -> MeshInstance3D:
-	var m := BoxMesh.new()
-	m.size = size
+	var m := _cached("box%.3f/%.3f/%.3f" % [size.x, size.y, size.z], func():
+		var b := BoxMesh.new()
+		b.size = size
+		return b)
 	return _place(parent, m, material, pos)
 
 
 ## A cylinder standing on the ground at `base`.
 static func cylinder(parent: Node3D, radius: float, height: float, material: Material, base := Vector3.ZERO) -> MeshInstance3D:
-	var m := CylinderMesh.new()
-	m.top_radius = radius
-	m.bottom_radius = radius
-	m.height = height
-	m.radial_segments = 16
+	var m := _cached("cyl%.3f/%.3f" % [radius, height], func():
+		var c := CylinderMesh.new()
+		c.top_radius = radius
+		c.bottom_radius = radius
+		c.height = height
+		c.radial_segments = 16
+		return c)
 	return _place(parent, m, material, base + Vector3.UP * height * 0.5)
 
 
 static func sphere(parent: Node3D, radius: float, material: Material, pos := Vector3.ZERO) -> MeshInstance3D:
-	var m := SphereMesh.new()
-	m.radius = radius
-	m.height = radius * 2.0
-	m.radial_segments = 16
-	m.rings = 8
+	var m := _cached("sph%.3f" % radius, func():
+		var s := SphereMesh.new()
+		s.radius = radius
+		s.height = radius * 2.0
+		s.radial_segments = 16
+		s.rings = 8
+		return s)
 	return _place(parent, m, material, pos)
 
 
 static func capsule(parent: Node3D, radius: float, height: float, material: Material, pos := Vector3.ZERO) -> MeshInstance3D:
-	var m := CapsuleMesh.new()
-	m.radius = radius
-	m.height = max(height, radius * 2.0)
-	m.radial_segments = 16
-	m.rings = 6
+	var m := _cached("cap%.3f/%.3f" % [radius, height], func():
+		var c := CapsuleMesh.new()
+		c.radius = radius
+		c.height = max(height, radius * 2.0)
+		c.radial_segments = 16
+		c.rings = 6
+		return c)
 	return _place(parent, m, material, pos)
 
 
 ## A flat square lying on the floor.
 static func floor_quad(parent: Node3D, size: Vector2, material: Material, pos := Vector3.ZERO) -> MeshInstance3D:
-	var m := PlaneMesh.new()
-	m.size = size
+	var m := _cached("quad%.3f/%.3f" % [size.x, size.y], func():
+		var q := PlaneMesh.new()
+		q.size = size
+		return q)
 	var mi := _place(parent, m, material, pos)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi

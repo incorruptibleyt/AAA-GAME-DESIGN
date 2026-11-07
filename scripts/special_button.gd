@@ -4,6 +4,9 @@ extends Control
 ## glows and pulses, and a tap fires the hero's special move.
 
 var _label: Label
+var _hero_id := ""
+## What the last drawing showed; the button redraws only when this changes (or while it pulses).
+var _drawn := []
 
 
 func _ready() -> void:
@@ -21,9 +24,15 @@ func _process(_delta: float) -> void:
 	var h := Game.hero
 	visible = h != null and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE] and Game.special_unlocked()
 	if visible:
-		_label.text = Heroes.get_hero(h.hero_id).special
-		_label.modulate.a = 1.0 if h.special_ready() else 0.6
-		queue_redraw()
+		if _hero_id != h.hero_id:   # look the name up only when the hero changes
+			_hero_id = h.hero_id
+			_label.text = Heroes.get_hero(h.hero_id).special
+		var charged := h.special_ready()
+		_label.modulate.a = 1.0 if charged else 0.6
+		var now := [h.get_instance_id(), charged, snappedf(h.special_charge, 0.005), h.bolt_color, size]
+		if charged or now != _drawn:   # a full button pulses, so it draws every frame
+			_drawn = now
+			queue_redraw()
 
 
 func _draw() -> void:
