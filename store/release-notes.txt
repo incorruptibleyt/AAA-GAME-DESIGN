@@ -1,6 +1,7 @@
-Version 100: A brand new look, plus Hero Mastery!
-- Bold new font, chunky buttons and a glow behind every menu. Your hero stands big on the title screen.
-- Hero Mastery: every hero grows from level 1 to 10. Masters wear a golden crown and gold sparkles.
+Version 101: A brighter, bolder Bone Chain!
+- Brighter, warmer dungeons, and your hero and bosses now have a bold outline.
+- Bold new font, chunky buttons and a chunkier fight screen.
+- Big moves like Shield Slam and PERFECT dodges flash without hiding your hero.
+- Hero Mastery: every hero grows from level 1 to 10. Masters wear a golden crown.
 - Hero Looks: every Mastery level unlocks 3 new looks.
-- Bone Drops and the Bone Road: free rewards for every room you clear.
 - Skeleton Warriors now warn before every axe swing.
