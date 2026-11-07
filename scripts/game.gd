@@ -65,10 +65,11 @@ var _road_shown := 0
 var _mastery_unsaved := 0
 var _mastery_shown := 0
 var _mastery_run := 0
+var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to show
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-06j"
+const BUILD := "2026-11-07a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1286,6 +1287,7 @@ func _reset_run_stats() -> void:
 	_road_shown = 0
 	_mastery_shown = 0
 	_mastery_run = 0
+	_mastery_callout = ""
 	_combo = 0
 	chain = 1.0
 	score = 0
@@ -2025,7 +2027,7 @@ func _wave_spots(count: int) -> Array:
 func _room_cleared() -> void:
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
 	_add_bones(BoneRoad.ROOM_BONES)
-	_add_mastery(HeroMastery.ROOM_POINTS)
+	_add_mastery(HeroMastery.ROOM_POINTS, true)
 	_save_coins()
 	hud.set_wave(0, 0)
 	# Straight to the blessing cards once the slow-motion finish has played. The wait stops
@@ -2042,15 +2044,19 @@ func _room_cleared() -> void:
 	_door = {}
 	_pick_rng = Curses.daily_rng(500 + floor_num * 10 + _room_index, _daily_date) if daily else null
 	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better, _pick_rng)
+	var lv_line := _mastery_callout
+	_mastery_callout = ""
 	if _choices.is_empty():
 		Pickup.grant_all()
 		_save_coins()
 		enter_next_room()
+		if lv_line != "":
+			hud.banner(lv_line.get_slice("\n", 0), Color(1.0, 0.82, 0.3))
 		return
 	_set_state(State.UPGRADE)
 	get_tree().paused = true
 	hud.clear_banner()
-	hud.show_cards(_choices, rerolls if step >= 3 else 0, step >= 2)
+	hud.show_cards(_choices, rerolls if step >= 3 else 0, step >= 2, lv_line)
 
 
 ## One free reroll per run swaps all three cards.
@@ -2450,15 +2456,25 @@ func _bank_bones(cfg: ConfigFile) -> int:
 
 
 ## Hero Mastery points for this run's hero, saved with the coins like the bones.
-func _add_mastery(n: int) -> void:
+func _add_mastery(n: int, callout := false) -> void:
 	if hero == null:
 		return
 	if hero.hero_id != _mastery_hero and _mastery_unsaved > 0:
 		_save_coins()   # (never happens mid-run, but points always go to the hero who earned them)
 	_mastery_hero = hero.hero_id
+	var before := HeroMastery.points(_load_save(), hero.hero_id) + _mastery_unsaved
 	_mastery_unsaved += n
 	_mastery_shown += n
 	_mastery_run += n
+	# A level reached in the middle of a run gets its moment straight away: a gold burst and a
+	# chime as the room ends, then a gold line over the blessing cards (the rewards themselves
+	# come with the end screen). A boss's level-up is the end screen's to show.
+	var lv := HeroMastery.level_for(before + n)
+	if callout and lv > HeroMastery.level_for(before):
+		_mastery_callout = "%s MASTERY %d!\n%s" % [str(Heroes.get_hero(hero.hero_id).title).to_upper(), lv,
+			HeroMastery.level_text(lv, hero.hero_id)]
+		Sfx.play("upgrade", 0.8, 1.0 + 0.04 * lv)
+		Fx.magic(hero.center(), Color(1.0, 0.82, 0.3), 30)
 
 
 ## Saves this run's unsaved mastery points into `cfg`, gives the rewards of any level reached

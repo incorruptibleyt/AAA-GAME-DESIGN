@@ -17,8 +17,10 @@ const SECTION := "hero_mastery"
 const ROOM_POINTS := 2
 const BOSS_POINTS := 10
 const MAX_LEVEL := 10
-## Points needed to reach each level (LEVELS[level - 1]).
-const LEVELS := [0, 20, 60, 110, 180, 270, 390, 540, 740, 1000]
+## Points needed to reach each level (LEVELS[level - 1]). Quick at first (the tutorial win
+## is level 2, a few short runs level 3 and 4), then a longer road to Master. (Lowered from
+## 1000 for Master before release: points already earned never lose a level.)
+const LEVELS := [0, 20, 45, 80, 125, 180, 250, 350, 500, 700]
 
 ## Rewards given when each level is reached (besides its looks, HeroStyle.level_items).
 ## kind: "coins" (n), "drop" (n Bone Drops), "lucky" (n Lucky Starts), "title" (text),

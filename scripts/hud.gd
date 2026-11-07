@@ -87,6 +87,7 @@ var _stick_touch := -1
 var _stick_origin := Vector2.ZERO
 
 var _cards_box: Control
+var _cards_mastery: Label   # "WIZARD MASTERY 3!" over the cards after a mid-run level-up
 var _cards: Array[Button] = []
 var _reroll_button: Button
 ## Doors (doors.gd): two to pick from after a blessing.
@@ -184,6 +185,7 @@ var _title_pass_row: Control
 var _title_modes_row: Control
 var _title_modes_badge: Label
 var _title_heroes_badge: Label
+var _end_heroes_badge: Label   # the same tag on the end screen's HEROES button
 var _modes_box: Control
 var _records_box: Control
 var _records_grid: GridContainer
@@ -739,6 +741,9 @@ func _build_cards() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 18)
 	_cards_box.add_child(col)
+	_cards_mastery = label("", 28, GOLD)
+	_cards_mastery.visible = false
+	col.add_child(_cards_mastery)
 	col.add_child(label("Choose a Blessing", 40, Color(1, 0.85, 0.55)))
 	for i in 3:
 		var b := Button.new()
@@ -1350,6 +1355,8 @@ func _build_end() -> void:
 	var heroes := button("HEROES", 26)
 	heroes.custom_minimum_size = Vector2(222, 74)
 	heroes.pressed.connect(func(): heroes_pressed.emit())
+	_end_heroes_badge = _badge_pill("NEW LOOKS")
+	heroes.add_child(_end_heroes_badge)
 	var armory := button("ARMORY", 26)
 	armory.custom_minimum_size = Vector2(222, 74)
 	armory.pressed.connect(func(): armory_pressed.emit())
@@ -2275,8 +2282,19 @@ func top_band() -> float:
 
 ## Each card shows the family icon, the title in the family colour, and the rarity
 ## as a tag and border colour. `rerolls` is how many free rerolls are left.
-func show_cards(choices: Array, rerolls := 0, tags := true) -> void:
+## `mastery` is a mid-run Hero Mastery level-up line to show over the cards ("" for none;
+## null keeps what shows, for a reroll).
+func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = null) -> void:
 	DamageNumber.clear_all()
+	if mastery != null:
+		_cards_mastery.text = str(mastery)
+		_cards_mastery.visible = str(mastery) != ""
+		if _cards_mastery.visible:
+			_cards_mastery.pivot_offset = Vector2(_cards_mastery.size.x * 0.5, 34)
+			_cards_mastery.scale = Vector2(1.35, 1.35)
+			var tw := _cards_mastery.create_tween()
+			tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			tw.tween_property(_cards_mastery, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	for i in _cards.size():
 		var b := _cards[i]
 		b.visible = i < choices.size()
@@ -2332,6 +2350,7 @@ func refresh_looks_badge() -> void:
 	for h: Dictionary in Heroes.LIST:
 		n += HeroStyle.unseen(cfg, h.id)
 	_title_heroes_badge.visible = n > 0
+	_end_heroes_badge.visible = n > 0
 
 
 func show_title(v: bool, best := "", coins := 0) -> void:
@@ -2614,6 +2633,8 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_copy_button.visible = _reports_on
 	_end_tap.visible = not buttons and not offer
 	_end_buttons.visible = buttons
+	if v and buttons:
+		refresh_looks_badge.call_deferred()   # (after the run's mastery is saved)
 	_end_title_button.visible = false
 	_end_pass.visible = false
 	_share_button.visible = false
