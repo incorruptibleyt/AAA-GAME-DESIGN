@@ -25,6 +25,9 @@ var _flash := 0.0
 var _last_flash_ms := -100000
 var _meshes: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
+static var _soft_flash_mat: StandardMaterial3D
+## Bosses take many hits a second, so theirs is a soft glow, less often (see hit()).
+var soft_flash := false
 var _tint_mat: Material
 static var _rim_shader: Shader
 ## A dark cartoon outline (High graphics) around the hero and the bosses, so they stand
@@ -192,14 +195,18 @@ func play_named(n: String) -> bool:
 ## The white hit flash. It runs on real time, not game time, and starts again at most
 ## every FLASH_GAP seconds: in slow motion (the dash lesson, perfect dodges, specials) a
 ## boss hit by a ring of bolts used to stay white the whole time, a flat white blob.
+## A boss (soft_flash) is struck nearly every frame in a fight, and a solid white flash four
+## times a second looked like flickering, so a boss gets a faint glow added over
+## its colours (it lifts bone, it does not white it out), at most twice a second.
 const FLASH_TIME := 0.07
 const FLASH_GAP := 0.25
+const SOFT_FLASH_GAP := 0.5
 
 func hit() -> void:
 	if _dead:
 		return
 	var now := Time.get_ticks_msec()
-	if now - _last_flash_ms < int(FLASH_GAP * 1000.0):
+	if now - _last_flash_ms < int((SOFT_FLASH_GAP if soft_flash else FLASH_GAP) * 1000.0):
 		return
 	_last_flash_ms = now
 	_flash = FLASH_TIME
@@ -273,7 +280,10 @@ func set_tint(col: Color) -> void:
 func _set_flash(on: bool) -> void:
 	if _flash_mat == null:
 		_flash_mat = U.unlit(Color.WHITE)
-	var mat: Material = _flash_mat if on else _tint_mat
+		_soft_flash_mat = _flash_mat.duplicate()
+		_soft_flash_mat.albedo_color = Color(0.24, 0.22, 0.19)
+		_soft_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	var mat: Material = (_soft_flash_mat if soft_flash else _flash_mat) if on else _tint_mat
 	var lined: Material = _with_outline(mat) if outline_me and outlines and not _dead else mat
 	if _outline_set.is_empty():
 		_pick_outline_meshes()

@@ -135,8 +135,9 @@ static func run() -> void:
 			e._bar.visible = true
 			e._bar.global_position = e.global_position + Vector3(0, 1.0, 0.5)
 			e._bar._fill.scale = Vector3(0.5, 1, 1)
-	for v in heroes:
-		v.hit()
+	for i in heroes.size():
+		heroes[i].soft_flash = i == 1   # so a boss's softer flash is ready too
+		heroes[i].hit()
 	made += _new(Game.world, old_world).filter(func(c): return not made.has(c))
 	for i in 3:
 		await tree.process_frame

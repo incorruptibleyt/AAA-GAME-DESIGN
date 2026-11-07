@@ -72,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07m"
+const BUILD := "2026-11-07n"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -591,10 +591,10 @@ func _notification(what: int) -> void:
 		elif state == State.TRANSITION:
 			_pause_wanted = true
 		if Telemetry.instance:
-			Telemetry.instance.session_open(false)
+			Telemetry.instance.set_away(true)
 	elif what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
 		if Telemetry.instance:
-			Telemetry.instance.session_open(true)
+			Telemetry.instance.set_away(false)
 		if Store.instance:
 			Store.instance.recheck()
 		_check_new_day()

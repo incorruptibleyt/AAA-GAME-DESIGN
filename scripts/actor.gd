@@ -55,6 +55,7 @@ func wants_outline() -> bool:
 func make_visual(look: Dictionary) -> CharacterVisual:
 	visual = CharacterVisual.new()
 	visual.outline_me = wants_outline()
+	visual.soft_flash = wants_outline() and team == Team.UNDEAD   # the bosses
 	add_child(visual)
 	visual.build(look)
 	if team == Team.UNDEAD:

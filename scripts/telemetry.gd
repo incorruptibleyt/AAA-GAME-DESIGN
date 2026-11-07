@@ -47,6 +47,9 @@ static func configured() -> bool:
 	return FORM_ID != "" and ENTRY != ""
 
 
+var _away := false
+
+
 func _ready() -> void:
 	instance = self
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -139,12 +142,21 @@ func daily_open() -> void:
 
 
 func session_open(open: bool) -> void:
-	if not active():
+	if not active() or (open and _away):
 		return
 	var cfg := Game._load_save()
 	cfg.set_value("telemetry", "open", open)
 	cfg.set_value("telemetry", "where", Game.where_text())
 	Game.write_save(cfg)
+
+
+## The game went to the background (or came back). While away, Android may close it at any
+## time without a crash, so the marker stays off; loading steps that finish in the background
+## (note_spot) can't turn it back on until the player returns.
+func set_away(away: bool) -> void:
+	_away = false
+	session_open(not away)
+	_away = away
 
 
 func _check_last_session() -> void:
