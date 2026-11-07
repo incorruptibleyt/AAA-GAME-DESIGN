@@ -48,10 +48,27 @@ func show_icon(icon_id: String, fam: String, col: Color) -> void:
 	queue_redraw()
 
 
+## The shaded badge the picture sits on: a dark ball in the blessing's colour, lit from
+## above (a soft glow high on it and a shine), with an ink edge and a drop shadow.
+func _badge(c: Vector2) -> void:
+	draw_circle(c + Vector2(0, 3), 31.0, Color(0, 0, 0, 0.4))
+	draw_circle(c, 30.0, Hud.INK)
+	var dark := color.darkened(0.82)
+	var lit := color.darkened(0.5)
+	for i in 8:
+		var t := i / 7.0
+		draw_circle(c + Vector2(0, -7.0 * t), lerpf(28.5, 9.0, t), dark.lerp(lit, t * t))
+	var shine := PackedVector2Array()
+	for i in 17:
+		var a := PI + PI * i / 16.0
+		shine.append(c + Vector2(cos(a) * 19.0, -12.0 + sin(a) * 9.0))
+	draw_colored_polygon(shine, Color(1, 1, 1, 0.13))
+
+
 func _draw() -> void:
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2(zoom, zoom))
 	var c := size / 2.0 / zoom
-	draw_circle(c, 30.0, Color(0, 0, 0, 0.45))
+	_badge(c)
 	if synergy:
 		var star := PackedVector2Array()
 		for i in 16:
@@ -60,7 +77,7 @@ func _draw() -> void:
 			star.append(c + Vector2(cos(a), sin(a)) * r)
 		draw_colored_polygon(star, Color(1.0, 0.78, 0.25, 0.85))
 		draw_circle(c, 21.0, Color(0.1, 0.08, 0.12))
-	draw_arc(c, 29.0, 0.0, TAU, 40, color.darkened(0.3), 2.0)
+	draw_arc(c, 27.5, 0.0, TAU, 40, color, 2.5, true)
 	_c = c
 	_k = 0.72 if synergy else 1.0
 	match id:

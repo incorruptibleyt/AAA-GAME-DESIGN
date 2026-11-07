@@ -119,6 +119,8 @@ func _process(delta: float) -> void:
 		global_position += to.normalized() * minf(_speed * delta, dist)
 	if dist < hero.radius + 0.35 and (wanted or _homing):
 		if coin:
+			if Game.hud:
+				Game.hud.fly_coin(global_position + Vector3.UP * 0.6, value)   # to the coin counter
 			Game.add_coins(value)
 			Sfx.coin(0.45)
 		else:

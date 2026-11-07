@@ -45,10 +45,12 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 	else:
 		_trim()
 		n = DamageNumber.new()
+		# The cartoon font with a thick ink edge, like the rest of the game's big text.
+		n.font = Hud.UI_FONT
 		n.modulate = col
-		n.outline_modulate = Color(0, 0, 0, 0.85)
-		n.outline_size = 10
-		n.font_size = 64
+		n.outline_modulate = Hud.INK
+		n.outline_size = 20
+		n.font_size = 66
 		n.pixel_size = 0.009
 		n.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		n.no_depth_test = true
@@ -63,8 +65,8 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		_live[key] = n
 		n.tree_exiting.connect(func(): if _live.get(key) == n: _live.erase(key))
 	if crit:
-		n.modulate = Color(1, 0.85, 0.2)
-		n._size = maxf(n._size, 1.5)
+		n.modulate = Color(1, 0.8, 0.12)
+		n._size = maxf(n._size, 1.55)
 	n.text = n._prefix + str(maxi(1, roundi(n._total)))
 
 
@@ -117,10 +119,15 @@ func _process(delta: float) -> void:
 	_rise = minf(_rise + delta * 1.4, 0.9)
 	position = _base + OFFSET + Vector3(0, _rise + _lift, 0)
 	_keep_below_hud()
-	var pop := lerpf(1.5, 1.0, k / 0.15) if k < 0.15 else 1.0
+	# Pops in big, dips a little under its size and settles: a punchy bounce.
+	var pop := 1.0
+	if k < 0.1:
+		pop = lerpf(1.7, 0.9, k / 0.1)
+	elif k < 0.2:
+		pop = lerpf(0.9, 1.0, (k - 0.1) / 0.1)
 	scale = Vector3.ONE * _size * pop
 	modulate.a = 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
-	outline_modulate.a = modulate.a * 0.85
+	outline_modulate.a = modulate.a
 
 
 func _keep_below_hud() -> void:

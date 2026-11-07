@@ -583,17 +583,23 @@ static func draw_round_button(c: CanvasItem, centre: Vector2, r: float, face: Co
 
 
 ## A little gold coin drawn with a rounded box.
-static func coin_icon(size: float) -> Panel:
-	var p := Panel.new()
+static func coin_icon(size: float) -> Control:
+	var p := Control.new()
 	p.custom_minimum_size = Vector2(size, size)
 	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = GOLD
-	sb.set_corner_radius_all(int(size / 2))
-	sb.set_border_width_all(maxi(2, int(size / 8)))
-	sb.border_color = Color(0.65, 0.42, 0.08)
-	p.add_theme_stylebox_override("panel", sb)
+	p.draw.connect(func(): draw_coin(p, p.size * 0.5, minf(p.size.x, p.size.y) * 0.5))
 	return p
+
+
+## A shaded gold coin: an ink edge, a darker rim, a raised face with a ring pressed into it
+## and a shine on its upper left.
+static func draw_coin(c: CanvasItem, centre: Vector2, r: float) -> void:
+	c.draw_circle(centre + Vector2(0, r * 0.12), r, Color(0, 0, 0, 0.35))
+	c.draw_circle(centre, r, INK)
+	c.draw_circle(centre, r * 0.86, Color(0.82, 0.5, 0.06))
+	c.draw_circle(centre + Vector2(0, -r * 0.06), r * 0.72, GOLD)
+	c.draw_arc(centre + Vector2(0, -r * 0.04), r * 0.5, 0.0, TAU, 24, Color(0.85, 0.55, 0.08), maxf(1.0, r * 0.1), true)
+	c.draw_arc(centre, r * 0.62, PI * 1.05, PI * 1.6, 12, Color(1, 1, 0.9, 0.85), maxf(1.0, r * 0.13), true)
 
 
 ## A coin icon with a number next to it.
@@ -977,42 +983,78 @@ func _build_cards() -> void:
 	col.add_child(_cards_mastery)
 	col.add_child(label("Choose a Blessing", 40, Color(1, 0.85, 0.55)))
 	for i in 3:
+		# A chunky card: a frame and a thick lip in the blessing's rarity colour (painted in
+		# show_cards), a band of that colour across the top, the badge on the left, the name
+		# in the cartoon font and the rarity on a ribbon. Rare ones and up get a shine.
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(0, 120)
+		b.custom_minimum_size = Vector2(0, 132)
 		b.focus_mode = Control.FOCUS_NONE
-		var normal := StyleBoxFlat.new()
-		normal.bg_color = Color(0.12, 0.1, 0.16, 0.98)
-		normal.border_width_left = 10
-		normal.corner_radius_top_left = 10
-		normal.corner_radius_top_right = 10
-		normal.corner_radius_bottom_left = 10
-		normal.corner_radius_bottom_right = 10
-		var pressed := normal.duplicate()
-		pressed.bg_color = Color(0.2, 0.17, 0.26)
-		b.add_theme_stylebox_override("normal", normal)
-		b.add_theme_stylebox_override("hover", normal)
-		b.add_theme_stylebox_override("pressed", pressed)
-		var t := label("", 26, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		t.position = Vector2(96, 12)
-		t.size = Vector2(250, 40)
+		b.add_theme_stylebox_override("normal", StyleBoxFlat.new())
+		b.add_theme_stylebox_override("hover", StyleBoxFlat.new())
+		b.add_theme_stylebox_override("pressed", StyleBoxFlat.new())
+		b.add_theme_stylebox_override("hover_pressed", StyleBoxFlat.new())
+		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		var band := Panel.new()
+		band.name = "Band"
+		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		band.anchor_right = 1.0
+		band.offset_left = 4
+		band.offset_top = 4
+		band.offset_right = -4
+		band.offset_bottom = 48
+		b.add_child(band, false, Node.INTERNAL_MODE_FRONT)
+		var t := label("", 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
+		t.position = Vector2(104, 6)
+		t.size = Vector2(250, 44)
 		t.autowrap_mode = TextServer.AUTOWRAP_OFF
 		b.add_child(t)
-		var d := label("", 18, Color(0.8, 0.8, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
-		d.position = Vector2(96, 54)
-		d.size = Vector2(370, 56)
+		var d := label("", 18, Color(0.88, 0.86, 0.94), HORIZONTAL_ALIGNMENT_LEFT)
+		d.position = Vector2(104, 52)
+		d.size = Vector2(362, 62)
 		b.add_child(d)
 		var icon := BlessingIcon.new()
-		icon.position = Vector2(22, 28)
+		icon.zoom = 1.25
+		icon.position = Vector2(14, 22)
 		b.add_child(icon)
-		var r := label("", 14, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
+		var r := label("", 13, INK, HORIZONTAL_ALIGNMENT_CENTER)
 		r.anchor_left = 1.0
 		r.anchor_right = 1.0
-		r.offset_left = -130
-		r.offset_right = -14
-		r.offset_top = 10
-		r.offset_bottom = 30
+		r.offset_left = -150
+		r.offset_right = -12
+		r.offset_top = 12
+		r.offset_bottom = 34
 		r.autowrap_mode = TextServer.AUTOWRAP_OFF
+		r.label_settings.outline_size = 0
+		r.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		var pill := StyleBoxFlat.new()
+		pill.set_corner_radius_all(11)
+		pill.content_margin_left = 9
+		pill.content_margin_right = 9
+		r.add_theme_stylebox_override("normal", pill)
 		b.add_child(r)
+		var shine := Panel.new()
+		shine.name = "Shine"
+		shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var ss := StyleBoxFlat.new()
+		ss.bg_color = Color(1, 1, 1, 0.22)
+		ss.skew = Vector2(-0.6, 0)
+		shine.add_theme_stylebox_override("panel", ss)
+		shine.size = Vector2(46, 150)
+		shine.position = Vector2(-120, -8)
+		shine.visible = false
+		var clip := Control.new()   # keeps the glint inside the card
+		clip.name = "ShineClip"
+		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		clip.clip_contents = true
+		clip.anchor_right = 1.0
+		clip.anchor_bottom = 1.0
+		clip.offset_left = 4
+		clip.offset_top = 4
+		clip.offset_right = -4
+		clip.offset_bottom = -10
+		clip.add_child(shine)
+		b.add_child(clip, false, Node.INTERNAL_MODE_BACK)
+		b.resized.connect(func(): b.pivot_offset = b.size * 0.5)
 		var idx := i
 		b.pressed.connect(func(): _on_card(idx))
 		col.add_child(b)
@@ -2543,18 +2585,60 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		(labels[2] as BlessingIcon).show_for(u)
 		var kind: String = Heroes.get_hero(u.hero).title.to_upper() if u.has("hero") else Upgrades.FAMILIES[u.family].name.to_upper()
 		(labels[3] as Label).text = "%s · %s" % [kind, rar.name] if tags else kind
-		(labels[3] as Label).label_settings.font_color = rar.color
-		for sb_name in ["normal", "pressed"]:
-			var sb := b.get_theme_stylebox(sb_name) as StyleBoxFlat
-			sb.border_color = rar.color
-			var edge := 0 if u.rarity == "common" or not tags else (2 if u.rarity == "rare" else 3)
-			sb.border_width_top = edge
-			sb.border_width_right = edge
-			sb.border_width_bottom = edge
+		var col: Color = rar.color if tags else Color(0.62, 0.64, 0.7)
+		_paint_card(b, col, tags and u.rarity != "common")
+		# Dealt in one after another, each card flipping over from edge on.
+		b.scale = Vector2(0.0, 0.92)
+		b.modulate.a = 0.0
+		var tw := b.create_tween()
+		tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		tw.tween_interval(0.07 * i)
+		tw.tween_property(b, "modulate:a", 1.0, 0.05)
+		tw.parallel().tween_property(b, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		var tag := labels[3] as Label
+		tag.offset_left = tag.offset_right - tag.get_minimum_size().x   # the ribbon fits its words
+		var shine := b.get_node("ShineClip/Shine") as Panel
+		shine.visible = tags and u.rarity != "common"
+		if shine.visible:
+			# A glint sweeps across rare, epic and synergy cards as they land.
+			shine.position.x = -120
+			tw.tween_property(shine, "position:x", 560.0, 0.45).set_ease(Tween.EASE_IN_OUT)
 	_reroll_button.visible = rerolls > 0
 	_reroll_button.text = "Reroll (%d left)" % rerolls
 	_cards_box.visible = true
 	_cards_age = 0.0
+
+
+## A blessing card in its rarity colour: the frame and the thick lip under it, a band across
+## the top, the ribbon. `bright` (rare and up) gets a deeper tint and a stronger band.
+func _paint_card(b: Button, col: Color, bright: bool) -> void:
+	var face := Color(0.13, 0.1, 0.19).lerp(col.darkened(0.6), 0.32 if bright else 0.14)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = face
+	normal.border_color = col if bright else col.darkened(0.15)
+	normal.set_border_width_all(4)
+	normal.border_width_bottom = 10   # the card's thick lip
+	normal.set_corner_radius_all(18)
+	normal.shadow_color = Color(0, 0, 0, 0.4)
+	normal.shadow_size = 3
+	normal.shadow_offset = Vector2(0, 5)
+	normal.anti_aliasing_size = 1.2
+	var lip := normal.duplicate() as StyleBoxFlat
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = face.lightened(0.08)
+	pressed.border_width_bottom = 5
+	pressed.border_width_top = 9
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", lip)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("hover_pressed", pressed)
+	var band := StyleBoxFlat.new()
+	band.bg_color = Color(col, 0.26 if bright else 0.12)
+	band.corner_radius_top_left = 14
+	band.corner_radius_top_right = 14
+	(b.get_node("Band") as Panel).add_theme_stylebox_override("panel", band)
+	var r := b.get_child(3) as Label
+	(r.get_theme_stylebox("normal") as StyleBoxFlat).bg_color = col
 
 
 ## A little gold tag for the top right corner of a title button.
@@ -2649,8 +2733,58 @@ func title_hero_space() -> Rect2:
 
 
 func set_coins(n: int) -> void:
-	_coin_label.text = str(n)
+	_coin_target = n
+	_coin_label.text = str(n - _coins_flying)
 	_title_coins.text = str(n)
+
+
+var _coin_target := 0
+var _coins_flying := 0
+var _flights := 0
+const MAX_FLIGHTS := 14
+
+
+## A coin picked up in the room flies up to the coin counter, and the counter ticks up and
+## bounces when it lands. Call before the coins are added (Game.add_coins).
+func fly_coin(world_pos: Vector3, value: int) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or not visible or _flights >= MAX_FLIGHTS or cam.is_position_behind(world_pos):
+		return
+	var from := cam.unproject_position(world_pos)
+	var to: Vector2 = (_coin_label.get_parent() as Control).get_global_rect().position + Vector2(11, 14)
+	var dot := Control.new()
+	dot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dot.size = Vector2(32, 32)
+	dot.pivot_offset = dot.size * 0.5
+	dot.draw.connect(func(): draw_coin(dot, dot.size * 0.5, 15.0))
+	add_child(dot)
+	dot.position = from - dot.size * 0.5
+	_flights += 1
+	_coins_flying += value
+	# Up and to the side first, then a swoop into the counter.
+	var mid := from.lerp(to, 0.35) + Vector2(randf_range(-60.0, 60.0), -50.0)
+	var tw := dot.create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_method(func(t: float):
+		var a := from.lerp(mid, t)
+		var b := mid.lerp(to, t)
+		dot.position = a.lerp(b, t) - dot.size * 0.5
+		dot.scale = Vector2.ONE * lerpf(1.25, 0.8, t), 0.0, 1.0, 0.5).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(func():
+		dot.queue_free()
+		_flights -= 1
+		_coins_flying = maxi(0, _coins_flying - value)
+		_coin_label.text = str(_coin_target - _coins_flying)
+		_bump_coins())
+
+
+func _bump_coins() -> void:
+	var row := _coin_label.get_parent() as Control
+	row.pivot_offset = Vector2(14, 15)
+	var tw := row.create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.tween_property(row, "scale", Vector2(1.25, 1.25), 0.05)
+	tw.tween_property(row, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func set_toggles(music: bool, sounds: bool) -> void:

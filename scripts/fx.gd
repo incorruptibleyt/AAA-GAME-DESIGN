@@ -12,7 +12,9 @@ static var _burst_frame := -1
 static var _bursts_now := 0
 
 
-static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: float, life: float, gravity: float, capped := false) -> void:
+## `shape`: "glow" (a soft light added to what's behind it), "soft" (a soft puff painted
+## over it), "dot" (a crisp round spark) or "glint" (a four-pointed star). See _shaped.
+static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: float, life: float, gravity: float, capped := false, shape := "glow") -> void:
 	var world := Game.world
 	if world == null:
 		return
@@ -27,7 +29,7 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 	_burst_material()
 
 	var p := CPUParticles3D.new()
-	p.mesh = _quad
+	p.mesh = _shaped(shape)
 	p.one_shot = true
 	p.explosiveness = 1.0
 	p.amount = count
@@ -51,9 +53,6 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 	p.get_tree().create_timer(life + 0.2).timeout.connect(p.queue_free)
 
 
-static var _motif_quads := {}
-
-
 static func _burst_material() -> void:
 	if _quad != null:
 		return
@@ -66,9 +65,34 @@ static func _burst_material() -> void:
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	m.billboard_keep_scale = true
 	m.vertex_color_use_as_albedo = true
 	m.albedo_texture = U.soft_circle()
 	_quad.material = m
+
+
+static var _shapes := {}
+
+
+## The quad a particle is drawn on. Each keeps its scale (billboard_keep_scale): without it
+## every particle was drawn 1 m wide whatever size it was given (until version 102), which
+## made sparks and magic into big soft blobs.
+static func _shaped(shape: String) -> QuadMesh:
+	_burst_material()
+	if shape == "glow":
+		return _quad
+	if not _shapes.has(shape):
+		var q := QuadMesh.new()
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.billboard_keep_scale = true
+		m.vertex_color_use_as_albedo = true
+		m.albedo_texture = {"soft": U.soft_circle(), "dot": U.dot(), "glint": U.glint()}.get(shape, U.soft_circle())
+		q.material = m
+		_shapes[shape] = q
+	return _shapes[shape]
 
 
 ## A slow stream of gold sparkles for a Master hero (hero.gd _build_sparkles). They are
@@ -76,7 +100,7 @@ static func _burst_material() -> void:
 static func sparkle_trail(color: Color) -> CPUParticles3D:
 	_burst_material()
 	var p := CPUParticles3D.new()
-	p.mesh = _quad
+	p.mesh = _shaped("glint")
 	p.amount = 18
 	p.lifetime = 1.2
 	p.local_coords = false
@@ -85,8 +109,8 @@ static func sparkle_trail(color: Color) -> CPUParticles3D:
 	p.initial_velocity_min = 0.4
 	p.initial_velocity_max = 1.0
 	p.gravity = Vector3(0, 0.3, 0)
-	p.scale_amount_min = 0.16
-	p.scale_amount_max = 0.3
+	p.scale_amount_min = 0.4
+	p.scale_amount_max = 0.65
 	p.scale_amount_curve = _shrink
 	p.color = color
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
@@ -109,18 +133,7 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 	# Round sparks for the Rogue's wisps and the Barbarian's embers, four-pointed glints for
 	# the Knight's motes and the Mage's stars.
 	var shape := "dot" if kind in ["wisps", "embers"] else "glint"
-	if not _motif_quads.has(shape):
-		var q := QuadMesh.new()
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-		m.billboard_keep_scale = true   # (without it every particle is drawn 1 m wide, whatever its scale)
-		m.vertex_color_use_as_albedo = true
-		m.albedo_texture = U.dot() if shape == "dot" else U.glint()
-		q.material = m
-		_motif_quads[shape] = q
-	p.mesh = _motif_quads[shape]
+	p.mesh = _shaped(shape)
 	p.color = Color(color, 0.85 if kind == "wisps" else 1.0)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
 	match kind:
@@ -178,15 +191,15 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 
 
 static func sparks(pos: Vector3, color := Color(1.0, 0.85, 0.5)) -> void:
-	_burst(pos, 10, color, 0.25, 7.0, 0.35, 0.5, true)
+	_burst(pos, 10, color, 0.4, 7.0, 0.35, 0.5, true, "dot")
 
 
 static func bones(pos: Vector3) -> void:
-	_burst(pos + Vector3.UP * 0.6, 22, Color(0.95, 0.92, 0.82), 0.35, 6.0, 0.8, 2.0, true)
+	_burst(pos + Vector3.UP * 0.6, 22, Color(0.95, 0.92, 0.82), 0.42, 6.0, 0.8, 2.0, true, "dot")
 
 
 static func dust(pos: Vector3, count := 14) -> void:
-	_burst(pos + Vector3.UP * 0.2, count, Color(0.55, 0.5, 0.62, 0.5), 0.8, 1.6, 0.9, -0.05)
+	_burst(pos + Vector3.UP * 0.2, count, Color(0.62, 0.58, 0.68, 0.5), 1.4, 1.6, 0.9, -0.05, false, "soft")
 
 
 ## A quick flash of light where a shot lands: pops big, then shrinks away (0.14 s).
@@ -230,7 +243,7 @@ static var _impacts_now := 0
 
 ## A glowing after-image left behind by the dash.
 static func trail(pos: Vector3, color: Color) -> void:
-	_burst(pos, 6, color, 0.7, 0.6, 0.35, 0.0)
+	_burst(pos, 6, color, 1.2, 0.6, 0.35, 0.0)
 
 
 ## A ring of light that rushes outwards (the finishing blow of a room).
@@ -267,9 +280,8 @@ static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
 ## Drifting motes that give each floor its mood: embers rise, frost flakes fall.
 static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36,
 		colors: Array = [Color(1.0, 0.55, 0.2, 0.9), Color(0.7, 0.6, 1.0, 0.35)], fall := false, size := 1.0) -> CPUParticles3D:
-	_burst_material()
 	var p := CPUParticles3D.new()
-	p.mesh = _quad
+	p.mesh = _shaped("dot")
 	p.amount = amount
 	p.lifetime = 7.0
 	p.preprocess = 7.0
@@ -278,8 +290,8 @@ static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36,
 	p.initial_velocity_min = 0.15
 	p.initial_velocity_max = 0.45
 	p.gravity = Vector3(0.12, -0.15, 0.05) if fall else Vector3(0.05, 0.02, 0)
-	p.scale_amount_min = 0.04 * size
-	p.scale_amount_max = 0.11 * size
+	p.scale_amount_min = 0.1 * size
+	p.scale_amount_max = 0.2 * size
 	var curve := Curve.new()
 	curve.add_point(Vector2(0, 0))
 	curve.add_point(Vector2(0.2, 1))
@@ -298,7 +310,7 @@ static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36,
 
 
 static func magic(pos: Vector3, color: Color, count := 18) -> void:
-	_burst(pos, count, color, 0.35, 4.0, 0.6, -0.2)
+	_burst(pos, count, color, 1.0, 4.0, 0.6, -0.2, false, "glint")
 
 
 static var _flame_mat: ShaderMaterial
