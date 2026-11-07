@@ -94,6 +94,7 @@ var _room_label: Label
 var _boss_box: Control
 var _boss_fill: Control
 var _banner: Label
+var _banner_w := 0.0   # the banner's text width, so its pop-in can stay on screen
 var _wave_label: Label
 var _banner_time := 0.0
 var _shown_hp := 1.0
@@ -2407,6 +2408,8 @@ func _process(delta: float) -> void:
 		_banner_time -= delta
 		_banner.modulate.a = clampf(_banner_time / 0.4, 0.0, 1.0)
 		var s := 1.0 + maxf(0.0, _banner_time - 1.6)
+		# The pop-in never pushes a wide banner off the screen edges.
+		s = minf(s, maxf(1.0, (get_viewport().get_visible_rect().size.x - 24.0) / maxf(_banner_w, 1.0)))
 		_banner.scale = Vector2(s, s)
 		_banner.pivot_offset = _banner.size / 2
 
@@ -2475,7 +2478,15 @@ func banner(text: String, col := Color(1, 0.9, 0.7)) -> void:
 	_callout_time = minf(_callout_time, 0.25)
 	_banner.text = text
 	_banner.label_settings.font_color = col
-	_banner.label_settings.font_size = 48 if text.length() <= 16 else 38
+	var fs := 48 if text.length() <= 16 else 38
+	# Long banners ("Loop 2 · Floor 6: Drowned Vault") shrink until they fit the screen.
+	var room := get_viewport().get_visible_rect().size.x - 40.0
+	var font: Font = _banner.label_settings.font if _banner.label_settings.font else ThemeDB.fallback_font
+	var outline := _banner.label_settings.outline_size
+	while fs > 22 and font and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + outline > room:
+		fs -= 2
+	_banner.label_settings.font_size = fs
+	_banner_w = font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + outline if font else 0.0
 	_banner_time = 2.0
 
 
@@ -2602,7 +2613,7 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		var labels := b.get_children()
 		(labels[0] as Label).text = u.title
 		(labels[0] as Label).label_settings.font_color = Upgrades.color(u)
-		(labels[1] as Label).text = u.text
+		(labels[1] as Label).text = Upgrades.card_text(u)
 		(labels[2] as BlessingIcon).show_for(u)
 		var kind: String = Heroes.get_hero(u.hero).title.to_upper() if u.has("hero") else Upgrades.FAMILIES[u.family].name.to_upper()
 		(labels[3] as Label).text = "%s · %s" % [kind, rar.name] if tags else kind

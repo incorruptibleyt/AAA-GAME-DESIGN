@@ -52,14 +52,16 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 ## Finished bursts wait here to be used again, instead of a new emitter (and a free a moment
 ## later) for every hit, kill and puff. Past POOL_MAX idle ones, extras are freed.
 const POOL_MAX := 48
-static var _free_bursts: Array[CPUParticles3D] = []
+## Untyped on purpose: an emitter freed with its parent (the warm-up frees what it made)
+## stays in the list as a freed object, and a typed read of one is a script error.
+static var _free_bursts: Array = []
 
 
 static func _take_burst(world: Node3D) -> CPUParticles3D:
 	while not _free_bursts.is_empty():
-		var old: CPUParticles3D = _free_bursts.pop_back()
-		if is_instance_valid(old) and old.get_parent() == world:
-			return old
+		var old: Variant = _free_bursts.pop_back()
+		if is_instance_valid(old) and (old as Node).get_parent() == world and not (old as Node).is_queued_for_deletion():
+			return old as CPUParticles3D
 	var p := CPUParticles3D.new()
 	p.one_shot = true
 	p.explosiveness = 1.0

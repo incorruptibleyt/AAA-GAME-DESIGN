@@ -72,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07i"
+const BUILD := "2026-11-07j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -732,9 +732,14 @@ func coin_mult() -> float:
 
 ## Hearts heal 20% more per floor, so they keep up with skeletons that hit harder deeper
 ## down (a flat 12 healed nearly every hit on floor 1 and barely dented floor 5).
+## How much hearts and Vitality grow with the floor: +20% a floor up to floor 5 (the tuned
+## early game, unchanged), then +35% a floor, like enemy hits, so deep floors stay fair.
+func heal_scale() -> float:
+	return 1.0 + 0.2 * (mini(floor_num, 5) - 1) + 0.35 * maxi(floor_num - 5, 0)
+
+
 func heart_mult() -> float:
-	# Hearts grow 35% a floor, like enemy hits, so one stays about one swing deep.
-	return (1.0 + 0.35 * (floor_num - 1)) * (2.0 if curses.has("hearty") else 1.0) * pow(0.7, _omen("ash"))
+	return heal_scale() * (2.0 if curses.has("hearty") else 1.0) * pow(0.7, _omen("ash"))
 
 
 ## A golden arrow at the hero's feet pointing to the open door, so nobody gets lost.

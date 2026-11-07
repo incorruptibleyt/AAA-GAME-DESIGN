@@ -93,6 +93,20 @@ static func unlocked(u: Dictionary) -> bool:
 	return not u.get("vault", false) or Game.vault.has(u.id)
 
 
+## What Vitality gives on this floor (see Game.heal_scale): 30 on floor 1, 54 on floor 5,
+## then it keeps pace with enemy hits deeper down.
+static func vitality_amount() -> float:
+	return roundf(30.0 * Game.heal_scale())
+
+
+## A card's text, with this floor's real numbers where they change.
+static func card_text(u: Dictionary) -> String:
+	if u.id == "vitality":
+		var v := int(vitality_amount())
+		return "+%d max health and heal %d" % [v, v]
+	return u.text
+
+
 ## The colour a card's title uses.
 static func color(u: Dictionary) -> Color:
 	return FAMILIES[u.family].color
@@ -111,8 +125,7 @@ static func apply(id: String, h: Hero) -> void:
 		"fire": h.burn_dps += 8.0 * (2.0 if h.perks.has("kindling") else 1.0)   # Kindling doubles a later Fire Shots too
 		"kindling": h.burn_dps *= 2.0
 		"vitality":
-			# Worth the same number of hits on every floor (enemy hits grow 35% a floor).
-			var v := 30.0 * (1.0 + 0.35 * (Game.floor_num - 1))
+			var v := vitality_amount()
 			h.max_health += v
 			h.heal(v)
 		"harvest": h.harvest_heal += 2.0
