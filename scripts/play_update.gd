@@ -178,7 +178,9 @@ func _update() -> void:
 ## (it limits how often), and never tells the game what was rated. Returns false where there
 ## is no Play plugin (the test APK, a computer).
 static func ask_review() -> bool:
-	if instance == null or instance._play == null or not instance._play.has_method("review"):
+	# (No has_method check: an Android plugin's methods aren't visible to has_method. The
+	# review method ships in the same plugin as the update check, so it is always there.)
+	if instance == null or instance._play == null:
 		return false
 	instance._play.review()
 	return true

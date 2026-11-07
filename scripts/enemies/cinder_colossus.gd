@@ -33,7 +33,7 @@ func _setup() -> void:
 	center_height = 1.9
 	knockback_scale = 0.06
 	var look := bones(Art.SKELETON_WARRIOR, 4.3, Color(1.0, 0.65, 0.15))
-	look.overlay = CinderSkeleton._charred()
+	look.overlay = CinderSkeleton._charred(true)   # lighter, with a glowing rim: readable on lava
 	look.accent = Color(0.5, 0.2, 0.1)
 	look.horns = true
 	look.weapon = "Skeleton_Axe"

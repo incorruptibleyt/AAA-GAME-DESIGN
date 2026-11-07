@@ -3157,8 +3157,6 @@ func set_end_goal(text: String) -> void:
 	_fit_end_soon()
 
 
-## Short screens (16:9 phones, tablets): the end screen tightens its gaps and, if it still
-## doesn't fit, shrinks as a whole so the last button stays on screen.
 ## Fits now and again two frames later: a wrapping label that was hidden has no width when it
 ## first shows and measures one word per line, which shrank the whole end screen for a frame or more.
 func _fit_end_soon() -> void:
@@ -3169,6 +3167,8 @@ func _fit_end_soon() -> void:
 		_fit_end()
 
 
+## Short screens (16:9 phones, tablets): the end screen tightens its gaps and, if it still
+## doesn't fit, shrinks as a whole so the last button stays on screen.
 func _fit_end() -> void:
 	if not _end_box.visible:
 		return

@@ -7,18 +7,30 @@ extends Label3D
 const LIFE := 0.75
 ## A hit this soon after the last one joins its number instead of making a new one.
 const MERGE := 0.4
+## Hits on skeletons join a number for longer, while it's still clearly on screen: a
+## special's rings of bolts hit the same skeleton every half second or so, and each ring
+## used to stack a new number on top of the last ("13" over "13").
+const FOE_MERGE := 0.6
 ## Where numbers sit, from the middle of whatever was hit: above it and to the right.
 const OFFSET := Vector3(0.75, 0.8, 0)
 ## In a big fight only this many numbers stay up; older ones start fading early (A-7).
 const MAX_LIVE := 10
+## Hits on skeletons this close (metres) to a number still adding up join it: a special
+## move hitting a crowd shows one growing total instead of a pile of 5 or more numbers.
+const CLUSTER := 1.6
+## ...for this long after it first showed, so a long brawl still shows fresh numbers.
+const CLUSTER_TIME := 0.8
 
 var _age := 0.0
+var _shown := 0.0   # seconds since it first showed (never reset by a merge)
 var _size := 1.0
 var _total := 0.0
 var _prefix := ""
 var _rise := 0.0
 var _lift := 0.0
 var _follow: Actor
+## A number for damage done to skeletons (crowded ones can share it; the hero's never do).
+var _foe := false
 var _base := Vector3.ZERO
 ## The number still adding up for each target ("<id>hit" / "<id>heal").
 static var _live := {}
@@ -38,7 +50,11 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		return
 	var key := "%d%s" % [who.get_instance_id(), kind]
 	var n: DamageNumber = _live.get(key)
-	if is_instance_valid(n) and n._age < MERGE:
+	var foe := kind == "hit" and who.team != Actor.Team.HERO
+	var merge := FOE_MERGE if foe else MERGE
+	if foe and not (is_instance_valid(n) and n._age < merge):
+		n = _nearby(who.center())
+	if is_instance_valid(n) and n._age < merge:
 		n._total += amount
 		n._age = 0.0
 		n._size = minf(n._size + 0.06, 1.8)
@@ -56,6 +72,7 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n.no_depth_test = true
 		n.fixed_size = false
 		n._follow = who
+		n._foe = foe
 		n._prefix = prefix
 		n._total = amount
 		n._base = who.center()
@@ -68,6 +85,19 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n.modulate = Color(1, 0.8, 0.12)
 		n._size = maxf(n._size, 1.55)
 	n.text = n._prefix + str(maxi(1, roundi(n._total)))
+
+
+## A skeleton-damage number still adding up near `at` (the closest), or null.
+static func _nearby(at: Vector3) -> DamageNumber:
+	var best: DamageNumber = null
+	var best_d := CLUSTER
+	for o in _live.values():
+		if is_instance_valid(o) and o._foe and o._age < FOE_MERGE and o._shown < CLUSTER_TIME:
+			var d: float = o._base.distance_to(at)
+			if d < best_d:
+				best_d = d
+				best = o
+	return best
 
 
 ## Takes every number off the screen at once (the blessing cards and doors cover the room,
@@ -110,6 +140,7 @@ static func _free_lift(at: Vector3) -> float:
 
 func _process(delta: float) -> void:
 	_age += delta
+	_shown += delta
 	var k := _age / LIFE
 	if k >= 1.0:
 		queue_free()

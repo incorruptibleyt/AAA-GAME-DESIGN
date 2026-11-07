@@ -7,6 +7,9 @@ extends Enemy
 var _drop := 0.9
 var _flame: MeshInstance3D
 static var _char_mat: ShaderMaterial
+static var _boss_mat: ShaderMaterial
+## One pair of shaders for both looks, so the Colossus needs no new shader compile mid-fight.
+static var _shaders: Array[Shader] = []
 
 
 func _setup() -> void:
@@ -27,15 +30,38 @@ func _setup() -> void:
 
 
 ## Burnt black bones with cracks of fire that pulse: a darkening pass, then the glow.
-static func _charred() -> ShaderMaterial:
-	if _char_mat:
+## `boss` (the Cinder Colossus): lighter scorched bones, brighter cracks and a hot glowing
+## rim, so the giant reads clearly against the dark red lava floor instead of as a black blob.
+static func _charred(boss := false) -> ShaderMaterial:
+	if boss and _boss_mat:
+		return _boss_mat
+	if not boss and _char_mat:
 		return _char_mat
+	if _shaders.is_empty():
+		_shaders = _make_shaders()
+	var mat := ShaderMaterial.new()
+	mat.shader = _shaders[0]
+	var cracks := ShaderMaterial.new()
+	cracks.shader = _shaders[1]
+	mat.next_pass = cracks
+	if boss:
+		mat.set_shader_parameter("shade", Vector3(0.62, 0.5, 0.46))
+		cracks.set_shader_parameter("crack_power", 2.6)
+		cracks.set_shader_parameter("rim", 0.9)
+		_boss_mat = mat
+	else:
+		_char_mat = mat
+	return mat
+
+
+static func _make_shaders() -> Array[Shader]:
 	var dark := Shader.new()
 	dark.code = """
 shader_type spatial;
 render_mode unshaded, blend_mul, depth_draw_never, cull_back;
+uniform vec3 shade = vec3(0.3, 0.22, 0.2);
 void fragment() {
-	ALBEDO = vec3(0.3, 0.22, 0.2);
+	ALBEDO = shade;
 }
 """
 	var glow := Shader.new()
@@ -43,6 +69,9 @@ void fragment() {
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_back;
 uniform vec4 glow : source_color = vec4(1.0, 0.42, 0.06, 1.0);
+uniform float crack_power = 1.8;
+uniform float rim = 0.0;
+uniform vec4 rim_color : source_color = vec4(1.0, 0.72, 0.28, 1.0);
 varying vec3 p;
 void vertex() {
 	p = VERTEX;
@@ -61,15 +90,12 @@ void fragment() {
 	float n = vn(p * 6.0) * 0.65 + vn(p * 13.0) * 0.35;
 	float crack = smoothstep(0.86, 0.97, 1.0 - abs(n * 2.0 - 1.0));
 	float pulse = 0.7 + 0.3 * sin(TIME * 3.0 + p.y * 4.0);
-	ALBEDO = glow.rgb * (crack * 1.8 + 0.06) * pulse;
+	ALBEDO = glow.rgb * (crack * crack_power + 0.06) * pulse;
+	float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
+	ALBEDO += rim_color.rgb * edge * rim * (0.85 + 0.15 * pulse);
 }
 """
-	_char_mat = ShaderMaterial.new()
-	_char_mat.shader = dark
-	var cracks := ShaderMaterial.new()
-	cracks.shader = glow
-	_char_mat.next_pass = cracks
-	return _char_mat
+	return [dark, glow]
 
 
 func _dress() -> void:
