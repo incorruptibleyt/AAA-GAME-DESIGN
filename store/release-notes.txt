@@ -1,5 +1,6 @@
-Version 100: A brand new look!
-- Bold new font and chunky buttons that press down when you tap them.
-- A soft glow behind every menu.
-- Your hero now stands big and lit on the title screen.
-- Shiny new Bone Road bar.
+Version 100: A brand new look, plus Hero Mastery!
+- Bold new font, chunky buttons and a glow behind every menu. Your hero stands big on the title screen.
+- Hero Mastery: every hero grows from level 1 to 10. Masters wear a golden crown and gold sparkles.
+- Hero Looks: every Mastery level unlocks 3 new looks.
+- Bone Drops and the Bone Road: free rewards for every room you clear.
+- Skeleton Warriors now warn before every axe swing.
