@@ -2885,6 +2885,8 @@ func _wear_look(id: String, slot: String, key: String) -> void:
 	HeroStyle.wear(cfg, id, slot, key)
 	write_save(cfg)
 	hud.open_style(cfg, id)
+	if state != State.TITLE:
+		hud.style_note("Saved: your hero wears it from the next run")   # the hero in a run keeps its look
 	if hud._heroes_box.visible:
 		hud.show_heroes(true, _hero_rows(), coins)
 	if state == State.TITLE and hero and hero.hero_id == id and _swap_hero(id, true):

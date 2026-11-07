@@ -2727,6 +2727,10 @@ func style_show_new(lv: int) -> void:
 	_style.show_new(lv)
 
 
+func style_note(text: String) -> void:
+	_style.set_note(text)
+
+
 func close_style() -> void:
 	_style.close()
 

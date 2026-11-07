@@ -135,6 +135,11 @@ func show_new(lv: int) -> void:
 	_show_tab(best.slot, true)
 
 
+func set_note(text: String) -> void:
+	_note.text = text
+	_note.label_settings.font_color = Color(0.6, 1.0, 0.65)
+
+
 func close() -> void:
 	if not visible:
 		return
@@ -294,7 +299,9 @@ class Swatch extends Control:
 					var t := PI * 0.85 + (TAU - PI * 0.7) * i / 32.0
 					pts.append(c + Vector2(cos(t), sin(t)) * r)
 				draw_colored_polygon(pts, a)
-				draw_circle(c, r, Color(1, 1, 1, 0.35), false, 2.0, true)
+				# A brighter rim on very dark outfits (Shadow, Midnight) so they don't vanish on the card.
+				var rim := 0.7 if a.get_luminance() < 0.2 else 0.35
+				draw_circle(c, r, Color(1, 1, 1, rim), false, 2.0, true)
 			"glow":
 				draw_circle(c, r, Color(a, 0.18))
 				draw_circle(c, r * 0.72, a, false, r * 0.22, true)
