@@ -1,7 +1,8 @@
-Version 101: A brighter, bolder Bone Chain!
-- Brighter, warmer dungeons, and your hero and bosses now have a bold outline.
-- Bold new font, chunky buttons and a chunkier fight screen.
-- Big moves like Shield Slam and PERFECT dodges flash without hiding your hero.
-- Hero Mastery: every hero grows from level 1 to 10. Masters wear a golden crown.
-- Hero Looks: every Mastery level unlocks 3 new looks.
-- Skeleton Warriors now warn before every axe swing.
+Version 102: Bone Chain gets its biggest new look yet!
+- Blessing cards glow in their rarity colour and flip in. Rare ones shine.
+- Coins fly up to your coin counter.
+- Big, bold damage numbers and shiny new blessing icons.
+- Cleaner, crisper sparks and dust.
+- Master auras: heroes at Mastery 8, 9 and 10 unlock a glowing aura each.
+- Brighter dungeons, bold outlines, chunky buttons and a new font.
+- Hero Mastery levels 1 to 10, with 3 new looks per level.
