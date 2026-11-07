@@ -2,7 +2,7 @@
 extends EditorPlugin
 
 # Adds the PlayUpdate Android plugin (android_plugins/PlayUpdate, built by CI into bin/)
-# and Google's app-update library to Android exports.
+# and Google's app-update and review (rating card) libraries to Android exports.
 var export_plugin: PlayUpdateExportPlugin
 
 
@@ -27,7 +27,7 @@ class PlayUpdateExportPlugin extends EditorExportPlugin:
 		return PackedStringArray([NAME + "/bin/%s/%s-%s.aar" % [kind, NAME, kind]])
 
 	func _get_android_dependencies(platform, debug):
-		return PackedStringArray(["com.google.android.play:app-update:2.1.0"])
+		return PackedStringArray(["com.google.android.play:app-update:2.1.0", "com.google.android.play:review:2.0.2"])
 
 	func _get_name():
 		return NAME

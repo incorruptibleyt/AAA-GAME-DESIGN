@@ -54,6 +54,8 @@ func _ready() -> void:
 	_play = Engine.get_singleton(PLUGIN)
 	_play.connect("update_checked", _on_checked)
 	_play.connect("update_finished", _on_finished)
+	if _play.has_signal("review_finished"):
+		_play.connect("review_finished", func(ok: int, detail: String): print("[review] rating card: %d %s" % [ok, detail]))
 	_play.check()
 
 
@@ -170,6 +172,23 @@ func _update() -> void:
 	_status.text = ""
 	if _play:
 		_play.start()
+
+
+## Asks Google Play to show its in-app rating card. Google decides whether it really shows
+## (it limits how often), and never tells the game what was rated. Returns false where there
+## is no Play plugin (the test APK, a computer).
+static func ask_review() -> bool:
+	if instance == null or instance._play == null or not instance._play.has_method("review"):
+		return false
+	instance._play.review()
+	return true
+
+
+## The game's Google Play page, for the Settings "Rate us" button: the Play Store app if
+## the phone has it, else the web page.
+static func open_store_page() -> void:
+	if OS.get_name() != "Android" or OS.shell_open("market://details?id=" + STORE_URL.get_slice("id=", 1)) != OK:
+		OS.shell_open(STORE_URL)
 
 
 ## What came back from Google's update page.

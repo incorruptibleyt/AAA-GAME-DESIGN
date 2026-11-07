@@ -14,9 +14,16 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import make_logo
 
-FONT = "/usr/share/fonts/opentype/inter/InterDisplay-Black.otf"
-FONT_BOLD = "/usr/share/fonts/opentype/inter/InterDisplay-Bold.otf"
-LOGO_FONT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "fonts", "Fruktur-Regular.ttf")
+HERE = os.path.dirname(os.path.abspath(__file__))
+# Captions use the game's own chunky font (Lilita One, since version 100) so the store page
+# matches the menus; sub-captions a plain bold face (the first that exists here).
+FONT = os.path.join(HERE, "..", "..", "fonts", "LilitaOne-Regular.ttf")
+FONT_BOLD = next((f for f in [
+    "/usr/share/fonts/opentype/inter/InterDisplay-Bold.otf",
+    "/usr/share/fonts/opentype/inter/Inter-Bold.otf",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+] if os.path.exists(f)), FONT)
+LOGO_FONT = os.path.join(HERE, "..", "..", "fonts", "Fruktur-Regular.ttf")
 BONE = (240, 226, 196)
 GOLD = (255, 205, 110)
 EMBER = (255, 120, 40)
@@ -30,7 +37,7 @@ SHOTS = [
     ("blessings", "A NEW BUILD EVERY RUN", "Fire, frost, bolts and bone blessings"),
     ("lich", "OUTSMART THE LICH", "Read the warnings, dash, strike back"),
     ("tide", "THE DROWNED VAULT", "Crypt Pass: face the Tidecaller below"),
-    ("mastery", "MASTER YOUR HEROES", "27 looks to unlock for every hero"),
+    ("mastery", "MASTER YOUR HEROES", "30 looks to unlock for every hero"),
     ("daily", "A NEW CRYPT EVERY DAY", "The same rooms for everyone, then share"),
 ]
 

@@ -47,7 +47,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 ★ MASTER YOUR HEROES
 • Every room cleared and every boss beaten gives your hero Mastery, and it is never lost.
 • Ten Mastery levels per hero bring coins, Bone Drops and titles (Adept, Veteran, Master).
-• Unlock 27 looks per hero: outfits, hats, weapons and glows.
+• Unlock 30 looks per hero: outfits, hats, weapons, glows and auras.
 • Reach Master for a golden crown and a trail of gold sparkles.
 
 ★ A CRYPT THAT FIGHTS BACK
@@ -106,13 +106,13 @@ This link is pinned to one saved version of the policy, so it keeps working even
 - App icon, 512 x 512: [icon-512.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/icon-512.png)
 - Feature graphic, 1024 x 500: [feature-1024x500.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/feature-1024x500.png)
 - Phone screenshots, 1080 x 1920, all 8 in this order (Play allows up to 8; these replace the old 6):
-    1. [screenshot-1.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-1.png): Chain your kills
-    2. [screenshot-2.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-2.png): Dash through danger
-    3. [screenshot-3.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-3.png): Fight giant bosses (Cinder Colossus)
-    4. [screenshot-4.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-4.png): A new build every run
-    5. [screenshot-5.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-5.png): Outsmart the Lich
-    6. [screenshot-6.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-6.png): The Drowned Vault (Crypt Pass, Tidecaller)
-    7. [screenshot-7.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-7.png): Master your heroes (Mastery and 27 looks each)
-    8. [screenshot-8.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-j5ioix/store/screenshot-8.png): A new crypt every day
+    1. [screenshot-1.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-1.png): Chain your kills
+    2. [screenshot-2.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-2.png): Dash through danger
+    3. [screenshot-3.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-3.png): Fight giant bosses (Cinder Colossus)
+    4. [screenshot-4.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-4.png): A new build every run
+    5. [screenshot-5.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-5.png): Outsmart the Lich
+    6. [screenshot-6.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-6.png): The Drowned Vault (Crypt Pass, Tidecaller)
+    7. [screenshot-7.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-7.png): Master your heroes (Mastery and 30 looks each)
+    8. [screenshot-8.png](https://github.com/incorruptibleyt/AAA-GAME-DESIGN/raw/claude/project-thread-b8w5ks/store/screenshot-8.png): A new crypt every day
 
 The icon, banner and screenshots are made by tools/store/render_art.gd and tools/store/compose.py.

@@ -609,8 +609,8 @@ static func draw_coin(c: CanvasItem, centre: Vector2, r: float) -> void:
 
 ## A coin icon with a number next to it.
 ## A small "Privacy policy" button that opens the policy page in the browser.
-static func privacy_button() -> Button:
-	var b := button("Privacy policy", 18, Color(0.08, 0.07, 0.1, 0.85), Color(0.6, 0.55, 0.6, 0.4))
+static func privacy_button(text_size := 18) -> Button:
+	var b := button("Privacy policy", text_size, Color(0.08, 0.07, 0.1, 0.85), Color(0.6, 0.55, 0.6, 0.4))
 	b.add_theme_color_override("font_color", Color(0.75, 0.72, 0.78))
 	b.custom_minimum_size = Vector2(200, 58)
 	b.pressed.connect(func(): OS.shell_open(Game.PRIVACY_URL))
@@ -1318,7 +1318,7 @@ func set_drops(n: int) -> void:
 	for b in [_title_drops, _end_drop]:
 		b.visible = n > 0
 		b.text = "OPEN BONE DROP" if n == 1 else "OPEN %d BONE DROPS" % n
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## The Bone Drop screen (drop_screen.gd); `opener` opens one and returns what was inside.
@@ -1728,16 +1728,25 @@ func _build_pause() -> void:
 	_reports_button = button("Send reports: Off", 22)
 	_reports_button.pressed.connect(func(): reports_toggled.emit(not _reports_on))
 	col.add_child(_centered(_reports_button))
-	# Two small buttons side by side, so the menu still fits a 16:9 phone.
+	# Three small buttons side by side, so the menu still fits a 16:9 phone.
 	var small := HBoxContainer.new()
 	small.alignment = BoxContainer.ALIGNMENT_CENTER
-	small.add_theme_constant_override("separation", 12)
-	small.add_child(privacy_button())
-	var fb := button("Send feedback", 18, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
+	small.add_theme_constant_override("separation", 8)
+	small.add_child(privacy_button(16))
+	var fb := button("Send feedback", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
 	fb.add_theme_color_override("font_color", Color(1, 0.88, 0.62))
-	fb.custom_minimum_size = Vector2(200, 58)
+	fb.custom_minimum_size = Vector2(160, 58)
 	fb.pressed.connect(show_feedback.bind(true))
 	small.add_child(fb)
+	# Rate us: opens the game's Google Play page (the in-app rating card is only for happy moments).
+	var rate := button("Rate us", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
+	rate.add_theme_color_override("font_color", Color(1, 0.88, 0.62))
+	rate.custom_minimum_size = Vector2(150, 58)
+	rate.pressed.connect(func():
+		Sfx.play("click")
+		UpdateGate.open_store_page())
+	small.add_child(rate)
+	(small.get_child(0) as Control).custom_minimum_size = Vector2(160, 58)
 	col.add_child(small)
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
@@ -3052,7 +3061,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_goal.visible = false
 	_end_mastery.visible = false
 	_end_looks.visible = false
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## The end screen's "tap anywhere" line. Going deeper after a win is the main way on, so it
@@ -3100,7 +3109,7 @@ func show_mastery(info: Dictionary) -> void:
 	if _end_looks.visible:
 		var n := int(_end_looks_for.n)
 		_end_looks.text = "SEE %d NEW LOOK%s" % [n, "" if n == 1 else "S"]
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## The Mastery screen for hero `id` (mastery_screen.gd), filled from `cfg`.
@@ -3145,11 +3154,21 @@ func mastery_visible() -> bool:
 func set_end_goal(text: String) -> void:
 	_end_goal.text = text
 	_end_goal.visible = text != "" and _end_box.visible
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## Short screens (16:9 phones, tablets): the end screen tightens its gaps and, if it still
 ## doesn't fit, shrinks as a whole so the last button stays on screen.
+## Fits now and again two frames later: a wrapping label that was hidden has no width when it
+## first shows and measures one word per line, which shrank the whole end screen for a frame or more.
+func _fit_end_soon() -> void:
+	_fit_end.call_deferred()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(self):
+		_fit_end()
+
+
 func _fit_end() -> void:
 	if not _end_box.visible:
 		return
@@ -3211,13 +3230,13 @@ func show_share(v: bool, rows := [], caption := "") -> void:
 	_share_button.text = "SHARE RESULT"
 	_share_button.add_theme_font_size_override("font_size", 20)
 	_copy_button.custom_minimum_size.x = 240.0 if v else 300.0
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## A CRYPT PASS button among the death-screen buttons (after a deep death, once a session).
 func show_end_pass(v: bool) -> void:
 	_end_pass.visible = v
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## The end of a loop: DESCEND DEEPER into `next_loop`, or BANK AND LEAVE with `bonus` coins.
@@ -3225,7 +3244,7 @@ func show_end_pass(v: bool) -> void:
 func show_end_title(v: bool, text := "TITLE") -> void:
 	_end_title_btn.text = text
 	_end_title_button.visible = v and _end_box.visible
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 func end_visible() -> bool:
@@ -3242,13 +3261,13 @@ func show_end_loop(v: bool, bonus := 0, next_loop := 2) -> void:
 	_end_spacer.custom_minimum_size.y = 24.0
 	_loop_deeper_button.text = "DESCEND INTO LOOP %d" % next_loop
 	_loop_bank_button.text = "BANK AND LEAVE  (+%d coins)" % bonus
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## Replaces the end screen's middle text (after buying the Pass at the free end).
 func set_end_stats(text: String) -> void:
 	_end_stats.text = text
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 ## The Pass was bought on the end screen: carry on deeper instead.
@@ -3256,7 +3275,7 @@ func end_offer_done(tap_text: String) -> void:
 	_end_offer.visible = false
 	_set_end_tap(tap_text)
 	_end_tap.visible = true
-	_fit_end.call_deferred()
+	_fit_end_soon()
 
 
 func show_pause(v: bool, settings_only := false) -> void:

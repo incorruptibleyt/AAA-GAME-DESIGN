@@ -284,6 +284,17 @@ func open(rows: Array, coins: int) -> void:
 	_refresh()
 
 
+## Fits again once the new text has been laid out. A label that was hidden (the gold
+## "Locked" line) has no width yet when it first shows, so it measures one word per line,
+## nearly 1,000 tall, and the hero used to shrink to the smallest pedestal for every locked hero.
+func _fit_soon() -> void:
+	_fit.call_deferred()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(self):
+		_fit()
+
+
 ## Shrinks the pedestal just enough for everything else to fit on screen.
 func _fit() -> void:
 	if not visible or _col == null:
@@ -373,7 +384,7 @@ func _refresh() -> void:
 			_icons[i].show_for(own[i])
 			_icon_names[i].text = own[i].title
 	_fill_action(r, ring)
-	_fit.call_deferred()
+	_fit_soon()
 
 
 ## How full a stat bar is: the weakest hero gets a third of a bar, the strongest a full one.

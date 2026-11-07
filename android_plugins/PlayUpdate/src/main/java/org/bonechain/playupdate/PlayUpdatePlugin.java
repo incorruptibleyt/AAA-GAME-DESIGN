@@ -8,6 +8,8 @@ import com.google.android.play.core.appupdate.AppUpdateManagerFactory;
 import com.google.android.play.core.appupdate.AppUpdateOptions;
 import com.google.android.play.core.install.model.AppUpdateType;
 import com.google.android.play.core.install.model.UpdateAvailability;
+import com.google.android.play.core.review.ReviewManager;
+import com.google.android.play.core.review.ReviewManagerFactory;
 
 import org.godotengine.godot.Godot;
 import org.godotengine.godot.plugin.GodotPlugin;
@@ -30,6 +32,10 @@ import java.util.Set;
  *  - update_finished(result): what came back from Google's page. -1 = accepted (Play installs
  *    it and restarts the game), 0 = backed out, 1 = failed, 2 = no update to start any more.
  *
+ *  - review_finished(ok, detail): Google's in-app rating card was asked for (review()).
+ *    ok = 1 when the flow finished (Google never says whether the card showed or what was
+ *    rated), 0 when it couldn't start. detail is for the log.
+ *
  * Every call is wrapped so that a problem here never stops the game from starting.
  */
 public class PlayUpdatePlugin extends GodotPlugin {
@@ -49,6 +55,7 @@ public class PlayUpdatePlugin extends GodotPlugin {
         Set<SignalInfo> signals = new HashSet<>();
         signals.add(new SignalInfo("update_checked", Integer.class, String.class, Integer.class, Integer.class));
         signals.add(new SignalInfo("update_finished", Integer.class));
+        signals.add(new SignalInfo("review_finished", Integer.class, String.class));
         return signals;
     }
 
@@ -122,6 +129,34 @@ public class PlayUpdatePlugin extends GodotPlugin {
                         .addOnFailureListener(e -> emitSignal("update_finished", 1));
             } catch (Throwable t) {
                 emitSignal("update_finished", 1);
+            }
+        });
+    }
+
+    /** Shows Google Play's in-app rating card (Google decides whether it actually appears). */
+    @UsedByGodot
+    public void review() {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            emitSignal("review_finished", 0, "no activity");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            try {
+                final ReviewManager reviews = ReviewManagerFactory.create(activity.getApplicationContext());
+                reviews.requestReviewFlow()
+                        .addOnSuccessListener(info -> {
+                            try {
+                                reviews.launchReviewFlow(activity, info)
+                                        .addOnCompleteListener(done -> emitSignal("review_finished", 1, "done"))
+                                        .addOnFailureListener(e -> emitSignal("review_finished", 0, String.valueOf(e)));
+                            } catch (Throwable t) {
+                                emitSignal("review_finished", 0, String.valueOf(t));
+                            }
+                        })
+                        .addOnFailureListener(e -> emitSignal("review_finished", 0, String.valueOf(e)));
+            } catch (Throwable t) {
+                emitSignal("review_finished", 0, String.valueOf(t));
             }
         });
     }

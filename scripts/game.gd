@@ -72,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07k"
+const BUILD := "2026-11-07l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -2306,6 +2306,7 @@ func _win() -> void:
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
 	_ask_reports()
+	_ask_review(was_first)
 
 
 func on_hero_died() -> void:
@@ -2750,6 +2751,27 @@ func _ask_reports() -> void:
 	if state in [State.DEAD, State.VICTORY] and not hud.armory_visible() and not hud.pass_visible() and not hud.heroes_visible() \
 			and not _load_save().has_section_key("settings", "reports"):
 		hud.show_reports_ask(true)
+
+
+## Google Play's rating card, asked once: a moment after the first boss a player beats
+## after the tutorial (a happy moment, never after a death). Not while the reports question
+## is still waiting, so the two never pile up; the next boss win asks instead.
+func _ask_review(was_first: bool) -> void:
+	var cfg := _load_save()
+	if was_first or cfg.get_value("stats", "review_asked", false):
+		return
+	if Telemetry.configured() and not cfg.has_section_key("settings", "reports"):
+		return
+	await get_tree().create_timer(2.5, true, false, true).timeout
+	if state != State.VICTORY or (UpdateGate.instance and UpdateGate.instance.showing()):
+		return
+	if "autoplay" in OS.get_cmdline_user_args():
+		print("[review] would ask for a rating now (floor %d)" % floor_num)
+		return
+	if UpdateGate.ask_review():
+		cfg = _load_save()
+		cfg.set_value("stats", "review_asked", true)
+		write_save(cfg)
 
 
 ## Asked as soon as the opening scene hands over to the title, from the very first launch:
