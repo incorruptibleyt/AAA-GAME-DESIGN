@@ -72,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07c"
+const BUILD := "2026-11-07d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -440,14 +440,22 @@ func _setup_environment() -> void:
 	env.ambient_light_color = Color(0.2, 0.19, 0.28)
 	env.ambient_light_energy = 1.0
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.1
+	env.tonemap_exposure = 1.05
+	# A touch more colour and contrast, so the brighter rooms stay rich, not milky.
+	env.adjustment_enabled = true
+	env.adjustment_saturation = 1.25
+	env.adjustment_contrast = 1.12
 	env.glow_enabled = true
 	env.glow_intensity = GLOW
-	env.glow_bloom = 0.05
-	env.glow_hdr_threshold = 1.0
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.1
+	# Tight glow (the small levels) around bright things, and only a touch of the wide
+	# level that used to spread a white haze over big moments.
+	for i in 7:
+		env.set_glow_level(i, [0.0, 0.5, 1.0, 0.0, 0.3, 0.0, 0.0][i])
 	env.fog_enabled = true
 	env.fog_light_color = Color(0.03, 0.03, 0.06)
-	env.fog_density = 0.012
+	env.fog_density = 0.008
 	var we := WorldEnvironment.new()
 	we.environment = env
 	world.add_child(we)
@@ -982,6 +990,24 @@ func _end_dash_lesson() -> void:
 
 func shake(amount: float) -> void:
 	_shake = maxf(_shake, amount * shake_scale)
+
+
+## Each floor's light (floors.gd): its own colours, made brighter and a little warmer so
+## the arena reads like a lit stage. The sun is the strong light, so characters keep their
+## shadows and shape.
+const SUN_WARM := Color(1.0, 0.86, 0.68)
+
+
+func _light_room(look: Dictionary) -> void:
+	var light: Array = look.get("light", [1.0, 0.5, 0.0, 0.0])
+	var amb: Color = look.ambient
+	var lum := amb.get_luminance()
+	_env.ambient_light_color = amb.lerp(Color(lum * 1.15, lum, lum * 0.85), light[3])
+	_env.ambient_light_energy = light[0]
+	_env.fog_light_color = look.fog
+	_env.background_color = look.background
+	_moon.light_color = (look.moon as Color).lerp(SUN_WARM, light[2])
+	_moon.light_energy = light[1]
 
 
 ## Specials fill the screen with bright bolts and shockwaves; for a moment the bloom is
@@ -1634,10 +1660,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	hud.set_timer(_hourglass_left if spawn_enemies and curses.has("hourglass") else -1.0)
 	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
 	var look := Floors.current()
-	_env.ambient_light_color = look.ambient
-	_env.fog_light_color = look.fog
-	_env.background_color = look.background
-	_moon.light_color = look.moon
+	_light_room(look)
 	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14, look.motes, look.motes_fall, look.get("motes_size", 1.0))
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start(), _run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save()))
@@ -2864,9 +2887,14 @@ func _set_graphics(high: bool, save := true) -> void:
 	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED
 	vp.scaling_3d_scale = _scale_3d(high)
 	_env.glow_enabled = high
+	_env.adjustment_enabled = high   # an extra full-screen pass; Low skips it
 	_moon.shadow_enabled = high
 	_high_graphics = high
 	Actor.show_blobs(not high)
+	CharacterVisual.outlines = high
+	for a: Actor in Actor.all:
+		if is_instance_valid(a) and a.visual:
+			a.visual.refresh_outline()
 	if Room.current:
 		Room.current.apply_graphics(high)
 	hud.set_graphics_label(high)

@@ -32,6 +32,11 @@ var _bar: HealthBar
 var _telegraphs: Array[Telegraph] = []
 
 
+## Bosses wear the cartoon outline, like the hero (character_visual.gd).
+func wants_outline() -> bool:
+	return is_boss
+
+
 static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	var e: Enemy
 	match kind:

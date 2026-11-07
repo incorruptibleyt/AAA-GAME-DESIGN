@@ -59,6 +59,7 @@ static func run() -> void:
 	steps.append(func():
 		for i in Heroes.LIST.size():
 			var v := CharacterVisual.new()
+			v.outline_me = true   # so the outline shader is ready before the first run
 			holder.add_child(v)
 			v.position = spots[FOES.size() + i]
 			# (The first in an outfit, so the outfit shader is ready: hero_style.gd.)

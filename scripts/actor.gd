@@ -44,11 +44,17 @@ func can_be_hit() -> bool:
 	return not dead
 
 
+## The hero and the bosses wear the cartoon outline (character_visual.gd).
+func wants_outline() -> bool:
+	return false
+
+
 ## (Version 90 gave plain skeletons a faint edge glow on High graphics. It drew every
 ## skeleton twice, a third more draw calls in a busy room, and version 91 ran at 41 FPS on a
 ## Galaxy S23 Ultra instead of 57, so it was taken out in version 92.)
 func make_visual(look: Dictionary) -> CharacterVisual:
 	visual = CharacterVisual.new()
+	visual.outline_me = wants_outline()
 	add_child(visual)
 	visual.build(look)
 	if team == Team.UNDEAD:

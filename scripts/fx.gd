@@ -157,13 +157,17 @@ static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
 		return
 	var ring := MeshInstance3D.new()
 	var torus := TorusMesh.new()
-	torus.inner_radius = 0.85
+	# A crisp ring: thin (about 40 cm across at full size, however wide it grows), so it
+	# never turns into a haze over the room.
+	torus.inner_radius = 1.0 - minf(0.15, 0.4 / maxf(radius, 0.1))
 	torus.outer_radius = 1.0
-	torus.rings = 32
+	torus.rings = 40
 	torus.ring_segments = 6
 	ring.mesh = torus
-	var m := U.unlit(color)
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	# Its own material (the shared one from U.unlit used to be faded to nothing by the
+	# first ring, so later rings of the same colour never showed). Drawn over the floor,
+	# not added to it, so a gold ring stays gold on a bright floor.
+	var m := U.unlit(Color(color.r, color.g, color.b, 0.85)).duplicate() as StandardMaterial3D
 	ring.material_override = m
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	world.add_child(ring)

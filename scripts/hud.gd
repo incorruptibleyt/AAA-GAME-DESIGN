@@ -87,11 +87,11 @@ var last_move := Vector2.ZERO
 var last_move_ms := -100000
 
 var _safe: MarginContainer
-var _hp_fill: ColorRect
+var _hp_fill: Control
 var _hp_label: Label
 var _room_label: Label
 var _boss_box: Control
-var _boss_fill: ColorRect
+var _boss_fill: Control
 var _banner: Label
 var _wave_label: Label
 var _banner_time := 0.0
@@ -313,6 +313,19 @@ func _ready() -> void:
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Big hits flash the edges of the screen, not the middle, so the hero never vanishes
+	# in a white wash.
+	var fsh := Shader.new()
+	fsh.code = """
+shader_type canvas_item;
+void fragment() {
+	float r = length(UV - vec2(0.5)) * 2.0;
+	COLOR.a *= mix(0.2, 1.0, smoothstep(0.35, 1.15, r));
+}
+"""
+	var fm := ShaderMaterial.new()
+	fm.shader = fsh
+	_flash.material = fm
 	_flash.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_flash)
 	_fade = ColorRect.new()
@@ -550,6 +563,25 @@ static func squash(b: Button) -> void:
 		t.tween_property(b, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT))
 
 
+## A chunky round button drawn on `c` (the DASH and special buttons): a darker lip under a
+## coloured face, an ink edge and a shine on top. `lit` false draws it dark and quiet.
+static func draw_round_button(c: CanvasItem, centre: Vector2, r: float, face: Color, lit: bool) -> void:
+	var f := face if lit else Color(0.16, 0.13, 0.22, 0.85)
+	var lip := f.darkened(0.45)
+	lip.a = f.a
+	c.draw_circle(centre + Vector2(0, 5), r + 3.0, Color(0, 0, 0, 0.3))   # shadow
+	c.draw_circle(centre + Vector2(0, 4), r, lip)
+	c.draw_circle(centre, r, f)
+	# The shine: a soft lighter cap on the top half of the face.
+	var cap := PackedVector2Array()
+	for i in 17:
+		var a := PI + PI * i / 16.0
+		cap.append(centre + Vector2(cos(a) * r * 0.8, sin(a) * r * 0.72 - r * 0.02))
+	c.draw_colored_polygon(cap, Color(1, 1, 1, 0.16 if lit else 0.06))
+	c.draw_arc(centre, r, 0.0, TAU, 48, INK, 3.5, true)
+	c.draw_arc(centre + Vector2(0, 4), r, 0.15, PI - 0.15, 32, INK, 3.5, true)
+
+
 ## A little gold coin drawn with a rounded box.
 static func coin_icon(size: float) -> Panel:
 	var p := Panel.new()
@@ -590,26 +622,51 @@ static func coin_row(text_size: int, parent: Control, centered := false) -> Labe
 	return l
 
 
-func _bar(parent: Control, fill_col: Color) -> ColorRect:
-	var frame := ColorRect.new()
-	frame.color = Color(0, 0, 0, 0.65)
+## A chunky bar (the hero's health, a boss's health): a dark rounded trough with an ink
+## edge, a glossy fill with a darker lip under it. Returns the fill; its anchor_right is
+## how full the bar is.
+func _bar(parent: Control, fill_col: Color) -> Control:
+	var frame := Panel.new()
 	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var fb := StyleBoxFlat.new()
+	fb.bg_color = Color(0.12, 0.08, 0.16, 0.92)
+	fb.border_color = INK
+	fb.set_border_width_all(3)
+	fb.set_corner_radius_all(10)
+	fb.shadow_color = Color(0, 0, 0, 0.35)
+	fb.shadow_size = 2
+	fb.shadow_offset = Vector2(0, 3)
+	frame.add_theme_stylebox_override("panel", fb)
 	parent.add_child(frame)
 	frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var back := ColorRect.new()
-	back.color = Color(0.15, 0.05, 0.06, 0.9)
-	back.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	frame.add_child(back)
-	back.set_anchors_preset(Control.PRESET_FULL_RECT)
-	back.offset_left = 3
-	back.offset_top = 3
-	back.offset_right = -3
-	back.offset_bottom = -3
-	var fill := ColorRect.new()
-	fill.color = fill_col
+	var trough := Control.new()
+	trough.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	trough.clip_contents = true
+	frame.add_child(trough)
+	trough.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	trough.offset_left = 4
+	trough.offset_top = 4
+	trough.offset_right = -4
+	trough.offset_bottom = -4
+	var fill := Panel.new()
 	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	back.add_child(fill)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = fill_col
+	sb.border_color = fill_col.darkened(0.35)
+	sb.border_width_bottom = 4   # the darker lip
+	sb.set_corner_radius_all(6)
+	fill.add_theme_stylebox_override("panel", sb)
+	trough.add_child(fill)
 	fill.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var shine := ColorRect.new()
+	shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	shine.color = Color(1, 1, 1, 0.22)
+	fill.add_child(shine)
+	shine.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	shine.offset_left = 4
+	shine.offset_right = -4
+	shine.offset_top = 2
+	shine.offset_bottom = 5
 	return fill
 
 
@@ -625,22 +682,29 @@ func _build_hud() -> void:
 
 	var hp := Control.new()
 	hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hp.position = Vector2(16, 16)
-	hp.size = Vector2(230, 30)
+	hp.position = Vector2(14, 14)
+	hp.size = Vector2(240, 36)
 	root.add_child(hp)
-	_hp_fill = _bar(hp, Color(0.85, 0.18, 0.22))
-	_hp_label = label("100 / 100", 18)
+	_hp_fill = _bar(hp, Color(0.92, 0.2, 0.24))
+	_hp_label = label("100 / 100", 20)
+	chunky(_hp_label.label_settings)
+	_hp_label.label_settings.outline_size = 5
+	_hp_label.label_settings.shadow_size = 0
 	full(_hp_label)
 	hp.add_child(_hp_label)
 
 	var coins := Control.new()
 	coins.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coins.position = Vector2(18, 52)
+	coins.position = Vector2(18, 56)
 	coins.size = Vector2(200, 30)
 	root.add_child(coins)
-	_coin_label = coin_row(22, coins)
+	_coin_label = coin_row(24, coins)
+	chunky(_coin_label.label_settings)
+	_coin_label.label_settings.outline_size = 6
 
-	_room_label = label("", 22, Color(0.9, 0.85, 0.75), HORIZONTAL_ALIGNMENT_RIGHT)
+	_room_label = label("", 22, Color(1, 0.95, 0.85), HORIZONTAL_ALIGNMENT_RIGHT)
+	chunky(_room_label.label_settings)
+	_room_label.label_settings.outline_size = 6
 	_room_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_room_label.offset_left = -276
 	_room_label.offset_right = -76
@@ -649,6 +713,8 @@ func _build_hud() -> void:
 	root.add_child(_room_label)
 
 	_wave_label = label("", 20, Color(1, 0.62, 0.45), HORIZONTAL_ALIGNMENT_RIGHT)
+	chunky(_wave_label.label_settings)
+	_wave_label.label_settings.outline_size = 5
 	_wave_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_wave_label.offset_left = -276
 	_wave_label.offset_right = -76
@@ -688,12 +754,17 @@ func _build_hud() -> void:
 	_pause_button.text = "II"
 	_pause_button.focus_mode = Control.FOCUS_NONE
 	_pause_button.add_theme_font_size_override("font_size", 22)
-	var pb := StyleBoxFlat.new()
-	pb.bg_color = Color(0, 0, 0, 0.45)
-	pb.set_corner_radius_all(26)
-	_pause_button.add_theme_stylebox_override("normal", pb)
-	_pause_button.add_theme_stylebox_override("hover", pb)
-	_pause_button.add_theme_stylebox_override("pressed", pb)
+	_pause_button.add_theme_font_override("font", UI_FONT)
+	_pause_button.add_theme_constant_override("outline_size", 6)
+	_pause_button.add_theme_color_override("font_outline_color", INK)
+	paint(_pause_button, "slate")
+	for st in ["normal", "hover", "pressed"]:
+		var pb := _pause_button.get_theme_stylebox(st).duplicate() as StyleBoxFlat
+		pb.set_corner_radius_all(16)
+		pb.content_margin_left = 0
+		pb.content_margin_right = 0
+		_pause_button.add_theme_stylebox_override(st, pb)
+	squash(_pause_button)
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_pause_button.offset_left = -66
 	_pause_button.offset_right = -14
@@ -726,13 +797,15 @@ func _build_hud() -> void:
 	_boss_box.offset_bottom = 112
 	root.add_child(_boss_box)
 	_boss_name = label(SkeletonKing.DISPLAY_NAME, 20, Color(1, 0.8, 0.6))
+	chunky(_boss_name.label_settings)
+	_boss_name.label_settings.outline_size = 5
 	_boss_name.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_boss_name.offset_bottom = 26
 	_boss_box.add_child(_boss_name)
 	var bar_holder := Control.new()
 	bar_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_holder.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar_holder.offset_top = -22
+	bar_holder.offset_top = -26
 	_boss_box.add_child(bar_holder)
 	_boss_fill = _bar(bar_holder, Color(0.75, 0.1, 0.12))
 	_boss_box.visible = false
@@ -758,6 +831,8 @@ func _build_hud() -> void:
 	_chain_label.pivot_offset = Vector2(160, 27)
 	_chain_box.add_child(_chain_label)
 	_score_label = label("", 18, Color(0.85, 0.82, 0.75))
+	chunky(_score_label.label_settings)
+	_score_label.label_settings.outline_size = 5
 	_score_label.position = Vector2(0, 94)
 	_score_label.size = Vector2(320, 24)
 	_chain_box.add_child(_score_label)

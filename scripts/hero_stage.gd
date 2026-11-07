@@ -106,6 +106,7 @@ func show_hero(def: Dictionary, gold := false) -> void:
 	if _visual:
 		_visual.queue_free()
 	_visual = CharacterVisual.new()
+	_visual.outline_me = true
 	_pivot.add_child(_visual)
 	_visual.build(Heroes.look(def))
 	_visual.attack(def.id == "mage")

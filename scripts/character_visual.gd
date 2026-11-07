@@ -27,6 +27,22 @@ var _meshes: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
 var _tint_mat: Material
 static var _rim_shader: Shader
+## A dark cartoon outline (High graphics) around the hero and the bosses, so they stand
+## out from the floor. It is drawn as part of the overlay, ahead of the tint or flash. Plain
+## skeletons don't get one: drawing every skeleton twice cost a Galaxy S23 Ultra a quarter
+## of its frame rate in version 91 (see actor.gd), and the brighter rooms make them read.
+static var outlines := true
+## Set before build(): this character gets the outline.
+var outline_me := false
+static var _outline_shader: Shader
+const OUTLINE_INK := Color(0.07, 0.035, 0.1)
+## Outline width as a share of the screen height (about 3 pixels on a 1200-pixel screen).
+const OUTLINE_WIDTH := 0.0026
+var _outlined := {}
+## Only the biggest parts get the outline (body, head, hat, big weapon): they make the
+## silhouette, and small pieces would cost an extra draw each for no visible line.
+const OUTLINE_PARTS := 5
+var _outline_set := {}
 
 
 ## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb, tint, rim,
@@ -251,9 +267,86 @@ func set_tint(col: Color) -> void:
 func _set_flash(on: bool) -> void:
 	if _flash_mat == null:
 		_flash_mat = U.unlit(Color.WHITE)
+	var mat: Material = _flash_mat if on else _tint_mat
+	var lined: Material = _with_outline(mat) if outline_me and outlines and not _dead else mat
+	if _outline_set.is_empty():
+		_pick_outline_meshes()
 	for m in _meshes:
 		if is_instance_valid(m):
-			m.material_overlay = _flash_mat if on else _tint_mat
+			m.material_overlay = lined if _outline_set.has(m) else mat
+
+
+func _pick_outline_meshes() -> void:
+	var sized: Array = []
+	for m in _meshes:
+		if is_instance_valid(m) and m is MeshInstance3D and (m as MeshInstance3D).mesh:
+			var size := (m as MeshInstance3D).mesh.get_aabb().size * _scale_in_model(m)
+			sized.append([size.x * size.y + size.y * size.z + size.x * size.z, m])
+	sized.sort_custom(func(a, b): return a[0] > b[0])
+	for i in mini(OUTLINE_PARTS, sized.size()):
+		_outline_set[sized[i][1]] = true
+	if _outline_set.is_empty():
+		_outline_set[null] = true   # nothing to outline: don't look again
+
+
+## A part's size relative to this character (the parts are scaled inside the model).
+func _scale_in_model(n: Node) -> Vector3:
+	var k := Vector3.ONE
+	while n != null and n != self:
+		if n is Node3D:
+			k *= (n as Node3D).scale.abs()
+		n = n.get_parent()
+	return k
+
+
+## Graphics changed (Settings or the automatic switch): redraw with or without outlines.
+func refresh_outline() -> void:
+	_set_flash(false)
+
+
+## The outline pass with `inner` (the tint, rim or flash) drawn after it. Cached per
+## visual, so a flash doesn't build a new material every hit.
+func _with_outline(inner: Material) -> Material:
+	if _outlined.has(inner):
+		return _outlined[inner]
+	var m := outline_material()
+	m.next_pass = inner
+	_outlined[inner] = m
+	return m
+
+
+## The mesh drawn again, inside out and pushed out a few pixels along its normals, in dark
+## ink: only the rim shows around the model. The push is measured on screen, so near and
+## far characters get the same line.
+static func outline_material() -> ShaderMaterial:
+	if _outline_shader == null:
+		_outline_shader = Shader.new()
+		_outline_shader.code = """
+shader_type spatial;
+render_mode unshaded, cull_front, shadows_disabled;
+uniform vec4 ink : source_color = vec4(0.07, 0.035, 0.1, 1.0);
+uniform float width = 0.0026;
+void vertex() {
+	vec4 clip = PROJECTION_MATRIX * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));
+	vec3 n = mat3(MODELVIEW_MATRIX) * NORMAL;
+	vec2 d = (PROJECTION_MATRIX * vec4(n, 0.0)).xy;
+	float len = length(d);
+	if (len > 0.0001) {
+		d /= len;
+	}
+	d.x *= VIEWPORT_SIZE.y / max(VIEWPORT_SIZE.x, 1.0);
+	clip.xy += d * width * 2.0 * clip.w;
+	POSITION = clip;
+}
+void fragment() {
+	ALBEDO = ink.rgb;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = _outline_shader
+	m.set_shader_parameter("ink", OUTLINE_INK)
+	m.set_shader_parameter("width", OUTLINE_WIDTH)
+	return m
 
 
 func _placeholder(look: Dictionary) -> Node3D:

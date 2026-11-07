@@ -242,6 +242,10 @@ func _perfect_dodge() -> void:
 		p.push = bolt_push
 
 
+func wants_outline() -> bool:
+	return true
+
+
 func special_ready() -> bool:
 	return special_charge >= 1.0
 
