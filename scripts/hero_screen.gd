@@ -52,6 +52,7 @@ const STAGE_MIN := 130.0
 
 func _init() -> void:
 	color = Color(0.03, 0.02, 0.05, 1.0)
+	Hud.backdrop(self)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
@@ -232,20 +233,22 @@ func _build_buttons() -> Control:
 	_action.custom_minimum_size = Vector2(210, 72)
 	_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_action.pressed.connect(_on_action)
+	Hud.squash(_action)
 	row.add_child(_action)
 	var inner := HBoxContainer.new()
 	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inner.alignment = BoxContainer.ALIGNMENT_CENTER
 	inner.add_theme_constant_override("separation", 10)
 	Hud.full(inner)
+	inner.offset_bottom = -5   # centred on the face, above the button's lip
 	_action.add_child(inner)
-	_action_text = Hud.label("", 22, Color(1, 0.93, 0.8))
+	_action_text = Hud.label("", 24, Color.WHITE)
+	Hud.chunky(_action_text.label_settings)
 	_action_text.autowrap_mode = TextServer.AUTOWRAP_OFF
 	inner.add_child(_action_text)
 	_action_cost = Hud.coin_row(22, inner)
 	# Each locked hero can be tried for one run, free.
 	_try = Hud.button("TRY FREE", 18, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-	_try.add_theme_color_override("font_color", Hud.GOLD)
 	_try.custom_minimum_size = Vector2(124, 72)
 	_try.pressed.connect(func(): trial.emit(_row().id))
 	row.add_child(_try)
@@ -326,13 +329,7 @@ func _refresh() -> void:
 	for i in _tabs.size():
 		var t := _tabs[i]
 		var on := i == _index
-		var sb := t.get_theme_stylebox("normal") as StyleBoxFlat
-		var col: Color = _rows[i].get("def", Heroes.LIST[i]).ring
-		if _rows[i].get("frame", false):
-			col = Hud.GOLD   # a Master's tab has a gold frame
-		sb.border_color = col if on else Color(col, 0.35)
-		sb.set_border_width_all(3 if on else 2)
-		sb.bg_color = Color(0.2, 0.16, 0.26, 0.98) if on else Color(0.12, 0.1, 0.16, 0.9)
+		Hud.paint(t, "gold" if on else "slate")
 		var owned: bool = _rows[i].unlocked
 		t.add_theme_color_override("font_color", Color.WHITE if on else (Color(1, 0.93, 0.8) if owned else DIM))
 	_name.text = def.title.to_upper()
@@ -356,10 +353,7 @@ func _refresh() -> void:
 	var fresh := int(r.get("new_looks", 0))
 	_style_button.text = "STYLE\n%d NEW" % fresh if fresh > 0 else "STYLE"
 	_style_button.add_theme_font_size_override("font_size", 16 if fresh > 0 else 19)
-	var ssb := _style_button.get_theme_stylebox("normal") as StyleBoxFlat
-	ssb.border_color = Hud.GOLD if fresh > 0 else Color(1, 0.8, 0.45, 0.6)
-	ssb.set_border_width_all(3 if fresh > 0 else 2)
-	ssb.bg_color = Color(0.3, 0.22, 0.08, 0.97) if fresh > 0 else Color(0.16, 0.12, 0.2, 0.95)
+	Hud.paint(_style_button, "gold" if fresh > 0 else "purple")
 	for i in STATS.size():
 		var key: String = STATS[i][0]
 		_values[i].text = STATS[i][2] % def[key]
@@ -393,36 +387,27 @@ func _share(key: String, value: float) -> float:
 
 
 func _fill_action(r: Dictionary, ring: Color) -> void:
-	var sb := _action.get_theme_stylebox("normal") as StyleBoxFlat
-	var pressed := _action.get_theme_stylebox("pressed") as StyleBoxFlat
 	var afford: bool = r.unlocked or r.cost <= _coins
 	_action_cost.get_parent().visible = not r.unlocked and not r.trying
 	_action_cost.text = str(r.cost)
 	_action_cost.label_settings.font_color = Hud.GOLD if afford else DIM
 	_try.visible = r.trial and not r.trying
-	var text_col := Color(1, 0.93, 0.8)
+	var text_col := Color.WHITE
+	var role := "slate"
 	if r.trying:
 		_action_text.text = "FREE TRIAL"
-		sb.bg_color = Color(0.3, 0.2, 0.06, 0.97)
-		sb.border_color = Hud.GOLD
-		text_col = Hud.GOLD
+		role = "gold"
 	elif r.selected:
 		_action_text.text = "CHOSEN"
-		sb.bg_color = Color(0.12, 0.1, 0.16, 0.98)
-		sb.border_color = ring
-		text_col = ring.lightened(0.3)
+		text_col = ring.lightened(0.45)
 	elif r.unlocked:
 		_action_text.text = "PLAY AS " + Heroes.get_hero(r.id).title.to_upper()
-		sb.bg_color = Color(0.12, 0.3, 0.16, 0.97)
-		sb.border_color = Color(0.6, 1, 0.6)
+		role = "green"
 	else:
 		_action_text.text = "UNLOCK"
-		sb.bg_color = Color(0.45, 0.3, 0.08, 0.98) if afford else Color(0.14, 0.12, 0.17, 0.95)
-		sb.border_color = Hud.GOLD if afford else Color(0.4, 0.35, 0.45, 0.6)
-		text_col = Color(1, 0.93, 0.8) if afford else DIM
-	sb.set_border_width_all(4 if r.selected else 2)
-	pressed.bg_color = sb.bg_color.lightened(0.2)
-	pressed.border_color = sb.border_color
+		role = "gold" if afford else "slate"
+		text_col = Color.WHITE if afford else DIM
+	Hud.paint(_action, role)
 	_action_text.label_settings.font_color = text_col
 
 

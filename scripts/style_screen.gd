@@ -34,6 +34,7 @@ var _down_at := 0   # where the list was when a card was touched
 
 func _init() -> void:
 	color = Color(0.03, 0.02, 0.05, 1.0)
+	Hud.backdrop(self)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
@@ -175,11 +176,7 @@ func _show_tab(slot: String, to_top := false) -> void:
 	_slot = slot
 	for k: String in _tabs:
 		var b: Button = _tabs[k]
-		var sb := b.get_theme_stylebox("normal") as StyleBoxFlat
-		var on := k == slot
-		sb.border_color = Hud.GOLD if on else Color(1, 0.8, 0.45, 0.35)
-		sb.set_border_width_all(3 if on else 2)
-		sb.bg_color = Color(0.24, 0.18, 0.1, 0.98) if on else Color(0.12, 0.1, 0.16, 0.9)
+		Hud.paint(b, "gold" if k == slot else "slate")
 	var keep := _scroll.scroll_vertical
 	for c in _grid.get_children():
 		_grid.remove_child(c)

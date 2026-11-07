@@ -58,6 +58,8 @@ repositories. If a model is missing, the game falls back to simple placeholder s
 
 The logo lettering is **Fruktur** by The Fruktur Project Authors (SIL Open Font License, [fonts/OFL.txt](fonts/OFL.txt)). [tools/store/make_logo.py](tools/store/make_logo.py) draws it with its gold shine, dark edge and glow into [art/ui/logo.png](art/ui/logo.png), which the opening, the title screen and the share picture use, and the store banner gets a two-line version from the same script.
 
+The chunky menu lettering (titles, buttons and big numbers) is **Lilita One** by Juan Montoreano (SIL Open Font License, [fonts/OFL-LilitaOne.txt](fonts/OFL-LilitaOne.txt)); body text uses Godot's built-in font.
+
 ## How it's built
 
 Every push runs [.github/workflows/android-build.yml](.github/workflows/android-build.yml), which:

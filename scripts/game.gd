@@ -30,6 +30,9 @@ var heart_bonus := 0.0
 
 var _camera: Camera3D
 var _cam_focus := Vector3.ZERO
+## 0..1: how far the camera has moved in on the hero for the title screen's lobby.
+var _lobby := 0.0
+var _lobby_light: SpotLight3D
 var _shake := 0.0
 var shake_scale := 1.0   # the Screen shake setting
 var vibration := true    # the Vibration setting
@@ -69,7 +72,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-07b"
+const BUILD := "2026-11-07c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -283,6 +286,16 @@ func _ready() -> void:
 	_camera.far = 120.0
 	world.add_child(_camera)
 	_camera.make_current()
+	# A warm spotlight on the hero in the title screen's lobby.
+	_lobby_light = SpotLight3D.new()
+	_lobby_light.light_color = Color(1.0, 0.86, 0.62)
+	_lobby_light.spot_range = 9.0
+	_lobby_light.spot_angle = 26.0
+	_lobby_light.spot_attenuation = 0.6
+	_lobby_light.light_energy = 0.0
+	_lobby_light.shadow_enabled = false
+	_lobby_light.rotation = Vector3(-PI * 0.5, 0, 0)
+	world.add_child(_lobby_light)
 
 	hud = Hud.new()
 	add_child(hud)
@@ -781,6 +794,24 @@ func keyboard_move() -> Vector2:
 const VIEW_HALF_WIDTH := 4.4
 ## The hero sits this far above the middle of the screen, away from the thumb.
 const HERO_ABOVE_CENTRE := 0.9
+## The title screen's lobby camera looks down at this angle (the fight camera is steeper),
+## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
+const LOBBY_PITCH := 24.0
+const LOBBY_FILL := 0.8
+
+
+## Where the lobby camera stands (looking down at `pitch` radians) so the hero, facing it,
+## fills the free space between the title's words and its buttons (Hud.title_hero_space).
+func _lobby_camera_position(pitch: float) -> Vector3:
+	var vp := get_viewport().get_visible_rect().size
+	var space: Rect2 = hud.title_hero_space()
+	var tan_half := tan(deg_to_rad(CAMERA_FOV) * 0.5)
+	var px := clampf(space.size.y * LOBBY_FILL, vp.y * 0.16, vp.y * 0.42)
+	var d := 1.9 * cos(pitch) * vp.y / (2.0 * tan_half * px)
+	var b := Basis.from_euler(Vector3(-pitch, 0, 0))
+	var centre := hero.global_position + Vector3(0, 0.95, 0)
+	var below := (space.get_center().y - vp.y * 0.5) / vp.y * 2.0 * d * tan_half
+	return centre + b.z * d + b.y * below
 
 
 func _cam_distance() -> float:
@@ -820,6 +851,12 @@ func _place_camera() -> void:
 	var p := deg_to_rad(CAMERA_PITCH)
 	_camera.rotation = Vector3(-p, 0, 0)
 	var pos := _cam_focus + Vector3(0, sin(p), cos(p)) * _cam_distance() * (1.0 - 0.32 * _zoom)
+	if _lobby > 0.0:
+		# The title screen's lobby: lower and in close, the hero filling the space between
+		# the words at the top and the buttons at the bottom.
+		var lp := deg_to_rad(LOBBY_PITCH)
+		pos = pos.lerp(_lobby_camera_position(lp), _lobby)
+		_camera.rotation = Vector3(-lerpf(p, lp, _lobby), 0, 0)
 	if _shake > 0.001:
 		pos += Vector3(randf_range(-1, 1), randf_range(-1, 1), randf_range(-1, 1)) * _shake
 	_camera.global_position = pos
@@ -831,6 +868,16 @@ func _snap_camera() -> void:
 
 
 func _update_camera(real_delta: float) -> void:
+	var lobby := state == State.TITLE and hud.title_visible() and hero != null
+	_lobby = lerpf(_lobby, 1.0 if lobby else 0.0, 1.0 - exp(-5.0 * real_delta))
+	if _lobby < 0.002:
+		_lobby = 0.0
+	_lobby_light.visible = _lobby > 0.0
+	if _lobby_light.visible:
+		_lobby_light.light_energy = 5.0 * _lobby
+		_lobby_light.global_position = hero.global_position + Vector3(0, 6.5, 0.4)
+	if lobby:
+		hero.rotation.y = lerp_angle(hero.rotation.y, PI, 1.0 - exp(-6.0 * real_delta))   # turned to face us
 	_zoom_hold -= real_delta
 	# The close-up punch follows the Screen shake setting (the boss intro's camera move doesn't).
 	var zoom_goal := shake_scale if _zoom_hold > 0.0 else (0.5 if _intro_focus else 0.0)

@@ -18,6 +18,7 @@ var _list: VBoxContainer
 
 func _init() -> void:
 	color = Color(0.03, 0.02, 0.05, 0.97)
+	Hud.backdrop(self)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
@@ -135,7 +136,6 @@ func _row(cfg: ConfigFile, i: int, b: int) -> Control:
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if reached and not got:
 		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-		c.add_theme_color_override("font_color", Hud.GOLD)
 		c.custom_minimum_size = Vector2(118, 56)
 		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		c.pressed.connect(func(): claim.emit(i))
@@ -158,9 +158,12 @@ class Bar extends Button:
 		focus_mode = Control.FOCUS_NONE
 		flat = true
 		# The words are a label on top (a button draws its own text under _draw's fill).
-		_text = Hud.label("", 17, Color(1, 0.95, 0.85))
+		_text = Hud.label("", 19, Color.WHITE)
+		Hud.chunky(_text.label_settings)
 		Hud.full(_text)
+		_text.offset_bottom = -5   # centred on the face, above the lip
 		add_child(_text)
+		Hud.squash(self)
 
 	func set_road(bones: int, next_at: int, f: float, ready_n: int) -> void:
 		frac = f
@@ -175,19 +178,29 @@ class Bar extends Button:
 
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
+		# A chunky dark trough with a lip (like the buttons), filled with bone-gold.
 		var bg := StyleBoxFlat.new()
-		bg.bg_color = Color(0.08, 0.06, 0.1, 0.92)
-		bg.border_color = Hud.GOLD if waiting > 0 else Color(0.85, 0.7, 0.45, 0.7)
-		bg.set_border_width_all(3 if waiting > 0 else 2)
-		bg.set_corner_radius_all(14)
+		bg.bg_color = Color(0.13, 0.1, 0.22)
+		bg.border_color = Hud.ROLES.gold[1] if waiting > 0 else Hud.INK
+		bg.set_border_width_all(3)
+		bg.border_width_bottom = 8
+		bg.set_corner_radius_all(18)
+		bg.shadow_color = Color(0, 0, 0, 0.35)
+		bg.shadow_size = 2
+		bg.shadow_offset = Vector2(0, 4)
 		draw_style_box(bg, r)
 		var fill := StyleBoxFlat.new()
 		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 4.0) if waiting > 0 else 0.0
-		fill.bg_color = Color(0.62, 0.42, 0.12, 0.9).lightened(0.15 * pulse)
-		fill.set_corner_radius_all(11)
-		var w := (r.size.x - 8.0) * (1.0 if waiting > 0 else frac)
-		if w > 4.0:
-			draw_style_box(fill, Rect2(4, 4, w, r.size.y - 8))
+		fill.bg_color = Hud.ROLES.gold[0].lightened(0.15 * pulse)
+		fill.set_corner_radius_all(14)
+		var inner := Rect2(4, 4, r.size.x - 8.0, r.size.y - 13.0)
+		var w := inner.size.x * (1.0 if waiting > 0 else frac)
+		if w > 8.0:
+			draw_style_box(fill, Rect2(inner.position, Vector2(w, inner.size.y)))
+			var shine := StyleBoxFlat.new()
+			shine.bg_color = Color(1, 1, 1, 0.18)
+			shine.set_corner_radius_all(10)
+			draw_style_box(shine, Rect2(inner.position + Vector2(4, 3), Vector2(maxf(w - 8.0, 0.0), inner.size.y * 0.38)))
 
 	func _process(_d: float) -> void:
 		if waiting > 0 and is_visible_in_tree():

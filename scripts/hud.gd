@@ -59,6 +59,20 @@ const FLICK_TIME := 0.22
 const FLICK_DISTANCE := 45.0
 
 const GOLD := Color(1.0, 0.8, 0.3)
+## The chunky cartoon font for titles, buttons and big numbers (fonts/OFL-LilitaOne.txt).
+const UI_FONT := preload("res://fonts/LilitaOne-Regular.ttf")
+## The dark outline round chunky text and buttons.
+const INK := Color(0.1, 0.05, 0.14)
+## Button colours by job: [face, dark edge]. green = go, gold = buy and rewards, blue = normal,
+## purple = looks, slate = quiet choices (later, back to title), red = danger.
+const ROLES := {
+	"green": [Color(0.36, 0.76, 0.2), Color(0.1, 0.32, 0.05)],
+	"gold": [Color(1.0, 0.7, 0.12), Color(0.48, 0.24, 0.02)],
+	"blue": [Color(0.22, 0.5, 0.94), Color(0.06, 0.15, 0.42)],
+	"purple": [Color(0.58, 0.32, 0.92), Color(0.22, 0.07, 0.42)],
+	"slate": [Color(0.3, 0.31, 0.43), Color(0.1, 0.1, 0.17)],
+	"red": [Color(0.88, 0.26, 0.2), Color(0.4, 0.06, 0.04)],
+}
 ## The game's name on the title screen (and in the opening animation, which lands on it), drawn
 ## by tools/store/make_logo.py at twice the size it is shown, glow and edge included.
 const LOGO := preload("res://art/ui/logo.png")
@@ -202,6 +216,8 @@ var _style: StyleScreen
 var _drops: DropScreen
 var _title_road: RoadScreen.Bar
 var _title_hint: Label
+var _title_top: Control   # the words at the top of the title screen
+var _title_bottom: Control   # the hero's name and the buttons at the bottom
 var _title_gap: Control
 var _road: RoadScreen
 var _mode_daily_text: Label
@@ -322,8 +338,45 @@ static func label(text: String, size: int, col := Color.WHITE, align := HORIZONT
 	s.font_color = col
 	s.outline_size = maxi(4, size / 8)
 	s.outline_color = Color(0, 0, 0, 0.85)
+	if size >= 26:
+		chunky(s)   # titles and big numbers: the cartoon font with a thick edge and a drop shadow
 	l.label_settings = s
 	return l
+
+
+## Big text in the chunky look: the cartoon font, a thick dark edge and a soft drop shadow.
+static func chunky(s: LabelSettings) -> void:
+	s.font = UI_FONT
+	s.outline_size = maxi(6, s.font_size / 5)
+	s.outline_color = INK
+	s.shadow_size = s.outline_size
+	s.shadow_color = Color(0, 0, 0, 0.45)
+	s.shadow_offset = Vector2(0, maxf(2.0, s.font_size / 11.0))
+
+
+## A deep blue-purple glow behind a full screen, instead of flat black.
+static var _backdrop_tex: GradientTexture2D
+
+static func backdrop(r: ColorRect) -> void:
+	if _backdrop_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(0.22, 0.16, 0.4))
+		g.set_color(1, Color(0.05, 0.035, 0.11))
+		_backdrop_tex = GradientTexture2D.new()
+		_backdrop_tex.gradient = g
+		_backdrop_tex.fill = GradientTexture2D.FILL_RADIAL
+		_backdrop_tex.fill_from = Vector2(0.5, 0.28)
+		_backdrop_tex.fill_to = Vector2(1.15, 1.0)
+		_backdrop_tex.width = 128
+		_backdrop_tex.height = 256
+	var t := TextureRect.new()
+	t.texture = _backdrop_tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.modulate.a = r.color.a
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	r.add_child(t)
 
 
 ## A soft dark panel behind teaching text, so it reads on any floor.
@@ -371,6 +424,8 @@ static func overlay(dim: Color) -> ColorRect:
 	r.set_anchors_preset(Control.PRESET_FULL_RECT)
 	r.mouse_filter = Control.MOUSE_FILTER_STOP
 	r.visible = false
+	if dim.a > 0.69:   # (not 0.7: colours are stored as 32-bit floats)
+		backdrop(r)
 	return r
 
 
@@ -383,6 +438,19 @@ static func button(text: String, size := 28, bg := Color(0.16, 0.12, 0.2, 0.95),
 	b.add_theme_color_override("font_color", Color(1, 0.93, 0.8))
 	b.add_theme_color_override("font_pressed_color", Color(1, 1, 1))
 	b.add_theme_color_override("font_hover_color", Color(1, 0.93, 0.8))
+	var role := _role_for(text, bg, border)
+	if role != "":
+		# A chunky cartoon button: bright face, dark edge and lip, white outlined letters.
+		b.add_theme_font_override("font", UI_FONT)
+		b.add_theme_font_size_override("font_size", size + 2)
+		b.add_theme_constant_override("outline_size", maxi(6, size / 4))
+		b.add_theme_color_override("font_outline_color", INK)
+		for c in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(c, Color.WHITE)
+		b.add_theme_color_override("font_disabled_color", Color(0.8, 0.8, 0.85))
+		paint(b, role)
+		squash(b)
+		return b
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = bg
 	normal.set_corner_radius_all(14)
@@ -395,6 +463,91 @@ static func button(text: String, size := 28, bg := Color(0.16, 0.12, 0.2, 0.95),
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("disabled", normal)
 	return b
+
+
+## Which colour job a button has, from the colours the screen asked for (rows and cards
+## with their own content, "" or several lines on a dark box, keep their flat look).
+static func _role_for(text: String, bg: Color, border: Color) -> String:
+	if text == "" or ("\n" in text and bg.v < 0.25):
+		return ""
+	if bg.g > bg.r and bg.g > bg.b and bg.s > 0.3:
+		return "green"
+	if bg.r >= 0.28 and bg.b < 0.15 and bg.g >= 0.5 * bg.r:
+		return "gold"
+	if bg.r >= 0.3 and bg.g < 0.5 * bg.r:
+		return "green"   # PLAY, TRY AGAIN, RESUME: the main way on
+	if bg.b > bg.r and bg.r > bg.g and bg.s > 0.45:
+		return "purple"
+	if bg.v < 0.13 and border.v < 0.7:
+		return "slate"
+	return "blue"
+
+
+## Gives button `b` the chunky look in colour `role` (see ROLES); used again to recolour
+## tabs and the hero screen's action button.
+static func paint(b: Button, role: String) -> void:
+	var face: Color = ROLES[role][0]
+	var edge: Color = ROLES[role][1]
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = face
+	normal.border_color = edge
+	normal.set_corner_radius_all(18)
+	normal.set_border_width_all(3)
+	normal.border_width_bottom = 9   # the lip under the face, like a thick toy button
+	normal.shadow_color = Color(0, 0, 0, 0.35)
+	normal.shadow_size = 2
+	normal.shadow_offset = Vector2(0, 4)
+	normal.content_margin_left = 14
+	normal.content_margin_right = 14
+	normal.anti_aliasing_size = 1.2
+	var pressed := normal.duplicate() as StyleBoxFlat
+	pressed.bg_color = face.darkened(0.1)
+	pressed.border_width_bottom = 4
+	pressed.border_width_top = 7   # the face sinks into its lip
+	pressed.shadow_offset = Vector2(0, 1)
+	var off := normal.duplicate() as StyleBoxFlat
+	off.bg_color = face.lerp(Color(0.35, 0.35, 0.4), 0.7)
+	off.border_color = edge.lerp(Color(0.1, 0.1, 0.12), 0.6)
+	b.add_theme_stylebox_override("normal", normal)
+	b.add_theme_stylebox_override("hover", normal)
+	b.add_theme_stylebox_override("pressed", pressed)
+	b.add_theme_stylebox_override("hover_pressed", pressed)
+	b.add_theme_stylebox_override("disabled", off)
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+	# A soft shine across the top half of the face.
+	var gloss := b.get_node_or_null("Gloss") as Panel
+	if gloss == null:
+		gloss = Panel.new()
+		gloss.name = "Gloss"
+		gloss.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var g := StyleBoxFlat.new()
+		g.bg_color = Color(1, 1, 1, 0.14)
+		g.corner_radius_top_left = 14
+		g.corner_radius_top_right = 14
+		g.corner_radius_bottom_left = 6
+		g.corner_radius_bottom_right = 6
+		gloss.add_theme_stylebox_override("panel", g)
+		gloss.anchor_right = 1.0
+		gloss.anchor_bottom = 0.42
+		gloss.offset_left = 6
+		gloss.offset_top = 5
+		gloss.offset_right = -6
+		b.add_child(gloss, false, Node.INTERNAL_MODE_FRONT)
+	if not b.has_meta("gloss_hooked"):
+		b.set_meta("gloss_hooked", true)
+		b.button_down.connect(func(): gloss.offset_top = 9)
+		b.button_up.connect(func(): gloss.offset_top = 5)
+
+
+## A quick squash when pressed and a bounce back on release.
+static func squash(b: Button) -> void:
+	b.resized.connect(func(): b.pivot_offset = b.size * 0.5)
+	b.button_down.connect(func():
+		var t := b.create_tween()
+		t.tween_property(b, "scale", Vector2(0.95, 0.93), 0.06))
+	b.button_up.connect(func():
+		var t := b.create_tween()
+		t.tween_property(b, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT))
 
 
 ## A little gold coin drawn with a rounded box.
@@ -928,6 +1081,7 @@ func _build_title() -> void:
 	holder.add_child(records)
 	_title_records = records
 	var top := VBoxContainer.new()
+	_title_top = top
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	top.offset_left = 24
@@ -970,10 +1124,11 @@ func _build_title() -> void:
 	col.offset_bottom = -40
 	col.add_theme_constant_override("separation", 14)
 	holder.add_child(col)
+	_title_bottom = col
 	# Gold lines under the hero, just above PLAY: why to play today and what's next.
 	_title_goal = label("", 18, Color(1.0, 0.82, 0.42))
 	col.add_child(_title_goal)
-	_title_hero = label("", 20, Color(0.75, 0.85, 1.0))
+	_title_hero = label("", 26, Color(0.75, 0.85, 1.0))
 	col.add_child(_title_hero)
 	_title_spacer = Control.new()
 	_title_spacer.custom_minimum_size = Vector2(0, 24)
@@ -983,7 +1138,6 @@ func _build_title() -> void:
 	cont_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cont_col.add_theme_constant_override("separation", 2)
 	var cont := button("CONTINUE", 36, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	cont.add_theme_color_override("font_color", GOLD)
 	cont.custom_minimum_size = Vector2(300, 86)
 	cont.pressed.connect(func(): continue_pressed.emit())
 	cont_col.add_child(_centered(cont))
@@ -1018,7 +1172,6 @@ func _build_title() -> void:
 	modes.add_child(_title_modes_badge)
 	var pass_button := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	pass_button.custom_minimum_size = Vector2(222, 74)
-	pass_button.add_theme_color_override("font_color", GOLD)
 	pass_button.pressed.connect(func(): pass_pressed.emit())
 	_title_pass_row = pass_button
 	_title_modes_row = _pair(modes, pass_button)
@@ -1030,7 +1183,6 @@ func _build_title() -> void:
 ## The gold OPEN BONE DROP button (title and end screens), hidden until one is earned.
 func _drop_button() -> Button:
 	var b := button("OPEN BONE DROP", 22, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	b.add_theme_color_override("font_color", GOLD)
 	b.custom_minimum_size = Vector2(320, 64)
 	b.visible = false
 	b.pressed.connect(func(): drops_pressed.emit())
@@ -1318,7 +1470,6 @@ func _build_end() -> void:
 	_end_mastery.visible = false
 	col.add_child(_centered(_end_mastery))
 	_end_looks = button("SEE 3 NEW LOOKS", 20, Color(0.22, 0.14, 0.3, 0.97), GOLD)
-	_end_looks.add_theme_color_override("font_color", GOLD)
 	_end_looks.custom_minimum_size = Vector2(300, 56)
 	_end_looks.visible = false
 	_end_looks.pressed.connect(func():
@@ -1335,7 +1486,6 @@ func _build_end() -> void:
 	_share_card.visible = false
 	col.add_child(_share_card)
 	_share_button = button("SHARE RESULT", 20, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	_share_button.add_theme_color_override("font_color", GOLD)
 	_share_button.custom_minimum_size = Vector2(240, 56)
 	_share_button.pressed.connect(func():
 		_share_button.disabled = true
@@ -1373,7 +1523,6 @@ func _build_end() -> void:
 	armory.pressed.connect(func(): armory_pressed.emit())
 	buttons.add_child(_pair(heroes, armory))
 	var end_pass := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	end_pass.add_theme_color_override("font_color", GOLD)
 	end_pass.pressed.connect(func(): pass_pressed.emit())
 	_end_pass = _centered(end_pass)
 	_end_pass.visible = false
@@ -1392,7 +1541,6 @@ func _build_end() -> void:
 	offer.add_theme_constant_override("separation", 18)
 	col.add_child(offer)
 	var get_pass := button("GET THE CRYPT PASS", 28, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	get_pass.add_theme_color_override("font_color", GOLD)
 	get_pass.custom_minimum_size = Vector2(340, 86)
 	get_pass.pressed.connect(func(): pass_pressed.emit())
 	offer.add_child(_centered(get_pass))
@@ -1410,7 +1558,6 @@ func _build_end() -> void:
 	_loop_deeper_button.pressed.connect(func(): loop_deeper.emit())
 	loop.add_child(_centered(_loop_deeper_button))
 	_loop_bank_button = button("BANK AND LEAVE", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	_loop_bank_button.add_theme_color_override("font_color", GOLD)
 	_loop_bank_button.custom_minimum_size = Vector2(380, 74)
 	_loop_bank_button.pressed.connect(func(): loop_bank.emit())
 	loop.add_child(_centered(_loop_bank_button))
@@ -2403,7 +2550,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_goal.visible = goal != ""
 	# Short screens: the how-to line makes room for the Bone Road row, so the hero shows.
 	var tight := view.y < view.x * 1.9 and _title_road.visible
-	_title_hint.visible = not tight
+	_title_hint.visible = locked and not tight   # the lobby keeps words few once the tutorial is done
 	_title_best.visible = not tight   # (the Records screen has it)
 	_title_gap.custom_minimum_size.y = 14.0 if tight else 40.0
 	_continue_where.text = where
@@ -2415,6 +2562,15 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 
 func title_visible() -> bool:
 	return _title_box.visible
+
+
+## The free space on the title screen between the words at the top and the buttons at the
+## bottom, where the lobby camera puts the hero (in the viewport's pixels).
+func title_hero_space() -> Rect2:
+	var top := _title_top.get_global_rect().end.y + 10.0
+	var bottom := _title_bottom.get_global_rect().position.y - 4.0
+	var w := get_viewport().get_visible_rect().size.x
+	return Rect2(0, top, w, maxf(bottom - top, 1.0))
 
 
 func set_coins(n: int) -> void:
@@ -2497,7 +2653,7 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 
 ## "Playing as the Mage  ·  Mastery 4" (in gold once they're a Master, at level 10).
 func set_title_hero(hero_name: String, mastery := 0, master := false) -> void:
-	_title_hero.text = "Playing as the " + hero_name + ("  ·  Mastery %d" % mastery if mastery > 1 else "")
+	_title_hero.text = hero_name.to_upper() + ("  ·  MASTERY %d" % mastery if mastery > 1 else "")
 	_title_hero.label_settings.font_color = GOLD if master else Color(0.75, 0.85, 1.0)
 
 
@@ -2509,10 +2665,7 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	_shop_sub.text = "New blessings. Buy one once and it can\nturn up in all your runs." if vault else "Upgrades bought here last forever."
 	_armory_tabs.visible = true
 	for id: String in _tab_buttons:
-		var on := id == _armory_tab
-		var sb := _tab_buttons[id].get_theme_stylebox("normal") as StyleBoxFlat
-		sb.bg_color = Color(0.32, 0.22, 0.08, 0.98) if on else Color(0.12, 0.1, 0.16, 0.95)
-		sb.border_color = GOLD if on else Color(0.45, 0.4, 0.5, 0.6)
+		paint(_tab_buttons[id], "gold" if id == _armory_tab else "slate")
 	_armory_coins.get_parent().visible = true
 	_armory_coins.text = str(coins)
 	for c in _armory_rows.get_children():
@@ -2666,20 +2819,24 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 func _set_end_tap(tap_text: String) -> void:
 	var deeper := tap_text.begins_with("Tap to descend")
 	_end_tap.text = tap_text.replace("Tap to descend", "DESCEND").to_upper() if deeper else tap_text
-	(_end_tap as Pulse).low = 0.7 if deeper else 0.1
+	(_end_tap as Pulse).low = 0.85 if deeper else 0.1
 	_end_tap.label_settings.font_size = 30
 	_end_tap.autowrap_mode = TextServer.AUTOWRAP_OFF if deeper else TextServer.AUTOWRAP_WORD_SMART
 	_end_tap.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if deeper else Control.SIZE_FILL
 	if deeper:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.45, 0.13, 0.08, 0.97)
-		sb.set_corner_radius_all(14)
-		sb.set_border_width_all(2)
-		sb.border_color = GOLD
+		var sb := StyleBoxFlat.new()   # the chunky green "go" look of the buttons (paint)
+		sb.bg_color = ROLES.green[0]
+		sb.border_color = ROLES.green[1]
+		sb.set_corner_radius_all(18)
+		sb.set_border_width_all(3)
+		sb.border_width_bottom = 9
+		sb.shadow_color = Color(0, 0, 0, 0.35)
+		sb.shadow_size = 2
+		sb.shadow_offset = Vector2(0, 4)
 		sb.content_margin_left = 34
 		sb.content_margin_right = 34
-		sb.content_margin_top = 14
-		sb.content_margin_bottom = 14
+		sb.content_margin_top = 12
+		sb.content_margin_bottom = 12
 		_end_tap.add_theme_stylebox_override("normal", sb)
 	else:
 		_end_tap.remove_theme_stylebox_override("normal")

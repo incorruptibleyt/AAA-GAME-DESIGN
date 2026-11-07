@@ -33,6 +33,7 @@ var _later: Button
 
 func _init() -> void:
 	color = Color(0.02, 0.01, 0.04, 0.96)
+	Hud.backdrop(self)
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
@@ -60,7 +61,6 @@ func _init() -> void:
 	_prize.custom_minimum_size = Vector2(0, 110)
 	col.add_child(_prize)
 	_action = Hud.button("TAP TO OPEN", 30, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-	_action.add_theme_color_override("font_color", Hud.GOLD)
 	_action.custom_minimum_size = Vector2(340, 86)
 	_action.pressed.connect(_tap)
 	var box := CenterContainer.new()
