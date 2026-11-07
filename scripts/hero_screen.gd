@@ -106,7 +106,7 @@ func _init() -> void:
 		Sfx.play("click")
 		mastery.emit(_row().id))
 	mrow.add_child(_mastery_bar)
-	# The Style screen: outfits, hats, weapons and glows unlocked by Mastery.
+	# The Style screen: outfits, hats, weapons, glows and auras unlocked by Mastery.
 	_style_button = Hud.button("STYLE", 19)
 	_style_button.custom_minimum_size = Vector2(112, 70)
 	_style_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER

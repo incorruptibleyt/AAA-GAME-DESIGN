@@ -108,7 +108,7 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	_bar.set_points(id, def.title, def.ring, p, "%s RANK%s" % [str(rank.name).to_upper(), "  ·  " + t.to_upper() if t != "" else ""])
 	var got := HeroStyle.items(id).filter(func(it: Dictionary) -> bool: return it.key != "" and it.level <= lv).size()
 	var all := HeroStyle.items(id).size() - HeroStyle.SLOTS.size()
-	_style_text.text = "%d of %d looks unlocked\nPick outfits, hats, weapons and glows" % [got, all]
+	_style_text.text = "%d of %d looks unlocked\nPick outfits, hats, weapons, glows and auras" % [got, all]
 	for c in _list.get_children():
 		_list.remove_child(c)
 		c.queue_free()

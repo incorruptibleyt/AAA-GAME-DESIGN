@@ -5,7 +5,7 @@ class_name HeroMastery
 ##
 ## Each new level gives its rewards the moment it's reached: coins, Bone Drops, Lucky
 ## Starts, a title and a gold frame (level 10), and three new looks for the hero to wear
-## (hero_style.gd: outfits, headwear, weapons and glows, picked on the Style screen).
+## (hero_style.gd: outfits, headwear, weapons, glows and auras, picked on the Style screen).
 ## Nothing is bought; the 4 heroes just get a long life of their own.
 ##
 ## A run that clears floor 1 is worth 20 points (level 2 straight after the tutorial); five

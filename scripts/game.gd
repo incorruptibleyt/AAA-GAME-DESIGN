@@ -1313,7 +1313,7 @@ func run_report(result: String, was_first := false) -> String:
 	if hero:
 		var p := HeroStyle.picks(cfg, hero.hero_id)
 		var worn := HeroStyle.SLOTS.map(func(slot: String) -> String: return str(p[slot]) if p[slot] != "" else "-")
-		lines.append("Look %s (outfit/head/weapon/glow)" % "/".join(worn))
+		lines.append("Look %s (outfit/head/weapon/glow/aura)" % "/".join(worn))
 	if daily or not curses.is_empty():
 		lines.append("Mode: %s | %s: %s (Curse Level %d, score x%s)" % ["Daily Crypt #%d %s%s" % [Curses.day_number(_daily_date), _daily_date, " practice" if _daily_practice else ""] if daily else "Normal",
 			"Rules" if daily else "Curses", Curses.names(curses) if curses else "none", Curses.level_of(curses), _mult_text(_score_mult)])

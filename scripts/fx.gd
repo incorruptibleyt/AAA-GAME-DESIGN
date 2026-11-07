@@ -51,6 +51,9 @@ static func _burst(pos: Vector3, count: int, color: Color, size: float, speed: f
 	p.get_tree().create_timer(life + 0.2).timeout.connect(p.queue_free)
 
 
+static var _motif_quads := {}
+
+
 static func _burst_material() -> void:
 	if _quad != null:
 		return
@@ -91,6 +94,86 @@ static func sparkle_trail(color: Color) -> CPUParticles3D:
 	p.emission_ring_radius = 0.65
 	p.emission_ring_inner_radius = 0.45
 	p.emission_ring_height = 0.1
+	return p
+
+
+## A Master aura's trail of light (hero_style.gd), one small emitter like sparkle_trail:
+## "wisps" (the Rogue: dark sparks left hanging behind as they run), "motes" (the Knight:
+## specks of light rising straight up round them), "embers" (the Barbarian: sparks flung up
+## and falling back), "stars" (the Mage: slow twinkles in a ring). They start outside the
+## hero's body (from above, anything over the hero hides them), and are painted over the
+## floor rather than added to it, so they keep their colour on bright floors and never
+## pile up into a white blur.
+static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
+	var p := sparkle_trail(color)
+	# Round sparks for the Rogue's wisps and the Barbarian's embers, four-pointed glints for
+	# the Knight's motes and the Mage's stars.
+	var shape := "dot" if kind in ["wisps", "embers"] else "glint"
+	if not _motif_quads.has(shape):
+		var q := QuadMesh.new()
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+		m.billboard_keep_scale = true   # (without it every particle is drawn 1 m wide, whatever its scale)
+		m.vertex_color_use_as_albedo = true
+		m.albedo_texture = U.dot() if shape == "dot" else U.glint()
+		q.material = m
+		_motif_quads[shape] = q
+	p.mesh = _motif_quads[shape]
+	p.color = Color(color, 0.85 if kind == "wisps" else 1.0)
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	match kind:
+		"wisps":
+			p.amount = 26
+			p.lifetime = 0.9
+			p.spread = 180.0
+			p.initial_velocity_min = 0.1
+			p.initial_velocity_max = 0.3
+			p.gravity = Vector3(0, 0.3, 0)
+			p.scale_amount_min = 0.14
+			p.scale_amount_max = 0.24
+			p.emission_ring_radius = 0.72
+			p.emission_ring_inner_radius = 0.55
+			p.position = Vector3(0, 0.3, 0)
+		"motes":
+			p.amount = 18
+			p.lifetime = 1.2
+			p.spread = 5.0
+			p.initial_velocity_min = 0.6
+			p.initial_velocity_max = 1.1
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.45
+			p.scale_amount_max = 0.7
+			p.emission_ring_radius = 0.78
+			p.emission_ring_inner_radius = 0.66
+			p.position = Vector3(0, 0.05, 0)
+		"embers":
+			p.amount = 22
+			p.lifetime = 0.8
+			p.spread = 45.0
+			p.initial_velocity_min = 1.0
+			p.initial_velocity_max = 1.9
+			p.gravity = Vector3(0, -2.0, 0)
+			p.scale_amount_min = 0.14
+			p.scale_amount_max = 0.24
+			p.emission_ring_radius = 0.72
+			p.emission_ring_inner_radius = 0.5
+			p.position = Vector3(0, 0.3, 0)
+		"stars":
+			p.amount = 10
+			p.lifetime = 1.4
+			p.spread = 180.0
+			p.initial_velocity_min = 0.2
+			p.initial_velocity_max = 0.4
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.6
+			p.scale_amount_max = 0.9
+			p.emission_ring_radius = 0.92
+			p.emission_ring_inner_radius = 0.8
+			p.position = Vector3(0, 0.4, 0)
+	p.scale_amount_min *= size
+	p.scale_amount_max *= size
 	return p
 
 

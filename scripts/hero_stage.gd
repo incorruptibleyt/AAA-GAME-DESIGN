@@ -107,8 +107,11 @@ func show_hero(def: Dictionary, gold := false) -> void:
 		_visual.queue_free()
 	_visual = CharacterVisual.new()
 	_visual.outline_me = true
+	_visual.aura_boost = 1.8   # the hero is drawn big here: a Master aura's line grows to match
 	_pivot.add_child(_visual)
 	_visual.build(Heroes.look(def))
+	if def.has("aura"):
+		_visual.add_child(Fx.motif(str(def.aura.get("motif", "wisps")), def.aura.get("spark", Color.WHITE)))   # a Master aura's trail of light
 	_visual.attack(def.id == "mage")
 	if _visual._anim:
 		_visual._anim.advance(0.0)   # pose them now, so they never flash up in a T-pose

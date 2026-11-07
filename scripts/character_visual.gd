@@ -43,6 +43,11 @@ var _outlined := {}
 ## silhouette, and small pieces would cost an extra draw each for no visible line.
 const OUTLINE_PARTS := 5
 var _outline_set := {}
+## A Master aura (hero_style.gd): a brighter, slightly wider outline in the aura's colours.
+var _aura := {}
+const AURA_WIDTH := 0.0036
+## How much wider the aura's outline is drawn (the big hero on the Style screen's pedestal).
+var aura_boost := 1.0
 
 
 ## look: {key, height, body, accent, eyes, hat, horns, crown, hood, helmet, shield, bow, bomb, tint, rim,
@@ -115,6 +120,7 @@ func _dress_model(look: Dictionary) -> void:
 		Art.attach_to_bone(_model, "handslot.l", look.offhand)
 	if look.has("style"):
 		HeroStyle.dress(_model, look.style)   # a hero's chosen look (hero_style.gd)
+	_aura = look.get("aura", {})
 	var skel := Art._find_skeleton(_model)
 	if skel == null:
 		return
@@ -310,6 +316,12 @@ func _with_outline(inner: Material) -> Material:
 	if _outlined.has(inner):
 		return _outlined[inner]
 	var m := outline_material()
+	if not _aura.is_empty():
+		var ink: Color = _aura.ink
+		m.set_shader_parameter("ink", ink)
+		m.set_shader_parameter("ink2", _aura.get("ink2", ink))
+		m.set_shader_parameter("cycle", 1.0 if _aura.get("cycle", false) else 0.0)
+		m.set_shader_parameter("width", AURA_WIDTH * aura_boost)
 	m.next_pass = inner
 	_outlined[inner] = m
 	return m
@@ -325,6 +337,8 @@ static func outline_material() -> ShaderMaterial:
 shader_type spatial;
 render_mode unshaded, cull_front, shadows_disabled;
 uniform vec4 ink : source_color = vec4(0.07, 0.035, 0.1, 1.0);
+uniform vec4 ink2 : source_color = vec4(0.07, 0.035, 0.1, 1.0);
+uniform float cycle = 0.0;
 uniform float width = 0.0026;
 void vertex() {
 	vec4 clip = PROJECTION_MATRIX * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));
@@ -338,13 +352,24 @@ void vertex() {
 	clip.xy += d * width * 2.0 * clip.w;
 	POSITION = clip;
 }
+vec3 hsv2rgb(vec3 c) {
+	vec3 p = abs(fract(c.xxx + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
+	return c.z * mix(vec3(1.0), clamp(p - 1.0, 0.0, 1.0), c.y);
+}
 void fragment() {
-	ALBEDO = ink.rgb;
+	// A Master aura pulses between its two colours, or runs through gold, green, blue and
+	// violet (never red-pink). The plain ink has ink2 the same, so it stays still.
+	vec3 c = mix(ink.rgb, ink2.rgb, 0.5 + 0.5 * sin(TIME * 3.0));
+	if (cycle > 0.5) {
+		c = hsv2rgb(vec3(mix(0.12, 0.78, 0.5 + 0.5 * sin(TIME * 1.6)), 0.7, 1.0));
+	}
+	ALBEDO = c;
 }
 """
 	var m := ShaderMaterial.new()
 	m.shader = _outline_shader
 	m.set_shader_parameter("ink", OUTLINE_INK)
+	m.set_shader_parameter("ink2", OUTLINE_INK)
 	m.set_shader_parameter("width", OUTLINE_WIDTH)
 	return m
 

@@ -74,6 +74,8 @@ var _aura: MeshInstance3D
 var _dash_dir := Vector3.ZERO
 var _trail_t := 0.0
 var _master := false
+## A Master aura worn (hero_style.gd): its colours colour the dash trail and the dash ring.
+var _master_aura := {}
 var _ring_was_ready := true
 
 var _shot_timer := 0.4
@@ -111,7 +113,10 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	if HeroMastery.has_frame(cfg, def.id):
 		h._build_gold_ring()   # Hero Mastery level 10
 		h._master = true
-	if h._master or HeroStyle.worn(cfg, def.id, "glow") == "gold":
+	h._master_aura = def.get("aura", {})
+	if not h._master_aura.is_empty():
+		h._build_motif()   # a Master aura's own trail of light, instead of the gold sparkles
+	elif h._master or HeroStyle.worn(cfg, def.id, "glow") == "gold":
 		h._build_sparkles()   # Masters (and the Gold glow) leave a trail of gold sparkles
 	h._build_dash_ring()
 	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.
@@ -397,7 +402,7 @@ func _process(delta: float) -> void:
 		_trail_t -= delta
 		if _trail_t <= 0.0:
 			_trail_t = 0.025
-			Fx.trail(center(), Color(1.0, 0.8, 0.35) if _master else Color(0.45, 0.8, 1.0))
+			Fx.trail(center(), _trail_color())
 		_shot_timer = maxf(_shot_timer, 0.1)
 		_check_perfect(0.0)
 		return
@@ -624,6 +629,26 @@ func _build_sparkles() -> void:
 	_rings.append(p)
 
 
+## A Master aura's trail of light (Fx.motif).
+func _build_motif() -> void:
+	var p := Fx.motif(str(_master_aura.get("motif", "wisps")), _master_aura.get("spark", Color.WHITE), 1.4)   # bigger: seen from far above
+	add_child(p)
+	_rings.append(p)
+
+
+## The dash trail: the aura's colour (as its outline is drawing it right now), gold for a
+## Master, otherwise blue.
+func _trail_color() -> Color:
+	if not _master_aura.is_empty():
+		return HeroStyle.aura_ink(_master_aura, Time.get_ticks_msec() / 1000.0)
+	return Color(1.0, 0.8, 0.35) if _master else Color(0.45, 0.8, 1.0)
+
+
+## The dash ring's colour: a Master aura's first colour, otherwise light blue.
+func _dash_color() -> Color:
+	return _master_aura.get("ink", Color(0.5, 0.85, 1.0)) if not _master_aura.get("cycle", false) else Color(0.62, 0.7, 1.0)
+
+
 ## A ring around that one: bright when the dash is ready, faint while it recharges.
 func _build_dash_ring() -> void:
 	var torus := TorusMesh.new()
@@ -633,7 +658,7 @@ func _build_dash_ring() -> void:
 	torus.ring_segments = 4
 	_dash_ring = MeshInstance3D.new()
 	_dash_ring.mesh = torus
-	_ring_mat = U.unlit(Color(0.5, 0.85, 1.0, 0.55))
+	_ring_mat = U.unlit(Color(_dash_color(), 0.55)).duplicate()   # its own: its glow is animated
 	_ring_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	_dash_ring.material_override = _ring_mat
 	_dash_ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -656,7 +681,7 @@ func _update_dash_ring() -> void:
 	var was_ready := _ring_was_ready
 	_ring_was_ready = can_dash
 	if can_dash and not was_ready:
-		Fx.magic(global_position + Vector3.UP * 0.2, Color(0.5, 0.85, 1.0), 10)
+		Fx.magic(global_position + Vector3.UP * 0.2, _dash_color(), 10)
 
 
 ## Slowed to 60% speed for a moment (Frost Wraith beams).

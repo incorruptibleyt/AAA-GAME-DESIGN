@@ -1,5 +1,6 @@
 class_name HeroStyle
-## Hero looks: how a hero is dressed. Each hero has four slots (outfit, head, weapon, glow),
+## Hero looks: how a hero is dressed. Each hero has five slots (outfit, head, weapon, glow,
+## and a Master aura only that hero has),
 ## and a look for each slot is picked on the Style screen from the ones Hero Mastery has
 ## unlocked (hero_mastery.gd). Looks never change how a hero plays.
 ##
@@ -9,7 +10,7 @@ class_name HeroStyle
 ## model (they share one skeleton), and a crown, horns or a halo can be added.
 
 const SECTION := "hero_style"
-const SLOTS := ["outfit", "head", "hold", "glow"]
+const SLOTS := ["outfit", "head", "hold", "glow", "aura"]
 
 ## Which pixels of each hero's texture are their cloth ("a") and their trim or armour ("b"):
 ## [hue, hue width (1 = any hue), lowest saturation, highest saturation, the saturation and
@@ -105,6 +106,37 @@ const GLOWS := {
 	"lime": {"name": "Lime", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
 }
 
+## Master auras: looks only one hero has, one at each of Mastery levels 8, 9 and 10. An aura
+## colours the hero's outline (ink; ink2 makes it pulse between two colours, cycle runs it
+## through the colours of the rainbow, skipping red-pink), the dash ring and dash trail, and
+## gives the hero their own trail of light (MOTIFS): the Rogue's shadow wisps, the Knight's
+## rising motes, the Barbarian's embers, the Mage's stars. All of it reads from the top-down
+## camera, where hats and outfits are small.
+const AURAS := {
+	"rogue": {
+		"nightshade": {"name": "Nightshade", "level": 8, "ink": Color(0.66, 0.32, 1.0), "spark": Color(0.78, 0.52, 1.0)},
+		"venom": {"name": "Venom", "level": 9, "ink": Color(0.42, 1.0, 0.22), "spark": Color(0.66, 1.0, 0.36)},
+		"shadow_king": {"name": "Shadow King", "level": 10, "ink": Color(1.0, 0.76, 0.22), "ink2": Color(0.58, 0.24, 1.0), "spark": Color(1.0, 0.84, 0.4)},
+	},
+	"knight": {
+		"sunguard": {"name": "Sunguard", "level": 8, "ink": Color(1.0, 0.64, 0.16), "spark": Color(1.0, 0.8, 0.4)},
+		"stormplate": {"name": "Stormplate", "level": 9, "ink": Color(0.3, 0.64, 1.0), "spark": Color(0.72, 0.88, 1.0)},
+		"paladin": {"name": "Paladin", "level": 10, "ink": Color(1.0, 0.97, 0.86), "ink2": Color(1.0, 0.72, 0.2), "spark": Color(1.0, 0.86, 0.45)},
+	},
+	"barbarian": {
+		"wildfire": {"name": "Wildfire", "level": 8, "ink": Color(1.0, 0.46, 0.08), "spark": Color(1.0, 0.62, 0.22)},
+		"thunder": {"name": "Thunder", "level": 9, "ink": Color(1.0, 0.94, 0.25), "spark": Color(1.0, 1.0, 0.62)},
+		"warlord": {"name": "Warlord", "level": 10, "ink": Color(1.0, 0.42, 0.06), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(1.0, 0.72, 0.3)},
+	},
+	"mage": {
+		"starfire": {"name": "Starfire", "level": 8, "ink": Color(0.48, 0.5, 1.0), "spark": Color(0.72, 0.76, 1.0)},
+		"arcane_frost": {"name": "Arcane Frost", "level": 9, "ink": Color(0.4, 0.95, 1.0), "spark": Color(0.82, 1.0, 1.0)},
+		"archmage": {"name": "Archmage", "level": 10, "ink": Color(0.7, 0.45, 1.0), "cycle": true, "spark": Color(0.82, 0.7, 1.0)},
+	},
+}
+## Each hero's own trail of light for their auras (Fx.motif).
+const MOTIFS := {"rogue": "wisps", "knight": "motes", "barbarian": "embers", "mage": "stars"}
+
 ## The order each hero's looks are unlocked in: three for each Mastery level from 2 to 10
 ## (27 each), the grandest last. [slot, key].
 const ORDER := {
@@ -153,12 +185,15 @@ const PER_LEVEL := 3
 static func items(id: String) -> Array:
 	var out := []
 	for slot: String in SLOTS:
-		out.append({"slot": slot, "key": "", "name": "Classic", "level": 1})
+		out.append({"slot": slot, "key": "", "name": item_name(id, slot, ""), "level": 1})
 	var order: Array = ORDER.get(id, [])
 	for i in order.size():
 		var slot: String = order[i][0]
 		var key: String = order[i][1]
 		out.append({"slot": slot, "key": key, "name": item_name(id, slot, key), "level": 2 + i / PER_LEVEL})
+	var auras: Dictionary = AURAS.get(id, {})
+	for key: String in auras:
+		out.append({"slot": "aura", "key": key, "name": auras[key].name, "level": int(auras[key].level), "only": true})
 	return out
 
 
@@ -169,7 +204,7 @@ static func level_items(id: String, lv: int) -> Array:
 
 static func item_name(id: String, slot: String, key: String) -> String:
 	if key == "":
-		return "Classic"
+		return "No aura" if slot == "aura" else "Classic"
 	match slot:
 		"outfit":
 			return OUTFITS.get(key, {}).get("name", key)
@@ -179,6 +214,8 @@ static func item_name(id: String, slot: String, key: String) -> String:
 			return HOLDS.get(id, {}).get(key, {}).get("name", key)
 		"glow":
 			return GLOWS.get(key, {}).get("name", key)
+		"aura":
+			return AURAS.get(id, {}).get(key, {}).get("name", key)
 	return key
 
 
@@ -190,6 +227,8 @@ static func item_label(id: String, slot: String, key: String) -> String:
 			return n + " outfit"
 		"glow":
 			return n + " glow"
+		"aura":
+			return n if key == "" else n + " aura (%s only)" % str(Heroes.get_hero(id).title)
 	return n
 
 
@@ -231,11 +270,18 @@ static func unseen(cfg: ConfigFile, id: String) -> int:
 	var n := 0
 	for l in range(seen + 1, lv + 1):
 		n += level_items(id, l).size()
+	# Auras came in version 102: a hero whose Style screen was last opened at level 8 or
+	# more has auras at levels they had already seen.
+	if not bool(cfg.get_value(SECTION, id + "_auras_seen", false)):
+		for a: Dictionary in AURAS.get(id, {}).values():
+			if int(a.level) <= mini(seen, lv):
+				n += 1
 	return n
 
 
 static func mark_seen(cfg: ConfigFile, id: String) -> void:
 	cfg.set_value(SECTION, id + "_seen", HeroMastery.level(cfg, id))
+	cfg.set_value(SECTION, id + "_auras_seen", true)
 
 
 ## `def` (an entry of Heroes.LIST) as this player has dressed them.
@@ -279,7 +325,22 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		style.hide.append_array(hold.get("hide", []))
 		style.show = hold.get("show", [])
 	d.style = style
+	var aura: Dictionary = AURAS.get(id, {}).get(p.get("aura", ""), {})
+	if not aura.is_empty():
+		d.aura = aura.duplicate()
+		d.aura.motif = MOTIFS.get(id, "wisps")
 	return d
+
+
+## An aura's outline colour right now (`t` in seconds), as the outline shader draws it: for
+## the dash trail and the Style screen's swatch.
+static func aura_ink(aura: Dictionary, t := 0.0) -> Color:
+	var ink: Color = aura.get("ink", Color.WHITE)
+	if aura.get("cycle", false):
+		return Color.from_hsv(lerpf(0.12, 0.78, 0.5 + 0.5 * sin(t * 1.6)), 0.7, 1.0)
+	if aura.has("ink2"):
+		return ink.lerp(aura.ink2, 0.5 + 0.5 * sin(t * 3.0))
+	return ink
 
 
 static var _shaders := {}

@@ -5,6 +5,8 @@ class_name U
 static var _mat_cache := {}
 static var _soft_circle: ImageTexture
 static var _ring: ImageTexture
+static var _glint: ImageTexture
+static var _dot: ImageTexture
 static var _noise_cache := {}
 
 
@@ -126,6 +128,38 @@ static func soft_circle() -> ImageTexture:
 			img.set_pixel(x, y, Color(1, 1, 1, a * a))
 	_soft_circle = ImageTexture.create_from_image(img)
 	return _soft_circle
+
+
+## A four-pointed star with a round heart (Master aura sparkles: Fx.motif).
+static func glint() -> ImageTexture:
+	if _glint:
+		return _glint
+	var n := 64
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var p := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0) / (n / 2.0)
+			var heart := clampf((0.2 - p.length()) / 0.08, 0.0, 1.0)
+			# Thin rays along the two axes, tapering to the tips.
+			var ray := maxf(clampf(1.0 - absf(p.x) / maxf(0.02, 0.09 * (1.0 - absf(p.y))), 0.0, 1.0) * (1.0 - absf(p.y)),
+				clampf(1.0 - absf(p.y) / maxf(0.02, 0.09 * (1.0 - absf(p.x))), 0.0, 1.0) * (1.0 - absf(p.x)))
+			img.set_pixel(x, y, Color(1, 1, 1, clampf(maxf(heart, ray * 1.6), 0.0, 1.0)))
+	_glint = ImageTexture.create_from_image(img)
+	return _glint
+
+
+## A small round spark with a crisp edge (embers).
+static func dot() -> ImageTexture:
+	if _dot:
+		return _dot
+	var n := 32
+	var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+	for y in n:
+		for x in n:
+			var d := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0).length() / (n / 2.0)
+			img.set_pixel(x, y, Color(1, 1, 1, clampf((1.0 - d) / 0.25, 0.0, 1.0)))
+	_dot = ImageTexture.create_from_image(img)
+	return _dot
 
 
 ## A filled disc with a bright rim, for "danger here" circles.

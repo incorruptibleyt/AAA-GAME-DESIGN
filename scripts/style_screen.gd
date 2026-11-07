@@ -1,14 +1,14 @@
 class_name StyleScreen
 extends ColorRect
 ## A hero's Style screen (from the Heroes and Mastery screens): the hero on a pedestal, and
-## tabs of looks to dress them in (hero_style.gd): outfits, headwear, weapons and glows.
+## tabs of looks to dress them in (hero_style.gd): outfits, headwear, weapons, glows and Master auras.
 ## Tapping an unlocked look wears it straight away; tapping a locked one tries it on, so you
 ## can see what a Mastery level will bring, and says which level unlocks it.
 
 signal wear(id: String, slot: String, key: String)
 signal closed
 
-const TABS := [["outfit", "OUTFIT"], ["head", "HEAD"], ["hold", "WEAPON"], ["glow", "GLOW"]]
+const TABS := [["outfit", "OUTFIT"], ["head", "HEAD"], ["hold", "WEAPON"], ["glow", "GLOW"], ["aura", "AURA"]]
 const TEXT := Color(0.88, 0.87, 0.92)
 const DIM := Color(0.6, 0.58, 0.66)
 ## The pedestal's height; on short (16:9) screens it shrinks so the looks keep their room.
@@ -121,7 +121,7 @@ func show_new(lv: int) -> void:
 	if news.is_empty():
 		return
 	var best: Dictionary = news[0]
-	for slot: String in ["glow", "hold", "head", "outfit"]:
+	for slot: String in ["glow", "hold", "head", "outfit", "aura"]:
 		for it: Dictionary in news:
 			if it.slot == slot:
 				best = it
@@ -225,6 +225,9 @@ func _card(it: Dictionary) -> Button:
 	var name_l := Hud.label(it.name, 16, TEXT if got else DIM)
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
+	if it.get("only", false):
+		# A Master aura: only this hero has it.
+		v.add_child(Hud.label("%s ONLY" % str(_base.title).to_upper(), 12, Color(_base.ring).lightened(0.3) if got else DIM))
 	var state := "WEARING" if worn else ("TAP TO WEAR" if got else "LEVEL %d" % it.level)
 	v.add_child(Hud.label(state, 13, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else DIM)))
 	# The finger can drag the list from on top of a card (PASS lets the list see the drag),
@@ -263,6 +266,8 @@ class Swatch extends Control:
 	var a := Color.WHITE
 	var b := Color.WHITE
 	var shape := ""
+	var aura := {}
+	var _t := 0.0
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -278,6 +283,10 @@ class Swatch extends Control:
 				b = bb if bb != null else HeroStyle.CLASSIC_TRIM.get(id, Color.GRAY)
 			"glow":
 				a = HeroStyle.GLOWS.get(k, {}).get("ring", base.ring)
+			"aura":
+				aura = HeroStyle.AURAS.get(id, {}).get(k, {})
+				a = aura.get("ink", Color(0.35, 0.32, 0.4))
+				b = aura.get("spark", Color(0.5, 0.48, 0.55))
 			"head":
 				shape = k if k != "" else {"rogue": "hood", "knight": "helm", "barbarian": "bear", "mage": "wizard"}.get(id, "hood")
 			"hold":
@@ -303,10 +312,41 @@ class Swatch extends Control:
 				draw_circle(c, r, Color(a, 0.18))
 				draw_circle(c, r * 0.72, a, false, r * 0.22, true)
 				draw_circle(c, r * 0.72, Color(1, 1, 1, 0.6), false, 2.0, true)
+			"aura":
+				_aura(c, r)
 			"head":
 				_head(c, r)
 			"hold":
 				_hold(c, r)
+
+	func _process(delta: float) -> void:
+		if not (aura.get("cycle", false) or aura.has("ink2")):
+			set_process(false)   # only a pulsing aura's swatch is redrawn every frame
+			return
+		_t += delta
+		queue_redraw()
+
+	## A Master aura's swatch: a hero's shape drawn as a glowing outline in the aura's
+	## colour (as it pulses), with its sparks around it. No aura: a plain dark figure.
+	func _aura(c: Vector2, r: float) -> void:
+		var ink := HeroStyle.aura_ink(aura, _t) if not aura.is_empty() else a
+		var body := Color(0.16, 0.14, 0.2)
+		if not aura.is_empty():
+			draw_circle(c, r, Color(ink, 0.2))
+		var head := c + Vector2(0, -r * 0.42)
+		var torso := PackedVector2Array([c + Vector2(-r * 0.42, r * 0.75), c + Vector2(-r * 0.3, -r * 0.08), c + Vector2(r * 0.3, -r * 0.08), c + Vector2(r * 0.42, r * 0.75)])
+		var w := r * 0.2 if not aura.is_empty() else 2.0
+		draw_circle(head, r * 0.28 + w * 0.5, ink)
+		var fat := PackedVector2Array()
+		for p: Vector2 in torso:
+			fat.append(c + (p - c) * 1.0 + (p - c).normalized() * w * 0.7)
+		draw_colored_polygon(fat, ink)
+		draw_circle(head, r * 0.28, body)
+		draw_colored_polygon(torso, body)
+		if not aura.is_empty():
+			for i in 5:
+				var ang := _t * 0.8 + i * TAU / 5.0
+				draw_circle(c + Vector2(cos(ang), sin(ang)) * r * 0.86, r * (0.07 + 0.03 * sin(_t * 3.0 + i)), b)
 
 	func _head(c: Vector2, r: float) -> void:
 		var gold := Color(1.0, 0.8, 0.3)
