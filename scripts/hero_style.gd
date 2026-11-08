@@ -64,6 +64,8 @@ const HEADS := {
 	"wizard": {"name": "Wizard hat", "hat": false, "borrow": ["Mage", "Mage_Hat"]},
 	"helm": {"name": "Knight helm", "hat": false, "borrow": ["Knight", "Knight_Helmet"]},
 	"bear": {"name": "Bear hat", "hat": false, "borrow": ["Barbarian", "Barbarian_Hat"]},
+	# The Mage's own: a deep hood with only shadow and glowing eyes inside (mage_hood.gd).
+	"shadow_hood": {"name": "Shadow Hood", "hat": false, "hide": ["Mage_Head"], "extras": ["mage_hood"]},
 }
 
 ## What each hero holds (parts of their own model: hide, show).
@@ -188,10 +190,10 @@ const ORDER := {
 		["outfit", "gold"], ["head", "halo"], ["head", "crown"]],
 	"mage": [["outfit", "crimson"], ["glow", "frost"], ["hold", "wand"],
 		["outfit", "forest"], ["head", "bare"], ["glow", "emerald"],
-		["outfit", "midnight"], ["hold", "tome"], ["glow", "ember"],
+		["outfit", "midnight"], ["head", "shadow_hood"], ["glow", "ember"],
 		["outfit", "ivory"], ["head", "horned_hat"], ["glow", "gold"],
 		["outfit", "shadow"], ["hold", "open_tome"], ["glow", "azure"],
-		["outfit", "sea"], ["head", "helm"], ["glow", "silver"],
+		["outfit", "sea"], ["hold", "tome"], ["glow", "silver"],
 		["outfit", "rose"], ["head", "horns"], ["head", "bear"],
 		["outfit", "ember"], ["outfit", "frost"], ["glow", "lime"],
 		["outfit", "gold"], ["head", "halo"], ["head", "crown"]],
@@ -366,7 +368,9 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 			style.borrow.append(head.borrow)
 			has_hat = true
 		style.extras = head.get("extras", [])
+		style.hide.append_array(head.get("hide", []))
 	style.hat = has_hat
+	style.eye = d.get("ring", Color(0.6, 0.8, 1.0))
 	# How far a halo floats over the hat: high over a wizard's hat, just over a helmet.
 	var wizard: bool = (id == "mage" and head.get("hat", true)) or p.get("head", "") == "wizard"
 	style.hat_h = 0.8 if wizard else 0.42
@@ -417,7 +421,7 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 	if not outfit.is_empty():
 		_recolour(skel, id, outfit)
 	for extra: String in style.get("extras", []):
-		_extra(skel, id, extra, bool(style.get("hat", false)), float(style.get("hat_h", 0.45)))
+		_extra(skel, id, extra, bool(style.get("hat", false)), float(style.get("hat_h", 0.45)), style)
 
 
 ## A part (hat, cape, weapon) from another hero's model, worn on this skeleton on the same
@@ -519,7 +523,7 @@ static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> Sh
 
 
 ## A crown, horns or a halo on the hero's head.
-static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h := 0.45) -> void:
+static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h := 0.45, style := {}) -> void:
 	if skel.find_bone("head") < 0:
 		return
 	var att := _attachment(skel, "head")
@@ -529,6 +533,14 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			_crown(att, id, y, hat)
 		"crypt_crown":
 			att.add_child(CryptCrown.make(id, y, hat))
+		"mage_hood":
+			var o: Dictionary = style.get("outfit", {})
+			var cloth: Color = o.get("a", CLASSIC_OUTFIT.get(id, Color(0.45, 0.4, 0.7)))
+			var trim: Color = o.get("b", Color(0.95, 0.62, 0.28))
+			if o.get("gold", "") != "":   # the Crypt King outfit: obsidian hood, gold trim
+				cloth = PASS_OUTFIT.obsidian
+				trim = PASS_OUTFIT.gold
+			att.add_child(MageHood.make(cloth, trim, style.get("eye", Color(0.6, 0.8, 1.0))))
 		"horns":
 			var bone := U.mat(Color(0.9, 0.86, 0.76), 0.6)
 			var k := 1.0   # size

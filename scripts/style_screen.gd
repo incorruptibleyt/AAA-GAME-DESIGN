@@ -454,6 +454,13 @@ class Swatch extends Control:
 				draw_circle(c + Vector2(0, r * 0.25), r * 0.25, Color(0.2, 0.15, 0.12))
 			"bare":
 				draw_circle(c, r * 0.75, skin)
+			"shadow_hood":
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.85, r * 0.75), c + Vector2(-r * 0.7, -r * 0.4),
+					c + Vector2(0, -r * 0.95), c + Vector2(r * 0.7, -r * 0.4), c + Vector2(r * 0.85, r * 0.75)]), Color(0.42, 0.36, 0.68))
+				draw_circle(c + Vector2(0, r * 0.12), r * 0.5, Color(0.95, 0.62, 0.28))
+				draw_circle(c + Vector2(0, r * 0.12), r * 0.42, Color(0.03, 0.02, 0.05))
+				for s in [-1.0, 1.0]:
+					draw_circle(c + Vector2(s * r * 0.17, r * 0.05), r * 0.08, Color(0.6, 0.85, 1.0))
 			"hood":
 				draw_circle(c, r * 0.8, Color(0.25, 0.45, 0.95))
 				draw_circle(c + Vector2(0, r * 0.15), r * 0.48, skin)
