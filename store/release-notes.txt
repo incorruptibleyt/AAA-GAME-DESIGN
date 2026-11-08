@@ -1,8 +1,7 @@
-Version 102: Bone Chain gets its biggest new look yet!
-- Blessing cards glow in their rarity colour and flip in. Rare ones shine.
-- Coins fly up to your coin counter.
-- Big, bold damage numbers and shiny new blessing icons.
-- Cleaner, crisper sparks and dust.
-- Master auras: heroes at Mastery 8, 9 and 10 unlock a glowing aura each.
-- Brighter dungeons, bold outlines, chunky buttons and a new font.
-- Hero Mastery levels 1 to 10, with 3 new looks per level.
+Version 116: Feats and rewards update
+- 20 Feats: skill challenges that win looks no one can buy, with a big reveal and WEAR IT.
+- Bone Drops: more coins, a 3D reliquary, the odds shown, and a new look guaranteed after 8 drops.
+- New REWARDS screen for the Bone Road, drops, Feats and records.
+- New looks: Flame Horns, Bone Mask, Cinder Ice and bolder outfit patterns.
+- Fixed a rare room that never ended.
+- Green hearts, purple elites, fairer PERFECT dodges.
