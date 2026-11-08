@@ -217,11 +217,12 @@ func _check_perfect(window: float) -> void:
 		if is_instance_valid(p) and not p.is_queued_for_deletion() and p.time_to_hit(global_position, radius + 0.15) <= window:
 			_perfect_dodge()
 			return
-	if Telegraph.dodged(global_position, radius, window):
-		_perfect_dodge()
+	var kind := Telegraph.dodged(global_position, radius, window)
+	if kind > 0:
+		_perfect_dodge(kind == 2)
 
 
-func _perfect_dodge() -> void:
+func _perfect_dodge(big := true) -> void:
 	_perfect_done = true
 	_safe_left = maxf(_safe_left, PERFECT_WINDOW - DASH_TIME + 0.05)
 	_dash_cooldown = 0.0
@@ -229,7 +230,7 @@ func _perfect_dodge() -> void:
 	for p in Projectile.danger.duplicate():
 		if is_instance_valid(p) and p.global_position.distance_to(global_position) < 3.0:
 			p.shatter()
-	Game.perfect_dodge(center())
+	Game.perfect_dodge(center(), big)
 	# Soul Siphon heals; Frozen Ground chills every skeleton within 5 m.
 	if perks.has("siphon"):
 		var h := minf(minf(10.0 * perks.siphon, siphon_left), max_health - health)
@@ -643,6 +644,13 @@ func _build_motif() -> void:
 	var p := Fx.motif(str(_master_aura.get("motif", "wisps")), _master_aura.get("spark", Color.WHITE), 1.4)   # bigger: seen from far above
 	add_child(p)
 	_rings.append(p)
+	# Its shape on the floor (not the Crypt King's, which has its own sigil).
+	if not _master_aura.get("sigil", false):
+		var ink: Color = _master_aura.get("ink", Color.WHITE)
+		var marks := {"quick": 8, "storm": 3, "souls": 5, "sun": 12, "arcane": 6, "snow": 6, "bubbles": 9, "fireflies": 7}
+		var g := Fx.aura_ground(ink, _master_aura.get("ink2", ink.lightened(0.4)), int(marks.get(str(_master_aura.get("motif", "")), 4)))
+		add_child(g)
+		_rings.append(g)
 
 
 ## The dash trail: the aura's colour (as its outline is drawing it right now), gold for a

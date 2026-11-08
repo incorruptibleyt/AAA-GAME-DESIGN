@@ -24,12 +24,23 @@ var _flash := 0.0
 var _pop := 0.0
 var _art: Control
 var _look: HeroStage   # a drop-only look found: the hero wearing it, in place of the box
+var _chest: Chest
+var _wear: Button
+## Feats won this run, shown one by one like a found look (reveal_feats): [{name, look, hero}].
+var _feat_queue: Array = []
+var _feat_mode := false
+## Wear a found look: (hero id, slot, key).
+signal wear(id: String, slot: String, key: String)
 var _head: Label
 var _count: Label
 var _rarity: Label
 var _prize: Label
 var _action: Button
 var _later: Button
+var _pity: Label
+var _odds_btn: Button
+var _odds: PanelContainer
+var _odds_text: Label
 
 
 func _init() -> void:
@@ -50,12 +61,18 @@ func _init() -> void:
 	col.add_child(_head)
 	_count = Hud.label("", 19, Color(0.8, 0.78, 0.85))
 	col.add_child(_count)
+	_pity = Hud.label("", 18, Color(0.55, 0.95, 1.0))
+	col.add_child(_pity)
 	_art = Control.new()
 	_art.custom_minimum_size = Vector2(320, 320)
 	_art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_art.draw.connect(_draw_art)
 	col.add_child(_art)
+	# Version 116: a real 3D reliquary in the middle of the glow (it was drawn flat).
+	_chest = Chest.new()
+	Hud.full(_chest)
+	_art.add_child(_chest)
 	_look = HeroStage.new(Vector2(320, 320))
 	_look.custom_minimum_size = Vector2(320, 320)
 	_look.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -73,6 +90,14 @@ func _init() -> void:
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(_action)
 	col.add_child(box)
+	_wear = Hud.button("WEAR IT", 24, Color(0.05, 0.2, 0.12, 0.97), Color(0.5, 1.0, 0.65))
+	_wear.custom_minimum_size = Vector2(260, 70)
+	_wear.visible = false
+	_wear.pressed.connect(_on_wear)
+	var wbox := CenterContainer.new()
+	wbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	wbox.add_child(_wear)
+	col.add_child(wbox)
 	_later = Hud.button("LATER", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_later.custom_minimum_size = Vector2(200, 62)
 	_later.pressed.connect(close)
@@ -80,6 +105,30 @@ func _init() -> void:
 	box2.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box2.add_child(_later)
 	col.add_child(box2)
+	# "?": the odds of each kind, and the look guarantee.
+	_odds_btn = Hud.button("?", 26, Color(0.12, 0.1, 0.16, 0.95), Color(0.6, 0.55, 0.7, 0.8))
+	_odds_btn.custom_minimum_size = Vector2(64, 64)
+	_odds_btn.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_odds_btn.position = Vector2(-84, 24)
+	_odds_btn.pressed.connect(func(): _show_odds(not _odds.visible))
+	add_child(_odds_btn)
+	_odds = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.05, 0.09, 0.98)
+	sb.border_color = Color(0.6, 0.55, 0.7, 0.8)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.set_content_margin_all(18)
+	_odds.add_theme_stylebox_override("panel", sb)
+	_odds.set_anchors_preset(Control.PRESET_CENTER)
+	_odds.visible = false
+	_odds.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
+			_show_odds(false))
+	_odds_text = Hud.label("", 18, Color(0.9, 0.88, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
+	_odds_text.custom_minimum_size = Vector2(400, 0)
+	_odds.add_child(_odds_text)
+	add_child(_odds)
 	gui_input.connect(func(e: InputEvent):
 		# (Touches arrive as mouse clicks too: Godot's emulate-mouse-from-touch.)
 		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed and (e as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT:
@@ -101,8 +150,59 @@ func close() -> void:
 		_finish()   # the prize was already given; show it before leaving
 		return
 	_show_look(false)
+	_feat_mode = false
+	_feat_queue.clear()
 	visible = false
 	closed.emit()
+
+
+func _on_wear() -> void:
+	var look: Array = _result.get("look", [])
+	if look.size() < 2:
+		return
+	wear.emit(str(_result.get("hero", "")), str(look[0]), str(look[1]))
+	_wear.text = "WEARING!"
+	_wear.disabled = true
+	Sfx.play("upgrade")
+
+
+## A Feat's look gets the same big reveal as a lucky drop (version 116: it was a small
+## toast only): the hero wearing it on the pedestal, its name, WEAR IT and NEXT.
+func reveal_feats(list: Array) -> void:
+	if list.is_empty():
+		return
+	_feat_queue = list.duplicate()
+	_feat_mode = true
+	visible = true
+	_next_feat()
+
+
+func _next_feat() -> void:
+	var f: Dictionary = _feat_queue.pop_front()
+	_result = {"kind": "look", "look": f.look, "hero": f.hero, "preview": f.preview, "tier": 4, "color": Color(0.5, 0.95, 1.0)}
+	_step = Step.OPEN
+	_t = 0.0
+	_flash = 1.0
+	_pop = 1.0
+	_head.text = "FEAT DONE!"
+	_head.label_settings.font_color = Color(0.5, 0.95, 1.0)
+	_count.text = str(f.text)
+	_pity.text = ""
+	_rarity.text = str(f.name).to_upper()
+	_rarity.label_settings.font_color = Hud.GOLD
+	_prize.text = "NEW LOOK: %s\nEarned, never sold. Every hero can wear it." % str(f.label)
+	_prize.label_settings.font_color = Color(0.75, 0.97, 1.0)
+	_prize.label_settings.font_size = 22
+	_show_look(true)
+	_wear.visible = true
+	_wear.disabled = false
+	_wear.text = "WEAR IT"
+	_action.text = "NEXT" if not _feat_queue.is_empty() else "DONE"
+	_later.visible = false
+	_odds_btn.visible = false
+	Sfx.play("victory", 0.8)
+	if Game.vibration:
+		Input.vibrate_handheld(60)
 
 
 func _show_look(on: bool) -> void:
@@ -115,6 +215,10 @@ func _show_look(on: bool) -> void:
 
 func _ready_next() -> void:
 	_show_look(false)
+	_wear.visible = false
+	_odds_btn.visible = true
+	_head.label_settings.font_color = Color(1, 0.85, 0.55)
+	_chest.reset()
 	_step = Step.CLOSED
 	_t = 0.0
 	_result = {}
@@ -128,10 +232,29 @@ func _ready_next() -> void:
 	_prize.label_settings.font_size = 22
 	_action.text = "TAP TO OPEN"
 	_later.visible = true
+	_update_pity()
 	_art.queue_redraw()
 
 
+func _show_odds(on: bool) -> void:
+	_odds.visible = on
+	if on:
+		_odds_text.text = Drops.odds_text(Game._load_save())
+		var vw := get_viewport_rect().size.x
+		_odds_text.custom_minimum_size.x = minf(440.0, vw - 76.0)
+		_odds.reset_size()
+		_odds.position = (get_viewport_rect().size - _odds.size) * 0.5
+	Sfx.play("click")
+
+
+func _update_pity() -> void:
+	_pity.text = Drops.pity_text(Game._load_save())
+
+
 func _tap() -> void:
+	if _odds.visible:
+		_show_odds(false)
+		return
 	match _step:
 		Step.CLOSED:
 			_result = opener.call() if opener.is_valid() else {}
@@ -152,6 +275,13 @@ func _tap() -> void:
 		Step.OPEN:
 			if _t < 0.35:
 				return   # a quick double tap shouldn't open the next one by mistake
+			if _feat_mode:
+				if not _feat_queue.is_empty():
+					_next_feat()
+				else:
+					_feat_mode = false
+					close()
+				return
 			if _left > 0:
 				_ready_next()
 			else:
@@ -179,6 +309,7 @@ func _process(delta: float) -> void:
 				Input.vibrate_handheld(25)
 		if _t >= OPEN_AT:
 			_finish()
+	_chest.animate(_step, _t / OPEN_AT, _tier_color(), _shown_tier, delta)
 	_art.queue_redraw()
 
 
@@ -195,10 +326,15 @@ func _finish() -> void:
 	_prize.text = str(_result.get("text", ""))
 	_prize.label_settings.font_color = Hud.GOLD if _result.get("kind", "") == "coins" else c.lightened(0.35)
 	_prize.label_settings.font_size = 34 if _result.get("kind", "") == "coins" else 22
+	_chest.open_up(c)
 	if _result.get("kind", "") == "look":
 		_head.text = "NEW LOOK!"
 		_show_look(true)
+		_wear.visible = true
+		_wear.disabled = false
+		_wear.text = "WEAR IT"
 	_count.text = "%d more waiting" % _left if _left > 0 else "All opened!"
+	_update_pity()
 	_action.text = "OPEN NEXT" if _left > 0 else "DONE"
 	_later.visible = _left > 0
 	Sfx.play("victory" if _shown_tier >= 3 else ("upgrade" if _shown_tier >= 1 else "coin"), 0.8)
@@ -250,60 +386,8 @@ func _draw_art() -> void:
 			var d1 := Vector2.from_angle(ang - 0.09)
 			var d2 := Vector2.from_angle(ang + 0.09)
 			a.draw_colored_polygon(PackedVector2Array([c, c + d1 * 165.0 * k, c + d2 * 165.0 * k]), ray)
-	a.draw_set_transform(c + shake, tilt, Vector2(k, k))
-	var bone := Color(0.9, 0.87, 0.78)
-	var dark := Color(0.16, 0.12, 0.14)
-	# Two crossed bones behind the box.
-	for s in [-1.0, 1.0]:
-		var dir := Vector2(s, -0.75).normalized()
-		var p1 := dir * -112.0 + Vector2(0, 30)
-		var p2 := dir * 112.0 + Vector2(0, 30)
-		a.draw_line(p1, p2, bone.darkened(0.15), 16.0)
-		for p in [p1, p2]:
-			var side := Vector2(-dir.y, dir.x) * 8.0
-			a.draw_circle(p + side, 12.0, bone.darkened(0.15))
-			a.draw_circle(p - side, 12.0, bone.darkened(0.15))
-	# The box.
-	var body := Rect2(-86, -18, 172, 104)
-	_box(a, body, dark, col, 14)
-	# Light pouring out of the open box.
-	if open:
-		var beam := col.lightened(0.4)
-		beam.a = 0.55
-		a.draw_colored_polygon(PackedVector2Array([Vector2(-70, -18), Vector2(70, -18), Vector2(110, -150), Vector2(-110, -150)]), Color(beam, 0.18))
-		a.draw_rect(Rect2(-74, -24, 148, 10), beam)
-		# The inside glows, with what was found sitting in it.
-		var inner := col.lightened(0.15)
-		inner.a = 0.55
-		var isb := StyleBoxFlat.new()
-		isb.bg_color = inner
-		isb.set_corner_radius_all(8)
-		a.draw_style_box(isb, Rect2(-66, -6, 132, 80))
-		_prize_icon(a, Vector2(0, 34), str(_result.get("kind", "coins")), col)
-	# The lid: on top while closed; once open it has flown up and tipped back.
-	var lid_off := Vector2(0, -36)
-	var lid_rot := 0.0
-	if open:
-		var fly := 1.0 - _pop
-		lid_off = Vector2(50 + 26 * fly, -84 - 10 * fly)
-		lid_rot = 0.5
-	a.draw_set_transform(c + shake + (lid_off + Vector2(0, 0)).rotated(tilt) * k, tilt + lid_rot, Vector2(k, k))
-	_box(a, Rect2(-94, -20, 188, 40), dark.lightened(0.05), col, 12)
-	# The skull on the lid.
-	a.draw_circle(Vector2(0, -2), 26.0, bone)
-	a.draw_rect(Rect2(-14, 10, 28, 16), bone)
-	a.draw_circle(Vector2(-10, -4), 7.0, dark)
-	a.draw_circle(Vector2(10, -4), 7.0, dark)
-	a.draw_colored_polygon(PackedVector2Array([Vector2(0, 4), Vector2(-4, 11), Vector2(4, 11)]), dark)
-	for x in [-8, 0, 8]:
-		a.draw_line(Vector2(x, 18), Vector2(x, 26), dark, 2.0)
-	a.draw_set_transform(c + shake, tilt, Vector2(k, k))
-	# A question mark on the front while closed; a sparkle once open.
-	if not open:
-		var f := ThemeDB.fallback_font
-		a.draw_string_outline(f, Vector2(-20, 66), "?", HORIZONTAL_ALIGNMENT_CENTER, 40, 54, 8, Color(0, 0, 0, 0.8))
-		a.draw_string(f, Vector2(-20, 66), "?", HORIZONTAL_ALIGNMENT_CENTER, 40, 54, col.lightened(0.3))
-	a.draw_set_transform_matrix(Transform2D.IDENTITY)
+	# (The reliquary itself is the 3D Chest below, version 116.)
+	var _unused := shake + Vector2(tilt, 0)
 	# The whole screen flashes the colour as it climbs and opens.
 	if _flash > 0.0:
 		var fl := col
@@ -348,3 +432,188 @@ func _box(a: Control, r: Rect2, fill: Color, edge: Color, radius: int) -> void:
 	for p in [r.position + Vector2(14, 14), r.position + Vector2(r.size.x - 14, 14),
 			r.position + Vector2(14, r.size.y - 14), r.position + r.size - Vector2(14, 14)]:
 		a.draw_circle(p, 5.0, edge.lightened(0.25))
+
+
+# ---------------------------------------------------------------- the 3D reliquary
+
+## The Bone Drop's reliquary in 3D: a bone chest with iron bands and a skull on the front.
+## Closed, it hops now and then; opening, it shakes harder as cracks of light in the
+## rarity's colour split it; open, the lid flies back and a beam of that colour rises.
+class Chest extends SubViewportContainer:
+	var _vp: SubViewport
+	var _root: Node3D
+	var _lid: Node3D
+	var _seam: StandardMaterial3D
+	var _crack_mat: StandardMaterial3D
+	var _cracks: Array[MeshInstance3D] = []
+	var _beam: MeshInstance3D
+	var _beam_mat: StandardMaterial3D
+	var _light: OmniLight3D
+	var _open := 0.0
+	var _opened := false
+	var _hop := 0.0
+
+	func _init() -> void:
+		stretch = true
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_vp = SubViewport.new()
+		_vp.own_world_3d = true
+		_vp.transparent_bg = true
+		_vp.msaa_3d = Viewport.MSAA_2X
+		_vp.render_target_update_mode = SubViewport.UPDATE_WHEN_PARENT_VISIBLE
+		add_child(_vp)
+		var cam := Camera3D.new()
+		cam.position = Vector3(0, 1.55, 2.7)
+		cam.fov = 40.0
+		_vp.add_child(cam)
+		cam.look_at_from_position(cam.position, Vector3(0, 0.45, 0))
+		var sun := DirectionalLight3D.new()
+		sun.rotation = Vector3(-0.9, 0.5, 0)
+		sun.light_energy = 1.1
+		_vp.add_child(sun)
+		var env := WorldEnvironment.new()
+		env.environment = Environment.new()
+		env.environment.background_mode = Environment.BG_CLEAR_COLOR
+		env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		env.environment.ambient_light_color = Color(0.5, 0.45, 0.6)
+		env.environment.ambient_light_energy = 0.7
+		_vp.add_child(env)
+		_build()
+
+	func _build() -> void:
+		_root = Node3D.new()
+		_vp.add_child(_root)
+		var bone := StandardMaterial3D.new()
+		bone.albedo_color = Color(0.9, 0.86, 0.76)
+		bone.roughness = 0.6
+		bone.rim_enabled = true
+		bone.rim = 0.3
+		var iron := StandardMaterial3D.new()
+		iron.albedo_color = Color(0.16, 0.13, 0.16)
+		iron.metallic = 0.6
+		iron.roughness = 0.35
+		var dark := StandardMaterial3D.new()
+		dark.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		dark.albedo_color = Color(0.04, 0.03, 0.05)
+		_seam = StandardMaterial3D.new()
+		_seam.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_seam.albedo_color = Color.WHITE
+		_crack_mat = _seam.duplicate()
+		# Body, two iron bands, iron feet.
+		_box(_root, Vector3(1.2, 0.62, 0.78), bone, Vector3(0, 0.35, 0))
+		for x in [-0.36, 0.36]:
+			_box(_root, Vector3(0.1, 0.66, 0.82), iron, Vector3(x, 0.35, 0))
+		for x in [-0.52, 0.52]:
+			for z in [-0.3, 0.3]:
+				_box(_root, Vector3(0.16, 0.08, 0.16), iron, Vector3(x, 0.03, z))
+		# The skull on the front, with its two dark eyes.
+		var skull := SphereMesh.new()
+		skull.radius = 0.16
+		skull.height = 0.32
+		_mesh(_root, skull, bone, Vector3(0, 0.4, 0.4)).scale = Vector3(1, 1, 0.6)
+		var eye := SphereMesh.new()
+		eye.radius = 0.045
+		eye.height = 0.09
+		for x in [-0.06, 0.06]:
+			_mesh(_root, eye, dark, Vector3(x, 0.42, 0.49))
+		# The glowing seam under the lid.
+		_box(_root, Vector3(1.22, 0.035, 0.8), _seam, Vector3(0, 0.665, 0))
+		# Cracks of light on the front, one more for each step up in rarity.
+		var crack_at := [Vector3(-0.2, 0.3, 0.392), Vector3(0.18, 0.5, 0.392), Vector3(-0.15, 0.55, 0.392), Vector3(0.2, 0.2, 0.392)]
+		for i in crack_at.size():
+			var c := _box(_root, Vector3(0.025, 0.24, 0.01), _crack_mat, crack_at[i])
+			c.rotation.z = [0.6, -0.5, -0.9, 0.8][i]
+			c.visible = false
+			_cracks.append(c)
+		# The lid, hinged at the back.
+		_lid = Node3D.new()
+		_lid.position = Vector3(0, 0.68, -0.4)
+		_root.add_child(_lid)
+		_box(_lid, Vector3(1.28, 0.2, 0.84), bone, Vector3(0, 0.1, 0.4))
+		for x in [-0.36, 0.36]:
+			_box(_lid, Vector3(0.1, 0.24, 0.88), iron, Vector3(x, 0.1, 0.4))
+		var knob := SphereMesh.new()
+		knob.radius = 0.09
+		knob.height = 0.18
+		_mesh(_lid, knob, iron, Vector3(0, 0.24, 0.4))
+		# The beam of light, shown once it opens.
+		_beam_mat = StandardMaterial3D.new()
+		_beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_beam_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_beam_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		var bm := CylinderMesh.new()
+		bm.top_radius = 0.75
+		bm.bottom_radius = 0.48
+		bm.height = 2.4
+		bm.cap_top = false
+		bm.cap_bottom = false
+		_beam = _mesh(_root, bm, _beam_mat, Vector3(0, 1.85, 0))
+		_beam.visible = false
+		_light = OmniLight3D.new()
+		_light.position = Vector3(0, 0.9, 0.6)
+		_light.omni_range = 3.0
+		_light.light_energy = 0.0
+		_root.add_child(_light)
+
+	func _box(parent: Node3D, size_v: Vector3, mat: Material, pos: Vector3) -> MeshInstance3D:
+		var b := BoxMesh.new()
+		b.size = size_v
+		return _mesh(parent, b, mat, pos)
+
+	func _mesh(parent: Node3D, m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:
+		var mi := MeshInstance3D.new()
+		mi.mesh = m
+		mi.material_override = mat
+		mi.position = pos
+		parent.add_child(mi)
+		return mi
+
+	func reset() -> void:
+		_opened = false
+		_open = 0.0
+		_lid.rotation = Vector3.ZERO
+		_lid.position = Vector3(0, 0.68, -0.4)
+		_beam.visible = false
+		_light.light_energy = 0.0
+		for c in _cracks:
+			c.visible = false
+		_root.rotation = Vector3(0, -0.35, 0)
+		_root.position = Vector3.ZERO
+
+	func open_up(col: Color) -> void:
+		_opened = true
+		_open = 0.0
+		_beam.visible = true
+		_beam_mat.albedo_color = Color(col, 0.35)
+		_light.light_color = col
+		_light.light_energy = 2.5
+
+	func animate(step: int, k: float, col: Color, tier: int, delta: float) -> void:
+		_seam.albedo_color = col.lightened(0.3) * (1.0 + 0.6 * float(tier))
+		_crack_mat.albedo_color = col.lightened(0.4) * 1.6
+		var t := Time.get_ticks_msec() / 1000.0
+		_root.position = Vector3.ZERO
+		_root.rotation = Vector3(0, -0.35 + sin(t * 0.6) * 0.12, 0)
+		if step == 0:   # closed: a hop now and then
+			var hop := fmod(t, 2.2)
+			if hop < 0.35:
+				_root.position.y = sin(hop / 0.35 * PI) * 0.12
+		elif step == 1:   # opening: shaking harder, cracks appearing
+			var amp := 0.02 + 0.07 * clampf(k, 0.0, 1.0)
+			_root.rotation.z = sin(t * 52.0) * amp * 2.0
+			_root.position.x = sin(t * 61.0) * amp
+			_lid.rotation.x = -absf(sin(t * 30.0)) * amp * 2.0
+			for i in _cracks.size():
+				_cracks[i].visible = i < tier
+			_light.light_color = col
+			_light.light_energy = 0.4 * float(tier)
+		elif _opened:
+			_open = minf(1.0, _open + delta * 3.0)
+			var e := ease(_open, 0.4)
+			_lid.rotation.x = -1.9 * e
+			_lid.position = Vector3(0, 0.68 + 0.25 * e, -0.4 - 0.2 * e)
+			_beam.scale = Vector3(1, 0.2 + 0.8 * e, 1)
+			_beam_mat.albedo_color = Color(col, 0.22 + 0.1 * sin(t * 4.0))
+			for c in _cracks:
+				c.visible = true

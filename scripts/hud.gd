@@ -25,6 +25,8 @@ signal drops_closed
 signal mastery_pressed(id: String)
 signal style_pressed(id: String)
 signal feats_pressed
+signal found_wear(id: String, slot: String, key: String)
+signal feats_hero_pressed(id: String)
 signal see_looks(id: String, level: int)
 signal style_wear(id: String, slot: String, key: String)
 signal hero_pick(id: String)
@@ -293,6 +295,7 @@ func _ready() -> void:
 	_build_cards()
 	_build_doors()
 	_build_title()
+	_build_rewards()
 	_build_end()
 	_build_pause()
 	_build_feedback()
@@ -303,6 +306,7 @@ func _ready() -> void:
 	_drops = DropScreen.new()
 	add_child(_drops)
 	_drops.closed.connect(func(): drops_closed.emit())
+	_drops.wear.connect(func(id: String, slot: String, key: String): found_wear.emit(id, slot, key))
 	_road = RoadScreen.new()
 	add_child(_road)
 	_road.claim.connect(func(i: int): road_claim.emit(i))
@@ -317,6 +321,11 @@ func _ready() -> void:
 	_style.feats.connect(func(): feats_pressed.emit())
 	_feats = FeatsScreen.new()
 	add_child(_feats)
+	# Back on the Style screen after the Feats screen: its button no longer says NEW!.
+	_feats.closed.connect(func():
+		if _style.visible:
+			_style.refresh_feats_button()
+		refresh_rewards())
 	_style.closed.connect(func():
 		# The Heroes screen's pedestal draws again once the Style screen is gone.
 		if _heroes_box.visible:
@@ -1207,11 +1216,16 @@ func _build_title() -> void:
 	settings.position = Vector2(20, 20)
 	settings.pressed.connect(func(): show_settings(true))
 	holder.add_child(settings)
-	var records := button("RECORDS", 18)
+	# REWARDS (version 116): the Bone Road, Bone Drops, Feats and Records in one place, so
+	# the returning title has 7 buttons, not 9.
+	var records := button("REWARDS", 18, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	records.custom_minimum_size = Vector2(150, 66)
 	records.position = Vector2(184, 20)
-	records.pressed.connect(func(): records_pressed.emit())
+	records.pressed.connect(func(): show_rewards(true))
 	holder.add_child(records)
+	_rewards_badge = _badge_pill("")
+	_rewards_badge.offset_left = -84
+	records.add_child(_rewards_badge)
 	_title_records = records
 	_title_settings = settings
 	_place_title_buttons()
@@ -1250,6 +1264,8 @@ func _build_title() -> void:
 	_title_drops.add_theme_font_size_override("font_size", 17)
 	var row := _pair(_title_road, _title_drops)
 	(row as HBoxContainer).add_theme_constant_override("separation", 10)
+	row.visible = false   # (in the REWARDS screen now)
+	_title_rewards_row = row
 	top.add_child(row)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1329,6 +1345,8 @@ func set_drops(n: int) -> void:
 	for b in [_title_drops, _end_drop]:
 		b.visible = n > 0
 		b.text = "OPEN BONE DROP" if n == 1 else "OPEN %d BONE DROPS" % n
+	if _rewards_box and (_rewards_box.visible or _title_box.visible):
+		refresh_rewards()
 	_fit_end_soon()
 
 
@@ -1539,6 +1557,7 @@ func _build_heroes() -> void:
 	_heroes_box.closed.connect(func(): show_heroes(false))
 	_heroes_box.mastery.connect(func(id: String): mastery_pressed.emit(id))
 	_heroes_box.style.connect(func(id: String): style_pressed.emit(id))
+	_heroes_box.feats.connect(func(id: String): feats_hero_pressed.emit(id))
 
 
 ## With a saved run waiting, starting a new one asks first: the first tap warns, and a
@@ -2173,9 +2192,20 @@ func _build_reports_ask() -> void:
 	col.add_theme_constant_override("separation", 18)
 	_ask_box.add_child(col)
 	col.add_child(label("HELP FIX BUGS?", 40, GOLD))
-	var text := label("Send anonymous run and crash reports to the developer?\n\nNo account, name or ad ID. A run summary, a short note once a day when you open the game, a random install number, your phone model, Android version and memory, and error messages with the game's recent log.\n\nYou can change this any time in Settings or the pause menu.", 19, Color(0.9, 0.88, 0.84))
+	var text := label("Send anonymous crash and run reports?\nNo name, account or ad ID. Change it any time in Settings.", 21, Color(0.9, 0.88, 0.84))
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(text)
+	# The full list, for anyone who wants it, one tap away.
+	var more := label("Sent: a run summary, a short daily note, a random install number, your phone model, Android version and memory, and error messages with the game's recent log.", 16, Color(0.7, 0.68, 0.66))
+	more.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	more.visible = false
+	var what := button("WHAT'S SENT?", 18, Color(0.08, 0.07, 0.1, 0.9), Color(0.5, 0.48, 0.5, 0.6))
+	what.custom_minimum_size = Vector2(240, 52)
+	what.pressed.connect(func():
+		more.visible = not more.visible
+		Sfx.play("click"))
+	col.add_child(_centered(what))
+	col.add_child(more)
 	var yes := button("YES, SEND REPORTS", 26, Color(0.2, 0.32, 0.18, 0.97), Color(0.6, 0.95, 0.55))
 	yes.custom_minimum_size = Vector2(360, 80)
 	yes.pressed.connect(func(): reports_answered.emit(true))
@@ -2268,7 +2298,8 @@ func _place_title_buttons() -> void:
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
-		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible
+		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible \
+		or _rewards_box.visible or _feats.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -2573,6 +2604,41 @@ func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 	_callout_time = 1.1
 
 
+## PERFECT! just above the hero's head, where the eye already is (it used to show at the top
+## of the screen, over the gold hero and the pink shots).
+var _perfect_lbl: Label
+var _perfect_tw: Tween
+
+func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or Game.hero == null:
+		callout(text, col)
+		return
+	if _perfect_lbl == null:
+		_perfect_lbl = label("", 40, col)
+		_perfect_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_perfect_lbl.label_settings.outline_size = 10
+		_perfect_lbl.label_settings.outline_color = Color(0.02, 0.05, 0.12)
+		_perfect_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_perfect_lbl)
+	_perfect_lbl.text = text
+	_perfect_lbl.label_settings.font_color = col
+	_perfect_lbl.reset_size()
+	var at := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.3)
+	_perfect_lbl.position = at - Vector2(_perfect_lbl.size.x * 0.5, _perfect_lbl.size.y)
+	_perfect_lbl.pivot_offset = _perfect_lbl.size * 0.5
+	_perfect_lbl.visible = true
+	_perfect_lbl.modulate.a = 1.0
+	_perfect_lbl.scale = Vector2(1.5, 1.5)
+	if _perfect_tw:
+		_perfect_tw.kill()
+	_perfect_tw = create_tween().set_ignore_time_scale(true)
+	_perfect_tw.tween_property(_perfect_lbl, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_perfect_tw.parallel().tween_property(_perfect_lbl, "position:y", _perfect_lbl.position.y - 40.0, 0.9)
+	_perfect_tw.tween_property(_perfect_lbl, "modulate:a", 0.0, 0.25)
+	_perfect_tw.tween_callback(func(): _perfect_lbl.visible = false)
+
+
 ## A quick white (or coloured) flash over the whole screen.
 ## Flashes are softer with Screen shake reduced or off, for anyone who finds them too much.
 func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
@@ -2727,6 +2793,84 @@ func refresh_looks_badge() -> void:
 	_end_heroes_badge.visible = n > 0
 
 
+var _rewards_box: ColorRect
+var _rewards_badge: Label
+var _title_rewards_row: Control
+var _rw_road: RoadScreen.Bar
+var _rw_drops: Button
+var _rw_feats: Button
+
+
+func _build_rewards() -> void:
+	_rewards_box = overlay(Color(0.03, 0.02, 0.05, 1.0))
+	backdrop(_rewards_box)
+	add_child(_rewards_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 30
+	col.offset_right = -30
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 18)
+	_rewards_box.add_child(col)
+	col.add_child(label("REWARDS", 46, GOLD))
+	col.add_child(label("Everything you've earned, all free.", 19, Color(0.8, 0.78, 0.85)))
+	_rw_road = RoadScreen.Bar.new()
+	_rw_road.custom_minimum_size = Vector2(420, 70)
+	_rw_road.pressed.connect(func(): road_pressed.emit())
+	col.add_child(_centered(_rw_road))
+	_rw_drops = button("BONE DROPS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	_rw_drops.custom_minimum_size = Vector2(420, 78)
+	_rw_drops.pressed.connect(func(): drops_pressed.emit())
+	col.add_child(_centered(_rw_drops))
+	_rw_feats = button("FEATS", 24, Color(0.05, 0.16, 0.2, 0.97), Color(0.5, 0.95, 1.0))
+	_rw_feats.custom_minimum_size = Vector2(420, 78)
+	_rw_feats.pressed.connect(func(): feats_pressed.emit())
+	col.add_child(_centered(_rw_feats))
+	var rec := button("RECORDS", 22)
+	rec.custom_minimum_size = Vector2(420, 70)
+	rec.pressed.connect(func(): records_pressed.emit())
+	col.add_child(_centered(rec))
+	var close := button("BACK", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	close.custom_minimum_size = Vector2(240, 64)
+	close.pressed.connect(func(): show_rewards(false))
+	col.add_child(_centered(close))
+	_rewards_box.visible = false
+
+
+func show_rewards(v: bool) -> void:
+	if v:
+		Sfx.play("click")
+		refresh_rewards()
+	_rewards_box.visible = v
+
+
+func rewards_visible() -> bool:
+	return _rewards_box.visible
+
+
+## The REWARDS screen's rows and the title button's badge ("CLAIM", "2 DROPS", "NEW").
+func refresh_rewards() -> void:
+	var cfg := Game._load_save()
+	var ni := BoneRoad.next_index(cfg)
+	_rw_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
+			BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
+	var n := Drops.waiting(cfg)
+	_rw_drops.text = ("OPEN BONE DROP" if n == 1 else "OPEN %d BONE DROPS" % n) if n > 0 else "BONE DROPS  ·  looks %d/%d" % [Drops.found_looks(cfg), Drops.all_looks()]
+	_rw_drops.disabled = n <= 0
+	var fnew := bool(cfg.get_value(Feats.SECTION, "new", false))
+	_rw_feats.text = "FEATS  %d/%d%s" % [Feats.count(cfg), Feats.LIST.size(), "  NEW!" if fnew else ""]
+	var badge := ""
+	if BoneRoad.ready_count(cfg) > 0:
+		badge = "CLAIM"
+	elif n > 0:
+		badge = "%d DROP%s" % [n, "" if n == 1 else "S"]
+	elif fnew:
+		badge = "NEW"
+	_rewards_badge.text = badge
+	_rewards_badge.visible = badge != ""
+
+
 func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_box.visible = v
 	var locked := Game.first_run_pending()
@@ -2739,6 +2883,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	if v:
 		var cfg := Game._load_save()
 		set_drops(0 if locked else Drops.waiting(cfg))
+		refresh_rewards()
 		var ni := BoneRoad.next_index(cfg)
 		_title_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
 				BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
@@ -2748,6 +2893,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	if not v:
 		show_modes(false)
 		show_records(false)
+		_rewards_box.visible = false
 		_road.visible = false
 		if not _end_box.visible:
 			_drops.visible = false
@@ -2764,7 +2910,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_goal.text = goal
 	_title_goal.visible = goal != ""
 	# Short screens: the how-to line makes room for the Bone Road row, so the hero shows.
-	var tight := view.y < view.x * 1.9 and _title_road.visible
+	var tight := view.y < view.x * 1.9 and _title_rewards_row.visible
 	_title_hint.visible = locked and not tight   # the lobby keeps words few once the tutorial is done
 	_title_best.visible = not tight   # (the Records screen has it)
 	_title_gap.custom_minimum_size.y = 14.0 if tight else 40.0
@@ -3015,7 +3161,7 @@ func _armory_row(r: Dictionary, coins: int) -> Button:
 		d.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(d)
 	if maxed:
-		var done := "IN RUNS" if not blessing.is_empty() else ("OWNED" if r.max <= 1 else "MAX")
+		var done: String = r.get("done", "IN RUNS" if not blessing.is_empty() else ("OWNED" if r.max <= 1 else "MAX"))
 		var tag := label(done, 20 if not blessing.is_empty() else 22, Color(0.6, 1, 0.6))
 		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 		h.add_child(tag)
@@ -3133,13 +3279,59 @@ func open_mastery(cfg: ConfigFile, id: String) -> void:
 
 
 ## The Feats screen (feats_screen.gd), over the Style screen.
+## The big reveal for Feats won this run (drop_screen.gd reveal_feats).
+func reveal_feats(list: Array) -> void:
+	_drops.reveal_feats(list)
+
+
 func open_feats(cfg: ConfigFile, id: String) -> void:
 	_feats.open_screen(cfg, id)
 
 
+## True while a full-screen, opaque menu covers the dungeon (Style, Feats, Mastery, Bone
+## Drops, Heroes): the game then stops drawing the 3D world behind it (battery and heat).
+func covers_world() -> bool:
+	return _style.visible or _feats.visible or _mastery.visible or _drops.visible or _heroes_box.visible
+
+
+func feats_visible() -> bool:
+	return _feats.visible
+
+
+func close_feats() -> void:
+	_feats.close()
+
+
+## The hero the Style screen is open for ("" when it's closed).
+func style_hero() -> String:
+	return _style.hero_id() if _style.visible else ""
+
+
 ## A Feat just done: a gold and cyan card drops in at the top, names it and the look it won,
 ## and goes after a few seconds (it never stops play).
+## Feats done close together (a boss kill can finish four at once) wait their turn: one
+## toast and one sound each, about 2.5 seconds apart.
+var _toast_queue: Array = []
+var _toast_busy := false
+
+
 func feat_toast(feat_name: String, look: String) -> void:
+	_toast_queue.append([feat_name, look])
+	if not _toast_busy:
+		_next_toast()
+
+
+func _next_toast() -> void:
+	if _toast_queue.is_empty():
+		_toast_busy = false
+		return
+	_toast_busy = true
+	var item: Array = _toast_queue.pop_front()
+	_show_toast(str(item[0]), str(item[1]))
+	Sfx.play("victory", 0.6, 1.2)
+
+
+func _show_toast(feat_name: String, look: String) -> void:
 	if _toast == null:
 		_toast = PanelContainer.new()
 		_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3186,9 +3378,11 @@ func feat_toast(feat_name: String, look: String) -> void:
 	_toast_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_toast_tween.tween_property(_toast, "modulate:a", 1.0, 0.15)
 	_toast_tween.parallel().tween_property(_toast, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_toast_tween.tween_interval(3.2)
-	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.4)
-	_toast_tween.tween_callback(func(): _toast.visible = false)
+	_toast_tween.tween_interval(3.2 if _toast_queue.is_empty() else 1.9)
+	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.3)
+	_toast_tween.tween_callback(func():
+		_toast.visible = false
+		_next_toast())
 
 
 func close_mastery() -> void:

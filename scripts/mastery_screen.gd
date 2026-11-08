@@ -106,10 +106,12 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	var rank := HeroMastery.rank(lv)
 	var t := HeroMastery.title_for(lv)
 	_bar.set_points(id, def.title, def.ring, p, "%s RANK%s" % [str(rank.name).to_upper(), "  ·  " + t.to_upper() if t != "" else ""])
-	var mastery := HeroStyle.items(id).filter(func(it: Dictionary) -> bool: return it.key != "" and not it.get("pass", false))
+	# The same count as the Style screen: Mastery looks only. Feat and drop looks have their own lines.
+	var mastery := HeroStyle.items(id).filter(func(it: Dictionary) -> bool: return HeroStyle.is_mastery(it))
 	var got := mastery.filter(func(it: Dictionary) -> bool: return it.level <= lv).size()
 	var all := mastery.size()
-	_style_text.text = "%d of %d looks unlocked\nPick outfits, hats, weapons, glows and auras" % [got, all]
+	_style_text.text = "%d of %d Mastery looks unlocked\nFeats %d/%d  ·  Bone Drop looks %d/%d" % [got, all,
+		Feats.count(cfg), Feats.LIST.size(), Drops.found_looks(cfg), Drops.all_looks()]
 	for c in _list.get_children():
 		_list.remove_child(c)
 		c.queue_free()

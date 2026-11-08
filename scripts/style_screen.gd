@@ -118,6 +118,19 @@ func _init() -> void:
 
 ## Fills the screen for hero `id` (cfg = the save) and shows it. Opened again while showing
 ## the same hero (after a look is worn), it keeps the tab and scroll.
+func hero_id() -> String:
+	return _id
+
+
+## "FEATS 7/20", or "FEATS NEW!" until the Feats screen has been opened.
+func refresh_feats_button() -> void:
+	var cfg := Game._load_save()
+	var nf := Feats.count(cfg)
+	_feats_btn.text = "FEATS  %d/%d" % [nf, Feats.LIST.size()]
+	if bool(cfg.get_value(Feats.SECTION, "new", false)):
+		_feats_btn.text = "FEATS  NEW!"
+
+
 func open_hero(cfg: ConfigFile, id: String) -> void:
 	var again := visible and id == _id
 	_id = id
@@ -128,10 +141,7 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	_frame = HeroMastery.has_frame(cfg, id)
 	_owned = Store.owned(cfg)
 	_cfg = cfg
-	var nf := Feats.count(cfg)
-	_feats_btn.text = "FEATS  %d/%d" % [nf, Feats.LIST.size()]
-	if bool(cfg.get_value(Feats.SECTION, "new", false)):
-		_feats_btn.text = "FEATS  NEW!"
+	refresh_feats_button()
 	if not again:
 		_slot = "outfit"
 	visible = true
@@ -337,6 +347,7 @@ class Swatch extends Control:
 	var shape := ""
 	var aura := {}
 	var shine := false   # a Crypt King look: a glint runs across its picture
+	var pat := 0   # a Feat or drop outfit's pattern, drawn on its swatch
 	var _t := 0.0
 
 	func _init() -> void:
@@ -354,6 +365,7 @@ class Swatch extends Control:
 			"outfit" when not HeroStyle.extra(s, k).is_empty():
 				a = HeroStyle.extra(s, k).a
 				b = HeroStyle.extra(s, k).b
+				pat = int(HeroStyle.extra(s, k).get("pat", 0))
 				shape = "pattern"
 			"outfit":
 				var o: Dictionary = HeroStyle.OUTFITS.get(k, {})
@@ -391,13 +403,7 @@ class Swatch extends Control:
 				var rim := 0.7 if a.get_luminance() < 0.2 else 0.35
 				draw_circle(c, r, Color(1, 1, 1, rim), false, 2.0, true)
 				if shape == "pattern":
-					# A Feat or drop outfit: its own effect, drawn as little glints on the cloth.
-					for i in 4:
-						var ang := _t * 0.7 + i * 1.7
-						var p := c + Vector2(cos(ang) * 0.55, sin(ang * 1.3) * 0.4 - 0.2) * r
-						var g := b.lerp(Color.WHITE, 0.5)
-						g.a = 0.5 + 0.5 * sin(_t * 3.0 + i * 2.0)
-						draw_circle(p, r * 0.1, g)
+					_pattern(c, r)
 			"glow":
 				draw_circle(c, r, Color(a, 0.18))
 				draw_circle(c, r * 0.72, a, false, r * 0.22, true)
@@ -413,6 +419,65 @@ class Swatch extends Control:
 				_hold(c, r)
 		if shine or shape == "crypt_crown" or aura.get("sigil", false):
 			_glint(c, r)
+
+	## A Feat or drop outfit's own pattern in small (version 116: they all showed the same
+	## glints, so the swatches looked alike): wisps, cracks, stars, facets, lightning,
+	## runes, flames, bubbles, colour bands or deep-sea lights.
+	func _pattern(c: Vector2, r: float) -> void:
+		var lit := b.lerp(Color.WHITE, 0.55)
+		var pulse := 0.6 + 0.4 * sin(_t * 3.0)
+		match pat:
+			1:   # Ghostwalk: wisps rising
+				for i in 3:
+					var x := c.x + (i - 1) * r * 0.42
+					var y0 := c.y + r * 0.5 - fmod(_t * 18.0 + i * 13.0, r * 1.1)
+					draw_line(Vector2(x, y0), Vector2(x + sin(_t * 2.0 + i) * r * 0.1, y0 - r * 0.35), Color(lit, 0.8 * pulse), r * 0.12, true)
+			2:   # Cinder Ice: cracks
+				var pts := PackedVector2Array([c + Vector2(-0.7, -0.2) * r, c + Vector2(-0.3, 0.1) * r, c + Vector2(0.05, -0.25) * r,
+					c + Vector2(0.35, 0.2) * r, c + Vector2(0.7, -0.05) * r])
+				draw_polyline(pts, Color(lit, pulse), r * 0.1, true)
+				draw_line(c + Vector2(-0.3, 0.1) * r, c + Vector2(-0.2, 0.55) * r, Color(lit, pulse * 0.8), r * 0.07, true)
+			3:   # Starweave: stars
+				for i in 5:
+					var p := c + Vector2(cos(i * 2.4) * 0.55, sin(i * 2.4) * 0.5 - 0.1) * r
+					var tw := 0.5 + 0.5 * sin(_t * 4.0 + i * 1.9)
+					draw_line(p - Vector2(r * 0.12, 0), p + Vector2(r * 0.12, 0), Color(lit, tw), 2.0, true)
+					draw_line(p - Vector2(0, r * 0.12), p + Vector2(0, r * 0.12), Color(lit, tw), 2.0, true)
+			4:   # Frostbite: a diamond lattice
+				for i in 3:
+					var x := c.x + (i - 1) * r * 0.5
+					draw_line(Vector2(x - r * 0.3, c.y - r * 0.5), Vector2(x + r * 0.3, c.y + r * 0.3), Color(lit, 0.7), 2.0, true)
+					draw_line(Vector2(x + r * 0.3, c.y - r * 0.5), Vector2(x - r * 0.3, c.y + r * 0.3), Color(lit, 0.7), 2.0, true)
+			5:   # Thunder: a bolt
+				var flash := pow(maxf(0.0, sin(_t * 3.3)), 6.0)
+				var pts := PackedVector2Array([c + Vector2(0.15, -0.7) * r, c + Vector2(-0.2, -0.05) * r, c + Vector2(0.12, -0.02) * r, c + Vector2(-0.15, 0.6) * r])
+				draw_polyline(pts, Color(lit, 0.6 + 0.4 * flash), r * 0.14, true)
+			6:   # Bonecarved: carved bands with strokes
+				for i in 2:
+					var y := c.y + (i - 0.5) * r * 0.6
+					draw_line(Vector2(c.x - r * 0.7, y), Vector2(c.x + r * 0.7, y), Color(lit, pulse), r * 0.09, true)
+					for j in 4:
+						var x := c.x + (j - 1.5) * r * 0.32
+						draw_line(Vector2(x, y - r * 0.14), Vector2(x, y + r * 0.14), Color(lit, pulse), r * 0.06, true)
+			7:   # Shadowflame: flames
+				for i in 3:
+					var x := c.x + (i - 1) * r * 0.45
+					var h := r * (0.5 + 0.12 * sin(_t * 6.0 + i * 2.0))
+					draw_colored_polygon(PackedVector2Array([Vector2(x - r * 0.15, c.y + r * 0.4), Vector2(x + r * 0.15, c.y + r * 0.4), Vector2(x, c.y + r * 0.4 - h)]), Color(lit, 0.85))
+			8:   # Toxic: bubbles
+				for i in 4:
+					var ph := fmod(_t * 0.5 + i * 0.25, 1.0)
+					var p := c + Vector2((i - 1.5) * 0.35, 0.4 - ph * 0.9) * r
+					draw_circle(p, r * (0.06 + 0.1 * ph), Color(lit, 1.0 - ph), false, 2.0, true)
+			9:   # Prism: colour bands
+				for i in 4:
+					var col := Color.from_hsv(fmod(0.13 + 0.15 * i + _t * 0.1, 1.0), 0.55, 1.0, 0.75)
+					var y := c.y + (i - 1.5) * r * 0.32
+					draw_line(Vector2(c.x - r * 0.75, y), Vector2(c.x + r * 0.75, y), col, r * 0.14, true)
+			10:   # Abyssal: lights drifting in the deep
+				for i in 5:
+					var p := c + Vector2(cos(_t * 0.4 + i * 1.3) * 0.5, sin(_t * 0.5 + i * 2.1) * 0.45) * r
+					draw_circle(p, r * 0.08, Color(lit, 0.5 + 0.5 * sin(_t * 2.0 + i)))
 
 	## A Crypt King look's picture: a white glint sweeps across it every two seconds.
 	func _glint(c: Vector2, r: float) -> void:

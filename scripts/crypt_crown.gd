@@ -112,6 +112,22 @@ func _build(r: float) -> void:
 		stud.radial_segments = 8
 		stud.rings = 4
 		_mesh(stud, _gem if tall else _gold, Vector3(0, 0.11, 0) + Vector3(sin(b), 0, cos(b)) * r * 1.07)
+	# Version 116: a gold cap fills the band's hollow middle (from the game camera above, the
+	# open crown read as a ring with a hole), with a soul gem at its top.
+	var cap := SphereMesh.new()
+	cap.radius = r * 1.02
+	cap.height = r * 2.04
+	cap.radial_segments = 20
+	cap.rings = 8
+	cap.is_hemisphere = true
+	var cm := _mesh(cap, _gold, Vector3(0, 0.1, 0))
+	cm.scale = Vector3(1, 0.5, 1)
+	var top := SphereMesh.new()
+	top.radius = 0.09
+	top.height = 0.18
+	top.radial_segments = 10
+	top.rings = 5
+	_mesh(top, _gem, Vector3(0, 0.1 + r * 0.5 + 0.04, 0))
 	# A soft gold glow round its base, like a halo it stands on.
 	var ring := TorusMesh.new()
 	ring.inner_radius = r * 0.95
@@ -120,6 +136,7 @@ func _build(r: float) -> void:
 	ring.ring_segments = 4
 	var rm := _mesh(ring, _glow, Vector3(0, -0.02, 0))
 	rm.scale = Vector3(1, 0.1, 1)
+	FeatHeads.bake(self, "crypt_crown %.2f" % r)
 
 
 func _mesh(m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:

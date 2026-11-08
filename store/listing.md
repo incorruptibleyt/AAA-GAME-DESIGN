@@ -51,7 +51,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 • Reach Master for a golden crown and a trail of gold sparkles.
 
 ★ A CRYPT THAT FIGHTS BACK
-• Skeleton warriors, archers, mages, bombers, spitters, bone spiders and golden elites.
+• Skeleton warriors, archers, mages, bombers, spitters, bone spiders and purple elites.
 • Giant bosses at the bottom of each floor: the Skeleton King, the Lich and the Cinder Colossus.
 • Three crypts to descend: the Bone Crypt, the Frozen Ossuary and the Ember Catacomb.
 • Each crypt has its own skeletons, like Frost Wraiths that fire ice beams and Cinder Skeletons that leave fire behind them.

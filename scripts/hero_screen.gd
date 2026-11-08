@@ -8,6 +8,7 @@ signal pick(id: String)
 signal trial(id: String)
 signal mastery(id: String)
 signal style(id: String)
+signal feats(id: String)
 signal closed
 
 ## The stat bars: [key in Heroes.LIST, name, how the number is shown].
@@ -96,7 +97,7 @@ func _init() -> void:
 	# Hero Mastery: tap for every level and the mastery color.
 	var mrow := HBoxContainer.new()
 	mrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	mrow.add_theme_constant_override("separation", 10)
+	mrow.add_theme_constant_override("separation", 6)
 	col.add_child(mrow)
 	_mastery_bar = MasteryBar.new()
 	_mastery_bar.custom_minimum_size = Vector2(0, 76)
@@ -107,13 +108,22 @@ func _init() -> void:
 		mastery.emit(_row().id))
 	mrow.add_child(_mastery_bar)
 	# The Style screen: outfits, hats, weapons, glows and auras unlocked by Mastery.
-	_style_button = Hud.button("STYLE", 19)
-	_style_button.custom_minimum_size = Vector2(112, 70)
+	_style_button = Hud.button("STYLE", 17)
+	_style_button.custom_minimum_size = Vector2(90, 70)
 	_style_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_style_button.pressed.connect(func():
 		Sfx.play("click")
 		style.emit(_row().id))
 	mrow.add_child(_style_button)
+	# Feats: the skill challenges and the looks they give (version 116: only on the Style
+	# screen before, where few found them).
+	var feats_b := Hud.button("FEATS", 17, Color(0.05, 0.16, 0.2, 0.97), Color(0.5, 0.95, 1.0))
+	feats_b.custom_minimum_size = Vector2(86, 70)
+	feats_b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	feats_b.pressed.connect(func():
+		Sfx.play("click")
+		feats.emit(_row().id))
+	mrow.add_child(feats_b)
 	_text = Hud.label("", 17, TEXT)
 	col.add_child(_text)
 	col.add_child(_build_stats())

@@ -1,15 +1,18 @@
 class_name FeatHeads
 extends Node3D
 ## Headwear won by Feats or found in Bone Drops (hero_style.gd EXTRA "head"), built in the
-## head bone's space like the crowns: the Storm Halo, Star Circlet, Flame Crown and Skull
-## Helm (Feats), and Antlers, Phantom Horns and the Bone Crown (Legendary drops). The ones
-## that move (lightning, orbiting stars, flames) animate themselves.
+## head bone's space like the crowns: the Storm Halo, Star Circlet, Flame Horns and Skull
+## Helm (Feats), and Antlers, Phantom Horns and the Bone Mask (Legendary drops). Crowns are
+## kept for the Crypt Pass and Mastery (version 116 turned the Flame Crown into horns and
+## the Bone Crown into a mask). The halo and the circlet's stars turn.
+##
+## Each head is built from simple shapes, then baked (bake below) into one mesh with one
+## surface per material, cached: version 115 drew each piece on its own (the Storm Halo was
+## 59 draw calls).
 
 var kind := ""
 var _t := 0.0
 var _spin: Node3D        # turned slowly (halo, circlet's stars)
-var _arcs: Array = []    # the Storm Halo's lightning, flickering
-var _arc_left := 0.0
 var _stars: Array = []
 var _orbit_r := 0.7
 
@@ -18,6 +21,9 @@ static var _ghost_shader: Shader
 static var _bone: StandardMaterial3D
 static var _dark: StandardMaterial3D
 static var _gold: StandardMaterial3D
+static var _iron: StandardMaterial3D
+static var _mats := {}
+static var _baked := {}
 
 
 static func make(what: String, id: String, y: float, hat: bool, style: Dictionary) -> FeatHeads:
@@ -27,15 +33,57 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 	h.name = "FeatHead_" + what
 	var eye: Color = style.get("eye", Color(0.6, 0.8, 1.0))
 	var hat_h: float = style.get("hat_h", 0.45)
+	var key := "%s %s %s %s" % [what, id, hat, eye.to_html()]
 	match what:
 		"storm_halo": h._storm_halo(y + (hat_h if hat else 0.22))
 		"star_circlet": h._star_circlet(id, y, hat)
-		"flame_crown": h._flame_crown(id, y, hat, Color(1.0, 0.55, 0.12), Color(1.0, 0.95, 0.6))
+		"flame_crown": h._flame_horns(id, y, hat)
 		"skull_helm": h._skull_helm(eye)
-		"antlers": h._antlers(y)
+		"antlers": h._antlers(id, y, hat)
 		"phantom_horns": h._phantom_horns(id, y, hat)
-		"bone_crown": h._bone_crown(id, y, hat)
+		"bone_crown": h._bone_mask(id, y, hat)
+	bake(h, key)
+	if h._spin:
+		bake(h._spin, key + " spin")
+	for i in h._stars.size():
+		bake(h._stars[i], key + " star")
 	return h
+
+
+## Merges `root`'s own MeshInstance3D children into one mesh, one surface per material, and
+## caches it under `key` (the next head of that kind and hero reuses it).
+static func bake(root: Node3D, key: String) -> void:
+	var parts: Array[MeshInstance3D] = []
+	for c in root.get_children():
+		if c is MeshInstance3D and (c as MeshInstance3D).mesh:
+			parts.append(c)
+	if parts.size() <= 1:
+		return
+	var am: ArrayMesh = _baked.get(key)
+	if am == null:
+		var tools := {}
+		var order := []
+		for mi in parts:
+			var mat := mi.material_override
+			if not tools.has(mat):
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				tools[mat] = st
+				order.append(mat)
+			(tools[mat] as SurfaceTool).append_from(mi.mesh, 0, mi.transform)
+		am = ArrayMesh.new()
+		for mat in order:
+			(tools[mat] as SurfaceTool).commit(am)
+			am.surface_set_material(am.get_surface_count() - 1, mat)
+		_baked[key] = am
+	for mi in parts:
+		root.remove_child(mi)
+		mi.free()
+	var one := MeshInstance3D.new()
+	one.name = "Baked"
+	one.mesh = am
+	one.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(one)
 
 
 static func _materials() -> void:
@@ -56,6 +104,15 @@ static func _materials() -> void:
 	_gold.emission_enabled = true
 	_gold.emission = Color(1.0, 0.72, 0.25)
 	_gold.emission_energy_multiplier = 0.35
+	_iron = StandardMaterial3D.new()
+	_iron.albedo_color = Color(0.14, 0.11, 0.11)
+	_iron.metallic = 0.6
+	_iron.roughness = 0.35
+	_iron.emission_enabled = true
+	_iron.emission = Color(1.0, 0.45, 0.1)
+	_iron.emission_energy_multiplier = 0.3
+	_iron.rim_enabled = true
+	_iron.rim = 0.5
 	_flame_shader = Shader.new()
 	_flame_shader.code = FLAME
 	_ghost_shader = Shader.new()
@@ -83,20 +140,39 @@ func _mi(m: Mesh, mat: Material, pos: Vector3, parent: Node3D = null) -> MeshIns
 	return mi
 
 
+## Shared by colour, so a head's pieces bake into few surfaces.
 func _glow_mat(c: Color) -> StandardMaterial3D:
-	var m := StandardMaterial3D.new()
-	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	m.albedo_color = c
-	return m
+	var k := "glow " + str(c)
+	if not _mats.has(k):
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = c
+		_mats[k] = m
+	return _mats[k]
 
 
 func _add_mat(c: Color) -> StandardMaterial3D:
-	var m := _glow_mat(c)
-	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	m.cull_mode = BaseMaterial3D.CULL_DISABLED
-	m.no_depth_test = false
-	return m
+	var k := "add " + str(c)
+	if not _mats.has(k):
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = c
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_mats[k] = m
+	return _mats[k]
+
+
+func _flame_mat(hot: Color, core: Color) -> ShaderMaterial:
+	var k := "flame %s %s" % [hot, core]
+	if not _mats.has(k):
+		var m := ShaderMaterial.new()
+		m.shader = _flame_shader
+		m.set_shader_parameter("hot", hot)
+		m.set_shader_parameter("core", core)
+		_mats[k] = m
+	return _mats[k]
 
 
 func _torus(inner: float, outer: float, mat: Material, pos: Vector3, parent: Node3D = null) -> MeshInstance3D:
@@ -134,43 +210,46 @@ func _sphere(r: float, mat: Material, pos: Vector3, scale_by := Vector3.ONE, par
 	return mi
 
 
+## A flame: a cone that sways and flickers (FLAME). Baked heads keep it alive: the shader
+## reads how far up the flame a point is from the mesh's UV, not from the flame's centre.
+func _flame(base: Vector3, h: float, r: float, hot: Color, core: Color) -> void:
+	var c := CylinderMesh.new()
+	c.top_radius = 0.0
+	c.bottom_radius = r
+	c.height = h
+	c.radial_segments = 8
+	c.rings = 4
+	_mi(c, _flame_mat(hot, core), base + Vector3(0, h * 0.5, 0))
+
+
 # ---------------------------------------------------------------- Storm Halo
 
+## A clean ring of storm light with three bolts standing off it (version 115's twenty-eight
+## jittering rods read as a scribble from the game camera).
 func _storm_halo(top: float) -> void:
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, top, 0)
 	add_child(_spin)
-	var core := _glow_mat(Color(0.75, 0.9, 1.0) * 2.0)
-	var ring := _torus(0.4, 0.54, core, Vector3.ZERO, _spin)
-	ring.scale = Vector3(1, 0.55, 1)
-	var dark := _torus(0.53, 0.6, _glow_mat(Color(0.12, 0.22, 0.55)), Vector3(0, -0.015, 0), _spin)
+	var core := _glow_mat(Color(0.8, 0.93, 1.0) * 2.0)
+	var ring := _torus(0.42, 0.53, core, Vector3.ZERO, _spin)
+	ring.scale = Vector3(1, 0.6, 1)
+	var dark := _torus(0.52, 0.58, _glow_mat(Color(0.1, 0.2, 0.52)), Vector3(0, -0.012, 0), _spin)
 	dark.scale = Vector3(1, 0.45, 1)
-	# A soft glow hugging the ring (kept narrow: from the game camera above, a wide one
-	# would cover the head like a plate).
-	var halo := _torus(0.36, 0.64, _add_mat(Color(0.35, 0.6, 1.0, 0.3)), Vector3.ZERO, _spin)
+	var halo := _torus(0.38, 0.6, _add_mat(Color(0.35, 0.6, 1.0, 0.3)), Vector3.ZERO, _spin)
 	halo.scale = Vector3(1, 0.1, 1)
-	# Lightning that jumps off the ring: jagged four-part arcs, a few at a time.
-	var bolt := _glow_mat(Color(0.85, 0.95, 1.0) * 2.4)
+	# Three zigzag bolts, a third of the way round from each other, rising and leaning out.
+	var bolt := _glow_mat(Color(0.9, 0.97, 1.0) * 2.4)
 	var glow := _add_mat(Color(0.45, 0.7, 1.0, 0.35))
-	for i in 7:
-		var arc := Node3D.new()
-		_spin.add_child(arc)
-		var p := Vector3(0.5, 0, 0)
-		for k in 4:
-			var q := p + Vector3(0.09 + randf() * 0.08, randf_range(-0.16, 0.2), randf_range(-0.12, 0.12))
-			_rod(p, q, 0.034, 0.024, bolt, arc, 5)
-			_rod(p, q, 0.075, 0.06, glow, arc, 5)
-			p = q
-		_arcs.append(arc)
-	_flicker()
-
-
-func _flicker() -> void:
-	for arc: Node3D in _arcs:
-		arc.visible = randf() < 0.45
-		arc.rotation.y = randf() * TAU
-		arc.scale = Vector3.ONE * randf_range(0.8, 1.25)
-	_arc_left = randf_range(0.05, 0.13)
+	for i in 3:
+		var ang := TAU * i / 3.0
+		var out := Vector3(sin(ang), 0, cos(ang))
+		var side := Vector3(cos(ang), 0, -sin(ang))
+		var pts := [out * 0.48, out * 0.52 + Vector3.UP * 0.12 + side * 0.06, out * 0.5 + Vector3.UP * 0.2 - side * 0.05,
+			out * 0.56 + Vector3.UP * 0.34 + side * 0.03]
+		for k in pts.size() - 1:
+			_rod(pts[k], pts[k + 1], 0.032, 0.026, bolt, _spin, 5)
+			_rod(pts[k], pts[k + 1], 0.07, 0.06, glow, _spin, 5)
+		_sphere(0.045, bolt, pts[3], Vector3.ONE, _spin)
 
 
 # ---------------------------------------------------------------- Star Circlet
@@ -179,19 +258,20 @@ func _star_circlet(id: String, y: float, hat: bool) -> void:
 	var f := _fit(id, y, hat)
 	var band_y := f.x + 0.06
 	var band_r := f.y * 1.02
-	_orbit_r = 0.78
-	var orbit_y := y - 0.05
+	# The stars circle above the head, not round the face (one passing in front of it
+	# flared over the eyes in version 115).
+	_orbit_r = 0.62
+	var orbit_y := y + 0.22
 	if hat and id == "mage":
-		_orbit_r = 1.15   # round the wizard's brim
-		orbit_y = y + 0.02
+		_orbit_r = 0.75
+		orbit_y = y + 0.62
 	elif not hat:
 		band_y = y - 0.3
 		band_r = 0.56
-		orbit_y = y - 0.12
-	# A thin gold band with a gem at the front.
+		orbit_y = y + 0.12
+	# A thin gold band (version 116: no glowing gem at the front, which flared over the face).
 	var band := _torus(band_r - 0.025, band_r + 0.03, _gold, Vector3(0, band_y, 0))
 	band.scale = Vector3(1, 0.7, 1)
-	_sphere(0.07, _glow_mat(Color(0.6, 0.85, 1.0) * 1.5), Vector3(0, band_y + 0.02, band_r + 0.02))
 	# Three stars orbiting, each with a soft glow.
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, orbit_y, 0)
@@ -199,64 +279,46 @@ func _star_circlet(id: String, y: float, hat: bool) -> void:
 	var star := _glow_mat(Color(1.0, 0.95, 0.75) * 1.8)
 	var glow := _add_mat(Color(1.0, 0.85, 0.45, 0.4))
 	for i in 3:
-		var s := Node3D.new()
-		var a := TAU * i / 3.0
-		s.position = Vector3(sin(a), 0.08 * sin(a * 2.0), cos(a)) * _orbit_r
-		_spin.add_child(s)
+		var st := Node3D.new()
+		var ang := TAU * i / 3.0
+		st.position = Vector3(sin(ang), 0.08 * sin(ang * 2.0), cos(ang)) * _orbit_r
+		_spin.add_child(st)
 		for d: Vector3 in [Vector3.UP, Vector3.DOWN, Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]:
 			var long := 0.23 if absf(d.y) > 0.5 else 0.16
-			_rod(d * 0.02, d * long, 0.065, 0.0, star, s, 4)
-		_sphere(0.06, star, Vector3.ZERO, Vector3.ONE, s)
-		_sphere(0.18, glow, Vector3.ZERO, Vector3.ONE, s)
-		_stars.append(s)
+			_rod(d * 0.02, d * long, 0.065, 0.0, star, st, 4)
+		_sphere(0.06, star, Vector3.ZERO, Vector3.ONE, st)
+		_sphere(0.11, glow, Vector3.ZERO, Vector3.ONE, st)
+		_stars.append(st)
 
 
-# ---------------------------------------------------------------- Flame Crown
+# ---------------------------------------------------------------- Flame Horns
 
-func _flame_crown(id: String, y: float, hat: bool, hot: Color, core: Color) -> void:
-	var f := _fit(id, y, hat)
-	var base := f.x
-	var r := f.y
-	# A blackened iron band with glowing seams...
-	var band := CylinderMesh.new()
-	band.top_radius = r * 1.1
-	band.bottom_radius = r
-	band.height = 0.18
-	band.radial_segments = 20
-	band.cap_top = false
-	band.cap_bottom = false
-	var iron := StandardMaterial3D.new()
-	iron.albedo_color = Color(0.12, 0.1, 0.1)
-	iron.metallic = 0.6
-	iron.roughness = 0.35
-	iron.cull_mode = BaseMaterial3D.CULL_DISABLED
-	iron.emission_enabled = true
-	iron.emission = hot
-	iron.emission_energy_multiplier = 0.25
-	_mi(band, iron, Vector3(0, base + 0.09, 0))
-	for yy in [base, base + 0.18]:
-		var rr := r if yy == base else r * 1.1
-		_torus(rr - 0.02, rr + 0.03, _glow_mat(hot * 1.4), Vector3(0, yy, 0))
-	# ...crowned with flames, tall and short in turn.
-	for i in 8:
-		var a := TAU * i / 8.0
-		var dir := Vector3(sin(a), 0, cos(a))
-		var h := 0.5 if i % 2 == 0 else 0.34
-		var c := CylinderMesh.new()
-		c.top_radius = 0.0
-		c.bottom_radius = 0.12 if i % 2 == 0 else 0.1
-		c.height = h
-		c.radial_segments = 8
-		c.rings = 4
-		var m := ShaderMaterial.new()
-		m.shader = _flame_shader
-		m.set_shader_parameter("seed", float(i) * 1.37)
-		m.set_shader_parameter("hot", hot)
-		m.set_shader_parameter("core", core)
-		m.set_shader_parameter("height", h)
-		_mi(c, m, Vector3(0, base + 0.16 + h * 0.5, 0) + dir * r * 1.08)
-	var glow := _torus(r * 0.95, r * 1.25, _add_mat(Color(hot, 0.28)), Vector3(0, base + 0.2, 0))
-	glow.scale = Vector3(1, 0.12, 1)
+## Two black-iron horns with glowing seams, curling up and back, each burning at its tip
+## (version 116: was the Flame Crown; crowns now belong to the Crypt Pass and Mastery).
+func _flame_horns(id: String, y: float, hat: bool) -> void:
+	var k := 1.0
+	if hat and id != "rogue":
+		y += 0.12
+	if hat and id == "mage":
+		k = 1.5   # clear of the wide brim from above
+		y += 0.14
+	var hot := Color(1.0, 0.55, 0.12)
+	var core := Color(1.0, 0.95, 0.6)
+	var seam := _glow_mat(Color(1.0, 0.5, 0.12) * 1.5)
+	for sd in [-1.0, 1.0]:
+		var pts := [Vector3(sd * 0.3, y - 0.2, 0.04), Vector3(sd * 0.52, y + 0.02, -0.02), Vector3(sd * 0.66, y + 0.3, -0.12),
+			Vector3(sd * 0.66, y + 0.56, -0.26), Vector3(sd * 0.56, y + 0.76, -0.34)]
+		for i in pts.size():
+			pts[i] = Vector3(pts[i].x * k, y + (pts[i].y - y) * k, pts[i].z * k)
+		for i in pts.size() - 1:
+			_rod(pts[i], pts[i + 1], (0.12 - i * 0.025) * k, (0.095 - i * 0.024) * k, _iron, null, 10)
+			# a glowing ring at each joint
+			var t := _torus((0.1 - i * 0.024) * k, (0.125 - i * 0.024) * k, seam, pts[i + 1])
+			var up: Vector3 = (pts[i + 1] - pts[i]).normalized()
+			var side := up.cross(Vector3.FORWARD).normalized()
+			t.basis = Basis(side, up, side.cross(up)).orthonormalized()
+		_flame(pts[4] - Vector3(0, 0.04, 0), 0.42 * k, 0.11 * k, hot, core)
+		_flame(pts[4] + Vector3(sd * 0.05, -0.02, 0.04) * k, 0.26 * k, 0.07 * k, hot, core)
 
 
 # ---------------------------------------------------------------- Skull Helm
@@ -294,7 +356,21 @@ func _skull_helm(eye: Color) -> void:
 
 # ---------------------------------------------------------------- Antlers
 
-func _antlers(y: float) -> void:
+func _antlers(id: String, y: float, hat: bool) -> void:
+	# Over a helmet or hat they sit higher and wider (version 115 had them inside the
+	# Knight's helmet and the Mage's hat).
+	var k := 1.0
+	if hat:
+		match id:
+			"knight": 
+				y += 0.12
+				k = 1.12
+			"barbarian":
+				y += 0.1
+				k = 1.1
+			"mage":
+				y += 0.2
+				k = 1.45
 	var horn := StandardMaterial3D.new()
 	horn.albedo_color = Color(0.82, 0.72, 0.56)
 	horn.roughness = 0.6
@@ -302,14 +378,17 @@ func _antlers(y: float) -> void:
 	horn.rim = 0.3
 	var tip := _glow_mat(Color(0.55, 1.0, 0.85) * 1.6)
 	var tip_glow := _add_mat(Color(0.4, 1.0, 0.8, 0.4))
-	for s in [-1.0, 1.0]:
+	var kk := Vector3(k, 1, k)
+	for sd in [-1.0, 1.0]:
 		# The main beam curves out, up and back; tines reach up and forward from it.
-		var pts := [Vector3(s * 0.26, y - 0.08, -0.04), Vector3(s * 0.46, y + 0.18, -0.1),
-			Vector3(s * 0.62, y + 0.5, -0.2), Vector3(s * 0.7, y + 0.82, -0.34), Vector3(s * 0.66, y + 1.06, -0.5)]
+		var pts := [Vector3(sd * 0.26, y - 0.08, -0.04), Vector3(sd * 0.46, y + 0.18, -0.1),
+			Vector3(sd * 0.62, y + 0.5, -0.2), Vector3(sd * 0.7, y + 0.82, -0.34), Vector3(sd * 0.66, y + 1.06, -0.5)]
+		for i in pts.size():
+			pts[i] = pts[i] * kk
 		for i in pts.size() - 1:
 			_rod(pts[i], pts[i + 1], 0.075 - i * 0.012, 0.065 - i * 0.012, horn)
 			_sphere(0.068 - i * 0.012, horn, pts[i + 1])
-		var tines := [[1, Vector3(s * 0.62, y + 0.5, 0.18)], [2, Vector3(s * 0.95, y + 0.78, -0.12)], [3, Vector3(s * 0.84, y + 1.08, -0.18)]]
+		var tines := [[1, Vector3(sd * 0.62, y + 0.5, 0.18) * kk], [2, Vector3(sd * 0.95, y + 0.78, -0.12) * kk], [3, Vector3(sd * 0.84, y + 1.08, -0.18) * kk]]
 		for t: Array in tines:
 			var from: Vector3 = pts[t[0]]
 			_rod(from, t[1], 0.05, 0.02, horn)
@@ -328,12 +407,15 @@ func _phantom_horns(id: String, y: float, hat: bool) -> void:
 	if hat and id == "mage":
 		k = 1.6   # clear of the wide brim from above
 		y += 0.12
-	var m := ShaderMaterial.new()
-	m.shader = _ghost_shader
-	for s in [-1.0, 1.0]:
+	var m: ShaderMaterial = _mats.get("ghost")
+	if m == null:
+		m = ShaderMaterial.new()
+		m.shader = _ghost_shader
+		_mats["ghost"] = m
+	for sd in [-1.0, 1.0]:
 		# Big ram-like horns sweeping out, back and curling up at the ends.
-		var pts := [Vector3(s * 0.34, y - 0.22, 0.02), Vector3(s * 0.62, y - 0.02, -0.12), Vector3(s * 0.86, y + 0.2, -0.32),
-			Vector3(s * 0.98, y + 0.48, -0.5), Vector3(s * 0.92, y + 0.74, -0.6)]
+		var pts := [Vector3(sd * 0.34, y - 0.22, 0.02), Vector3(sd * 0.62, y - 0.02, -0.12), Vector3(sd * 0.86, y + 0.2, -0.32),
+			Vector3(sd * 0.98, y + 0.48, -0.5), Vector3(sd * 0.92, y + 0.74, -0.6)]
 		for i in pts.size() - 1:
 			var a: Vector3 = pts[i] * Vector3(k, 1, k)
 			var b: Vector3 = pts[i + 1] * Vector3(k, 1, k)
@@ -342,45 +424,47 @@ func _phantom_horns(id: String, y: float, hat: bool) -> void:
 			_rod(a, b, (0.13 - i * 0.028) * k, (0.105 - i * 0.026) * k, m, null, 10)
 
 
-# ---------------------------------------------------------------- Bone Crown
+# ---------------------------------------------------------------- Bone Mask
 
-func _bone_crown(id: String, y: float, hat: bool) -> void:
-	var f := _fit(id, y, hat)
-	var base := f.x
-	var r := f.y
-	var band := _torus(r - 0.02, r + 0.06, _bone, Vector3(0, base + 0.06, 0))
-	band.scale = Vector3(1, 1.4, 1)
+## A bone war-mask over the brow and eyes, two short horns rising from it, green soul light
+## in the eye holes (version 116: was the Bone Crown).
+func _bone_mask(id: String, y: float, hat: bool) -> void:
 	var soul := Color(0.35, 1.0, 0.55)
-	for i in 10:
-		var a := TAU * i / 10.0
-		var dir := Vector3(sin(a), 0, cos(a))
-		var tall := i % 2 == 0
-		var h := 0.46 if tall else 0.28
-		var p := Vector3(0, base + 0.08, 0) + dir * r * 1.05
-		_rod(p, p + Vector3(0, h, 0) + dir * 0.08, 0.07, 0.018, _bone)
-		if tall:
-			# Green soul fire on the tall bones.
-			var c := CylinderMesh.new()
-			c.top_radius = 0.0
-			c.bottom_radius = 0.06
-			c.height = 0.24
-			c.radial_segments = 8
-			c.rings = 3
-			var m := ShaderMaterial.new()
-			m.shader = _flame_shader
-			m.set_shader_parameter("seed", float(i) * 2.1)
-			m.set_shader_parameter("hot", soul)
-			m.set_shader_parameter("core", Color(0.85, 1.0, 0.85))
-			m.set_shader_parameter("height", 0.24)
-			_mi(c, m, p + Vector3(0, h + 0.1, 0) + dir * 0.08)
-	# Three little skulls round the front.
-	for i in [-1, 0, 1]:
-		var a := float(i) * 0.62
-		var p := Vector3(sin(a), 0, cos(a)) * (r + 0.07) + Vector3(0, base + 0.1, 0)
-		_sphere(0.085, _bone, p)
-		for s in [-1.0, 1.0]:
-			var side: Vector3 = Vector3(cos(a), 0, -sin(a)) * s * 0.03
-			_sphere(0.022, _glow_mat(soul * 1.4), p + side + Vector3(sin(a), 0.01, cos(a)) * 0.07)
+	var fwd := 0.5
+	var hy := y - 0.42   # eye height
+	if hat:
+		match id:
+			"knight": fwd = 0.6
+			"barbarian": fwd = 0.56
+			"mage": fwd = 0.52
+	# The plate: a shallow shell over the upper face (a flattened ball, its front just
+	# proud of the face).
+	var plate := SphereMesh.new()
+	plate.radius = 0.45
+	plate.height = 0.9
+	plate.radial_segments = 20
+	plate.rings = 10
+	_mi(plate, _bone, Vector3(0, hy + 0.05, fwd - 0.1)).scale = Vector3(1.0, 0.6, 0.3)
+	# Brow ridge, cheek guards and the eye holes with soul light.
+	_rod(Vector3(-0.42, hy + 0.2, fwd - 0.05), Vector3(0.42, hy + 0.2, fwd - 0.05), 0.075, 0.075, _bone, null, 8)
+	for sd in [-1.0, 1.0]:
+		_sphere(0.1, _bone, Vector3(sd * 0.36, hy - 0.08, fwd - 0.12), Vector3(1.0, 1.2, 0.6))
+		_sphere(0.1, _dark, Vector3(sd * 0.17, hy + 0.06, fwd + 0.02), Vector3(1.2, 0.8, 0.5))
+		_sphere(0.045, _glow_mat(soul * 1.6), Vector3(sd * 0.17, hy + 0.06, fwd + 0.07))
+		_sphere(0.09, _add_mat(Color(soul, 0.45)), Vector3(sd * 0.17, hy + 0.06, fwd + 0.08))
+		# A short curved horn from each side of the brow, up and back: from the camera above
+		# these are what reads first.
+		var hp := [Vector3(sd * 0.36, hy + 0.22, fwd - 0.12), Vector3(sd * 0.46, hy + 0.48, fwd - 0.2),
+			Vector3(sd * 0.44, hy + 0.72, fwd - 0.36), Vector3(sd * 0.36, hy + 0.86, fwd - 0.52)]
+		if hat:
+			for i in hp.size():
+				hp[i].y += 0.12 if id != "mage" else 0.3
+				hp[i].x *= 1.15 if id != "mage" else 1.5
+		for i in hp.size() - 1:
+			_rod(hp[i], hp[i + 1], 0.085 - i * 0.022, 0.065 - i * 0.022, _bone, null, 8)
+		_flame(hp[3] + Vector3(0, -0.02, 0), 0.22, 0.06, soul, Color(0.85, 1.0, 0.85))
+	# A dark nose slit down the middle.
+	_sphere(0.035, _dark, Vector3(0, hy - 0.06, fwd + 0.03), Vector3(0.8, 1.6, 0.5))
 
 
 func _process(delta: float) -> void:
@@ -389,14 +473,11 @@ func _process(delta: float) -> void:
 		"storm_halo":
 			_spin.rotation.y += delta * 0.8
 			_spin.position.y += sin(_t * 2.0) * 0.0006
-			_arc_left -= delta
-			if _arc_left <= 0.0:
-				_flicker()
 		"star_circlet":
 			_spin.rotation.y += delta * 1.1
-			for s: Node3D in _stars:
-				s.rotate_y(delta * 2.5)
-				s.scale = Vector3.ONE * (1.0 + 0.12 * sin(_t * 4.0 + s.position.x * 3.0))
+			for st: Node3D in _stars:
+				st.rotate_y(delta * 2.5)
+				st.scale = Vector3.ONE * (1.0 + 0.12 * sin(_t * 4.0 + st.position.x * 3.0))
 		_:
 			set_process(false)
 
@@ -404,17 +485,18 @@ func _process(delta: float) -> void:
 const FLAME := """
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
-uniform float seed = 0.0;
 uniform vec4 hot : source_color = vec4(1.0, 0.55, 0.12, 1.0);
 uniform vec4 core : source_color = vec4(1.0, 0.95, 0.6, 1.0);
-uniform float height = 0.4;
 varying float up;
+varying float seed;
 void vertex() {
-	up = clamp(VERTEX.y / height + 0.5, 0.0, 1.0);
+	// How far up its flame a point is (a cone's UV runs from its tip to its base), and a seed
+	// from where the flame stands on the head, so baked flames still move apart.
+	up = clamp(1.0 - UV.y, 0.0, 1.0);
+	seed = floor(VERTEX.x * 6.0) * 1.7 + floor(VERTEX.z * 6.0) * 2.3;
 	float sway = up * up;
 	VERTEX.x += sin(TIME * 8.0 + seed * 7.0 + up * 4.0) * 0.05 * sway;
 	VERTEX.z += cos(TIME * 6.5 + seed * 5.0 + up * 3.0) * 0.05 * sway;
-	VERTEX.y *= 1.0 + 0.18 * sin(TIME * 10.0 + seed * 3.0);
 }
 void fragment() {
 	float fl = 0.75 + 0.25 * sin(TIME * 13.0 + seed * 11.0);

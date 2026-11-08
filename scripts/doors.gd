@@ -2,7 +2,7 @@ class_name Doors
 ## After each blessing (not in the first run) two doors lead on, and the player picks one.
 ## Each door promises something different: a path that fills the next blessing pick with
 ## one family, a healing spring, treasure, a shrine with a free reroll, or a champion
-## (a golden elite waits, and the blessing after it is rare or better).
+## (a purple elite waits, and the blessing after it is rare or better).
 ## A door is saved as {"kind", "family"}; everything else comes from `describe`.
 
 const KINDS := ["path", "spring", "treasure", "shrine", "champion"]
@@ -46,7 +46,7 @@ static func describe(door: Dictionary) -> Dictionary:
 			return {"title": "Shrine", "text": "+1 reroll\nfor the blessings", "color": Color(0.6, 0.75, 1.0),
 				"icon": "door_shrine", "family": "bolt"}
 		"champion":
-			return {"title": "Champion's Door", "text": "A golden elite waits.\nNext pick: rare or better",
+			return {"title": "Champion's Door", "text": "A purple elite waits.\nNext pick: rare or better",
 				"color": Color(1.0, 0.55, 0.3), "icon": "door_champion", "family": "bolt"}
 	return {}
 
@@ -59,5 +59,5 @@ static func room_tip(door: Dictionary) -> String:
 		"treasure":
 			return "Treasure Room: +%d%% coins here" % roundi(TREASURE_COINS * 100)
 		"champion":
-			return "Champion's Door: a golden elite waits"
+			return "Champion's Door: a purple elite waits"
 	return ""

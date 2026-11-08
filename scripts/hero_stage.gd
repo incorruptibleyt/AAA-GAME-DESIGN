@@ -161,7 +161,9 @@ func set_active(on: bool) -> void:
 	var low := not Game._high_graphics
 	_vp.msaa_3d = Viewport.MSAA_2X if low else Viewport.MSAA_4X
 	_vp.size = (Vector2i(_full_size * 0.75) if low else _full_size) if on else Vector2i.ONE
-	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
+	# Drawn 30 times a second (_process), not every frame: a slow turn looks the same.
+	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE if on else SubViewport.UPDATE_DISABLED
+	_draw_t = 0.0
 	set_process(on)
 	_active = on
 	if on:
@@ -213,8 +215,14 @@ func _notification(what: int) -> void:
 		_check_drawn.call_deferred()
 
 
+var _draw_t := 0.0
+
 func _process(delta: float) -> void:
 	_time += delta
+	_draw_t += delta
+	if _draw_t >= 1.0 / 30.0:
+		_draw_t = 0.0
+		_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	if _hold > 0.0:
 		_hold -= delta
 		return

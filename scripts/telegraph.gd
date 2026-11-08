@@ -26,6 +26,10 @@ var _length := 0.0
 var _fired := false
 ## A marker that never hurts (the Lich showing where it will reappear): no PERFECT for it.
 var harmless := false
+## Version 116: an ordinary skeleton's swipe doesn't count for a PERFECT (they were too easy
+## to step out of, 19 in two minutes); an elite's counts with a lighter slow-motion.
+var perfectable := true
+var light := false
 
 
 static func _parent() -> Node:
@@ -48,15 +52,18 @@ static func _area(alpha: float) -> Color:
 
 ## Is `pos` (with radius `r`) inside a warning that lands within `window` seconds, or (a
 ## line) landed less than AFTER seconds ago? The hero's Grave Dash asks this.
-static func dodged(pos: Vector3, r: float, window: float) -> bool:
+## 0: nothing dodged; 1: a light PERFECT (an elite's swipe); 2: a full one (shots, lunges,
+## blasts and boss attacks).
+static func dodged(pos: Vector3, r: float, window: float) -> int:
+	var best := 0
 	for t in active:
-		if not is_instance_valid(t) or t.is_queued_for_deletion() or t.harmless:
+		if not is_instance_valid(t) or t.is_queued_for_deletion() or t.harmless or not t.perfectable:
 			continue
 		var left := t.duration - t.elapsed
 		var late := -AFTER if t._is_line else 0.0
 		if left <= window and left >= late and t._covers(pos, r):
-			return true
-	return false
+			best = maxi(best, 1 if t.light else 2)
+	return best
 
 
 func _covers(pos: Vector3, r: float) -> bool:

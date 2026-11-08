@@ -372,8 +372,26 @@ func _add_obstacle(p: Vector3, r: float) -> void:
 # ---------------------------------------------------------------- queries
 
 ## Moves a circle of radius `r` by `delta`, sliding along walls and around obstacles.
+## The walls always win: a push out of a pillar or a corner prop never ends outside the room
+## (it used to, and a skeleton stuck past a corner could never be hit, so its room never
+## cleared). Where the straight push would cross a wall, the circle slides along the wall.
 func resolve_move(pos: Vector3, delta: Vector3, r: float) -> Vector3:
-	var p := pos + delta
+	var p := _clamp_walls(pos + delta, r)
+	for i in 2:
+		var moved := false
+		for o in obstacles:
+			var d: Vector3 = p - o.pos
+			d.y = 0.0
+			var m: float = o.r + r
+			if d.length_squared() < m * m:
+				p = _push_out(p, o.pos, m, r)
+				moved = true
+		if not moved:
+			break
+	return p
+
+
+func _clamp_walls(p: Vector3, r: float) -> Vector3:
 	p.y = 0.0
 	var min_z := -HALF_L + r
 	if door_open and absf(p.x) < DOOR_HALF - r * 0.5:
@@ -382,15 +400,54 @@ func resolve_move(pos: Vector3, delta: Vector3, r: float) -> Vector3:
 	p.z = clampf(p.z, min_z, HALF_L - r)
 	if p.z < -HALF_L + r:
 		p.x = clampf(p.x, -DOOR_HALF + r, DOOR_HALF - r)
+	return p
+
+
+## `p` pushed out of the circle at `c` (radius `m`, already including the mover's own),
+## staying inside the walls: straight out if that's inside, else sliding along one axis.
+func _push_out(p: Vector3, c: Vector3, m: float, r: float) -> Vector3:
+	var d := Vector3(p.x - c.x, 0.0, p.z - c.z)
+	var dist := d.length()
+	var out := c + (d / dist * m if dist > 0.0001 else Vector3(-signf(c.x) if c.x != 0.0 else 1.0, 0, 0) * m)
+	out.y = 0.0
+	var fixed := _clamp_walls(out, r)
+	if fixed.distance_squared_to(out) < 0.0001:
+		return out
+	# Straight out crosses a wall: try sliding along x or along z, nearest first.
+	var best := fixed
+	var best_d := INF
+	var dz := p.z - c.z
+	var dx := p.x - c.x
+	for k in 4:
+		var q := p
+		if k < 2:
+			if absf(dz) >= m:
+				continue
+			q.x = c.x + (1.0 if k == 0 else -1.0) * sqrt(m * m - dz * dz)
+		else:
+			if absf(dx) >= m:
+				continue
+			q.z = c.z + (1.0 if k == 2 else -1.0) * sqrt(m * m - dx * dx)
+		if _clamp_walls(q, r).distance_squared_to(q) > 0.0001:
+			continue
+		var dd := q.distance_squared_to(p)
+		if dd < best_d:
+			best_d = dd
+			best = q
+	return best
+
+
+## True when a circle of radius `r` at `p` is inside the walls and not inside an obstacle,
+## where hero bolts can reach it.
+func is_walkable(p: Vector3, r: float) -> bool:
+	if absf(p.x) > HALF_W - r + 0.05 or p.z > HALF_L - r + 0.05 or p.z < -HALF_L + r - 0.05:
+		return false
 	for o in obstacles:
 		var d: Vector3 = p - o.pos
 		d.y = 0.0
-		var m: float = o.r + r
-		if d.length_squared() < m * m:
-			var dist := d.length()
-			p = o.pos + (d / dist * m if dist > 0.0001 else Vector3.RIGHT * m)
-			p.y = 0.0
-	return p
+		if d.length_squared() < (o.r + r - 0.1) * (o.r + r - 0.1):
+			return false
+	return true
 
 
 ## Bends a walking direction around any pillar or barrel straight ahead, so skeletons

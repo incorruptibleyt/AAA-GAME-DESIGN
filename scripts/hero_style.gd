@@ -165,24 +165,24 @@ const PASS_AURA := {"name": "Crypt King", "pass": true, "ink": Color(1.0, 0.78, 
 const EXTRA := {
 	"outfit": {
 		"bonecarved": {"name": "Bonecarved", "a": Color(0.88, 0.85, 0.76), "b": Color(0.2, 0.19, 0.22), "pat": 6, "feat": "centurion"},
-		"frostbite": {"name": "Frostbite", "a": Color(0.55, 0.82, 1.0), "b": Color(0.95, 0.98, 1.0), "pat": 4, "feat": "halfway"},
-		"magma": {"name": "Magma", "a": Color(0.16, 0.09, 0.08), "b": Color(0.34, 0.13, 0.06), "pat": 2, "feat": "laststand"},
-		"ghostwalk": {"name": "Ghostwalk", "a": Color(0.7, 0.95, 1.0), "b": Color(0.35, 0.75, 0.85), "pat": 1, "feat": "cleankill"},
+		"frostbite": {"name": "Frostbite", "a": Color(0.3, 0.6, 0.95), "b": Color(0.95, 0.98, 1.0), "pat": 4, "feat": "halfway"},
+		"magma": {"name": "Cinder Ice", "a": Color(0.12, 0.15, 0.22), "b": Color(0.62, 0.84, 1.0), "pat": 2, "feat": "laststand"},
+		"ghostwalk": {"name": "Ghostwalk", "a": Color(0.16, 0.36, 0.46), "b": Color(0.75, 0.98, 1.0), "pat": 1, "feat": "cleankill"},
 		"thunder": {"name": "Thunder", "a": Color(0.22, 0.24, 0.36), "b": Color(1.0, 0.86, 0.3), "pat": 5, "feat": "highscore"},
 		"shadowflame": {"name": "Shadowflame", "a": Color(0.13, 0.08, 0.2), "b": Color(0.52, 0.28, 0.88), "pat": 7, "feat": "faithful"},
-		"starweave": {"name": "Starweave", "a": Color(0.07, 0.08, 0.22), "b": Color(0.78, 0.68, 1.0), "pat": 3, "feat": "flawless"},
-		"toxic": {"name": "Toxic", "a": Color(0.36, 0.86, 0.2), "b": Color(0.32, 0.13, 0.42), "pat": 8, "drop": 3},
-		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.76, 0.79, 0.86), "pat": 9, "drop": 3},
+		"starweave": {"name": "Starweave", "a": Color(0.07, 0.08, 0.22), "b": Color(0.95, 0.8, 0.35), "pat": 3, "feat": "flawless"},
+		"toxic": {"name": "Toxic", "a": Color(0.28, 0.66, 0.16), "b": Color(0.24, 0.08, 0.34), "pat": 8, "drop": 3},
+		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.36, 0.3, 0.62), "pat": 9, "drop": 3},
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
 	},
 	"head": {
 		"storm_halo": {"name": "Storm Halo", "hat": true, "extras": ["storm_halo"], "feat": "bossbreaker"},
 		"star_circlet": {"name": "Star Circlet", "hat": true, "extras": ["star_circlet"], "feat": "fourheroes"},
-		"flame_crown": {"name": "Flame Crown", "hat": true, "extras": ["flame_crown"], "feat": "conqueror"},
+		"flame_crown": {"name": "Flame Horns", "hat": true, "extras": ["flame_crown"], "feat": "conqueror"},
 		"skull_helm": {"name": "Skull Helm", "hat": false, "hide_head": true, "extras": ["skull_helm"], "feat": "legend"},
 		"antlers": {"name": "Antlers", "hat": false, "extras": ["antlers"], "drop": 4},
 		"phantom_horns": {"name": "Phantom Horns", "hat": true, "extras": ["phantom_horns"], "drop": 4},
-		"bone_crown": {"name": "Bone Crown", "hat": true, "extras": ["bone_crown"], "drop": 4},
+		"bone_crown": {"name": "Bone Mask", "hat": true, "extras": ["bone_crown"], "drop": 4},
 	},
 	"glow": {
 		"mirage": {"name": "Mirage", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
@@ -580,12 +580,21 @@ static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> Sh
 	var key := "%s %s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", ""), outfit.get("pat", 0)]
 	if _mats.has(key):
 		return _mats[key]
-	if not _shaders.has(both):
+	# A plain recolour gets a short copy of the shader without the gold and pattern code:
+	# every recoloured hero ran all of it before, which costs phones' GPUs even unused.
+	var fancy := outfit.has("gold") or int(outfit.get("pat", 0)) > 0
+	var skey := "%s %s" % [both, fancy]
+	if not _shaders.has(skey):
+		var code := SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode cull_disabled;" if both else "shader_type spatial;")
+		if not fancy:
+			var a := code.find("\t// <fancy>")
+			var b := code.find("\t// </fancy>")
+			code = code.substr(0, a) + code.substr(b + "\t// </fancy>".length())
 		var sh := Shader.new()
-		sh.code = SHADER.replace("shader_type spatial;", "shader_type spatial;\nrender_mode cull_disabled;" if both else "shader_type spatial;")
-		_shaders[both] = sh
+		sh.code = code
+		_shaders[skey] = sh
 	var m := ShaderMaterial.new()
-	m.shader = _shaders[both]
+	m.shader = _shaders[skey]
 	m.set_shader_parameter("tex", src.albedo_texture)
 	m.set_shader_parameter("rough", src.roughness)
 	m.set_shader_parameter("metal", src.metallic)
@@ -794,6 +803,7 @@ void fragment() {
 	ALBEDO = o;
 	ROUGHNESS = rough;
 	METALLIC = metal;
+	// <fancy>
 	float g = ma * a_gold + mb * b_gold;
 	float k = ma * a_dark + mb * b_dark;
 	if (g + k > 0.001) {
@@ -819,28 +829,30 @@ void fragment() {
 	float w = clamp(ma + mb, 0.0, 1.0);
 	if (pat > 0 && w > 0.001) {
 		float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
-		vec3 q = mpos * 2.2;
+		// Version 116: a pattern 3.5 times coarser, so it reads on a hero 150 pixels tall.
+		vec3 q = mpos * 0.62;
 		vec3 em = vec3(0.0);
 		vec3 al = ALBEDO;
 		if (pat == 1) {
 			// Ghostwalk: pale and see-through-looking, cold light at the edges and wisps rising.
 			float n = fbm(q * 1.6 + vec3(0.0, -TIME * 0.7, 0.0));
 			float wisp = smoothstep(0.46, 0.72, n);
-			al = mix(al, vec3(0.62, 0.9, 1.0), 0.55);
-			em = vec3(0.45, 0.95, 1.0) * (edge * 2.0 + wisp * 1.1 + 0.22) * (0.88 + 0.12 * sin(TIME * 9.0));
+			al = mix(al, vec3(0.1, 0.32, 0.42), 0.6);   // a dark core, so the cold edges stand out
+			em = vec3(0.45, 0.95, 1.0) * (edge * 2.4 + wisp * 1.3 + 0.08) * (0.88 + 0.12 * sin(TIME * 9.0));
 		} else if (pat == 2) {
-			// Magma: black rock split by glowing cracks that breathe, hot at the edges.
+			// Cinder Ice (was Magma, too close to the Crypt King's molten veins): dark slate
+			// split by cracks of blue-white frost light that breathe.
 			float n = fbm(q * 2.2);
-			float crack = 1.0 - smoothstep(0.015, 0.06, abs(n - 0.5));
+			float crack = 1.0 - smoothstep(0.02, 0.075, abs(n - 0.5));
 			float pulse = 0.75 + 0.25 * sin(TIME * 2.2 + q.y * 3.0);
 			float hot = smoothstep(0.62, 0.82, fbm(q * 1.3 + vec3(0.0, TIME * 0.15, 0.0)));
-			al = mix(al, vec3(1.0, 0.55, 0.12), crack * 0.9);
-			em = vec3(1.0, 0.42, 0.06) * (crack * 1.6 * pulse + hot * 0.35 + edge * 0.5);
+			al = mix(al, vec3(0.8, 0.95, 1.0), crack * 0.9);
+			em = vec3(0.45, 0.8, 1.0) * (crack * 1.7 * pulse + hot * 0.3 + edge * 0.55);
 		} else if (pat == 3) {
 			// Starweave: the night sky woven in: drifting nebula and twinkling stars.
 			float n = fbm(q * 1.2 + vec3(TIME * 0.04, 0.0, 0.0));
 			vec3 neb = mix(vec3(0.25, 0.1, 0.55), vec3(0.1, 0.45, 0.8), n);
-			float st = twinkle(q * 7.0, 0.16, 3.0) + twinkle(q * 13.0 + 3.1, 0.1, 4.5) * 0.7;
+			float st = twinkle(q * 4.0, 0.22, 3.0) + twinkle(q * 7.0 + 3.1, 0.14, 4.5) * 0.7;
 			al = mix(al, vec3(0.06, 0.05, 0.16) + neb * 0.4, 0.9);
 			em = neb * 0.45 + vec3(1.0, 0.95, 0.85) * st * 3.0 + vec3(0.6, 0.5, 1.0) * edge * 0.8;
 		} else if (pat == 4) {
@@ -860,13 +872,13 @@ void fragment() {
 			em = vec3(0.55, 0.8, 1.0) * bolt * (0.5 + 2.5 * flash) + vec3(0.4, 0.55, 1.0) * edge * (0.4 + flash);
 		} else if (pat == 6) {
 			// Bonecarved: ivory carved with runes, soul light pulsing in the grooves.
-			vec3 g = q * vec3(4.0, 5.0, 4.0);
+			// Clean runes: carved bands round the body, each with short upright strokes.
+			vec3 g = q * vec3(3.0, 3.0, 3.0);
 			vec3 f = fract(g);
 			float h = hash3(floor(g));
-			float groove = max((1.0 - smoothstep(0.05, 0.1, abs(f.x - 0.5))) * step(h, 0.45),
-				(1.0 - smoothstep(0.05, 0.1, abs(f.y - 0.5))) * step(0.55, h));
-			groove *= step(0.15, f.y) * step(f.y, 0.85) + step(0.55, h) * 1.0;
-			groove = clamp(groove, 0.0, 1.0);
+			float band = 1.0 - smoothstep(0.06, 0.1, abs(f.y - 0.5));
+			float stroke = (1.0 - smoothstep(0.07, 0.11, abs(fract(atan(mpos.x, mpos.z) * 1.6) - 0.5))) * step(0.25, f.y) * step(f.y, 0.75);
+			float groove = clamp(band + stroke * step(0.35, h), 0.0, 1.0);
 			al = mix(al, vec3(0.1, 0.35, 0.28), groove * 0.9);
 			em = vec3(0.35, 1.0, 0.75) * groove * (1.1 + 0.6 * sin(TIME * 2.0 + h * 6.0)) + vec3(1.0, 0.95, 0.85) * edge * 0.15;
 		} else if (pat == 7) {
@@ -884,7 +896,7 @@ void fragment() {
 			float bub = (1.0 - smoothstep(0.0, 0.05, abs(d - (0.08 + 0.28 * ph)))) * (1.0 - ph) * step(0.45, h);
 			float slime = smoothstep(0.45, 0.7, fbm(q * 1.5 + vec3(0.0, TIME * 0.2, 0.0)));
 			al = mix(al, vec3(0.5, 1.0, 0.25), slime * 0.35);
-			em = vec3(0.45, 1.0, 0.2) * (bub * 1.8 + slime * 0.25 + edge * 0.45);
+			em = vec3(0.45, 1.0, 0.2) * (bub * 1.8 + slime * 0.25 + edge * 0.45) * 0.6;   // 60%: it glared
 		} else if (pat == 9) {
 			// Prism: bands of colour running over pearly cloth (never red-pink: that's danger).
 			float t = 0.5 + 0.5 * sin(q.y * 2.4 + q.x * 1.2 - TIME * 1.6);
@@ -902,5 +914,6 @@ void fragment() {
 		ALBEDO = mix(ALBEDO, al, w);
 		EMISSION += em * w;
 	}
+	// </fancy>
 }
 """

@@ -49,6 +49,12 @@ var _state_before_pause := State.PLAYING
 var _pause_wanted := false
 ## Counts rooms loaded, so a wait that began in one room never acts in the next.
 var _room_serial := 0
+## Stuck-room watchdog: seconds since a skeleton was last hit or killed, and the room
+## whose clear has already started (so the watchdog never clears a room twice).
+var _stall_time := 0.0
+var _stall_step := 0
+var _cleared_serial := -1
+var _no_enemies_time := 0.0
 ## The save already had stats when the game opened, so this isn't the very first launch.
 var _hit_stop_left := 0.0
 var _choices: Array = []
@@ -61,6 +67,15 @@ var _drops_run := 0
 ## Feats (feats.gd) already done, or found this run: each check is one look-up.
 var _feats_got := {}
 var _floor_hits := 0   # hits taken before this floor began (Flawless)
+var _continued_floor := -1   # the floor a CONTINUE came back to (no Flawless there)
+var _room_special := 0   # specials used before this room began (Specialist: in one boss fight)
+var _top_chain_t := 0.0   # seconds the chain has stayed at x3 (Iron Chain)
+var _best_chain_hold := 0.0
+var _best_chain4 := 1.0   # the best chain on floor 4 or deeper (Chain Lord)
+## Feats done during a fight: shown at once, written to the save when the room ends (or the
+## game leaves the screen), so a kill never waits on a save file.
+var _feats_unsaved: Array[String] = []
+var _feats_run: Array[String] = []   # won this run, for the reveal after it
 var _room_hits := 0    # ...and before this room began (Untouched, Clean Kill)
 ## Bone Road bones (bone_road.gd): not yet in the save, and earned since the last end
 ## screen (which shows them). They're saved with the coins (_save_coins, after every room),
@@ -76,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-08c"
+const BUILD := "2026-11-08d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -99,6 +114,10 @@ var _high_graphics := true
 var _auto_graphics := false
 var _auto_fps: Array[float] = []
 var _auto_seen := 0
+## The frame-rate check runs again for a minute after every 10 minutes of play, while the
+## player hasn't chosen a setting: a phone that heats up in a long session slows down later.
+var _auto_rewatch := false
+var _auto_play_t := 0.0
 ## The robot's "slowphone" test sets this to pretend the phone is slow (-1 = really measure).
 var fps_override := -1.0
 ## The opening animation while it plays.
@@ -327,10 +346,12 @@ func _ready() -> void:
 	hud.mastery_pressed.connect(_open_mastery)
 	hud.style_pressed.connect(_open_style)
 	hud.feats_pressed.connect(_open_feats)
+	hud.feats_hero_pressed.connect(func(id: String): _open_feats(id))
 	hud.see_looks.connect(func(id: String, lv: int):
 		_open_style(id)
 		hud.style_show_new(lv))
 	hud.style_wear.connect(_wear_look)
+	hud.found_wear.connect(_wear_found)
 	hud.copy_report_pressed.connect(func():
 		DisplayServer.clipboard_set(_last_report)
 		Sfx.play("click"))
@@ -401,6 +422,7 @@ func _ready() -> void:
 	_set_shake(int(cfg.get_value("settings", "shake", 2)), false)
 	_set_vibration(bool(cfg.get_value("settings", "vibration", true)), false)
 	_auto_graphics = not cfg.has_section_key("settings", "high_graphics") and not "autoplay" in OS.get_cmdline_user_args()
+	_auto_rewatch = _auto_graphics
 	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
 	Telemetry.instance.daily_open()
 	Engine.max_fps = 60   # no need to drain the battery past what phones show
@@ -517,6 +539,9 @@ func _process(delta: float) -> void:
 			_pause()
 		elif state not in [State.TRANSITION, State.UPGRADE]:
 			_pause_wanted = false
+	var cover := state != State.PLAYING and hud.covers_world()
+	if get_viewport().disable_3d != cover:
+		get_viewport().disable_3d = cover
 	if state == State.PLAYING:
 		_run_time += delta
 		record_add("time", delta)
@@ -532,6 +557,12 @@ func _process(delta: float) -> void:
 			_longest_at = "F%d R%d" % [floor_num, _room_index + 1]
 			_longest_new = _added_text(added_before, added)
 		_fps_t += delta
+		_auto_play_t += delta
+		if _auto_rewatch and not _auto_graphics and _high_graphics and _auto_play_t >= 600.0:
+			_auto_play_t = 0.0
+			_auto_graphics = true
+			_auto_seen = 120   # watch for one more minute
+			_auto_fps.clear()
 		if frame_ms > 250.0:
 			_hitch_second = true
 		if _fps_t >= 1.0:
@@ -551,6 +582,14 @@ func _process(delta: float) -> void:
 			_combo_left -= delta
 			if _combo_left <= 0.0:
 				_break_chain()
+		_room_watchdog(delta)
+		if chain >= 2.999:
+			_top_chain_t += delta
+			_best_chain_hold = maxf(_best_chain_hold, _top_chain_t)
+			if _top_chain_t >= 30.0:
+				_feat("linked")
+		else:
+			_top_chain_t = 0.0
 	if _hit_stop_left > 0.0:
 		_hit_stop_left -= delta / maxf(Engine.time_scale, 0.01)
 		if _hit_stop_left <= 0.0:
@@ -591,6 +630,10 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if what == NOTIFICATION_APPLICATION_PAUSED:
 			_report_left()
+			if not _feats_unsaved.is_empty():
+				var fcfg := _load_save()
+				_flush_feats(fcfg)
+				write_save(fcfg)
 		if state == State.PLAYING:
 			_pause()
 		elif state == State.TRANSITION:
@@ -636,6 +679,9 @@ func _notification(what: int) -> void:
 		if hud.omens_visible():
 			hud.show_omens(false)
 			return
+		if hud.feats_visible():
+			hud.close_feats()
+			return
 		if hud.style_visible():
 			hud.close_style()
 			return
@@ -656,6 +702,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.records_visible():
 			hud.show_records(false)
+			return
+		if hud.rewards_visible():
+			hud.show_rewards(false)
 			return
 		if hud.settings_visible():
 			hud.show_settings(false)
@@ -920,12 +969,13 @@ func finisher(pos: Vector3, time_scale: float, seconds: float, col := Color(1, 0
 
 
 ## Grave Dash landed: a short slow-motion beat, a callout and a bone crack.
-func perfect_dodge(pos: Vector3) -> void:
-	Engine.time_scale = 0.3
-	_hit_stop_left = maxf(_hit_stop_left, 0.4)
-	Fx.shockwave(pos, Color(0.6, 0.95, 1.0), 2.5)
-	hud.flash(Color(0.7, 0.95, 1.0), 0.25)
-	hud.callout("PERFECT!")
+## `big`: the full slow-motion (shots, lunges, blasts, bosses); a lighter one for an elite's swipe.
+func perfect_dodge(pos: Vector3, big := true) -> void:
+	Engine.time_scale = 0.3 if big else 0.55
+	_hit_stop_left = maxf(_hit_stop_left, 0.4 if big else 0.18)
+	Fx.shockwave(pos, Color(0.6, 0.95, 1.0), 2.5 if big else 1.6)
+	hud.flash(Color(0.7, 0.95, 1.0), 0.25 if big else 0.12)
+	hud.callout_at_hero("PERFECT!")
 	Sfx.play("crack", 0.9)
 	shake(0.2)
 	report_event("perfect")
@@ -1373,11 +1423,18 @@ func run_report(result: String, was_first := false) -> String:
 func _reset_run_stats() -> void:
 	_reset_report()
 	_feats_got.clear()
+	_feats_unsaved.clear()
+	_feats_run.clear()
 	var fcfg := _load_save()
 	for f: Dictionary in Feats.LIST:
 		if Feats.done(fcfg, f.id):
 			_feats_got[f.id] = true
 	_floor_hits = 0
+	_continued_floor = -1
+	_room_special = 0
+	_top_chain_t = 0.0
+	_best_chain_hold = 0.0
+	_best_chain4 = 1.0
 	_room_hits = 0
 	_swipe_tips = 0
 	_run_time = 0.0
@@ -1676,6 +1733,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	else:
 		_room_rng.randomize()
 	alive_enemies = 0
+	_stall_time = 0.0
+	_stall_step = 0
+	_no_enemies_time = 0.0
 	boss = null
 	_bosses.clear()
 	_boss_lost = 0.0
@@ -1698,6 +1758,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_rep.room_start = _run_time
 		_rep.room_chain = chain
 		_room_hits = int(_rep.hits)
+		_room_special = int(_rep.special)
+		_top_chain_t = 0.0
 		if index == 0:
 			_floor_hits = int(_rep.hits)
 	if not _in_boss_room():
@@ -1755,7 +1817,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			for b: Enemy in [e, twin]:
 				b.max_health *= 0.65
 				b.health = b.max_health
-	# Champion's Door: a golden elite is waiting.
+	# Champion's Door: a purple elite is waiting.
 	if _door.get("kind", "") == "champion":
 		for a: Actor in Actor.all:
 			if a is Enemy and not (a as Enemy).elite and not (a as Enemy).is_boss and not (a is SkeletonBomber) and not a.dead:
@@ -1809,6 +1871,8 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 		"run_coins": run_coins, "banked": run_coins, "kills": _kills, "time": _run_time, "curses": curses.duplicate(),
 		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
 		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate(), "balance": 2,
+		"feat_counts": {} if _rep.is_empty() else {"perfect": int(_rep.perfect), "special": int(_rep.special),
+			"best_chain": float(_rep.best_chain), "hits": int(_rep.hits)},
 		"rooms": [] if next_floor or loop_end else _run.duplicate(true),   # this floor's rooms, to come back to
 		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {}})
 
@@ -1890,6 +1954,16 @@ func _continue_run() -> void:
 	if int(s.get("balance", 1)) < 2 and hero.perks.has("multishot"):
 		hero.damage /= pow(0.9, hero.perks.multishot)   # Twin Shots used to cut damage 10% a pick
 	_seen_rooms = (s.get("seen_rooms", []) as Array).duplicate()
+	# The run's PERFECT dodges, specials, best chain and hits carry on, so counted Feats keep
+	# their progress. Flawless can't be won on a continued floor: hits taken before the game
+	# was closed were never saved.
+	var fc: Dictionary = s.get("feat_counts", {})
+	if not _rep.is_empty() and not fc.is_empty():
+		_rep.perfect = int(fc.get("perfect", 0))
+		_rep.special = int(fc.get("special", 0))
+		_rep.best_chain = float(fc.get("best_chain", 1.0))
+		_rep.hits = int(fc.get("hits", 0))
+	_continued_floor = floor_num
 	# The same rooms as before the game was closed. Building new ones would change the rest
 	# of the floor (and of a Daily Crypt) and use up five more rooms each time.
 	var rooms: Array = s.get("rooms", [])
@@ -1981,7 +2055,7 @@ func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 	return e
 
 
-## Now and then a skeleton is a golden elite. Never in the very first room, and more
+## Now and then a skeleton is a purple elite. Never in the very first room, and more
 ## often the deeper you go.
 func _roll_elite(e: Enemy, room_index: int) -> bool:
 	if e.is_boss or e is SkeletonBomber or (floor_num == 1 and room_index == 0):
@@ -2004,6 +2078,7 @@ func _kill_points(e: Enemy) -> float:
 
 func on_enemy_died(e: Enemy) -> void:
 	alive_enemies = maxi(0, alive_enemies - 1)
+	note_progress()
 	_kills += 1
 	record_add("kills", 1)
 	hud.show_hint("")
@@ -2057,10 +2132,78 @@ func on_enemy_died(e: Enemy) -> void:
 		_wave_pending = true
 		_next_wave()
 	elif alive_enemies == 0 and not _in_boss_room() and _waves_left == 0 and not _wave_pending:
-		finisher(e.global_position, 0.25, 0.6)
-		_clear_enemy_attacks()
-		Pickup.collect_all()
-		_room_cleared()
+		_finish_room(e.global_position)
+
+
+func _finish_room(at: Vector3) -> void:
+	if _cleared_serial == _room_serial:
+		return
+	_cleared_serial = _room_serial
+	finisher(at, 0.25, 0.6)
+	_clear_enemy_attacks()
+	Pickup.collect_all()
+	_room_cleared()
+
+
+## A skeleton was hit or killed: the room is moving.
+func note_progress() -> void:
+	_stall_time = 0.0
+	_stall_step = 0
+
+
+## Where a skeleton that ended up out of reach climbs back in: the free wave spot nearest
+## to where it was (still well away from the hero).
+func rescue_spot(from: Vector3) -> Vector3:
+	var best := Vector3.ZERO
+	var best_d := INF
+	for p in _wave_spots(40):
+		var d: float = from.distance_squared_to(p)
+		if d < best_d:
+			best_d = d
+			best = p
+	return best
+
+
+## Makes sure every fight room can end. If a wave was never sent or the last skeleton died
+## without clearing the room, it does so. If nothing has been hit for 20 seconds, any
+## skeleton the hero can't reach is moved into the open; after 40 seconds the rest crumble.
+func _room_watchdog(delta: float) -> void:
+	if Room.current == null or Room.current.door_open or _in_boss_room() or _cleared_serial == _room_serial or _wave_total == 0:
+		return
+	if alive_enemies <= 0 and not _wave_pending:
+		_no_enemies_time += delta
+		if _no_enemies_time > 1.5:
+			_no_enemies_time = 0.0
+			if _waves_left > 0:
+				print("[watchdog] wave %d was never sent; sending it" % (_wave_total - _waves_left + 1))
+				_wave_pending = true
+				_next_wave()
+			else:
+				print("[watchdog] room had no skeletons left but never cleared; clearing it")
+				_finish_room(hero.global_position if hero else Vector3.ZERO)
+		return
+	_no_enemies_time = 0.0
+	_stall_time += delta
+	if _stall_time > 20.0 and _stall_step == 0:
+		_stall_step = 1
+		for a: Actor in Actor.all.duplicate():
+			if a is Enemy and not a.dead and not (a as Enemy).is_boss and not _reachable(a as Enemy):
+				print("[watchdog] %s out of reach for 20 s; moving it" % (a as Enemy).kind_name())
+				a.global_position = rescue_spot(a.global_position)
+	elif _stall_time > 40.0 and _stall_step == 1:
+		_stall_step = 2
+		var n := 0
+		for a: Actor in Actor.all.duplicate():
+			if a is Enemy and not a.dead and not (a as Enemy).is_boss:
+				(a as Enemy).crumble()
+				n += 1
+		print("[watchdog] nothing hit for 40 s; %d skeletons crumbled" % n)
+
+
+## True when the hero could shoot this skeleton from somewhere: it stands in the open,
+## inside the walls and clear of pillars.
+func _reachable(e: Enemy) -> bool:
+	return Room.current.is_walkable(e.global_position, e.radius)
 
 
 ## The next wave climbs out of the floor away from the hero, after a short warning.
@@ -2330,6 +2473,7 @@ func _win() -> void:
 	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")], was_first)
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
+	_reveal_feats_soon()
 	_ask_reports()
 	_ask_review(was_first)
 
@@ -2384,6 +2528,7 @@ func on_hero_died() -> void:
 	_last_report = run_report("Died on floor %d, %s" % [floor_num, "boss room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]])
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
+	_reveal_feats_soon()
 	_ask_reports()
 
 
@@ -2708,18 +2853,16 @@ func add_coins(n: int) -> void:
 func _feat_check() -> void:
 	if first_run or _rep.is_empty():
 		return
-	if int(_rep.perfect) >= 10:
+	if int(_rep.perfect) >= 15 and floor_num >= 3:
 		_feat("dodger")
 	if int(_rep.perfect) >= 40:
 		_feat("perfectionist")
-	if int(_rep.special) >= 12:
-		_feat("specialist")
-	if _kills >= 100:
+	if _kills >= 150:
 		_feat("centurion")
-	if chain >= 2.0:
-		_feat("linked")
-	if chain >= 2.999:
-		_feat("chainlord")
+	if floor_num >= 4:
+		_best_chain4 = maxf(_best_chain4, chain)
+		if chain >= 2.999:
+			_feat("chainlord")
 	if score >= 20000:
 		_feat("highscore")
 	var held := 0
@@ -2735,11 +2878,15 @@ func _boss_feats() -> void:
 		return
 	var cfg := _load_save()
 	var no_hit := int(_rep.hits) == _room_hits
-	if _run_time - float(_rep.room_start) < 25.0:
+	if floor_num >= 3 and _run_time - float(_rep.room_start) < 30.0:
 		_feat("bossbreaker", cfg)
+	var specials := int(_rep.special) - _room_special
+	Feats.note_best(cfg, "boss_special", specials)
+	if specials >= 4:
+		_feat("specialist", cfg)
 	if no_hit:
 		_feat("cleankill", cfg)
-	if int(_rep.hits) == _floor_hits:
+	if floor_num != _continued_floor and int(_rep.hits) == _floor_hits:
 		_feat("flawless", cfg)
 	if hero.health <= hero.max_health * 0.15:
 		_feat("laststand", cfg)
@@ -2759,6 +2906,11 @@ func _boss_feats() -> void:
 func _feat_bests(cfg: ConfigFile) -> void:
 	if not _rep.is_empty() and not first_run:
 		Feats.note_best(cfg, "perfect", int(_rep.perfect))
+		if floor_num >= 3:
+			Feats.note_best(cfg, "perfect3", int(_rep.perfect))
+		Feats.note_best(cfg, "chain_hold", int(_best_chain_hold))
+		if floor_num >= 4:
+			Feats.note_best(cfg, "chain4", roundi(_best_chain4 * 10.0))
 		Feats.note_best(cfg, "special", int(_rep.special))
 		Feats.note_best(cfg, "kills", _kills)
 		Feats.note_best(cfg, "chain", roundi(maxf(float(_rep.best_chain), chain) * 10.0))
@@ -2795,29 +2947,46 @@ func _feat(id: String, cfg: ConfigFile = null) -> void:
 	if _feats_got.get(id, false) or (first_run and state != State.TITLE):
 		return
 	_feats_got[id] = true
-	var own := cfg == null
-	if own:
-		cfg = _load_save()
-	var f := Feats.complete(cfg, id)
-	if f.is_empty():
-		return
-	if own:
-		write_save(cfg)
+	if state != State.TITLE:
+		_feats_run.append(id)
+	var f: Dictionary
+	if cfg == null and state == State.PLAYING:
+		# Mid-fight: the toast now, the save at the end of the room (_save_coins).
+		if Feats.done(_load_save(), id):
+			return
+		f = Feats.get_feat(id)
+		_feats_unsaved.append(id)
+	else:
+		var own := cfg == null
+		if own:
+			cfg = _load_save()
+		f = Feats.complete(cfg, id)
+		if f.is_empty():
+			return
+		if own:
+			write_save(cfg)
 	report_event("feat")
 	hud.feat_toast(str(f.name), Feats.reward_label(f))
-	Sfx.play("victory", 0.6, 1.2)
 	if vibration:
 		Input.vibrate_handheld(40)
+
+
+## Feats done mid-fight go into `cfg` (the caller saves).
+func _flush_feats(cfg: ConfigFile) -> void:
+	for id in _feats_unsaved:
+		Feats.complete(cfg, id)
+	_feats_unsaved.clear()
 
 
 func _save_coins() -> void:
 	var cfg := _load_save()
 	cfg.set_value("stats", "coins", coins)
-	_feat_bests(cfg)
+	_flush_feats(cfg)
 	BoneRoad.add(cfg, _road_unsaved)
 	_road_unsaved = 0
 	HeroMastery.add(cfg, _mastery_hero, _mastery_unsaved)
 	_mastery_unsaved = 0
+	_feat_bests(cfg)   # after the Mastery points, so Legend sees the new level
 	if _perfect_total >= 0:
 		cfg.set_value("stats", "perfect_total", _perfect_total)
 	write_save(cfg)
@@ -2882,9 +3051,13 @@ func _set_reports(on: bool) -> void:
 func _ask_reports() -> void:
 	if not Telemetry.configured() or _load_save().has_section_key("settings", "reports"):
 		return
+	# Version 116: not before the first boss win (a new player's first screen used to be an
+	# 80-word data question). After that, any run's end can ask.
+	if int(_load_save().get_value("stats", "wins", 0)) <= 0:
+		return
 	await get_tree().create_timer(1.6, true, false, true).timeout
 	if state in [State.DEAD, State.VICTORY] and not hud.armory_visible() and not hud.pass_visible() and not hud.heroes_visible() \
-			and not _load_save().has_section_key("settings", "reports"):
+			and not hud.drops_visible() and not _load_save().has_section_key("settings", "reports"):
 		hud.show_reports_ask(true)
 
 
@@ -2916,6 +3089,8 @@ func _ask_reports_on_title() -> void:
 	var cfg := _load_save()
 	if not Telemetry.configured() or cfg.has_section_key("settings", "reports"):
 		return
+	if int(cfg.get_value("stats", "wins", 0)) <= 0:
+		return   # asked after the first boss win instead (_ask_reports)
 	await get_tree().create_timer(0.6, true, false, true).timeout
 	if state == State.TITLE and hud.title_visible() and not hud.armory_visible() and not hud.pass_visible() \
 			and not hud.heroes_visible() and not hud.daily_visible() and not hud.modes_visible() and not hud.records_visible() \
@@ -3071,6 +3246,7 @@ func _set_graphics(high: bool, save := true) -> void:
 	hud.set_graphics_label(high)
 	if save:
 		_auto_graphics = false   # the player (or the check above) has chosen
+		_auto_rewatch = false
 		var cfg := _load_save()
 		cfg.set_value("settings", "high_graphics", high)
 		write_save(cfg)
@@ -3114,11 +3290,12 @@ func _open_mastery(id: String) -> void:
 
 
 ## The Feats screen (from the Style screen); opening it clears the NEW tag.
-func _open_feats() -> void:
+func _open_feats(for_hero := "") -> void:
 	var cfg := _load_save()
 	cfg.set_value(Feats.SECTION, "new", false)
 	write_save(cfg)
-	hud.open_feats(cfg, str(cfg.get_value("heroes", "selected", "rogue")))
+	var id := for_hero if for_hero != "" else hud.style_hero()
+	hud.open_feats(cfg, id if id != "" else str(cfg.get_value("heroes", "selected", "rogue")))
 
 
 ## The Style screen for hero `id` (from the Heroes or Mastery screen).
@@ -3145,6 +3322,49 @@ func _wear_look(id: String, slot: String, key: String) -> void:
 		hud.show_heroes(true, _hero_rows(), coins)
 	if state == State.TITLE and hero and hero.hero_id == id and _swap_hero(id, true):
 		Fx.magic(hero.center(), hero.bolt_color, 24)
+
+
+## WEAR IT on a found or earned look (the drop screen): worn from now on (from the next run
+## when one is on), without leaving the screen.
+func _wear_found(id: String, slot: String, key: String) -> void:
+	if id == "":
+		id = str(_load_save().get_value("heroes", "selected", "rogue"))
+	var cfg := _load_save()
+	if not HeroStyle.has_look(cfg, id, slot, key):
+		_flush_feats(cfg)   # a Feat won this run is saved by now, but make sure
+		if not HeroStyle.has_look(cfg, id, slot, key):
+			return
+	HeroStyle.wear(cfg, id, slot, key)
+	write_save(cfg)
+	print("[style] %s wears %s %s" % [id, slot, key])
+	if state == State.TITLE and hero and hero.hero_id == id:
+		_swap_hero(id, true)
+
+
+## After a run's end screen: each Feat won in it gets the big reveal, with WEAR IT.
+func _reveal_feats_soon() -> void:
+	if _feats_run.is_empty() or first_run:
+		return
+	var ids := _feats_run.duplicate()
+	_feats_run.clear()
+	await get_tree().create_timer(1.1, true, false, true).timeout
+	if state not in [State.DEAD, State.VICTORY]:
+		return
+	var cfg := _load_save()
+	var id := hero.hero_id if hero else str(cfg.get_value("heroes", "selected", "rogue"))
+	var list := []
+	for fid: String in ids:
+		var f := Feats.get_feat(fid)
+		if f.is_empty():
+			continue
+		var picks := HeroStyle.picks(cfg, id)
+		for slot: String in HeroStyle.PASS_SLOTS:
+			if picks.get(slot, "") == HeroStyle.pass_key(slot):
+				picks[slot] = ""
+		picks[str(f.look[0])] = str(f.look[1])
+		list.append({"name": f.name, "text": f.text, "look": f.look, "hero": id, "label": Feats.reward_label(f),
+			"preview": HeroStyle.dressed(Heroes.get_hero(id), picks)})
+	hud.reveal_feats(list)
 
 
 ## Bought the Crypt Pass on the Style screen: that hero puts on the whole Crypt King set
@@ -3426,6 +3646,11 @@ func _armory_rows() -> Array:
 	for u: Dictionary in Armory.LIST:
 		rows.append({"id": u.id, "title": u.title, "text": u.text, "level": Armory.level(cfg, u.id),
 			"max": u.max, "cost": Armory.next_cost(cfg, u)})
+	if Drops.armory_full(cfg):
+		var left := Drops.buys_left(cfg, Curses.today())
+		rows.append({"id": "buy_drop", "title": "Bone Drop", "text": "Spare coins buy a drop  ·  %d left today" % left,
+			"level": 0, "max": 1, "cost": Drops.BUY_COST if left > 0 and Drops.waiting(cfg) < Drops.MAX_WAITING else -1,
+			"done": "TOMORROW" if left <= 0 else "FULL"})
 	for v: Dictionary in Armory.VAULT:
 		var u := Upgrades.get_def(v.id)
 		var has := Armory.vault_has(cfg, v.id)
@@ -3436,6 +3661,21 @@ func _armory_rows() -> Array:
 
 func _buy_upgrade(id: String) -> void:
 	var cfg := _load_save()
+	if id == "buy_drop":
+		if Drops.buys_left(cfg, Curses.today()) <= 0 or coins < Drops.BUY_COST or Drops.waiting(cfg) >= Drops.MAX_WAITING:
+			Sfx.play("hurt")
+			return
+		coins -= Drops.BUY_COST
+		cfg.set_value("stats", "coins", coins)
+		Drops.buy(cfg, Curses.today())
+		write_save(cfg)
+		Sfx.play("upgrade")
+		hud.set_coins(coins)
+		hud.set_drops(Drops.waiting(cfg))
+		hud.show_armory(true, _armory_rows(), coins)
+		hud.show_title(hud.title_visible(), _best_text(), coins)
+		print("[drop] bought one for %d coins" % Drops.BUY_COST)
+		return
 	# The Vault: a new blessing, bought once.
 	var price := Armory.vault_cost(id)
 	if price > 0:

@@ -10,7 +10,7 @@ var knockback_scale := 1.0
 var drop_chance := 0.09
 ## Bosses use the big bar at the top of the screen instead of a little one.
 var is_boss := false
-## Elite skeletons are golden, bigger and tougher, and drop more coins.
+## Elite skeletons are purple, bigger and tougher, and drop more coins.
 var elite := false
 
 var _slow_left := 0.0
@@ -33,6 +33,8 @@ var _spawn_timer := 0.9
 var _contact_cooldown := 0.0
 var _bar: HealthBar
 var _telegraphs: Array[Telegraph] = []
+## Seconds spent somewhere the hero's shots can't reach (past a wall or inside a pillar).
+var _out_time := 0.0
 
 
 ## Bosses wear the cartoon outline, like the hero (character_visual.gd).
@@ -93,7 +95,8 @@ func kind_name() -> String:
 	return ("Elite " if elite else "") + out
 
 
-## Turns this skeleton into a golden elite.
+## Turns this skeleton into a purple elite (gold until version 116, the colour of coins and
+## of the Crypt Pass hero).
 func make_elite() -> void:
 	elite = true
 	init_health(max_health * 2.2)
@@ -102,8 +105,8 @@ func make_elite() -> void:
 	radius *= 1.15
 	drop_chance = maxf(drop_chance, 0.5)
 	visual.scale *= 1.22
-	visual.set_tint(Color(0.32, 0.22, 0.0))
-	var glow := U.floor_quad(self, Vector2(2.4, 2.4), U.unlit(Color(1, 0.75, 0.2, 0.45), U.soft_circle()), Vector3(0, 0.05, 0))
+	visual.set_tint(Color(0.22, 0.04, 0.32))
+	var glow := U.floor_quad(self, Vector2(2.4, 2.4), U.unlit(Color(0.7, 0.3, 1.0, 0.5), U.soft_circle()), Vector3(0, 0.05, 0))
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	if _bar:
 		_bar.queue_free()
@@ -236,6 +239,24 @@ func _process(delta: float) -> void:
 		_think(hero, delta)
 	_separate()
 	_touch(hero, delta)
+	_check_reach(delta)
+
+
+## Watchdog: a skeleton that ends up past a wall or inside a pillar for over a second climbs
+## back out at a free spot in the room, so a room can always be cleared.
+func _check_reach(delta: float) -> void:
+	var room := Room.current
+	if room == null or room.is_walkable(global_position, radius):
+		_out_time = 0.0
+		return
+	_out_time += delta
+	if _out_time > 1.0:
+		_out_time = 0.0
+		var spot: Vector3 = Game.rescue_spot(global_position)
+		print("[watchdog] %s moved from (%.2f, %.2f) back into the room" % [kind_name(), global_position.x, global_position.z])
+		global_position = spot
+		knockback = Vector3.ZERO
+		Fx.dust(spot, 10)
 
 
 func _separate() -> void:
@@ -277,6 +298,8 @@ func _start_swipe(d: Vector3) -> void:
 	_swipe_dir = d.normalized() if d.length_squared() > 0.0001 else -global_basis.z
 	var at := global_position + _swipe_dir * (radius + 0.3)
 	_swipe = track(Telegraph.circle(at, SWIPE_RADIUS, swipe_time, _land_swipe, 0.22))
+	_swipe.perfectable = elite or is_boss
+	_swipe.light = not is_boss
 	visual.attack()
 	Game.on_swipe_warning()
 
@@ -328,6 +351,7 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	if health < max_health * 0.3 and Game.hero and Game.hero.perks.has("executioner"):
 		amount *= 1.5
 	super.take_damage(amount, direction, push * knockback_scale, crit)
+	Game.note_progress()
 	if _bar:
 		_bar.reveal()
 	# A hit worth a quarter of its health staggers it and breaks a swing still winding up.

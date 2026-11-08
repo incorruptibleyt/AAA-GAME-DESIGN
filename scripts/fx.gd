@@ -340,6 +340,55 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 	return p
 
 
+## Version 116: an aura's own shape on the floor round the hero, so it reads from the game
+## camera even when the outline is a few pixels wide: a turning ring of `marks` dashes
+## (stars, sparks, souls...) in the aura's two colours. One quad, one small shader.
+static var _ground_shader: Shader
+
+static func aura_ground(ink: Color, ink2: Color, marks: int, radius := 1.25) -> MeshInstance3D:
+	if _ground_shader == null:
+		_ground_shader = Shader.new()
+		_ground_shader.code = AURA_GROUND
+	var m := ShaderMaterial.new()
+	m.shader = _ground_shader
+	m.set_shader_parameter("ink", ink)
+	m.set_shader_parameter("ink2", ink2)
+	m.set_shader_parameter("marks", float(marks))
+	var q := PlaneMesh.new()
+	q.size = Vector2(radius * 2.0, radius * 2.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.position = Vector3(0, 0.035, 0)
+	return mi
+
+
+const AURA_GROUND := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 ink : source_color = vec4(1.0);
+uniform vec4 ink2 : source_color = vec4(1.0);
+uniform float marks = 6.0;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) / 6.2831853 + 0.5;
+	float turn = fract(a + TIME * 0.08);
+	// a thin ring, with marks that brighten one after another round it
+	float ring = smoothstep(0.035, 0.0, abs(r - 0.78));
+	float seg = fract(turn * marks);
+	float mark = smoothstep(0.09, 0.0, abs(r - 0.9)) * step(seg, 0.32);
+	float wave = 0.5 + 0.5 * sin(TIME * 3.0 - floor(turn * marks) * 1.3);
+	vec3 c = mix(ink.rgb, ink2.rgb, wave);
+	float alpha = ring * 0.55 + mark * (0.4 + 0.5 * wave);
+	alpha *= smoothstep(1.0, 0.92, r);
+	ALBEDO = c * 1.3;
+	ALPHA = clamp(alpha, 0.0, 0.85);
+}
+"""
+
+
 static func sparks(pos: Vector3, color := Color(1.0, 0.85, 0.5)) -> void:
 	_burst(pos, 10, color, 0.4, 7.0, 0.35, 0.5, true, "dot")
 

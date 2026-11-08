@@ -40,7 +40,11 @@ static func dress(room: Room, layout: Array) -> void:
 				Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.15, 0.8, 0.1))
 			"water":
 				_mesh(n, _kelp_column())
-		room._add_obstacle(p, 0.55)
+		# The prop's collision is a circle centred on the room's true corner, so a push out of
+		# it always points into the room (centred on the prop, it could push a skeleton out
+		# through the walls, where nothing could reach it).
+		var corner := Vector3(signf(p.x) * Room.HALF_W, 0, signf(p.z) * Room.HALF_L)
+		room._add_obstacle(corner, 0.55 + Vector2(p.x - corner.x, p.z - corner.z).length())
 	for side in [-1.0, 1.0]:
 		for z in WALL_Z:
 			match kind:

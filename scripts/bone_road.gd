@@ -106,7 +106,7 @@ static func claim(cfg: ConfigFile, i: int) -> Dictionary:
 	cfg.set_value(SECTION, "got_%d" % i, true)
 	match str(s.kind):
 		"drop":
-			cfg.set_value(Drops.SECTION, "waiting", Drops.waiting(cfg) + int(s.n))
+			Drops.add(cfg, int(s.n))
 		"lucky":
 			cfg.set_value(Drops.SECTION, "lucky", Drops.lucky(cfg) + int(s.n))
 	return s

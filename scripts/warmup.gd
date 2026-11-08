@@ -75,6 +75,29 @@ static func run() -> void:
 			heroes.append(v)
 		DamageNumber.healed(hero, 9876543210.0))
 
+	# Every Feat and Bone Drop look: the headwear's flame, ghost and glow materials, the
+	# patterned outfits and the auras (version 115 left these out, so the first Legendary
+	# reveal froze while its head was prepared). Two batches of a few heroes each.
+	var keys := {}
+	var most := 0
+	for slot: String in ["head", "outfit", "glow", "aura"]:
+		keys[slot] = HeroStyle.EXTRA[slot].keys()
+		most = maxi(most, keys[slot].size())
+	for half in 2:
+		steps.append(func():
+			for i in range(half * ceili(most / 2.0), mini(most, (half + 1) * ceili(most / 2.0))):
+				var v := CharacterVisual.new()
+				v.outline_me = true
+				holder.add_child(v)
+				v.position = spots[i % spots.size()] + Vector3(0, 0, 2.6)
+				var picks := {}
+				for slot: String in keys:
+					picks[slot] = keys[slot][i % keys[slot].size()]
+				v.build(Heroes.look(HeroStyle.dressed(Heroes.LIST[i % Heroes.LIST.size()], picks)))
+			var g := Fx.aura_ground(Color.CYAN, Color.WHITE, 6)
+			holder.add_child(g)
+			g.position = at + Vector3(0, 0.04, 2.0))
+
 	# Shots, warnings, fire, pickups and every particle effect: a few at a time, so a slow
 	# phone never spends long on one frame (Android closes an app that stops answering),
 	# and a report from a phone that dies here names the very effect (Game.loading).

@@ -61,15 +61,16 @@ func _ready() -> void:
 		var shine := U.floor_quad(self, Vector2(0.8, 0.8), U.unlit(Color(1, 0.8, 0.3, 0.4), U.soft_circle()), Vector3(0, 0.04, 0))
 		shine.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		return
-	var red := U.mat(Color(1.0, 0.2, 0.3), 0.3, 2.2)
+	# Green since version 116: pink hearts looked like the pink enemy shots.
+	var red := U.mat(Color(0.3, 1.0, 0.45), 0.3, 2.2)
 	# Two bumps and a point: a little heart.
 	U.sphere(_gem, 0.17, red, Vector3(-0.12, 0.08, 0))
 	U.sphere(_gem, 0.17, red, Vector3(0.12, 0.08, 0))
 	var tip := U.box(_gem, Vector3(0.27, 0.27, 0.2), red, Vector3(0, -0.07, 0))
 	tip.rotation.z = PI / 4
-	var glow := U.floor_quad(self, Vector2(1.3, 1.3), U.unlit(Color(1, 0.25, 0.35, 0.5), U.soft_circle()), Vector3(0, 0.04, 0))
+	var glow := U.floor_quad(self, Vector2(1.3, 1.3), U.unlit(Color(0.3, 1.0, 0.45, 0.5), U.soft_circle()), Vector3(0, 0.04, 0))
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	Fx.magic(global_position + Vector3.UP * 0.6, Color(1, 0.3, 0.4), 8)
+	Fx.magic(global_position + Vector3.UP * 0.6, Color(0.4, 1.0, 0.5), 8)
 
 
 ## What one heart heals. Treasure Magnet's hearts heal 30% more.

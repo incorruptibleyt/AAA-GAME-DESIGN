@@ -127,7 +127,7 @@ static func grant(cfg: ConfigFile, id: String) -> Dictionary:
 				"coins":
 					out.coins += int(r.n)
 				"drop":
-					cfg.set_value(Drops.SECTION, "waiting", Drops.waiting(cfg) + int(r.n))
+					Drops.add(cfg, int(r.n))
 				"lucky":
 					cfg.set_value(Drops.SECTION, "lucky", Drops.lucky(cfg) + int(r.n))
 		out.levels.append({"level": l, "rewards": rewards})
