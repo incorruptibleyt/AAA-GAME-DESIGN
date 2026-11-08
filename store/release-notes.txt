@@ -1,6 +1,7 @@
-Version 119: bosses fight back
+Version 120: bosses fight back
 - Every boss now changes at half health with a new attack: Royal Rush, Blink Volley, Firestorm and Riptide.
 - Boss attacks come in a new order every fight.
 - A new Bone Drop reliquary that bursts open in its rarity colour.
 - WEAR IT is the big button on every new look. Brighter Feat and drop glows.
+- Fixed: your hero sometimes vanishing on the Heroes and Style screens.
 - Fairer PERFECT dodges, and lots of small fixes.

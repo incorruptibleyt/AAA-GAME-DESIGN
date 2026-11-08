@@ -25,7 +25,16 @@ var _def := {}
 var _gold := false
 var _active := false
 var _checking := false
-var _rebuilds := 0   # at most 2 a session, so a phone that can't draw it never loops
+## Repairs tried since the screen last opened (at most 3 per opening, 12 a session, so a
+## phone that can't draw it never loops).
+var _tries := 0
+var _redressed := false   # this opening: the hero was put on again
+var _rebuilt := false     # this opening: the stage was built again
+static var _session_tries := 0
+## Version 120: once a phone has drawn a stage with no see-through parts working, every
+## stage after that draws on a solid backdrop instead (see _set_solid).
+static var solid := false
+var _solid_mat: ShaderMaterial
 
 
 func _init(stage_size: Vector2) -> void:
@@ -42,11 +51,16 @@ func _make_viewport() -> void:
 	_vp = SubViewport.new()
 	_vp.size = Vector2i.ONE   # full size only while the Heroes screen is open (set_active)
 	_vp.own_world_3d = true
-	_vp.transparent_bg = true
-	_vp.msaa_3d = Viewport.MSAA_4X
+	_vp.transparent_bg = not solid
+	# Version 120: no MSAA. The stage is drawn at twice its size and shrunk, which already
+	# smooths the edges; MSAA on top of that was the one unusual thing about this little
+	# picture on a phone's graphics chip, and the preview going blank came with it.
+	_vp.msaa_3d = Viewport.MSAA_DISABLED
 	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
 	add_child(_vp)
 	_build_scene()
+	if solid:
+		_set_solid()
 
 
 func _ready() -> void:
@@ -159,8 +173,15 @@ func show_hero(def: Dictionary, gold := false) -> void:
 ## On Low graphics it's drawn at 1.5x with 2x smoothing: about a quarter of the memory.
 func set_active(on: bool) -> void:
 	var low := not Game._high_graphics
-	_vp.msaa_3d = Viewport.MSAA_2X if low else Viewport.MSAA_4X
-	_vp.size = (Vector2i(_full_size * 0.75) if low else _full_size) if on else Vector2i.ONE
+	# On High the picture keeps its size while closed (about 5 MB), so it is never made
+	# again from nothing each time the screen opens; Low still frees it.
+	if on:
+		_vp.size = Vector2i(_full_size * 0.75) if low else _full_size
+		_tries = 0
+		_redressed = false
+		_rebuilt = false
+	elif low:
+		_vp.size = Vector2i.ONE
 	# Drawn 30 times a second (_process), not every frame: a slow turn looks the same.
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE if on else SubViewport.UPDATE_DISABLED
 	_draw_t = 0.0
@@ -171,42 +192,127 @@ func set_active(on: bool) -> void:
 		_check_drawn()
 
 
-## A phone once showed an empty stage (no hero, no pedestal) on the Heroes and Style screens
-## until the game was restarted. A moment after the stage starts drawing, look at its
-## picture; if nothing was drawn, build the little 3D world again from scratch.
+## A phone showed an empty stage (no hero, or no hero and no pedestal) on the Heroes and
+## Style screens, mostly when HEROES was tapped on the death screen. A moment after the
+## stage starts drawing, and again half a second later, look at its picture and repair
+## what's missing, a step further each time:
+##   the pedestal drew but not the hero: put the hero on again;
+##   nothing drew: build the little 3D world again from scratch;
+##   still nothing, or it drew but nothing in it is solid: draw on a solid backdrop
+##   from now on (for every stage this session), ignoring see-through-ness altogether.
 func _check_drawn() -> void:
 	if _checking or DisplayServer.get_name() == "headless":
 		return
 	_checking = true
-	for i in 3:
-		await RenderingServer.frame_post_draw
+	for wait in [3, 30]:
+		for i in wait:
+			await RenderingServer.frame_post_draw
+		if not _active or not is_inside_tree():
+			_checking = false
+			return
+		var seen := _look_at()
+		if seen == "ok":
+			continue
+		if _tries >= 3 or _session_tries >= 12:
+			break
+		_tries += 1
+		_session_tries += 1
+		_checking = false
+		_repair(seen)
+		return
 	_checking = false
-	if not _active or not is_inside_tree():
-		return
-	if _drawn() or _rebuilds >= 2:
-		return
-	_rebuilds += 1
-	push_error("Hero preview drew nothing (%s); rebuilt it" % [_vp.size])
-	_vp.queue_free()
-	_visual = null
-	_make_viewport()
-	if not _def.is_empty():
-		show_hero(_def, _gold)
-	set_active(true)
 
 
-## True when some of the stage's picture is not see-through (the pedestal alone is enough).
-func _drawn() -> bool:
+## What the picture shows: "ok", "no hero" (pedestal only), "empty", or "clear" (colours
+## were drawn but every pixel is see-through, so the screen shows nothing).
+func _look_at() -> String:
 	var img := _vp.get_texture().get_image()
 	if img == null or img.is_empty():
-		return false
+		return "empty"
 	var w := img.get_width()
 	var h := img.get_height()
-	for y in range(h / 3, h, 12):
-		for x in range(0, w, 12):
-			if img.get_pixel(x, y).a > 0.3:
-				return true
-	return false
+	var solid_px := 0
+	var colour_px := 0
+	var hero_px := 0
+	for y in range(h / 8, h, 10):
+		for x in range(0, w, 10):
+			var c := img.get_pixel(x, y)
+			var lit := c.r + c.g + c.b > 0.12
+			if c.a > 0.3 or (solid and lit):
+				solid_px += 1
+				# The hero stands in the middle third, above the pedestal's top.
+				if x > w / 3 and x < w * 2 / 3 and y < h * 0.7:
+					hero_px += 1
+			elif lit:
+				colour_px += 1
+	if solid:
+		# A solid backdrop is lit everywhere: look for the hero against it instead.
+		return "ok" if _hero_against_backdrop(img) else "empty"
+	if solid_px == 0:
+		return "clear" if colour_px > 20 else "empty"
+	return "ok" if hero_px > 6 else "no hero"
+
+
+## On the solid backdrop: something in the hero's spot differs from the backdrop colour.
+func _hero_against_backdrop(img: Image) -> bool:
+	var w := img.get_width()
+	var h := img.get_height()
+	var n := 0
+	for y in range(h / 8, int(h * 0.7), 10):
+		for x in range(w / 3, w * 2 / 3, 10):
+			var c := img.get_pixel(x, y)
+			if absf(c.r - BACKDROP.r) + absf(c.g - BACKDROP.g) + absf(c.b - BACKDROP.b) > 0.15:
+				n += 1
+	return n > 6
+
+
+func _repair(seen: String) -> void:
+	var was := _vp.size
+	var step := "rebuilt the stage"
+	if seen == "no hero" and not _redressed and not _def.is_empty():
+		_redressed = true
+		step = "put the hero on again"
+		show_hero(_def, _gold)
+	else:
+		if (seen == "clear" or _rebuilt) and not solid:
+			solid = true
+			step = "switched to a solid backdrop"
+		_rebuilt = true
+		_vp.queue_free()
+		_visual = null
+		_make_viewport()
+		if not _def.is_empty():
+			show_hero(_def, _gold)
+	push_error("Hero preview showed %s (%s, try %d, %s, graphics %d MB); %s" % [seen, was, _session_tries,
+			Game.State.keys()[Game.state],
+			int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0), step])
+	var keep := [_tries, _redressed, _rebuilt]
+	set_active(true)
+	# set_active starts the count again for a fresh opening: keep this opening's
+	_tries = keep[0]
+	_redressed = keep[1]
+	_rebuilt = keep[2]
+
+
+## The backdrop the stage is drawn on once see-through pictures fail: the Heroes and Style
+## screens' purple at the pedestal's height, faded out at the edges so it has no hard box.
+const BACKDROP := Color(0.17, 0.12, 0.31)
+
+func _set_solid() -> void:
+	_vp.transparent_bg = false
+	_cam.environment.background_mode = Environment.BG_COLOR
+	_cam.environment.background_color = BACKDROP
+	if _solid_mat == null:
+		var sh := Shader.new()
+		sh.code = """shader_type canvas_item;
+void fragment() {
+	vec2 d = abs(UV - 0.5) * 2.0;
+	float m = (1.0 - smoothstep(0.7, 1.0, d.x)) * (1.0 - smoothstep(0.88, 1.0, d.y));
+	COLOR = vec4(texture(TEXTURE, UV).rgb, m);
+}"""
+		_solid_mat = ShaderMaterial.new()
+		_solid_mat.shader = sh
+	material = _solid_mat
 
 
 func _notification(what: int) -> void:
