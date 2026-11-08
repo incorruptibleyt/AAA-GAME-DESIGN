@@ -46,7 +46,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 ★ MASTER YOUR HEROES
 • Every room and boss gives your hero Mastery that is never lost.
 • Ten Mastery levels per hero bring coins, Bone Drops and titles (Adept, Veteran, Master).
-• Unlock 30 looks per hero: outfits, hats, weapons, glows and auras.
+• Unlock 30 Mastery looks per hero: outfits, hats, weapons, glows and auras.
 • Reach Master for a golden crown and a trail of gold sparkles.
 
 ★ 20 FEATS, LOOKS NO ONE CAN BUY

@@ -171,7 +171,10 @@ static func open(cfg: ConfigFile, rng: RandomNumberGenerator = null) -> Dictiona
 	var miss := missing_looks(cfg, i)
 	var hit := not miss.is_empty() and rng.randi_range(1, 12) <= int(LOOK_CHANCE[i])
 	if not hit and dry(cfg) + 1 >= PITY:
-		for k in range(2, TIERS.size()):
+		# The rolled kind or a higher one first, so a lucky roll is never turned down.
+		var order := range(maxi(i, 2), TIERS.size())
+		order.append_array(range(2, maxi(i, 2)))
+		for k: int in order:
 			if not missing_looks(cfg, k).is_empty():
 				i = k
 				t = TIERS[k]

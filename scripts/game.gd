@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-08d"
+const BUILD := "2026-11-08e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1759,7 +1759,6 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_rep.room_chain = chain
 		_room_hits = int(_rep.hits)
 		_room_special = int(_rep.special)
-		_top_chain_t = 0.0
 		if index == 0:
 			_floor_hits = int(_rep.hits)
 	if not _in_boss_room():
@@ -2947,8 +2946,6 @@ func _feat(id: String, cfg: ConfigFile = null) -> void:
 	if _feats_got.get(id, false) or (first_run and state != State.TITLE):
 		return
 	_feats_got[id] = true
-	if state != State.TITLE:
-		_feats_run.append(id)
 	var f: Dictionary
 	if cfg == null and state == State.PLAYING:
 		# Mid-fight: the toast now, the save at the end of the room (_save_coins).
@@ -2965,6 +2962,8 @@ func _feat(id: String, cfg: ConfigFile = null) -> void:
 			return
 		if own:
 			write_save(cfg)
+	if state != State.TITLE:
+		_feats_run.append(id)
 	report_event("feat")
 	hud.feat_toast(str(f.name), Feats.reward_label(f))
 	if vibration:
@@ -3348,6 +3347,8 @@ func _reveal_feats_soon() -> void:
 	var ids := _feats_run.duplicate()
 	_feats_run.clear()
 	await get_tree().create_timer(1.1, true, false, true).timeout
+	while hud.drops_visible() and state in [State.DEAD, State.VICTORY]:
+		await get_tree().create_timer(0.3, true, false, true).timeout   # a drop opening now: after it
 	if state not in [State.DEAD, State.VICTORY]:
 		return
 	var cfg := _load_save()

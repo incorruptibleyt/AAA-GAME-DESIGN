@@ -137,6 +137,8 @@ func _init() -> void:
 
 ## Shows the screen with `waiting` drops to open.
 func open_screen(waiting: int) -> void:
+	_feat_mode = false
+	_feat_queue.clear()
 	_left = waiting
 	visible = waiting > 0
 	if visible:
