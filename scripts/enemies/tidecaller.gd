@@ -96,11 +96,8 @@ func _think(hero: Hero, delta: float) -> void:
 	if not _enraged and health < max_health * 0.5:
 		_enraged = true
 		move_speed *= 1.3
-		Sfx.play("roar")
 		Sfx.play("splash", 1.0, 0.8)
-		Game.shake(0.4)
-		Fx.magic(center(), WATER, 40)
-		Fx.shockwave(global_position, WATER, 4.0)
+		phase_two(WATER)
 		if _staff_glow:
 			_staff_glow.create_tween().tween_property(_staff_glow, "scale", Vector3.ONE * 1.6, 0.4)
 	visual.position.y = -DEPTH * _depth
@@ -129,21 +126,34 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
-	var step := 0
+	var bags := 0
 	while _alive():
 		_busy = true
-		match step % 4:
-			0: await _spray()
-			1: await _wave()
-			2: await _dive()
-			3:
-				if step % 8 == 3:
-					await _call()
-				else:
-					await _spray()
+		var moves := ["spray", "wave", "dive", "spray"]
+		if bags % 2 == 0:   # every other round of moves, about as often as before
+			moves.append("call")
+		if _enraged:
+			moves.append("riptide")   # phase 2's own move
+		var m := next_move(moves)
+		if _bag.is_empty():
+			bags += 1
+		match m:
+			"spray": await _spray()
+			"wave": await _wave()
+			"dive": await _dive()
+			"call":
+				await _call()
+			"riptide": await _riptide()
 		_busy = false
-		step += 1
 		await _wait(0.9 if _enraged else 1.4)
+
+
+## Phase 2: a wave sweeps the room, and the Tidecaller fires its fans while you are still
+## dodging it.
+func _riptide() -> void:
+	await _wave()
+	if _alive():
+		await _spray()
 
 
 ## Fans of water bolts aimed at the hero.

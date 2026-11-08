@@ -89,13 +89,13 @@ func build(look: Dictionary) -> void:
 		_tint_mat = U.unlit(look.tint)
 		_tint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	elif look.has("rim"):
-		_tint_mat = rim_material(look.rim)
+		_tint_mat = rim_material(look.rim, float(look.get("rim_power", 2.2)))
 	_set_flash(false)
 	_play("idle")
 
 
 ## A bright glow around a model's edges (heroes), so they stand out from above on any floor.
-static func rim_material(col: Color) -> ShaderMaterial:
+static func rim_material(col: Color, power := 2.2) -> ShaderMaterial:
 	if _rim_shader == null:
 		_rim_shader = Shader.new()
 		_rim_shader.code = """
@@ -111,6 +111,7 @@ void fragment() {
 	var m := ShaderMaterial.new()
 	m.shader = _rim_shader
 	m.set_shader_parameter("rim", col)
+	m.set_shader_parameter("power", power)
 	return m
 
 

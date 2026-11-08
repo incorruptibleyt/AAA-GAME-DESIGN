@@ -74,11 +74,8 @@ func _think(hero: Hero, delta: float) -> void:
 	if not _enraged and health < max_health * 0.5:
 		_enraged = true
 		move_speed *= 1.35
-		Sfx.play("roar")
 		Sfx.play("ignite", 0.9)
-		Game.shake(0.4)
-		Fx.magic(center(), FIRE, 40)
-		Fx.shockwave(global_position, FIRE, 4.0)
+		phase_two(FIRE)
 		if _flame:
 			_flame.create_tween().tween_property(_flame, "scale", Vector3.ONE * 1.4, 0.4)
 	if randf() < delta * 3.0:
@@ -108,21 +105,37 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
-	var step := 0
+	var bags := 0
 	while _alive():
 		_busy = true
-		match step % 4:
-			0: await _eruption()
-			1: await _rush()
-			2: await _nova()
-			3:
-				if step % 8 == 3:
-					await _kindle()
-				else:
-					await _rush()
+		# Kindle (calling Cinder Skeletons) at most every other bag, as before (every 8th move).
+		var moves := ["eruption", "rush", "nova", "rush"]
+		if bags % 2 == 0:   # every other round of moves, about as often as before
+			moves.append("kindle")
+		if _enraged:
+			moves.append("firestorm")   # phase 2's own move
+		var m := next_move(moves)
+		if _bag.is_empty():
+			bags += 1
+		match m:
+			"eruption": await _eruption()
+			"rush": await _rush()
+			"nova": await _nova()
+			"kindle":
+				await _kindle()
+			"firestorm": await _firestorm()
 		_busy = false
-		step += 1
 		await _wait(1.0 if _enraged else 1.6)
+
+
+## Phase 2: the floor erupts, and the Colossus rushes through it before the fire dies,
+## ending in a nova.
+func _firestorm() -> void:
+	await _eruption()
+	if _alive():
+		await _rush()
+	if _alive():
+		await _nova()
 
 
 ## Circles at the hero and around them that burst into lingering fire.

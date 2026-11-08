@@ -198,6 +198,9 @@ func dash(dir: Vector3) -> void:
 ## so is dashing out of any warning on the floor (a beam, a blast circle, a lunge) as it lands.
 ## Time slows, nearby shots shatter, and the hero answers with a ring of bolts.
 const PERFECT_WINDOW := 0.22
+## A plain shot gives a PERFECT only in the last 0.14 s before it would hit (version 119: it
+## was 0.22 s like the floor warnings, and PERFECTs came about 12 a minute on floor 1).
+const SHOT_WINDOW := 0.14
 var _perfect_done := false
 ## A PERFECT is only for an attack you really avoided: none in the moment after you were
 ## hurt (a blast that already hit you used to still count as you dashed out of it), and after
@@ -214,7 +217,7 @@ func _check_perfect(window: float) -> void:
 	if _perfect_done or Time.get_ticks_msec() - _hurt_ms < HURT_GRACE_MS:
 		return
 	for p in Projectile.danger:
-		if is_instance_valid(p) and not p.is_queued_for_deletion() and p.time_to_hit(global_position, radius + 0.15) <= window:
+		if is_instance_valid(p) and not p.is_queued_for_deletion() and p.time_to_hit(global_position, radius + 0.15) <= minf(window, SHOT_WINDOW):
 			_perfect_dodge()
 			return
 	var kind := Telegraph.dodged(global_position, radius, window)
@@ -225,8 +228,10 @@ func _check_perfect(window: float) -> void:
 func _perfect_dodge(big := true) -> void:
 	_perfect_done = true
 	_safe_left = maxf(_safe_left, PERFECT_WINDOW - DASH_TIME + 0.05)
-	_dash_cooldown = 0.0
-	add_charge(0.25)
+	# An elite's swipe (the light kind) is worth less: no free dash, a smaller special charge.
+	if big:
+		_dash_cooldown = 0.0
+	add_charge(0.25 if big else 0.1)
 	for p in Projectile.danger.duplicate():
 		if is_instance_valid(p) and p.global_position.distance_to(global_position) < 3.0:
 			p.shatter()

@@ -41,6 +41,7 @@ var _pity: Label
 var _odds_btn: Button
 var _odds: PanelContainer
 var _odds_text: Label
+var _odds_dim: ColorRect   # darkens the chest and its text behind the odds (version 119)
 
 
 func _init() -> void:
@@ -89,15 +90,19 @@ func _init() -> void:
 	var box := CenterContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(_action)
-	col.add_child(box)
-	_wear = Hud.button("WEAR IT", 24, Color(0.05, 0.2, 0.12, 0.97), Color(0.5, 1.0, 0.65))
-	_wear.custom_minimum_size = Vector2(260, 70)
+	# WEAR IT is the big button above NEXT when a look is shown (version 119: it was the
+	# smaller one underneath, so the action players want most came second).
+	_wear = Hud.button("WEAR IT", 30, Color(0.05, 0.24, 0.12, 0.97), Color(0.5, 1.0, 0.65))
+	_wear.custom_minimum_size = Vector2(340, 86)
 	_wear.visible = false
 	_wear.pressed.connect(_on_wear)
+	_wear.visibility_changed.connect(func():
+		_action.custom_minimum_size = Vector2(260, 64) if _wear.visible else Vector2(340, 86))
 	var wbox := CenterContainer.new()
 	wbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	wbox.add_child(_wear)
 	col.add_child(wbox)
+	col.add_child(box)
 	_later = Hud.button("LATER", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_later.custom_minimum_size = Vector2(200, 62)
 	_later.pressed.connect(close)
@@ -127,7 +132,23 @@ func _init() -> void:
 			_show_odds(false))
 	_odds_text = Hud.label("", 18, Color(0.9, 0.88, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
 	_odds_text.custom_minimum_size = Vector2(400, 0)
-	_odds.add_child(_odds_text)
+	var odds_col := VBoxContainer.new()
+	odds_col.add_theme_constant_override("separation", 14)
+	odds_col.add_child(_odds_text)
+	var close_b := Hud.button("CLOSE", 20)
+	close_b.custom_minimum_size = Vector2(160, 56)
+	close_b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_b.pressed.connect(func(): _show_odds(false))
+	odds_col.add_child(close_b)
+	_odds.add_child(odds_col)
+	_odds_dim = ColorRect.new()
+	_odds_dim.color = Color(0.0, 0.0, 0.02, 0.8)
+	_odds_dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_odds_dim.visible = false
+	_odds_dim.gui_input.connect(func(e: InputEvent):
+		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
+			_show_odds(false))
+	add_child(_odds_dim)
 	add_child(_odds)
 	gui_input.connect(func(e: InputEvent):
 		# (Touches arrive as mouse clicks too: Godot's emulate-mouse-from-touch.)
@@ -240,6 +261,7 @@ func _ready_next() -> void:
 
 func _show_odds(on: bool) -> void:
 	_odds.visible = on
+	_odds_dim.visible = on
 	if on:
 		_odds_text.text = Drops.odds_text(Game._load_save())
 		var vw := get_viewport_rect().size.x
@@ -451,6 +473,12 @@ class Chest extends SubViewportContainer:
 	var _beam: MeshInstance3D
 	var _beam_mat: StandardMaterial3D
 	var _light: OmniLight3D
+	var _trim: StandardMaterial3D
+	var _gem_mat: StandardMaterial3D
+	var _burst: CPUParticles3D
+	var _burst_mat: StandardMaterial3D
+	var _ring: MeshInstance3D
+	var _ring_mat: StandardMaterial3D
 	var _open := 0.0
 	var _opened := false
 	var _hop := 0.0
@@ -471,7 +499,7 @@ class Chest extends SubViewportContainer:
 		cam.look_at_from_position(cam.position, Vector3(0, 0.45, 0))
 		var sun := DirectionalLight3D.new()
 		sun.rotation = Vector3(-0.9, 0.5, 0)
-		sun.light_energy = 1.1
+		sun.light_energy = 0.9
 		_vp.add_child(sun)
 		var env := WorldEnvironment.new()
 		env.environment = Environment.new()
@@ -483,17 +511,27 @@ class Chest extends SubViewportContainer:
 		_build()
 
 	func _build() -> void:
+		# Version 119: a modelled reliquary (domed lid, rib bones, iron corner caps, a skull
+		# with eyes and a gem in the drop's colour, gold trim at higher rarity) instead of
+		# plain boxes; a rim light from behind and a burst of sparks when it opens.
 		_root = Node3D.new()
 		_vp.add_child(_root)
 		var bone := StandardMaterial3D.new()
-		bone.albedo_color = Color(0.9, 0.86, 0.76)
-		bone.roughness = 0.6
+		bone.albedo_color = Color(0.8, 0.73, 0.6)
+		bone.roughness = 0.65
 		bone.rim_enabled = true
-		bone.rim = 0.3
+		bone.rim = 0.25
+		bone.rim_tint = 0.7
+		var bone_dark := bone.duplicate() as StandardMaterial3D
+		bone_dark.albedo_color = Color(0.36, 0.3, 0.26)
 		var iron := StandardMaterial3D.new()
-		iron.albedo_color = Color(0.16, 0.13, 0.16)
-		iron.metallic = 0.6
-		iron.roughness = 0.35
+		iron.albedo_color = Color(0.17, 0.14, 0.18)
+		iron.metallic = 0.7
+		iron.roughness = 0.3
+		_trim = StandardMaterial3D.new()
+		_trim.albedo_color = Color(0.3, 0.27, 0.3)
+		_trim.metallic = 0.85
+		_trim.roughness = 0.25
 		var dark := StandardMaterial3D.new()
 		dark.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		dark.albedo_color = Color(0.04, 0.03, 0.05)
@@ -501,43 +539,81 @@ class Chest extends SubViewportContainer:
 		_seam.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_seam.albedo_color = Color.WHITE
 		_crack_mat = _seam.duplicate()
-		# Body, two iron bands, iron feet.
-		_box(_root, Vector3(1.2, 0.62, 0.78), bone, Vector3(0, 0.35, 0))
-		for x in [-0.36, 0.36]:
-			_box(_root, Vector3(0.1, 0.66, 0.82), iron, Vector3(x, 0.35, 0))
-		for x in [-0.52, 0.52]:
-			for z in [-0.3, 0.3]:
-				_box(_root, Vector3(0.16, 0.08, 0.16), iron, Vector3(x, 0.03, z))
-		# The skull on the front, with its two dark eyes.
-		var skull := SphereMesh.new()
-		skull.radius = 0.16
-		skull.height = 0.32
-		_mesh(_root, skull, bone, Vector3(0, 0.4, 0.4)).scale = Vector3(1, 1, 0.6)
+		_gem_mat = _seam.duplicate()
+		# A stepped iron plinth, then the bone body with a darker inset panel.
+		_box(_root, Vector3(1.36, 0.1, 0.92), iron, Vector3(0, 0.05, 0))
+		_box(_root, Vector3(1.2, 0.58, 0.78), bone, Vector3(0, 0.39, 0))
+		_box(_root, Vector3(0.98, 0.42, 0.02), bone_dark, Vector3(0, 0.39, 0.392))
+		# Rib bones across the front, like a ribcage.
+		var rib := CapsuleMesh.new()
+		rib.radius = 0.03
+		rib.height = 0.5
+		for i in 3:
+			for sd in [-1.0, 1.0]:
+				var r := _mesh(_root, rib, bone, Vector3(sd * 0.3, 0.25 + i * 0.13, 0.405))
+				r.rotation = Vector3(0, 0, sd * (1.25 - i * 0.12))
+		# Iron corner caps and gold-able trim bands.
+		for x in [-0.58, 0.58]:
+			for z in [-0.37, 0.37]:
+				_box(_root, Vector3(0.1, 0.62, 0.1), iron, Vector3(x, 0.39, z))
+				var stud := SphereMesh.new()
+				stud.radius = 0.05
+				stud.height = 0.1
+				_mesh(_root, stud, _trim, Vector3(x * 1.02, 0.68, z * 1.02))
+		_box(_root, Vector3(1.24, 0.05, 0.82), _trim, Vector3(0, 0.12, 0))
+		# The skull on the front: cranium, jaw, glowing eyes and a gem on the brow.
+		var cranium := SphereMesh.new()
+		cranium.radius = 0.17
+		cranium.height = 0.32
+		_mesh(_root, cranium, bone, Vector3(0, 0.44, 0.43)).scale = Vector3(1.0, 0.95, 0.7)
+		_box(_root, Vector3(0.18, 0.08, 0.1), bone, Vector3(0, 0.3, 0.45))
 		var eye := SphereMesh.new()
-		eye.radius = 0.045
-		eye.height = 0.09
-		for x in [-0.06, 0.06]:
-			_mesh(_root, eye, dark, Vector3(x, 0.42, 0.49))
+		eye.radius = 0.05
+		eye.height = 0.1
+		for x in [-0.065, 0.065]:
+			_mesh(_root, eye, dark, Vector3(x, 0.44, 0.535))
+			_mesh(_root, eye, _crack_mat, Vector3(x, 0.44, 0.56)).scale = Vector3(0.45, 0.45, 0.45)
+		var gem := SphereMesh.new()
+		gem.radius = 0.07
+		gem.height = 0.14
+		gem.radial_segments = 6
+		gem.rings = 2
+		_mesh(_root, gem, _gem_mat, Vector3(0, 0.6, 0.5)).scale = Vector3(1.0, 1.3, 0.6)
 		# The glowing seam under the lid.
-		_box(_root, Vector3(1.22, 0.035, 0.8), _seam, Vector3(0, 0.665, 0))
+		_box(_root, Vector3(1.22, 0.035, 0.8), _seam, Vector3(0, 0.675, 0))
 		# Cracks of light on the front, one more for each step up in rarity.
-		var crack_at := [Vector3(-0.2, 0.3, 0.392), Vector3(0.18, 0.5, 0.392), Vector3(-0.15, 0.55, 0.392), Vector3(0.2, 0.2, 0.392)]
+		var crack_at := [Vector3(-0.38, 0.3, 0.41), Vector3(0.38, 0.5, 0.41), Vector3(-0.38, 0.55, 0.41), Vector3(0.38, 0.22, 0.41)]
 		for i in crack_at.size():
-			var c := _box(_root, Vector3(0.025, 0.24, 0.01), _crack_mat, crack_at[i])
+			var c := _box(_root, Vector3(0.025, 0.22, 0.01), _crack_mat, crack_at[i])
 			c.rotation.z = [0.6, -0.5, -0.9, 0.8][i]
 			c.visible = false
 			_cracks.append(c)
-		# The lid, hinged at the back.
+		# The domed lid, hinged at the back: half a barrel of bone with iron hoops and a
+		# skull-knob handle.
 		_lid = Node3D.new()
 		_lid.position = Vector3(0, 0.68, -0.4)
 		_root.add_child(_lid)
-		_box(_lid, Vector3(1.28, 0.2, 0.84), bone, Vector3(0, 0.1, 0.4))
-		for x in [-0.36, 0.36]:
-			_box(_lid, Vector3(0.1, 0.24, 0.88), iron, Vector3(x, 0.1, 0.4))
+		var dome := CylinderMesh.new()
+		dome.top_radius = 0.4
+		dome.bottom_radius = 0.4
+		dome.height = 1.24
+		dome.radial_segments = 20
+		var d := _mesh(_lid, dome, bone, Vector3(0, 0.0, 0.4))
+		d.rotation.z = PI * 0.5
+		d.scale = Vector3(0.55, 1.0, 1.0)
+		for x in [-0.42, 0.0, 0.42]:
+			var hoop := CylinderMesh.new()
+			hoop.top_radius = 0.42
+			hoop.bottom_radius = 0.42
+			hoop.height = 0.07
+			hoop.radial_segments = 20
+			var h := _mesh(_lid, hoop, _trim if x == 0.0 else iron, Vector3(x, 0.0, 0.4))
+			h.rotation.z = PI * 0.5
+			h.scale = Vector3(0.57, 1.0, 1.02)
 		var knob := SphereMesh.new()
-		knob.radius = 0.09
-		knob.height = 0.18
-		_mesh(_lid, knob, iron, Vector3(0, 0.24, 0.4))
+		knob.radius = 0.1
+		knob.height = 0.2
+		_mesh(_lid, knob, bone, Vector3(0, 0.26, 0.4))
 		# The beam of light, shown once it opens.
 		_beam_mat = StandardMaterial3D.new()
 		_beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -557,6 +633,47 @@ class Chest extends SubViewportContainer:
 		_light.omni_range = 3.0
 		_light.light_energy = 0.0
 		_root.add_child(_light)
+		# A cool rim light from behind, so the chest stands out from the dark.
+		var rim := OmniLight3D.new()
+		rim.position = Vector3(0.6, 1.4, -1.4)
+		rim.omni_range = 4.0
+		rim.light_color = Color(0.6, 0.5, 1.0)
+		rim.light_energy = 1.4
+		_vp.add_child(rim)
+		# The burst: sparks thrown up and out when the lid flies off.
+		_burst = CPUParticles3D.new()
+		_burst.emitting = false
+		_burst.one_shot = true
+		_burst.explosiveness = 0.95
+		_burst.amount = 60
+		_burst.lifetime = 1.1
+		_burst.position = Vector3(0, 0.75, 0)
+		_burst.direction = Vector3.UP
+		_burst.spread = 70.0
+		_burst.initial_velocity_min = 2.5
+		_burst.initial_velocity_max = 5.0
+		_burst.gravity = Vector3(0, -6.0, 0)
+		_burst.scale_amount_min = 0.5
+		_burst.scale_amount_max = 1.2
+		var spark := SphereMesh.new()
+		spark.radius = 0.035
+		spark.height = 0.07
+		spark.radial_segments = 6
+		spark.rings = 3
+		_burst_mat = _seam.duplicate()
+		spark.material = _burst_mat
+		_burst.mesh = spark
+		_root.add_child(_burst)
+		# A ring of light on the floor that races outward on opening.
+		_ring_mat = _beam_mat.duplicate()
+		var ring := TorusMesh.new()
+		ring.inner_radius = 0.9
+		ring.outer_radius = 1.0
+		ring.rings = 32
+		ring.ring_segments = 6
+		_ring = _mesh(_root, ring, _ring_mat, Vector3(0, 0.05, 0))
+		_ring.scale = Vector3(1, 0.2, 1)
+		_ring.visible = false
 
 	func _box(parent: Node3D, size_v: Vector3, mat: Material, pos: Vector3) -> MeshInstance3D:
 		var b := BoxMesh.new()
@@ -580,6 +697,7 @@ class Chest extends SubViewportContainer:
 		_light.light_energy = 0.0
 		for c in _cracks:
 			c.visible = false
+		_ring.visible = false
 		_root.rotation = Vector3(0, -0.35, 0)
 		_root.position = Vector3.ZERO
 
@@ -589,11 +707,20 @@ class Chest extends SubViewportContainer:
 		_beam.visible = true
 		_beam_mat.albedo_color = Color(col, 0.35)
 		_light.light_color = col
-		_light.light_energy = 2.5
+		_light.light_energy = 1.5
+		_burst_mat.albedo_color = col.lightened(0.35) * 1.6
+		_burst.restart()
+		_burst.emitting = true
+		_ring.visible = true
+		_ring.scale = Vector3(0.3, 0.2, 0.3)
+		_ring_mat.albedo_color = Color(col, 0.8)
 
 	func animate(step: int, k: float, col: Color, tier: int, delta: float) -> void:
 		_seam.albedo_color = col.lightened(0.3) * (1.0 + 0.6 * float(tier))
 		_crack_mat.albedo_color = col.lightened(0.4) * 1.6
+		_gem_mat.albedo_color = col.lightened(0.2) * (1.2 + 0.3 * float(tier))
+		# Iron trim at Common, turning gold as the rarity climbs.
+		_trim.albedo_color = Color(0.3, 0.27, 0.3).lerp(Color(1.0, 0.78, 0.3), clampf(float(tier) / 4.0, 0.0, 1.0))
 		var t := Time.get_ticks_msec() / 1000.0
 		_root.position = Vector3.ZERO
 		_root.rotation = Vector3(0, -0.35 + sin(t * 0.6) * 0.12, 0)
@@ -617,5 +744,11 @@ class Chest extends SubViewportContainer:
 			_lid.position = Vector3(0, 0.68 + 0.25 * e, -0.4 - 0.2 * e)
 			_beam.scale = Vector3(1, 0.2 + 0.8 * e, 1)
 			_beam_mat.albedo_color = Color(col, 0.22 + 0.1 * sin(t * 4.0))
+			if _ring.visible:
+				var rs := _ring.scale.x + delta * 6.0
+				_ring.scale = Vector3(rs, 0.2, rs)
+				_ring_mat.albedo_color = Color(col, maxf(0.0, 0.8 - (rs - 0.3) * 0.25))
+				if rs > 3.6:
+					_ring.visible = false
 			for c in _cracks:
 				c.visible = true

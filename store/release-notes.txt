@@ -1,7 +1,6 @@
-Version 116: Feats and rewards update
-- 20 Feats: skill challenges that win looks no one can buy, with a big reveal and WEAR IT.
-- Bone Drops: more coins, a 3D reliquary, the odds shown, and a new look guaranteed after 8 drops.
-- New REWARDS screen for the Bone Road, drops, Feats and records.
-- New looks: Flame Horns, Bone Mask, Cinder Ice and bolder outfit patterns.
-- Fixed a rare room that never ended.
-- Green hearts, purple elites, fairer PERFECT dodges.
+Version 119: bosses fight back
+- Every boss now changes at half health with a new attack: Royal Rush, Blink Volley, Firestorm and Riptide.
+- Boss attacks come in a new order every fight.
+- A new Bone Drop reliquary that bursts open in its rarity colour.
+- WEAR IT is the big button on every new look. Brighter Feat and drop glows.
+- Fairer PERFECT dodges, and lots of small fixes.

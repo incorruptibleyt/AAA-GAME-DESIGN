@@ -38,6 +38,9 @@ const SAVE_SECTION := "heroes"
 static func look(def: Dictionary) -> Dictionary:
 	var l := {"key": def.key, "height": 2.1, "body": def.body, "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0),
 		"hide": def.hide, "attack_anim": def.attack_anim, "rim": Color(def.ring, 0.9)}
+	if def.get("rim_strong", false):
+		l.rim = Color(def.ring.r * 1.6, def.ring.g * 1.6, def.ring.b * 1.6, 1.0)
+		l.rim_power = 1.4
 	for extra in ["hood", "helmet", "hat", "horns", "style", "aura"]:
 		if def.has(extra):
 			l[extra] = def[extra]

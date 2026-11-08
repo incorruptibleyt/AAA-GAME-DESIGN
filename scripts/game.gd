@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-08e"
+const BUILD := "2026-11-08f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -982,7 +982,7 @@ func perfect_dodge(pos: Vector3, big := true) -> void:
 	# A perfect dodge feeds the chain and resets its timer.
 	if chain_unlocked():
 		var before := chain
-		chain = minf(chain_max(), chain + 0.5)
+		chain = minf(chain_max(), chain + (0.5 if big else 0.25))
 		_combo_left = chain_time()
 		hud.show_chain(chain)
 		if before < chain_max() and chain >= chain_max():
@@ -2197,6 +2197,11 @@ func _room_watchdog(delta: float) -> void:
 				(a as Enemy).crumble()
 				n += 1
 		print("[watchdog] nothing hit for 40 s; %d skeletons crumbled" % n)
+		if n == 0:
+			# The count of living skeletons drifted from the real number: end the room anyway.
+			alive_enemies = 0
+			if _waves_left <= 0:
+				_finish_room(hero.global_position if hero else Vector3.ZERO)
 
 
 ## True when the hero could shoot this skeleton from somewhere: it stands in the open,
@@ -2209,6 +2214,7 @@ func _reachable(e: Enemy) -> bool:
 func _next_wave() -> void:
 	var wave := _wave_total - _waves_left + 1
 	hud.banner("Wave %d" % wave, Color(1, 0.55, 0.4))
+	hud.set_wave(wave, _wave_total)   # the counter agrees with the banner at once
 	Sfx.play("warn")
 	var kinds := _wave_kinds.duplicate()
 	U.shuffle(kinds, _room_rng)
@@ -2948,9 +2954,8 @@ func _feat(id: String, cfg: ConfigFile = null) -> void:
 	_feats_got[id] = true
 	var f: Dictionary
 	if cfg == null and state == State.PLAYING:
-		# Mid-fight: the toast now, the save at the end of the room (_save_coins).
-		if Feats.done(_load_save(), id):
-			return
+		# Mid-fight: the toast now, the save at the end of the room (_save_coins). Feats already
+		# won were put in _feats_got at the run's start, so no save file is read on a kill frame.
 		f = Feats.get_feat(id)
 		_feats_unsaved.append(id)
 	else:
@@ -3847,6 +3852,10 @@ func _best_text() -> String:
 	var wins := int(cfg.get_value("stats", "wins", 0))
 	var best := int(cfg.get_value("stats", "best_room", 0))
 	var deepest := int(cfg.get_value("stats", "best_floor", 1))
+	# A saved run counts too, so the line never says floor 1 next to CONTINUE Floor 2.
+	var saved := RunSave.read()
+	if not saved.is_empty() and not bool(saved.get("daily", false)):
+		deepest = maxi(deepest, int(saved.get("floor", 1)))
 	var top := int(cfg.get_value("stats", "best_score", 0))
 	if Curses.daily_best(cfg) > 0:
 		return "Best score %s  ·  Deepest floor %d\nToday's Daily Crypt best %s" % [Hud.thousands(top), deepest, Hud.thousands(Curses.daily_best(cfg))]

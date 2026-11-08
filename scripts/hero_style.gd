@@ -420,6 +420,10 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	if not glow.is_empty():
 		d.ring = glow.ring
 		d.bolt_color = glow.bolt
+		# Feat, Bone Drop and Pass glows shine brighter and wider on the hero's edges, so the
+		# player can see what they won (version 119: the Eclipse reveal showed a faint rim).
+		if glow.has("feat") or glow.has("drop") or is_pass(p.get("glow", "")):
+			d.rim_strong = true
 	var style := {"id": id, "hide": [], "show": [], "borrow": [], "extras": []}
 	var outfit: Dictionary = OUTFITS.get(p.get("outfit", ""), {})
 	var xo := extra("outfit", p.get("outfit", ""))

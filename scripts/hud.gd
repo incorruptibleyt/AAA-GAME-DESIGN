@@ -2624,9 +2624,8 @@ func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 	_perfect_lbl.text = text
 	_perfect_lbl.label_settings.font_color = col
 	_perfect_lbl.reset_size()
-	var at := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.3)
-	_perfect_lbl.position = at - Vector2(_perfect_lbl.size.x * 0.5, _perfect_lbl.size.y)
 	_perfect_lbl.pivot_offset = _perfect_lbl.size * 0.5
+	_place_perfect(0.0)
 	_perfect_lbl.visible = true
 	_perfect_lbl.modulate.a = 1.0
 	_perfect_lbl.scale = Vector2(1.5, 1.5)
@@ -2634,9 +2633,18 @@ func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 		_perfect_tw.kill()
 	_perfect_tw = create_tween().set_ignore_time_scale(true)
 	_perfect_tw.tween_property(_perfect_lbl, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_perfect_tw.parallel().tween_property(_perfect_lbl, "position:y", _perfect_lbl.position.y - 40.0, 0.9)
+	# It rides above the hero as they dash (version 119: it was left behind at the old spot).
+	_perfect_tw.parallel().tween_method(_place_perfect, 0.0, 40.0, 0.9)
 	_perfect_tw.tween_property(_perfect_lbl, "modulate:a", 0.0, 0.25)
 	_perfect_tw.tween_callback(func(): _perfect_lbl.visible = false)
+
+
+func _place_perfect(rise: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or Game.hero == null or not is_instance_valid(Game.hero) or _perfect_lbl == null:
+		return
+	var at := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.3)
+	_perfect_lbl.position = at - Vector2(_perfect_lbl.size.x * 0.5, _perfect_lbl.size.y + rise)
 
 
 ## A quick white (or coloured) flash over the whole screen.
@@ -2831,8 +2839,13 @@ func _build_rewards() -> void:
 	rec.custom_minimum_size = Vector2(420, 70)
 	rec.pressed.connect(func(): records_pressed.emit())
 	col.add_child(_centered(rec))
-	var close := button("BACK", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
-	close.custom_minimum_size = Vector2(240, 64)
+	# The same blue BACK as the Feats, Mastery and Armory screens (version 119: it was grey).
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 16)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(gap)
+	var close := button("BACK", 26)
+	close.custom_minimum_size = Vector2(260, 72)
 	close.pressed.connect(func(): show_rewards(false))
 	col.add_child(_centered(close))
 	_rewards_box.visible = false
@@ -3369,7 +3382,8 @@ func _show_toast(feat_name: String, look: String) -> void:
 	_toast.custom_minimum_size.x = minf(400.0, vw - 32.0)
 	_toast.size = Vector2.ZERO
 	_toast.reset_size()
-	_toast.position = Vector2((vw - _toast.size.x) * 0.5, 150)
+	# Below the logo on the title and below the chain meter in a fight (version 119; it was at 150 px).
+	_toast.position = Vector2((vw - _toast.size.x) * 0.5, get_viewport().get_visible_rect().size.y * 0.3)
 	_toast.pivot_offset = _toast.size * 0.5
 	_toast.visible = true
 	_toast.modulate.a = 0.0
@@ -3380,7 +3394,7 @@ func _show_toast(feat_name: String, look: String) -> void:
 	_toast_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_toast_tween.tween_property(_toast, "modulate:a", 1.0, 0.15)
 	_toast_tween.parallel().tween_property(_toast, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_toast_tween.tween_interval(3.2 if _toast_queue.is_empty() else 1.9)
+	_toast_tween.tween_interval(3.2 if _toast_queue.is_empty() else 1.2)
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.3)
 	_toast_tween.tween_callback(func():
 		_toast.visible = false

@@ -356,6 +356,8 @@ func _skull_helm(eye: Color) -> void:
 
 # ---------------------------------------------------------------- Antlers
 
+static var _horn_mat: StandardMaterial3D   # one for every build (it was a new one each time)
+
 func _antlers(id: String, y: float, hat: bool) -> void:
 	# Over a helmet or hat they sit higher and wider (version 115 had them inside the
 	# Knight's helmet and the Mage's hat).
@@ -371,11 +373,20 @@ func _antlers(id: String, y: float, hat: bool) -> void:
 			"mage":
 				y += 0.2
 				k = 1.45
-	var horn := StandardMaterial3D.new()
-	horn.albedo_color = Color(0.82, 0.72, 0.56)
-	horn.roughness = 0.6
-	horn.rim_enabled = true
-	horn.rim = 0.3
+			"rogue":
+				y += 0.08
+				k = 1.12
+	elif id == "rogue":
+		# The Rogue's own hood: wide enough that the beams cleared it only from the front.
+		y += 0.06
+		k = 1.1
+	if _horn_mat == null:
+		_horn_mat = StandardMaterial3D.new()
+		_horn_mat.albedo_color = Color(0.82, 0.72, 0.56)
+		_horn_mat.roughness = 0.6
+		_horn_mat.rim_enabled = true
+		_horn_mat.rim = 0.3
+	var horn: StandardMaterial3D = _horn_mat
 	var tip := _glow_mat(Color(0.55, 1.0, 0.85) * 1.6)
 	var tip_glow := _add_mat(Color(0.4, 1.0, 0.8, 0.4))
 	var kk := Vector3(k, 1, k)

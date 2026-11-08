@@ -98,6 +98,27 @@ static func run() -> void:
 			holder.add_child(g)
 			g.position = at + Vector3(0, 0.04, 2.0))
 
+	# The Heroes/Style pedestal and the Bone Drop chest: each has its own little 3D world with
+	# its own lights, so their shaders differ from the room's (version 119: the first reveal
+	# and the first chest could stall while these were prepared). Drawn behind the loading
+	# screen, on a layer under it.
+	steps.append(func():
+		var layer := CanvasLayer.new()
+		layer.layer = -1
+		Game.add_child(layer)
+		made.append(layer)
+		var stage := HeroStage.new(Vector2(240, 300))
+		layer.add_child(stage)
+		var picks := {"head": "flame_crown", "outfit": "starweave", "glow": "aurora", "aura": "phantom"}
+		stage.show_hero(HeroStyle.dressed(Heroes.LIST[0], picks))
+		stage.set_active(true)
+		var chest := DropScreen.Chest.new()
+		chest.size = Vector2(240, 240)
+		chest.position = Vector2(250, 0)
+		layer.add_child(chest)
+		chest.reset()
+		chest.open_up(Color(1.0, 0.8, 0.3)))
+
 	# Shots, warnings, fire, pickups and every particle effect: a few at a time, so a slow
 	# phone never spends long on one frame (Android closes an app that stops answering),
 	# and a report from a phone that dies here names the very effect (Game.loading).

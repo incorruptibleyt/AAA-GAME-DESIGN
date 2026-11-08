@@ -1,7 +1,7 @@
 class_name SkeletonKing
 extends Enemy
-## The boss at the end of the floor. Cycles through four attacks, each with a clear
-## warning, and gets faster and angrier below half health.
+## The boss at the end of the floor. Four attacks in a shuffled order, each with a clear
+## warning; below half health it gets faster and adds the Royal Rush (three charges and a ring).
 
 const DISPLAY_NAME := "The Skeleton King"
 
@@ -42,9 +42,7 @@ func _think(hero: Hero, delta: float) -> void:
 	if not _enraged and health < max_health * 0.5:
 		_enraged = true
 		move_speed *= 1.35
-		Sfx.play("roar")
-		Game.shake(0.4)
-		Fx.magic(center(), Color(1, 0.3, 0.2), 40)
+		phase_two(Color(1, 0.3, 0.2))
 	if not _busy:
 		var to := hero.global_position - global_position
 		if to.length() > 2.5:
@@ -63,16 +61,18 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
-	var step := 0
 	while _alive():
 		_busy = true
-		match step % 4:
-			0: await _bone_ring()
-			1: await _charge()
-			2: await _meteors()
-			3: await _summon()
+		var moves := ["ring", "charge", "meteors", "summon"]
+		if _enraged:
+			moves.append("rush")   # phase 2's own move
+		match next_move(moves):
+			"ring": await _bone_ring()
+			"charge": await _charge()
+			"meteors": await _meteors()
+			"summon": await _summon()
+			"rush": await _royal_rush()
 		_busy = false
-		step += 1
 		await _wait(1.0 if _enraged else 1.6)
 
 
@@ -93,16 +93,37 @@ func _bone_ring() -> void:
 		await _wait(0.45)
 
 
-func _charge() -> void:
+## Phase 2: three charges back to back, each aimed again, the last one ending in a ring.
+func _royal_rush() -> void:
+	Sfx.play("roar", 0.7)
+	for i in 3:
+		if not _alive():
+			return
+		await _charge(0.55, 0.15)
+	if _alive():
+		await _bone_ring_once()
+
+
+## One quick ring of bones (the end of the Royal Rush).
+func _bone_ring_once() -> void:
+	var count := 18
+	for i in count:
+		var d := Vector3.FORWARD.rotated(Vector3.UP, i * TAU / count)
+		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP + d * 1.1, d, 12.0, 6.5, Color(1, 0.35, 0.25), 0.28, DISPLAY_NAME)
+	Sfx.play("shoot", 0.8)
+	await _wait(0.6)
+
+
+func _charge(wind_time := -1.0, rest := 0.7) -> void:
 	var hero := Game.hero
 	if hero == null:
 		return
 	var d := hero.global_position - global_position
 	d.y = 0.0
 	d = d.normalized()
-	track(Telegraph.line(global_position, d, 11.0, radius * 2.2, 0.6 if _enraged else 0.85, Callable()))
+	var wind := wind_time if wind_time > 0.0 else (0.6 if _enraged else 0.85)
+	track(Telegraph.line(global_position, d, 11.0, radius * 2.2, wind, Callable()))
 	var t := 0.0
-	var wind := 0.6 if _enraged else 0.85
 	while t < wind:
 		if not _alive():
 			return
@@ -123,7 +144,7 @@ func _charge() -> void:
 	contact_damage = 18.0
 	Game.shake(0.3)
 	Fx.dust(global_position, 25)
-	await _wait(0.7)
+	await _wait(rest)
 
 
 func _meteors() -> void:

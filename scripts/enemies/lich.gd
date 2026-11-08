@@ -53,9 +53,7 @@ func _think(hero: Hero, delta: float) -> void:
 		_brain()
 	if not _enraged and health < max_health * 0.5:
 		_enraged = true
-		Sfx.play("roar")
-		Game.shake(0.4)
-		Fx.magic(center(), Color(0.4, 0.9, 1.0), 40)
+		phase_two(Color(0.4, 0.9, 1.0))
 	_float_t += delta
 	visual.position.y = 0.35 + sin(_float_t * 2.0) * 0.15
 	var to := hero.global_position - global_position
@@ -73,15 +71,37 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
-	var step := 0
 	while _alive():
-		match step % 4:
-			0: await _spiral()
-			1: await _teleport()
-			2: await _volleys()
-			3: await _raise()
-		step += 1
+		var moves := ["spiral", "teleport", "volleys", "raise"]
+		if _enraged:
+			moves.append("blink")   # phase 2's own move
+		match next_move(moves):
+			"spiral": await _spiral()
+			"teleport": await _teleport()
+			"volleys": await _volleys()
+			"raise": await _raise()
+			"blink": await _blink_volley()
 		await _wait(0.9 if _enraged else 1.4)
+
+
+## Phase 2: vanish, come back, and fire twin fans from both hands at once.
+func _blink_volley() -> void:
+	await _teleport()
+	var rounds := 2 if _gentle() else 3
+	for r in rounds:
+		var hero := Game.hero
+		if not _alive() or hero == null:
+			return
+		visual.attack(true)
+		var d := hero.global_position - global_position
+		d.y = 0.0
+		d = d.normalized()
+		for side in [-0.5, 0.5]:
+			for angle in [-0.12, 0.0, 0.12]:
+				var dir := d.rotated(Vector3.UP, side + angle)
+				Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + dir * 1.0, dir, 12.0, 9.0, Color(0.7, 0.5, 1.0), 0.24, "Lich")
+		Sfx.play("shoot", 0.8)
+		await _wait(0.6)
 
 
 func _spiral() -> void:

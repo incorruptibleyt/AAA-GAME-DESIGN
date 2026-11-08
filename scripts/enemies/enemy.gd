@@ -242,6 +242,39 @@ func _process(delta: float) -> void:
 	_check_reach(delta)
 
 
+## Bosses (version 119): the next move comes from a shuffled bag instead of a fixed loop,
+## so the order changes every fight, and never the same move twice in a row.
+var _bag: Array = []
+var _last_move := ""
+
+
+func next_move(moves: Array) -> String:
+	if _bag.is_empty():
+		_bag = moves.duplicate()
+		for tries in 12:   # a few shuffles until no move follows itself
+			_bag.shuffle()
+			var ok: bool = _bag[0] != _last_move
+			for i in _bag.size() - 1:
+				if _bag[i] == _bag[i + 1]:
+					ok = false
+			if ok:
+				break
+	_last_move = str(_bag.pop_front())
+	return _last_move
+
+
+## Half health: the boss's second phase begins. A big red call, a shockwave and a roar, so
+## the player knows a new attack is coming.
+func phase_two(col: Color) -> void:
+	_bag.clear()   # the new move joins at once
+	Sfx.play("roar")
+	Game.shake(0.5)
+	Game.hit_stop(0.12)
+	Fx.magic(center(), col, 40)
+	Fx.shockwave(global_position, col, 3.5)
+	Game.hud.callout("PHASE 2!", Color(1.0, 0.4, 0.3))
+
+
 ## Watchdog: a skeleton that ends up past a wall or inside a pillar for over a second climbs
 ## back out at a free spot in the room, so a room can always be cleared.
 func _check_reach(delta: float) -> void:
@@ -256,7 +289,18 @@ func _check_reach(delta: float) -> void:
 		print("[watchdog] %s moved from (%.2f, %.2f) back into the room" % [kind_name(), global_position.x, global_position.z])
 		global_position = spot
 		knockback = Vector3.ZERO
+		_cancel_attacks()   # its warning would stay at the old spot
 		Fx.dust(spot, 10)
+
+
+func _cancel_attacks() -> void:
+	for t in _telegraphs:
+		if is_instance_valid(t):
+			t.cancel()
+	_telegraphs.clear()
+	if _swipe != null and is_instance_valid(_swipe):
+		_swipe.cancel()
+	_swipe = null
 
 
 func _separate() -> void:
