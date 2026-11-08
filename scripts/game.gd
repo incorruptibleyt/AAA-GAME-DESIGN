@@ -58,6 +58,10 @@ var _start_blessing := {}
 var _lucky_blessing := {}
 ## Bone Drops earned this run (drops.gd: at most Drops.MAX_PER_RUN).
 var _drops_run := 0
+## Feats (feats.gd) already done, or found this run: each check is one look-up.
+var _feats_got := {}
+var _floor_hits := 0   # hits taken before this floor began (Flawless)
+var _room_hits := 0    # ...and before this room began (Untouched, Clean Kill)
 ## Bone Road bones (bone_road.gd): not yet in the save, and earned since the last end
 ## screen (which shows them). They're saved with the coins (_save_coins, after every room),
 ## so leaving the game mid-run never loses them.
@@ -72,7 +76,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-08b"
+const BUILD := "2026-11-08c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -322,6 +326,7 @@ func _ready() -> void:
 	hud.road_closed.connect(_drops_closed)
 	hud.mastery_pressed.connect(_open_mastery)
 	hud.style_pressed.connect(_open_style)
+	hud.feats_pressed.connect(_open_feats)
 	hud.see_looks.connect(func(id: String, lv: int):
 		_open_style(id)
 		hud.style_show_new(lv))
@@ -1295,6 +1300,8 @@ func report_event(what: String, amount := 1.0) -> void:
 	if _rep.is_empty() or not _rep.has(what):
 		return
 	_rep[what] += amount
+	if what == "perfect" or what == "special":
+		_feat_check()
 
 
 func _report_room_done(label: String) -> void:
@@ -1365,6 +1372,13 @@ func run_report(result: String, was_first := false) -> String:
 
 func _reset_run_stats() -> void:
 	_reset_report()
+	_feats_got.clear()
+	var fcfg := _load_save()
+	for f: Dictionary in Feats.LIST:
+		if Feats.done(fcfg, f.id):
+			_feats_got[f.id] = true
+	_floor_hits = 0
+	_room_hits = 0
 	_swipe_tips = 0
 	_run_time = 0.0
 	_kills = 0
@@ -1683,6 +1697,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if not _rep.is_empty():
 		_rep.room_start = _run_time
 		_rep.room_chain = chain
+		_room_hits = int(_rep.hits)
+		if index == 0:
+			_floor_hits = int(_rep.hits)
 	if not _in_boss_room():
 		hud.banner("Room %d" % (index + 1))
 	if Doors.room_tip(_door) != "":
@@ -2004,6 +2021,7 @@ func on_enemy_died(e: Enemy) -> void:
 	if chain_unlocked() and (not curses.has("gravepact") or (hero and hero.dashed_recently())):
 		chain = minf(chain_max(), chain + (0.3 if e.elite else 0.1))
 	score += roundi(_kill_points(e) * chain * _score_mult)
+	_feat_check()
 	# Ossuary: hitting Chain x2 recharges a Bone Ward.
 	if before < 2.0 and chain >= 2.0 and hero and hero.perks.has("ossuary") and hero.ward < hero.ward_max:
 		hero.ward += 1
@@ -2108,6 +2126,11 @@ func _wave_spots(count: int) -> Array:
 
 
 func _room_cleared() -> void:
+	if not _rep.is_empty() and floor_num >= 2:
+		if _run_time - float(_rep.room_start) < 10.0:
+			_feat("rusher")
+		if int(_rep.hits) == _room_hits:
+			_feat("untouched")
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
 	_add_bones(BoneRoad.ROOM_BONES)
 	_add_mastery(HeroMastery.ROOM_POINTS, true)
@@ -2158,6 +2181,7 @@ func _on_card_picked(i: int) -> void:
 	var u: Dictionary = _choices[i]
 	_taken[u.id] = _taken.get(u.id, 0) + 1
 	Upgrades.apply(u.id, hero)
+	_feat_check()
 	_pick_family = ""
 	_pick_better = false
 	_picked = u
@@ -2229,6 +2253,7 @@ func _clear_enemy_attacks() -> void:
 func _win() -> void:
 	var boss_name := boss.display_name() if is_instance_valid(boss) else "The boss"
 	var where := boss.global_position if is_instance_valid(boss) else hero.global_position
+	_boss_feats()
 	_report_room_done("F%d Boss" % floor_num)
 	_set_state(State.VICTORY)
 	finisher(where, 0.2, 1.0, Color(1, 0.5, 0.3))
@@ -2676,9 +2701,119 @@ func add_coins(n: int) -> void:
 	hud.set_coins(coins)
 
 
+# ---------------------------------------------------------------- Feats
+
+## Feats that can happen any moment in a run: counted in one run (perfect dodges, specials,
+## kills, the chain, blessings, the score).
+func _feat_check() -> void:
+	if first_run or _rep.is_empty():
+		return
+	if int(_rep.perfect) >= 10:
+		_feat("dodger")
+	if int(_rep.perfect) >= 40:
+		_feat("perfectionist")
+	if int(_rep.special) >= 12:
+		_feat("specialist")
+	if _kills >= 100:
+		_feat("centurion")
+	if chain >= 2.0:
+		_feat("linked")
+	if chain >= 2.999:
+		_feat("chainlord")
+	if score >= 20000:
+		_feat("highscore")
+	var held := 0
+	for k in _taken:
+		held += int(_taken[k])
+	if held >= 12:
+		_feat("blessed")
+
+
+## Feats for a boss beaten (called before anything else in _win).
+func _boss_feats() -> void:
+	if first_run or _rep.is_empty() or not hero:
+		return
+	var cfg := _load_save()
+	var no_hit := int(_rep.hits) == _room_hits
+	if _run_time - float(_rep.room_start) < 25.0:
+		_feat("bossbreaker", cfg)
+	if no_hit:
+		_feat("cleankill", cfg)
+	if int(_rep.hits) == _floor_hits:
+		_feat("flawless", cfg)
+	if hero.health <= hero.max_health * 0.15:
+		_feat("laststand", cfg)
+	if floor_num >= 3 and not daily:
+		_feat("halfway", cfg)
+	if floor_num >= 5 and not daily:
+		_feat("conqueror", cfg)
+	if daily and not _daily_practice and floor_num >= Curses.DAILY_FLOORS:
+		_feat("dailywin", cfg)
+	cfg.set_value(Feats.SECTION, "won_" + hero.hero_id, true)
+	_feat_account(cfg)
+	write_save(cfg)
+
+
+## Feats kept across runs (the Daily streak, a boss with every hero, Mastery 10), and the
+## best counts towards the counted Feats, for the Feats screen. Into `cfg` (saved by the caller).
+func _feat_bests(cfg: ConfigFile) -> void:
+	if not _rep.is_empty() and not first_run:
+		Feats.note_best(cfg, "perfect", int(_rep.perfect))
+		Feats.note_best(cfg, "special", int(_rep.special))
+		Feats.note_best(cfg, "kills", _kills)
+		Feats.note_best(cfg, "chain", roundi(maxf(float(_rep.best_chain), chain) * 10.0))
+		Feats.note_best(cfg, "score", score)
+		var held := 0
+		for k in _taken:
+			held += int(_taken[k])
+		Feats.note_best(cfg, "blessings", held)
+	_feat_account(cfg)
+
+
+func _feat_account(cfg: ConfigFile) -> void:
+	var streak := Curses.streak(cfg)
+	Feats.note_best(cfg, "streak", streak)
+	if streak >= 7:
+		_feat("faithful", cfg)
+	var won := 0
+	var top := 0
+	for h: Dictionary in Heroes.LIST:
+		if bool(cfg.get_value(Feats.SECTION, "won_" + str(h.id), false)):
+			won += 1
+		top = maxi(top, HeroMastery.level(cfg, h.id))
+	Feats.note_best(cfg, "heroes", won)
+	Feats.note_best(cfg, "mastery", top)
+	if won >= 4:
+		_feat("fourheroes", cfg)
+	if top >= 10:
+		_feat("legend", cfg)
+
+
+## Feat `id` done: saved (into `cfg` when given, the caller saves; otherwise now), with a
+## gold toast naming the look it gave.
+func _feat(id: String, cfg: ConfigFile = null) -> void:
+	if _feats_got.get(id, false) or (first_run and state != State.TITLE):
+		return
+	_feats_got[id] = true
+	var own := cfg == null
+	if own:
+		cfg = _load_save()
+	var f := Feats.complete(cfg, id)
+	if f.is_empty():
+		return
+	if own:
+		write_save(cfg)
+	report_event("feat")
+	hud.feat_toast(str(f.name), Feats.reward_label(f))
+	Sfx.play("victory", 0.6, 1.2)
+	if vibration:
+		Input.vibrate_handheld(40)
+
+
 func _save_coins() -> void:
 	var cfg := _load_save()
 	cfg.set_value("stats", "coins", coins)
+	_feat_bests(cfg)
 	BoneRoad.add(cfg, _road_unsaved)
 	_road_unsaved = 0
 	HeroMastery.add(cfg, _mastery_hero, _mastery_unsaved)
@@ -2976,6 +3111,14 @@ func _hero_rows() -> Array:
 ## The Mastery screen for hero `id` (from the Heroes screen).
 func _open_mastery(id: String) -> void:
 	hud.open_mastery(_load_save(), id)
+
+
+## The Feats screen (from the Style screen); opening it clears the NEW tag.
+func _open_feats() -> void:
+	var cfg := _load_save()
+	cfg.set_value(Feats.SECTION, "new", false)
+	write_save(cfg)
+	hud.open_feats(cfg, str(cfg.get_value("heroes", "selected", "rogue")))
 
 
 ## The Style screen for hero `id` (from the Heroes or Mastery screen).

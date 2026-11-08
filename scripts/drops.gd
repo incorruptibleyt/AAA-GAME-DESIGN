@@ -6,6 +6,9 @@ class_name Drops
 ##
 ## Five kinds, from most to least common. Every drop gives something; nothing is ever
 ## bought with money. Average: about 25 coins a drop (about a fifth of a run).
+## The rarer kinds can hold a look found nowhere else (hero_style.gd EXTRA "drop"): a glow
+## in a Super Rare, an outfit or aura in an Epic, headwear in a Legendary. Once all of a
+## kind's looks are found, it gives what it did before.
 
 const SECTION := "drops"
 const MAX_PER_RUN := 3
@@ -14,12 +17,17 @@ const MAX_WAITING := 10
 
 ## weight: chance out of 100. Colours match the blessing card rarities.
 const TIERS := [
-	{"id": "bone", "name": "COMMON", "weight": 50, "coins": 10, "color": Color(0.82, 0.8, 0.74)},
+	{"id": "bone", "name": "COMMON", "weight": 47, "coins": 10, "color": Color(0.82, 0.8, 0.74)},
 	{"id": "green", "name": "RARE", "weight": 28, "coins": 20, "color": Color(0.35, 0.9, 0.45)},
 	{"id": "blue", "name": "SUPER RARE", "weight": 14, "coins": 40, "color": Color(0.35, 0.65, 1.0)},
-	{"id": "purple", "name": "EPIC", "weight": 6, "coins": 80, "color": Color(0.75, 0.4, 1.0)},
-	{"id": "gold", "name": "LEGENDARY", "weight": 2, "coins": 200, "color": Color(1.0, 0.78, 0.25)},
+	{"id": "purple", "name": "EPIC", "weight": 8, "coins": 80, "color": Color(0.75, 0.4, 1.0)},
+	{"id": "gold", "name": "LEGENDARY", "weight": 3, "coins": 200, "color": Color(1.0, 0.78, 0.25)},
 ]
+## How often a drop of each kind holds a drop-only look while one is still to be found:
+## out of 12 (Super Rare 1 in 3, Epic 2 in 3, Legendary 3 in 4).
+const LOOK_CHANCE := [0, 0, 4, 8, 9]
+const LOOK_SECTION := "drop_looks"
+
 ## Armory upgrades a Legendary drop can give a free level of.
 const FREE_LEVELS := ["vigor", "might", "haste", "swift", "luck"]
 
@@ -40,6 +48,33 @@ static func lucky(cfg: ConfigFile) -> int:
 
 static func use_lucky(cfg: ConfigFile) -> void:
 	cfg.set_value(SECTION, "lucky", maxi(lucky(cfg) - 1, 0))
+
+
+static func has_look(cfg: ConfigFile, slot: String, key: String) -> bool:
+	return bool(cfg.get_value(LOOK_SECTION, slot + "/" + key, false))
+
+
+## The drop-only looks a drop of tier `i` can hold that `cfg` hasn't found: [[slot, key]].
+static func missing_looks(cfg: ConfigFile, i: int) -> Array:
+	var out := []
+	for slot: String in HeroStyle.EXTRA:
+		for key: String in HeroStyle.EXTRA[slot]:
+			if int(HeroStyle.EXTRA[slot][key].get("drop", -1)) == i and not has_look(cfg, slot, key):
+				out.append([slot, key])
+	return out
+
+
+static func found_looks(cfg: ConfigFile) -> int:
+	return cfg.get_section_keys(LOOK_SECTION).size() if cfg.has_section(LOOK_SECTION) else 0
+
+
+static func all_looks() -> int:
+	var n := 0
+	for slot: String in HeroStyle.EXTRA:
+		for key: String in HeroStyle.EXTRA[slot]:
+			if HeroStyle.EXTRA[slot][key].has("drop"):
+				n += 1
+	return n
 
 
 static func tier_index(id: String) -> int:
@@ -69,6 +104,22 @@ static func open(cfg: ConfigFile, rng: RandomNumberGenerator = null) -> Dictiona
 		i += 1
 	i = mini(i, TIERS.size() - 1)
 	var out := {"tier": i, "name": t.name, "color": t.color, "coins": int(t.coins), "kind": "coins", "text": ""}
+	# A look found nowhere else, while there are some of this kind still to find.
+	var miss := missing_looks(cfg, i)
+	if not miss.is_empty() and rng.randi_range(1, 12) <= int(LOOK_CHANCE[i]):
+		var look: Array = miss[rng.randi_range(0, miss.size() - 1)]
+		cfg.set_value(LOOK_SECTION, "%s/%s" % look, true)
+		var id := str(cfg.get_value("heroes", "selected", "rogue"))
+		var picks := HeroStyle.picks(cfg, id)
+		picks[look[0]] = look[1]
+		out.coins = 0
+		out.kind = "look"
+		out.look = look
+		out.preview = HeroStyle.dressed(Heroes.get_hero(id), picks)
+		out.text = "NEW LOOK: %s\nOnly found in Bone Drops.\nEvery hero can wear it." % HeroStyle.item_label(id, look[0], look[1])
+		cfg.set_value(SECTION, "waiting", waiting(cfg) - 1)
+		cfg.set_value(SECTION, "opened", int(cfg.get_value(SECTION, "opened", 0)) + 1)
+		return out
 	# An Epic is a Lucky Start one time in three; a Legendary is a free Armory level when
 	# there's one left to give.
 	if t.id == "purple" and rng.randi_range(0, 2) == 0:

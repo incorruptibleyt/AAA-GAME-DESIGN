@@ -23,6 +23,7 @@ var _shown_tier := 0
 var _flash := 0.0
 var _pop := 0.0
 var _art: Control
+var _look: HeroStage   # a drop-only look found: the hero wearing it, in place of the box
 var _head: Label
 var _count: Label
 var _rarity: Label
@@ -55,6 +56,11 @@ func _init() -> void:
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_art.draw.connect(_draw_art)
 	col.add_child(_art)
+	_look = HeroStage.new(Vector2(320, 320))
+	_look.custom_minimum_size = Vector2(320, 320)
+	_look.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_look.visible = false
+	col.add_child(_look)
 	_rarity = Hud.label("", 34, Color.WHITE)
 	col.add_child(_rarity)
 	_prize = Hud.label("", 28, Hud.GOLD)
@@ -94,11 +100,21 @@ func close() -> void:
 	if _step == Step.OPENING:
 		_finish()   # the prize was already given; show it before leaving
 		return
+	_show_look(false)
 	visible = false
 	closed.emit()
 
 
+func _show_look(on: bool) -> void:
+	_look.visible = on
+	_art.visible = not on
+	_look.set_active(on)
+	if on:
+		_look.show_hero(_result.preview, false)
+
+
 func _ready_next() -> void:
+	_show_look(false)
 	_step = Step.CLOSED
 	_t = 0.0
 	_result = {}
@@ -179,6 +195,9 @@ func _finish() -> void:
 	_prize.text = str(_result.get("text", ""))
 	_prize.label_settings.font_color = Hud.GOLD if _result.get("kind", "") == "coins" else c.lightened(0.35)
 	_prize.label_settings.font_size = 34 if _result.get("kind", "") == "coins" else 22
+	if _result.get("kind", "") == "look":
+		_head.text = "NEW LOOK!"
+		_show_look(true)
 	_count.text = "%d more waiting" % _left if _left > 0 else "All opened!"
 	_action.text = "OPEN NEXT" if _left > 0 else "DONE"
 	_later.visible = _left > 0

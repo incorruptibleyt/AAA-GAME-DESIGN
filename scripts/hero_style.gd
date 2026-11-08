@@ -158,6 +158,60 @@ const PASS_GLOW := {"name": "Crypt Gold", "ring": Color(1.0, 0.84, 0.38), "bolt"
 const PASS_AURA := {"name": "Crypt King", "pass": true, "ink": Color(1.0, 0.78, 0.22), "ink2": Color(1.0, 0.95, 0.72),
 	"spark": Color(1.0, 0.86, 0.42), "motif": "regal", "shine": true, "sigil": true}
 
+## Feat and Bone Drop looks: any hero can wear them. A Feat look is earned by its challenge
+## (feats.gd: "feat" is the Feat), a drop look only comes out of a Bone Drop (drops.gd:
+## "drop" is the drop's rarity). Outfits here have their own animated pattern ("pat", drawn
+## by the outfit shader over the cloth and trim); heads are built by feat_heads.gd.
+const EXTRA := {
+	"outfit": {
+		"bonecarved": {"name": "Bonecarved", "a": Color(0.88, 0.85, 0.76), "b": Color(0.2, 0.19, 0.22), "pat": 6, "feat": "centurion"},
+		"frostbite": {"name": "Frostbite", "a": Color(0.55, 0.82, 1.0), "b": Color(0.95, 0.98, 1.0), "pat": 4, "feat": "halfway"},
+		"magma": {"name": "Magma", "a": Color(0.16, 0.09, 0.08), "b": Color(0.34, 0.13, 0.06), "pat": 2, "feat": "laststand"},
+		"ghostwalk": {"name": "Ghostwalk", "a": Color(0.7, 0.95, 1.0), "b": Color(0.35, 0.75, 0.85), "pat": 1, "feat": "cleankill"},
+		"thunder": {"name": "Thunder", "a": Color(0.22, 0.24, 0.36), "b": Color(1.0, 0.86, 0.3), "pat": 5, "feat": "highscore"},
+		"shadowflame": {"name": "Shadowflame", "a": Color(0.13, 0.08, 0.2), "b": Color(0.52, 0.28, 0.88), "pat": 7, "feat": "faithful"},
+		"starweave": {"name": "Starweave", "a": Color(0.07, 0.08, 0.22), "b": Color(0.78, 0.68, 1.0), "pat": 3, "feat": "flawless"},
+		"toxic": {"name": "Toxic", "a": Color(0.36, 0.86, 0.2), "b": Color(0.32, 0.13, 0.42), "pat": 8, "drop": 3},
+		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.76, 0.79, 0.86), "pat": 9, "drop": 3},
+		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
+	},
+	"head": {
+		"storm_halo": {"name": "Storm Halo", "hat": true, "extras": ["storm_halo"], "feat": "bossbreaker"},
+		"star_circlet": {"name": "Star Circlet", "hat": true, "extras": ["star_circlet"], "feat": "fourheroes"},
+		"flame_crown": {"name": "Flame Crown", "hat": true, "extras": ["flame_crown"], "feat": "conqueror"},
+		"skull_helm": {"name": "Skull Helm", "hat": false, "hide_head": true, "extras": ["skull_helm"], "feat": "legend"},
+		"antlers": {"name": "Antlers", "hat": false, "extras": ["antlers"], "drop": 4},
+		"phantom_horns": {"name": "Phantom Horns", "hat": true, "extras": ["phantom_horns"], "drop": 4},
+		"bone_crown": {"name": "Bone Crown", "hat": true, "extras": ["bone_crown"], "drop": 4},
+	},
+	"glow": {
+		"mirage": {"name": "Mirage", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
+		"inferno": {"name": "Inferno", "ring": Color(1.0, 0.42, 0.08), "bolt": Color(1.0, 0.95, 0.6), "feat": "linked"},
+		"glacier": {"name": "Glacier", "ring": Color(0.7, 0.85, 1.0), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
+		"aurora": {"name": "Aurora", "ring": Color(0.35, 1.0, 0.6), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
+		"eclipse": {"name": "Eclipse", "ring": Color(0.55, 0.25, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
+		"venom": {"name": "Venom", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
+		"abyss": {"name": "Abyss", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
+	},
+	"aura": {
+		"quickstep": {"name": "Quickstep", "ink": Color(1.0, 0.9, 0.3), "spark": Color(1.0, 0.95, 0.6), "motif": "quick", "feat": "rusher"},
+		"arcane": {"name": "Arcane", "ink": Color(0.6, 0.4, 1.0), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(0.75, 0.6, 1.0), "motif": "arcane", "feat": "specialist"},
+		"stormcaller": {"name": "Stormcaller", "ink": Color(0.45, 0.75, 1.0), "ink2": Color(1.0, 1.0, 1.0), "spark": Color(0.75, 0.9, 1.0), "motif": "storm", "feat": "chainlord"},
+		"phantom": {"name": "Phantom", "ink": Color(0.75, 1.0, 0.95), "spark": Color(0.8, 1.0, 0.95), "motif": "souls", "feat": "perfectionist"},
+		"sunflare": {"name": "Sunflare", "ink": Color(1.0, 0.66, 0.15), "ink2": Color(1.0, 0.92, 0.5), "spark": Color(1.0, 0.8, 0.35), "motif": "sun", "feat": "dailywin"},
+		"snowfall": {"name": "Snowfall", "ink": Color(0.85, 0.95, 1.0), "spark": Color(1.0, 1.0, 1.0), "motif": "snow", "drop": 3},
+		"bubbles": {"name": "Bubbles", "ink": Color(0.4, 1.0, 0.3), "spark": Color(0.6, 1.0, 0.4), "motif": "bubbles", "drop": 3},
+		"fireflies": {"name": "Fireflies", "ink": Color(0.85, 1.0, 0.3), "spark": Color(0.95, 1.0, 0.45), "motif": "fireflies", "drop": 3},
+	},
+}
+## Each hero's own head (hidden under a Skull Helm).
+const HEAD_MESH := {"rogue": "Rogue_Head_Hooded", "knight": "Knight_Head", "barbarian": "Barbarian_Head", "mage": "Mage_Head"}
+
+
+static func extra(slot: String, key: String) -> Dictionary:
+	return EXTRA.get(slot, {}).get(key, {})
+
+
 ## The order each hero's looks are unlocked in: three for each Mastery level from 2 to 10
 ## (27 each), the grandest last. [slot, key].
 const ORDER := {
@@ -215,9 +269,23 @@ static func items(id: String) -> Array:
 	var auras: Dictionary = AURAS.get(id, {})
 	for key: String in auras:
 		out.append({"slot": "aura", "key": key, "name": auras[key].name, "level": int(auras[key].level), "only": true})
+	for slot: String in EXTRA:
+		for key: String in EXTRA[slot]:
+			var e: Dictionary = EXTRA[slot][key]
+			var it := {"slot": slot, "key": key, "name": e.name, "level": 1}
+			if e.has("feat"):
+				it.feat = e.feat
+			else:
+				it.drop = int(e.drop)
+			out.append(it)
 	for slot: String in PASS_SLOTS:
 		out.append({"slot": slot, "key": pass_key(slot), "name": item_name(id, slot, pass_key(slot)), "level": 1, "pass": true})
 	return out
+
+
+## A Mastery look (not a Crypt King, Feat or Bone Drop look).
+static func is_mastery(it: Dictionary) -> bool:
+	return it.key != "" and not it.get("pass", false) and not it.has("feat") and not it.has("drop")
 
 
 ## The slots the Crypt King set fills, and each look's key ("crypt", "crypt_crown"...).
@@ -238,12 +306,17 @@ static func has_look(cfg: ConfigFile, id: String, slot: String, key: String) -> 
 		return true
 	if is_pass(key):
 		return pass_key(slot) == key and Store.owned(cfg)
+	var e := extra(slot, key)
+	if e.has("feat"):
+		return Feats.done(cfg, e.feat)
+	if e.has("drop"):
+		return Drops.has_look(cfg, slot, key)
 	return item_level(id, slot, key) <= HeroMastery.level(cfg, id)
 
 
 ## The looks hero `id` gets at Mastery level `lv`.
 static func level_items(id: String, lv: int) -> Array:
-	return items(id).filter(func(it: Dictionary) -> bool: return it.level == lv and it.key != "" and not it.get("pass", false))
+	return items(id).filter(func(it: Dictionary) -> bool: return it.level == lv and is_mastery(it))
 
 
 static func item_name(id: String, slot: String, key: String) -> String:
@@ -251,6 +324,8 @@ static func item_name(id: String, slot: String, key: String) -> String:
 		return "No aura" if slot == "aura" else "Classic"
 	if is_pass(key):
 		return str({"outfit": PASS_OUTFIT, "head": PASS_HEAD, "glow": PASS_GLOW, "aura": PASS_AURA}.get(slot, {}).get("name", key))
+	if not extra(slot, key).is_empty():
+		return extra(slot, key).name
 	match slot:
 		"outfit":
 			return OUTFITS.get(key, {}).get("name", key)
@@ -274,14 +349,14 @@ static func item_label(id: String, slot: String, key: String) -> String:
 		"glow":
 			return n + " glow"
 		"aura":
-			if is_pass(key):
+			if is_pass(key) or not extra(slot, key).is_empty():
 				return n + " aura"
 			return n if key == "" else n + " aura (%s only)" % str(Heroes.get_hero(id).title)
 	return n
 
 
 static func item_level(id: String, slot: String, key: String) -> int:
-	if key == "" or is_pass(key):
+	if key == "" or is_pass(key) or not extra(slot, key).is_empty():
 		return 1
 	for it: Dictionary in items(id):
 		if it.slot == slot and it.key == key:
@@ -341,13 +416,17 @@ static func styled(cfg: ConfigFile, def: Dictionary) -> Dictionary:
 static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	var d := def.duplicate()
 	var id: String = def.id
-	var glow: Dictionary = PASS_GLOW if is_pass(p.get("glow", "")) else GLOWS.get(p.get("glow", ""), {})
+	var glow: Dictionary = PASS_GLOW if is_pass(p.get("glow", "")) else GLOWS.get(p.get("glow", ""), extra("glow", p.get("glow", "")))
 	if not glow.is_empty():
 		d.ring = glow.ring
 		d.bolt_color = glow.bolt
 	var style := {"id": id, "hide": [], "show": [], "borrow": [], "extras": []}
 	var outfit: Dictionary = OUTFITS.get(p.get("outfit", ""), {})
-	if is_pass(p.get("outfit", "")):
+	var xo := extra("outfit", p.get("outfit", ""))
+	if not xo.is_empty():
+		# The Knight is mostly armour (his "b"): it takes the main colour, his cloth the trim.
+		style.outfit = {"a": xo.b, "b": xo.a, "pat": int(xo.pat)} if id == "knight" else {"a": xo.a, "b": xo.b, "pat": int(xo.pat)}
+	elif is_pass(p.get("outfit", "")):
 		var on: String = PASS_OUTFIT.gold_on.get(id, "a")
 		style.outfit = {"a": PASS_OUTFIT.gold if on == "a" else PASS_OUTFIT.obsidian,
 			"b": PASS_OUTFIT.gold if on == "b" else PASS_OUTFIT.obsidian, "gold": on}
@@ -358,7 +437,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		elif id == "rogue":
 			b = outfit.get("leather")
 		style.outfit = {"a": outfit.a, "b": b}
-	var head: Dictionary = PASS_HEAD if is_pass(p.get("head", "")) else HEADS.get(p.get("head", ""), {})
+	var head: Dictionary = PASS_HEAD if is_pass(p.get("head", "")) else HEADS.get(p.get("head", ""), extra("head", p.get("head", "")))
 	var has_hat := OWN_HAT.has(id)
 	if not head.is_empty():
 		if not head.get("hat", true) and OWN_HAT.has(id):
@@ -369,6 +448,8 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 			has_hat = true
 		style.extras = head.get("extras", [])
 		style.hide.append_array(head.get("hide", []))
+		if head.get("hide_head", false) and HEAD_MESH.has(id):
+			style.hide.append(HEAD_MESH[id])
 	style.hat = has_hat
 	style.eye = d.get("ring", Color(0.6, 0.8, 1.0))
 	# How far a halo floats over the hat: high over a wizard's hat, just over a helmet.
@@ -379,7 +460,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		style.hide.append_array(hold.get("hide", []))
 		style.show = hold.get("show", [])
 	d.style = style
-	var aura: Dictionary = PASS_AURA if is_pass(p.get("aura", "")) else AURAS.get(id, {}).get(p.get("aura", ""), {})
+	var aura: Dictionary = PASS_AURA if is_pass(p.get("aura", "")) else AURAS.get(id, {}).get(p.get("aura", ""), extra("aura", p.get("aura", "")))
 	if not aura.is_empty():
 		d.aura = aura.duplicate()
 		if not d.aura.has("motif"):
@@ -496,7 +577,7 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> ShaderMaterial:
 	# Capes are single sheets drawn from both sides: the copy must be too, or they vanish.
 	var both := src.cull_mode == BaseMaterial3D.CULL_DISABLED
-	var key := "%s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", "")]
+	var key := "%s %s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", ""), outfit.get("pat", 0)]
 	if _mats.has(key):
 		return _mats[key]
 	if not _shaders.has(both):
@@ -518,6 +599,7 @@ static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> Sh
 		m.set_shader_parameter(k + "_dst", Vector4(col.h, col.s, col.v, 1.0 if on else 0.0))
 		m.set_shader_parameter(k + "_gold", 1.0 if outfit.get("gold", "") == k else 0.0)
 		m.set_shader_parameter(k + "_dark", 1.0 if outfit.has("gold") and outfit.get("gold", "") != k else 0.0)
+	m.set_shader_parameter("pat", int(outfit.get("pat", 0)))
 	_mats[key] = m
 	return m
 
@@ -533,6 +615,8 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			_crown(att, id, y, hat)
 		"crypt_crown":
 			att.add_child(CryptCrown.make(id, y, hat))
+		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown":
+			att.add_child(FeatHeads.make(kind, id, y, hat, style))
 		"mage_hood":
 			var o: Dictionary = style.get("outfit", {})
 			var cloth: Color = o.get("a", CLASSIC_OUTFIT.get(id, Color(0.45, 0.4, 0.7)))
@@ -631,12 +715,42 @@ uniform float a_gold = 0.0;
 uniform float b_gold = 0.0;
 uniform float a_dark = 0.0;
 uniform float b_dark = 0.0;
+// A Feat or Bone Drop outfit's animated pattern (EXTRA "pat"; 0 = none).
+uniform int pat = 0;
 varying vec3 wpos;
 varying vec3 opos;
+varying vec3 mpos;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	opos = NODE_POSITION_WORLD;
+	mpos = VERTEX;   // the model's own space: patterns stay put on the cloth as the hero turns
+}
+
+float hash3(vec3 p) {
+	p = fract(p * 0.3183099 + 0.1);
+	p *= 17.0;
+	return fract(p.x * p.y * p.z * (p.x + p.y + p.z));
+}
+
+float vnoise(vec3 x) {
+	vec3 i = floor(x);
+	vec3 f = fract(x);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(hash3(i), hash3(i + vec3(1, 0, 0)), f.x), mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x), mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
+
+float fbm(vec3 p) {
+	return vnoise(p) * 0.55 + vnoise(p * 2.03) * 0.3 + vnoise(p * 4.1) * 0.15;
+}
+
+// A star or sparkle in a grid of cells: a soft point in one cell in `rare`, twinkling.
+float twinkle(vec3 p, float rare, float speed) {
+	vec3 cell = floor(p);
+	float h = hash3(cell);
+	float d = length(fract(p) - 0.5);
+	return step(1.0 - rare, h) * (1.0 - smoothstep(0.0, 0.22, d)) * (0.45 + 0.55 * sin(TIME * speed + h * 40.0));
 }
 
 vec3 rgb2hsv(vec3 c) {
@@ -701,6 +815,92 @@ void fragment() {
 			+ vec3(1.0, 0.94, 0.75) * band * (g * 1.5 + k * 0.6)
 			+ vec3(1.0, 0.62, 0.16) * k * vein * 1.1
 			+ vec3(0.55, 0.35, 0.9) * k * edge * 0.45;
+	}
+	float w = clamp(ma + mb, 0.0, 1.0);
+	if (pat > 0 && w > 0.001) {
+		float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+		vec3 q = mpos * 2.2;
+		vec3 em = vec3(0.0);
+		vec3 al = ALBEDO;
+		if (pat == 1) {
+			// Ghostwalk: pale and see-through-looking, cold light at the edges and wisps rising.
+			float n = fbm(q * 1.6 + vec3(0.0, -TIME * 0.7, 0.0));
+			float wisp = smoothstep(0.46, 0.72, n);
+			al = mix(al, vec3(0.62, 0.9, 1.0), 0.55);
+			em = vec3(0.45, 0.95, 1.0) * (edge * 2.0 + wisp * 1.1 + 0.22) * (0.88 + 0.12 * sin(TIME * 9.0));
+		} else if (pat == 2) {
+			// Magma: black rock split by glowing cracks that breathe, hot at the edges.
+			float n = fbm(q * 2.2);
+			float crack = 1.0 - smoothstep(0.015, 0.06, abs(n - 0.5));
+			float pulse = 0.75 + 0.25 * sin(TIME * 2.2 + q.y * 3.0);
+			float hot = smoothstep(0.62, 0.82, fbm(q * 1.3 + vec3(0.0, TIME * 0.15, 0.0)));
+			al = mix(al, vec3(1.0, 0.55, 0.12), crack * 0.9);
+			em = vec3(1.0, 0.42, 0.06) * (crack * 1.6 * pulse + hot * 0.35 + edge * 0.5);
+		} else if (pat == 3) {
+			// Starweave: the night sky woven in: drifting nebula and twinkling stars.
+			float n = fbm(q * 1.2 + vec3(TIME * 0.04, 0.0, 0.0));
+			vec3 neb = mix(vec3(0.25, 0.1, 0.55), vec3(0.1, 0.45, 0.8), n);
+			float st = twinkle(q * 7.0, 0.16, 3.0) + twinkle(q * 13.0 + 3.1, 0.1, 4.5) * 0.7;
+			al = mix(al, vec3(0.06, 0.05, 0.16) + neb * 0.4, 0.9);
+			em = neb * 0.45 + vec3(1.0, 0.95, 0.85) * st * 3.0 + vec3(0.6, 0.5, 1.0) * edge * 0.8;
+		} else if (pat == 4) {
+			// Frostbite: ice crystal facets with sparkles that come and go.
+			vec3 r = q * 4.0;
+			float facet = abs(fract(r.x + r.y * 0.57) - 0.5) + abs(fract(r.y - r.z * 0.57) - 0.5);
+			float line = 1.0 - smoothstep(0.03, 0.09, abs(facet - 0.5));
+			float sp = twinkle(q * 9.0 + floor(TIME * 2.0) * 0.37, 0.08, 6.0);
+			al = mix(al, vec3(0.92, 0.98, 1.0), line * 0.5);
+			em = vec3(0.55, 0.85, 1.0) * (edge * 0.8 + line * 0.3) + vec3(1.0) * sp * 2.5;
+		} else if (pat == 5) {
+			// Thunder: storm cloth with lightning that crawls over it and flashes.
+			float n = vnoise(vec3(q.x * 2.0, q.y * 4.0 + TIME * 3.0, q.z * 2.0));
+			float bolt = 1.0 - smoothstep(0.0, 0.035, abs(n - 0.5));
+			float flash = pow(max(0.0, sin(TIME * 3.3 + q.y * 1.5)), 10.0);
+			al = mix(al, al * 0.85, 0.5);
+			em = vec3(0.55, 0.8, 1.0) * bolt * (0.5 + 2.5 * flash) + vec3(0.4, 0.55, 1.0) * edge * (0.4 + flash);
+		} else if (pat == 6) {
+			// Bonecarved: ivory carved with runes, soul light pulsing in the grooves.
+			vec3 g = q * vec3(4.0, 5.0, 4.0);
+			vec3 f = fract(g);
+			float h = hash3(floor(g));
+			float groove = max((1.0 - smoothstep(0.05, 0.1, abs(f.x - 0.5))) * step(h, 0.45),
+				(1.0 - smoothstep(0.05, 0.1, abs(f.y - 0.5))) * step(0.55, h));
+			groove *= step(0.15, f.y) * step(f.y, 0.85) + step(0.55, h) * 1.0;
+			groove = clamp(groove, 0.0, 1.0);
+			al = mix(al, vec3(0.1, 0.35, 0.28), groove * 0.9);
+			em = vec3(0.35, 1.0, 0.75) * groove * (1.1 + 0.6 * sin(TIME * 2.0 + h * 6.0)) + vec3(1.0, 0.95, 0.85) * edge * 0.15;
+		} else if (pat == 7) {
+			// Shadowflame: violet flames licking up a black cloak.
+			float n = fbm(vec3(q.x * 2.0, q.y * 1.4 - TIME * 1.6, q.z * 2.0));
+			float fl = smoothstep(0.42, 0.72, n) * (0.8 + 0.2 * sin(TIME * 7.0 + q.x * 5.0));
+			al = mix(al, al * 0.6, 0.6);
+			em = mix(vec3(0.45, 0.15, 0.95), vec3(0.85, 0.6, 1.0), smoothstep(0.65, 0.85, n)) * fl * 1.4 + vec3(0.6, 0.3, 1.0) * edge * 0.7;
+		} else if (pat == 8) {
+			// Toxic: bubbling slime, bubbles swelling and popping as they rise.
+			vec3 r = q * 3.2 + vec3(0.0, -TIME * 0.6, 0.0);
+			float h = hash3(floor(r));
+			float ph = fract(TIME * 0.45 + h);
+			float d = length(fract(r) - 0.5);
+			float bub = (1.0 - smoothstep(0.0, 0.05, abs(d - (0.08 + 0.28 * ph)))) * (1.0 - ph) * step(0.45, h);
+			float slime = smoothstep(0.45, 0.7, fbm(q * 1.5 + vec3(0.0, TIME * 0.2, 0.0)));
+			al = mix(al, vec3(0.5, 1.0, 0.25), slime * 0.35);
+			em = vec3(0.45, 1.0, 0.2) * (bub * 1.8 + slime * 0.25 + edge * 0.45);
+		} else if (pat == 9) {
+			// Prism: bands of colour running over pearly cloth (never red-pink: that's danger).
+			float t = 0.5 + 0.5 * sin(q.y * 2.4 + q.x * 1.2 - TIME * 1.6);
+			vec3 col = hsv2rgb(vec3(0.13 + 0.62 * t, 0.55, 1.0));
+			al = mix(al, al * col * 1.15, 0.65);
+			em = col * (0.18 + edge * 0.9);
+		} else if (pat == 10) {
+			// Abyssal: deep water, rippling light from above and glowing creatures drifting.
+			float c1 = vnoise(q * 2.6 + vec3(TIME * 0.35, 0.0, TIME * 0.2));
+			float c2 = vnoise(q * 2.9 - vec3(0.0, TIME * 0.3, TIME * 0.25));
+			float caus = smoothstep(0.55, 0.75, 1.0 - abs(c1 - c2) * 3.0);
+			float dots = twinkle(q * 6.0 + vec3(0.0, TIME * 0.25, 0.0), 0.12, 2.0);
+			em = vec3(0.15, 0.8, 0.85) * (caus * 0.45 + edge * 0.35) + vec3(0.4, 1.0, 1.0) * dots * 1.8;
+		}
+		ALBEDO = mix(ALBEDO, al, w);
+		EMISSION += em * w;
 	}
 }
 """

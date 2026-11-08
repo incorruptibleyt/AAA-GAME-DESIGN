@@ -24,6 +24,7 @@ signal road_closed
 signal drops_closed
 signal mastery_pressed(id: String)
 signal style_pressed(id: String)
+signal feats_pressed
 signal see_looks(id: String, level: int)
 signal style_wear(id: String, slot: String, key: String)
 signal hero_pick(id: String)
@@ -219,6 +220,11 @@ var _end_mastery: MasteryBar
 var _mastery: MasteryScreen
 var _style: StyleScreen
 var _drops: DropScreen
+var _feats: FeatsScreen
+var _toast: PanelContainer
+var _toast_name: Label
+var _toast_look: Label
+var _toast_tween: Tween
 var _title_road: RoadScreen.Bar
 var _title_hint: Label
 var _title_top: Control   # the words at the top of the title screen
@@ -308,6 +314,9 @@ func _ready() -> void:
 	add_child(_style)
 	_style.wear.connect(func(id: String, slot: String, key: String): style_wear.emit(id, slot, key))
 	_style.get_pass.connect(func(): pass_pressed.emit())
+	_style.feats.connect(func(): feats_pressed.emit())
+	_feats = FeatsScreen.new()
+	add_child(_feats)
 	_style.closed.connect(func():
 		# The Heroes screen's pedestal draws again once the Style screen is gone.
 		if _heroes_box.visible:
@@ -3121,6 +3130,65 @@ func show_mastery(info: Dictionary) -> void:
 ## The Mastery screen for hero `id` (mastery_screen.gd), filled from `cfg`.
 func open_mastery(cfg: ConfigFile, id: String) -> void:
 	_mastery.open_hero(cfg, id)
+
+
+## The Feats screen (feats_screen.gd), over the Style screen.
+func open_feats(cfg: ConfigFile, id: String) -> void:
+	_feats.open_screen(cfg, id)
+
+
+## A Feat just done: a gold and cyan card drops in at the top, names it and the look it won,
+## and goes after a few seconds (it never stops play).
+func feat_toast(feat_name: String, look: String) -> void:
+	if _toast == null:
+		_toast = PanelContainer.new()
+		_toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.04, 0.12, 0.16, 0.94)
+		sb.border_color = Color(0.5, 0.95, 1.0)
+		sb.set_border_width_all(3)
+		sb.set_corner_radius_all(16)
+		sb.content_margin_left = 22
+		sb.content_margin_right = 22
+		sb.content_margin_top = 8
+		sb.content_margin_bottom = 10
+		sb.shadow_color = Color(0.3, 0.9, 1.0, 0.35)
+		sb.shadow_size = 12
+		_toast.add_theme_stylebox_override("panel", sb)
+		var v := VBoxContainer.new()
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_theme_constant_override("separation", 0)
+		_toast.add_child(v)
+		v.add_child(label("FEAT DONE!", 18, Color(0.5, 0.95, 1.0)))
+		_toast_name = label("", 32, GOLD)
+		v.add_child(_toast_name)
+		_toast_look = label("", 19, Color(0.9, 0.95, 1.0))
+		v.add_child(_toast_look)
+		# One line each (wrapping labels have no width of their own and would stretch it).
+		for l: Label in v.get_children():
+			l.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_toast.custom_minimum_size = Vector2(400, 0)
+		add_child(_toast)
+	_toast_name.text = feat_name
+	_toast_look.text = "New look: " + look
+	var vw := get_viewport().get_visible_rect().size.x
+	_toast.custom_minimum_size.x = minf(400.0, vw - 32.0)
+	_toast.size = Vector2.ZERO
+	_toast.reset_size()
+	_toast.position = Vector2((vw - _toast.size.x) * 0.5, 150)
+	_toast.pivot_offset = _toast.size * 0.5
+	_toast.visible = true
+	_toast.modulate.a = 0.0
+	_toast.scale = Vector2(0.6, 0.6)
+	if _toast_tween:
+		_toast_tween.kill()
+	_toast_tween = create_tween().set_ignore_time_scale(true)
+	_toast_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	_toast_tween.tween_property(_toast, "modulate:a", 1.0, 0.15)
+	_toast_tween.parallel().tween_property(_toast, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_toast_tween.tween_interval(3.2)
+	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.4)
+	_toast_tween.tween_callback(func(): _toast.visible = false)
 
 
 func close_mastery() -> void:

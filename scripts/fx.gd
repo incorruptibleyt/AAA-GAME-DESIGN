@@ -159,9 +159,9 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 	var p := sparkle_trail(color)
 	# Round sparks for the Rogue's wisps and the Barbarian's embers, four-pointed glints for
 	# the Knight's motes and the Mage's stars.
-	var shape := "dot" if kind in ["wisps", "embers"] else "glint"
+	var shape := "dot" if kind in ["wisps", "embers", "souls", "snow", "fireflies"] else ("soft" if kind == "bubbles" else "glint")
 	p.mesh = _shaped(shape)
-	p.color = Color(color, 0.85 if kind == "wisps" else 1.0)
+	p.color = Color(color, 0.85 if kind == "wisps" else (0.6 if kind in ["souls", "bubbles"] else 1.0))
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
 	match kind:
 		"wisps":
@@ -213,6 +213,116 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.emission_ring_radius = 1.0
 			p.emission_ring_inner_radius = 0.85
 			p.position = Vector3(0, 0.05, 0)
+		# Feat and Bone Drop auras (hero_style.gd EXTRA), for any hero:
+		"quick":
+			# Quickstep: quick bright streaks shooting up off the feet.
+			p.amount = 24
+			p.lifetime = 0.45
+			p.spread = 15.0
+			p.initial_velocity_min = 1.8
+			p.initial_velocity_max = 2.6
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.25
+			p.scale_amount_max = 0.42
+			p.emission_ring_radius = 0.72
+			p.emission_ring_inner_radius = 0.5
+			p.position = Vector3(0, 0.1, 0)
+		"storm":
+			# Stormcaller: sparks crackling out in every direction.
+			p.amount = 22
+			p.lifetime = 0.3
+			p.spread = 180.0
+			p.initial_velocity_min = 1.6
+			p.initial_velocity_max = 3.2
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.3
+			p.scale_amount_max = 0.55
+			p.emission_ring_radius = 0.55
+			p.emission_ring_inner_radius = 0.3
+			p.position = Vector3(0, 0.6, 0)
+		"souls":
+			# Phantom: pale souls drifting slowly up and fading.
+			p.amount = 12
+			p.lifetime = 2.0
+			p.spread = 15.0
+			p.initial_velocity_min = 0.3
+			p.initial_velocity_max = 0.5
+			p.gravity = Vector3(0, 0.2, 0)
+			p.scale_amount_min = 0.5
+			p.scale_amount_max = 0.8
+			p.emission_ring_radius = 0.8
+			p.emission_ring_inner_radius = 0.5
+			p.position = Vector3(0, 0.1, 0)
+		"sun":
+			# Sunflare: big golden glints rising in a wide ring.
+			p.amount = 20
+			p.lifetime = 1.1
+			p.spread = 30.0
+			p.initial_velocity_min = 0.8
+			p.initial_velocity_max = 1.4
+			p.gravity = Vector3(0, 0.5, 0)
+			p.scale_amount_min = 0.4
+			p.scale_amount_max = 0.75
+			p.emission_ring_radius = 1.0
+			p.emission_ring_inner_radius = 0.8
+			p.position = Vector3(0, 0.05, 0)
+		"arcane":
+			# Arcane: glints hanging in a ring at chest height.
+			p.amount = 14
+			p.lifetime = 1.6
+			p.spread = 180.0
+			p.initial_velocity_min = 0.1
+			p.initial_velocity_max = 0.25
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.45
+			p.scale_amount_max = 0.7
+			p.emission_ring_radius = 1.0
+			p.emission_ring_inner_radius = 0.9
+			p.position = Vector3(0, 0.7, 0)
+		"snow":
+			# Snowfall: flakes falling round the hero from above their head.
+			p.amount = 22
+			p.lifetime = 1.6
+			p.direction = Vector3.DOWN
+			p.spread = 25.0
+			p.initial_velocity_min = 0.3
+			p.initial_velocity_max = 0.5
+			p.gravity = Vector3(0, -0.4, 0)
+			p.scale_amount_min = 0.2
+			p.scale_amount_max = 0.35
+			p.emission_ring_radius = 0.95
+			p.emission_ring_inner_radius = 0.0
+			p.position = Vector3(0, 2.2, 0)
+		"bubbles":
+			# Bubbles: soft green bubbles wobbling up.
+			p.amount = 14
+			p.lifetime = 1.4
+			p.spread = 20.0
+			p.initial_velocity_min = 0.4
+			p.initial_velocity_max = 0.7
+			p.gravity = Vector3(0, 0.3, 0)
+			p.scale_amount_min = 0.25
+			p.scale_amount_max = 0.45
+			p.emission_ring_radius = 0.7
+			p.emission_ring_inner_radius = 0.3
+			p.position = Vector3(0, 0.1, 0)
+		"fireflies":
+			# Fireflies: little lights wandering round the hero, blinking.
+			p.amount = 12
+			p.lifetime = 2.2
+			p.spread = 180.0
+			p.initial_velocity_min = 0.15
+			p.initial_velocity_max = 0.35
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.2
+			p.scale_amount_max = 0.32
+			p.emission_ring_radius = 1.1
+			p.emission_ring_inner_radius = 0.6
+			p.position = Vector3(0, 0.6, 0)
+			var blink := Gradient.new()
+			blink.offsets = PackedFloat32Array([0.0, 0.2, 0.4, 0.55, 0.75, 1.0])
+			blink.colors = PackedColorArray([Color(1, 1, 1, 0), Color.WHITE, Color(1, 1, 1, 0.15), Color.WHITE, Color(1, 1, 1, 0.2), Color(1, 1, 1, 0)])
+			p.color_ramp = blink
 		"stars":
 			p.amount = 10
 			p.lifetime = 1.4

@@ -8,6 +8,7 @@ extends ColorRect
 signal wear(id: String, slot: String, key: String)
 signal closed
 signal get_pass   # GET THE CRYPT PASS, under a Crypt King look being tried on
+signal feats      # the FEATS button: the Feats screen (feats_screen.gd)
 
 const TABS := [["outfit", "OUTFIT"], ["head", "HEAD"], ["hold", "WEAPON"], ["glow", "GLOW"], ["aura", "AURA"]]
 const TEXT := Color(0.88, 0.87, 0.92)
@@ -23,6 +24,8 @@ var _picks: Dictionary = {}
 var _preview: Dictionary = {}
 var _frame := false
 var _owned := false   # the Crypt Pass, which gives the Crypt King set
+var _cfg: ConfigFile   # for Feat and Bone Drop looks (HeroStyle.has_look)
+var _feats_btn: Button
 var _pass_btn: Button
 var _slot := "outfit"
 var _title: Label
@@ -96,10 +99,18 @@ func _init() -> void:
 	_grid.add_theme_constant_override("v_separation", 8)
 	_scroll.add_child(_grid)
 	var back := Hud.button("BACK", 24)
-	back.custom_minimum_size = Vector2(240, 66)
+	back.custom_minimum_size = Vector2(200, 66)
 	back.pressed.connect(close)
-	var box := CenterContainer.new()
+	_feats_btn = Hud.button("FEATS", 22, Color(0.06, 0.2, 0.26, 0.97), Color(0.45, 0.95, 1.0))
+	_feats_btn.custom_minimum_size = Vector2(200, 66)
+	_feats_btn.pressed.connect(func():
+		Sfx.play("click")
+		feats.emit())
+	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 14)
+	box.add_child(_feats_btn)
 	box.add_child(back)
 	col.add_child(box)
 	resized.connect(_fit)
@@ -116,6 +127,11 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	_preview = _picks.duplicate()
 	_frame = HeroMastery.has_frame(cfg, id)
 	_owned = Store.owned(cfg)
+	_cfg = cfg
+	var nf := Feats.count(cfg)
+	_feats_btn.text = "FEATS  %d/%d" % [nf, Feats.LIST.size()]
+	if bool(cfg.get_value(Feats.SECTION, "new", false)):
+		_feats_btn.text = "FEATS  NEW!"
 	if not again:
 		_slot = "outfit"
 	visible = true
@@ -182,11 +198,20 @@ func _show_preview() -> void:
 				_note.label_settings.font_color = Hud.GOLD
 				_pass_btn.visible = not _owned
 				return
+			var x := HeroStyle.extra(slot, key)
+			if x.has("feat"):
+				_note.text = "Trying on: %s  ·  Feat: %s" % [HeroStyle.item_label(_id, slot, key), Feats.get_feat(x.feat).text]
+				_note.label_settings.font_color = Color(0.5, 0.95, 1.0)
+				return
+			if x.has("drop"):
+				_note.text = "Trying on: %s  ·  only found in %s Bone Drops" % [HeroStyle.item_label(_id, slot, key), str(Drops.TIERS[int(x.drop)].name).capitalize()]
+				_note.label_settings.font_color = Drops.TIERS[int(x.drop)].color.lightened(0.3)
+				return
 			var lv := HeroStyle.item_level(_id, slot, key)
 			_note.text = "Trying on: %s  ·  Mastery level %d to wear it" % [HeroStyle.item_label(_id, slot, key), lv]
 			_note.label_settings.font_color = Color(1.0, 0.72, 0.45)
 			return
-	var mastery := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool: return it.key != "" and not it.get("pass", false))
+	var mastery := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool: return HeroStyle.is_mastery(it))
 	var got := mastery.filter(func(it: Dictionary) -> bool: return it.level <= _level).size()
 	var all := mastery.size()
 	_note.text = "Mastery level %d  ·  %d of %d looks unlocked" % [_level, got, all]
@@ -222,6 +247,8 @@ func _keep_scroll(to: int) -> void:
 
 
 func _got(it: Dictionary) -> bool:
+	if it.has("feat") or it.has("drop"):
+		return _cfg != null and HeroStyle.has_look(_cfg, _id, it.slot, it.key)
 	return _owned if it.get("pass", false) else it.level <= _level
 
 
@@ -252,7 +279,7 @@ func _card(it: Dictionary) -> Button:
 	var sw := Swatch.new()
 	sw.custom_minimum_size = Vector2(0, 58)
 	sw.setup(_id, it.slot, it.key, _base)
-	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.45)
+	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.6 if it.has("feat") or it.has("drop") else 0.45)
 	v.add_child(sw)
 	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -262,7 +289,12 @@ func _card(it: Dictionary) -> Button:
 		v.add_child(Hud.label("%s ONLY" % str(_base.title).to_upper(), 12, Color(_base.ring).lightened(0.3) if got else DIM))
 	if paid:
 		v.add_child(Hud.label("CRYPT PASS", 12, Hud.GOLD))
-	var state := "WEARING" if worn else ("TAP TO WEAR" if got else ("TAP TO TRY ON" if paid else "LEVEL %d" % it.level))
+	var special: bool = it.has("feat") or it.has("drop")
+	if it.has("feat"):
+		v.add_child(Hud.label("FEAT", 12, Color(0.5, 0.95, 1.0)))
+	elif it.has("drop"):
+		v.add_child(Hud.label("BONE DROP", 12, Drops.TIERS[int(it.drop)].color.lightened(0.2)))
+	var state := "WEARING" if worn else ("TAP TO WEAR" if got else ("TAP TO TRY ON" if paid or special else "LEVEL %d" % it.level))
 	v.add_child(Hud.label(state, 13, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else (Color(1.0, 0.8, 0.5) if paid else DIM))))
 	# The finger can drag the list from on top of a card (PASS lets the list see the drag),
 	# and a card the list was dragged on isn't worn when the finger lifts.
@@ -319,16 +351,22 @@ class Swatch extends Control:
 				a = HeroStyle.PASS_OUTFIT.gold if on == "a" else HeroStyle.PASS_OUTFIT.obsidian
 				b = HeroStyle.PASS_OUTFIT.gold if on == "b" else HeroStyle.PASS_OUTFIT.obsidian
 				shine = true
+			"outfit" when not HeroStyle.extra(s, k).is_empty():
+				a = HeroStyle.extra(s, k).a
+				b = HeroStyle.extra(s, k).b
+				shape = "pattern"
 			"outfit":
 				var o: Dictionary = HeroStyle.OUTFITS.get(k, {})
 				a = o.get("a", HeroStyle.CLASSIC_OUTFIT.get(id, Color.GRAY))
 				var bb = o.get("armor") if id == "knight" else (o.get("leather") if id == "rogue" else o.get("b"))
 				b = bb if bb != null else HeroStyle.CLASSIC_TRIM.get(id, Color.GRAY)
 			"glow":
-				a = (HeroStyle.PASS_GLOW if HeroStyle.is_pass(k) else HeroStyle.GLOWS.get(k, {})).get("ring", base.ring)
+				var gl: Dictionary = HeroStyle.PASS_GLOW if HeroStyle.is_pass(k) else HeroStyle.GLOWS.get(k, HeroStyle.extra(s, k))
+				a = gl.get("ring", base.ring)
+				b = gl.get("bolt", a)
 				shine = HeroStyle.is_pass(k)
 			"aura":
-				aura = HeroStyle.PASS_AURA if HeroStyle.is_pass(k) else HeroStyle.AURAS.get(id, {}).get(k, {})
+				aura = HeroStyle.PASS_AURA if HeroStyle.is_pass(k) else HeroStyle.AURAS.get(id, {}).get(k, HeroStyle.extra(s, k))
 				a = aura.get("ink", Color(0.35, 0.32, 0.4))
 				b = aura.get("spark", Color(0.5, 0.48, 0.55))
 			"head":
@@ -352,10 +390,21 @@ class Swatch extends Control:
 				# A brighter rim on very dark outfits (Shadow, Midnight) so they don't vanish on the card.
 				var rim := 0.7 if a.get_luminance() < 0.2 else 0.35
 				draw_circle(c, r, Color(1, 1, 1, rim), false, 2.0, true)
+				if shape == "pattern":
+					# A Feat or drop outfit: its own effect, drawn as little glints on the cloth.
+					for i in 4:
+						var ang := _t * 0.7 + i * 1.7
+						var p := c + Vector2(cos(ang) * 0.55, sin(ang * 1.3) * 0.4 - 0.2) * r
+						var g := b.lerp(Color.WHITE, 0.5)
+						g.a = 0.5 + 0.5 * sin(_t * 3.0 + i * 2.0)
+						draw_circle(p, r * 0.1, g)
 			"glow":
 				draw_circle(c, r, Color(a, 0.18))
 				draw_circle(c, r * 0.72, a, false, r * 0.22, true)
 				draw_circle(c, r * 0.72, Color(1, 1, 1, 0.6), false, 2.0, true)
+				if b != a:
+					# Its shots' colour, when they differ from the ring.
+					draw_circle(c, r * 0.3, b)
 			"aura":
 				_aura(c, r)
 			"head":
@@ -376,7 +425,7 @@ class Swatch extends Control:
 		draw_colored_polygon(pts, Color(1, 1, 1, 0.45 * (1.0 - absf(f))))
 
 	func _process(delta: float) -> void:
-		if not (aura.get("cycle", false) or aura.has("ink2") or shine or shape == "crypt_crown"):
+		if not (aura.get("cycle", false) or aura.has("ink2") or shine or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown"]):
 			set_process(false)   # only a pulsing aura's swatch is redrawn every frame
 			return
 		_t += delta
@@ -461,9 +510,68 @@ class Swatch extends Control:
 				draw_circle(c + Vector2(0, r * 0.12), r * 0.42, Color(0.03, 0.02, 0.05))
 				for s in [-1.0, 1.0]:
 					draw_circle(c + Vector2(s * r * 0.17, r * 0.05), r * 0.08, Color(0.6, 0.85, 1.0))
+			"storm_halo":
+				draw_circle(c + Vector2(0, r * 0.4), r * 0.55, skin)
+				draw_arc(c + Vector2(0, -r * 0.45), r * 0.75, 0, TAU, 32, Color(0.75, 0.9, 1.0), r * 0.18, true)
+				for i in 3:
+					var ang := _t * 2.0 + i * 2.1
+					var p := c + Vector2(cos(ang) * r * 0.8, -r * 0.45 + sin(ang) * r * 0.2)
+					draw_polyline(PackedVector2Array([p, p + Vector2(r * 0.15, -r * 0.2), p + Vector2(0, -r * 0.3), p + Vector2(r * 0.18, -r * 0.5)]), Color(0.85, 0.95, 1.0), 2.0, true)
+			"star_circlet":
+				draw_circle(c + Vector2(0, r * 0.2), r * 0.6, skin)
+				draw_arc(c + Vector2(0, -r * 0.05), r * 0.62, PI * 0.95, PI * 2.05, 20, gold, r * 0.1, true)
+				for i in 3:
+					var ang := _t * 1.2 + i * TAU / 3.0
+					var p := c + Vector2(cos(ang) * r * 0.95, -r * 0.1 + sin(ang) * r * 0.25)
+					_star(p, r * 0.2, Color(1.0, 0.95, 0.75))
+			"flame_crown":
+				draw_rect(Rect2(c + Vector2(-r * 0.8, r * 0.2), Vector2(r * 1.6, r * 0.3)), Color(0.15, 0.12, 0.12))
+				for i in 5:
+					var x := -0.64 + i * 0.32
+					var h := (0.9 if i % 2 == 0 else 0.6) * (1.0 + 0.1 * sin(_t * 9.0 + i))
+					draw_colored_polygon(PackedVector2Array([c + Vector2((x - 0.14) * r, r * 0.2), c + Vector2((x + 0.14) * r, r * 0.2), c + Vector2(x * r, (0.2 - h) * r)]), Color(1.0, 0.55, 0.12))
+					draw_colored_polygon(PackedVector2Array([c + Vector2((x - 0.07) * r, r * 0.2), c + Vector2((x + 0.07) * r, r * 0.2), c + Vector2(x * r, (0.2 - h * 0.55) * r)]), Color(1.0, 0.95, 0.6))
+			"skull_helm":
+				var bone := Color(0.93, 0.9, 0.8)
+				draw_circle(c + Vector2(0, -r * 0.1), r * 0.78, bone)
+				draw_rect(Rect2(c + Vector2(-r * 0.42, r * 0.35), Vector2(r * 0.84, r * 0.4)), bone)
+				for sx in [-1.0, 1.0]:
+					draw_circle(c + Vector2(sx * r * 0.3, 0), r * 0.2, Color(0.04, 0.03, 0.05))
+					draw_circle(c + Vector2(sx * r * 0.3, 0), r * 0.08, Color(0.5, 0.9, 1.0))
+				for i in 4:
+					draw_line(c + Vector2((-0.27 + i * 0.18) * r, r * 0.42), c + Vector2((-0.27 + i * 0.18) * r, r * 0.72), Color(0.04, 0.03, 0.05), 2.0)
+			"antlers":
+				draw_circle(c + Vector2(0, r * 0.45), r * 0.45, skin)
+				var horn := Color(0.82, 0.72, 0.56)
+				for sx in [-1.0, 1.0]:
+					var pts := PackedVector2Array([c + Vector2(sx * r * 0.25, r * 0.1), c + Vector2(sx * r * 0.55, -r * 0.3), c + Vector2(sx * r * 0.7, -r * 0.95)])
+					draw_polyline(pts, horn, r * 0.13, true)
+					draw_line(pts[1], pts[1] + Vector2(-sx * r * 0.05, -r * 0.45), horn, r * 0.09, true)
+					draw_line(pts[1], pts[1] + Vector2(sx * r * 0.4, -r * 0.3), horn, r * 0.09, true)
+					draw_circle(pts[2], r * 0.08, Color(0.55, 1.0, 0.85))
+			"phantom_horns":
+				draw_circle(c + Vector2(0, r * 0.35), r * 0.5, skin)
+				for sx in [-1.0, 1.0]:
+					draw_polyline(PackedVector2Array([c + Vector2(sx * r * 0.35, r * 0.1), c + Vector2(sx * r * 0.8, -r * 0.1), c + Vector2(sx * r * 0.95, -r * 0.55), c + Vector2(sx * r * 0.8, -r * 0.9)]), Color(0.6, 0.5, 1.0, 0.9), r * 0.18, true)
+					draw_polyline(PackedVector2Array([c + Vector2(sx * r * 0.35, r * 0.1), c + Vector2(sx * r * 0.8, -r * 0.1), c + Vector2(sx * r * 0.95, -r * 0.55), c + Vector2(sx * r * 0.8, -r * 0.9)]), Color(0.6, 1.0, 0.95, 0.9), r * 0.06, true)
+			"bone_crown":
+				var bone := Color(0.93, 0.9, 0.8)
+				draw_rect(Rect2(c + Vector2(-r * 0.85, r * 0.15), Vector2(r * 1.7, r * 0.3)), bone)
+				for i in 5:
+					var x := -0.68 + i * 0.34
+					var h := 0.85 if i % 2 == 0 else 0.55
+					draw_colored_polygon(PackedVector2Array([c + Vector2((x - 0.1) * r, r * 0.15), c + Vector2((x + 0.1) * r, r * 0.15), c + Vector2(x * r, (0.15 - h) * r)]), bone)
+					if i % 2 == 0:
+						draw_circle(c + Vector2(x * r, (0.05 - h) * r), r * 0.1, Color(0.35, 1.0, 0.55))
 			"hood":
 				draw_circle(c, r * 0.8, Color(0.25, 0.45, 0.95))
 				draw_circle(c + Vector2(0, r * 0.15), r * 0.48, skin)
+
+	func _star(p: Vector2, s: float, col: Color) -> void:
+		var pts := PackedVector2Array()
+		for i in 8:
+			pts.append(p + Vector2.from_angle(-PI / 2 + TAU * i / 8.0) * (s if i % 2 == 0 else s * 0.35))
+		draw_colored_polygon(pts, col)
 
 	func _hold(c: Vector2, r: float) -> void:
 		var steel := Color(0.78, 0.8, 0.86)

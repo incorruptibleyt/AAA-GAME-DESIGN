@@ -129,7 +129,10 @@ func show_hero(def: Dictionary, gold := false) -> void:
 	if _visual:
 		_visual.queue_free()
 	var extras: Array = def.get("style", {}).get("extras", [])
-	_frame_camera(extras.has("crown") or extras.has("crypt_crown"))
+	var tall := false
+	for x in ["crown", "crypt_crown", "storm_halo", "flame_crown", "antlers", "phantom_horns", "bone_crown", "star_circlet"]:
+		tall = tall or extras.has(x)
+	_frame_camera(tall)
 	_visual = CharacterVisual.new()
 	_visual.outline_me = true
 	_visual.aura_boost = 1.8   # the hero is drawn big here: a Master aura's line grows to match
