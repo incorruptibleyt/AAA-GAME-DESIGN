@@ -98,20 +98,24 @@ func _init() -> void:
 	_grid.add_theme_constant_override("h_separation", 8)
 	_grid.add_theme_constant_override("v_separation", 8)
 	_scroll.add_child(_grid)
+	# Version 122: BACK bottom-left, the other action on the right, as on every screen.
 	var back := Hud.button("BACK", 24)
-	back.custom_minimum_size = Vector2(200, 66)
+	back.custom_minimum_size = Vector2(180, 72)
 	back.pressed.connect(close)
 	_feats_btn = Hud.button("FEATS", 22, Color(0.06, 0.2, 0.26, 0.97), Color(0.45, 0.95, 1.0))
-	_feats_btn.custom_minimum_size = Vector2(200, 66)
+	_feats_btn.custom_minimum_size = Vector2(200, 72)
 	_feats_btn.pressed.connect(func():
 		Sfx.play("click")
 		feats.emit())
 	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	box.alignment = BoxContainer.ALIGNMENT_CENTER
 	box.add_theme_constant_override("separation", 14)
-	box.add_child(_feats_btn)
 	box.add_child(back)
+	var gap := Control.new()
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	box.add_child(gap)
+	box.add_child(_feats_btn)
 	col.add_child(box)
 	resized.connect(_fit)
 

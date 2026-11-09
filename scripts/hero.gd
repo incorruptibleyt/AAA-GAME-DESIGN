@@ -226,6 +226,7 @@ func _check_perfect(window: float) -> void:
 
 
 func _perfect_dodge(big := true) -> void:
+	Game.buzz(25 if big else 12)
 	_perfect_done = true
 	_safe_left = maxf(_safe_left, PERFECT_WINDOW - DASH_TIME + 0.05)
 	# An elite's swipe (the light kind) is worth less: no free dash, a smaller special charge.

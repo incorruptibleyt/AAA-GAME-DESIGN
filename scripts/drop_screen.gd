@@ -399,10 +399,22 @@ func _finish() -> void:
 	_prize.text = str(_result.get("text", ""))
 	_prize.label_settings.font_color = Hud.GOLD if _result.get("kind", "") == "coins" else c.lightened(0.35)
 	_prize.label_settings.font_size = 34 if _result.get("kind", "") == "coins" else 22
-	_chest.open_up(c)
+	_chest.open_up(c, _shown_tier)
+	# Version 122: Epic and Legendary get a bigger moment: the chest lifts and bursts twice
+	# (three times for Legendary) under a beam, the screen flashes white, and a sting plays.
+	if _shown_tier >= 3:
+		_white_flash(0.85 if _shown_tier >= 4 else 0.5)
+		Sfx.play("sting", 0.9)
 	if _result.get("kind", "") == "look":
 		_head.text = "NEW LOOK!"
-		_show_look(true)
+		if _shown_tier >= 3:
+			# Let the chest's moment play before the hero steps out wearing the look.
+			var r := _result
+			get_tree().create_timer(0.8).timeout.connect(func():
+				if _step == Step.OPEN and _result == r and visible:
+					_show_look(true))
+		else:
+			_show_look(true)
 		_wear.visible = true
 		_wear.disabled = false
 		_wear.text = "WEAR IT"
@@ -414,7 +426,20 @@ func _finish() -> void:
 	if _result.get("kind", "") == "coins":
 		Sfx.play("coin", 0.6, 1.2)
 	if Game.vibration:
-		Input.vibrate_handheld(60 if _shown_tier >= 3 else 35)
+		Input.vibrate_handheld(90 if _shown_tier >= 4 else (60 if _shown_tier >= 3 else 35))
+
+
+var _white: ColorRect
+
+func _white_flash(strength: float) -> void:
+	if _white == null:
+		_white = ColorRect.new()
+		_white.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		Hud.full(_white)
+		add_child(_white)
+	move_child(_white, get_child_count() - 1)
+	_white.color = Color(1, 1, 1, strength)
+	create_tween().tween_property(_white, "color:a", 0.0, 0.4).set_ease(Tween.EASE_OUT)
 
 
 # ---------------------------------------------------------------- the reliquary
@@ -545,7 +570,7 @@ class Chest extends SubViewportContainer:
 		cam.position = Vector3(0, 1.55, 2.7)
 		cam.fov = 40.0
 		_vp.add_child(cam)
-		cam.look_at_from_position(cam.position, Vector3(0, 0.6, 0))   # the chest a little lower, room for the lid
+		cam.look_at_from_position(cam.position, Vector3(0, 0.72, 0))   # the chest a little lower, room for the lid (and the Epic lift)
 		var sun := DirectionalLight3D.new()
 		sun.rotation = Vector3(-0.9, 0.5, 0)
 		sun.light_energy = 0.9
@@ -784,6 +809,8 @@ class Chest extends SubViewportContainer:
 	func reset() -> void:
 		if _solid and _vp.transparent_bg:
 			_use_solid()
+		_lift = 0.0
+		_lift_to = 0.0
 		_opened = false
 		_open = 0.0
 		_lid.rotation = Vector3.ZERO
@@ -796,11 +823,22 @@ class Chest extends SubViewportContainer:
 		_root.rotation = Vector3(0, -0.35, 0)
 		_root.position = Vector3.ZERO
 
-	func open_up(col: Color) -> void:
+	var _lift := 0.0
+	var _lift_to := 0.0
+
+	func open_up(col: Color, tier := 0) -> void:
 		_opened = true
 		_open = 0.0
+		_lift_to = 0.12 if tier >= 3 else 0.0
 		_beam.visible = true
 		_beam_mat.albedo_color = Color(col, 0.35)
+		for wave in ([0.35, 0.7] if tier >= 4 else ([0.35] if tier >= 3 else [])):
+			get_tree().create_timer(wave).timeout.connect(func():
+				if _opened and is_inside_tree():
+					_burst.restart()
+					_burst.emitting = true
+					_ring.visible = true
+					_ring.scale = Vector3(0.3, 0.2, 0.3))
 		_light.light_color = col
 		_light.light_energy = 1.5
 		_burst_mat.albedo_color = col.lightened(0.35) * 1.6
@@ -848,3 +886,5 @@ class Chest extends SubViewportContainer:
 					_ring.visible = false
 			for c in _cracks:
 				c.visible = true
+			_lift = move_toward(_lift, _lift_to, delta * 1.2)
+			_root.position.y += _lift

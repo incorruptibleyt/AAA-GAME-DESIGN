@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-09a"
+const BUILD := "2026-11-09b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -2405,6 +2405,8 @@ func _win() -> void:
 	_report_room_done("F%d Boss" % floor_num)
 	_set_state(State.VICTORY)
 	finisher(where, 0.2, 1.0, Color(1, 0.5, 0.3))
+	if hero and hero.visual:
+		hero.visual.play_named("Cheer")   # version 122: the hero celebrates the win
 	_clear_enemy_attacks()
 	Pickup.collect_all()
 	hud.hide_boss()
@@ -2468,6 +2470,14 @@ func _win() -> void:
 	if hero:
 		hero.visible = false
 	hud.show_mastery(mastery)
+	# Version 122: once, after the first boss win past the tutorial, the Pass card shows the
+	# hero in the Crypt King set (a win is when the set means most).
+	if not Store.owned() and not was_first and not daily and not _free_end:
+		var pcfg := _load_save()
+		if not bool(pcfg.get_value("shown", "pass_card_win", false)):
+			pcfg.set_value("shown", "pass_card_win", true)
+			write_save(pcfg)
+			hud.show_pass_card(true, pass_hero_def())
 	hud.show_end_title(not _daily_done and not _free_end, "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
@@ -2520,7 +2530,6 @@ func on_hero_died() -> void:
 	var note := not Store.owned() and floor_num >= 3 and not _pass_note_shown
 	if note:
 		_pass_note_shown = true
-		coin_line += "\n\nThe Crypt Pass: the Crypt King looks,\nendless floors, every hero and more."
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again", not tutorial_again, score, best)
 	hud.show_mastery(mastery)
@@ -2528,7 +2537,8 @@ func on_hero_died() -> void:
 	hud.set_end_goal(_daily_goal() if daily else next_goal())
 	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
-	hud.show_end_pass(note)
+	if note:
+		hud.show_pass_card(true, pass_hero_def())   # version 122: a card with the hero in the set
 	_state_time = 0.0
 	_last_report = run_report("Died on floor %d, %s" % [floor_num, "boss room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]])
 	print("[report]\n" + _last_report)
@@ -3028,6 +3038,12 @@ func _set_shake(level: int, save := true) -> void:
 
 
 ## The short buzz when the hero is hit.
+## A short buzz when Vibration is on (version 122: PERFECT, Phase 2, level ups, rewards).
+func buzz(ms: int) -> void:
+	if Game.vibration:
+		Input.vibrate_handheld(ms)
+
+
 func _set_vibration(on: bool, save := true) -> void:
 	vibration = on
 	hud.set_vibration_label(on)
@@ -3424,6 +3440,16 @@ func _pick_hero(id: String) -> void:
 	# On the title screen, swap the hero standing in the room straight away.
 	if state == State.TITLE and _swap_hero(id):
 		Fx.magic(hero.center(), hero.bolt_color, 30)   # (in the mastery color if worn)
+
+
+## The chosen hero dressed in the whole Crypt King set, for the Pass card.
+func pass_hero_def() -> Dictionary:
+	var cfg := _load_save()
+	var id := hero.hero_id if hero else Heroes.selected(cfg)
+	var p := HeroStyle.picks(cfg, id)
+	for slot: String in HeroStyle.PASS_SLOTS:
+		p[slot] = HeroStyle.pass_key(slot)
+	return HeroStyle.dressed(Heroes.get_hero(id), p)
 
 
 func _open_pass() -> void:

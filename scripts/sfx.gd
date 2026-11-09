@@ -87,6 +87,11 @@ func _ready() -> void:
 	# Water: a wash of noise that dies away with a little rising bloop (the Drowned Vault).
 	_clips["splash"] = _synth(0.5, func(t): return (_noise() * exp(-t * 7.0) * 0.55 + _sweep(t, 260, 760) * exp(-t * 16.0) * 0.3) * _env(t, 0.5) * 0.5)
 	_clips["heart"] = _synth(0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
+	# Version 122: a short tick for numbers counting up, and a rising three-note sting for
+	# Epic and Legendary drops.
+	_clips["tick"] = _synth(0.04, func(t): return _sine(t, 1800) * _env(t, 0.04) * 0.18)
+	_clips["sting"] = _synth(1.0, func(t): return (_sine(t, 659) * float(t < 0.18) + _sine(t, 880) * float(t >= 0.18 and t < 0.36) \
+			+ (_sine(t, 1047) + _sine(t, 1319) * 0.6) * float(t >= 0.36)) * _env(t, 1.0) * 0.22)
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
 	_load_samples()
 

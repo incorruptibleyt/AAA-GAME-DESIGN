@@ -204,6 +204,12 @@ var _end_best: Label
 var _end_target := 0
 var _end_count := -1.0
 var _end_best_value := 0
+## Version 122: the run's numbers fill in one line at a time after the score, each counting
+## up with ticks and a little buzz, the way Archero and Brawl Stars hand out rewards.
+var _tally: PackedStringArray = []
+var _tally_i := -1          # the line counting up now (-1: not started or done)
+var _tally_t := 0.0
+var _tally_wait := false    # waiting for the score to finish counting
 var _title_heroes: Control
 var _title_armory: Control
 var _title_lock: Label
@@ -259,6 +265,9 @@ var _timer_label: Label
 var _share_button: Button
 var _share_card: ShareCard
 var _end_pass: Control
+var _pass_card: Control
+var _pass_card_stage: HeroStage
+var _pass_card_line: Label
 var _end_spacer: Control
 var _daily_box: Control
 var _daily_title: Label
@@ -1095,7 +1104,7 @@ func _build_cards() -> void:
 	_cards_mastery = label("", 28, GOLD)
 	_cards_mastery.visible = false
 	col.add_child(_cards_mastery)
-	col.add_child(label("Choose a Blessing", 40, Color(1, 0.85, 0.55)))
+	col.add_child(label("CHOOSE A BLESSING", 40, Color(1, 0.85, 0.55)))
 	for i in 3:
 		# A chunky card: a frame and a thick lip in the blessing's rarity colour (painted in
 		# show_cards), a band of that colour across the top, the badge on the left, the name
@@ -1194,7 +1203,7 @@ func _build_doors() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 16)
 	_doors_box.add_child(col)
-	col.add_child(label("Choose your door", 40, Color(1, 0.85, 0.55)))
+	col.add_child(label("CHOOSE YOUR DOOR", 40, Color(1, 0.85, 0.55)))
 	_doors_next = label("", 18, Color(0.78, 0.78, 0.86))
 	col.add_child(_doors_next)
 	var row := HBoxContainer.new()
@@ -1499,7 +1508,7 @@ func _build_modes() -> void:
 	col.add_child(_centered(_modes_tutorial))
 	var back := button("BACK", 26)
 	back.pressed.connect(func(): show_modes(false))
-	col.add_child(_centered(back))
+	_frame(_modes_box, col, back)
 
 
 ## A big mode button: a picture (art/ui/pass_<pic>.png), the name, a line about it and a tag.
@@ -1608,7 +1617,7 @@ func _build_records() -> void:
 	col.add_child(_records_note)
 	var back := button("BACK", 26)
 	back.pressed.connect(func(): show_records(false))
-	col.add_child(_centered(back))
+	_frame(_records_box, col, back)
 
 
 func show_records(v: bool, rows := [], note := "") -> void:
@@ -1724,6 +1733,7 @@ func _build_end() -> void:
 	col.add_child(_end_goal)
 	_end_drop = _drop_button()
 	col.add_child(_centered(_end_drop))
+	_build_pass_card(col)
 	# Daily Crypt: the result card, and the same as text to paste anywhere.
 	_share_card = ShareCard.new()
 	_share_card.visible = false
@@ -1818,7 +1828,7 @@ func _build_pause() -> void:
 	# Tight enough that the whole menu fits a 16:9 phone.
 	col.add_theme_constant_override("separation", 12)
 	_pause_box.add_child(col)
-	_pause_title = label("Paused", 52, Color(1, 0.85, 0.55))
+	_pause_title = label("PAUSED", 52, Color(1, 0.85, 0.55))
 	col.add_child(_pause_title)
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 8)
@@ -1894,7 +1904,7 @@ func _build_feedback() -> void:
 	col.offset_top = 56
 	col.add_theme_constant_override("separation", 12)
 	_fb_box.add_child(col)
-	col.add_child(label("Send feedback", 40, Color(1, 0.85, 0.55)))
+	col.add_child(label("SEND FEEDBACK", 40, Color(1, 0.85, 0.55)))
 	col.add_child(label("What did you enjoy? What felt too hard, unfair or broken? Every note is read.", 19, Color(0.85, 0.83, 0.9)))
 	_fb_text = TextEdit.new()
 	_fb_text.custom_minimum_size = Vector2(0, 210)
@@ -2012,7 +2022,7 @@ func _build_armory() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 10)
 	_armory_box.add_child(col)
-	_shop_title = label("Armory", 46, Color(1, 0.85, 0.55))
+	_shop_title = label("ARMORY", 46, Color(1, 0.85, 0.55))
 	col.add_child(_shop_title)
 	_shop_sub = label("Upgrades bought here last forever.", 18, Color(0.8, 0.8, 0.85))
 	col.add_child(_shop_sub)
@@ -2036,7 +2046,7 @@ func _build_armory() -> void:
 	col.add_child(_armory_rows)
 	var back := button("BACK", 26)
 	back.pressed.connect(func(): show_armory(false))
-	col.add_child(_centered(back))
+	_frame(_armory_box, col, back)
 
 
 ## The Crypt Pass screen: four picture tiles for what it gives, the price, and buy / restore.
@@ -2083,6 +2093,61 @@ func _build_pass() -> void:
 	_pass_restore.pressed.connect(func(): pass_restore.emit())
 	col.add_child(_centered(_pass_back))
 	col.add_child(_pair(_pass_restore, privacy_button()))
+
+
+## Version 122: the Crypt Pass on the end screen is a card with your own hero wearing the
+## Crypt King set on a little pedestal (it was two grey lines of text).
+func _build_pass_card(col: Control) -> void:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.16, 0.11, 0.04, 0.97)
+	sb.border_color = GOLD
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 14
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	sb.shadow_color = Color(1.0, 0.75, 0.25, 0.3)
+	sb.shadow_size = 10
+	panel.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 10)
+	panel.add_child(row)
+	_pass_card_stage = HeroStage.new(Vector2(170, 196))
+	_pass_card_stage.custom_minimum_size = Vector2(170, 196)
+	_pass_card_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_pass_card_stage)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 6)
+	row.add_child(v)
+	var t := label("CRYPT PASS", 30, GOLD)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(t)
+	_pass_card_line = label("", 16, Color(0.95, 0.9, 0.8))
+	_pass_card_line.custom_minimum_size = Vector2(250, 0)
+	v.add_child(_pass_card_line)
+	var b := button("SEE THE PASS", 22, Color(0.45, 0.3, 0.08, 0.98), GOLD)
+	b.custom_minimum_size = Vector2(240, 60)
+	b.pressed.connect(func(): pass_pressed.emit())
+	v.add_child(_centered(b))
+	_pass_card = _centered(panel)
+	_pass_card.visible = false
+	col.add_child(_pass_card)
+
+
+## Shows the card with `def` (the hero dressed in the set), or hides it.
+func show_pass_card(v: bool, def := {}) -> void:
+	_pass_card.visible = v and not def.is_empty()
+	_pass_card_stage.set_active(_pass_card.visible)
+	if _pass_card.visible:
+		_pass_card_stage.show_hero(def)
+		_pass_card_line.text = "Your %s in the Crypt King set.\nEndless floors, every hero and more." % str(def.title)
+	_fit_end_soon()
 
 
 ## One picture tile: the picture, a title and a line of text (filled in by show_pass).
@@ -2189,7 +2254,7 @@ func _build_daily() -> void:
 	col.add_child(_daily_next)
 	var back := button("BACK", 26)
 	back.pressed.connect(func(): show_daily(false))
-	col.add_child(_centered(back))
+	_frame(_daily_box, col, back)
 
 
 ## info: {title, theme, theme_text, hero, mult, rules: [{title, text, kind}], status, open, practice, next}
@@ -2242,7 +2307,7 @@ func _build_omens() -> void:
 	col.add_child(_omen_have)
 	var back := button("BACK", 24)
 	back.pressed.connect(func(): show_omens(false))
-	col.add_child(_centered(back))
+	_frame(_omen_box, col, back)
 
 
 ## choices: three Omens ({id, title, text}); `have` lists the Omens already in play.
@@ -2517,6 +2582,7 @@ func _process(delta: float) -> void:
 		if _tip_time <= 0.0:
 			_tip.visible = false
 	_update_end_count(delta)
+	_update_tally(delta)
 	if _callout_time > 0.0:
 		_callout_time -= delta
 		_callout.modulate.a = clampf(_callout_time / 0.3, 0.0, 1.0)
@@ -2941,10 +3007,37 @@ func _build_rewards() -> void:
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(gap)
 	var close := button("BACK", 26)
-	close.custom_minimum_size = Vector2(260, 72)
 	close.pressed.connect(func(): show_rewards(false))
-	col.add_child(_centered(close))
+	_frame(_rewards_box, col, close)
 	_rewards_box.visible = false
+
+
+## Version 122: one screen frame for the menus. The title sits at the top (44 px gold
+## capitals), the list starts under it, and BACK is always the same 180 x 72 button,
+## 24 px from the bottom-left corner (it used to be in four different places).
+const FRAME_TOP := 40.0
+const FRAME_BOTTOM := 112.0
+
+func _frame(box: Control, col: VBoxContainer, back: Button) -> void:
+	col.alignment = BoxContainer.ALIGNMENT_BEGIN
+	col.offset_top = FRAME_TOP
+	col.offset_bottom = -FRAME_BOTTOM
+	var title := col.get_child(0) as Label
+	if title:
+		title.text = title.text.to_upper()
+		title.label_settings.font_size = 44
+	box.add_child(back_corner(back))
+
+
+## `back` in the bottom-left corner of a full-screen box.
+static func back_corner(back: Button) -> Button:
+	back.custom_minimum_size = Vector2(180, 72)
+	back.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	back.offset_left = 24
+	back.offset_right = 204
+	back.offset_top = -96
+	back.offset_bottom = -24
+	return back
 
 
 ## One REWARDS row: the 420 x 78 button and a small status line under it.
@@ -3162,7 +3255,7 @@ func show_armory(v: bool, rows := [], coins := 0) -> void:
 	if not v:
 		return
 	_shop_curses = false
-	_shop_title.text = "Armory"
+	_shop_title.text = "ARMORY"
 	_fill_shop(rows, coins)
 
 
@@ -3185,7 +3278,7 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 	if not v:
 		return
 	_shop_curses = true
-	_shop_title.text = "Curses"
+	_shop_title.text = "CURSES"
 	_shop_sub.text = "%s\n%s" % [info, goal]
 	_armory_tabs.visible = false
 	_armory_coins.get_parent().visible = false
@@ -3328,6 +3421,8 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_loop.visible = false
 	if not v:
 		_drops.visible = false   # (never left over a run that's starting)
+		if _pass_card.visible:
+			show_pass_card(false)
 		return
 	_end_score.visible = score >= 0
 	_end_best.visible = score >= 0
@@ -3346,12 +3441,14 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 		refresh_looks_badge.call_deferred()   # (after the run's mastery is saved)
 	_end_title_button.visible = false
 	_end_pass.visible = false
+	if _pass_card.visible:
+		show_pass_card(false)
 	_share_button.visible = false
 	_share_card.visible = false
 	_end_spacer.custom_minimum_size.y = 100.0 if not buttons else 24.0
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
-	_end_stats.text = stats
+	_start_tally(stats, score >= 0)
 	_end_goal.visible = false
 	_end_mastery.visible = false
 	_end_looks.visible = false
@@ -3614,6 +3711,10 @@ func _update_end_count(delta: float) -> void:
 		Sfx.play("coin", 0.35)
 	if _end_count >= 1.0:
 		_end_count = -1.0
+		if _tally_wait:
+			_tally_wait = false
+			_tally_i = 0
+			_tally_t = 0.0
 		if _end_target > _end_best_value and _end_target > 0:
 			_end_best.text = "NEW BEST!"
 			_end_best.label_settings.font_color = Color(1, 0.8, 0.3)
@@ -3622,6 +3723,72 @@ func _update_end_count(delta: float) -> void:
 			_end_best.text = "Best  " + thousands(_end_best_value)
 			_end_best.label_settings.font_color = Color(0.8, 0.78, 0.7)
 		_fit_end.call_deferred()   # the best line has words in it now
+
+
+func _start_tally(stats: String, after_score: bool) -> void:
+	_tally = stats.split("\n")
+	_tally_wait = after_score
+	_tally_i = -1 if after_score else 0
+	_tally_t = 0.0
+	_end_stats.text = _tally_text(-1, 0.0)
+
+
+## A line like "Coins this run  45" or "Bone Road  +12 bones" counts up; text lines (and
+## times, like "1:23") just appear.
+static func _tally_number(line: String) -> RegExMatch:
+	var cut := line.rfind("  ")
+	if cut < 0 or line.substr(cut).contains(":"):
+		return null
+	var re := RegEx.create_from_string("\\d[\\d,]*")
+	return re.search(line, cut)
+
+
+## The stats with lines before `upto` in full, line `upto` counted `k` (0..1) of the way,
+## and the rest blank (they keep their space, so nothing below jumps).
+func _tally_text(upto: int, k: float) -> String:
+	var out := []
+	for i in _tally.size():
+		var line: String = _tally[i]
+		if i < upto or upto >= _tally.size():
+			out.append(line)
+		elif i == upto:
+			var m := _tally_number(line)
+			if m == null:
+				out.append(line)
+			else:
+				var full := int(m.get_string().replace(",", ""))
+				var n := roundi(full * ease(k, 0.5))
+				out.append(line.substr(0, m.get_start()) + (thousands(n) if m.get_string().contains(",") else str(n)) + line.substr(m.get_end()))
+		else:
+			out.append("")
+	return "\n".join(out)
+
+
+func _update_tally(delta: float) -> void:
+	if _tally_i < 0 or not _end_box.visible:
+		return
+	while _tally_i < _tally.size() and _tally[_tally_i].strip_edges() == "":
+		_tally_i += 1   # blank lines take no time
+	if _tally_i >= _tally.size():
+		_end_stats.text = "\n".join(_tally)
+		_tally_i = -1
+		return
+	var counts := _tally_number(_tally[_tally_i]) != null
+	var dur := 0.5 if counts else 0.12
+	var was := _tally_t
+	_tally_t += delta
+	if counts and int(was * 16.0) != int(_tally_t * 16.0) and _tally_t < dur:
+		Sfx.play("tick", 0.35, 1.0 + _tally_t)
+	if _tally_t >= dur:
+		_end_stats.text = _tally_text(_tally_i + 1, 0.0)
+		if counts:
+			Sfx.play("coin", 0.5, 1.25)
+			if Game.vibration:
+				Input.vibrate_handheld(15)
+		_tally_i += 1
+		_tally_t = 0.0
+	else:
+		_end_stats.text = _tally_text(_tally_i, _tally_t / dur)
 
 
 ## Daily Crypt runs get their result card (rows of ShareCard codes) and a SHARE RESULT
@@ -3677,6 +3844,8 @@ func show_end_loop(v: bool, bonus := 0, next_loop := 2) -> void:
 
 ## Replaces the end screen's middle text (after buying the Pass at the free end).
 func set_end_stats(text: String) -> void:
+	_tally_i = -1
+	_tally_wait = false
 	_end_stats.text = text
 	_fit_end_soon()
 
@@ -3691,7 +3860,7 @@ func end_offer_done(tap_text: String) -> void:
 
 func show_pause(v: bool, settings_only := false) -> void:
 	_settings_only = v and settings_only
-	_pause_title.text = "Settings" if _settings_only else "Paused"
+	_pause_title.text = "SETTINGS" if _settings_only else "PAUSED"
 	_resume_button.text = "BACK" if _settings_only else "RESUME"
 	_quit_button.visible = not _settings_only
 	# Darker over the busy title screen than over a paused room.

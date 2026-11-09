@@ -163,6 +163,7 @@ func _process(delta: float) -> void:
 
 func _level_up(lv: int) -> void:
 	_badge.pop()
+	Game.buzz(40)
 	Sfx.play("upgrade", 0.8, 1.0 + 0.04 * lv)
 	if lv >= HeroMastery.MAX_LEVEL:
 		Sfx.play("victory", 0.6)

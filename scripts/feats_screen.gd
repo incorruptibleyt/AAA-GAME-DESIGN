@@ -45,10 +45,11 @@ func _init() -> void:
 	_list.add_theme_constant_override("separation", 8)
 	_scroll.add_child(_list)
 	var back := Hud.button("BACK", 24)
-	back.custom_minimum_size = Vector2(240, 66)
+	back.custom_minimum_size = Vector2(180, 72)   # version 122: BACK in the same corner on every screen
 	back.pressed.connect(close)
-	var box := CenterContainer.new()
+	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.alignment = BoxContainer.ALIGNMENT_BEGIN
 	box.add_child(back)
 	col.add_child(box)
 

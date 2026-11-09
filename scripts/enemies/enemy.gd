@@ -275,6 +275,7 @@ func phase_two(col: Color, move := "", move_name := "") -> void:
 	if move != "":
 		_bag = [move]   # the new attack comes right after the roar
 	_roar_left = 1.0
+	Game.buzz(70)
 	_flinch_left = maxf(_flinch_left, 1.0)   # stands still while it roars
 	Sfx.play("roar")
 	Game.shake(0.5)
@@ -283,11 +284,25 @@ func phase_two(col: Color, move := "", move_name := "") -> void:
 	Fx.shockwave(global_position, col, 3.5)
 	if visual:
 		visual.enrage(col)
-		var s0 := visual.scale
-		var tw := visual.create_tween()
-		tw.tween_property(visual, "scale", s0 * 1.15, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		tw.tween_property(visual, "scale", s0, 0.35)
+		_punch_scale(1.15, 0.12, 0.35)
 	Game.hud.phase_banner(move_name, col)
+
+
+var _big_hit_at := -10000
+var _vis_scale := Vector3.ZERO
+var _scale_tw: Tween
+
+## Grows the model by `k` and settles it back (always to its own size, even if punches overlap).
+func _punch_scale(k: float, up: float, down: float) -> void:
+	if visual == null:
+		return
+	if _vis_scale == Vector3.ZERO:
+		_vis_scale = visual.scale
+	if _scale_tw:
+		_scale_tw.kill()
+	_scale_tw = visual.create_tween()
+	_scale_tw.tween_property(visual, "scale", _vis_scale * k, up).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_scale_tw.tween_property(visual, "scale", _vis_scale, down)
 
 
 ## A boss's brain waits here before choosing a move, so nothing new starts during the roar.
@@ -421,6 +436,14 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		_bar.reveal()
 	# A hit worth a quarter of its health staggers it and breaks a swing still winding up.
 	# Bosses never flinch, and fast weak shots can't lock a skeleton in place.
+	# Version 122: a boss shows a big hit (8% of its health or more): a quick size punch and
+	# a burst of sparks, at most every 0.4 s.
+	if not dead and is_boss and amount >= max_health * 0.08 and Time.get_ticks_msec() - _big_hit_at > 400:
+		_big_hit_at = Time.get_ticks_msec()
+		_punch_scale(1.08, 0.06, 0.18)
+		Fx.magic(center(), Color(1.0, 0.9, 0.6), 18)
+		Sfx.play("crack", 0.5)
+		Game.shake(0.15)
 	if not dead and not is_boss and amount >= max_health * 0.25:
 		_flinch_left = FLINCH_TIME
 		if is_instance_valid(_swipe):
