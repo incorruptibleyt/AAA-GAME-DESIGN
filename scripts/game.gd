@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-09e"
+const BUILD := "2026-11-09f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -2394,7 +2394,9 @@ func _clear_enemy_attacks() -> void:
 	if Room.current == null:
 		return
 	for n in Room.current.get_children():
-		if (n is Projectile and (n as Projectile).owner_team == Actor.Team.UNDEAD) or n is FirePatch:
+		if n is Projectile and (n as Projectile).owner_team == Actor.Team.UNDEAD:
+			(n as Projectile).finish()   # back to the shot pool (version 126)
+		elif n is FirePatch:
 			n.queue_free()
 		elif n is Telegraph:
 			(n as Telegraph).cancel()

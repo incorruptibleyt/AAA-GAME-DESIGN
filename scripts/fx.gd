@@ -414,27 +414,39 @@ static func impact(pos: Vector3, color: Color, size := 1.0) -> void:
 	if _impacts_now > BURSTS_PER_FRAME:
 		return
 	# At most MAX_IMPACTS on screen: a Mage with Twin Shots, Fan of Shots and Piercing Shot
-	# lands a dozen hits a frame, and each flash is one more thing to draw.
-	_live_impacts = _live_impacts.filter(func(n): return is_instance_valid(n))
-	if _live_impacts.size() >= MAX_IMPACTS:
-		return
-	if _impact_quad == null:
-		_impact_quad = QuadMesh.new()
-	var f := MeshInstance3D.new()
-	f.mesh = _impact_quad
+	# lands a dozen hits a frame, and each flash is one more thing to draw. Version 126
+	# (audit #12): the flashes are made once and reused; a hidden one is free.
+	var f: MeshInstance3D = null
+	for n in _impacts:
+		if is_instance_valid(n) and not (n as MeshInstance3D).visible:
+			f = n
+			break
+	if f == null:
+		_impacts = _impacts.filter(func(n): return is_instance_valid(n))
+		if _impacts.size() >= MAX_IMPACTS:
+			return
+		if _impact_quad == null:
+			_impact_quad = QuadMesh.new()
+		f = MeshInstance3D.new()
+		f.mesh = _impact_quad
+		f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		world.add_child(f)
+		_impacts.append(f)
 	f.material_override = ShotLook.hero_mat(ShotLook.K_GLOW, Color(color.r, color.g, color.b, 1.0), true)
-	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	world.add_child(f)
-	_live_impacts.append(f)
+	f.visible = true
 	f.global_position = pos
 	f.scale = Vector3(size * 0.4, size * 0.4, 1.0)
+	var old: Tween = f.get_meta("tw") if f.has_meta("tw") else null
+	if old and old.is_valid():
+		old.kill()
 	var tw := f.create_tween()
+	f.set_meta("tw", tw)
 	tw.tween_property(f, "scale", Vector3(size, size, 1.0), 0.05).set_ease(Tween.EASE_OUT)
 	tw.tween_property(f, "scale", Vector3(0.01, 0.01, 1.0), 0.09).set_ease(Tween.EASE_IN)
-	tw.tween_callback(f.queue_free)
+	tw.tween_callback(f.hide)
 
 static var _impact_quad: QuadMesh
-static var _live_impacts: Array = []
+static var _impacts: Array = []   # every hit flash made, shown or waiting
 const MAX_IMPACTS := 10
 static var _impact_frame := -1
 static var _impacts_now := 0

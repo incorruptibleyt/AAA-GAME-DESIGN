@@ -32,6 +32,7 @@ var _redressed := false   # this opening: the hero was put on again
 var _rebuilt := false     # this opening: the stage was built again
 static var _session_tries := 0
 static var _drawn_ok := false   # a stage has once passed both looks this session
+static var _after_run_checked := false   # checked once after a death or win this session
 ## Version 120: once a phone has drawn a stage with no see-through parts working, every
 ## stage after that draws on a solid backdrop instead (see _set_solid).
 static var solid := false
@@ -191,9 +192,14 @@ func set_active(on: bool) -> void:
 	if on:
 		texture = _vp.get_texture()
 		# Version 121: reading the picture back stalls the phone's graphics for a moment, so
-		# it is only checked until it has once come out right this session, after a death or
-		# a finished run (where the blank stage was seen), or while a repair is under way.
-		if not _drawn_ok or _tries > 0 or Game.state in [Game.State.DEAD, Game.State.VICTORY]:
+		# it is only checked until it has once come out right this session, or while a repair
+		# is under way. Version 126 (audit #13): after a death or a finished run (where the
+		# blank stage was seen) only the first opening a session is checked, unless this
+		# session has already needed a repair.
+		var after_run := Game.state in [Game.State.DEAD, Game.State.VICTORY]
+		if not _drawn_ok or _tries > 0 or (after_run and (not _after_run_checked or _session_tries > 0)):
+			if after_run:
+				_after_run_checked = true
 			_check_drawn()
 
 

@@ -340,6 +340,10 @@ func _cancel_attacks() -> void:
 
 
 func _separate() -> void:
+	# Version 126 (audit #6): in a big crowd each skeleton makes room every other frame (half
+	# of them on even frames, half on odd), which halves this all-against-all check.
+	if Game.alive_enemies > 16 and (Engine.get_process_frames() + get_instance_id()) % 2 == 1:
+		return
 	# Add up the push from every overlapping ally, then check the walls once (a pile of 6
 	# used to run the wall check 5 times per enemy per frame).
 	var push := Vector3.ZERO

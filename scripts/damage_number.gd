@@ -34,6 +34,10 @@ var _foe := false
 var _base := Vector3.ZERO
 ## The number still adding up for each target ("<id>hit" / "<id>heal").
 static var _live := {}
+## Version 126 (audit #12): finished numbers wait here (hidden) to show the next hit.
+static var _spare: Array = []
+const SPARE_CAP := 16
+var _key := ""
 
 
 ## Damage taken by `who`. Hits on the hero are red; crits turn the number gold and bigger.
@@ -49,7 +53,8 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 	if Game.world == null:
 		return
 	var key := "%d%s" % [who.get_instance_id(), kind]
-	var n: DamageNumber = _live.get(key)
+	var got: Variant = _live.get(key)
+	var n: DamageNumber = got if is_instance_valid(got) else null
 	var foe := kind == "hit" and who.team != Actor.Team.HERO
 	var merge := FOE_MERGE if foe else MERGE
 	if foe and not (is_instance_valid(n) and n._age < merge):
@@ -60,17 +65,32 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n._size = minf(n._size + 0.06, 1.8)
 	else:
 		_trim()
-		n = DamageNumber.new()
-		# The cartoon font with a thick ink edge, like the rest of the game's big text.
-		n.font = Hud.UI_FONT
+		n = null
+		while n == null and not _spare.is_empty():
+			var o: Variant = _spare.pop_back()
+			if is_instance_valid(o):
+				n = o
+		if n == null:
+			n = DamageNumber.new()
+			# The cartoon font with a thick ink edge, like the rest of the game's big text.
+			n.font = Hud.UI_FONT
+			n.outline_size = 20
+			n.font_size = 66
+			n.pixel_size = 0.009
+			n.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+			n.no_depth_test = true
+			n.fixed_size = false
+			Game.world.add_child(n)
+			n.tree_exiting.connect(n._gone)
 		n.modulate = col
 		n.outline_modulate = Hud.INK
-		n.outline_size = 20
-		n.font_size = 66
-		n.pixel_size = 0.009
-		n.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		n.no_depth_test = true
-		n.fixed_size = false
+		n._age = 0.0
+		n._shown = 0.0
+		n._size = 1.0
+		n._rise = 0.0
+		n.scale = Vector3.ONE
+		n.visible = true
+		n.set_process(true)
 		n._follow = who
 		n._foe = foe
 		n._prefix = prefix
@@ -78,9 +98,8 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n._base = who.center()
 		n._lift = _free_lift(n._base + OFFSET)
 		n.position = n._base + OFFSET + Vector3(0, n._lift, 0)
-		Game.world.add_child(n)
+		n._key = key
 		_live[key] = n
-		n.tree_exiting.connect(func(): if _live.get(key) == n: _live.erase(key))
 	if crit:
 		n.modulate = Color(1, 0.8, 0.12)
 		n._size = maxf(n._size, 1.55)
@@ -105,7 +124,7 @@ static func _nearby(at: Vector3) -> DamageNumber:
 static func clear_all() -> void:
 	for o in _live.values():
 		if is_instance_valid(o):
-			o.queue_free()
+			(o as DamageNumber)._done()
 	_live.clear()
 
 
@@ -143,7 +162,7 @@ func _process(delta: float) -> void:
 	_shown += delta
 	var k := _age / LIFE
 	if k >= 1.0:
-		queue_free()
+		_done()
 		return
 	if is_instance_valid(_follow):
 		_base = _follow.center()
@@ -173,3 +192,26 @@ func _keep_below_hud() -> void:
 	var per := cam.unproject_position(global_position + Vector3(0, 0, 1)).y - y
 	if per > 1.0:
 		global_position.z += (band - y) / per
+
+
+## Freed with the world (or anything else): forget it.
+func _gone() -> void:
+	if _key != "" and _live.get(_key) == self:
+		_live.erase(_key)
+	_spare.erase(self)
+
+
+## Off the screen: waits hidden for the next hit (or is freed when enough are waiting).
+func _done() -> void:
+	if _live.get(_key) == self:
+		_live.erase(_key)
+	_key = ""
+	_follow = null
+	if not visible:
+		return
+	visible = false
+	set_process(false)
+	if _spare.size() < SPARE_CAP:
+		_spare.append(self)
+	else:
+		queue_free()

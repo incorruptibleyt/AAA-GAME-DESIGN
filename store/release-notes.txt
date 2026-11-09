@@ -1,7 +1,6 @@
-Version 125: screens that fit every phone
-- Heroes, Style, Feats, Mastery, Bone Road and Bone Drop screens stay clear of camera holes, notches and rounded corners.
-- The title screen keeps its logo and buttons clear of them too.
-- A bigger pause button, and taller buttons on several screens.
-- Bosses still hurt on touch during their Phase 2 roar.
+Version 126: smoother big fights
+- Shots, hit flashes and damage numbers are reused instead of made new, so crowded rooms stutter less on older phones.
+- Skeleton shots and big crowds of skeletons cost less to run.
+- Fewer picture checks on the Heroes screen after a run.
+- Menus stay clear of camera holes and rounded corners, and the pause button is bigger.
 - Endless floors past 10 no longer turn into a wall.
-- Fire Shots burn harder on deeper floors.
