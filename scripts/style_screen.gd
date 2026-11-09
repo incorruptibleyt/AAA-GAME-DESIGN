@@ -237,9 +237,22 @@ func _show_tab(slot: String, to_top := false) -> void:
 	for c in _grid.get_children():
 		_grid.remove_child(c)
 		c.queue_free()
-	# The Crypt King look first on every tab, then Classic and the Mastery looks.
+	# Version 121: the looks you own first (worn among them, so wearing one never moves the
+	# cards), then the Crypt King set, then Feat and Bone Drop looks to try on, then the
+	# Mastery looks still locked. Before, eight locked cards sat above an owned one.
 	var list := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool: return it.slot == slot)
-	list.sort_custom(func(x: Dictionary, y: Dictionary) -> bool: return x.get("pass", false) and not y.get("pass", false))
+	var order := {}
+	for i in list.size():
+		var it: Dictionary = list[i]
+		var rank := 3
+		if _got(it):
+			rank = 0
+		elif it.get("pass", false):
+			rank = 1
+		elif it.has("feat") or it.has("drop"):
+			rank = 2
+		order[it.key] = rank * 1000 + i
+	list.sort_custom(func(x: Dictionary, y: Dictionary) -> bool: return order[x.key] < order[y.key])
 	for it: Dictionary in list:
 		_grid.add_child(_card(it))
 	_scroll.scroll_vertical = 0 if to_top else keep
@@ -273,7 +286,7 @@ func _card(it: Dictionary) -> Button:
 		bg = Color(0.24, 0.16, 0.04, 0.98)   # the Crypt King looks: gold cards, always bright
 		edge = Hud.GOLD if worn or trying else Color(1.0, 0.8, 0.35, 0.8)
 	var b := Hud.button("", 16, bg, edge)
-	b.custom_minimum_size = Vector2(0, 132)
+	b.custom_minimum_size = Vector2(0, 146)   # room for three tag lines at the bigger size (version 121)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(3 if worn or trying else 2)
 	var v := VBoxContainer.new()
@@ -296,16 +309,16 @@ func _card(it: Dictionary) -> Button:
 	v.add_child(name_l)
 	if it.get("only", false):
 		# A Master aura: only this hero has it.
-		v.add_child(Hud.label("%s ONLY" % str(_base.title).to_upper(), 12, Color(_base.ring).lightened(0.3) if got else DIM))
+		v.add_child(Hud.label("%s ONLY" % str(_base.title).to_upper(), 14, Color(_base.ring).lightened(0.3) if got else DIM))
 	if paid:
-		v.add_child(Hud.label("CRYPT PASS", 12, Hud.GOLD))
+		v.add_child(Hud.label("CRYPT PASS", 14, Hud.GOLD))
 	var special: bool = it.has("feat") or it.has("drop")
 	if it.has("feat"):
-		v.add_child(Hud.label("FEAT", 12, Color(0.5, 0.95, 1.0)))
+		v.add_child(Hud.label("FEAT", 14, Color(0.5, 0.95, 1.0)))
 	elif it.has("drop"):
-		v.add_child(Hud.label("BONE DROP", 12, Drops.TIERS[int(it.drop)].color.lightened(0.2)))
+		v.add_child(Hud.label("BONE DROP", 14, Drops.TIERS[int(it.drop)].color.lightened(0.2)))
 	var state := "WEARING" if worn else ("TAP TO WEAR" if got else ("TAP TO TRY ON" if paid or special else "LEVEL %d" % it.level))
-	v.add_child(Hud.label(state, 13, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else (Color(1.0, 0.8, 0.5) if paid else DIM))))
+	v.add_child(Hud.label(state, 15, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else (Color(1.0, 0.8, 0.5) if paid else DIM))))
 	# The finger can drag the list from on top of a card (PASS lets the list see the drag),
 	# and a card the list was dragged on isn't worn when the finger lifts.
 	b.mouse_filter = Control.MOUSE_FILTER_PASS

@@ -53,7 +53,7 @@ func _think(hero: Hero, delta: float) -> void:
 		_brain()
 	if not _enraged and health < max_health * 0.5:
 		_enraged = true
-		phase_two(Color(0.4, 0.9, 1.0))
+		phase_two(Color(0.4, 0.9, 1.0), "blink", "Blink Volley")
 	_float_t += delta
 	visual.position.y = 0.35 + sin(_float_t * 2.0) * 0.15
 	var to := hero.global_position - global_position
@@ -72,6 +72,9 @@ func _alive() -> bool:
 func _brain() -> void:
 	await _wait(1.2)
 	while _alive():
+		await roar_done()
+		if not _alive():
+			break
 		var moves := ["spiral", "teleport", "volleys", "raise"]
 		if _enraged:
 			moves.append("blink")   # phase 2's own move

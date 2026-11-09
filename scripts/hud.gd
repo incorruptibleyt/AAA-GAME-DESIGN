@@ -142,6 +142,11 @@ var _beat_phase := 0.0
 var _hint: Label
 var _end_tap: Label
 var _boss_name: Label
+var _boss_flash: ColorRect
+var _phase_box: Control
+var _phase_title: Label
+var _phase_sub: Label
+var _phase_tw: Tween
 var _cards_age := 0.0
 var _fade: ColorRect
 var _coin_label: Label
@@ -335,6 +340,7 @@ func _ready() -> void:
 	_build_reports_ask()
 	_build_pass()
 	_build_boss_card()
+	_build_phase_banner()
 	_flash = ColorRect.new()
 	_flash.color = Color(1, 1, 1, 0)
 	_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -839,6 +845,24 @@ func _build_hud() -> void:
 	bar_holder.offset_top = -26
 	_boss_box.add_child(bar_holder)
 	_boss_fill = _bar(bar_holder, Color(0.75, 0.1, 0.12))
+	# Version 121: a notch at half health shows from the start where Phase 2 begins, and a
+	# white flash lights the bar when it does.
+	var notch := ColorRect.new()
+	notch.color = Color(1.0, 0.92, 0.75, 0.9)
+	notch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	notch.anchor_left = 0.5
+	notch.anchor_right = 0.5
+	notch.anchor_bottom = 1.0
+	notch.offset_left = -2
+	notch.offset_right = 2
+	notch.offset_top = 1
+	notch.offset_bottom = -1
+	bar_holder.add_child(notch)
+	_boss_flash = ColorRect.new()
+	_boss_flash.color = Color(1, 1, 1, 0)
+	_boss_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(_boss_flash)
+	bar_holder.add_child(_boss_flash)
 	_boss_box.visible = false
 
 	# Bone Chain: a spine of six vertebrae across the top, the multiplier under it, and
@@ -948,6 +972,71 @@ func _build_boss_card() -> void:
 	_boss_card_sub.offset_top = 200
 	_boss_card_sub.offset_bottom = 240
 	_boss_card.add_child(_boss_card_sub)
+
+
+## Version 121: Phase 2 gets its own banner across the screen, on a dark plate so it reads
+## over bullet rings and the lava floor (it used to share the small callout with the tutorial).
+func _build_phase_banner() -> void:
+	_phase_box = Control.new()
+	_phase_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_phase_box.set_anchors_preset(Control.PRESET_CENTER)
+	_phase_box.offset_left = -340
+	_phase_box.offset_right = 340
+	_phase_box.offset_top = -330
+	_phase_box.offset_bottom = -190
+	_phase_box.pivot_offset = Vector2(340, 70)
+	_phase_box.visible = false
+	add_child(_phase_box)
+	var plate := Panel.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0, 0, 0, 0.7)
+	sb.set_corner_radius_all(18)
+	sb.border_width_top = 4
+	sb.border_width_bottom = 4
+	sb.border_color = Color(1.0, 0.3, 0.2)
+	plate.add_theme_stylebox_override("panel", sb)
+	full(plate)
+	_phase_box.add_child(plate)
+	_phase_title = label("PHASE 2", 64, Color.WHITE)
+	chunky(_phase_title.label_settings)
+	_phase_title.label_settings.outline_size = 12
+	_phase_title.label_settings.outline_color = Color(0.55, 0.05, 0.05)
+	_phase_title.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_phase_title.offset_top = 6
+	_phase_title.offset_bottom = 92
+	_phase_box.add_child(_phase_title)
+	_phase_sub = label("", 24, Color(1.0, 0.85, 0.6))
+	chunky(_phase_sub.label_settings)
+	_phase_sub.label_settings.outline_size = 6
+	_phase_sub.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_phase_sub.offset_top = -48
+	_phase_sub.offset_bottom = -10
+	_phase_box.add_child(_phase_sub)
+
+
+## The boss reached half health: the banner pops in (scale 1.6 to 1.0), holds, and fades;
+## the boss bar flashes white and the boss's name turns red for the rest of the fight.
+## `move` names the new attack that comes next.
+func phase_banner(move: String, col := Color(1.0, 0.3, 0.2)) -> void:
+	_callout_time = 0.0
+	_callout.modulate.a = 0.0
+	_phase_sub.text = ("NEW ATTACK: " + move.to_upper()) if move != "" else ""
+	(_phase_box.get_child(0).get_theme_stylebox("panel") as StyleBoxFlat).border_color = col
+	_phase_title.label_settings.outline_color = col.darkened(0.55)
+	_phase_box.visible = true
+	_phase_box.modulate.a = 1.0
+	_phase_box.scale = Vector2(1.6, 1.6)
+	if _phase_tw:
+		_phase_tw.kill()
+	_phase_tw = create_tween()
+	_phase_tw.tween_property(_phase_box, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_phase_tw.tween_interval(1.4)
+	_phase_tw.tween_property(_phase_box, "modulate:a", 0.0, 0.3)
+	_phase_tw.tween_callback(func(): _phase_box.visible = false)
+	_boss_flash.color.a = 0.85
+	create_tween().tween_property(_boss_flash, "color:a", 0.0, 0.25)
+	_boss_name.label_settings.font_color = Color(1.0, 0.35, 0.3)
 
 
 ## A soft dark vignette round the screen edges, under everything else on the HUD (it
@@ -2498,10 +2587,12 @@ func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
 
 func set_boss_name(n: String) -> void:
 	_boss_name.text = n
+	_boss_name.label_settings.font_color = Color(1, 0.8, 0.6)
 
 
 func hide_boss() -> void:
 	_boss_box.visible = false
+	_phase_box.visible = false
 
 
 ## "Wave 2 / 3" under the room name; hidden in one-wave rooms.
@@ -2807,6 +2898,9 @@ var _title_rewards_row: Control
 var _rw_road: RoadScreen.Bar
 var _rw_drops: Button
 var _rw_feats: Button
+var _rw_drops_sub: Label
+var _rw_feats_sub: Label
+var _rw_road_sub: Label
 
 
 func _build_rewards() -> void:
@@ -2826,19 +2920,21 @@ func _build_rewards() -> void:
 	_rw_road = RoadScreen.Bar.new()
 	_rw_road.custom_minimum_size = Vector2(420, 70)
 	_rw_road.pressed.connect(func(): road_pressed.emit())
-	col.add_child(_centered(_rw_road))
+	# Version 121: every row says where it stands in a line under it ("2 waiting",
+	# "140/180 bones", "6/20 done"), and all rows share one size.
+	col.add_child(_reward_row(_rw_road, null))
+	_rw_road_sub = col.get_child(col.get_child_count() - 1).get_child(1)
 	_rw_drops = button("BONE DROPS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	_rw_drops.custom_minimum_size = Vector2(420, 78)
 	_rw_drops.pressed.connect(func(): drops_pressed.emit())
-	col.add_child(_centered(_rw_drops))
+	col.add_child(_reward_row(_rw_drops, null))
+	_rw_drops_sub = col.get_child(col.get_child_count() - 1).get_child(1)
 	_rw_feats = button("FEATS", 24, Color(0.05, 0.16, 0.2, 0.97), Color(0.5, 0.95, 1.0))
-	_rw_feats.custom_minimum_size = Vector2(420, 78)
 	_rw_feats.pressed.connect(func(): feats_pressed.emit())
-	col.add_child(_centered(_rw_feats))
-	var rec := button("RECORDS", 22)
-	rec.custom_minimum_size = Vector2(420, 70)
+	col.add_child(_reward_row(_rw_feats, null))
+	_rw_feats_sub = col.get_child(col.get_child_count() - 1).get_child(1)
+	var rec := button("RECORDS", 24)
 	rec.pressed.connect(func(): records_pressed.emit())
-	col.add_child(_centered(rec))
+	col.add_child(_reward_row(rec, "Best runs, bosses beaten and totals"))
 	# The same blue BACK as the Feats, Mastery and Armory screens (version 119: it was grey).
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 16)
@@ -2849,6 +2945,20 @@ func _build_rewards() -> void:
 	close.pressed.connect(func(): show_rewards(false))
 	col.add_child(_centered(close))
 	_rewards_box.visible = false
+
+
+## One REWARDS row: the 420 x 78 button and a small status line under it.
+func _reward_row(b: Control, sub: Variant) -> Control:
+	b.custom_minimum_size = Vector2(420, 78)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	v.add_child(b)
+	var l := label(str(sub) if sub != null else "", 17, Color(0.78, 0.75, 0.84))
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(l)
+	return v
 
 
 func show_rewards(v: bool) -> void:
@@ -2873,6 +2983,16 @@ func refresh_rewards() -> void:
 	_rw_drops.disabled = n <= 0
 	var fnew := bool(cfg.get_value(Feats.SECTION, "new", false))
 	_rw_feats.text = "FEATS  %d/%d%s" % [Feats.count(cfg), Feats.LIST.size(), "  NEW!" if fnew else ""]
+	var ready := BoneRoad.ready_count(cfg)
+	if ready > 0:
+		_rw_road_sub.text = "%d reward%s ready to claim" % [ready, "" if ready == 1 else "s"]
+	elif ni < BoneRoad.STEPS.size():
+		_rw_road_sub.text = "%d / %d bones to the next reward" % [BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at)]
+	else:
+		_rw_road_sub.text = "Every reward claimed"
+	var pity := Drops.pity_text(cfg)
+	_rw_drops_sub.text = ("%d waiting" % n if n > 0 else "None waiting: win runs to earn more") + ("  ·  " + pity if pity != "" and n > 0 else "")
+	_rw_feats_sub.text = "%d of %d done  ·  each one wins a look" % [Feats.count(cfg), Feats.LIST.size()]
 	var badge := ""
 	if BoneRoad.ready_count(cfg) > 0:
 		badge = "CLAIM"
@@ -3341,6 +3461,10 @@ func _next_toast() -> void:
 		_toast_busy = false
 		return
 	_toast_busy = true
+	# Version 121: in a fight the toast waits for the room to be cleared (the Feat is only
+	# saved then anyway), so it never covers the boss or the hero mid-dodge.
+	while Game.state == Game.State.PLAYING and Game.alive_enemies > 0:
+		await get_tree().create_timer(0.3, false).timeout
 	var item: Array = _toast_queue.pop_front()
 	_show_toast(str(item[0]), str(item[1]))
 	Sfx.play("victory", 0.6, 1.2)
@@ -3382,19 +3506,22 @@ func _show_toast(feat_name: String, look: String) -> void:
 	_toast.custom_minimum_size.x = minf(400.0, vw - 32.0)
 	_toast.size = Vector2.ZERO
 	_toast.reset_size()
-	# Below the logo on the title and below the chain meter in a fight (version 119; it was at 150 px).
-	_toast.position = Vector2((vw - _toast.size.x) * 0.5, get_viewport().get_visible_rect().size.y * 0.3)
+	# Version 121: it slides down from the top edge to just under the corner buttons (title)
+	# or the room name and boss bar (a run), never over the hero's face.
+	var top := float(_safe.get_theme_constant("margin_top")) if _safe else 0.0
+	var y := top + (96.0 if Game.state == Game.State.TITLE else 150.0)
+	_toast.position = Vector2((vw - _toast.size.x) * 0.5, -_toast.size.y - 8.0)
 	_toast.pivot_offset = _toast.size * 0.5
 	_toast.visible = true
 	_toast.modulate.a = 0.0
-	_toast.scale = Vector2(0.6, 0.6)
+	_toast.scale = Vector2.ONE
 	if _toast_tween:
 		_toast_tween.kill()
 	_toast_tween = create_tween().set_ignore_time_scale(true)
 	_toast_tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 	_toast_tween.tween_property(_toast, "modulate:a", 1.0, 0.15)
-	_toast_tween.parallel().tween_property(_toast, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	_toast_tween.tween_interval(3.2 if _toast_queue.is_empty() else 1.2)
+	_toast_tween.parallel().tween_property(_toast, "position:y", y, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_toast_tween.tween_interval(2.4 if _toast_queue.is_empty() else 1.2)
 	_toast_tween.tween_property(_toast, "modulate:a", 0.0, 0.3)
 	_toast_tween.tween_callback(func():
 		_toast.visible = false

@@ -223,6 +223,7 @@ func _process(delta: float) -> void:
 		return
 	visual.position.y = 0.0
 	_slow_left -= delta
+	_roar_left -= delta
 
 	var hero := Game.hero
 	if Game.state != Game.State.PLAYING or hero == null or hero.dead:
@@ -263,16 +264,36 @@ func next_move(moves: Array) -> String:
 	return _last_move
 
 
-## Half health: the boss's second phase begins. A big red call, a shockwave and a roar, so
-## the player knows a new attack is coming.
-func phase_two(col: Color) -> void:
-	_bag.clear()   # the new move joins at once
+## Half health: the boss's second phase begins. Version 121 makes it a moment: the boss
+## stops and roars for a second under a big PHASE 2 banner, glows in its colour for the rest
+## of the fight, and its new move (`move`, called `move_name` on the banner) comes next.
+var _roar_left := 0.0
+
+
+func phase_two(col: Color, move := "", move_name := "") -> void:
+	_bag.clear()
+	if move != "":
+		_bag = [move]   # the new attack comes right after the roar
+	_roar_left = 1.0
+	_flinch_left = maxf(_flinch_left, 1.0)   # stands still while it roars
 	Sfx.play("roar")
 	Game.shake(0.5)
 	Game.hit_stop(0.12)
 	Fx.magic(center(), col, 40)
 	Fx.shockwave(global_position, col, 3.5)
-	Game.hud.callout("PHASE 2!", Color(1.0, 0.4, 0.3))
+	if visual:
+		visual.enrage(col)
+		var s0 := visual.scale
+		var tw := visual.create_tween()
+		tw.tween_property(visual, "scale", s0 * 1.15, 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(visual, "scale", s0, 0.35)
+	Game.hud.phase_banner(move_name, col)
+
+
+## A boss's brain waits here before choosing a move, so nothing new starts during the roar.
+func roar_done() -> void:
+	while is_instance_valid(self) and not dead and _roar_left > 0.0:
+		await get_tree().process_frame
 
 
 ## Watchdog: a skeleton that ends up past a wall or inside a pillar for over a second climbs

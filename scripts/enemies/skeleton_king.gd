@@ -42,7 +42,7 @@ func _think(hero: Hero, delta: float) -> void:
 	if not _enraged and health < max_health * 0.5:
 		_enraged = true
 		move_speed *= 1.35
-		phase_two(Color(1, 0.3, 0.2))
+		phase_two(Color(1, 0.3, 0.2), "rush", "Royal Rush")
 	if not _busy:
 		var to := hero.global_position - global_position
 		if to.length() > 2.5:
@@ -62,6 +62,9 @@ func _alive() -> bool:
 func _brain() -> void:
 	await _wait(1.2)
 	while _alive():
+		await roar_done()
+		if not _alive():
+			break
 		_busy = true
 		var moves := ["ring", "charge", "meteors", "summon"]
 		if _enraged:
@@ -94,13 +97,16 @@ func _bone_ring() -> void:
 
 
 ## Phase 2: three charges back to back, each aimed again, the last one ending in a ring.
+## In the tutorial (version 121) it is two slower charges and no ring, so a new player
+## sees the idea without being overwhelmed.
 func _royal_rush() -> void:
 	Sfx.play("roar", 0.7)
-	for i in 3:
+	var tutorial: bool = Game.first_run and Game.floor_num == 1
+	for i in (2 if tutorial else 3):
 		if not _alive():
 			return
-		await _charge(0.55, 0.15)
-	if _alive():
+		await _charge(0.8 if tutorial else 0.55, 0.45 if tutorial else 0.15)
+	if _alive() and not tutorial:
 		await _bone_ring_once()
 
 

@@ -35,12 +35,19 @@ const SAVE_SECTION := "heroes"
 
 
 ## How a hero looks (CharacterVisual.build), in a run and on the Heroes screen.
-static func look(def: Dictionary) -> Dictionary:
+## `stage`: drawn big on a pedestal or a reveal. Only there do Feat, Bone Drop and Pass glows
+## shine at full strength; in a run (and on the title) they stay soft, so the hero's face and
+## facing still read (version 121: the strong rim turned the hero into a yellow ball in fights).
+static func look(def: Dictionary, stage := false) -> Dictionary:
 	var l := {"key": def.key, "height": 2.1, "body": def.body, "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0),
 		"hide": def.hide, "attack_anim": def.attack_anim, "rim": Color(def.ring, 0.9)}
 	if def.get("rim_strong", false):
-		l.rim = Color(def.ring.r * 1.6, def.ring.g * 1.6, def.ring.b * 1.6, 1.0)
-		l.rim_power = 1.4
+		if stage:
+			l.rim = Color(def.ring.r * 1.6, def.ring.g * 1.6, def.ring.b * 1.6, 1.0)
+			l.rim_power = 1.4
+		else:
+			l.rim = Color(def.ring, 0.4)
+			l.rim_power = 3.0
 	for extra in ["hood", "helmet", "hat", "horns", "style", "aura"]:
 		if def.has(extra):
 			l[extra] = def[extra]

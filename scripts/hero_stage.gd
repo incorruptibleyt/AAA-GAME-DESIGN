@@ -31,6 +31,7 @@ var _tries := 0
 var _redressed := false   # this opening: the hero was put on again
 var _rebuilt := false     # this opening: the stage was built again
 static var _session_tries := 0
+static var _drawn_ok := false   # a stage has once passed both looks this session
 ## Version 120: once a phone has drawn a stage with no see-through parts working, every
 ## stage after that draws on a solid backdrop instead (see _set_solid).
 static var solid := false
@@ -151,7 +152,7 @@ func show_hero(def: Dictionary, gold := false) -> void:
 	_visual.outline_me = true
 	_visual.aura_boost = 1.8   # the hero is drawn big here: a Master aura's line grows to match
 	_pivot.add_child(_visual)
-	_visual.build(Heroes.look(def))
+	_visual.build(Heroes.look(def, true))
 	if def.has("aura"):
 		_visual.add_child(Fx.motif(str(def.aura.get("motif", "wisps")), def.aura.get("spark", Color.WHITE)))   # a Master aura's trail of light
 		if def.aura.get("sigil", false):
@@ -189,7 +190,11 @@ func set_active(on: bool) -> void:
 	_active = on
 	if on:
 		texture = _vp.get_texture()
-		_check_drawn()
+		# Version 121: reading the picture back stalls the phone's graphics for a moment, so
+		# it is only checked until it has once come out right this session, after a death or
+		# a finished run (where the blank stage was seen), or while a repair is under way.
+		if not _drawn_ok or _tries > 0 or Game.state in [Game.State.DEAD, Game.State.VICTORY]:
+			_check_drawn()
 
 
 ## A phone showed an empty stage (no hero, or no hero and no pedestal) on the Heroes and
@@ -214,13 +219,16 @@ func _check_drawn() -> void:
 		if seen == "ok":
 			continue
 		if _tries >= 3 or _session_tries >= 12:
-			break
+			_checking = false
+			return   # out of repairs: keep checking on later openings
 		_tries += 1
 		_session_tries += 1
 		_checking = false
 		_repair(seen)
 		return
 	_checking = false
+	if _active and is_inside_tree():
+		_drawn_ok = true
 
 
 ## What the picture shows: "ok", "no hero" (pedestal only), "empty", or "clear" (colours

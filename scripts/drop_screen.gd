@@ -41,6 +41,7 @@ var _pity: Label
 var _odds_btn: Button
 var _odds: PanelContainer
 var _odds_text: Label
+var _odds_grid: GridContainer
 var _odds_dim: ColorRect   # darkens the chest and its text behind the odds (version 119)
 
 
@@ -82,7 +83,7 @@ func _init() -> void:
 	_rarity = Hud.label("", 34, Color.WHITE)
 	col.add_child(_rarity)
 	_prize = Hud.label("", 28, Hud.GOLD)
-	_prize.custom_minimum_size = Vector2(0, 110)
+	_prize.custom_minimum_size = Vector2(0, 70)   # was 110: the rarity and prize read as one
 	col.add_child(_prize)
 	_action = Hud.button("TAP TO OPEN", 30, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
 	_action.custom_minimum_size = Vector2(340, 86)
@@ -130,10 +131,19 @@ func _init() -> void:
 	_odds.gui_input.connect(func(e: InputEvent):
 		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
 			_show_odds(false))
-	_odds_text = Hud.label("", 18, Color(0.9, 0.88, 0.95), HORIZONTAL_ALIGNMENT_LEFT)
+	_odds_text = Hud.label("", 16, Color(0.8, 0.78, 0.86), HORIZONTAL_ALIGNMENT_LEFT)
 	_odds_text.custom_minimum_size = Vector2(400, 0)
 	var odds_col := VBoxContainer.new()
 	odds_col.add_theme_constant_override("separation", 14)
+	var odds_head := Hud.label("WHAT'S INSIDE A BONE DROP", 22, Color(1, 0.85, 0.55))
+	odds_head.autowrap_mode = TextServer.AUTOWRAP_OFF   # a wrapping label with no width grows one letter per line
+	odds_col.add_child(odds_head)
+	# Version 121: the odds as a table, each kind in its own colour (it was a wall of text).
+	_odds_grid = GridContainer.new()
+	_odds_grid.columns = 4
+	_odds_grid.add_theme_constant_override("h_separation", 18)
+	_odds_grid.add_theme_constant_override("v_separation", 8)
+	odds_col.add_child(_odds_grid)
 	odds_col.add_child(_odds_text)
 	var close_b := Hud.button("CLOSE", 20)
 	close_b.custom_minimum_size = Vector2(160, 56)
@@ -221,11 +231,19 @@ func _next_feat() -> void:
 	_wear.disabled = false
 	_wear.text = "WEAR IT"
 	_action.text = "NEXT" if not _feat_queue.is_empty() else "DONE"
-	_later.visible = false
+	_show_later(false)
 	_odds_btn.visible = false
 	Sfx.play("victory", 0.8)
 	if Game.vibration:
 		Input.vibrate_handheld(60)
+
+
+## LATER fades out instead of leaving the layout (version 121: hiding it made the whole
+## column drop 30 px the moment you tapped open).
+func _show_later(on: bool) -> void:
+	_later.modulate.a = 1.0 if on else 0.0
+	_later.disabled = not on
+	_later.mouse_filter = Control.MOUSE_FILTER_STOP if on else Control.MOUSE_FILTER_IGNORE
 
 
 func _show_look(on: bool) -> void:
@@ -242,6 +260,7 @@ func _ready_next() -> void:
 	_odds_btn.visible = true
 	_head.label_settings.font_color = Color(1, 0.85, 0.55)
 	_chest.reset()
+	_chest.check()
 	_step = Step.CLOSED
 	_t = 0.0
 	_result = {}
@@ -254,7 +273,7 @@ func _ready_next() -> void:
 	_prize.label_settings.font_color = Color(0.8, 0.78, 0.85)
 	_prize.label_settings.font_size = 22
 	_action.text = "TAP TO OPEN"
-	_later.visible = true
+	_show_later(true)
 	_update_pity()
 	_art.queue_redraw()
 
@@ -263,12 +282,40 @@ func _show_odds(on: bool) -> void:
 	_odds.visible = on
 	_odds_dim.visible = on
 	if on:
-		_odds_text.text = Drops.odds_text(Game._load_save())
+		var cfg := Game._load_save()
+		_odds_text.text = Drops.odds_notes(cfg)
+		for c in _odds_grid.get_children():
+			_odds_grid.remove_child(c)
+			c.queue_free()
+		for h in ["KIND", "CHANCE", "COINS", "NEW LOOK"]:
+			_odds_grid.add_child(Hud.label(h, 14, Color(0.6, 0.56, 0.68), HORIZONTAL_ALIGNMENT_LEFT if h == "KIND" else HORIZONTAL_ALIGNMENT_RIGHT))
+		for r: Dictionary in Drops.odds_rows(cfg):
+			var col: Color = r.color
+			var name_l := Hud.label(str(r.name), 19, col, HORIZONTAL_ALIGNMENT_LEFT)
+			name_l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			_odds_grid.add_child(name_l)
+			_odds_grid.add_child(Hud.label("%d%%" % int(r.chance), 19, Color(0.92, 0.9, 0.96), HORIZONTAL_ALIGNMENT_RIGHT))
+			_odds_grid.add_child(Hud.label(str(r.coins), 19, Hud.GOLD, HORIZONTAL_ALIGNMENT_RIGHT))
+			_odds_grid.add_child(Hud.label("%d%%" % int(r.look) if int(r.look) >= 0 else "-", 19, col.lightened(0.2) if int(r.look) >= 0 else Color(0.45, 0.42, 0.5), HORIZONTAL_ALIGNMENT_RIGHT))
+		for c: Label in _odds_grid.get_children():
+			c.autowrap_mode = TextServer.AUTOWRAP_OFF   # one line each, so the columns line up
 		var vw := get_viewport_rect().size.x
 		_odds_text.custom_minimum_size.x = minf(440.0, vw - 76.0)
 		_odds.reset_size()
 		_odds.position = (get_viewport_rect().size - _odds.size) * 0.5
+		_place_odds.call_deferred()
 	Sfx.play("click")
+
+
+## The table's labels only know their size once laid out: size and centre the panel again
+## a frame later, or it keeps the tall size it had while they were still wrapping.
+func _place_odds() -> void:
+	await get_tree().process_frame
+	if not _odds.visible:
+		return
+	_odds.size = Vector2.ZERO
+	_odds.reset_size()
+	_odds.position = (get_viewport_rect().size - _odds.size) * 0.5
 
 
 func _update_pity() -> void:
@@ -289,8 +336,9 @@ func _tap() -> void:
 			_left -= 1
 			_step = Step.OPENING
 			_t = 0.0
-			_later.visible = false
-			_action.text = "..."
+			_show_later(false)
+			_action.text = "OPENING"
+			_action.modulate = Color(0.65, 0.65, 0.7)
 			_prize.text = ""
 			Sfx.play("click")
 		Step.OPENING:
@@ -339,6 +387,7 @@ func _process(delta: float) -> void:
 
 func _finish() -> void:
 	_step = Step.OPEN
+	_action.modulate = Color.WHITE
 	_t = 0.0
 	_shown_tier = _result.get("tier", 0)
 	_flash = 1.0
@@ -360,7 +409,7 @@ func _finish() -> void:
 	_count.text = "%d more waiting" % _left if _left > 0 else "All opened!"
 	_update_pity()
 	_action.text = "OPEN NEXT" if _left > 0 else "DONE"
-	_later.visible = _left > 0
+	_show_later(_left > 0)
 	Sfx.play("victory" if _shown_tier >= 3 else ("upgrade" if _shown_tier >= 1 else "coin"), 0.8)
 	if _result.get("kind", "") == "coins":
 		Sfx.play("coin", 0.6, 1.2)
@@ -496,7 +545,7 @@ class Chest extends SubViewportContainer:
 		cam.position = Vector3(0, 1.55, 2.7)
 		cam.fov = 40.0
 		_vp.add_child(cam)
-		cam.look_at_from_position(cam.position, Vector3(0, 0.45, 0))
+		cam.look_at_from_position(cam.position, Vector3(0, 0.6, 0))   # the chest a little lower, room for the lid
 		var sun := DirectionalLight3D.new()
 		sun.rotation = Vector3(-0.9, 0.5, 0)
 		sun.light_energy = 0.9
@@ -688,7 +737,53 @@ class Chest extends SubViewportContainer:
 		parent.add_child(mi)
 		return mi
 
+	## Like the hero preview (version 121): a moment after it first shows, look at the
+	## picture. If nothing in it is solid (this phone draws see-through pictures wrong), draw
+	## the chest on the screen's own dark colour from then on, and say so in the reports.
+	static var _seen_ok := false
+	static var _solid := false
+	var _checking := false
+
+	func check() -> void:
+		if _seen_ok or _checking or DisplayServer.get_name() == "headless":
+			return
+		_checking = true
+		for i in 20:
+			await RenderingServer.frame_post_draw
+		_checking = false
+		if not is_inside_tree() or not is_visible_in_tree():
+			return
+		var img := _vp.get_texture().get_image()
+		var solid_px := 0
+		var lit_px := 0
+		if img and not img.is_empty():
+			var w := img.get_width()
+			var h := img.get_height()
+			for y in range(h / 4, h, 8):
+				for x in range(w / 4, w * 3 / 4, 8):
+					var c := img.get_pixel(x, y)
+					if c.a > 0.3:
+						solid_px += 1
+					elif c.r + c.g + c.b > 0.12:
+						lit_px += 1
+		if solid_px > 6:
+			_seen_ok = true
+			return
+		if not _solid:
+			_solid = true
+			_use_solid()
+		push_error("Bone Drop chest showed %s (%s); switched to a solid backdrop" % ["clear" if lit_px > 6 else "empty", _vp.size])
+
+	func _use_solid() -> void:
+		_vp.transparent_bg = false
+		for n in _vp.get_children():
+			if n is WorldEnvironment:
+				n.environment.background_mode = Environment.BG_COLOR
+				n.environment.background_color = Color(0.02, 0.01, 0.04)
+
 	func reset() -> void:
+		if _solid and _vp.transparent_bg:
+			_use_solid()
 		_opened = false
 		_open = 0.0
 		_lid.rotation = Vector3.ZERO
@@ -740,8 +835,9 @@ class Chest extends SubViewportContainer:
 		elif _opened:
 			_open = minf(1.0, _open + delta * 3.0)
 			var e := ease(_open, 0.4)
-			_lid.rotation.x = -1.9 * e
-			_lid.position = Vector3(0, 0.68 + 0.25 * e, -0.4 - 0.2 * e)
+			# Version 121: a smaller swing and rise, so the open lid stays inside the picture.
+			_lid.rotation.x = -1.35 * e
+			_lid.position = Vector3(0, 0.68 + 0.12 * e, -0.4 - 0.15 * e)
 			_beam.scale = Vector3(1, 0.2 + 0.8 * e, 1)
 			_beam_mat.albedo_color = Color(col, 0.22 + 0.1 * sin(t * 4.0))
 			if _ring.visible:

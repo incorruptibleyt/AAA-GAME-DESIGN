@@ -97,7 +97,7 @@ func _think(hero: Hero, delta: float) -> void:
 		_enraged = true
 		move_speed *= 1.3
 		Sfx.play("splash", 1.0, 0.8)
-		phase_two(WATER)
+		phase_two(WATER, "riptide", "Riptide")
 		if _staff_glow:
 			_staff_glow.create_tween().tween_property(_staff_glow, "scale", Vector3.ONE * 1.6, 0.4)
 	visual.position.y = -DEPTH * _depth
@@ -128,6 +128,9 @@ func _brain() -> void:
 	await _wait(1.2)
 	var bags := 0
 	while _alive():
+		await roar_done()
+		if not _alive():
+			break
 		_busy = true
 		var moves := ["spray", "wave", "dive", "spray"]
 		if bags % 2 == 0:   # every other round of moves, about as often as before

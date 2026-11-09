@@ -75,7 +75,7 @@ func _think(hero: Hero, delta: float) -> void:
 		_enraged = true
 		move_speed *= 1.35
 		Sfx.play("ignite", 0.9)
-		phase_two(FIRE)
+		phase_two(FIRE, "firestorm", "Firestorm")
 		if _flame:
 			_flame.create_tween().tween_property(_flame, "scale", Vector3.ONE * 1.4, 0.4)
 	if randf() < delta * 3.0:
@@ -107,6 +107,9 @@ func _brain() -> void:
 	await _wait(1.2)
 	var bags := 0
 	while _alive():
+		await roar_done()
+		if not _alive():
+			break
 		_busy = true
 		# Kindle (calling Cinder Skeletons) at most every other bag, as before (every 8th move).
 		var moves := ["eruption", "rush", "nova", "rush"]

@@ -58,6 +58,28 @@ static func pity_text(cfg: ConfigFile) -> String:
 	return "New look guaranteed in the next drop!" if n == 1 else "New look guaranteed within %d drops" % n
 
 
+## The odds table's rows (version 121, a coloured table on the "?" panel): name, colour,
+## chance in %, coins, and the chance of a drop-only look in % (-1: none left or none).
+static func odds_rows(cfg: ConfigFile) -> Array:
+	var rows := []
+	for i in TIERS.size():
+		var t: Dictionary = TIERS[i]
+		var look := -1
+		if not missing_looks(cfg, i).is_empty() and int(LOOK_CHANCE[i]) > 0:
+			look = roundi(LOOK_CHANCE[i] * 100.0 / 12.0)
+		rows.append({"name": str(t.name).capitalize(), "color": t.color, "chance": int(t.weight), "coins": int(t.coins), "look": look})
+	return rows
+
+
+## The lines under the odds table.
+static func odds_notes(cfg: ConfigFile) -> String:
+	var lines := ["Epic: a Lucky Start 1 in 3. Legendary: a free Armory level while any are left."]
+	if found_looks(cfg) < all_looks():
+		lines.append("A new look is certain after %d drops in a row without one." % PITY)
+	lines.append("Looks found: %d of %d. Drops are never sold for money." % [found_looks(cfg), all_looks()])
+	return "\n".join(lines)
+
+
 ## The odds, for the "?" on the drop screen.
 static func odds_text(cfg: ConfigFile) -> String:
 	var lines := ["WHAT'S INSIDE A BONE DROP"]

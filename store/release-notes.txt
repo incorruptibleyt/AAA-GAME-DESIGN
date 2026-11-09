@@ -1,7 +1,7 @@
-Version 120: bosses fight back
-- Every boss now changes at half health with a new attack: Royal Rush, Blink Volley, Firestorm and Riptide.
-- Boss attacks come in a new order every fight.
-- A new Bone Drop reliquary that bursts open in its rarity colour.
-- WEAR IT is the big button on every new look. Brighter Feat and drop glows.
-- Fixed: your hero sometimes vanishing on the Heroes and Style screens.
-- Fairer PERFECT dodges, and lots of small fixes.
+Version 121: polish
+- Phase 2 is a real moment: the boss roars, a big banner names its new attack, and it glows in its colour for the rest of the fight. The boss bar marks the halfway point.
+- Your hero stays easy to see in fights: bright glows now shine on the pedestal only.
+- A steadier Bone Drop screen, and the odds as a coloured table.
+- Owned looks come first on the Style screen.
+- Feat cards wait until the room is clear.
+- A gentler first King for new players.

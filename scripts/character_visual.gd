@@ -278,6 +278,19 @@ func set_tint(col: Color) -> void:
 	_set_flash(false)
 
 
+## A boss's second phase (version 121): a lasting glow in `col` round its edges, on top of
+## whatever tint or overlay it already wears.
+func enrage(col: Color) -> void:
+	var rim := rim_material(Color(col, 0.75), 1.6)
+	if _tint_mat == null:
+		_tint_mat = rim
+	else:
+		var m: Material = _tint_mat.duplicate()
+		m.next_pass = rim
+		_tint_mat = m
+	_set_flash(false)
+
+
 func _set_flash(on: bool) -> void:
 	if _flash_mat == null:
 		_flash_mat = U.unlit(Color.WHITE)
