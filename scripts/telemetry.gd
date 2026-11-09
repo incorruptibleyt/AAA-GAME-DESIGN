@@ -168,6 +168,10 @@ func _check_last_session() -> void:
 
 ## The end of the previous session's log file, if Godot kept one.
 func _last_log() -> String:
+	# Version 127 (audit #14): release builds keep no log file, and one left by an older
+	# version would be about a different session.
+	if not bool(ProjectSettings.get_setting("debug/file_logging/enable_file_logging", false)):
+		return ""
 	var dir := DirAccess.open("user://logs")
 	if dir == null:
 		return ""

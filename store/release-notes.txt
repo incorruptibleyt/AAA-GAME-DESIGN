@@ -1,6 +1,6 @@
-Version 126: smoother big fights
-- Shots, hit flashes and damage numbers are reused instead of made new, so crowded rooms stutter less on older phones.
-- Skeleton shots and big crowds of skeletons cost less to run.
-- Fewer picture checks on the Heroes screen after a run.
+Version 127: lighter and steadier
+- The game no longer writes a debug log to your phone and runs a little lighter.
+- Shots, hit flashes and damage numbers are reused, so crowded rooms stutter less on older phones.
 - Menus stay clear of camera holes and rounded corners, and the pause button is bigger.
 - Endless floors past 10 no longer turn into a wall.
+- Bug fixes.
