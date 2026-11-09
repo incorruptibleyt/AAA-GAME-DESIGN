@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-09c"
+const BUILD := "2026-11-09d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -757,10 +757,12 @@ const SHARE_FLOORS := 3
 ## Skeleton health grows 55% per floor (compounding), so it keeps pace with a hero whose
 ## blessings stack up. Floor 4 skeletons have about 3.7x their floor 1 health.
 ## Floor 5 adds 60%, because a hero that deep is very strong. The endless loops below it
-## add 45% a floor, and each Omen of Bones 25%.
+## add 45% a floor to floor 10, then 25% a floor, and each Omen of Bones 25%.
+## (Version 124, audit fix 1: the damage blessings stop at 10 picks each, so a hero's damage
+## stops growing around floor 13; at 45% a floor forever, floor 20 skeletons took 13 s each.)
 func health_scale() -> float:
 	return pow(1.55, mini(floor_num, 4) - 1) * pow(1.6, clampi(floor_num - 4, 0, 1)) \
-		* pow(1.45, maxi(floor_num - 5, 0)) * pow(1.25, _omen("bones"))
+		* pow(1.45, clampi(floor_num - 5, 0, 5)) * pow(1.25, maxi(floor_num - 10, 0)) * pow(1.25, _omen("bones"))
 
 
 ## Skeletons hit 35% harder per floor, and 50% per floor below floor 5 (the endless loops).

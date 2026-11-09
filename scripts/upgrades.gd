@@ -36,7 +36,7 @@ const LIST := [
 	{"id": "frost", "family": "frost", "rarity": "rare", "title": "Frost Shots", "text": "Hits slow enemies down", "max": 1},
 	{"id": "frostbite", "family": "frost", "rarity": "common", "title": "Frostbite", "text": "Chill lasts twice as long", "max": 1, "needs": "frost"},
 	{"id": "deepfreeze", "family": "frost", "rarity": "rare", "title": "Deep Freeze", "text": "Chilled skeletons take +30% damage", "max": 1, "needs": "frost"},
-	{"id": "vitality", "family": "bone", "rarity": "common", "title": "Vitality", "text": "+30 max health and heal 30 (more on deeper floors)", "max": 99},
+	{"id": "vitality", "family": "bone", "rarity": "common", "title": "Vitality", "text": "+30 max health and heal 30 (more on deeper floors)", "max": 20},
 	{"id": "boots", "family": "bone", "rarity": "common", "title": "Swift Boots", "text": "+12% move speed", "max": 3},
 	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Hearts heal 30% more, and fly to you from twice as far", "max": 1},
 	{"id": "greed", "family": "bone", "rarity": "common", "title": "Golden Touch", "text": "+30% coins from skeletons", "max": 2},

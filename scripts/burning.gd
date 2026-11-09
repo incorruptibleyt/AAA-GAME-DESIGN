@@ -29,7 +29,9 @@ func _process(delta: float) -> void:
 	if _tick <= 0.0:
 		_tick = 0.5
 		Fx.magic(a.center(), Color(1, 0.5, 0.1), 6)
-		a.take_damage(dps * 0.5, Vector3.ZERO, 0.0)
+		# Version 124 (audit fix 3): burn grows with skeleton health, so Fire Shots keep their
+		# worth deep down (a flat 8 a second was 0.7% of a floor 10 warrior's health).
+		a.take_damage(dps * 0.5 * (Game.health_scale() if a is Enemy else 1.0), Vector3.ZERO, 0.0)
 	_spread -= delta
 	if _spread <= 0.0 and a is Enemy and Game.hero and Game.hero.perks.has("wildfire"):
 		_spread = 1.0
