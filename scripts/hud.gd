@@ -2146,7 +2146,7 @@ func show_pass_card(v: bool, def := {}) -> void:
 	_pass_card_stage.set_active(_pass_card.visible)
 	if _pass_card.visible:
 		_pass_card_stage.show_hero(def)
-		_pass_card_line.text = "Your %s in the Crypt King set.\nEndless floors, every hero and more." % str(def.title)
+		_pass_card_line.text = "Your %s in the\nCrypt King set.\nEndless floors, every\nhero and more." % str(def.title)
 	_fit_end_soon()
 
 
@@ -2433,6 +2433,20 @@ func _apply_safe_area() -> void:
 	_safe.add_theme_constant_override("margin_right", maxi(0, int((win.x - safe.end.x) * sx)))
 	_safe.add_theme_constant_override("margin_bottom", maxi(0, int((win.y - safe.end.y) * sy)))
 	_place_title_buttons()
+	# Version 123: the framed menus (title at the top, BACK in the corner) keep clear of a
+	# camera hole or rounded corners too; they used to sit in the middle, away from the edges.
+	var top := float(_safe.get_theme_constant("margin_top"))
+	var bottom := float(_safe.get_theme_constant("margin_bottom"))
+	var left := float(_safe.get_theme_constant("margin_left"))
+	for f: Array in _framed:
+		var col: Control = f[0]
+		var back: Control = f[1]
+		col.offset_top = FRAME_TOP + top
+		col.offset_bottom = -FRAME_BOTTOM - bottom
+		back.offset_left = 24 + left
+		back.offset_right = 204 + left
+		back.offset_top = -96 - bottom
+		back.offset_bottom = -24 - bottom
 
 
 ## The title's SETTINGS and RECORDS sit in the top corner, so they move below a notch or
@@ -2658,6 +2672,14 @@ func set_boss_name(n: String) -> void:
 
 func hide_boss() -> void:
 	_boss_box.visible = false
+	_hide_phase()
+
+
+## Version 123: the Phase 2 banner is drawn above the pause menu and the end screen, so it
+## goes at once when either opens (it stayed up to 2 s over YOU DIED or PAUSED).
+func _hide_phase() -> void:
+	if _phase_tw:
+		_phase_tw.kill()
 	_phase_box.visible = false
 
 
@@ -3018,10 +3040,13 @@ func _build_rewards() -> void:
 const FRAME_TOP := 40.0
 const FRAME_BOTTOM := 112.0
 
+var _framed: Array = []   # [col, back] of each framed screen, moved clear of a notch
+
 func _frame(box: Control, col: VBoxContainer, back: Button) -> void:
 	col.alignment = BoxContainer.ALIGNMENT_BEGIN
 	col.offset_top = FRAME_TOP
 	col.offset_bottom = -FRAME_BOTTOM
+	_framed.append([col, back])
 	var title := col.get_child(0) as Label
 	if title:
 		title.text = title.text.to_upper()
@@ -3417,6 +3442,8 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	elif not v and _end_box.visible:
 		_safe.visible = _hud_before_end
 	_end_box.visible = v
+	if v:
+		_hide_phase()
 	_end_offer.visible = v and offer
 	_end_loop.visible = false
 	if not v:
@@ -3560,7 +3587,7 @@ func _next_toast() -> void:
 	_toast_busy = true
 	# Version 121: in a fight the toast waits for the room to be cleared (the Feat is only
 	# saved then anyway), so it never covers the boss or the hero mid-dodge.
-	while Game.state == Game.State.PLAYING and Game.alive_enemies > 0:
+	while Game.state in [Game.State.PLAYING, Game.State.PAUSED] and Game.alive_enemies > 0:
 		await get_tree().create_timer(0.3, false).timeout
 	var item: Array = _toast_queue.pop_front()
 	_show_toast(str(item[0]), str(item[1]))
@@ -3736,7 +3763,9 @@ func _start_tally(stats: String, after_score: bool) -> void:
 ## A line like "Coins this run  45" or "Bone Road  +12 bones" counts up; text lines (and
 ## times, like "1:23") just appear.
 static func _tally_number(line: String) -> RegExMatch:
-	var cut := line.rfind("  ")
+	# The first gap, not the last (version 123): "Coins kept  45  (+50 first run today)"
+	# counted the 50 and left the 45 still.
+	var cut := line.find("  ")
 	if cut < 0 or line.substr(cut).contains(":"):
 		return null
 	var re := RegEx.create_from_string("\\d[\\d,]*")
@@ -3772,6 +3801,7 @@ func _update_tally(delta: float) -> void:
 	if _tally_i >= _tally.size():
 		_end_stats.text = "\n".join(_tally)
 		_tally_i = -1
+		_fit_end.call_deferred()   # a long line that wraps once shown can make it taller
 		return
 	var counts := _tally_number(_tally[_tally_i]) != null
 	var dur := 0.5 if counts else 0.12
@@ -3859,6 +3889,8 @@ func end_offer_done(tap_text: String) -> void:
 
 
 func show_pause(v: bool, settings_only := false) -> void:
+	if v:
+		_hide_phase()
 	_settings_only = v and settings_only
 	_pause_title.text = "SETTINGS" if _settings_only else "PAUSED"
 	_resume_button.text = "BACK" if _settings_only else "RESUME"

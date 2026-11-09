@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-09b"
+const BUILD := "2026-11-09c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3660,6 +3660,8 @@ func _on_store_changed() -> void:
 		_show_curses()
 	if hud.daily_visible():
 		_show_daily()
+	if Store.owned() and hud.end_visible():
+		hud.show_pass_card(false)   # version 123: bought from the card, it no longer offers the Pass
 	if Store.owned() and _free_end and state == State.VICTORY:
 		_free_end = false
 		if Loops.loop_end(floor_num):
