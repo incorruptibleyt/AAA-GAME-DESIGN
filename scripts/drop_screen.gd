@@ -118,6 +118,11 @@ func _init() -> void:
 	_odds_btn.position = Vector2(-84, 24)
 	_odds_btn.pressed.connect(func(): _show_odds(not _odds.visible))
 	add_child(_odds_btn)
+	# Version 125 (audit #8): the column and the "?" keep clear of a notch or camera hole.
+	visibility_changed.connect(func():
+		if visible:
+			Hud.safe_pad(col)
+			Hud.safe_pad(_odds_btn))
 	_odds = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.06, 0.05, 0.09, 0.98)
@@ -146,7 +151,7 @@ func _init() -> void:
 	odds_col.add_child(_odds_grid)
 	odds_col.add_child(_odds_text)
 	var close_b := Hud.button("CLOSE", 20)
-	close_b.custom_minimum_size = Vector2(160, 56)
+	close_b.custom_minimum_size = Vector2(160, 60)
 	close_b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_b.pressed.connect(func(): _show_odds(false))
 	odds_col.add_child(close_b)

@@ -31,6 +31,8 @@ func _init() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 10)
 	add_child(col)
+	# Version 125 (audit #8): clear of a notch, camera hole or rounded corners.
+	visibility_changed.connect(func(): if visible: Hud.safe_pad(col))
 	col.add_child(Hud.label("BONE ROAD", 44, Color(1, 0.85, 0.55)))
 	_count = Hud.label("", 30, Hud.GOLD)
 	col.add_child(_count)
@@ -137,7 +139,7 @@ func _row(cfg: ConfigFile, i: int, b: int) -> Control:
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if reached and not got:
 		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-		c.custom_minimum_size = Vector2(118, 56)
+		c.custom_minimum_size = Vector2(118, 60)
 		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		c.pressed.connect(func(): claim.emit(i))
 		h.add_child(c)

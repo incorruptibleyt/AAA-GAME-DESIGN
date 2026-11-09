@@ -36,6 +36,8 @@ func _init() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 10)
 	add_child(col)
+	# Version 125 (audit #8): clear of a notch, camera hole or rounded corners.
+	visibility_changed.connect(func(): if visible: Hud.safe_pad(col))
 	_title = Hud.label("MASTERY", 38, Color(1, 0.85, 0.55))
 	col.add_child(_title)
 	_bar = MasteryBar.new()

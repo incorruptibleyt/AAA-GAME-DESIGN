@@ -359,7 +359,7 @@ func _separate() -> void:
 
 func _touch(hero: Hero, delta: float) -> void:
 	_contact_cooldown -= delta
-	if contact_damage <= 0.0 or _contact_cooldown > 0.0 or is_instance_valid(_swipe) or _flinch_left > 0.0:
+	if contact_damage <= 0.0 or _contact_cooldown > 0.0 or is_instance_valid(_swipe) or (_flinch_left > 0.0 and not is_boss):
 		return
 	var d := hero.global_position - global_position
 	d.y = 0.0

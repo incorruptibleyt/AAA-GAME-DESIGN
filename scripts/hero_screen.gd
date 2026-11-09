@@ -67,6 +67,8 @@ func _init() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 6)
 	add_child(col)
+	# Version 125 (audit #8): clear of a notch, camera hole or rounded corners.
+	visibility_changed.connect(func(): if visible: Hud.safe_pad(col))
 	_col = col
 	resized.connect(_fit)
 	# HEROES, and your coins.

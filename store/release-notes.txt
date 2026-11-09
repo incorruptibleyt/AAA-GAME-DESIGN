@@ -1,8 +1,7 @@
-Version 124: big moments and fairer deep floors
-- Rewards count up one by one at the end of a run.
-- Epic and Legendary Bone Drops get a bigger reveal: a flash, extra bursts and their own sound.
-- Bosses flinch on big hits, and your hero cheers when you win.
-- Menus share one layout: titles at the top, BACK bottom-left.
-- A Crypt Pass card with your hero in the Crypt King set.
+Version 125: screens that fit every phone
+- Heroes, Style, Feats, Mastery, Bone Road and Bone Drop screens stay clear of camera holes, notches and rounded corners.
+- The title screen keeps its logo and buttons clear of them too.
+- A bigger pause button, and taller buttons on several screens.
+- Bosses still hurt on touch during their Phase 2 roar.
 - Endless floors past 10 no longer turn into a wall.
-- Fire Shots now burn harder on deeper floors.
+- Fire Shots burn harder on deeper floors.

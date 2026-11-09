@@ -752,8 +752,8 @@ func _build_hud() -> void:
 	chunky(_room_label.label_settings)
 	_room_label.label_settings.outline_size = 6
 	_room_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_room_label.offset_left = -276
-	_room_label.offset_right = -76
+	_room_label.offset_left = -284
+	_room_label.offset_right = -84
 	_room_label.offset_top = 12
 	_room_label.offset_bottom = 48
 	root.add_child(_room_label)
@@ -762,8 +762,8 @@ func _build_hud() -> void:
 	chunky(_wave_label.label_settings)
 	_wave_label.label_settings.outline_size = 5
 	_wave_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_wave_label.offset_left = -276
-	_wave_label.offset_right = -76
+	_wave_label.offset_left = -284
+	_wave_label.offset_right = -84
 	_wave_label.offset_top = 44
 	_wave_label.offset_bottom = 74
 	_wave_label.visible = false
@@ -772,8 +772,8 @@ func _build_hud() -> void:
 	# The Hourglass curse's countdown, under the wave counter.
 	_timer_label = label("", 20, Color(1, 0.75, 0.5), HORIZONTAL_ALIGNMENT_RIGHT)
 	_timer_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_timer_label.offset_left = -276
-	_timer_label.offset_right = -76
+	_timer_label.offset_left = -284
+	_timer_label.offset_right = -84
 	_timer_label.offset_top = 72
 	_timer_label.offset_bottom = 100
 	_timer_label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -812,10 +812,10 @@ func _build_hud() -> void:
 		_pause_button.add_theme_stylebox_override(st, pb)
 	squash(_pause_button)
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_pause_button.offset_left = -66
+	_pause_button.offset_left = -74   # 60 x 60 (version 125, audit #9): a thumb-sized target
 	_pause_button.offset_right = -14
 	_pause_button.offset_top = 6
-	_pause_button.offset_bottom = 58
+	_pause_button.offset_bottom = 66
 	_pause_button.pressed.connect(func(): pause_pressed.emit())
 	root.add_child(_pause_button)
 
@@ -1722,7 +1722,7 @@ func _build_end() -> void:
 	_end_mastery.visible = false
 	col.add_child(_centered(_end_mastery))
 	_end_looks = button("SEE 3 NEW LOOKS", 20, Color(0.22, 0.14, 0.3, 0.97), GOLD)
-	_end_looks.custom_minimum_size = Vector2(300, 56)
+	_end_looks.custom_minimum_size = Vector2(300, 60)
 	_end_looks.visible = false
 	_end_looks.pressed.connect(func():
 		if not _end_looks_for.is_empty():
@@ -1739,14 +1739,14 @@ func _build_end() -> void:
 	_share_card.visible = false
 	col.add_child(_share_card)
 	_share_button = button("SHARE RESULT", 20, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	_share_button.custom_minimum_size = Vector2(240, 56)
+	_share_button.custom_minimum_size = Vector2(240, 60)
 	_share_button.pressed.connect(func():
 		_share_button.disabled = true
 		share_pressed.emit())
 	# Copies a detailed report of the run (with the install number the privacy policy asks
 	# for), for players who send reports and want to share one.
 	_copy_button = button("COPY REPORT", 20, Color(0.1, 0.12, 0.18, 0.95), Color(0.5, 0.75, 1.0, 0.7))
-	_copy_button.custom_minimum_size = Vector2(240, 56)
+	_copy_button.custom_minimum_size = Vector2(240, 60)
 	_copy_button.pressed.connect(func():
 		_copy_button.text = "Copied!"
 		copy_report_pressed.emit())
@@ -2354,7 +2354,7 @@ func _build_reports_ask() -> void:
 	more.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.visible = false
 	var what := button("WHAT'S SENT?", 18, Color(0.08, 0.07, 0.1, 0.9), Color(0.5, 0.48, 0.5, 0.6))
-	what.custom_minimum_size = Vector2(240, 52)
+	what.custom_minimum_size = Vector2(240, 60)
 	what.pressed.connect(func():
 		more.visible = not more.visible
 		Sfx.play("click"))
@@ -2417,21 +2417,53 @@ func pass_visible() -> bool:
 	return _pass_box.visible
 
 
-func _apply_safe_area() -> void:
-	# Keep the HUD clear of notches and rounded corners (phones only).
-	if not OS.has_feature("mobile"):
-		return
+## Test hook: pretend the phone has these notch margins (left, top, right, bottom, UI units).
+static var fake_safe := Vector4.ZERO
+
+
+## The space a notch, camera hole or rounded corners take on each side, in UI units:
+## x = left, y = top, z = right, w = bottom. Zero off phones.
+static func safe_margins(vp: Viewport) -> Vector4:
+	if fake_safe != Vector4.ZERO:
+		return fake_safe
+	if not OS.has_feature("mobile") or vp == null:
+		return Vector4.ZERO
 	var safe := DisplayServer.get_display_safe_area()
 	var win := DisplayServer.window_get_size()
-	var vp := get_viewport().get_visible_rect().size
+	var size := vp.get_visible_rect().size
 	if win.x <= 0 or win.y <= 0 or safe.size.x <= 0:
+		return Vector4.ZERO
+	var sx := size.x / win.x
+	var sy := size.y / win.y
+	return Vector4(maxf(0.0, safe.position.x * sx), maxf(0.0, safe.position.y * sy),
+		maxf(0.0, (win.x - safe.end.x) * sx), maxf(0.0, (win.y - safe.end.y) * sy))
+
+
+## Version 125 (audit #8): moves a control's edges in by the safe margins. The first call
+## remembers the control's own offsets, so it can run every time a screen opens. An edge
+## anchored to the left or top moves right or down, one anchored right or bottom moves back.
+static func safe_pad(c: Control) -> void:
+	if c == null or not c.is_inside_tree():
 		return
-	var sx := vp.x / win.x
-	var sy := vp.y / win.y
-	_safe.add_theme_constant_override("margin_left", maxi(0, int(safe.position.x * sx)))
-	_safe.add_theme_constant_override("margin_top", maxi(0, int(safe.position.y * sy)))
-	_safe.add_theme_constant_override("margin_right", maxi(0, int((win.x - safe.end.x) * sx)))
-	_safe.add_theme_constant_override("margin_bottom", maxi(0, int((win.y - safe.end.y) * sy)))
+	if not c.has_meta("safe_base"):
+		c.set_meta("safe_base", Vector4(c.offset_left, c.offset_top, c.offset_right, c.offset_bottom))
+	var b: Vector4 = c.get_meta("safe_base")
+	var m := safe_margins(c.get_viewport())
+	c.offset_left = b.x + (m.x if c.anchor_left < 0.5 else -m.z)
+	c.offset_right = b.z + (m.x if c.anchor_right < 0.5 else -m.z)
+	c.offset_top = b.y + (m.y if c.anchor_top < 0.5 else -m.w)
+	c.offset_bottom = b.w + (m.y if c.anchor_bottom < 0.5 else -m.w)
+
+
+func _apply_safe_area() -> void:
+	# Keep the HUD clear of notches and rounded corners (phones only).
+	var m := safe_margins(get_viewport())
+	if m == Vector4.ZERO and not OS.has_feature("mobile"):
+		return
+	_safe.add_theme_constant_override("margin_left", int(m.x))
+	_safe.add_theme_constant_override("margin_top", int(m.y))
+	_safe.add_theme_constant_override("margin_right", int(m.z))
+	_safe.add_theme_constant_override("margin_bottom", int(m.w))
 	_place_title_buttons()
 	# Version 123: the framed menus (title at the top, BACK in the corner) keep clear of a
 	# camera hole or rounded corners too; they used to sit in the middle, away from the edges.
@@ -2459,6 +2491,12 @@ func _place_title_buttons() -> void:
 	_title_settings.position = Vector2(20 + left, 20 + top)
 	if is_instance_valid(_title_records):
 		_title_records.position = Vector2(184 + left, 20 + top)
+	# Version 125: the coins, logo and the button column keep clear of the notch and the
+	# gesture bar too (the corner buttons above already did).
+	if is_instance_valid(_title_top):
+		safe_pad(_title_top)
+	if is_instance_valid(_title_bottom):
+		safe_pad(_title_bottom)
 
 
 # ---------------------------------------------------------------- input
