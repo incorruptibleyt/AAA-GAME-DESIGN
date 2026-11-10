@@ -18,6 +18,11 @@ static var _baked := {}
 
 static func dress(room: Room, layout: Array) -> void:
 	var kind: String = Floors.current().get("props", "")
+	# The Blood Moon crypt (the event) is dressed like the Bone Crypt, with its own banners
+	# and a pool of blood light round each corner's candles.
+	var moon := kind == "moon"
+	if moon:
+		kind = "bone"
 	for c: Vector2i in CORNERS:
 		var row: String = layout[c.y] if c.y < layout.size() else ""
 		if c.x < row.length() and row[c.x] != ".":
@@ -44,6 +49,8 @@ static func dress(room: Room, layout: Array) -> void:
 			"fungus":
 				_mesh(n, _mushroom_clump())
 				_glow_pool(n, 2.6)
+		if moon:
+			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
 		# it always points into the room (centred on the prop, it could push a skeleton out
 		# through the walls, where nothing could reach it).
@@ -71,7 +78,7 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_mesh(n, _shelf_fungus())
-	_dress_kit(room, layout, kind)
+	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
 	for x in [-3.6, 3.6]:
@@ -104,6 +111,7 @@ const KIT := {
 	"ice": {"banner": "banner_patternB_white", "side": [["box_small", 0.6], ["rubble_half", 0.5], ["barrel_small", 0.8], ["sword_shield_broken", 0.6]]},
 	"ember": {"banner": "banner_patternC_red", "side": [["rubble_half", 0.55], ["barrel_small", 0.8], ["coin_stack_small", 0.35], ["box_small", 0.6]]},
 	"water": {"banner": "banner_patternA_blue", "side": [["rubble_half", 0.5], ["barrel_small", 0.8], ["box_small", 0.6], ["bottle_A_green", 0.4]]},
+	"moon": {"banner": "banner_patternC_red", "side": [["box_small_decorated", 0.62], ["rubble_half", 0.5], ["sword_shield_broken", 0.6], ["barrel_small", 0.8]]},
 	"fungus": {"banner": "banner_patternA_green", "side": [["rubble_half", 0.55], ["box_small", 0.6], ["barrel_small", 0.8], ["bottle_B_brown", 0.4]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
@@ -575,10 +583,11 @@ static func _shelf_fungus() -> ArrayMesh:
 
 ## The soft pink light a clump of glowcaps throws on the floor around it (no real light:
 ## lights cost a lot on phones).
-static func _glow_pool(n: Node3D, size: float) -> void:
-	if not _baked.has("glow_pool"):
-		var m := U.unlit(Color(1.0, 0.4, 0.82, 0.32), U.soft_circle()).duplicate()
+static func _glow_pool(n: Node3D, size: float, color := Color(1.0, 0.4, 0.82, 0.32)) -> void:
+	var key := "glow_pool " + color.to_html()
+	if not _baked.has(key):
+		var m := U.unlit(color, U.soft_circle()).duplicate()
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		_baked["glow_pool"] = m
-	var q := U.floor_quad(n, Vector2(size, size), _baked["glow_pool"], Vector3(0, 0.035, 0))
+		_baked[key] = m
+	var q := U.floor_quad(n, Vector2(size, size), _baked[key], Vector3(0, 0.035, 0))
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

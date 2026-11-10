@@ -222,6 +222,10 @@ func _show_preview() -> void:
 				_note.text = "Trying on: %s  ·  Feat: %s" % [HeroStyle.item_label(_id, slot, key), Feats.get_feat(x.feat).text]
 				_note.label_settings.font_color = Color(0.5, 0.95, 1.0)
 				return
+			if x.has("event"):
+				_note.text = "Trying on: %s  ·  Blood Moon set: win it on the event road" % HeroStyle.item_label(_id, slot, key)
+				_note.label_settings.font_color = Color(1.0, 0.45, 0.4)
+				return
 			if x.has("drop"):
 				_note.text = "Trying on: %s  ·  only found in %s Bone Drops" % [HeroStyle.item_label(_id, slot, key), str(Drops.TIERS[int(x.drop)].name).capitalize()]
 				_note.label_settings.font_color = Drops.TIERS[int(x.drop)].color.lightened(0.3)
@@ -249,7 +253,10 @@ func _show_tab(slot: String, to_top := false) -> void:
 	# Version 121: the looks you own first (worn among them, so wearing one never moves the
 	# cards), then the Crypt King set, then Feat and Bone Drop looks to try on, then the
 	# Mastery looks still locked. Before, eight locked cards sat above an owned one.
-	var list := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool: return it.slot == slot)
+	# Blood Moon looks show while the event is on (or coming), and for good once won.
+	var event_on := Events.active() or not Events.coming().is_empty()
+	var list := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool:
+		return it.slot == slot and (not it.has("event") or event_on or _got(it)))
 	var order := {}
 	for i in list.size():
 		var it: Dictionary = list[i]
@@ -258,7 +265,7 @@ func _show_tab(slot: String, to_top := false) -> void:
 			rank = 0
 		elif it.get("pass", false):
 			rank = 1
-		elif it.has("feat") or it.has("drop"):
+		elif it.has("feat") or it.has("drop") or it.has("event"):
 			rank = 2
 		order[it.key] = rank * 1000 + i
 	list.sort_custom(func(x: Dictionary, y: Dictionary) -> bool: return order[x.key] < order[y.key])
@@ -279,7 +286,7 @@ func _keep_scroll(to: int) -> void:
 
 
 func _got(it: Dictionary) -> bool:
-	if it.has("feat") or it.has("drop"):
+	if it.has("feat") or it.has("drop") or it.has("event"):
 		return _cfg != null and HeroStyle.has_look(_cfg, _id, it.slot, it.key)
 	return _owned if it.get("pass", false) else it.level <= _level
 
@@ -311,7 +318,7 @@ func _card(it: Dictionary) -> Button:
 	var sw := Swatch.new()
 	sw.custom_minimum_size = Vector2(0, 58)
 	sw.setup(_id, it.slot, it.key, _base)
-	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.6 if it.has("feat") or it.has("drop") else 0.45)
+	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.6 if it.has("feat") or it.has("drop") or it.has("event") else 0.45)
 	v.add_child(sw)
 	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -321,8 +328,10 @@ func _card(it: Dictionary) -> Button:
 		v.add_child(Hud.label("%s ONLY" % str(_base.title).to_upper(), 14, Color(_base.ring).lightened(0.3) if got else DIM))
 	if paid:
 		v.add_child(Hud.label("CRYPT PASS", 14, Hud.GOLD))
-	var special: bool = it.has("feat") or it.has("drop")
-	if it.has("feat"):
+	var special: bool = it.has("feat") or it.has("drop") or it.has("event")
+	if it.has("event"):
+		v.add_child(Hud.label("BLOOD MOON", 14, Color(1.0, 0.42, 0.38)))
+	elif it.has("feat"):
 		v.add_child(Hud.label("FEAT", 14, Color(0.5, 0.95, 1.0)))
 	elif it.has("drop"):
 		v.add_child(Hud.label("BONE DROP", 14, Drops.TIERS[int(it.drop)].color.lightened(0.2)))

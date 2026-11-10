@@ -160,6 +160,8 @@ func chain_damage() -> float:
 	var d := 1.0 + (chain - 1.0) * 0.25
 	if chain >= 2.0 and hero and hero.perks.has("overcharge"):
 		d *= 1.25   # Overcharge
+	if surge > 0.5 and hero and hero.perks.has("eclipse_heart"):
+		d *= 1.25   # Eclipse Heart (a Blood Moon blessing)
 	return d
 
 
@@ -197,6 +199,29 @@ const TRIAL_SECTION := "trials"
 var _daily_date := ""
 var _daily_practice := false
 var _daily_done := false
+## Events (events.gd, version 134). `event` is "run" in the Blood Moon run (three floors of
+## the event crypt, the Blood Moon Queen at the end), "hunt" in the Queen Hunt (her throne
+## room only, on tier `event_tier`, 1-5), "" otherwise. Moon Shards earned this run wait
+## in _shards_unsaved until an end screen banks them. Event runs aren't saved mid-run.
+var event := ""
+var event_tier := 0
+var _event_requested := ""
+var _event_tier_requested := 0
+var _event_done := false
+var _shards_unsaved := 0
+var _shards_shown := 0
+var _caskets_run := 0
+## The Moon Surge (event crypt only): every SURGE_EVERY seconds of fighting the moon flares
+## for SURGE_TIME seconds (after SURGE_WARN seconds of warning): skeletons run 40% faster,
+## and each one killed in it is worth an extra Moon Shard. `surge` is 0..1, how strong it is.
+var surge := 0.0
+var _surge_t := 0.0
+var _surge_on := false
+var _flocking := false
+var _moon_energy := 1.0
+const SURGE_EVERY := 22.0
+const SURGE_WARN := 1.8
+const SURGE_TIME := 6.0
 ## Hourglass curse: seconds left in this room, and whether they've run out.
 var _hourglass_left := 0.0
 var _hourglass_out := false
@@ -389,6 +414,12 @@ func _ready() -> void:
 		if state == State.TITLE and Curses.can_play(Store.owned(), _load_save()):
 			_daily_requested = true
 			_on_play_pressed())
+	hud.event_pressed.connect(_open_event)
+	hud.event_run.connect(func(): start_event("run"))
+	hud.event_hunt.connect(func(t: int): start_event("hunt", t))
+	hud.event_claim.connect(_claim_event_road)
+	hud.event_caskets.connect(_open_caskets)
+	hud.event_closed.connect(func(): if state == State.TITLE and hud.title_visible(): hud.show_title(true, _best_text(), coins))
 	hud.curses_pressed.connect(_open_curses)
 	hud.curse_toggled.connect(_toggle_curse)
 	hud.title_pressed.connect(_end_to_title)
@@ -443,6 +474,7 @@ func _ready() -> void:
 	Telemetry.instance.daily_open()
 	hud.set_coins(coins)
 
+	Floors.lobby = Events.active() and not first_run_pending()
 	_build_run()
 	_load_room(0, false)
 	hero.place_at(Vector3(0, 0, 2))
@@ -471,7 +503,7 @@ func _play_intro() -> void:
 	intro = Intro.new()
 	intro.logo = hud.title_logo()
 	intro.logo.modulate.a = 0.0
-	intro.music.connect(func(): Music.play("title"))
+	intro.music.connect(func(): Music.play(title_track()))
 	add_child(intro)
 
 
@@ -559,6 +591,7 @@ func _process(delta: float) -> void:
 	var cover := state != State.PLAYING and hud.covers_world()
 	if get_viewport().disable_3d != cover:
 		get_viewport().disable_3d = cover
+	_update_surge(delta)
 	if state == State.PLAYING:
 		_run_time += delta
 		record_add("time", delta)
@@ -719,6 +752,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.drops_visible():
 			hud.close_drops()
+			return
+		if hud.event_visible():
+			hud.event_back()
 			return
 		if hud.road_visible():
 			hud.close_road()
@@ -1094,6 +1130,8 @@ func _light_room(look: Dictionary) -> void:
 	_env.background_color = look.background
 	_moon.light_color = (look.moon as Color).lerp(SUN_WARM, light[2])
 	_moon.light_energy = light[1]
+	_moon_energy = light[1]
+	_eclipse_k = 0.0
 
 
 ## Specials fill the screen with bright bolts and shockwaves; for a moment the bloom is
@@ -1137,6 +1175,10 @@ var _seen_rooms: Array = []
 
 func _build_run() -> void:
 	_run.clear()
+	if event == "hunt":
+		floor_num = int(Events.TIERS[event_tier - 1].floor)
+		_run.append(Layouts.BOSS)
+		return
 	if floor_num <= 1:
 		_seen_rooms.clear()
 	# The Daily Crypt picks the same rooms for everyone that day.
@@ -1174,7 +1216,13 @@ func _build_run() -> void:
 ## Grotto (floor 4, 10, 15...) the Sporemother; elsewhere the Skeleton King and the Lich
 ## take turns (the King on odd floors).
 func boss_kind() -> String:
-	if Floors.hot() and not first_run:
+	# The Blood Moon event: the King and the Lich guard floors 1 and 2, the Queen floor 3;
+	# the Queen Hunt is her alone.
+	if event == "hunt" or (event == "run" and floor_num >= Events.RUN_FLOORS):
+		return "Q"
+	if event == "run":
+		return "K" if floor_num == 1 else "L"
+	if Floors.ember() and not first_run:
 		return "C"
 	if Floors.drowned() and not first_run:
 		return "T"
@@ -1190,7 +1238,7 @@ func boss_kind() -> String:
 func theme_enemy() -> String:
 	if first_run:
 		return ""
-	return ["", "f", "e", "d", "pr"][Floors.index(floor_num)]
+	return ["", "f", "e", "d", "pr", "bh"][Floors.index(floor_num)]
 
 
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
@@ -1231,7 +1279,7 @@ func _on_screen_tapped() -> void:
 				_restart()
 		State.VICTORY:
 			if _state_time > 1.5 and not _loop_choice and not _celebrating:   # the end of a loop has its own buttons
-				if _daily_done:
+				if _daily_done or _event_done:
 					_back_to_title()
 				else:
 					_descend()
@@ -1245,7 +1293,13 @@ func _on_play_pressed() -> void:
 		_start_run()
 
 
+## The title's music: the Blood Moon's while the event is on.
+func title_track() -> String:
+	return "moon" if Floors.lobby else "title"
+
+
 func _start_run() -> void:
+	Floors.lobby = false
 	var held := RunSave.held()
 	if held > 0:
 		coins += held   # giving up the saved run gives its held-back coins back
@@ -1257,6 +1311,12 @@ func _start_run() -> void:
 	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run
 	_daily_requested = false
 	_daily_done = false
+	event = _event_requested if not first_run and Events.active() else ""
+	event_tier = clampi(_event_tier_requested, 1, Events.TIERS.size())
+	_event_requested = ""
+	_event_done = false
+	if event != "":
+		daily = false
 	_run_hero_id = ""
 	if daily:
 		_begin_daily()
@@ -1274,8 +1334,8 @@ func _start_run() -> void:
 	_reset_run_stats()
 	record_add("runs", 1)
 	_pick_curses()
-	if daily:
-		_build_run()   # the day's rooms
+	if daily or event != "":
+		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room
 	_use_run_hero()
 	_apply_armory()
 	_go_to_room(0)
@@ -1324,7 +1384,7 @@ func _swap_hero(id: String, again := false) -> bool:
 
 ## Curses chosen on the Curses screen, or the day's rules in the Daily Crypt.
 func _pick_curses() -> void:
-	if first_run:
+	if first_run or event != "":
 		curses = []
 	elif daily:
 		curses = Curses.daily_rules(_daily_date)
@@ -1339,7 +1399,11 @@ func _update_score_mult() -> void:
 
 
 func _mode_banner() -> void:
-	if daily:
+	if event == "run":
+		hud.tip("BLOOD MOON  ·  %s\nKill skeletons during a Moon Surge for bonus shards!" % str(Events.chapter_info().name), 5.0, 1.8)
+	elif event == "hunt":
+		hud.tip("QUEEN HUNT  ·  %s\n%d blessings to start. Bring her down!" % [str(Events.TIERS[event_tier - 1].name), int(Events.TIERS[event_tier - 1].gifts)], 4.5, 1.8)
+	elif daily:
 		hud.tip("DAILY CRYPT #%d%s  ·  Score x%s\n%s" % [Curses.day_number(_daily_date), "  ·  Practice" if _daily_practice else "",
 			_mult_text(_score_mult), Curses.names(curses)], 5.0, 1.8)
 	elif not curses.is_empty():
@@ -1452,6 +1516,12 @@ func run_report(result: String, was_first := false) -> String:
 
 func _reset_run_stats() -> void:
 	_reset_report()
+	_shards_shown = 0
+	_caskets_run = 0
+	_surge_t = 0.0
+	surge = 0.0
+	_surge_on = false
+	hud.set_shards(0 if event != "" else -1)
 	_frame_hist = PackedInt32Array()
 	_frame_hist.resize(251)
 	_feats_got.clear()
@@ -1512,6 +1582,20 @@ func _apply_armory() -> void:
 		for id in gifts:
 			_taken[id] = _taken.get(id, 0) + 1
 			Upgrades.apply(id, hero)
+	# The Queen Hunt starts with a handful of blessings, more on higher tiers.
+	if event == "hunt":
+		var names := []
+		for i in int(Events.TIERS[event_tier - 1].gifts):
+			var g := Upgrades.roll(_taken, 2, false, "", false, null).filter(func(x: Dictionary): return x.rarity != "synergy")
+			if g.is_empty():
+				continue
+			var u: Dictionary = g[0]
+			_taken[u.id] = _taken.get(u.id, 0) + 1
+			Upgrades.apply(u.id, hero)
+			names.append(str(u.title))
+		if not names.is_empty():
+			var line := "Blessed: " + ", ".join(names)
+			get_tree().create_timer(1.4, false).timeout.connect(func(): hud.banner(line, Color(1.0, 0.55, 0.45)))
 	if Armory.level(cfg, "blessed") > 0:
 		# (Two rolled, so a synergy the day's gifts complete can't be the start blessing.)
 		var pick := Upgrades.roll(_taken, 2, false, "", false, Curses.daily_rng(499, _daily_date) if daily else null) \
@@ -1554,6 +1638,9 @@ func _restart() -> void:
 		hero = null
 	_reset_run_stats()
 	record_add("runs", 1)
+	if event != "" and not Events.active():
+		event = ""   # the event ended while on the end screen: a normal run
+	_event_done = false
 	if daily and _daily_date != Curses.today():
 		# A new day started while on the end screen: retry on today's Daily Crypt.
 		daily = Curses.can_play(Store.owned(), _load_save())
@@ -1695,6 +1782,9 @@ func _back_to_title(keep_run := false) -> void:
 	hud.show_omens(false)
 	daily = false
 	_daily_done = false
+	event = ""
+	_event_done = false
+	_end_surge()
 	omens.clear()
 	_loop_choice = false
 	_omen_choices = []
@@ -1708,6 +1798,7 @@ func _back_to_title(keep_run := false) -> void:
 		hero.queue_free()
 		hero = null
 	floor_num = 1
+	Floors.lobby = Events.active() and not first_run_pending()
 	_build_run()
 	_load_room(0, false)
 	hero.place_at(Vector3(0, 0, 2))
@@ -1720,7 +1811,7 @@ func _back_to_title(keep_run := false) -> void:
 	if mastery_note != "":
 		hud.set_drops(Drops.waiting(_load_save()))
 		hud.tip(mastery_note, 4.5, 0.5)
-	Music.play("title")
+	Music.play(title_track())
 	_set_state(State.TITLE)
 	await _fade(1.0, 0.0, 0.4)
 
@@ -1886,7 +1977,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_ftue_room_intro()
 	else:
 		hud.show_hint("Drag to move. Lift to shoot.\nFlick your thumb to dash!" if floor_num == 1 and index == 0 else "")
-	Music.play("boss" if _in_boss_room() else "dungeon")
+	Music.play(("queen" if boss_kind() == "Q" else "boss") if _in_boss_room() else "dungeon")
 	if not _start_blessing.is_empty():
 		var u := _start_blessing
 		_start_blessing = {}
@@ -1940,6 +2031,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			for b: Enemy in [e, twin]:
 				b.max_health *= 0.65
 				b.health = b.max_health
+	# The Queen Hunt's tiers: the Queen's health by tier (her toughness by floor is already in).
+	if event == "hunt" and is_instance_valid(boss):
+		boss.max_health *= float(Events.TIERS[event_tier - 1].hp)
+		boss.health = boss.max_health
 	# Champion's Door: a purple elite is waiting.
 	if _door.get("kind", "") == "champion":
 		for a: Actor in Actor.all:
@@ -1979,7 +2074,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 ## so it can be continued if the game is closed. Not during the first run.
 ## `loop_end`: saved on the end-of-loop screen, which CONTINUE comes back to.
 func _checkpoint(next_floor := false, loop_end := false) -> void:
-	if first_run or hero == null or hero.dead:
+	if first_run or event != "" or hero == null or hero.dead:
 		return
 	var h := RunSave.hero_state(hero)
 	if next_floor:
@@ -2041,6 +2136,7 @@ func _continue_run() -> void:
 		_open_pass()
 		return
 	Sfx.play("click")
+	Floors.lobby = false
 	first_run = false
 	_tutorial_requested = false
 	_daily_requested = false
@@ -2170,6 +2266,14 @@ func boss_bar() -> float:
 func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 	var e := Enemy.create(kind, Room.current, pos)
 	alive_enemies += 1
+	# Bloodbats come in flocks of three: two more beside the first.
+	if kind == "b" and not _flocking:
+		_flocking = true
+		for i in 2:
+			var off := Vector3(1.1 if i == 0 else -1.1, 0, 0.8)
+			var at := Room.current.resolve_move(pos + off, Vector3.ZERO, 0.4) if Room.current else pos + off
+			spawn_enemy("b", at)
+		_flocking = false
 	if e.is_boss:
 		_bosses.append(e)
 		if not is_instance_valid(boss):
@@ -2207,6 +2311,16 @@ func on_enemy_died(e: Enemy) -> void:
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
+	if event != "" and not e.is_boss:
+		var in_surge := surge > 0.5
+		var n := (Events.ELITE_SHARDS if e.elite else 0) + (Events.SURGE_SHARDS if in_surge else 0)
+		if in_surge and hero and hero.perks.has("shardhunter"):
+			n += 2   # Shard Hunter
+		if in_surge and hero and hero.perks.has("eclipse_heart") and not hero.dead:
+			hero.heal(1.0)   # Eclipse Heart
+		if n > 0:
+			_add_shards(n)
+			EventArt.shard_pop(e.global_position + Vector3(0, 1.2, 0), n)
 	# Kills close together build a combo, and the combo feeds the Bone Chain.
 	if _combo_left <= 0.0:
 		_combo = 0
@@ -2407,6 +2521,7 @@ func _room_cleared() -> void:
 			_feat("untouched")
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
 	_add_bones(BoneRoad.ROOM_BONES)
+	_add_shards(Events.ROOM_SHARDS)
 	_add_mastery(HeroMastery.ROOM_POINTS, true)
 	_save_coins()
 	hud.set_wave(0, 0)
@@ -2584,9 +2699,28 @@ func _win() -> void:
 	# A floor's boss beaten for the first time (not in the Daily Crypt): worth sharing,
 	# unless it's the tutorial.
 	var prev_boss := _best_boss(cfg)
-	_share_reason = "boss" if not daily and not first_run and floor_num > prev_boss else ""
-	if not daily and floor_num > prev_boss:
+	_share_reason = "boss" if not daily and event == "" and not first_run and floor_num > prev_boss else ""
+	if not daily and event == "" and floor_num > prev_boss:
 		cfg.set_value("stats", "best_boss", floor_num)
+	# The event: shards for the boss, the Queen's fall counted, a hunt's win saved (the day's
+	# first on a tier pays a Moon Casket too), and a casket for every Blood Moon run cleared.
+	var hunt := {}
+	_event_done = event == "hunt" or (event == "run" and floor_num >= Events.RUN_FLOORS)
+	if event != "":
+		if boss_kind() == "Q":
+			cfg.set_value(Events.section(), "queen_kills", Events.queen_kills(cfg) + 1)
+		if event == "hunt":
+			hunt = Events.record_hunt(cfg, event_tier)
+			_add_shards(int(hunt.shards))
+			if hunt.casket:
+				_caskets_run += 1
+		elif _event_done:
+			_add_shards(Events.QUEEN_SHARDS)
+			Events.add_caskets(cfg, 1)
+			_caskets_run += 1
+		else:
+			_add_shards(Events.BOSS_SHARDS)
+	var shards := _bank_shards(cfg)
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	_earn_drop(cfg)   # every boss beaten, the tutorial's too (saved just below)
 	_add_bones(BoneRoad.BOSS_BONES)
@@ -2597,17 +2731,17 @@ func _win() -> void:
 	_save_best(cfg, _run.size())
 	# Curse mastery: beating the floor 5 boss (or a deeper one) at a Curse Level.
 	var rewards := []
-	if not daily and floor_num >= Store.FREE_FLOORS and Curses.level_of(curses) > 0 and hero:
+	if not daily and event == "" and floor_num >= Store.FREE_FLOORS and Curses.level_of(curses) > 0 and hero:
 		rewards = Curses.record_mastery(cfg, hero.hero_id, Curses.level_of(curses))
-		write_save(cfg)
+	write_save(cfg)
 	var was_first := first_run
 	_finish_first_run()
 	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
 	Music.play("dungeon")
 	_daily_done = daily and floor_num >= Curses.DAILY_FLOORS
-	_free_end = not daily and floor_num >= Store.FREE_FLOORS and not Store.owned()
-	_loop_choice = not daily and not _free_end and Loops.loop_end(floor_num)
-	if _daily_done:
+	_free_end = not daily and event == "" and floor_num >= Store.FREE_FLOORS and not Store.owned()
+	_loop_choice = not daily and event == "" and not _free_end and Loops.loop_end(floor_num)
+	if _daily_done or event != "":
 		RunSave.clear()
 	elif _loop_choice or _free_end:
 		# At the free end the run is kept too: a Pass bought later (a pending payment, or
@@ -2621,6 +2755,10 @@ func _win() -> void:
 		extra += "\n\nHeroes and the Armory are open:\nfind them on the title screen."
 	elif _daily_done:
 		extra += "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
+	elif event == "hunt":
+		extra += "\n\nQueen Hunt %s won!%s" % [str(Events.TIERS[event_tier - 1].name), "  +1 Moon Casket (the day's first win)" if hunt.get("casket", false) else ""]
+	elif _event_done:
+		extra += "\n\nThe Blood Moon Queen has fallen!  +1 Moon Casket"
 	elif _free_end:
 		extra += "\n\n" + _free_end_text()
 	elif _loop_choice:
@@ -2629,8 +2767,11 @@ func _win() -> void:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
 	_celebrating = false
 	hud.hero_quiet()   # the bubble would show through the end screen
-	var tap := "Tap to return to the title" if _daily_done else "Tap to descend to floor %d" % (floor_num + 1)
-	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d\nBone Road  +%d bones%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, bones, extra],
+	var tap := "Tap to return to the title" if _daily_done or _event_done else "Tap to descend to floor %d" % (floor_num + 1)
+	if shards > 0:
+		extra = "\nMoon Shards  +%d" % shards + extra
+	var fallen := "%s has fallen." % boss_name if event == "hunt" else "%s of floor %d has fallen." % [boss_name, floor_num]
+	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, bones, extra],
 		tap, false, score, best, _free_end)
 	# The hero and the rings at their feet would show between the end screen's buttons
 	# (as YOU DIED hides them); they come back as the next room starts (place_at).
@@ -2639,16 +2780,18 @@ func _win() -> void:
 	hud.show_mastery(mastery)
 	# Version 122: once, after the first boss win past the tutorial, the Pass card shows the
 	# hero in the Crypt King set (a win is when the set means most).
-	if not Store.owned() and not was_first and not daily and not _free_end:
+	if not Store.owned() and not was_first and not daily and event == "" and not _free_end:
 		var pcfg := _load_save()
 		if not bool(pcfg.get_value("shown", "pass_card_win", false)):
 			pcfg.set_value("shown", "pass_card_win", true)
 			write_save(pcfg)
 			hud.show_pass_card(true, pass_hero_def())
-	hud.show_end_title(not _daily_done and not _free_end, "TITLE  (RUN SAVED)")
+	hud.show_end_title(not _daily_done and not _free_end and not _event_done, "TITLE" if event != "" else "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
 		hud.set_end_goal(_daily_goal())
+	elif event != "":
+		hud.set_end_goal(_event_goal())
 	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
 	_state_time = 0.0
@@ -2674,34 +2817,40 @@ func on_hero_died() -> void:
 	if not first_run and (_room_index >= 2 or floor_num > 1):
 		_earn_drop(cfg)
 	var bones := _bank_bones(cfg)
+	var shards := _bank_shards(cfg)
 	var mastery := _bank_mastery(cfg)
 	var best := _save_score(cfg)
 	_save_best(cfg, _room_index + 1)
+	write_save(cfg)
 	var was_first := first_run
-	_share_reason = "best" if not daily and not was_first and score > best and score > 0 else ""
+	_share_reason = "best" if not daily and event == "" and not was_first and score > best and score > 0 else ""
 	var day_bonus := _claim_day_bonus()
 	var tutorial_again := first_run and _tutorial_retry()
 	if not tutorial_again:
 		_finish_first_run()
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
-	if floor_num > 1:
+	if event == "hunt":
+		where = "the Queen Hunt (%s)" % str(Events.TIERS[event_tier - 1].name).capitalize()
+	elif floor_num > 1:
 		where += " on floor %d" % floor_num
 	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d" % run_coins
 	if day_bonus > 0:
 		coin_line += "  (+%d first run today)" % day_bonus
 	if bones > 0:
 		coin_line += "\nBone Road  +%d bones" % bones
+	if shards > 0:
+		coin_line += "\nMoon Shards  +%d" % shards
 	if tutorial_again:
 		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nThe tutorial starts again from room 1." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
-	var note := not Store.owned() and floor_num >= 3 and not _pass_note_shown
+	var note := not Store.owned() and floor_num >= 3 and event == "" and not _pass_note_shown
 	if note:
 		_pass_note_shown = true
 	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again", not tutorial_again, score, best)
 	hud.show_mastery(mastery)
 	hud.show_end_title(true)
-	hud.set_end_goal(_daily_goal() if daily else next_goal())
+	hud.set_end_goal(_daily_goal() if daily else (_event_goal() if event != "" else next_goal()))
 	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
 	if note:
@@ -2899,6 +3048,168 @@ func _bank_bones(cfg: ConfigFile) -> int:
 	return n
 
 
+## Moon Shards (events.gd), boosted on double days and with the Crypt Pass. Shown on the
+## HUD as they come in.
+func _add_shards(n: int) -> void:
+	if event == "" or n <= 0 or bench:
+		return
+	var k := Events.boosted(n, Store.owned())
+	_shards_unsaved += k
+	_shards_shown += k
+	hud.set_shards(_shards_shown)
+
+
+## Unsaved Moon Shards into `cfg` (the caller saves it). Returns the shards since the last
+## end screen.
+func _bank_shards(cfg: ConfigFile) -> int:
+	Events.add_shards(cfg, _shards_unsaved)
+	_shards_unsaved = 0
+	var n := _shards_shown
+	_shards_shown = 0
+	return n
+
+
+## The gold line on an event's end screens: how far to the next event road prize.
+func _event_goal() -> String:
+	var cfg := _load_save()
+	var i := Events.next_index(cfg)
+	if Events.ready_count(cfg) > 0:
+		return "Event road: %d prize%s to claim!" % [Events.ready_count(cfg), "" if Events.ready_count(cfg) == 1 else "s"]
+	if i >= Events.ROAD.size():
+		return "Event road complete!"
+	return "Event road: %d more shards to %s" % [int(Events.ROAD[i].at) - Events.shards(cfg), Events.step_text(Events.ROAD[i])]
+
+
+## Starts the Blood Moon run ("run") or the Queen Hunt ("hunt") on tier `tier`, from the
+## event screen.
+func start_event(kind: String, tier := 1) -> void:
+	if state != State.TITLE or not Events.active():
+		return
+	_event_requested = kind
+	_event_tier_requested = tier
+	hud.show_event(false)
+	_start_run()
+
+
+func _open_event() -> void:
+	if state == State.TITLE and (Events.active() or not Events.coming().is_empty()):
+		hud.show_event(true)
+
+
+## Claims event road step `i` (events.gd), like the Bone Road's.
+func _claim_event_road(i: int) -> void:
+	var cfg := _load_save()
+	var s := Events.claim(cfg, i)
+	if s.is_empty():
+		return
+	if s.kind == "coins":
+		coins += int(s.n)
+		cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	if s.kind == "coins":
+		record_add("coins", s.n)
+	hud.set_coins(coins)
+	Sfx.play("upgrade")
+	if s.kind == "look":
+		Sfx.play("sting", 0.9)
+		hud.callout("BLOOD MOON SET: %s!" % Events.step_text(s), Color(1.0, 0.45, 0.35))
+	else:
+		Sfx.play("coin", 0.6, 1.2)
+	print("[event road] claimed %d: %s" % [i, Events.step_text(s)])
+	hud.set_drops(Drops.waiting(_load_save()))
+	hud.refresh_event()
+
+
+func _open_caskets() -> void:
+	if state in [State.TITLE, State.DEAD, State.VICTORY]:
+		var n := Events.caskets(_load_save())
+		if n > 0:
+			Sfx.play("click")
+			hud.open_caskets(n, _open_one_casket)
+
+
+## Opens one Moon Casket and gives what's inside (the drop screen shows it).
+func _open_one_casket() -> Dictionary:
+	var cfg := _load_save()
+	var r := Events.open_casket(cfg)
+	if r.is_empty():
+		return r
+	if int(r.coins) > 0:
+		coins += int(r.coins)
+		cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	if int(r.coins) > 0:
+		record_add("coins", r.coins)
+	hud.set_coins(coins)
+	print("[casket] %s %s" % [r.name, str(r.text).replace("\n", " ")])
+	return r
+
+
+## The Moon Surge, run every frame (_process).
+func _update_surge(delta: float) -> void:
+	var fighting := event != "" and Floors.blood_moon() and state == State.PLAYING and not _in_boss_room() and alive_enemies > 0
+	if not fighting:
+		if surge > 0.0 or _surge_on:
+			surge = move_toward(surge, 0.0, delta * 1.5)
+			if surge <= 0.0:
+				_surge_on = false
+			_show_surge(false)
+		return
+	_surge_t += delta
+	var t := fmod(_surge_t, SURGE_EVERY + SURGE_TIME)
+	var on := t >= SURGE_EVERY
+	var warn := t >= SURGE_EVERY - SURGE_WARN and not on
+	if on and not _surge_on:
+		_surge_on = true
+		hud.callout("BLOOD MOON SURGE!", Color(1.0, 0.3, 0.25))
+		Sfx.play("roar", 0.7)
+		shake(0.35)
+		buzz(60)
+	elif not on:
+		_surge_on = false
+	surge = move_toward(surge, 1.0 if on else 0.0, delta * (2.5 if on else 1.2))
+	_show_surge(warn)
+
+
+func _show_surge(warn: bool) -> void:
+	hud.set_surge(surge, warn)
+	if _moon:
+		_moon.light_energy = _moon_energy * (1.0 + 0.7 * surge)
+
+
+func _end_surge() -> void:
+	surge = 0.0
+	_surge_t = 0.0
+	_surge_on = false
+	if hud:
+		hud.set_surge(0.0, false)
+		hud.set_surge(0.0, false, true)
+		hud.set_shards(-1)
+
+
+## The Blood Moon Queen's Eclipse: the moon goes dark (the room's light dims) and comes back.
+var _eclipse_k := 0.0
+var _eclipse_tw: Tween
+
+
+func set_eclipse(on: bool) -> void:
+	if _eclipse_tw:
+		_eclipse_tw.kill()
+	var amb := _env.ambient_light_energy / maxf(1.0 - 0.55 * _eclipse_k, 0.01)
+	_eclipse_tw = create_tween()
+	_eclipse_tw.tween_method(func(k: float):
+		_eclipse_k = k
+		if _moon:
+			_moon.light_energy = _moon_energy * (1.0 - 0.85 * k)
+		_env.ambient_light_energy = amb * (1.0 - 0.55 * k)
+		hud.set_surge(k * 0.7, false, true), _eclipse_k, 1.0 if on else 0.0, 0.6)
+
+
+## Skeletons walk faster in a Moon Surge (enemy.gd walk).
+func surge_mult() -> float:
+	return 1.0 + 0.4 * surge
+
+
 ## Hero Mastery points for this run's hero, saved with the coins like the bones.
 func _add_mastery(n: int, callout := false) -> void:
 	if hero == null:
@@ -3021,6 +3332,7 @@ func _open_one_drop() -> Dictionary:
 
 func _drops_closed() -> void:
 	hud.set_drops(Drops.waiting(_load_save()))
+	hud.refresh_event()
 	if state == State.TITLE and hud.title_visible():
 		hud.show_title(true, _best_text(), coins)
 
@@ -3169,6 +3481,8 @@ func _save_coins() -> void:
 	_flush_feats(cfg)
 	BoneRoad.add(cfg, _road_unsaved)
 	_road_unsaved = 0
+	Events.add_shards(cfg, _shards_unsaved)   # (the end screen shows _shards_shown)
+	_shards_unsaved = 0
 	HeroMastery.add(cfg, _mastery_hero, _mastery_unsaved)
 	_mastery_unsaved = 0
 	_feat_bests(cfg)   # after the Mastery points, so Legend sees the new level

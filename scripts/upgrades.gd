@@ -13,6 +13,8 @@ const FAMILIES := {
 	"flame": {"name": "Flame", "color": Color(1.0, 0.52, 0.2)},
 	"frost": {"name": "Frost", "color": Color(0.55, 0.9, 1.0)},
 	"bone": {"name": "Bone", "color": Color(0.88, 0.92, 0.72)},
+	# The Blood Moon event's own blessings (events.gd): only offered in its runs.
+	"moon": {"name": "Blood Moon", "color": Color(1.0, 0.38, 0.34)},
 }
 
 const RARITIES := {
@@ -57,6 +59,11 @@ const LIST := [
 	{"id": "volatile", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Volatile Orbs", "text": "Orb blasts are 35% wider", "max": 2},
 	{"id": "flow", "hero": "mage", "family": "frost", "rarity": "common", "title": "Arcane Flow", "text": "Orbs fly 20% faster, cast 10% faster", "max": 2},
 	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Meteor hits 3 more skeletons", "max": 1},
+	# Blood Moon blessings (version 134): only offered in the event's runs and hunts.
+	{"id": "bloodpact", "event": true, "family": "moon", "rarity": "rare", "title": "Blood Pact", "text": "+30% damage, but 15% less max health", "max": 1},
+	{"id": "moonstep", "event": true, "family": "moon", "rarity": "common", "title": "Moonlit Step", "text": "Dash recharges 25% faster, +8% move speed", "max": 2},
+	{"id": "shardhunter", "event": true, "family": "moon", "rarity": "rare", "title": "Shard Hunter", "text": "Skeletons felled in a Moon Surge pay 2 more Moon Shards", "max": 1},
+	{"id": "eclipse_heart", "event": true, "family": "moon", "rarity": "epic", "title": "Eclipse Heart", "text": "During a Moon Surge you heal 1 per kill and hit 25% harder", "max": 1},
 	# Vault blessings: bought once with coins in the Armory, then they can turn up in runs.
 	{"id": "siphon", "vault": true, "family": "bone", "rarity": "rare", "title": "Soul Siphon", "text": "Perfect dodges heal 10, up to 12% of your health each room", "max": 2},
 	{"id": "frozen_ground", "vault": true, "family": "frost", "rarity": "rare", "title": "Frozen Ground", "text": "Perfect dodges chill skeletons near you", "max": 1},
@@ -88,8 +95,10 @@ static func fits_hero(u: Dictionary) -> bool:
 	return not u.has("hero") or (Game.hero != null and Game.hero.hero_id == u.hero)
 
 
-## Vault blessings only turn up once they're bought.
+## Vault blessings only turn up once they're bought; Blood Moon ones only in the event.
 static func unlocked(u: Dictionary) -> bool:
+	if u.get("event", false) and Game.event == "":
+		return false
 	return not u.get("vault", false) or Game.vault.has(u.id)
 
 
@@ -157,6 +166,13 @@ static func apply(id: String, h: Hero) -> void:
 			h.bolt_speed *= 1.2
 			h.shots_per_second *= 1.1
 		"meteors": h.meteor_count += 3
+		"bloodpact":
+			h.damage *= 1.3
+			h.max_health = roundf(h.max_health * 0.85)
+			h.health = minf(h.health, h.max_health)
+		"moonstep":
+			h.dash_cooldown_time *= 0.75
+			h.move_speed *= 1.08
 
 
 ## Pick up to `count` different blessings the hero can still take. Rarer cards are
@@ -227,7 +243,7 @@ static func _weighted(pool: Array, rng: RandomNumberGenerator = null) -> Diction
 
 ## The very first pick: three plain common cards, one of them Vitality (half of Ossuary).
 static func roll_commons(taken: Dictionary) -> Array:
-	var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and not u.has("hero") and not u.has("vault") and taken.get(u.id, 0) < u.max and u.id != "vitality")
+	var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and not u.has("hero") and not u.has("vault") and not u.has("event") and taken.get(u.id, 0) < u.max and u.id != "vitality")
 	pool.shuffle()
 	var out := [get_def("vitality")] + pool.slice(0, 2)
 	out.shuffle()

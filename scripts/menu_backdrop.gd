@@ -62,6 +62,8 @@ static func set_cheap(on: bool) -> void:
 
 ## Puts a lit backdrop at the back of `r` (a full-screen menu).
 static func add_to(r: Control, theme_name := "crypt") -> MenuBackdrop:
+	if theme_name == "crypt" and Events.active():
+		theme_name = "blood"   # the Blood Moon takes the menus over while it's on (version 134)
 	var b := MenuBackdrop.new()
 	b.look = theme_name
 	r.add_child(b)

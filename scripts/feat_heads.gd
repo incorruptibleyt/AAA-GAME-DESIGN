@@ -42,6 +42,7 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 		"antlers": h._antlers(id, y, hat)
 		"phantom_horns": h._phantom_horns(id, y, hat)
 		"bone_crown": h._bone_mask(id, y, hat)
+		"moon_crown": h._moon_crown(id, y, hat)
 	bake(h, key)
 	if h._spin:
 		bake(h._spin, key + " spin")
@@ -478,9 +479,65 @@ func _bone_mask(id: String, y: float, hat: bool) -> void:
 	_sphere(0.035, _dark, Vector3(0, hy - 0.06, fwd + 0.03), Vector3(0.8, 1.6, 0.5))
 
 
+# ---------------------------------------------------------------- Moon Crown
+
+## The Blood Moon event set's head (events.gd, version 134): a black iron crown with blood
+## gems on its spikes, a glowing crescent moon rising at the front, and a ring of blood
+## light turning above it.
+func _moon_crown(id: String, y: float, hat: bool) -> void:
+	var f := _fit(id, y, hat)
+	var base := f.x
+	var r := f.y
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.12, 0.06, 0.08)
+	iron.metallic = 0.7
+	iron.roughness = 0.3
+	iron.rim_enabled = true
+	iron.rim = 0.6
+	iron.emission_enabled = true
+	iron.emission = Color(1.0, 0.15, 0.1)
+	iron.emission_energy_multiplier = 0.25
+	var blood := _glow_mat(Color(1.0, 0.16, 0.12) * 1.9)
+	var moon := _glow_mat(Color(1.0, 0.88, 0.62) * 1.7)
+	var band := CylinderMesh.new()
+	band.top_radius = r * 1.1
+	band.bottom_radius = r
+	band.height = 0.17
+	band.radial_segments = 20
+	band.rings = 1
+	_mi(band, iron, Vector3(0, base + 0.085, 0))
+	# Six spikes round the back and sides (the moon stands at the front, +z), blood-tipped.
+	for i in 6:
+		var a := PI * (0.32 + i * 0.272)
+		var dir := Vector3(sin(a), 0, cos(a))
+		var foot := Vector3(0, base + 0.15, 0) + dir * r * 1.08
+		var tip := foot + Vector3(0, 0.3 + 0.06 * float(i % 2), 0) + dir * 0.09
+		_rod(foot, tip, 0.07, 0.0, iron, null, 6)
+		_sphere(0.05, blood, tip + Vector3(0, 0.02, 0))
+		var g := a + 0.136
+		_sphere(0.045, blood, Vector3(0, base + 0.085, 0) + Vector3(sin(g), 0, cos(g)) * r * 1.06)
+	# The crescent: horns up, thick in the middle, of glowing moon-gold beads.
+	var c := Vector3(0, base + 0.5, r * 1.02)
+	for k in 15:
+		var t := -1.0 + k * 2.0 / 14.0
+		var ang := t * 1.95
+		var th := 0.025 + 0.07 * cos(t * PI * 0.5)
+		_sphere(th, moon, c + Vector3(sin(ang) * 0.24, -cos(ang) * 0.24, 0), Vector3(1, 1, 0.6))
+	_rod(Vector3(0, base + 0.16, r * 1.05), c + Vector3(0, -0.2, 0), 0.05, 0.03, iron, null, 6)
+	# The blood ring, turning (kept apart from the bake so it can spin).
+	_spin = Node3D.new()
+	_spin.position = Vector3(0, base + 0.62, 0)
+	add_child(_spin)
+	_torus(r * 0.8, r * 0.9, _glow_mat(Color(1.0, 0.2, 0.15) * 1.5), Vector3.ZERO, _spin).scale = Vector3(1, 0.5, 1)
+	_torus(r * 0.62, r * 1.1, _add_mat(Color(1.0, 0.15, 0.1, 0.25)), Vector3.ZERO, _spin).scale = Vector3(1, 0.08, 1)
+
+
 func _process(delta: float) -> void:
 	_t += delta
 	match kind:
+		"moon_crown":
+			_spin.rotation.y += delta * 0.9
+			_spin.position.y += sin(_t * 2.2) * 0.0007
 		"storm_halo":
 			_spin.rotation.y += delta * 0.8
 			_spin.position.y += sin(_t * 2.0) * 0.0006

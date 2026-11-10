@@ -94,6 +94,11 @@ var _slow_phone := false
 var _slow_t := -1.0
 ## "cards=a,b,c": the first blessing pick offers exactly these cards (for pictures).
 var _force_cards: Array = []
+## The Blood Moon (events.gd): `eday=N` plays day N of the event, `event=run` or
+## `event=hunt tier=N` starts it, `eventmenu` takes pictures of the event screens and
+## `shards=N caskets=N` fill the event save first.
+var _event_menu := false
+var _event_lobby := false
 
 
 func _ready() -> void:
@@ -196,6 +201,25 @@ func _ready() -> void:
 			_end_back = true
 		elif a == "icons":
 			_icons = true
+		elif a.begins_with("eday="):
+			Events.forced_day = int(a.substr(5))
+			_skip_first_run()
+			_event_lobby = true
+		elif a.begins_with("event="):
+			Game._event_requested = a.substr(6)
+			_skip_first_run()
+		elif a.begins_with("tier="):
+			Game._event_tier_requested = int(a.substr(5))
+		elif a.begins_with("shards="):
+			var cfg := Game._load_save()
+			cfg.set_value(Events.section(), "shards", int(a.substr(7)))
+			Game.write_save(cfg)
+		elif a.begins_with("caskets="):
+			var cfg := Game._load_save()
+			Events.add_caskets(cfg, int(a.substr(8)))
+			Game.write_save(cfg)
+		elif a == "eventmenu":
+			_event_menu = true
 		elif a.begins_with("cards="):
 			_force_cards = Array(a.substr(6).split(","))
 		elif a.begins_with("runs="):
@@ -220,6 +244,49 @@ func _back_at_end() -> void:
 	if shots_dir != "":
 		await _shot()
 	get_tree().quit()
+
+
+## `eventmenu`: the title taken over, the event screen (top and bottom), the event road,
+## a claim, and Moon Caskets opened.
+func _event_pictures() -> void:
+	var e := Events.current()
+	print("[autoplay] event day %d active=%s chapter=%d eclipse=%s double=%s lobby=%s floor_theme=%d" % [Events.day(), Events.active(),
+		Events.chapter(), Events.eclipse(), Events.double_today(), Floors.lobby, Floors.index(1)])
+	await _shot()   # the title
+	Game._open_event()
+	await get_tree().create_timer(0.6).timeout
+	await _shot()
+	var ev: EventScreen = Game.hud._event
+	ev._scroll.scroll_vertical = 520
+	await get_tree().create_timer(0.3).timeout
+	await _shot()
+	ev._scroll.scroll_vertical = 2000
+	await get_tree().create_timer(0.3).timeout
+	await _shot()
+	ev.show_road()
+	await get_tree().create_timer(0.6).timeout
+	await _shot()
+	var cfg := Game._load_save()
+	for i in Events.ROAD.size():
+		if Events.shards(cfg) >= int(Events.ROAD[i].at) and not Events.claimed(cfg, i):
+			Game._claim_event_road(i)
+			cfg = Game._load_save()
+	print("[autoplay] event road: shards %d, claimed to %d, caskets %d, looks %s, coins %d" % [Events.shards(cfg), Events.next_index(cfg),
+		Events.caskets(cfg), str(Events.missing_looks(cfg)), Game.coins])
+	await get_tree().create_timer(0.4).timeout
+	await _shot()
+	ev.back()
+	await get_tree().create_timer(0.3).timeout
+	if Events.caskets(cfg) > 0:
+		Game._open_caskets()
+		for k in mini(Events.caskets(cfg), 3):
+			await get_tree().create_timer(0.4).timeout
+			Game.hud._drops._tap()
+			await get_tree().create_timer(3.2).timeout
+			await _shot()
+			Game.hud._drops._tap()
+		await get_tree().create_timer(0.4).timeout
+	print("[autoplay] event done: %s" % ("ok" if not e.is_empty() else "no event on"))
 
 
 ## Daily Crypt and Curses aren't offered on the very first run.
@@ -359,6 +426,22 @@ func _process(delta: float) -> void:
 				get_tree().quit()
 				return
 			if _modes_menu:
+				return
+			if _event_lobby:
+				# The title was made before `eday` took effect: make it again, taken over.
+				_event_lobby = false
+				_shopped = false
+				var req := Game._event_requested
+				Game._back_to_title()
+				Game._event_requested = req
+				_t = 0.0
+				return
+			if _event_menu and _t > 2.0 and not _shopped:
+				_shopped = true
+				await _event_pictures()
+				get_tree().quit()
+				return
+			if _event_menu:
 				return
 			if _daily_menu and _t > 1.2 and not _shopped:
 				_shopped = true

@@ -66,11 +66,26 @@ const THEMES := [
 		# Spores drifting up: small and pale, so they never look like shots or coins.
 		"motes": [Color(1.0, 0.6, 0.9, 0.45), Color(0.8, 1.0, 0.5, 0.25)], "motes_fall": false, "motes_size": 0.45,
 		"banner": Color(1.0, 0.6, 0.9), "floor_style": 4, "props": "fungus", "pillar": "wall_pillar", "light": [1.25, 1.7, 0.3, 0.2]},
+	# Version 134: the Blood Moon crypt, only in the Blood Moon event (events.gd). Black
+	# marble and gold under the red light of the moon, blood veins in the stone throbbing
+	# like a heart, blood-red wisps, petals falling. Warnings turn gold here as in the Ember
+	# Catacomb (it has "seams"), so they never melt into the red.
+	{"name": "Blood Moon Crypt", "wisp": Color(1.0, 0.28, 0.22), "floor": Color(1.0, 0.95, 1.0), "seams": Color(1.0, 0.1, 0.07),
+		"grout": Color(0.05, 0.02, 0.03), "grime": Color(0.05, 0.045, 0.07), "grime_amount": 0.5,
+		"patch_tint": Color(0.85, 0.8, 0.9), "patch_rough": 0.25,
+		"wall": Color(0.13, 0.06, 0.08), "trim": Color(0.32, 0.12, 0.13),
+		"ambient": Color(0.19, 0.17, 0.25), "fog": Color(0.06, 0.01, 0.03), "background": Color(0.04, 0.0, 0.01),
+		"moon": Color(0.95, 0.74, 0.8), "torch": Color(1.0, 0.62, 0.32), "torch_energy": 1.2,
+		# Petals falling: deep red and pale rose, small, so they never look like shots.
+		"motes": [Color(1.0, 0.18, 0.18, 0.75), Color(1.0, 0.6, 0.6, 0.35)], "motes_fall": true, "motes_size": 0.55,
+		"banner": Color(1.0, 0.32, 0.26), "floor_style": 5, "props": "moon", "pillar": "pillar_decorated", "light": [1.25, 1.75, 0.1, 0.3]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
 const DROWNED := 3
 const GROTTO := 4
+## The Blood Moon crypt: never in the rotation, only in the event's runs (Game.event).
+const BLOOD_MOON := 5
 ## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, Frozen.
 const FREE_ORDER := [0, 1, 2, GROTTO, 1]
 ## Each loop of the Crypt Pass (5 floors, see Loops) shows all five, the Drowned Vault first.
@@ -82,7 +97,13 @@ const PASS_ORDER := [DROWNED, 0, 1, 2, GROTTO]
 ## from floor 6 the five themes take turns starting with the Drowned Vault (6, 11, 16...),
 ## so it is the first thing the Crypt Pass shows. Music, room sounds and each theme's own
 ## skeletons follow the same order.
+## The title's lobby room in the event's crypt while an event is on (the takeover).
+static var lobby := false
+
+
 static func index(floor_num: int) -> int:
+	if Game.event != "" or lobby:
+		return BLOOD_MOON
 	var f := maxi(floor_num, 1)
 	if f <= Store.FREE_FLOORS:
 		return FREE_ORDER[(f - 1) % FREE_ORDER.size()]
@@ -117,9 +138,20 @@ static func current() -> Dictionary:
 	return theme(Game.floor_num)
 
 
-## The Ember Catacomb, where red warnings would melt into the floor.
+## The Ember Catacomb and the Blood Moon crypt, where red warnings would melt into the
+## glowing floor ("seams"): warnings turn gold there (telegraph.gd).
 static func hot() -> bool:
+	return current().has("seams")
+
+
+## The Ember Catacomb (the Cinder Colossus's floor).
+static func ember() -> bool:
 	return current().name == "Ember Catacomb"
+
+
+## The Blood Moon crypt (the event).
+static func blood_moon() -> bool:
+	return index(Game.floor_num) == BLOOD_MOON
 
 
 ## The Drowned Vault (Crypt Pass floors only).

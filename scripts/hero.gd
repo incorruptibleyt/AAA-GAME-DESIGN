@@ -680,7 +680,7 @@ func _build_motif() -> void:
 	# Its shape on the floor (not the Crypt King's, which has its own sigil).
 	if not _master_aura.get("sigil", false):
 		var ink: Color = _master_aura.get("ink", Color.WHITE)
-		var marks := {"quick": 8, "storm": 3, "souls": 5, "sun": 12, "arcane": 6, "snow": 6, "bubbles": 9, "fireflies": 7}
+		var marks := {"quick": 8, "storm": 3, "souls": 5, "sun": 12, "arcane": 6, "snow": 6, "bubbles": 9, "fireflies": 7, "bats": 5}
 		var g := Fx.aura_ground(ink, _master_aura.get("ink2", ink.lightened(0.4)), int(marks.get(str(_master_aura.get("motif", "")), 4)))
 		add_child(g)
 		_rings.append(g)

@@ -126,6 +126,8 @@ func _draw() -> void:
 		"flashfire": _flashfire()
 		"splinters": _splinters()
 		"overcharge": _overcharge()
+		"bloodpact": _blood_drop()
+		"shardhunter": _shard()
 		"door_shrine": _shrine()
 		"door_champion": _crown()
 		_:
@@ -134,6 +136,7 @@ func _draw() -> void:
 				"flame": _flame(Vector2.ZERO, 1.0)
 				"frost": _snowflake()
 				"bone": _bone()
+				"moon": _crescent()
 
 
 # ---------------------------------------------------------------- drawing helpers
@@ -521,6 +524,18 @@ func _quake() -> void:
 	_ln(Vector2(3, 13), Vector2(-1, 17), 2.5)
 	_ln(Vector2(-9, 9), Vector2(-11, 14), 2.0)
 	_ln(Vector2(9, 9), Vector2(12, 13), 2.0)
+
+
+func _crescent() -> void:
+	# A Blood Moon blessing: a red crescent moon.
+	draw_circle(_v(Vector2.ZERO), 13.0 * _k, color)
+	draw_circle(_v(Vector2(6, -5)), 11.0 * _k, color.darkened(0.82))
+	_dot(Vector2(-6, 4), 2.0, Color(1, 1, 1, 0.6))
+
+
+func _shard() -> void:
+	# Shard Hunter: a Moon Shard.
+	EventArt.draw_shard(self, _v(Vector2.ZERO), 30.0 * _k)
 
 
 func _blood_drop() -> void:

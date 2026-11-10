@@ -99,6 +99,8 @@ static var _floor_shaders := {}
 ## 4. The Glowcap Grotto has no laid floor: dark earth under moss, with darker hollows, and
 ##    glowing fungus threads running through the ground with light pulsing along them, and
 ##    glowing caps in the moss ("spores").
+## 5. The Blood Moon crypt (the event, events.gd): black marble diamonds with gold inlay,
+##    veins of blood light throbbing with a heartbeat and the blood moon in the middle.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -375,6 +377,59 @@ void fragment() {
 	vec3 col = mix(spores.rgb, spores2.rgb, step(0.9, spr));
 	c = mix(c, col * 0.5, cap);
 	em += col * (cap * 1.3 + halo) * pulse * spores.a;
+#elif STYLE == 5
+	// The Blood Moon crypt (the event, version 134): polished black marble laid in great
+	// diamonds with gold inlay between them, pale veins through the stone, thin veins of
+	// blood light throbbing with a heartbeat (two beats, a rest), and the blood moon itself
+	// inlaid in the middle of the room: a crescent in a gold ring with twelve rays.
+	const float D = 2.2;
+	vec2 dq = vec2(pos.x + pos.y, pos.y - pos.x) * 0.70710678 / D;
+	vec2 dcell = floor(dq);
+	vec2 df = fract(dq) - 0.5;
+	vec2 de = (0.5 - abs(df)) * D;
+	float ded = min(de.x, de.y);
+	r = h(dcell);
+	float vn = texture(grain, pos * 0.07 + vec2(r * 3.0, r * 1.7)).r;
+	float vein = 1.0 - smoothstep(0.0, 0.025 + fwidth(vn), abs(vn - 0.5));
+	float vn2 = texture(blobs_b, pos * 0.11 + vec2(r, 0.3)).r;
+	float bvein = 1.0 - smoothstep(0.0, 0.01 + fwidth(vn2), abs(vn2 - 0.5));
+	// Cool black (a touch of blue), so the warm torchlight and the red moon don't turn it red.
+	c = vec3(0.1, 0.1, 0.135) * (0.85 + 0.3 * r) * (0.95 + 0.1 * fine) * tint.rgb;
+	c = mix(c, vec3(0.5, 0.5, 0.56), vein * 0.3);
+	rough = 0.22;
+	float g = smoothstep(0.62, 0.9, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.35) * grime_amount;
+	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g * 0.6);
+	rough = mix(rough, 0.8, g);
+	float aa = fwidth(ded);
+	float inlay = 1.0 - smoothstep(0.03 - aa, 0.03 + aa, ded);
+	const vec3 GOLD = vec3(0.78, 0.58, 0.24);
+	c = mix(c, GOLD, inlay);
+	rough = mix(rough, 0.35, inlay);
+	em += vec3(0.5, 0.36, 0.14) * inlay * 0.12;
+	float bt = fract(TIME * 0.9);
+	float beat = exp(-bt * 9.0) + 0.6 * exp(-max(bt - 0.22, 0.0) * 9.0) * step(0.22, bt);
+	// Only a few slabs carry a blood vein (one in four), thin, so the marble stays black.
+	bvein *= step(0.75, r) * (1.0 - inlay);
+	c = mix(c, seam.rgb * 0.25, bvein * 0.6);
+	em += seam.rgb * bvein * (0.15 + 0.55 * beat) * seam.a;
+	float R = length(pos);
+	if (R < 2.0) {
+		float aR = fwidth(R);
+		float disc = 1.0 - smoothstep(1.2 - aR, 1.2 + aR, R);
+		float dark = 1.0 - smoothstep(1.05 - aR, 1.05 + aR, length(pos - vec2(0.45, -0.3)));
+		float ring = 1.0 - smoothstep(0.02, 0.035 + aR, abs(R - 1.42));
+		float ring2 = 1.0 - smoothstep(0.012, 0.024 + aR, abs(R - 1.72));
+		float a = atan(pos.y, pos.x);
+		float ray = (1.0 - smoothstep(0.03, 0.06, abs(fract(a / 6.2831853 * 12.0) - 0.5) * 0.5)) * step(1.45, R) * (1.0 - step(1.7, R));
+		vec3 moon = vec3(0.55, 0.06, 0.05) * (0.85 + 0.3 * texture(blobs_a, pos * 0.4).r);
+		c = mix(c, moon, disc);
+		c = mix(c, vec3(0.06, 0.02, 0.03), disc * dark * 0.85);
+		c = mix(c, GOLD * 1.2, max(max(ring, ring2), ray));
+		rough = mix(rough, 0.3, disc);
+		em += seam.rgb * disc * (1.0 - dark * 0.85) * (0.25 + 0.35 * beat) * seam.a;
+		em += vec3(1.0, 0.7, 0.3) * max(ring, ray) * 0.15;
+	}
+	n = normalize(vec3((r - 0.5) * 0.05, 1.0, (h(dcell + 3.0) - 0.5) * 0.05));
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -499,6 +554,8 @@ static var _wall_shaders := {}
 ## 3. Ember Catacomb: upright basalt columns with fire glowing low in the joints.
 ## 4. Glowcap Grotto: dark earth wall hung with roots, moss at the foot and a few glowing
 ##    fungus threads.
+## 5. Blood Moon (the event): black marble blocks, gold joints, throbbing blood veins and a
+##    frieze of gold crescent moons.
 ## The pattern follows where the point is in the world, so walls built from several boxes
 ## join up, and a box's top takes the pattern seen from above.
 static func _wall_material(look: Dictionary, base: Material) -> Material:
@@ -621,6 +678,30 @@ void fragment() {
 	float thread = (1.0 - smoothstep(0.0, 0.012 + fwidth(rt), abs(rt - 0.62))) * (1.0 - top);
 	c = mix(c, spores.rgb * 0.4, thread * 0.6);
 	em += spores.rgb * thread * (0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.4 - uv.y * 4.0 + uv.x), 4.0)) * 0.6;
+#elif STYLE == 5
+	// Blood Moon: black marble blocks with gold joints, blood veins in the stone throbbing
+	// with the floor's heartbeat, and a frieze of gold crescent moons at shoulder height.
+	float row = floor(uv.y / 0.55);
+	float bx = uv.x / 1.1 + mod(row, 2.0) * 0.5;
+	float bc = floor(bx);
+	vec2 bf = vec2(fract(bx), fract(uv.y / 0.55));
+	float hb = h(vec2(bc, row));
+	c = vec3(0.1, 0.1, 0.13) * (0.8 + 0.4 * hb) * (0.9 + 0.2 * fine);
+	float joint = (1.0 - smoothstep(0.0, 0.025, min(min(bf.x, 1.0 - bf.x) * 1.1, min(bf.y, 1.0 - bf.y) * 0.55))) * (1.0 - top);
+	c = mix(c, vec3(0.5, 0.36, 0.16), joint);
+	float vn = texture(blobs, uv * 0.35 + vec2(hb, 0.0)).r;
+	float vein = (1.0 - smoothstep(0.0, 0.012 + fwidth(vn), abs(vn - 0.5))) * step(0.7, hb) * (1.0 - joint);
+	float bt = fract(TIME * 0.9);
+	float beat = exp(-bt * 9.0) + 0.6 * exp(-max(bt - 0.22, 0.0) * 9.0) * step(0.22, bt);
+	c = mix(c, seam.rgb * 0.3, vein * 0.6);
+	em += seam.rgb * vein * (0.2 + 0.6 * beat) * seam.a;
+	if (top < 0.5 && height > 1.15 && height < 1.45) {
+		vec2 lp = vec2((fract(uv.x / 0.7) - 0.5) * 0.7, height - 1.3);
+		float moon = (1.0 - smoothstep(0.1, 0.115, length(lp))) * smoothstep(0.085, 0.1, length(lp - vec2(0.045, 0.035)));
+		c = mix(vec3(0.07, 0.03, 0.04), vec3(0.75, 0.55, 0.25), moon);
+		em += vec3(1.0, 0.7, 0.3) * moon * 0.25;
+	}
+	rough = mix(0.25, 0.4, joint);
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));

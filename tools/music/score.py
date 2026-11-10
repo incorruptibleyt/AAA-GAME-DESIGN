@@ -107,6 +107,11 @@ def perc(s, style, b, d, sec):
             if pos == 0: s.note("perc", t, 45, .3, 62)
             if pos == 2.5: s.note("perc", t, 45, .3, 48)
             if sec in ("B", "A2"): s.note("perc", t, 70, .2, 46 if k % 2 else 58)
+        elif style == "moon":
+            # A slow heartbeat (lub-dub) and a far bell.
+            if pos == 0: s.note("perc", t, 36, .3, 74)
+            if pos == 0.5: s.note("perc", t, 36, .3, 54)
+            if sec in ("B", "A2") and pos == 2: s.note("perc", t, 53, .4, 44)
         elif style == "grotto":
             if pos in (0, 2.5): s.note("perc", t, 77, .2, 64)
             if pos in (1, 3): s.note("perc", t, 76, .2, 50)
@@ -142,7 +147,7 @@ def fight(cfg):
 def boss(cfg):
     s = Song(cfg["bpm"], 11); s.tr = cfg["tr"]
     tl, mel, L = plan(FORM)
-    s.part("lead", 0, 8, 112, 58, 60); s.part("dbl", 1, 10, 100, 74, 70)
+    s.part("lead", 0, cfg.get("lead", 8), 112, 58, 60); s.part("dbl", 1, cfg.get("dbl", 10), 100, 74, 70)
     s.part("str", 2, 48, 120, 54, 60); s.part("vc", 3, 42, 124, 76, 45); s.part("cb", 4, 43, 104, 64, 40)
     s.part("timp", 5, 47, 127, 64, 50); s.part("choir", 6, 52, 104, 50, 80); s.part("hi", 7, 49, 104, 80, 70)
     s.part("brass", 8, 61, 100, 70, 55); s.part("perc", 9, 0, 120, 64, 45)
@@ -181,6 +186,11 @@ TRACKS = {
                              bass_style="soft", spark=14, seed=12)),
     "grotto": ("calm", dict(bpm=100, tr=-5, lead=108, dbl=79, pad=88, arp=12, ctr=70, perc="grotto", seed=10)),
     "boss": ("boss", dict(bpm=126, tr=0)),
+    # The Blood Moon event (version 134): the tune slower and lower, a choir for the pad, a
+    # heartbeat for the drums; and the Blood Moon Queen's theme on a church organ.
+    "moon": ("calm", dict(bpm=88, tr=-1, lead=10, dbl=73, pad=52, arp=46, ctr=42, perc="moon",
+                          bass_style="soft", spark=14, seed=13)),
+    "queen": ("boss", dict(bpm=132, tr=-1, lead=19, dbl=10)),
 }
 REVERB = dict(room=0.7, level=0.55, damp=0.45)
 

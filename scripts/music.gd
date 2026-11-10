@@ -14,9 +14,12 @@ const TRACKS := {
 	"drowned": [preload("res://audio/music/bc_drowned.ogg"), preload("res://audio/music/bc_drowned_fight.ogg")],
 	"grotto": [preload("res://audio/music/bc_grotto.ogg"), preload("res://audio/music/bc_grotto_fight.ogg")],
 	"boss": [preload("res://audio/music/bc_boss.ogg")],
+	# The Blood Moon event (version 134): its crypt and the title while it's on, and the Queen.
+	"moon": [preload("res://audio/music/bc_moon.ogg"), preload("res://audio/music/bc_moon_fight.ogg")],
+	"queen": [preload("res://audio/music/bc_queen.ogg")],
 }
 ## One track per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember", "drowned", "grotto"]
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5
@@ -50,7 +53,7 @@ var _fight := 0.0
 ## "dungeon" plays the current floor's track, "boss" the boss theme, "title" the title theme.
 static func play(track: String) -> void:
 	if _instance:
-		_instance._play_list(track if track in ["boss", "title"] else THEMES[Floors.index(Game.floor_num) % THEMES.size()])
+		_instance._play_list(track if track in ["boss", "title", "moon", "queen"] else THEMES[Floors.index(Game.floor_num) % THEMES.size()])
 
 
 static func set_enabled(on: bool) -> void:

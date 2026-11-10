@@ -19,11 +19,11 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0)]
 
 static var _instance: Ambience
-var _beds: Array = [null, null, null, null, null]
-var _ones: Array = [null, null, null, null, null]
+var _beds: Array = [null, null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -91,6 +91,9 @@ func _build_all() -> void:
 	_ones[3] = _one(0.4, _bubble)
 	_beds[4] = _loop(_grotto_bed)
 	_ones[4] = _one(1.2, _glimmer)
+	# The Blood Moon Crypt (version 134): the crypt's draught, lower, and a slow heartbeat.
+	_beds[5] = _loop(_moon_bed)
+	_ones[5] = _one(0.9, _heartbeat)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -250,6 +253,27 @@ func _drip(n: int) -> PackedFloat32Array:
 		var hz := 700.0 + 1500.0 * minf(t / 0.05, 1.0)
 		phase += TAU * hz / Sfx.RATE
 		x[i] = sin(phase) * exp(-t * 28.0) * minf(t / 0.002, 1.0) * 0.7
+	return x
+
+
+func _moon_bed(n: int) -> PackedFloat32Array:
+	var x := _wind(n, 80.0, 300.0, 7.0, 2.2, 31)
+	for i in n:
+		x[i] += sin(TAU * 36.7 * i / RATE) * 0.03 * (0.6 + 0.4 * sin(TAU * i / RATE / 9.0))
+	return x
+
+
+## A heartbeat far below: two soft low thumps.
+func _heartbeat(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	for k in 2:
+		var start := 0.28 * k
+		for i in n:
+			var t := float(i) / Sfx.RATE - start
+			if t >= 0.0:
+				var hz := 58.0 - 18.0 * minf(t / 0.12, 1.0)
+				x[i] += sin(TAU * hz * t) * exp(-t * 16.0) * minf(t / 0.004, 1.0) * (0.9 - 0.3 * k)
 	return x
 
 

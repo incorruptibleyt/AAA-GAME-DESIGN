@@ -323,6 +323,21 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			blink.offsets = PackedFloat32Array([0.0, 0.2, 0.4, 0.55, 0.75, 1.0])
 			blink.colors = PackedColorArray([Color(1, 1, 1, 0), Color.WHITE, Color(1, 1, 1, 0.15), Color.WHITE, Color(1, 1, 1, 0.2), Color(1, 1, 1, 0)])
 			p.color_ramp = blink
+		"bats":
+			# Blood Moon (the event aura): blood sparks drifting up, and a swarm of little
+			# bats circling the hero (Fx.bats) that rides along with the sparks.
+			p.amount = 14
+			p.lifetime = 1.0
+			p.spread = 30.0
+			p.initial_velocity_min = 0.6
+			p.initial_velocity_max = 1.1
+			p.gravity = Vector3(0, 0.4, 0)
+			p.scale_amount_min = 0.16
+			p.scale_amount_max = 0.26
+			p.emission_ring_radius = 0.8
+			p.emission_ring_inner_radius = 0.5
+			p.position = Vector3(0, 0.1, 0)
+			p.add_child(bats(Color(color, 1.0), 6, 1.05 * size, 1.1, 0.26 * size, 1.5))
 		"stars":
 			p.amount = 10
 			p.lifetime = 1.4
@@ -571,6 +586,74 @@ static func wisps(parent: Node3D, color: Color, count: int, half_w: float, half_
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mi.extra_cull_margin = 6.0
 		parent.add_child(mi)
+
+
+## A swarm of `count` bats circling their parent at `radius` and `height`, wings beating:
+## one MultiMesh, drawn and moved by its shader (BAT_CODE), each bat its own speed and
+## phase (instance custom data). The Blood Moon aura, the Queen's swarm, the event title.
+static var _bat_shader: Shader
+
+
+static func bats(color: Color, count: int, radius: float, height: float, size: float, speed := 1.2) -> MultiMeshInstance3D:
+	if _bat_shader == null:
+		_bat_shader = Shader.new()
+		_bat_shader.code = BAT_CODE
+	var m := ShaderMaterial.new()
+	m.shader = _bat_shader
+	m.set_shader_parameter("tint", color)
+	m.set_shader_parameter("size", size)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	mm.mesh = q
+	mm.instance_count = count
+	for i in count:
+		mm.set_instance_transform(i, Transform3D())
+		# phase, radius, height, angular speed (every other one the other way round)
+		var sp := speed * (0.8 + 0.4 * fmod(i * 0.618, 1.0)) * (1.0 if i % 3 != 2 else -1.0)
+		mm.set_instance_custom_data(i, Color(float(i) / count, radius * (0.8 + 0.35 * fmod(i * 0.37, 1.0)), height * (0.7 + 0.6 * fmod(i * 0.53, 1.0)), sp))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = radius + 2.0
+	return mi
+
+
+const BAT_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 tint : source_color = vec4(1.0, 0.2, 0.15, 1.0);
+uniform float size = 0.3;
+varying float flap;
+void vertex() {
+	vec4 c = INSTANCE_CUSTOM;
+	float ang = TIME * c.w + c.x * 6.2831853;
+	float r = c.y * (1.0 + 0.15 * sin(TIME * 1.3 + c.x * 9.0));
+	vec3 at = MODEL_MATRIX[3].xyz + vec3(cos(ang) * r, c.z + 0.2 * sin(TIME * 2.3 + c.x * 7.0), sin(ang) * r);
+	flap = sin(TIME * 15.0 + c.x * 20.0);
+	vec2 v = VERTEX.xy;
+	v.x *= 2.0 * (0.45 + 0.55 * abs(flap));   // wide wings, beating
+	vec3 w = at + (INV_VIEW_MATRIX[0].xyz * v.x + INV_VIEW_MATRIX[1].xyz * v.y) * size;
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+void fragment() {
+	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	float ax = abs(p.x);
+	float body = 1.0 - smoothstep(0.42, 0.5, length(vec2(p.x * 3.0, p.y * 1.6 + 0.1)));
+	float head = 1.0 - smoothstep(0.12, 0.16, length(vec2(p.x * 1.1, p.y - 0.36)));
+	float ear = step(0.4, p.y) * step(p.y, 0.68) * step(abs(ax - 0.08), 0.06 * (0.68 - p.y) / 0.28);
+	float top = 0.35 - 0.55 * (ax - 0.1) + 0.15 * sin(ax * 3.14);
+	float bottom = -0.25 + 0.3 * ax + 0.12 * abs(sin(ax * 9.42));
+	float wing = step(0.08, ax) * step(ax, 0.97) * smoothstep(bottom, bottom + 0.04, p.y) * (1.0 - smoothstep(top - 0.04, top, p.y));
+	float m = clamp(body + head + ear + wing, 0.0, 1.0);
+	if (m < 0.05) { discard; }
+	ALBEDO = tint.rgb * (1.3 + 0.5 * abs(flap));
+	ALPHA = m * tint.a;
+}
+"""
 
 
 const WISP_CODE := """

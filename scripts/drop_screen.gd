@@ -43,6 +43,8 @@ var _odds: PanelContainer
 var _odds_text: Label
 var _odds_grid: GridContainer
 var _odds_dim: ColorRect   # darkens the chest and its text behind the odds (version 119)
+## Moon Caskets (events.gd, version 134) open here too, with the event's name and colours.
+var casket := false
 
 
 func _init() -> void:
@@ -173,7 +175,8 @@ func _init() -> void:
 
 
 ## Shows the screen with `waiting` drops to open.
-func open_screen(waiting: int) -> void:
+func open_screen(waiting: int, is_casket := false) -> void:
+	casket = is_casket
 	_feat_mode = false
 	_feat_queue.clear()
 	_left = waiting
@@ -270,6 +273,7 @@ func _ready_next() -> void:
 	_wear.visible = false
 	_odds_btn.visible = true
 	_head.label_settings.font_color = Color(1, 0.85, 0.55)
+	_chest.casket_look(casket)
 	_chest.reset()
 	_chest.check()
 	_step = Step.CLOSED
@@ -277,8 +281,11 @@ func _ready_next() -> void:
 	_result = {}
 	_shown_tier = 0
 	_pop = 0.0
-	_head.text = "BONE DROP"
-	_count.text = "%d waiting" % _left if _left > 1 else "Earned by brave runs"
+	_head.text = "MOON CASKET" if casket else "BONE DROP"
+	_count.text = "%d waiting" % _left if _left > 1 else ("Won in the Blood Moon" if casket else "Earned by brave runs")
+	if casket:
+		_head.label_settings.font_color = Color(1.0, 0.42, 0.36)
+		_odds_btn.visible = false
 	_rarity.text = ""
 	_prize.text = "What's inside?\nTap to find out."
 	_prize.label_settings.font_color = Color(0.8, 0.78, 0.85)
@@ -330,7 +337,7 @@ func _place_odds() -> void:
 
 
 func _update_pity() -> void:
-	_pity.text = Drops.pity_text(Game._load_save())
+	_pity.text = "" if casket else Drops.pity_text(Game._load_save())
 
 
 func _tap() -> void:
@@ -404,7 +411,7 @@ func _finish() -> void:
 	_flash = 1.0
 	_pop = 1.0
 	var c: Color = _result.get("color", Color.WHITE)
-	_head.text = "BONE DROP"
+	_head.text = "MOON CASKET" if casket else "BONE DROP"
 	_rarity.text = str(_result.get("name", ""))
 	_rarity.label_settings.font_color = c
 	_prize.text = str(_result.get("text", ""))
@@ -559,6 +566,10 @@ class Chest extends SubViewportContainer:
 	var _beam_mat: StandardMaterial3D
 	var _light: OmniLight3D
 	var _trim: StandardMaterial3D
+	var _bone: StandardMaterial3D
+	var _bone_dark: StandardMaterial3D
+	## A Moon Casket (the Blood Moon event): black marble and crimson, trimmed in gold.
+	var moon := false
 	var _gem_mat: StandardMaterial3D
 	var _burst: CPUParticles3D
 	var _burst_mat: StandardMaterial3D
@@ -609,6 +620,8 @@ class Chest extends SubViewportContainer:
 		bone.rim_tint = 0.7
 		var bone_dark := bone.duplicate() as StandardMaterial3D
 		bone_dark.albedo_color = Color(0.36, 0.3, 0.26)
+		_bone = bone
+		_bone_dark = bone_dark
 		var iron := StandardMaterial3D.new()
 		iron.albedo_color = Color(0.17, 0.14, 0.18)
 		iron.metallic = 0.7
@@ -817,6 +830,15 @@ class Chest extends SubViewportContainer:
 				n.environment.background_mode = Environment.BG_COLOR
 				n.environment.background_color = Color(0.02, 0.01, 0.04)
 
+	func casket_look(on: bool) -> void:
+		moon = on
+		_bone.albedo_color = Color(0.14, 0.12, 0.17) if on else Color(0.8, 0.73, 0.6)
+		_bone.roughness = 0.2 if on else 0.65
+		_bone.metallic = 0.35 if on else 0.0
+		_bone.rim_tint = 0.2 if on else 0.7
+		_bone_dark.albedo_color = Color(0.5, 0.04, 0.07) if on else Color(0.36, 0.3, 0.26)
+		_bone_dark.roughness = 0.3 if on else 0.65
+
 	func reset() -> void:
 		if _solid and _vp.transparent_bg:
 			_use_solid()
@@ -864,7 +886,7 @@ class Chest extends SubViewportContainer:
 		_crack_mat.albedo_color = col.lightened(0.4) * 1.6
 		_gem_mat.albedo_color = col.lightened(0.2) * (1.2 + 0.3 * float(tier))
 		# Iron trim at Common, turning gold as the rarity climbs.
-		_trim.albedo_color = Color(0.3, 0.27, 0.3).lerp(Color(1.0, 0.78, 0.3), clampf(float(tier) / 4.0, 0.0, 1.0))
+		_trim.albedo_color = Color(1.0, 0.78, 0.3) if moon else Color(0.3, 0.27, 0.3).lerp(Color(1.0, 0.78, 0.3), clampf(float(tier) / 4.0, 0.0, 1.0))
 		var t := Time.get_ticks_msec() / 1000.0
 		_root.position = Vector3.ZERO
 		_root.rotation = Vector3(0, -0.35 + sin(t * 0.6) * 0.12, 0)

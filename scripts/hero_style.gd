@@ -192,6 +192,8 @@ const EXTRA := {
 		"toxic": {"name": "Toxic", "a": Color(0.28, 0.66, 0.16), "b": Color(0.24, 0.08, 0.34), "pat": 8, "drop": 3},
 		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.36, 0.3, 0.62), "pat": 9, "drop": 3},
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
+		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
+		"blood_moon": {"name": "Blood Moon", "a": Color(0.3, 0.03, 0.06), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 	},
 	"head": {
 		"storm_halo": {"name": "Storm Halo", "hat": true, "extras": ["storm_halo"], "feat": "bossbreaker"},
@@ -201,6 +203,7 @@ const EXTRA := {
 		"antlers": {"name": "Antlers", "hat": false, "extras": ["antlers"], "drop": 4},
 		"phantom_horns": {"name": "Phantom Horns", "hat": true, "extras": ["phantom_horns"], "drop": 4},
 		"bone_crown": {"name": "Bone Mask", "hat": true, "extras": ["bone_crown"], "drop": 4},
+		"moon_crown": {"name": "Moon Crown", "hat": true, "extras": ["moon_crown"], "event": "blood_moon"},
 	},
 	"glow": {
 		"mirage": {"name": "Mirage", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
@@ -210,6 +213,8 @@ const EXTRA := {
 		"eclipse": {"name": "Eclipse", "ring": Color(0.55, 0.25, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
 		"venom": {"name": "Venom", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
 		"abyss": {"name": "Abyss", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
+		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
+		"moonlight": {"name": "Moonlight", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
 	},
 	"aura": {
 		"quickstep": {"name": "Quickstep", "ink": Color(1.0, 0.9, 0.3), "spark": Color(1.0, 0.95, 0.6), "motif": "quick", "feat": "rusher"},
@@ -220,6 +225,9 @@ const EXTRA := {
 		"snowfall": {"name": "Snowfall", "ink": Color(0.85, 0.95, 1.0), "spark": Color(1.0, 1.0, 1.0), "motif": "snow", "drop": 3},
 		"bubbles": {"name": "Bubbles", "ink": Color(0.4, 1.0, 0.3), "spark": Color(0.6, 1.0, 0.4), "motif": "bubbles", "drop": 3},
 		"fireflies": {"name": "Fireflies", "ink": Color(0.85, 1.0, 0.3), "spark": Color(0.95, 1.0, 0.45), "motif": "fireflies", "drop": 3},
+		# The set's crown jewel: a blood-red outline pulsing to gold, a swarm of little bats
+		# circling the hero, and a blood moon on the floor under them.
+		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.18, 0.14), "ink2": Color(1.0, 0.72, 0.3), "spark": Color(1.0, 0.3, 0.22), "motif": "bats", "shine": true, "event": "blood_moon"},
 	},
 }
 ## Each hero's own head (hidden under a Skull Helm).
@@ -301,6 +309,8 @@ static func items(id: String) -> Array:
 			var it := {"slot": slot, "key": key, "name": e.name, "level": 1}
 			if e.has("feat"):
 				it.feat = e.feat
+			elif e.has("event"):
+				it.event = e.event
 			else:
 				it.drop = int(e.drop)
 			out.append(it)
@@ -311,7 +321,7 @@ static func items(id: String) -> Array:
 
 ## A Mastery look (not a Crypt King, Feat or Bone Drop look).
 static func is_mastery(it: Dictionary) -> bool:
-	return it.key != "" and not it.get("pass", false) and not it.has("feat") and not it.has("drop")
+	return it.key != "" and not it.get("pass", false) and not it.has("feat") and not it.has("drop") and not it.has("event")
 
 
 ## The slots the Crypt King set fills, and each look's key ("crypt", "crypt_crown"...).
@@ -337,6 +347,8 @@ static func has_look(cfg: ConfigFile, id: String, slot: String, key: String) -> 
 		return Feats.done(cfg, e.feat)
 	if e.has("drop"):
 		return Drops.has_look(cfg, slot, key)
+	if e.has("event"):
+		return Events.has_look(cfg, slot, key)
 	return item_level(id, slot, key) <= HeroMastery.level(cfg, id)
 
 
@@ -448,7 +460,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		d.bolt_color = glow.bolt
 		# Feat, Bone Drop and Pass glows shine brighter and wider on the hero's edges, so the
 		# player can see what they won (version 119: the Eclipse reveal showed a faint rim).
-		if glow.has("feat") or glow.has("drop") or is_pass(p.get("glow", "")):
+		if glow.has("feat") or glow.has("drop") or glow.has("event") or is_pass(p.get("glow", "")):
 			d.rim_strong = true
 		if glow.has("ring2"):
 			# A Legend road glow shimmers between two colours; a little stronger than a plain
@@ -661,7 +673,7 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			_crown(att, id, y, hat)
 		"crypt_crown":
 			att.add_child(CryptCrown.make(id, y, hat))
-		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown":
+		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown", "moon_crown":
 			att.add_child(FeatHeads.make(kind, id, y, hat, style))
 		"mage_hood":
 			var o: Dictionary = style.get("outfit", {})
@@ -981,6 +993,21 @@ void fragment() {
 			float up = twinkle(q * 5.0 + vec3(0.0, -TIME * 1.2, 0.0), 0.1, 3.0);
 			al = mix(al, vec3(0.55, 0.1, 0.05), 0.35);   // deep crimson under the gold light
 			em = vec3(1.0, 0.55, 0.15) * rays * 0.7 + vec3(1.0, 0.85, 0.5) * edge * 0.4 + vec3(1.0, 0.55, 0.15) * up * 2.0;
+		} else if (pat == 14) {
+			// Blood Moon (the event set): black-crimson cloth, veins of blood light throbbing
+			// with a heartbeat (two beats, then a rest), and little gold crescent moons
+			// drifting up.
+			float t = fract(TIME * 1.1);
+			float hb = exp(-t * 10.0) + 0.6 * exp(-max(t - 0.2, 0.0) * 10.0) * step(0.2, t);
+			float n = fbm(q * 2.0);
+			float vein = 1.0 - smoothstep(0.015, 0.06, abs(n - 0.5));
+			vec3 r = q * 3.5 + vec3(0.0, -TIME * 0.35, 0.0);
+			vec2 f = fract(r.xy + r.z * 0.5) - 0.5;
+			float h = hash3(floor(r));
+			float moon = (1.0 - smoothstep(0.16, 0.2, length(f))) * smoothstep(0.13, 0.18, length(f - vec2(0.08, 0.07)));
+			moon *= step(0.68, h) * (0.6 + 0.4 * sin(TIME * 2.0 + h * 30.0));
+			al = mix(al, vec3(0.16, 0.02, 0.04), 0.7);
+			em = vec3(1.0, 0.12, 0.1) * vein * (0.45 + 1.5 * hb) + vec3(1.0, 0.2, 0.15) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.6;
 		}
 		ALBEDO = mix(ALBEDO, al, w);
 		EMISSION += em * w;

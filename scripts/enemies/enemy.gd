@@ -61,6 +61,11 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"p": e = Sporeling.new()
 		"r": e = Rootbinder.new()
 		"S": e = Sporemother.new()
+		# The Blood Moon event (events.gd, version 134).
+		"b": e = Bloodbat.new()
+		"h": e = MoonHowler.new()
+		"Q": e = BloodQueen.new()
+		"q": e = QueenShade.new()
 		_: e = SkeletonMinion.new()
 	e.team = Team.UNDEAD
 	parent.add_child(e)
@@ -414,6 +419,7 @@ func walk(dir: Vector3, delta: float, speed_scale := 1.0) -> void:
 		dir = Room.current.steer(global_position, dir, radius)
 	if _slow_left > 0.0:
 		speed_scale *= 0.55
+	speed_scale *= Game.surge_mult()   # a Blood Moon surge (events)
 	move_by(dir * move_speed * speed_scale * delta, delta)
 	face(dir, 10.0, delta)
 	visual.set_moving(true)

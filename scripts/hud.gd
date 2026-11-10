@@ -59,6 +59,13 @@ signal loop_deeper
 signal loop_bank
 signal omen_picked(id: String)
 signal reports_answered(on: bool)
+## The Blood Moon event (events.gd, version 134).
+signal event_pressed
+signal event_run
+signal event_hunt(tier: int)
+signal event_claim(index: int)
+signal event_caskets
+signal event_closed
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
 const FLICK_TIME := 0.22
@@ -240,6 +247,15 @@ var _end_mastery: MasteryBar
 var _mastery: MasteryScreen
 var _style: StyleScreen
 var _drops: DropScreen
+var _event: EventScreen
+var _title_event: EventArt.Banner
+var _shard_box: Control
+var _shard_label: Label
+var _shard_icon: EventArt.ShardIcon
+var _shard_pop := 0.0
+var _surge_edge: TextureRect
+var _eclipse_dim: ColorRect
+var _surge_warn := false
 var _feats: FeatsScreen
 var _toast: PanelContainer
 var _toast_name: Label
@@ -324,6 +340,13 @@ func _ready() -> void:
 	_build_records()
 	_build_armory()
 	_build_heroes()
+	_event = EventScreen.new()
+	add_child(_event)
+	_event.run_pressed.connect(func(): event_run.emit())
+	_event.hunt_pressed.connect(func(t: int): event_hunt.emit(t))
+	_event.claim.connect(func(i: int): event_claim.emit(i))
+	_event.caskets_pressed.connect(func(): event_caskets.emit())
+	_event.closed.connect(func(): event_closed.emit())
 	_drops = DropScreen.new()
 	add_child(_drops)
 	_drops.closed.connect(func(): drops_closed.emit())
@@ -762,6 +785,25 @@ func _build_hud() -> void:
 	chunky(_coin_label.label_settings)
 	_coin_label.label_settings.outline_size = 6
 
+	# Moon Shards earned this run, in an event (events.gd), under the coins.
+	_shard_box = HBoxContainer.new()
+	_shard_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_shard_box.position = Vector2(16, 88)
+	_shard_box.size = Vector2(200, 32)
+	(_shard_box as HBoxContainer).add_theme_constant_override("separation", 6)
+	_shard_box.visible = false
+	root.add_child(_shard_box)
+	_shard_icon = EventArt.ShardIcon.new(30.0)
+	_shard_icon.glow = 1.0
+	_shard_box.add_child(_shard_icon)
+	_shard_label = label("0", 24, Color(1.0, 0.78, 0.76), HORIZONTAL_ALIGNMENT_LEFT)
+	chunky(_shard_label.label_settings)
+	_shard_label.label_settings.outline_size = 6
+	_shard_label.label_settings.outline_color = Color(0.25, 0.0, 0.04)
+	_shard_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_shard_label.pivot_offset = Vector2(0, 16)
+	_shard_box.add_child(_shard_label)
+
 	_room_label = label("", 22, Color(1, 0.95, 0.85), HORIZONTAL_ALIGNMENT_RIGHT)
 	chunky(_room_label.label_settings)
 	_room_label.label_settings.outline_size = 6
@@ -1104,6 +1146,32 @@ func _build_danger() -> void:
 	full(_danger)
 	_danger.modulate.a = 0.0
 	add_child(_danger)
+	# The Blood Moon's Eclipse darkens the screen; a Moon Surge burns red at the edges.
+	_eclipse_dim = ColorRect.new()
+	_eclipse_dim.color = Color(0.03, 0.0, 0.02, 0.0)
+	_eclipse_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(_eclipse_dim)
+	add_child(_eclipse_dim)
+	var sg := Gradient.new()
+	sg.set_color(0, Color(1.0, 0.08, 0.05, 0))
+	sg.set_color(1, Color(1.0, 0.08, 0.05, 0.8))
+	sg.add_point(0.5, Color(1.0, 0.08, 0.05, 0))
+	sg.add_point(0.78, Color(1.0, 0.1, 0.05, 0.22))
+	var st := GradientTexture2D.new()
+	st.gradient = sg
+	st.fill = GradientTexture2D.FILL_RADIAL
+	st.fill_from = Vector2(0.5, 0.5)
+	st.fill_to = Vector2(1.02, 1.02)
+	st.width = 128
+	st.height = 128
+	_surge_edge = TextureRect.new()
+	_surge_edge.texture = st
+	_surge_edge.stretch_mode = TextureRect.STRETCH_SCALE
+	_surge_edge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_surge_edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(_surge_edge)
+	_surge_edge.modulate.a = 0.0
+	add_child(_surge_edge)
 
 
 func _build_cards() -> void:
@@ -1359,6 +1427,12 @@ func _build_title() -> void:
 	_title_gap = gap
 	_title_logo = logo_rect()
 	top.add_child(_title_logo)
+	# The Blood Moon (events.gd): the event's banner under the logo while it's on, and a
+	# countdown to it the week before.
+	_title_event = EventArt.Banner.new()
+	_title_event.visible = false
+	_title_event.pressed.connect(func(): event_pressed.emit())
+	top.add_child(_title_event)
 	_title_hint = label("Drag to move. Lift to shoot.", 20, Color(0.85, 0.85, 0.9))
 	top.add_child(_title_hint)
 	# Said up front, so nobody is surprised when the free floors end.
@@ -2528,7 +2602,7 @@ func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
 		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible \
-		or _rewards_box.visible or _feats.visible
+		or _rewards_box.visible or _feats.visible or _event.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -2610,13 +2684,14 @@ func _on_card(i: int) -> void:
 # ---------------------------------------------------------------- per frame
 
 func _process(delta: float) -> void:
+	_event_process(delta)
 	_cards_age += delta
 	_doors_age += delta
 	# The title's words and buttons would show faintly through the screens opened over it.
 	if _title_box.visible:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
 			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible or _drops.visible or _road.visible \
-			or (_settings_only and _pause_box.visible))
+			or _event.visible or (_settings_only and _pause_box.visible))
 	# The OPEN BONE DROP buttons glow gently, so a drop waiting isn't missed.
 	if _title_drops.is_visible_in_tree() or _end_drop.is_visible_in_tree():
 		var glow := 1.0 + 0.16 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.2))
@@ -3231,9 +3306,13 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		show_records(false)
 		_rewards_box.visible = false
 		_road.visible = false
+		_event.visible = false
 		if not _end_box.visible:
 			_drops.visible = false
 	_title_free.visible = not has_pass and not locked   # not before the tutorial run is done
+	refresh_event_banner()
+	if _title_event.visible:
+		_title_free.visible = false   # (the banner takes its line; the Pass screen still says it)
 	_title_best.text = best
 	_title_coins.text = str(coins)
 	var where := Game.continue_text()
@@ -4011,3 +4090,100 @@ func settings_visible() -> bool:
 
 func set_fade(a: float) -> void:
 	_fade.color.a = a
+
+
+# ---------------------------------------------------------------- the Blood Moon event
+
+## The event's banner on the title: what's on and the countdown, or the week-before tease.
+func refresh_event_banner() -> void:
+	if _title_event == null:
+		return
+	var e := Events.current()
+	var live := not e.is_empty()
+	if not live:
+		e = Events.coming()
+	if e.is_empty() or Game.first_run_pending():
+		_title_event.visible = false
+		return
+	_title_event.visible = true
+	var cfg := Game._load_save()
+	var badge := ""
+	var sub := ""
+	if live:
+		var ready := Events.ready_count(cfg, e)
+		var n := Events.caskets(cfg, e)
+		if ready > 0:
+			badge = "CLAIM!"
+		elif n > 0:
+			badge = "%d CASKET%s" % [n, "" if n == 1 else "S"]
+		elif Events.double_today(e):
+			badge = "2X SHARDS"
+		sub = "%s  ·  ends in %s" % [str(Events.chapter_info(e).name), Events.time_text(Events.seconds_left(e))]
+	else:
+		badge = "SOON"
+		sub = "Event begins in %s" % Events.time_text(Events.seconds_left(e))
+	_title_event.set_info(str(e.name), sub, badge, live and Events.eclipse(e))
+
+
+func show_event(v: bool) -> void:
+	if v:
+		Sfx.play("click")
+		_event.open_event(Game._load_save())
+	else:
+		_event.visible = false
+
+
+func event_visible() -> bool:
+	return _event.visible
+
+
+## Android back on the event screen: the road page first, then the screen.
+func event_back() -> void:
+	_event.back()
+
+
+## After a claim or a casket: the event screen and the title banner again.
+func refresh_event() -> void:
+	if _event.visible:
+		_event.refresh(Game._load_save())
+	refresh_event_banner()
+
+
+## Moon Caskets on the Bone Drop screen (drop_screen.gd in casket mode).
+func open_caskets(n: int, opener: Callable) -> void:
+	_drops.opener = opener
+	_drops.open_screen(n, true)
+
+
+## Moon Shards this run on the HUD (-1 hides them: not an event run).
+func set_shards(n: int) -> void:
+	_shard_box.visible = n >= 0
+	if n < 0:
+		return
+	var was := _shard_label.text
+	_shard_label.text = Hud.thousands(n)
+	if was != _shard_label.text and n > 0:
+		_shard_pop = 1.0
+
+
+## The Moon Surge on screen: `k` (0-1) how strong, `warn` the pulse before one starts, and
+## `eclipse` the Queen's Eclipse darkening the screen instead.
+func set_surge(k: float, warn: bool, eclipse := false) -> void:
+	if eclipse:
+		_eclipse_dim.color.a = 0.5 * k
+		return
+	_surge_warn = warn
+	_surge_edge.set_meta("k", k)
+
+
+func _event_process(delta: float) -> void:
+	if _shard_box.visible:
+		_shard_pop = move_toward(_shard_pop, 0.0, delta * 3.0)
+		var sc := 1.0 + 0.3 * _shard_pop
+		_shard_label.scale = Vector2(sc, sc)
+		_shard_icon.queue_redraw()
+	var k := float(_surge_edge.get_meta("k", 0.0))
+	var want := k * (0.75 + 0.25 * sin(Time.get_ticks_msec() / 1000.0 * 7.0))
+	if _surge_warn:
+		want = maxf(want, 0.35 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 14.0)))
+	_surge_edge.modulate.a = want
