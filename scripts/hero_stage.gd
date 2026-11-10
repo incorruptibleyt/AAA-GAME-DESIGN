@@ -2,6 +2,7 @@ class_name HeroStage
 extends TextureRect
 ## A hero standing on a lit pedestal, drawn in its own little 3D world for the Heroes
 ## screen. They sway gently to show off their model; drag sideways to turn them around.
+## A newly won or tried-on look gets a reveal (version 131): see reveal().
 
 ## Drawn at twice the screen size, so the model stays sharp on big phones.
 const RENDER_SCALE := 2.0
@@ -17,7 +18,19 @@ var _ring_mat: StandardMaterial3D
 var _gold_ring: MeshInstance3D
 var _glow_mat: StandardMaterial3D
 var _back_light: OmniLight3D
+var _key: DirectionalLight3D
+var _env: Environment
+var _sparks: CPUParticles3D
+var _tall := false
 var _time := 0.0
+## The reveal under way: seconds into it (-1 for none), how long it lasts, and the slot.
+var _reveal_t := -1.0
+var _reveal_len := 2.8
+var _reveal_slot := ""
+var _emoted := false
+## After a glow's reveal the stage stays a little darker and the glow a little brighter,
+## so the glow keeps reading while the player decides to wear it.
+var _settle := 0.0
 ## Seconds left before a dragged hero eases back to the front.
 var _hold := 0.0
 ## The hero on show (to put back after a rebuild) and whether the stage is drawing.
@@ -74,9 +87,34 @@ var _cam: Camera3D
 
 ## A crowned hero stands taller: the camera steps back so the crown's points stay in view.
 func _frame_camera(tall: bool) -> void:
-	var eye := Vector3(0, 1.6, 6.0) if tall else Vector3(0, 1.45, 5.2)
-	var at := Vector3(0, 1.1, 0) if tall else Vector3(0, 0.95, 0)
-	_cam.transform = Transform3D(Basis.looking_at(at - eye), eye)
+	_tall = tall
+	var f := _framing()
+	_cam.transform = Transform3D(Basis.looking_at(f[1] - f[0]), f[0])
+
+
+## The camera's usual place and the point it looks at.
+func _framing() -> Array:
+	if _tall:
+		return [Vector3(0, 1.6, 6.0), Vector3(0, 1.1, 0)]
+	return [Vector3(0, 1.45, 5.2), Vector3(0, 0.95, 0)]
+
+
+## Where the camera moves in to during a reveal: up close on the head for headwear, on the
+## hands for a weapon, nearer the whole hero for an outfit or glow, and further back and
+## higher for an aura (its trail and the ring on the ground).
+func _zoomed(slot: String) -> Array:
+	match slot:
+		"head":
+			# (a crown, horns or a halo reach well above the head: frame those whole)
+			var y := 1.85 if _tall else 1.6
+			return [Vector3(0, y + 0.15, 4.3 if _tall else 3.9), Vector3(0, y, 0)]
+		"hold":
+			return [Vector3(0.25, 1.25, 3.9), Vector3(0, 1.0, 0)]
+		"aura":
+			return [Vector3(0, 2.0, 5.0), Vector3(0, 0.8, 0)]
+	if _tall:
+		return [Vector3(0, 1.55, 5.0), Vector3(0, 1.2, 0)]
+	return [Vector3(0, 1.35, 4.6), Vector3(0, 1.0, 0)]
 
 
 func _build_scene() -> void:
@@ -99,6 +137,8 @@ func _build_scene() -> void:
 	key.light_energy = 1.3
 	key.light_color = Color(1.0, 0.93, 0.82)
 	_root.add_child(key)
+	_key = key
+	_env = env
 	_back_light = OmniLight3D.new()
 	_back_light.position = Vector3(0, 2.2, -1.6)
 	_back_light.omni_range = 5.0
@@ -134,6 +174,37 @@ func _build_scene() -> void:
 	_pivot = Node3D.new()
 	_pivot.rotation.y = FRONT
 	_root.add_child(_pivot)
+	# A reveal's burst of sparks, rising from the pedestal round the hero.
+	_sparks = CPUParticles3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2(0.09, 0.09)
+	var sm := U.unlit(Color.WHITE, U.soft_circle()).duplicate() as StandardMaterial3D
+	sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	sm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	sm.vertex_color_use_as_albedo = true
+	q.material = sm
+	_sparks.mesh = q
+	_sparks.amount = 48
+	_sparks.lifetime = 1.3
+	_sparks.one_shot = true
+	_sparks.explosiveness = 0.85
+	_sparks.emitting = false
+	_sparks.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	_sparks.emission_ring_axis = Vector3.UP
+	_sparks.emission_ring_radius = 1.0
+	_sparks.emission_ring_inner_radius = 0.6
+	_sparks.emission_ring_height = 0.1
+	_sparks.direction = Vector3.UP
+	_sparks.spread = 25.0
+	_sparks.initial_velocity_min = 1.2
+	_sparks.initial_velocity_max = 3.0
+	_sparks.gravity = Vector3(0, -1.2, 0)
+	_sparks.damping_min = 0.8
+	_sparks.damping_max = 1.6
+	_sparks.scale_amount_min = 0.6
+	_sparks.scale_amount_max = 1.6
+	_sparks.position = Vector3(0, 0.1, 0)
+	_root.add_child(_sparks)
 
 
 ## Puts `def` (an entry of Heroes.LIST) on the pedestal, with a little flourish; `gold` adds
@@ -164,10 +235,85 @@ func show_hero(def: Dictionary, gold := false) -> void:
 	_pivot.rotation.y = FRONT
 	_hold = 0.0
 	_time = 0.0
+	_reveal_t = -1.0
+	_settle = 0.0
+	_light(0.0, 0.0)
 	var col: Color = def.ring
 	_ring_mat.albedo_color = col
 	_glow_mat.albedo_color = Color(col, 0.45)
 	_back_light.light_color = col
+
+
+## Shows off the look in `slot` that the hero on the pedestal has just won or is trying on
+## (version 131): the lights go down, the pedestal flares in the look's colour with a burst
+## of sparks, the camera moves in on it (the head for headwear, the hands for a weapon...)
+## while the hero spins round once, then they cheer and the camera eases back. A glow or
+## aura shines brighter through all of it. `quick`: a shorter one, for trying looks on.
+func reveal(slot: String, quick := false) -> void:
+	if _visual == null:
+		return
+	_reveal_slot = slot
+	_reveal_t = 0.0
+	_reveal_len = 1.8 if quick else 2.9
+	_emoted = quick
+	_hold = 0.0
+	var col: Color = _def.get("ring", Color.WHITE)
+	if slot == "aura" and _def.has("aura"):
+		col = _def.aura.get("spark", col)
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.add_point(0.25, Color(col.lightened(0.3), 1.0))
+	g.set_color(g.get_point_count() - 1, Color(col, 0.0))
+	_sparks.color_ramp = g
+	_sparks.amount = 30 if quick else 48
+	_sparks.restart()
+	_sparks.emitting = true
+	if not quick:
+		Sfx.play("shimmer", 0.8)
+
+
+func revealing() -> bool:
+	return _reveal_t >= 0.0
+
+
+## The stage's lights for `dim` (0 normal, 1 down for a reveal) and the look's `flare`.
+func _light(dim: float, flare: float) -> void:
+	_key.light_energy = lerpf(1.3, 0.55, dim)
+	_env.ambient_light_energy = lerpf(0.7, 0.34, dim)
+	_back_light.light_energy = 2.5 + 1.5 * dim + 5.0 * flare
+	var c := _glow_mat.albedo_color
+	c.a = clampf(0.45 + 0.3 * dim + 0.55 * flare, 0.0, 1.0)
+	_glow_mat.albedo_color = c
+	if _visual:
+		_visual.rim_boost(1.0 + 0.9 * dim + 2.2 * flare)
+
+
+func _update_reveal(delta: float) -> void:
+	_reveal_t += delta
+	var x := clampf(_reveal_t / _reveal_len, 0.0, 1.0)
+	# One full turn, fast at first and slowing to a stop facing the front.
+	var s := clampf(_reveal_t / (_reveal_len * 0.55), 0.0, 1.0)
+	_pivot.rotation.y = FRONT + TAU * (1.0 - pow(1.0 - s, 3.0))
+	# In, hold, back out.
+	var z := smoothstep(0.0, 0.18, x) * (1.0 - smoothstep(0.8, 1.0, x))
+	var a := _framing()
+	var b := _zoomed(_reveal_slot)
+	var eye: Vector3 = a[0].lerp(b[0], z)
+	var at: Vector3 = a[1].lerp(b[1], z)
+	_cam.transform = Transform3D(Basis.looking_at(at - eye), eye)
+	var glowing := _reveal_slot == "glow" or _reveal_slot == "aura"
+	var flare := exp(-pow((x - 0.1) / 0.07, 2.0)) * (1.0 if glowing else 0.55)
+	_settle = 0.55 if _reveal_slot == "glow" else 0.0
+	_light(maxf(z * (1.0 if glowing else 0.7), _settle * smoothstep(0.7, 1.0, x)), flare)
+	if not _emoted and x >= 0.55:
+		_emoted = true
+		var h := Heroes.get_hero(str(_def.get("id", "")))
+		_visual.emote(h.get("emote", []))
+	if x >= 1.0:
+		_reveal_t = -1.0
+		_time = 0.0   # the sway starts again from the front
+		_frame_camera(_tall)
+		_light(_settle, 0.0)
 
 
 ## The hero on the pedestal plays their emote (version 129).
@@ -349,6 +495,9 @@ func _process(delta: float) -> void:
 	if _draw_t >= 1.0 / 30.0:
 		_draw_t = 0.0
 		_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	if _reveal_t >= 0.0:
+		_update_reveal(delta)
+		return
 	if _hold > 0.0:
 		_hold -= delta
 		return
@@ -358,6 +507,11 @@ func _process(delta: float) -> void:
 
 func _gui_input(event: InputEvent) -> void:
 	if event is InputEventScreenDrag:
+		if _reveal_t >= 0.0:
+			# Turning the hero yourself ends a reveal (the camera eases back at once).
+			_reveal_t = -1.0
+			_frame_camera(_tall)
+			_light(_settle, 0.0)
 		_pivot.rotation.y += (event as InputEventScreenDrag).relative.x * 0.012
 		_hold = 2.5
 		accept_event()

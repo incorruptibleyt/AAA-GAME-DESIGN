@@ -179,6 +179,7 @@ func show_new(lv: int) -> void:
 			_preview[it.slot] = it.key   # all of the level's looks at once, where they fit
 	_preview[best.slot] = best.key
 	_show_preview()
+	_stage.reveal(best.slot)
 	_note.text = "NEW at level %d: %s  ·  tap a card to wear it" % [lv, ", ".join(news.map(func(it): return it.name))]
 	_note.label_settings.font_color = Hud.GOLD
 	_show_tab(best.slot, true)
@@ -355,6 +356,7 @@ func _tap(it: Dictionary) -> void:
 			_preview[slot] = HeroStyle.pass_key(slot)
 	_preview[it.slot] = it.key
 	_show_preview()
+	_stage.reveal(it.slot, true)   # version 131: a quick show-off of the look tried on
 	_show_tab(_slot)
 
 

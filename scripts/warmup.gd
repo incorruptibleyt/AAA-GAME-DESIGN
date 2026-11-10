@@ -112,6 +112,7 @@ static func run() -> void:
 		var picks := {"head": "flame_crown", "outfit": "starweave", "glow": "aurora", "aura": "phantom"}
 		stage.show_hero(HeroStyle.dressed(Heroes.LIST[0], picks))
 		stage.set_active(true)
+		stage.reveal("glow", true)   # its sparks (version 131)
 		var chest := DropScreen.Chest.new()
 		chest.size = Vector2(240, 240)
 		chest.position = Vector2(250, 0)

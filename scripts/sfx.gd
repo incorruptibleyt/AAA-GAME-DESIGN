@@ -110,6 +110,11 @@ func _ready() -> void:
 		syllables.append(_synth(0.075, func(t): return (_sine(t, f1 + t * 400.0) * 0.55 + _square(t, f1 + t * 400.0) * 0.12 \
 				+ _sine(t, f2) * 0.25) * minf(t * 160.0, 1.0) * exp(-t * 22.0) * 0.5))
 	_clips["voice"] = syllables
+	# Version 131: a look's reveal on the pedestal: two bright rising tones that shimmer,
+	# over a soft swell of air.
+	_clips["shimmer"] = _synth(1.1, func(t): return (_sine(t, 1568.0 + t * 500.0) * (0.55 + 0.45 * sin(t * 90.0)) * 0.35 \
+			+ _sine(t, 2093.0 + t * 700.0) * (0.55 + 0.45 * sin(t * 70.0 + 1.3)) * 0.22 \
+			+ _noise() * (1.0 - exp(-t * 6.0)) * exp(-t * 4.0) * 0.12) * _env(t, 1.1) * 0.35)
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
 	_load_samples()
 

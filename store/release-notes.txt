@@ -1,5 +1,5 @@
-Version 130: lit menus
-- Every menu now sits in the crypt: torch-lit stone walls with dust drifting in the light, instead of a flat purple screen.
-- Heroes stand on their pedestal in a lit stone archway, in their own colour of light. The Bone Drop chest waits in an archway between two torches.
-- Each place has its own light: gold for Rewards and the Crypt Pass, forge orange in the Armory, blood red for Omens.
-- Fixed: the Barbarian's Heroes screen was a little wider than the phone.
+Version 131: see what you won
+- A new look now gets a proper reveal: the lights go down, the pedestal flares with sparks in its colour, the camera moves in on the look while your hero spins round, then they cheer.
+- Glows shine much brighter on reveal and stay bright while you decide to wear them.
+- Trying a look on in the Style screen gives a quick show-off too, and a new Mastery level shows its best new look the same way.
+- Smoother menus: the game stops drawing the dungeon behind every full-screen menu.

@@ -3613,11 +3613,14 @@ func open_feats(cfg: ConfigFile, id: String) -> void:
 
 
 ## True while a full-screen, opaque menu covers the dungeon (Style, Feats, Mastery, Bone
-## Drops, Heroes): the game then stops drawing the 3D world behind it (battery and heat).
+## Drops, Heroes...): the game then stops drawing the 3D world behind it (battery and heat).
+## Version 131: every menu with the lit crypt wall (MenuBackdrop) is solid, so Modes, the
+## Daily Crypt, Omens, Feedback, the Bone Road and the reports question count too.
 func covers_world() -> bool:
 	return _style.visible or _feats.visible or _mastery.visible or _drops.visible or _heroes_box.visible \
 			or (_rewards_box != null and _rewards_box.visible) or _armory_box.visible or _records_box.visible \
-			or _pass_box.visible
+			or _pass_box.visible or _modes_box.visible or _daily_box.visible or _omen_box.visible \
+			or _fb_box.visible or _road.visible or _ask_box.visible
 
 
 func feats_visible() -> bool:

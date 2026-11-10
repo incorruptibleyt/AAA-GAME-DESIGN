@@ -94,6 +94,26 @@ func build(look: Dictionary) -> void:
 	_play("idle")
 
 
+var _rim_alpha := -1.0
+var _aura_width := -1.0
+
+## A look's reveal on the pedestal (version 131): the hero's edge glow `k` times as bright,
+## and a Master aura's line a little wider while it's brighter than usual.
+func rim_boost(k: float) -> void:
+	var m := _tint_mat as ShaderMaterial
+	if m and m.shader == _rim_shader:
+		var c: Color = m.get_shader_parameter("rim")
+		if _rim_alpha < 0.0:
+			_rim_alpha = c.a
+		c.a = _rim_alpha * k
+		m.set_shader_parameter("rim", c)
+	if not _aura.is_empty():
+		for o: ShaderMaterial in _outlined.values():
+			if _aura_width < 0.0:
+				_aura_width = float(o.get_shader_parameter("width"))
+			o.set_shader_parameter("width", _aura_width * (1.0 + 0.25 * (k - 1.0)))
+
+
 ## A bright glow around a model's edges (heroes), so they stand out from above on any floor.
 static func rim_material(col: Color, power := 2.2) -> ShaderMaterial:
 	if _rim_shader == null:

@@ -258,6 +258,11 @@ func _show_look(on: bool) -> void:
 	_look.set_active(on)
 	if on:
 		_look.show_hero(_result.preview, false)
+		# Version 131: the new look is shown off (a spin, the camera in close on it, the
+		# glow flaring), so a glow or a small hat can't go unnoticed.
+		var look: Array = _result.get("look", [])
+		if look.size() >= 2:
+			_look.reveal(str(look[0]))
 
 
 func _ready_next() -> void:
