@@ -96,6 +96,8 @@ func _init() -> void:
 		tabs.add_child(t)
 		_tabs.append(t)
 	col.add_child(_build_stage())
+	# Version 130: the pedestal stands in a lit archway, in the hero's own colour of light.
+	MenuBackdrop.of(self).show_off(_stage_box, Vector2(0.5, 0.42), 0.86, 0.6)
 	_name = Hud.label("", 36, Color.WHITE)
 	col.add_child(_name)
 	_who = Hud.label("", 16, TEXT)
@@ -343,6 +345,11 @@ func _switch(i: int) -> void:
 	show_index(i)
 
 
+## The backdrop's light for a hero's colour: their ring colour, a little softer.
+static func _light(ring: Color) -> Color:
+	return ring.lerp(Color(1.0, 0.9, 0.75), 0.2)
+
+
 func _row() -> Dictionary:
 	return _rows[_index]
 
@@ -366,6 +373,7 @@ func _refresh() -> void:
 		Hud.paint(t, "gold" if on else "slate")
 		var owned: bool = _rows[i].unlocked
 		t.add_theme_color_override("font_color", Color.WHITE if on else (Color(1, 0.93, 0.8) if owned else DIM))
+	MenuBackdrop.of(self).set_key(_light(ring), not visible)
 	_name.text = Heroes.hero_name(def).to_upper()
 	_name.label_settings.font_color = ring.lightened(0.25)
 	_who.text = "THE %s  ·  %s" % [def.title.to_upper(), Heroes.get_hero(r.id).get("about", "")]

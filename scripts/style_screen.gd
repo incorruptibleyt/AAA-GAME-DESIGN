@@ -65,6 +65,7 @@ func _init() -> void:
 	_stage.custom_minimum_size = Vector2.ZERO
 	Hud.full(_stage)
 	_stage_box.add_child(_stage)
+	MenuBackdrop.of(self).show_off(_stage_box, Vector2(0.5, 0.42), 0.86, 0.6)
 	_note = Hud.label("", 16, Hud.GOLD)
 	col.add_child(_note)
 	_pass_btn = Hud.button("GET THE CRYPT PASS", 22, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
@@ -154,6 +155,7 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	_stage.set_active(true)
 	var def := HeroStyle.dressed(_base, _picks)
 	_title.text = "%s STYLE" % str(_base.title).to_upper()
+	MenuBackdrop.of(self).set_key(HeroScreen._light(Color(def.ring)), not again)
 	_title.label_settings.font_color = Color(def.ring).lightened(0.25)
 	_show_preview()
 	_show_tab(_slot, not again)

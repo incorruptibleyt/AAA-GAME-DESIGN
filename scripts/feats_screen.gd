@@ -18,7 +18,7 @@ var _scroll: ScrollContainer
 
 func _init() -> void:
 	color = Color(0.03, 0.02, 0.05, 1.0)
-	Hud.backdrop(self)
+	Hud.backdrop(self, "teal")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false

@@ -20,6 +20,7 @@ var _id := ""
 var _color := Color.WHITE
 var _badge: Badge
 var _name: Label
+var _full_name := ""
 var _gain: Label
 var _bar: Fill
 var _sub: Label
@@ -53,6 +54,12 @@ func _init() -> void:
 	_name = Hud.label("", 19, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
 	_name.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Version 130: "BARBARIAN MASTERY" and "LEVELS >" didn't fit side by side on the Heroes
+	# screen and pushed the whole screen wider than the phone. The name may now be cut, and
+	# where it would be, it says just "MASTERY" (the hero's name is right above it there).
+	_name.clip_text = true
+	_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_name.resized.connect(_fit_name)
 	head.add_child(_name)
 	_gain = Hud.label("", 19, Hud.GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 	_gain.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -96,7 +103,8 @@ func play(info: Dictionary) -> void:
 func set_points(id: String, hero_name: String, col: Color, p: int, header := "") -> void:
 	_setup(id, hero_name, col)
 	if header != "":
-		_name.text = header
+		_full_name = header
+	_fit_name()
 	_gain.text = "LEVELS  >" if mouse_filter == Control.MOUSE_FILTER_STOP else ""
 	_gain.label_settings.font_size = 15 if _gain.text != "" else 19
 	_news.visible = false
@@ -106,10 +114,18 @@ func set_points(id: String, hero_name: String, col: Color, p: int, header := "")
 	_shown_level = HeroMastery.level_for(p)
 
 
+func _fit_name() -> void:
+	var f := _name.label_settings.font if _name.label_settings.font else _name.get_theme_font("font")
+	var w := f.get_string_size(_full_name, HORIZONTAL_ALIGNMENT_LEFT, -1, _name.label_settings.font_size).x if f else 0.0
+	var fits := _name.size.x < 2.0 or w <= _name.size.x
+	_name.text = _full_name if fits or not _full_name.ends_with(" MASTERY") else "MASTERY"
+
+
 func _setup(id: String, hero_name: String, col: Color) -> void:
 	_id = id
 	_color = col
-	_name.text = "%s MASTERY" % hero_name.to_upper()
+	_full_name = "%s MASTERY" % hero_name.to_upper()
+	_fit_name()
 	_bar.color = col
 
 

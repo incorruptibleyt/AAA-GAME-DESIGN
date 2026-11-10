@@ -18,7 +18,7 @@ var _list: VBoxContainer
 
 func _init() -> void:
 	color = Color(0.03, 0.02, 0.05, 0.97)
-	Hud.backdrop(self)
+	Hud.backdrop(self, "bone")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false

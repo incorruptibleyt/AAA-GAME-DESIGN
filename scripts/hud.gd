@@ -407,10 +407,15 @@ static func chunky(s: LabelSettings) -> void:
 	s.shadow_offset = Vector2(0, maxf(2.0, s.font_size / 11.0))
 
 
-## A deep blue-purple glow behind a full screen, instead of flat black.
+## Behind a full-screen menu (solid, `r.color.a` over 0.93): the lit crypt wall, in
+## `theme`'s light (MenuBackdrop, version 130). Behind a see-through one (pause, the end of a
+## run, cards and doors over the room): a deep blue-purple glow, so the room still shows.
 static var _backdrop_tex: GradientTexture2D
 
-static func backdrop(r: ColorRect) -> void:
+static func backdrop(r: ColorRect, theme := "crypt") -> void:
+	if r.color.a > 0.93:
+		MenuBackdrop.add_to(r, theme)
+		return
 	if _backdrop_tex == null:
 		var g := Gradient.new()
 		g.set_color(0, Color(0.22, 0.16, 0.4))
@@ -471,14 +476,14 @@ static func full(c: Control) -> Control:
 	return c
 
 
-static func overlay(dim: Color) -> ColorRect:
+static func overlay(dim: Color, theme := "crypt") -> ColorRect:
 	var r := ColorRect.new()
 	r.color = dim
 	r.set_anchors_preset(Control.PRESET_FULL_RECT)
 	r.mouse_filter = Control.MOUSE_FILTER_STOP
 	r.visible = false
 	if dim.a > 0.69:   # (not 0.7: colours are stored as 32-bit floats)
-		backdrop(r)
+		backdrop(r, theme)
 	return r
 
 
@@ -2010,7 +2015,7 @@ func _disarm_quit() -> void:
 
 ## The shop for permanent upgrades, opened from the title or death screen.
 func _build_armory() -> void:
-	_armory_box = overlay(Color(0.03, 0.02, 0.05, 0.94))
+	_armory_box = overlay(Color(0.03, 0.02, 0.05, 0.94), "forge")
 	add_child(_armory_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2052,7 +2057,7 @@ func _build_armory() -> void:
 ## The Crypt Pass screen: four picture tiles for what it gives, the price, and buy / restore.
 ## The pictures are in art/ui (taken from the game by the test robot).
 func _build_pass() -> void:
-	_pass_box = overlay(Color(0.03, 0.02, 0.05, 0.97))
+	_pass_box = overlay(Color(0.03, 0.02, 0.05, 0.97), "gold")
 	add_child(_pass_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2284,7 +2289,7 @@ func daily_visible() -> bool:
 # ---------------------------------------------------------------- Omens
 
 func _build_omens() -> void:
-	_omen_box = overlay(Color(0.03, 0.01, 0.03, 0.96))
+	_omen_box = overlay(Color(0.03, 0.01, 0.03, 0.96), "blood")
 	add_child(_omen_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3055,8 +3060,7 @@ var _rw_road_sub: Label
 
 
 func _build_rewards() -> void:
-	_rewards_box = overlay(Color(0.03, 0.02, 0.05, 1.0))
-	backdrop(_rewards_box)
+	_rewards_box = overlay(Color(0.03, 0.02, 0.05, 1.0), "gold")
 	add_child(_rewards_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE

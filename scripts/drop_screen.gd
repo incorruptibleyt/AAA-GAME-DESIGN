@@ -47,7 +47,7 @@ var _odds_dim: ColorRect   # darkens the chest and its text behind the odds (ver
 
 func _init() -> void:
 	color = Color(0.02, 0.01, 0.04, 0.96)
-	Hud.backdrop(self)
+	Hud.backdrop(self, "gold")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
@@ -80,6 +80,7 @@ func _init() -> void:
 	_look.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_look.visible = false
 	col.add_child(_look)
+	MenuBackdrop.of(self).show_off([_art, _look], Vector2(0.5, 0.5), 0.8, 0.82)
 	_rarity = Hud.label("", 34, Color.WHITE)
 	col.add_child(_rarity)
 	_prize = Hud.label("", 28, Hud.GOLD)

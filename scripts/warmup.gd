@@ -117,7 +117,15 @@ static func run() -> void:
 		chest.position = Vector2(250, 0)
 		layer.add_child(chest)
 		chest.reset()
-		chest.open_up(Color(1.0, 0.8, 0.3)))
+		chest.open_up(Color(1.0, 0.8, 0.3))
+		# The lit wall behind the menus (version 130), with its torch and dust.
+		var wall := ColorRect.new()
+		wall.color = Color(0, 0, 0, 1)
+		wall.size = Vector2(300, 300)
+		wall.position = Vector2(0, 310)
+		layer.add_child(wall)
+		var bd := MenuBackdrop.add_to(wall)
+		bd.show_off(stage, Vector2(0.5, 0.4), 0.8, 0.3))
 
 	# Shots, warnings, fire, pickups and every particle effect: a few at a time, so a slow
 	# phone never spends long on one frame (Android closes an app that stops answering),

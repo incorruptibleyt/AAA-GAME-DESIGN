@@ -105,6 +105,7 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	var p := HeroMastery.points(cfg, id)
 	var lv := HeroMastery.level_for(p)
 	_title.text = "%s MASTERY" % str(def.title).to_upper()
+	MenuBackdrop.of(self).set_key(HeroScreen._light(Color(def.ring)), true)
 	_title.label_settings.font_color = Color(def.ring).lightened(0.25)
 	var rank := HeroMastery.rank(lv)
 	var t := HeroMastery.title_for(lv)

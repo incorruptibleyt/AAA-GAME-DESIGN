@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10b"
+const BUILD := "2026-11-10c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3318,6 +3318,7 @@ func _set_graphics(high: bool, save := true) -> void:
 	_high_graphics = high
 	Actor.show_blobs(not high)
 	CharacterVisual.outlines = high
+	MenuBackdrop.set_cheap(not high)
 	for a: Actor in Actor.all:
 		if is_instance_valid(a) and a.visual:
 			a.visual.refresh_outline()
