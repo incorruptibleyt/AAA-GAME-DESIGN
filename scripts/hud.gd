@@ -38,7 +38,8 @@ signal quit_run_pressed
 signal retry_pressed
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
-signal graphics_toggled(high: bool)
+signal graphics_toggled(level: int)
+signal speed_test_pressed
 signal shake_changed(level: int)
 signal vibration_toggled(on: bool)
 signal reports_toggled(on: bool)
@@ -174,7 +175,8 @@ var _sounds_button: Button
 var _music_on := true
 var _sounds_on := true
 var _graphics_button: Button
-var _graphics_high := true
+var _graphics_level := 3
+var _speed_button: Button
 var _shake_button: Button
 var _shake_level := 2
 var _vibration_button: Button
@@ -1854,7 +1856,8 @@ func _build_pause() -> void:
 	_sounds_button.pressed.connect(func(): sounds_toggled.emit(not _sounds_on))
 	col.add_child(_centered(_sounds_button))
 	_graphics_button = button("Graphics: High", 26)
-	_graphics_button.pressed.connect(func(): graphics_toggled.emit(not _graphics_high))
+	# High, Medium, Low, Low at a steady 30, then back to High.
+	_graphics_button.pressed.connect(func(): graphics_toggled.emit((_graphics_level + 3) % 4))
 	col.add_child(_centered(_graphics_button))
 	# Full, Reduced, Off, then back to Full.
 	_shake_button = button("Screen shake: Full", 22)
@@ -1889,6 +1892,13 @@ func _build_pause() -> void:
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
+	# SPEED TEST, in the same place on the title's Settings (where there's no run to quit).
+	_speed_button = button("Speed test", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_speed_button.pressed.connect(func():
+		Sfx.play("click")
+		speed_test_pressed.emit())
+	col.add_child(_centered(_speed_button))
+	(_speed_button.get_parent() as Control).visible = false   # (no gap for it in the pause menu)
 	# Testers can say which build they were playing; the install number is what the privacy
 	# policy asks for to delete someone's reports (shown even with reports off).
 	_pause_build = label("Build " + Game.BUILD, 16, Color(0.6, 0.57, 0.65))
@@ -3325,9 +3335,9 @@ func set_reports_label(on: bool, available: bool) -> void:
 	_reports_button.get_parent().visible = available
 
 
-func set_graphics_label(high: bool) -> void:
-	_graphics_high = high
-	_graphics_button.text = "Graphics: High" if high else "Graphics: Low"
+func set_graphics_label(level: int) -> void:
+	_graphics_level = level
+	_graphics_button.text = "Graphics: " + Game.GRAPHICS_NAMES[level]
 
 
 ## Screen shake level: 2 full, 1 reduced, 0 off.
@@ -3976,6 +3986,7 @@ func show_pause(v: bool, settings_only := false) -> void:
 	_pause_title.text = "SETTINGS" if _settings_only else "PAUSED"
 	_resume_button.text = "BACK" if _settings_only else "RESUME"
 	_quit_button.visible = not _settings_only
+	(_speed_button.get_parent() as Control).visible = _settings_only
 	# Darker over the busy title screen than over a paused room.
 	(_pause_box as ColorRect).color.a = 0.9 if _settings_only else 0.7
 	_pause_box.visible = v

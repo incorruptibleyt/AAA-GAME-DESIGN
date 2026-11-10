@@ -252,8 +252,8 @@ func _process(delta: float) -> void:
 		_slow_t += delta
 		if _slow_t >= 1.0:
 			_slow_t = 0.0
-			print("[autoplay] slow phone: high graphics %s, watching %s" % [Game._high_graphics, Game._auto_graphics])
-			if not Game._auto_graphics:
+			print("[autoplay] slow phone: graphics %s, watching %s" % [Game.GRAPHICS_NAMES[Game.graphics_level], Game._auto_graphics])
+			if not Game._auto_graphics or Game.graphics_level == 0:
 				_slow_phone = false
 				Game.fps_override = -1.0
 	if _icons and _t > 0.5:

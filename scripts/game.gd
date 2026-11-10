@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10e"
+const BUILD := "2026-11-10f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -108,9 +108,22 @@ var _longest_at := ""
 var _longest_new := ""   # what appeared during the longest frame
 var _added_now := {}
 var _added_before := {}
-var _high_graphics := true
+var _high_graphics := true   # Medium or High: glow, outlines, colour grading
+## Graphics: 3 High (everything), 2 Medium (no shadows or edge smoothing, a slightly smaller
+## 3D picture), 1 Low (no glow or outlines either), 0 Low held at a steady 30 frames a second.
+## A steady 30 looks smoother than a frame rate that jumps between 30 and 50.
+const GRAPHICS_NAMES := ["Low · 30 FPS", "Low", "Medium", "High"]
+var graphics_level := 3
+## Every frame's length during play, in whole milliseconds,
+## for the run report's "1% low": the frame rate of the slowest 1% of frames.
+## (The last box holds 250 ms and longer.)
+var _frame_hist := PackedInt32Array()
+## The SPEED TEST is running (speed_test.gd): nothing is saved, so the test can't change
+## coins, records, Mastery, the Bone Road or a saved run.
+static var bench := false
+var speed_card: Control   # the SPEED TEST's result card, while it shows
 ## Slow phones: until the player picks a graphics setting, the game watches the frame rate
-## during play, and if it can't keep up it switches to Low by itself (and remembers it).
+## during play, and if it can't keep up it steps down a level by itself (and remembers it).
 var _auto_graphics := false
 var _auto_fps: Array[float] = []
 var _auto_seen := 0
@@ -363,6 +376,7 @@ func _ready() -> void:
 	hud.music_toggled.connect(_set_music)
 	hud.sounds_toggled.connect(_set_sounds)
 	hud.graphics_toggled.connect(_set_graphics)
+	hud.speed_test_pressed.connect(start_speed_test)
 	hud.shake_changed.connect(_set_shake)
 	hud.vibration_toggled.connect(_set_vibration)
 	hud.reports_toggled.connect(_set_reports)
@@ -419,14 +433,14 @@ func _ready() -> void:
 	write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
-	_set_graphics(bool(cfg.get_value("settings", "high_graphics", not low_memory_phone())), false)
+	_set_graphics(_saved_graphics(cfg), false)
 	_set_shake(int(cfg.get_value("settings", "shake", 2)), false)
 	_set_vibration(bool(cfg.get_value("settings", "vibration", true)), false)
-	_auto_graphics = not cfg.has_section_key("settings", "high_graphics") and not "autoplay" in OS.get_cmdline_user_args()
+	_auto_graphics = (bool(cfg.get_value("settings", "graphics_auto", false)) or not (cfg.has_section_key("settings", "graphics")
+			or cfg.has_section_key("settings", "high_graphics"))) and not "autoplay" in OS.get_cmdline_user_args()
 	_auto_rewatch = _auto_graphics
 	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
 	Telemetry.instance.daily_open()
-	Engine.max_fps = 60   # no need to drain the battery past what phones show
 	hud.set_coins(coins)
 
 	_build_run()
@@ -446,7 +460,9 @@ func _ready() -> void:
 		intro.finished.connect(_ask_reports_on_title)
 	else:
 		Music.play("dungeon")
-	if "autoplay" in args:
+	if "speedtest" in args:
+		get_tree().create_timer(1.0).timeout.connect(start_speed_test)
+	elif "autoplay" in args:
 		add_child(Autoplay.new())
 
 
@@ -559,13 +575,15 @@ func _process(delta: float) -> void:
 			_longest_new = _added_text(added_before, added)
 		_fps_t += delta
 		_auto_play_t += delta
-		if _auto_rewatch and not _auto_graphics and _high_graphics and _auto_play_t >= 600.0:
+		if _auto_rewatch and not _auto_graphics and graphics_level > 0 and _auto_play_t >= 600.0:
 			_auto_play_t = 0.0
 			_auto_graphics = true
 			_auto_seen = 120   # watch for one more minute
 			_auto_fps.clear()
 		if frame_ms > 250.0:
 			_hitch_second = true
+		if _state_time > 0.5 and _frame_hist.size() == 251:
+			_frame_hist[mini(int(frame_ms), 250)] += 1
 		if _fps_t >= 1.0:
 			_fps_t = 0.0
 			var f := Engine.get_frames_per_second() if fps_override < 0.0 else fps_override
@@ -663,6 +681,10 @@ func _notification(what: int) -> void:
 			return
 		if hud.feedback_visible():
 			hud.show_feedback(false)
+			return
+		if is_instance_valid(speed_card):
+			speed_card.queue_free()
+			speed_card = null
 			return
 		if hud.reports_ask_visible():
 			hud.show_reports_ask(false)
@@ -1420,8 +1442,9 @@ func run_report(result: String, was_first := false) -> String:
 			arm.append("%s %d" % [u.title, lv])
 	lines.append("Armory: " + (", ".join(arm) if arm else "none"))
 	lines.append("Rooms: " + ", ".join(_rep.get("rooms", [])))
-	lines.append("Graphics %s (3D %s) | FPS avg %d, lowest %d | longest frame %d ms%s | warm-up %d ms" % ["High" if _high_graphics else "Low", _draw_size_text(),
-		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0), roundi(_longest_ms),
+	lines.append("Graphics %s (3D %s) | FPS avg %d, lowest %d, 1%% low %d, steady %d%% | longest frame %d ms%s | warm-up %d ms" % [GRAPHICS_NAMES[graphics_level], _draw_size_text(),
+		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0), roundi(one_percent_low(_frame_hist)),
+		roundi(steady_share(_frame_hist) * 100.0), roundi(_longest_ms),
 		(" (%s%s)" % [_longest_at, "; added " + _longest_new if _longest_new != "" else ""]) if _longest_at != "" else "", Warmup.last_ms])
 	lines.append("Memory: most %d MB (graphics %d MB) | phone RAM %s" % [_mem_peak, _mem_peak_video, ram_text()])
 	return "\n".join(lines)
@@ -1429,6 +1452,8 @@ func run_report(result: String, was_first := false) -> String:
 
 func _reset_run_stats() -> void:
 	_reset_report()
+	_frame_hist = PackedInt32Array()
+	_frame_hist.resize(251)
 	_feats_got.clear()
 	_feats_unsaved.clear()
 	_feats_run.clear()
@@ -1564,6 +1589,86 @@ func _quit_to_title() -> void:
 	get_tree().paused = false
 	Telemetry.instance.send("run", run_report("Quit on floor %d, room %d" % [floor_num, _room_index + 1]))
 	_back_to_title()   # (its _save_coins keeps the Bone Road bones)
+
+
+# ---------------------------------------------------------------- speed test
+
+## SPEED TEST (title Settings): one minute of fighting that plays itself (speed_test.gd).
+func start_speed_test() -> void:
+	if state != State.TITLE or bench or get_node_or_null("SpeedTest"):
+		return
+	hud.show_settings(false)
+	var t := SpeedTest.new()
+	t.name = "SpeedTest"
+	add_child(t)
+
+
+## The test's start: like a run's, but with nothing from the Armory, no curses or saved-run
+## changes, and the hero that's on the title. Feats are counted as already earned, so none
+## is announced (or saved) during the test.
+func bench_begin() -> void:
+	bench = true
+	first_run = false
+	daily = false
+	_trial_hero = ""
+	_run_hero_id = ""
+	hud.show_title(false)
+	hud.show_armory(false)
+	hud.show_pass(false)
+	hud.show_daily(false)
+	hud.show_hud(true)
+	_reset_run_stats()
+	curses = []
+	_update_score_mult()
+	_start_blessing = {}
+	_lucky_blessing = {}
+	_door = {}
+	for f: Dictionary in Feats.LIST:
+		_feats_got[f.id] = true
+
+
+## One of the test's rooms: the same room (the spider nest) on floor `f`, with no skeletons
+## of its own (the test brings them). Returns once the room is showing.
+func bench_room(f: int) -> void:
+	_set_state(State.TRANSITION)
+	if Room.current:
+		await _fade(0.0, 1.0, 0.25)
+	_clear_enemy_attacks()
+	floor_num = f
+	_build_run()
+	_run[0] = Layouts.MEDIUM[0]
+	_load_room(0, false)
+	_wave_total = 1
+	_waves_left = 0
+	_wave_pending = false
+	hud.set_room(1, 1, false, floor_num)
+	hud.set_wave(1, 1)
+	hud.banner("Speed test · " + str(Floors.current().name))
+	Music.play("dungeon")
+	_set_state(State.PLAYING)
+	await _fade(1.0, 0.0, 0.25)
+
+
+## The test's end: back to the title with nothing kept. Coins, records, Mastery points and
+## Bone Road bones picked up in the test are dropped, and the save is read again.
+func bench_end() -> void:
+	if get_tree().paused:
+		hud.show_pause(false)
+		get_tree().paused = false
+	run_coins = 0
+	_road_unsaved = 0
+	_mastery_unsaved = 0
+	_mastery_run = 0
+	_mastery_hero = ""
+	_feats_unsaved.clear()
+	_perfect_total = -1
+	coins = int(_load_save().get_value("stats", "coins", coins))
+	await _back_to_title()
+	_rec_add.clear()
+	_rec_max.clear()
+	coins = int(_load_save().get_value("stats", "coins", coins))
+	hud.set_coins(coins)
+	bench = false
 
 
 ## TITLE (or Android Back) on the end screens. A won run stays saved, so CONTINUE on the
@@ -1752,7 +1857,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
 	var look := Floors.current()
 	_light_room(look)
-	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, 36 if _high_graphics else 14, look.motes, look.motes_fall, look.get("motes_size", 1.0))
+	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, [14, 14, 24, 36][graphics_level], look.motes, look.motes_fall, look.get("motes_size", 1.0))
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start(), _run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save()))
 	hero.place_at(room.player_start())
@@ -2153,6 +2258,8 @@ func on_enemy_died(e: Enemy) -> void:
 
 
 func _finish_room(at: Vector3) -> void:
+	if bench:
+		return   # the SPEED TEST's room never ends
 	if _cleared_serial == _room_serial:
 		return
 	_cleared_serial = _room_serial
@@ -2667,6 +2774,8 @@ func _load_save() -> ConfigFile:
 ## the last good one as save.cfg.bak, so a crash or a flat battery mid-write can't wipe
 ## coins, heroes or the Armory. The "saved" section goes last and marks a complete file.
 static func write_save(cfg: ConfigFile) -> void:
+	if bench:
+		return   # the SPEED TEST changes nothing
 	if cfg.has_section("saved"):
 		cfg.erase_section("saved")
 	cfg.set_value("saved", "complete", true)
@@ -3267,37 +3376,82 @@ static func _proc_kb(path: String, key: String) -> int:
 
 
 ## Called once a second of play, after a room's first 3 seconds. When most of the last eight
-## seconds ran under 45 frames a second (the median, so one hitch can't do it), Low graphics
-## goes on; three good minutes and it stops watching until next time.
+## seconds ran under 45 frames a second (the median, so one hitch can't do it), graphics step
+## down one level (High, Medium, Low); on Low, under 38 holds the game at a steady 30. It
+## keeps watching after a step, and three good minutes and it stops until next time.
 func _watch_frame_rate(fps: float) -> void:
 	_auto_fps.append(fps)
 	if _auto_fps.size() > 8:
 		_auto_fps.pop_front()
 	_auto_seen += 1
-	if _auto_fps.size() == 8 and _high_graphics:
+	if _auto_fps.size() == 8 and graphics_level > 0:
 		var sorted := _auto_fps.duplicate()
 		sorted.sort()
-		if sorted[4] < 45.0:
-			_auto_graphics = false
-			_set_graphics(false)
-			if not first_run:
-				hud.tip("Low graphics on, for a smoother game. Change it in Pause.", 4.0)
+		if sorted[4] < (45.0 if graphics_level > 1 else 38.0):
+			var first := graphics_level == 3 or not bool(_load_save().get_value("settings", "graphics_auto", false))
+			_set_graphics(graphics_level - 1, true, true)
+			_auto_fps.clear()
+			_auto_seen = 0
+			print("[graphics] frame rate %d: stepped down to %s" % [roundi(sorted[4]), GRAPHICS_NAMES[graphics_level]])
+			if not first_run and first:
+				hud.tip("Graphics set to %s, for a smoother game. Change it in Settings." % GRAPHICS_NAMES[graphics_level], 4.0)
 			return
 	if _auto_seen >= 180:
 		_auto_graphics = false
+
+
+## Graphics level from the save: the new setting, or the old High/Low one (version 132 and
+## before). Phones with little memory start on Low.
+static func _saved_graphics(cfg: ConfigFile) -> int:
+	if cfg.has_section_key("settings", "graphics"):
+		return clampi(int(cfg.get_value("settings", "graphics", 3)), 0, 3)
+	if cfg.has_section_key("settings", "high_graphics"):
+		return 3 if bool(cfg.get_value("settings", "high_graphics", true)) else 1
+	return 1 if low_memory_phone() else 3
+
+
+## The frame rate of the slowest 1% of frames, from a run's frame-length counts (0 if none).
+static func one_percent_low(hist: PackedInt32Array) -> float:
+	var n := 0
+	for c in hist:
+		n += c
+	if n == 0:
+		return 0.0
+	var left := maxi(1, n / 100)
+	for ms in range(hist.size() - 1, -1, -1):
+		left -= hist[ms]
+		if left <= 0:
+			return 1000.0 / maxf(1.0, ms + 0.5)
+	return 0.0
+
+
+## The share of frames that came on time (within a quarter of the frame-rate limit's frame):
+## 1.0 = perfectly steady.
+static func steady_share(hist: PackedInt32Array) -> float:
+	var n := 0
+	var ok := 0
+	var limit := 1000.0 / maxf(1.0, Engine.max_fps) * 1.25
+	for ms in hist.size():
+		n += hist[ms]
+		if ms + 0.5 <= limit:
+			ok += hist[ms]
+	return float(ok) / n if n > 0 else 0.0
 
 
 ## How sharp the 3D world is drawn: 0.85 of the screen on High (0.7 on Low), but never more
 ## than about 1.9 million pixels (1.2 on Low). A phone set to its sharpest screen mode (a
 ## Galaxy S23 Ultra at 1440 x 3088 has 4.4 million pixels) would otherwise draw almost twice
 ## as much as at its usual 1080 x 2316, for a difference too small to see on a phone.
+## Medium sits between: 1.55 million pixels, at most 0.78 of the screen.
 const PIXELS_HIGH := 1.9e6
+const PIXELS_MEDIUM := 1.55e6
 const PIXELS_LOW := 1.2e6
 
-func _scale_3d(high: bool) -> float:
+func _scale_3d(level: int) -> float:
 	var win := get_window().size
 	var px := maxf(1.0, float(win.x) * float(win.y))
-	return clampf(sqrt((PIXELS_HIGH if high else PIXELS_LOW) / px), 0.5, 0.85 if high else 0.7)
+	var budget: float = [PIXELS_LOW, PIXELS_LOW, PIXELS_MEDIUM, PIXELS_HIGH][level]
+	return clampf(sqrt(budget / px), 0.5, [0.7, 0.7, 0.78, 0.85][level])
 
 
 ## The size the 3D world is drawn at, and the screen's, for run reports ("918x1969 of 1080x2316").
@@ -3307,17 +3461,23 @@ func _draw_size_text() -> String:
 	return "%dx%d of %dx%d" % [roundi(win.x * k), roundi(win.y * k), win.x, win.y]
 
 
-## High looks best; Low turns off shadows and glow and draws the 3D world at a lower
-## resolution, for smoother play on older phones.
-func _set_graphics(high: bool, save := true) -> void:
+## High looks best. Medium drops the moon's shadows (soft shadow discs stand in) and edge
+## smoothing and draws a little smaller; Low also turns off glow, outlines and colour grading
+## and draws the 3D world smaller still, for smoother play on older phones. The lowest level
+## holds the game at 30 frames a second.
+func _set_graphics(level: int, save := true, by_watch := false) -> void:
+	level = clampi(level, 0, 3)
+	var high := level >= 2
+	graphics_level = level
 	var vp := get_viewport()
-	vp.msaa_3d = Viewport.MSAA_2X if high else Viewport.MSAA_DISABLED
-	vp.scaling_3d_scale = _scale_3d(high)
+	vp.msaa_3d = Viewport.MSAA_2X if level == 3 else Viewport.MSAA_DISABLED
+	vp.scaling_3d_scale = _scale_3d(level)
 	_env.glow_enabled = high
 	_env.adjustment_enabled = high   # an extra full-screen pass; Low skips it
-	_moon.shadow_enabled = high
+	_moon.shadow_enabled = level == 3
 	_high_graphics = high
-	Actor.show_blobs(not high)
+	Engine.max_fps = 30 if level == 0 else 60   # no need to drain the battery past what phones show
+	Actor.show_blobs(level < 3)
 	CharacterVisual.outlines = high
 	MenuBackdrop.set_cheap(not high)
 	for a: Actor in Actor.all:
@@ -3325,12 +3485,16 @@ func _set_graphics(high: bool, save := true) -> void:
 			a.visual.refresh_outline()
 	if Room.current:
 		Room.current.apply_graphics(high)
-	hud.set_graphics_label(high)
+	hud.set_graphics_label(level)
 	if save:
-		_auto_graphics = false   # the player (or the check above) has chosen
-		_auto_rewatch = false
+		if not by_watch:
+			_auto_graphics = false   # the player has chosen
+			_auto_rewatch = false
 		var cfg := _load_save()
-		cfg.set_value("settings", "high_graphics", high)
+		cfg.set_value("settings", "graphics", level)
+		cfg.set_value("settings", "graphics_auto", by_watch)
+		if cfg.has_section_key("settings", "high_graphics"):
+			cfg.erase_section_key("settings", "high_graphics")
 		write_save(cfg)
 
 

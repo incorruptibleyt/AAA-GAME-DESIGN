@@ -26,6 +26,8 @@ static func read() -> Dictionary:
 
 
 static func write(data: Dictionary) -> void:
+	if Game.bench:
+		return   # the SPEED TEST leaves a saved run alone
 	var cfg := ConfigFile.new()
 	cfg.set_value("run", "version", VERSION)
 	cfg.set_value("run", "data", data)
@@ -39,6 +41,8 @@ static func write(data: Dictionary) -> void:
 
 
 static func clear() -> void:
+	if Game.bench:
+		return
 	if FileAccess.file_exists(PATH):
 		DirAccess.remove_absolute(PATH)
 

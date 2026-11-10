@@ -86,7 +86,7 @@ func _add_blob() -> void:
 	_blob.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_blob.position = Vector3(0, 0.025, 0)
 	_blob.scale = Vector3.ONE * radius * 3.2
-	_blob.visible = not Game._high_graphics
+	_blob.visible = Game.graphics_level < 3
 	add_child(_blob)
 
 

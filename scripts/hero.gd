@@ -563,6 +563,8 @@ func _fire(origin: Vector3, d: Vector3, col: Color, share := 1.0) -> void:
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():
 		return
+	if Game.bench:
+		health = max_health   # the SPEED TEST hero takes hits (and shows them) but can't fall
 	if ward > 0:
 		ward -= 1
 		Game.report_event("ward")

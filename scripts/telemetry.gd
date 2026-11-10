@@ -77,8 +77,8 @@ func enabled() -> bool:
 
 
 func send(kind: String, body: String) -> void:
-	if not enabled():
-		return
+	if not enabled() or (Game.bench and kind != "bench"):
+		return   # (a SPEED TEST sends only its own result, never a run report)
 	_post(kind, body)
 
 
