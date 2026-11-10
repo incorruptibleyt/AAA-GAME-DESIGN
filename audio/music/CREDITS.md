@@ -1,17 +1,20 @@
 # Music
 
-Every track here is marked CC0 (public domain) on its OpenGameArt page, so no credit is
-required, but thank you to the composers. The files were fetched by
-`.github/workflows/fetch-music.yml`, levelled to the same loudness and trimmed.
+Bone Chain's own soundtrack (version 136): one Bone Chain tune played as a spooky music box,
+arranged differently for the title, each crypt and the boss. Written as code in
+`tools/music/score.py` and rendered with FluidSynth and the FluidR3 GM soundfont (MIT licence,
+by Frank Wen), so there is nothing to credit beyond that.
 
-| File | Track | Composer | Page |
-|---|---|---|---|
-| crypt_lament_of_the_war.ogg | Lament of the War | Cethiel | https://opengameart.org/content/laments-of-the-war |
-| crypt_evil_approach.ogg | Evil Approach | nene | https://opengameart.org/content/evil-approach |
-| ice_fantasy_choir.ogg | Fantasy Choir 2 | cesisco | https://opengameart.org/content/fantasy-choir-3-orchestral-pieces |
-| ice_siberian_intro.ogg | Siberian Intro | Vehicle | https://opengameart.org/content/siberian-intro |
-| ember_determined_pursuit.ogg | Determined Pursuit | Emma_MA | https://opengameart.org/content/determined-pursuit-epic-orchestra-loop |
-| ember_prepare_to_fight.ogg | Prepare to Fight | Basil | https://opengameart.org/content/prepare-to-fight |
-| boss_epic_boss_battle.ogg | Epic Boss Battle | Juhani Junkala (SubspaceAudio) | https://opengameart.org/content/boss-battle-music |
-| grotto_unexplored.ogg | Unexplored (expanded) | tad, expanded by Bo Jingles | https://opengameart.org/content/unexplored-expansion |
-| grotto_col_legno.ogg | Col Legno | Vehicle | https://opengameart.org/content/col-legno |
+| File | What |
+|---|---|
+| bc_title.ogg | Title theme: music box and harp, slow and gentle |
+| bc_crypt.ogg | Bone Crypt: celesta tune, plucked strings, harp, bassoon, tiptoe shaker |
+| bc_ice.ogg | Frozen crypt: slower, celesta and vibraphone, halo pad, triangle |
+| bc_ember.ogg | Ember crypt: faster and lower, marimba tune, plucked strings, low toms |
+| bc_drowned.ogg | Drowned Vault: slowest, vibraphone, choir pad, glassy bells |
+| bc_grotto.ogg | Glowcap Grotto: kalimba tune with ocarina, marimba, wood blocks |
+| bc_boss.ogg | Boss: the tune over war drums, timpani, choir, cellos and brass |
+| bc_*_fight.ogg | Each crypt's fight layer (low strings, cello rhythm, war drums), in sync with its track; the game fades it in while enemies are alive |
+
+Every file is a seamless loop: the piece is rendered twice through and the second pass kept,
+so the end's echo flows into the start.

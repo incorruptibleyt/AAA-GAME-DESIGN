@@ -17,14 +17,15 @@ def root(ch, octv): return n(CHORDS[ch][0] + str(octv))
 
 class Song:
     def __init__(self, bpm, seed=1):
-        self.bpm = bpm; self.parts = {}; self.rng = random.Random(seed)
+        self.bpm = bpm; self.parts = {}; self.rng = random.Random(seed); self.tr = 0
     def part(self, name, ch, prog, vol=100, pan=64, rev=50, cho=0):
         self.parts[name] = dict(ch=ch, prog=prog, vol=vol, pan=pan, rev=rev, cho=cho, ev=[], cc=[])
     def note(self, name, beat, pitch, dur, vel=80, hum=True):
         p = self.parts[name]; r = self.rng
         j = r.uniform(-0.012, 0.012) if hum and p["ch"] != 9 else 0
         v = max(1, min(127, int(vel + (r.uniform(-6, 6) if hum else 0))))
-        p["ev"].append((max(0, beat + j), n(pitch), dur, v))
+        q = n(pitch) + (self.tr if p["ch"] != 9 else 0)
+        p["ev"].append((max(0, beat + j), q, dur, v))
     def chord(self, name, beat, pitches, dur, vel=70, strum=0.0):
         for i, q in enumerate(pitches): self.note(name, beat + i * strum, q, dur, vel)
     def cc(self, name, beat, num, val):

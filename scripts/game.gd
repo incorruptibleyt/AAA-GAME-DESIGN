@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10l"
+const BUILD := "2026-11-10m"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -471,7 +471,7 @@ func _play_intro() -> void:
 	intro = Intro.new()
 	intro.logo = hud.title_logo()
 	intro.logo.modulate.a = 0.0
-	intro.music.connect(func(): Music.play("dungeon"))
+	intro.music.connect(func(): Music.play("title"))
 	add_child(intro)
 
 
@@ -1720,7 +1720,7 @@ func _back_to_title(keep_run := false) -> void:
 	if mastery_note != "":
 		hud.set_drops(Drops.waiting(_load_save()))
 		hud.tip(mastery_note, 4.5, 0.5)
-	Music.play("dungeon")
+	Music.play("title")
 	_set_state(State.TITLE)
 	await _fade(1.0, 0.0, 0.4)
 

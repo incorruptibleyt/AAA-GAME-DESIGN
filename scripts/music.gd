@@ -1,22 +1,28 @@
 class_name Music
 extends Node
-## Background music: orchestral CC0 tracks (credits in audio/music/CREDITS.md), two for
-## each floor theme played one after the other, and a looping boss theme. Changing track
-## cross-fades. To add a track, drop the .ogg in audio/music and add it to PLAYLISTS.
+## Background music: the game's own soundtrack, one Bone Chain tune played as a spooky music
+## box in a different way for each crypt (made by tools/music/score.py, credits in
+## audio/music/CREDITS.md). Every track loops. Each crypt track has an in-sync fight layer
+## (low strings, cello rhythm, war drums) that swells in while enemies are alive and fades
+## out once the room is clear. Changing track cross-fades.
 
-const PLAYLISTS := {
-	"crypt": [preload("res://audio/music/crypt_lament_of_the_war.ogg"), preload("res://audio/music/crypt_evil_approach.ogg")],
-	"ice": [preload("res://audio/music/ice_fantasy_choir.ogg"), preload("res://audio/music/ice_siberian_intro.ogg")],
-	"ember": [preload("res://audio/music/ember_determined_pursuit.ogg"), preload("res://audio/music/ember_prepare_to_fight.ogg")],
-	"grotto": [preload("res://audio/music/grotto_unexplored.ogg"), preload("res://audio/music/grotto_col_legno.ogg")],
-	"boss": [preload("res://audio/music/boss_epic_boss_battle.ogg")],
+const TRACKS := {
+	"title": [preload("res://audio/music/bc_title.ogg")],
+	"crypt": [preload("res://audio/music/bc_crypt.ogg"), preload("res://audio/music/bc_crypt_fight.ogg")],
+	"ice": [preload("res://audio/music/bc_ice.ogg"), preload("res://audio/music/bc_ice_fight.ogg")],
+	"ember": [preload("res://audio/music/bc_ember.ogg"), preload("res://audio/music/bc_ember_fight.ogg")],
+	"drowned": [preload("res://audio/music/bc_drowned.ogg"), preload("res://audio/music/bc_drowned_fight.ogg")],
+	"grotto": [preload("res://audio/music/bc_grotto.ogg"), preload("res://audio/music/bc_grotto_fight.ogg")],
+	"boss": [preload("res://audio/music/bc_boss.ogg")],
 }
-## One playlist per floor theme, in the order of Floors.THEMES (the Drowned Vault borrows
-## the choir, which sounds like it is under water).
-const THEMES := ["crypt", "ice", "ember", "ice", "grotto"]
+## One track per floor theme, in the order of Floors.THEMES.
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5
+## Seconds for the fight layer to swell in, and to die away after the last kill.
+const FIGHT_IN := 1.2
+const FIGHT_OUT := 3.5
 
 static var _instance: Music
 static var enabled := true
@@ -35,14 +41,16 @@ var _a: AudioStreamPlayer
 var _b: AudioStreamPlayer
 var _current: AudioStream
 var _list := ""
-## Where each playlist got to, so coming back to a theme plays its next track.
-var _next := {}
+## Each track as one stream: a crypt's calm and fight layers play in sync.
+var _streams := {}
+## 0 .. 1: how loud the fight layer is.
+var _fight := 0.0
 
 
-## "dungeon" plays the current floor's theme; "boss" the boss theme.
+## "dungeon" plays the current floor's track, "boss" the boss theme, "title" the title theme.
 static func play(track: String) -> void:
 	if _instance:
-		_instance._play_list("boss" if track == "boss" else THEMES[Floors.index(Game.floor_num)])
+		_instance._play_list(track if track in ["boss", "title"] else THEMES[Floors.index(Game.floor_num) % THEMES.size()])
 
 
 static func set_enabled(on: bool) -> void:
@@ -55,9 +63,19 @@ static func set_enabled(on: bool) -> void:
 func _ready() -> void:
 	_instance = self
 	process_mode = Node.PROCESS_MODE_ALWAYS
-	for list: Array in PLAYLISTS.values():
+	for key: String in TRACKS:
+		var list: Array = TRACKS[key]
 		for s: AudioStreamOggVorbis in list:
-			s.loop = list.size() == 1   # a lone track loops; playlists move on instead
+			s.loop = true
+		if list.size() == 1:
+			_streams[key] = list[0]
+		else:
+			var sync := AudioStreamSynchronized.new()
+			sync.stream_count = list.size()
+			for i in list.size():
+				sync.set_sync_stream(i, list[i])
+				sync.set_sync_stream_volume(i, 0.0 if i == 0 else -60.0)
+			_streams[key] = sync
 	_a = AudioStreamPlayer.new()
 	_b = AudioStreamPlayer.new()
 	Sfx.make_buses()
@@ -71,24 +89,26 @@ func _play_list(list: String) -> void:
 	if list == _list:
 		return
 	_list = list
-	_switch(_take_next())
-
-
-func _take_next() -> AudioStream:
-	var tracks: Array = PLAYLISTS[_list]
-	var i: int = _next.get(_list, 0) % tracks.size()
-	_next[_list] = i + 1
-	return tracks[i]
+	_fight = 0.0
+	_switch(_streams[list])
 
 
 func _process(delta: float) -> void:
 	_update_muffle(delta)
-	# Near the end of a playlist track, cross-fade into the next one.
-	if _current == null or _current.get("loop") or not _a.playing or _a.stream_paused:
+	_update_fight(delta)
+
+
+## The fight layer follows the room: in while enemies are alive, out once it is clear.
+func _update_fight(delta: float) -> void:
+	var sync := _current as AudioStreamSynchronized
+	if sync == null:
 		return
-	if _a.get_playback_position() > _current.get_length() - FADE:
-		_current = null
-		_switch(_take_next())
+	var want := 1.0 if Game.state == Game.State.PLAYING and Game.alive_enemies > 0 else 0.0
+	if is_equal_approx(_fight, want) and sync.get_sync_stream_volume(1) == (0.0 if want > 0.5 else -60.0):
+		return
+	_fight = move_toward(_fight, want, delta / (FIGHT_IN if want > _fight else FIGHT_OUT))
+	# An eased curve in decibels, so the swell sounds even rather than jumping at the end.
+	sync.set_sync_stream_volume(1, -60.0 if _fight <= 0.0 else linear_to_db(_fight * _fight))
 
 
 ## Paused, picking a blessing or dead: the music sounds as if heard through a wall, and
