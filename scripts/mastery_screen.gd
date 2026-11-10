@@ -1,10 +1,18 @@
 class_name MasteryScreen
 extends ColorRect
-## A hero's Mastery screen (from the Heroes screen): their mastery bar, all ten levels with
+## A hero's Mastery screen (from the Heroes screen): their mastery bar, all twenty levels with
 ## what each gives and the looks it unlocks (earned ones ticked, the next one lit), and the
 ## way to the Style screen.
+##
+## Version 132: Training, where spare coins go. HeroMastery.TRAIN_COST coins buy
+## HeroMastery.TRAIN_POINTS points for this hero, a few times a day (only on the title, for a
+## hero you own, below level 20). The bar fills right here, and a level reached turns STYLE
+## into NEW LOOK.
 
 signal style(id: String)
+## The new looks of level `lv`, worn on the Style screen (as the end screen's SEE NEW LOOKS).
+signal see_new(id: String, lv: int)
+signal train(id: String)
 signal closed
 
 const DIM := Color(0.6, 0.58, 0.66)
@@ -19,6 +27,14 @@ var _list: VBoxContainer
 var _scroll: ScrollContainer
 var _style_row: PanelContainer
 var _style_text: Label
+var _style_btn: Button
+## The level whose looks SEE NEW LOOK shows (0: the button says STYLE).
+var _new_level := 0
+var _train_row: PanelContainer
+var _train_text: Label
+var _train_btn: Button
+var _train_price: Label
+var _train_coin: Control
 
 
 func _init() -> void:
@@ -47,6 +63,8 @@ func _init() -> void:
 	col.add_child(_how)
 	_style_row = _build_style_row()
 	col.add_child(_style_row)
+	_train_row = _build_train_row()
+	col.add_child(_train_row)
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -92,13 +110,91 @@ func _build_style_row() -> PanelContainer:
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func():
 		Sfx.play("click")
-		style.emit(_id))
+		if _new_level > 0:
+			see_new.emit(_id, _new_level)
+		else:
+			style.emit(_id))
 	h.add_child(b)
+	_style_btn = b
 	return panel
 
 
+## Training: "+60 points" and how many are left today, and a green button with the price.
+func _build_train_row() -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.07, 0.11, 0.09, 0.95)
+	sb.border_color = Color(0.45, 0.85, 0.5, 0.55)
+	sb.set_corner_radius_all(14)
+	sb.set_border_width_all(2)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 10
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 12)
+	panel.add_child(h)
+	_train_text = Hud.label("", 17, TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+	_train_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(_train_text)
+	# A chunky green button: a coin and the price on it (or TOMORROW when today's are used).
+	var b := Hud.button("TRAIN", 22, Color(0.2, 0.6, 0.25))
+	b.custom_minimum_size = Vector2(150, 58)
+	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	b.pressed.connect(func():
+		if not _train_btn.disabled:
+			train.emit(_id))
+	h.add_child(b)
+	_train_btn = b
+	var inner := HBoxContainer.new()
+	inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inner.alignment = BoxContainer.ALIGNMENT_CENTER
+	inner.add_theme_constant_override("separation", 6)
+	Hud.full(inner)
+	inner.offset_bottom = -5   # centred on the face, above its lip
+	b.add_child(inner)
+	_train_coin = Hud.coin_icon(26)
+	_train_coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	inner.add_child(_train_coin)
+	_train_price = Hud.label(str(HeroMastery.TRAIN_COST), 24, Color.WHITE)
+	Hud.chunky(_train_price.label_settings)
+	_train_price.autowrap_mode = TextServer.AUTOWRAP_OFF
+	inner.add_child(_train_price)
+	return panel
+
+
+## The Training row for hero `id` at level `lv`: hidden at level 20, for a hero not owned and
+## during a run (coins < 0), otherwise how many are left today and whether `coins` pays.
+func _fill_train(cfg: ConfigFile, id: String, lv: int, coins: int) -> void:
+	_train_row.visible = coins >= 0 and lv < HeroMastery.MAX_LEVEL and Heroes.unlocked(cfg, id)
+	if not _train_row.visible:
+		return
+	var left := HeroMastery.train_left(cfg, Curses.today())
+	var afford := coins >= HeroMastery.TRAIN_COST
+	_train_btn.text = ""
+	_train_btn.disabled = left <= 0 or not afford
+	_train_coin.visible = left > 0
+	_train_price.text = str(HeroMastery.TRAIN_COST) if left > 0 else "TOMORROW"
+	_train_price.label_settings.font_size = 24 if left > 0 else 19
+	_train_price.label_settings.font_color = Color.WHITE if left > 0 and afford else Color(0.8, 0.8, 0.85)
+	var second: String
+	if left <= 0:
+		second = "Back tomorrow: %d a day" % HeroMastery.TRAIN_PER_DAY
+	elif not afford:
+		second = "%d left today  ·  you have %d coins" % [left, coins]
+	else:
+		second = "%d left today  ·  coins buy mastery" % left
+	_train_text.text = "TRAIN  +%d points\n%s" % [HeroMastery.TRAIN_POINTS, second]
+
+
 ## Fills the screen for hero `id` (cfg = the save) and shows it, scrolled to the next level.
-func open_hero(cfg: ConfigFile, id: String) -> void:
+## `coins`: what the player has, for Training (-1 hides it: during a run).
+func open_hero(cfg: ConfigFile, id: String, coins := -1, keep_new := false) -> void:
+	if not keep_new:
+		_new_level = 0
 	_id = id
 	visible = true
 	var def := HeroStyle.styled(cfg, Heroes.get_hero(id))
@@ -116,6 +212,9 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	var all := mastery.size()
 	_style_text.text = "%d of %d Mastery looks unlocked\nFeats %d/%d  ·  Bone Drop looks %d/%d" % [got, all,
 		Feats.count(cfg), Feats.LIST.size(), Drops.found_looks(cfg), Drops.all_looks()]
+	_style_btn.text = "NEW LOOK" if _new_level > 0 else "STYLE"
+	_style_btn.custom_minimum_size.x = 176 if _new_level > 0 else 150
+	_fill_train(cfg, id, lv, coins)
 	for c in _list.get_children():
 		_list.remove_child(c)
 		c.queue_free()
@@ -189,3 +288,26 @@ func _row(id: String, l: int, lv: int, p: int) -> Control:
 			need += "  ·  free blessings"
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if next else (DONE if got else DIM), HORIZONTAL_ALIGNMENT_LEFT))
 	return panel
+
+
+## After a Training (Game._train_hero): the screen again with `coins` left, and the bar
+## filling from `before` points to now, naming any level reached on the way. A level with new
+## looks turns STYLE into SEE NEW LOOK.
+func trained(cfg: ConfigFile, id: String, before: int, coins: int, levels: Array) -> void:
+	for l: Dictionary in levels:
+		if not HeroStyle.level_items(id, int(l.level)).is_empty():
+			_new_level = int(l.level)
+	open_hero(cfg, id, coins, true)
+	var def := HeroStyle.styled(cfg, Heroes.get_hero(id))
+	var after := HeroMastery.points(cfg, id)
+	var lv := HeroMastery.level_for(after)
+	var t := HeroMastery.title_for(lv)
+	_bar.play({"id": id, "name": def.title, "color": def.ring, "before": before, "after": after,
+		"gained": after - before, "header": "%s RANK%s" % [str(HeroMastery.rank(lv).name).to_upper(), "  ·  " + t.to_upper() if t != "" else ""],
+		"wait": 0.1})
+	if _new_level > 0:
+		var tw := _style_btn.create_tween()
+		_style_btn.pivot_offset = _style_btn.size * 0.5
+		tw.tween_interval(0.9)
+		tw.tween_property(_style_btn, "scale", Vector2(1.12, 1.12), 0.15)
+		tw.tween_property(_style_btn, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)

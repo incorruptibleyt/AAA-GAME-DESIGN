@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10d"
+const BUILD := "2026-11-10e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -344,6 +344,7 @@ func _ready() -> void:
 	hud.road_claim.connect(_claim_road)
 	hud.road_closed.connect(_drops_closed)
 	hud.mastery_pressed.connect(_open_mastery)
+	hud.mastery_train.connect(_train_hero)
 	hud.style_pressed.connect(_open_style)
 	hud.feats_pressed.connect(_open_feats)
 	hud.feats_hero_pressed.connect(func(id: String): _open_feats(id))
@@ -3361,13 +3362,46 @@ func _hero_rows() -> Array:
 			"unlocked": unlocked, "selected": h.id == chosen and _trial_hero == "",
 			"trial": state == State.TITLE and not unlocked and not bool(cfg.get_value(TRIAL_SECTION, h.id, false)),
 			"trying": h.id == _trial_hero, "def": HeroStyle.styled(cfg, h), "points": HeroMastery.points(cfg, h.id),
-			"frame": HeroMastery.has_frame(cfg, h.id), "new_looks": HeroStyle.unseen(cfg, h.id)})
+			"frame": HeroMastery.has_frame(cfg, h.id), "frame_color": HeroMastery.frame_color(HeroMastery.level(cfg, h.id)),
+			"new_looks": HeroStyle.unseen(cfg, h.id)})
 	return rows
 
 
 ## The Mastery screen for hero `id` (from the Heroes screen).
 func _open_mastery(id: String) -> void:
-	hud.open_mastery(_load_save(), id)
+	hud.open_mastery(_load_save(), id, coins if state == State.TITLE else -1)
+
+
+## Training (version 132): HeroMastery.TRAIN_COST coins buy hero `id` TRAIN_POINTS mastery
+## points, TRAIN_PER_DAY times a day, on the title only. Levels reached give their rewards
+## at once, as after a run.
+func _train_hero(id: String) -> void:
+	var cfg := _load_save()
+	var today := Curses.today()
+	if state != State.TITLE or not Heroes.unlocked(cfg, id) or HeroMastery.level(cfg, id) >= HeroMastery.MAX_LEVEL \
+			or HeroMastery.train_left(cfg, today) <= 0 or coins < HeroMastery.TRAIN_COST:
+		Sfx.play("hurt")
+		return
+	var before := HeroMastery.points(cfg, id)
+	coins -= HeroMastery.TRAIN_COST
+	cfg.set_value("stats", "coins", coins)
+	HeroMastery.train(cfg, id, today)
+	var g := _give_mastery(cfg, id)
+	write_save(cfg)
+	hud.set_coins(coins)
+	Sfx.play("coin", 0.7, 0.9)
+	Sfx.play("upgrade", 0.6)
+	buzz(25)
+	print("[train] %s +%d points for %d coins (%d left today)" % [id, HeroMastery.TRAIN_POINTS, HeroMastery.TRAIN_COST, HeroMastery.train_left(cfg, today)])
+	hud.mastery_trained(cfg, id, before, coins, g.levels)
+	# The hero on the title: its Mastery line, and its frame in the new rank's colour.
+	if hero and hero.hero_id == id and _trial_hero == "":
+		_title_hero_line(id)
+		if not g.levels.is_empty():
+			_swap_hero(id, true)
+	if hud.heroes_visible():
+		hud.show_heroes(true, _hero_rows(), coins)
+	hud.show_title(hud.title_visible(), _best_text(), coins)
 
 
 ## The Feats screen (from the Style screen); opening it clears the NEW tag.

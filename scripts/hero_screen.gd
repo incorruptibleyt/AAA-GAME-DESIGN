@@ -361,11 +361,12 @@ func _refresh() -> void:
 	var def: Dictionary = r.get("def", Heroes.get_hero(r.id))
 	var ring: Color = def.ring
 	var frame := bool(r.get("frame", false))
+	var frame_col: Color = r.get("frame_color", Color(1.0, 0.8, 0.3))
 	# A new hero, or the same one in a new color or frame, goes back on the pedestal.
-	var look_key := "%s %s %s" % [r.id, def.ring, frame]
+	var look_key := "%s %s %s %s" % [r.id, def.ring, frame, frame_col]
 	if look_key != _shown_id:
 		_shown_id = look_key
-		_stage.show_hero(def, frame)
+		_stage.show_hero(def, frame, frame_col)
 	_coin_label.text = str(_coins)
 	for i in _tabs.size():
 		var t := _tabs[i]

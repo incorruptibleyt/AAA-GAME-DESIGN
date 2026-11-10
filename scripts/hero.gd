@@ -118,7 +118,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.make_visual(Heroes.look(def))
 	h._build_feet_marker(def.ring)
 	if HeroMastery.has_frame(cfg, def.id):
-		h._build_gold_ring()   # Hero Mastery level 10
+		h._build_gold_ring(HeroMastery.frame_color(HeroMastery.level(cfg, def.id)))   # Hero Mastery level 10 (+ tiers)
 		h._master = true
 	h._master_aura = def.get("aura", {})
 	if not h._master_aura.is_empty():
@@ -644,7 +644,7 @@ func _build_feet_marker(col: Color) -> void:
 
 
 ## Hero Mastery level 10: a thin gold ring just inside the one in the hero's colour.
-func _build_gold_ring() -> void:
+func _build_gold_ring(col := Color(1.0, 0.82, 0.32)) -> void:
 	var torus := TorusMesh.new()
 	torus.inner_radius = 0.4
 	torus.outer_radius = 0.46
@@ -652,7 +652,7 @@ func _build_gold_ring() -> void:
 	torus.ring_segments = 4
 	var ring := MeshInstance3D.new()
 	ring.mesh = torus
-	ring.material_override = U.unlit(Color(1.0, 0.82, 0.32, 0.95))
+	ring.material_override = U.unlit(Color(col.r, col.g, col.b, 0.95))
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ring.position = Vector3(0, 0.045, 0)
 	ring.scale = Vector3(1, 0.12, 1)

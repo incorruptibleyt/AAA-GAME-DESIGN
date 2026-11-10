@@ -207,7 +207,7 @@ func _fit() -> void:
 
 
 func _show_preview() -> void:
-	_stage.show_hero(HeroStyle.dressed(_base, _preview), _frame)
+	_stage.show_hero(HeroStyle.dressed(_base, _preview), _frame, HeroMastery.frame_color(_level))
 	_pass_btn.visible = false
 	for slot: String in HeroStyle.SLOTS:
 		var key: String = _preview.get(slot, "")
@@ -371,6 +371,7 @@ class Swatch extends Control:
 	var aura := {}
 	var shine := false   # a Crypt King look: a glint runs across its picture
 	var pat := 0   # a Feat or drop outfit's pattern, drawn on its swatch
+	var a2 = null   # a Legend road glow's second colour (it shimmers between the two)
 	var _t := 0.0
 
 	func _init() -> void:
@@ -395,10 +396,14 @@ class Swatch extends Control:
 				a = o.get("a", HeroStyle.CLASSIC_OUTFIT.get(id, Color.GRAY))
 				var bb = o.get("armor") if id == "knight" else (o.get("leather") if id == "rogue" else o.get("b"))
 				b = bb if bb != null else HeroStyle.CLASSIC_TRIM.get(id, Color.GRAY)
+				pat = int(o.get("pat", 0))   # the Legend road outfits (Diamond, Mythic, Legend)
+				if pat > 0:
+					shape = "pattern"
 			"glow":
 				var gl: Dictionary = HeroStyle.PASS_GLOW if HeroStyle.is_pass(k) else HeroStyle.GLOWS.get(k, HeroStyle.extra(s, k))
 				a = gl.get("ring", base.ring)
 				b = gl.get("bolt", a)
+				a2 = gl.get("ring2")
 				shine = HeroStyle.is_pass(k)
 			"aura":
 				aura = HeroStyle.PASS_AURA if HeroStyle.is_pass(k) else HeroStyle.AURAS.get(id, {}).get(k, HeroStyle.extra(s, k))
@@ -430,6 +435,10 @@ class Swatch extends Control:
 			"glow":
 				draw_circle(c, r, Color(a, 0.18))
 				draw_circle(c, r * 0.72, a, false, r * 0.22, true)
+				if a2 != null:
+					# The second colour runs round the ring, as it shimmers on the hero.
+					var at := _t * 1.6
+					draw_arc(c, r * 0.72, at, at + PI * 0.9, 20, a2, r * 0.22, true)
 				draw_circle(c, r * 0.72, Color(1, 1, 1, 0.6), false, 2.0, true)
 				if b != a:
 					# Its shots' colour, when they differ from the ring.
@@ -501,6 +510,25 @@ class Swatch extends Control:
 				for i in 5:
 					var p := c + Vector2(cos(_t * 0.4 + i * 1.3) * 0.5, sin(_t * 0.5 + i * 2.1) * 0.45) * r
 					draw_circle(p, r * 0.08, Color(lit, 0.5 + 0.5 * sin(_t * 2.0 + i)))
+			11:   # Diamond: gem facets in rainbow fire, a glint
+				var gem := PackedVector2Array([c + Vector2(0, -0.55) * r, c + Vector2(0.45, -0.1) * r, c + Vector2(0, 0.55) * r, c + Vector2(-0.45, -0.1) * r, c + Vector2(0, -0.55) * r])
+				draw_polyline(gem, Color.from_hsv(fmod(_t * 0.15, 1.0), 0.4, 1.0, 0.95), r * 0.08, true)
+				draw_line(c + Vector2(-0.45, -0.1) * r, c + Vector2(0.45, -0.1) * r, Color(1, 1, 1, 0.7), 2.0, true)
+				var tw := pow(maxf(0.0, sin(_t * 2.5)), 8.0)
+				draw_line(c + Vector2(0.3, -0.5) * r - Vector2(r * 0.16, 0), c + Vector2(0.3, -0.5) * r + Vector2(r * 0.16, 0), Color(1, 1, 1, tw), 2.0, true)
+				draw_line(c + Vector2(0.3, -0.5) * r - Vector2(0, r * 0.16), c + Vector2(0.3, -0.5) * r + Vector2(0, r * 0.16), Color(1, 1, 1, tw), 2.0, true)
+			12:   # Mythic: rune rings rising in violet and cyan
+				for i in 3:
+					var y := c.y + r * 0.55 - fmod(_t * 14.0 + i * r * 0.4, r * 1.2)
+					var col := Color(0.62, 0.3, 1.0).lerp(Color(0.3, 0.9, 1.0), 0.5 + 0.5 * sin(_t + i))
+					draw_line(Vector2(c.x - r * 0.6, y), Vector2(c.x + r * 0.6, y), Color(col, 0.9), r * 0.08, true)
+					for j in 3:
+						draw_rect(Rect2(c.x + (j - 1) * r * 0.35 - r * 0.05, y - r * 0.14, r * 0.1, r * 0.1), Color(col, 0.8))
+			13:   # Legend: a red-gold sun's rays turning
+				for i in 6:
+					var ang := _t * 0.8 + i * TAU / 6.0
+					draw_line(c + Vector2(cos(ang), sin(ang)) * r * 0.18, c + Vector2(cos(ang), sin(ang)) * r * 0.62, Color(1.0, 0.62, 0.2, 0.9), r * 0.1, true)
+				draw_circle(c, r * 0.2, Color(1.0, 0.86, 0.45))
 
 	## A Crypt King look's picture: a white glint sweeps across it every two seconds.
 	func _glint(c: Vector2, r: float) -> void:
@@ -513,7 +541,7 @@ class Swatch extends Control:
 		draw_colored_polygon(pts, Color(1, 1, 1, 0.45 * (1.0 - absf(f))))
 
 	func _process(delta: float) -> void:
-		if not (aura.get("cycle", false) or aura.has("ink2") or shine or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown"]):
+		if not (aura.get("cycle", false) or aura.has("ink2") or shine or a2 != null or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown"]):
 			set_process(false)   # only a pulsing aura's swatch is redrawn every frame
 			return
 		_t += delta

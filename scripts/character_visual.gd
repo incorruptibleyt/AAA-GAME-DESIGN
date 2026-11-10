@@ -89,7 +89,7 @@ func build(look: Dictionary) -> void:
 		_tint_mat = U.unlit(look.tint)
 		_tint_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	elif look.has("rim"):
-		_tint_mat = rim_material(look.rim, float(look.get("rim_power", 2.2)))
+		_tint_mat = rim_material(look.rim, float(look.get("rim_power", 2.2)), look.get("rim2", look.rim))
 	_set_flash(false)
 	_play("idle")
 
@@ -115,22 +115,28 @@ func rim_boost(k: float) -> void:
 
 
 ## A bright glow around a model's edges (heroes), so they stand out from above on any floor.
-static func rim_material(col: Color, power := 2.2) -> ShaderMaterial:
+## `col2` (version 132, the Legend road's glows): the glow shimmers between the two colours.
+static func rim_material(col: Color, power := 2.2, col2: Variant = null) -> ShaderMaterial:
 	if _rim_shader == null:
 		_rim_shader = Shader.new()
 		_rim_shader.code = """
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_back;
 uniform vec4 rim : source_color = vec4(0.4, 0.7, 1.0, 1.0);
+uniform vec3 rim2 : source_color = vec3(0.4, 0.7, 1.0);
 uniform float power = 2.2;
 void fragment() {
 	float f = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), power);
-	ALBEDO = rim.rgb * f * rim.a;
+	// a slow wave of the second colour running up the hero (the same colour twice: no change)
+	float w = 0.5 + 0.5 * sin(TIME * 2.4 - (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).y * 3.0);
+	ALBEDO = mix(rim.rgb, rim2, w) * f * rim.a;
 }
 """
 	var m := ShaderMaterial.new()
 	m.shader = _rim_shader
 	m.set_shader_parameter("rim", col)
+	var c2: Color = col2 if col2 is Color else col
+	m.set_shader_parameter("rim2", Vector3(c2.r, c2.g, c2.b))
 	m.set_shader_parameter("power", power)
 	return m
 

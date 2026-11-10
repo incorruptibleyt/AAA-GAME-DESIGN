@@ -29,7 +29,7 @@ const LIST := [
 	{"id": "fourheroes", "name": "Band of Four", "text": "Beat a boss with each of the 4 heroes", "look": ["head", "star_circlet"], "goal": 4, "stat": "heroes"},
 	{"id": "conqueror", "name": "Crypt Conqueror", "text": "Beat the boss of floor 5 or deeper", "look": ["head", "flame_crown"]},
 	{"id": "flawless", "name": "Flawless", "text": "Clear a whole floor, boss too, without being hit", "look": ["outfit", "starweave"]},
-	{"id": "legend", "name": "Legend", "text": "Reach Mastery level 10 with any hero", "look": ["head", "skull_helm"], "goal": 10, "stat": "mastery"},
+	{"id": "legend", "name": "True Master", "text": "Reach Mastery level 10 with any hero", "look": ["head", "skull_helm"], "goal": 10, "stat": "mastery"},
 ]
 
 

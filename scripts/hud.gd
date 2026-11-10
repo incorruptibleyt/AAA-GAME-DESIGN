@@ -23,6 +23,8 @@ signal road_claim(index: int)
 signal road_closed
 signal drops_closed
 signal mastery_pressed(id: String)
+## Training on the Mastery screen (version 132): coins buy this hero mastery points.
+signal mastery_train(id: String)
 signal style_pressed(id: String)
 signal feats_pressed
 signal found_wear(id: String, slot: String, key: String)
@@ -328,6 +330,8 @@ func _ready() -> void:
 	_mastery = MasteryScreen.new()
 	add_child(_mastery)
 	_mastery.style.connect(func(id: String): style_pressed.emit(id))
+	_mastery.see_new.connect(func(id: String, lv: int): see_looks.emit(id, lv))
+	_mastery.train.connect(func(id: String): mastery_train.emit(id))
 	_style = StyleScreen.new()
 	add_child(_style)
 	_style.wear.connect(func(id: String, slot: String, key: String): style_wear.emit(id, slot, key))
@@ -3383,7 +3387,8 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 ## "Playing as the Mage  ·  Mastery 4" (in gold once they're a Master, at level 10).
 func set_title_hero(hero_name: String, mastery := 0, master := false) -> void:
 	_title_hero.text = hero_name.to_upper() + ("  ·  MASTERY %d" % mastery if mastery > 1 else "")
-	_title_hero.label_settings.font_color = GOLD if master else Color(0.75, 0.85, 1.0)
+	# A Master's name in gold; on the Legend road (version 132) in that rank's colour.
+	_title_hero.label_settings.font_color = (GOLD if mastery <= HeroMastery.FRAME_LEVEL else HeroMastery.frame_color(mastery)) if master else Color(0.75, 0.85, 1.0)
 
 
 ## Shows the rows of the open tab: Armory upgrades, or the Vault's blessings.
@@ -3598,8 +3603,14 @@ func show_mastery(info: Dictionary) -> void:
 
 
 ## The Mastery screen for hero `id` (mastery_screen.gd), filled from `cfg`.
-func open_mastery(cfg: ConfigFile, id: String) -> void:
-	_mastery.open_hero(cfg, id)
+## `coins` for Training (-1 hides it).
+func open_mastery(cfg: ConfigFile, id: String, coins := -1) -> void:
+	_mastery.open_hero(cfg, id, coins)
+
+
+## After a Training: the bar fills from `before`, levels reached named on the way.
+func mastery_trained(cfg: ConfigFile, id: String, before: int, coins: int, levels: Array) -> void:
+	_mastery.trained(cfg, id, before, coins, levels)
 
 
 ## The Feats screen (feats_screen.gd), over the Style screen.

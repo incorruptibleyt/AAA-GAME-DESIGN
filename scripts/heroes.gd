@@ -70,6 +70,12 @@ static func look(def: Dictionary, stage := false) -> Dictionary:
 		else:
 			l.rim = Color(def.ring, 0.4)
 			l.rim_power = 3.0
+	elif def.get("rim_legend", false):
+		l.rim = Color(def.ring.r * 1.2, def.ring.g * 1.2, def.ring.b * 1.2, 1.0) if stage else Color(def.ring, 0.9)
+		l.rim_power = 2.2 if stage else 2.4
+	if def.has("ring2"):
+		var k: float = l.rim.r / maxf(0.001, def.ring.r) if def.ring.r > 0.01 else 1.0
+		l.rim2 = Color(def.ring2.r * k, def.ring2.g * k, def.ring2.b * k, l.rim.a)
 	for extra in ["hood", "helmet", "hat", "horns", "style", "aura"]:
 		if def.has(extra):
 			l[extra] = def[extra]

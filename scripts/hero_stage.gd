@@ -36,6 +36,8 @@ var _hold := 0.0
 ## The hero on show (to put back after a rebuild) and whether the stage is drawing.
 var _def := {}
 var _gold := false
+## The frame's colour: gold for a Master, then Diamond, Mythic and Legend (version 132).
+var _frame_col := Color(1.0, 0.8, 0.3)
 var _active := false
 var _checking := false
 ## Repairs tried since the screen last opened (at most 3 per opening, 12 a session, so a
@@ -208,11 +210,15 @@ func _build_scene() -> void:
 
 
 ## Puts `def` (an entry of Heroes.LIST) on the pedestal, with a little flourish; `gold` adds
-## a Master's gold frame round it.
-func show_hero(def: Dictionary, gold := false) -> void:
+## a Master's frame round it, in `frame_col` (HeroMastery.frame_color: gold, then the Legend
+## road's Diamond, Mythic and Legend).
+func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)) -> void:
 	_def = def
 	_gold = gold
 	_gold_ring.visible = gold
+	if gold and frame_col != _frame_col:
+		_frame_col = frame_col
+		_gold_ring.material_override = U.unlit(frame_col)
 	if _visual:
 		_visual.queue_free()
 	var extras: Array = def.get("style", {}).get("extras", [])
@@ -438,7 +444,7 @@ func _repair(seen: String) -> void:
 	if seen == "no hero" and not _redressed and not _def.is_empty():
 		_redressed = true
 		step = "put the hero on again"
-		show_hero(_def, _gold)
+		show_hero(_def, _gold, _frame_col)
 	else:
 		if (seen == "clear" or _rebuilt) and not solid:
 			solid = true
@@ -448,7 +454,7 @@ func _repair(seen: String) -> void:
 		_visual = null
 		_make_viewport()
 		if not _def.is_empty():
-			show_hero(_def, _gold)
+			show_hero(_def, _gold, _frame_col)
 	push_error("Hero preview showed %s (%s, try %d, %s, graphics %d MB); %s" % [seen, was, _session_tries,
 			Game.State.keys()[Game.state],
 			int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0), step])

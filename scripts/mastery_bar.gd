@@ -86,6 +86,9 @@ func _init() -> void:
 ## levels}); the bar fills from `before` to `after`.
 func play(info: Dictionary) -> void:
 	_setup(str(info.id), str(info.name), info.color)
+	if str(info.get("header", "")) != "":
+		_full_name = str(info.header)   # the Mastery screen keeps its rank line
+		_fit_name()
 	_from = int(info.before)
 	_to = int(info.after)
 	_gain.text = "+%d" % int(info.gained) if int(info.gained) > 0 else ""
@@ -94,7 +97,7 @@ func play(info: Dictionary) -> void:
 	_news.visible = false
 	_show(_from)
 	_shown_level = HeroMastery.level_for(_from)
-	_t = -WAIT if _to > _from else -1.0
+	_t = -float(info.get("wait", WAIT)) if _to > _from else -1.0
 	set_process(_to > _from)
 
 

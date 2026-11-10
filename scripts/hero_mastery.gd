@@ -11,16 +11,24 @@ class_name HeroMastery
 ## A run that clears floor 1 is worth 20 points (level 2 straight after the tutorial); five
 ## floors are about 100. Level 10 (Master) takes 700: roughly 25 runs with one hero.
 ##
+## Version 132: levels 11 to 20, the Legend road (Diamond, Mythic and Legend ranks): a new
+## look at every level (Diamond, Ruby, Mythic and Legend glows and outfits, and two auras
+## only that hero has, at 15 and 20), Bone Drops and Lucky Starts, three more titles, and the
+## pedestal frame turning diamond, mythic and then legend. Level 20 takes 3,600 points, about
+## 30 more long runs after Master, or fewer with Training: coins buy mastery points, a few
+## times a day (train()), so coins always have a use once the Armory is full.
+##
 ## (Not the Crypt Pass's Curse rewards, curses.gd MASTERY, which are a separate thing.)
 
 const SECTION := "hero_mastery"
 const ROOM_POINTS := 2
 const BOSS_POINTS := 10
-const MAX_LEVEL := 10
+const MAX_LEVEL := 20
 ## Points needed to reach each level (LEVELS[level - 1]). Quick at first (the tutorial win
 ## is level 2, a few short runs level 3 and 4), then a longer road to Master. (Lowered from
 ## 1000 for Master before release: points already earned never lose a level.)
-const LEVELS := [0, 20, 45, 80, 125, 180, 250, 350, 500, 700]
+const LEVELS := [0, 20, 45, 80, 125, 180, 250, 350, 500, 700,
+	900, 1120, 1360, 1620, 1900, 2200, 2520, 2860, 3220, 3600]
 
 ## Rewards given when each level is reached (besides its looks, HeroStyle.level_items).
 ## kind: "coins" (n), "drop" (n Bone Drops), "lucky" (n Lucky Starts), "title" (text),
@@ -35,16 +43,37 @@ const REWARDS := {
 	8: [{"kind": "lucky", "n": 2}],
 	9: [{"kind": "drop", "n": 3}],
 	10: [{"kind": "title", "text": "Master"}, {"kind": "frame"}, {"kind": "coins", "n": 250}],
+	11: [{"kind": "frame", "tier": "Diamond"}, {"kind": "drop", "n": 2}],
+	12: [{"kind": "lucky", "n": 2}],
+	13: [{"kind": "title", "text": "Champion"}, {"kind": "drop", "n": 3}],
+	14: [{"kind": "lucky", "n": 3}],
+	15: [{"kind": "frame", "tier": "Mythic"}, {"kind": "drop", "n": 3}],
+	16: [{"kind": "lucky", "n": 3}],
+	17: [{"kind": "title", "text": "Mythic"}, {"kind": "drop", "n": 4}],
+	18: [{"kind": "lucky", "n": 4}],
+	19: [{"kind": "drop", "n": 5}],
+	20: [{"kind": "title", "text": "Crypt Legend"}, {"kind": "frame", "tier": "Legend"}, {"kind": "drop", "n": 5}],
 }
 const FRAME_LEVEL := 10
 
-## The rank colors: Bronze (levels 1-3), Silver (4-6), Gold (7-9), Master (10).
+## The rank colors: Bronze (levels 1-3), Silver (4-6), Gold (7-9), Master (10), then the
+## Legend road: Diamond (11-14), Mythic (15-19) and Legend (20).
 const RANKS := [
 	{"from": 1, "name": "Bronze", "color": Color(0.85, 0.55, 0.32)},
 	{"from": 4, "name": "Silver", "color": Color(0.8, 0.85, 0.95)},
 	{"from": 7, "name": "Gold", "color": Color(1.0, 0.8, 0.3)},
 	{"from": 10, "name": "Master", "color": Color(1.0, 0.9, 0.5)},
+	{"from": 11, "name": "Diamond", "color": Color(0.5, 0.92, 1.0)},
+	{"from": 15, "name": "Mythic", "color": Color(0.86, 0.48, 1.0)},
+	{"from": 20, "name": "Legend", "color": Color(1.0, 0.42, 0.3)},
 ]
+
+## Training (version 132): TRAIN_COST coins buy TRAIN_POINTS mastery points for one hero,
+## TRAIN_PER_DAY times a day in all (a good long run is worth about 100 points, so playing
+## stays the main road; this is where spare coins go).
+const TRAIN_COST := 300
+const TRAIN_POINTS := 60
+const TRAIN_PER_DAY := 3
 
 
 static func points(cfg: ConfigFile, id: String) -> int:
@@ -107,6 +136,34 @@ static func has_frame(cfg: ConfigFile, id: String) -> bool:
 	return level(cfg, id) >= FRAME_LEVEL
 
 
+## The frame's colour at level `lv`: gold for a Master, then the Diamond, Mythic and Legend
+## ranks' own colours.
+static func frame_color(lv: int) -> Color:
+	if lv <= FRAME_LEVEL:
+		return Color(1.0, 0.8, 0.3)
+	return rank(lv).color
+
+
+# ---------------------------------------------------------------- training
+
+## Trainings left today (`today` = Curses.today()).
+static func train_left(cfg: ConfigFile, today: String) -> int:
+	if str(cfg.get_value(SECTION, "train_day", "")) != today:
+		return TRAIN_PER_DAY
+	return maxi(0, TRAIN_PER_DAY - int(cfg.get_value(SECTION, "trained", 0)))
+
+
+## One training for hero `id`: their points (the caller takes the coins, gives the levels'
+## rewards and saves).
+static func train(cfg: ConfigFile, id: String, today: String) -> void:
+	if str(cfg.get_value(SECTION, "train_day", "")) != today:
+		cfg.set_value(SECTION, "train_day", today)
+		cfg.set_value(SECTION, "trained", 0)
+	cfg.set_value(SECTION, "trained", int(cfg.get_value(SECTION, "trained", 0)) + 1)
+	cfg.set_value(SECTION, "trained_total", int(cfg.get_value(SECTION, "trained_total", 0)) + 1)
+	add(cfg, id, TRAIN_POINTS)
+
+
 # ---------------------------------------------------------------- rewards
 
 ## Gives every reward of the levels reached since the last call, into `cfg` (Bone Drops and
@@ -146,7 +203,7 @@ static func reward_text(r: Dictionary, id: String) -> String:
 		"title":
 			return "Title: %s" % r.text
 		"frame":
-			return "Gold frame"
+			return "%s frame" % str(r.get("tier", "Gold"))
 	return ""
 
 
@@ -157,5 +214,5 @@ static func level_text(lv: int, id: String, with_looks := true) -> String:
 		bits.append(reward_text(r, id))
 	var looks := HeroStyle.level_items(id, lv).size()
 	if looks > 0 and with_looks:
-		bits.append("%d new looks" % looks)
+		bits.append("1 new look" if looks == 1 else "%d new looks" % looks)
 	return " + ".join(bits)

@@ -47,6 +47,11 @@ const OUTFITS := {
 	"sea": {"name": "Sea", "a": Color(0.1, 0.55, 0.6), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.2, 0.66, 0.68)},
 	"gold": {"name": "Gilded", "a": Color(0.95, 0.75, 0.25), "b": Color(1.0, 0.97, 0.9), "armor": Color(0.95, 0.76, 0.3), "leather": Color(0.45, 0.3, 0.16)},
 	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "armor": Color(0.84, 0.8, 0.68), "leather": Color(0.2, 0.19, 0.2)},
+	# Version 132, the Legend road (Mastery 12, 17 and 19): outfits with their own moving
+	# pattern, like Feat outfits ("pat", the outfit shader).
+	"diamond": {"name": "Diamond", "a": Color(0.82, 0.92, 1.0), "b": Color(0.45, 0.7, 1.0), "armor": Color(0.68, 0.83, 1.0), "leather": Color(0.36, 0.5, 0.7), "pat": 11},
+	"mythic": {"name": "Mythic", "a": Color(0.2, 0.1, 0.36), "b": Color(0.4, 0.9, 1.0), "armor": Color(0.32, 0.18, 0.55), "leather": Color(0.16, 0.1, 0.24), "pat": 12},
+	"legend": {"name": "Legend", "a": Color(0.6, 0.14, 0.06), "b": Color(1.0, 0.8, 0.35), "armor": Color(0.95, 0.72, 0.3), "leather": Color(0.3, 0.12, 0.08), "pat": 13},
 }
 
 ## Each hero's own colours, for the Classic outfit's swatch on the Style screen.
@@ -106,6 +111,11 @@ const GLOWS := {
 	"violet": {"name": "Violet", "ring": Color(0.72, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
 	"silver": {"name": "Silver", "ring": Color(0.86, 0.9, 1.0), "bolt": Color(1.0, 1.0, 1.0)},
 	"lime": {"name": "Lime", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
+	# Version 132, the Legend road (Mastery 11, 16 and 18): glows that shimmer between two
+	# colours on the hero's edges ("ring2"), bright like Feat glows.
+	"diamond": {"name": "Diamond", "ring": Color(0.8, 0.97, 1.0), "ring2": Color(0.4, 0.78, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
+	"mythic": {"name": "Mythic", "ring": Color(0.78, 0.42, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.88, 0.7, 1.0)},
+	"legend": {"name": "Legend", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
 }
 
 ## Master auras: looks only one hero has, one at each of Mastery levels 8, 9 and 10. An aura
@@ -119,21 +129,29 @@ const AURAS := {
 		"nightshade": {"name": "Nightshade", "level": 8, "ink": Color(0.66, 0.32, 1.0), "spark": Color(0.78, 0.52, 1.0)},
 		"venom": {"name": "Venom", "level": 9, "ink": Color(0.42, 1.0, 0.22), "spark": Color(0.66, 1.0, 0.36)},
 		"shadow_king": {"name": "Shadow King", "level": 10, "ink": Color(1.0, 0.76, 0.22), "ink2": Color(0.58, 0.24, 1.0), "spark": Color(1.0, 0.84, 0.4)},
+		"duskblade": {"name": "Duskblade", "level": 15, "ink": Color(0.7, 0.3, 1.0), "ink2": Color(0.3, 0.95, 1.0), "spark": Color(0.75, 0.6, 1.0)},
+		"nightlord": {"name": "Nightlord", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 	"knight": {
 		"sunguard": {"name": "Sunguard", "level": 8, "ink": Color(1.0, 0.64, 0.16), "spark": Color(1.0, 0.8, 0.4)},
 		"stormplate": {"name": "Stormplate", "level": 9, "ink": Color(0.3, 0.64, 1.0), "spark": Color(0.72, 0.88, 1.0)},
 		"paladin": {"name": "Paladin", "level": 10, "ink": Color(1.0, 0.97, 0.86), "ink2": Color(1.0, 0.72, 0.2), "spark": Color(1.0, 0.86, 0.45)},
+		"dawnshield": {"name": "Dawnshield", "level": 15, "ink": Color(0.85, 0.97, 1.0), "ink2": Color(0.4, 0.75, 1.0), "spark": Color(0.85, 0.95, 1.0)},
+		"lionheart": {"name": "Lionheart", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 	"barbarian": {
 		"wildfire": {"name": "Wildfire", "level": 8, "ink": Color(1.0, 0.46, 0.08), "spark": Color(1.0, 0.62, 0.22)},
 		"thunder": {"name": "Thunder", "level": 9, "ink": Color(1.0, 0.94, 0.25), "spark": Color(1.0, 1.0, 0.62)},
 		"warlord": {"name": "Warlord", "level": 10, "ink": Color(1.0, 0.42, 0.06), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(1.0, 0.72, 0.3)},
+		"stormrage": {"name": "Stormrage", "level": 15, "ink": Color(0.35, 0.6, 1.0), "ink2": Color(0.95, 0.95, 1.0), "spark": Color(0.7, 0.85, 1.0)},
+		"worldbreaker": {"name": "Worldbreaker", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 	"mage": {
 		"starfire": {"name": "Starfire", "level": 8, "ink": Color(0.48, 0.5, 1.0), "spark": Color(0.72, 0.76, 1.0)},
 		"arcane_frost": {"name": "Arcane Frost", "level": 9, "ink": Color(0.4, 0.95, 1.0), "spark": Color(0.82, 1.0, 1.0)},
 		"archmage": {"name": "Archmage", "level": 10, "ink": Color(0.7, 0.45, 1.0), "cycle": true, "spark": Color(0.82, 0.7, 1.0)},
+		"voidweave": {"name": "Voidweave", "level": 15, "ink": Color(0.25, 0.3, 1.0), "ink2": Color(0.85, 0.45, 1.0), "spark": Color(0.6, 0.6, 1.0)},
+		"starsage": {"name": "Starsage", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 }
 ## Each hero's own trail of light for their auras (Fx.motif).
@@ -253,6 +271,11 @@ const ORDER := {
 		["outfit", "gold"], ["head", "halo"], ["head", "crown"]],
 }
 const PER_LEVEL := 3
+## The Legend road (version 132): one look at each of these Mastery levels for every hero,
+## besides each hero's own auras at 15 and 20 (AURAS). Levels 13 and 14 give a title, Bone
+## Drops and Lucky Starts instead.
+const LEGEND := {11: ["glow", "diamond"], 12: ["outfit", "diamond"], 16: ["glow", "mythic"],
+	17: ["outfit", "mythic"], 18: ["glow", "legend"], 19: ["outfit", "legend"]}
 
 
 ## Every look of hero `id`: [{slot, key, name, level}], the plain one of each slot (level 1)
@@ -266,6 +289,9 @@ static func items(id: String) -> Array:
 		var slot: String = order[i][0]
 		var key: String = order[i][1]
 		out.append({"slot": slot, "key": key, "name": item_name(id, slot, key), "level": 2 + i / PER_LEVEL})
+	for lv: int in LEGEND:
+		var it: Array = LEGEND[lv]
+		out.append({"slot": it[0], "key": it[1], "name": item_name(id, it[0], it[1]), "level": lv})
 	var auras: Dictionary = AURAS.get(id, {})
 	for key: String in auras:
 		out.append({"slot": "aura", "key": key, "name": auras[key].name, "level": int(auras[key].level), "only": true})
@@ -424,6 +450,11 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		# player can see what they won (version 119: the Eclipse reveal showed a faint rim).
 		if glow.has("feat") or glow.has("drop") or is_pass(p.get("glow", "")):
 			d.rim_strong = true
+		if glow.has("ring2"):
+			# A Legend road glow shimmers between two colours; a little stronger than a plain
+			# glow but not the wide Feat rim (with the bright Legend outfits it hid the hero).
+			d.ring2 = glow.ring2
+			d.rim_legend = true
 	var style := {"id": id, "hide": [], "show": [], "borrow": [], "extras": []}
 	var outfit: Dictionary = OUTFITS.get(p.get("outfit", ""), {})
 	var xo := extra("outfit", p.get("outfit", ""))
@@ -441,6 +472,8 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		elif id == "rogue":
 			b = outfit.get("leather")
 		style.outfit = {"a": outfit.a, "b": b}
+		if outfit.has("pat"):
+			style.outfit.pat = int(outfit.pat)
 	var head: Dictionary = PASS_HEAD if is_pass(p.get("head", "")) else HEADS.get(p.get("head", ""), extra("head", p.get("head", "")))
 	var has_hat := OWN_HAT.has(id)
 	if not head.is_empty():
@@ -914,6 +947,40 @@ void fragment() {
 			float caus = smoothstep(0.55, 0.75, 1.0 - abs(c1 - c2) * 3.0);
 			float dots = twinkle(q * 6.0 + vec3(0.0, TIME * 0.25, 0.0), 0.12, 2.0);
 			em = vec3(0.15, 0.8, 0.85) * (caus * 0.45 + edge * 0.35) + vec3(0.4, 1.0, 1.0) * dots * 1.8;
+		} else if (pat == 11) {
+			// Diamond (Mastery 12): cut-gem facets with rainbow fire in the edges, a gleam
+			// sweeping up the hero and bright glints.
+			vec3 r = q * 3.0;
+			float facet = abs(fract(r.x * 0.8 + r.y * 0.5) - 0.5) + abs(fract(r.y * 0.8 - r.z * 0.5) - 0.5)
+				+ abs(fract(r.z * 0.8 + r.x * 0.4) - 0.5) * 0.6;
+			float line = 1.0 - smoothstep(0.02, 0.07, abs(fract(facet * 2.0) - 0.5));
+			float sweep = pow(max(0.0, sin(q.y * 1.5 + q.x * 0.8 - TIME * 2.0)), 12.0);
+			vec3 fire = hsv2rgb(vec3(fract(facet * 1.7 + TIME * 0.15), 0.45, 1.0));
+			float sp = twinkle(q * 8.0 + floor(TIME * 3.0) * 0.21, 0.07, 7.0);
+			al = mix(al, vec3(0.7, 0.85, 1.0), 0.3);
+			em = fire * (line * 0.3 + edge * 0.35) + vec3(0.8, 0.92, 1.0) * sweep * 0.9 + vec3(1.0) * sp * 2.5;
+		} else if (pat == 12) {
+			// Mythic (Mastery 17): deep violet cloth, thin rings of light rising round the hero
+			// with runes glowing between them, violet turning to cyan. (The first try's wide
+			// bright bands and blocks read as a checked shirt.)
+			float ang = atan(mpos.x, mpos.z);
+			float y = q.y * 2.2 - TIME * 0.45;
+			float d = abs(fract(y) - 0.5);
+			float ring = 1.0 - smoothstep(0.015, 0.045, d);
+			float band = 1.0 - smoothstep(0.08, 0.13, d);
+			float glyph = step(0.62, fract(ang * 4.0 + floor(y) * 0.37 + TIME * 0.15)) * band * (1.0 - ring);
+			float n = fbm(q * 1.4 + vec3(0.0, -TIME * 0.3, 0.0));
+			vec3 c = mix(vec3(0.62, 0.3, 1.0), vec3(0.3, 0.9, 1.0), n);
+			al = mix(al, vec3(0.14, 0.07, 0.28), 0.75);
+			em = vec3(0.55, 0.25, 1.0) * (0.1 + n * 0.25 + edge * 0.8) + c * (ring * 0.9 + glyph * 0.45);
+		} else if (pat == 13) {
+			// Legend (Mastery 19): a sun's rays turning round the hero in red-gold, embers
+			// rising through them.
+			float ang = atan(mpos.x, mpos.z);
+			float rays = pow(0.5 + 0.5 * sin(ang * 6.0 + TIME * 1.2), 6.0) * (0.6 + 0.4 * sin(q.y * 3.0 - TIME * 2.0));
+			float up = twinkle(q * 5.0 + vec3(0.0, -TIME * 1.2, 0.0), 0.1, 3.0);
+			al = mix(al, vec3(0.55, 0.1, 0.05), 0.35);   // deep crimson under the gold light
+			em = vec3(1.0, 0.55, 0.15) * rays * 0.7 + vec3(1.0, 0.85, 0.5) * edge * 0.4 + vec3(1.0, 0.55, 0.15) * up * 2.0;
 		}
 		ALBEDO = mix(ALBEDO, al, w);
 		EMISSION += em * w;
