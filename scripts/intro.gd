@@ -201,7 +201,7 @@ func _build_crypt() -> void:
 	# The same worn flagstones as the Bone Crypt's rooms.
 	var look: Dictionary = (Floors.THEMES[0] as Dictionary).duplicate()
 	look["floor"] = Color(0.78, 0.74, 0.82)
-	var stone := Room._floor_material(look) as ShaderMaterial
+	var stone := Room._floor_material(look, 0) as ShaderMaterial
 	stone.set_shader_parameter("half_size", Vector2(7, 7))
 	U.floor_quad(world, Vector2(14, 14), stone)
 	var wall_scene := Art.get_model("wall")

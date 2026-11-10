@@ -80,239 +80,37 @@ func _build_shell() -> void:
 	apply_graphics(Game._high_graphics)
 
 
-static var _floor_shader: Shader
+static var _floor_shaders := {}
 
-## Worn flagstones in the floor's colour, drawn by one shader for every theme: uneven slabs
-## laid in staggered rows, grime that gathers in big patches and along the walls (moss and
-## dirt, frost, soot), a second kind of patch (damp stone, glassy ice, ash), a few cracked
-## slabs and darker floor by the walls. A floor with "seams" (the Ember Catacomb) has fire
-## glowing in the gaps and cracks, hot in some places and cooled in others. A floor with
-## "water" (the Drowned Vault) has shallow water in the low places and the gaps, rippling,
-## glossy and lit from below by moving light. A floor with "spores" (the Glowcap Grotto) has
-## little glowing fungus caps in its moss. Deeper endless loops add blood. Everything is worked out from where the point is in the room, so there
-## is no tiling pattern to spot.
-static func _floor_material(look: Dictionary) -> Material:
-	if _floor_shader == null:
-		_floor_shader = Shader.new()
-		_floor_shader.code = """
-shader_type spatial;
-uniform sampler2D grain : repeat_enable, filter_linear_mipmap;
-uniform sampler2D blobs_a : repeat_enable, filter_linear_mipmap;
-uniform sampler2D blobs_b : repeat_enable, filter_linear_mipmap;
-// Colours go straight to ALBEDO with no sRGB step, as the old flagstone texture did, so
-// the floor keeps the brightness the fights were tuned on.
-uniform vec4 tint = vec4(1.0);
-uniform vec4 grout = vec4(0.07, 0.06, 0.07, 1.0);
-uniform vec4 grime = vec4(0.2, 0.19, 0.13, 1.0);
-uniform float grime_amount = 0.6;
-uniform vec4 patch_tint = vec4(0.75, 0.76, 0.82, 1.0);
-uniform float patch_rough = 0.3;
-uniform float blood = 0.0;
-uniform vec4 seam : source_color = vec4(0.0);
-// Shallow water's colour; alpha is how much of the floor it covers (0 = dry).
-uniform vec4 water = vec4(0.0);
-// Glowing fungus in the moss (the Glowcap Grotto): its colour (alpha = 0 for none) and the
-// colour of the rarer second kind.
-uniform vec4 spores = vec4(0.0);
-uniform vec4 spores2 = vec4(0.7, 1.0, 0.3, 1.0);
-uniform vec2 half_size = vec2(6.0, 10.0);
-// The wall torches' warm light on the floor (no real light needed): their colour, and how
-// strong (0 on the near ledge).
-uniform vec4 torch_glow = vec4(1.0, 0.6, 0.3, 1.0);
-uniform float torch_amount = 0.0;
-// 1 on the near ledge's box: its front face takes the pattern from its own plane and
-// keeps its real normal.
-uniform float ledge = 0.0;
-varying vec2 pos;
-varying float up;
-
-float h(vec2 q) {
-	return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-void vertex() {
-	up = NORMAL.y;
-	pos = (ledge > 0.5 && abs(NORMAL.y) < 0.5) ? VERTEX.xy : VERTEX.xz;
-}
-
-void fragment() {
-	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
-	const vec2 SLAB = vec2(1.8, 1.3);
-	float row = floor(pos.y / SLAB.y);
-	vec2 s = vec2(pos.x / SLAB.x + h(vec2(row, 3.7)), pos.y / SLAB.y);
-	vec2 cell = floor(s);
-	vec2 f = fract(s) - 0.5;            // -0.5 .. 0.5 across the slab
-	vec2 e = (0.5 - abs(f)) * SLAB;     // metres to the slab's edges
-	float edge = min(e.x, e.y);
-	float r = h(cell);
-	float r2 = h(cell + 13.7);
-
-	float fine = texture(grain, pos * 0.23).r;
-	float big = texture(blobs_a, pos * 0.05 + vec2(0.37, 0.11)).r;
-	float big2 = texture(blobs_b, pos * 0.065 + vec2(0.71, 0.53)).r;
-
-	// Stone: every slab a little lighter or darker, some warmer, only faintly mottled (a busy
-	// floor fights the fight for attention).
-	vec3 c = vec3(0.37, 0.34, 0.39) * (0.86 + 0.26 * r) * (0.92 + 0.16 * fine);
-	c *= mix(vec3(1.0), vec3(1.07, 1.0, 0.9), step(0.6, r2));
-	c *= tint.rgb;
-
-	// Darker by the walls (light does not reach the corners), a little by the low near ledge.
-	float wall = min(half_size.x - abs(pos.x), pos.y + half_size.y);
-	float shade = mix(0.5, 1.0, smoothstep(0.0, 2.4, wall)) * mix(0.8, 1.0, smoothstep(0.0, 1.2, half_size.y - pos.y));
-
-	// Grime gathers in big patches and along the walls.
-	float g = smoothstep(0.6, 0.9, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.3) * grime_amount;
-	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g);
-
-	// The second kind of patch changes colour and shine (wet stone and ice catch the torches).
-	float p = smoothstep(0.62, 0.82, big2);
-	c *= mix(vec3(1.0), patch_tint.rgb, p * 0.7);
-	float rough = mix(0.82, patch_rough, p);
-
-	if (blood > 0.0) {
-		float b = smoothstep(0.7, 0.78, texture(grain, pos * 0.07 + vec2(0.5, 0.2)).r) * blood;
-		c = mix(c, vec3(0.3, 0.03, 0.03), b);
-		rough = mix(rough, 0.35, b);
-	}
-
-	// Gaps between slabs, kept smooth at any distance.
-	float aa = fwidth(edge);
-	float gap = 1.0 - smoothstep(0.022 - aa, 0.022 + aa, edge);
-
-	// About one slab in three has a crack: a wobbly line across its middle.
-	float a = r2 * 3.1416;
-	vec2 dir = vec2(cos(a), sin(a));
-	float off = dot(f, vec2(-dir.y, dir.x)) + 0.035 * sin(dot(f, dir) * 13.0 + r * 30.0);
-	float crack = (1.0 - smoothstep(0.0, 0.014 + fwidth(off), abs(off))) * step(0.66, r)
-		* (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
-
-	// Each slab's far and left edges catch the light and its near and right edges fall into
-	// shadow, painted in, so the stones read as chunky blocks under any light.
-	float rim_hi = max((1.0 - smoothstep(0.03, 0.11, e.y)) * step(f.y, 0.0), (1.0 - smoothstep(0.03, 0.11, e.x)) * step(f.x, 0.0));
-	float rim_lo = max((1.0 - smoothstep(0.03, 0.13, e.y)) * step(0.0, f.y), (1.0 - smoothstep(0.03, 0.13, e.x)) * step(0.0, f.x));
-	c *= 1.0 + 0.22 * rim_hi - 0.28 * rim_lo;
-
-	// About one slab in thirty is an iron drain grate set into the stone: a dark pit under
-	// iron bars, with a lip around it. (Ember grates only smoulder: a bright glow on the floor
-	// would read as fire to step out of.)
-	float grate = step(0.967, h(cell * vec2(1.73, 2.31) + vec2(41.3, 7.9))) * step(1.5, wall) * (1.0 - ledge);
-	float pit = 0.0;
-	float bar = 0.0;
-	if (grate > 0.5) {
-		vec2 inset = e - vec2(0.3, 0.26);
-		pit = smoothstep(-0.01, 0.01, min(inset.x, inset.y));
-		float lip = smoothstep(-0.07, -0.05, min(inset.x, inset.y)) * (1.0 - pit);
-		float bx = abs(fract(f.x * SLAB.x / 0.24) - 0.5);
-		bar = (1.0 - smoothstep(0.17, 0.23, bx)) * pit;
-		c = mix(c, vec3(0.16, 0.15, 0.17), lip * 0.6);
-		c = mix(c, vec3(0.03, 0.025, 0.03), pit);
-		c = mix(c, vec3(0.32, 0.31, 0.34) * (0.8 + 0.4 * fine), bar);
-		crack = 0.0;
-	}
-
-	// Chipped slabs: about two in five have lost a corner, a dark broken notch with a pale
-	// broken edge.
-	if (step(0.6, h(cell + 5.5)) > 0.5 && grate < 0.5) {
-		vec2 cf = vec2(r2 > 0.5 ? 0.5 : -0.5, r > 0.5 ? 0.5 : -0.5);
-		vec2 dc = abs(f - cf) * SLAB;
-		float size = 0.16 + 0.14 * h(cell + 9.1);
-		float notch = 1.0 - smoothstep(size - 0.015, size + 0.015, dc.x + dc.y);
-		float brk = (1.0 - smoothstep(0.0, 0.04, abs(dc.x + dc.y - size - 0.03))) * (1.0 - notch);
-		c = mix(c, c * 0.45, notch);
-		c *= 1.0 + 0.25 * brk;
-	}
-
-	// Moss, frost or soot grows into the gaps where the floor is dirtiest.
-	vec3 gap_col = mix(grout.rgb, grime.rgb * 0.9, smoothstep(0.15, 0.6, g) * 0.85);
-	c = mix(c, gap_col, gap);
-	c *= (1.0 - crack * 0.6) * shade;
-	// A soft lighter middle, as if light falls into the room from above.
-	c *= 1.0 + 0.1 * (1.0 - smoothstep(1.0, 8.0, length(pos * vec2(1.0, 0.55))));
-	// A little greyer and darker than the old floor, so heroes, skeletons and their shots stand
-	// out against it (the screen's colour boost lifts everything equally).
-	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.78) * 0.88;
-
-	// Warm pools of torchlight on the floor under the six wall torches, flickering.
-	if (torch_amount > 0.0) {
-		float pool = 0.0;
-		for (int i = 0; i < 6; i++) {
-			vec2 tp = vec2(i % 2 == 0 ? -half_size.x : half_size.x, -6.0 + 6.0 * float(i / 2));
-			float d = length((pos - tp) * vec2(1.0, 0.8));
-			float fl = 0.85 + 0.15 * sin(TIME * 6.3 + float(i) * 1.7) * sin(TIME * 2.9 + float(i) * 4.1);
-			pool += (1.0 - smoothstep(0.0, 4.2, d)) * fl;
-		}
-		c *= 1.0 + torch_glow.rgb * pool * torch_amount;
-	}
-	rough = mix(rough, 0.95, max(gap, crack));
-
-	// Slab edges are worn round and every slab sits a little crooked, so torchlight picks
-	// out each one.
-	vec2 bevel = sign(f) * (1.0 - smoothstep(0.0, 0.09, e)) * 0.6;
-	vec3 n = normalize(vec3(bevel.x + (r - 0.5) * 0.1, 1.0, bevel.y + (r2 - 0.5) * 0.1));
-
-	if (water.a > 0.0) {
-		// Pools where the second patch lies, water standing in every gap and crack, and the
-		// rest of the stone just wet. Two sets of ripples cross; light from the surface
-		// moves over the bottom of the pools.
-		float pool = max(smoothstep(0.57, 0.6, big2), max(gap, crack) * 0.9) * water.a;
-		// Deeper (darker) towards the middle of a pool, with a pale wet line at its edge.
-		float deep = smoothstep(0.6, 0.8, big2);
-		float rim = smoothstep(0.555, 0.57, big2) * (1.0 - smoothstep(0.575, 0.59, big2));
-		vec2 q = pos * 1.6;
-		vec2 rip = vec2(sin(q.x * 2.3 + TIME * 1.4 + sin(q.y * 1.4 + TIME * 0.6)),
-			sin(q.y * 2.1 - TIME * 1.2 + sin(q.x * 1.6 - TIME * 0.5)));
-		float light = pow(0.5 + 0.5 * sin(q.x * 3.1 + rip.y * 1.6 + TIME * 0.9) * sin(q.y * 2.9 + rip.x * 1.6 - TIME * 0.7), 9.0);
-		vec3 wet = water.rgb * mix(1.3, 0.8, deep) * (0.85 + 0.3 * fine);
-		c = mix(c * mix(1.0, 0.82, water.a), wet, pool * 0.9);
-		c += vec3(0.32, 0.45, 0.42) * rim * water.a * 0.3;
-		rough = mix(mix(rough, 0.5, water.a * 0.6), 0.03, pool);
-		n = normalize(n * (1.0 - pool) + vec3(rip.x * 0.12, 1.0, rip.y * 0.12) * pool);
-		EMISSION = water.rgb * light * pool * (1.0 - deep * 0.5) * 0.5 * shade;
-	}
-
-	if (spores.a > 0.0) {
-		// Little round glowing fungus caps where the moss lies thick (in its patches and
-		// along the walls), each pulsing at its own pace, a soft halo round each, and faint
-		// glowing threads in the gaps between the mossy slabs.
-		float moss = smoothstep(0.5, 0.8, big + (1.0 - smoothstep(0.0, 1.6, wall)) * 0.3);
-		// The moss itself: a deeper, greener stone.
-		c = mix(c, c * vec3(0.5, 0.72, 0.48), moss * 0.7);
-		vec2 sq = pos * 1.9;
-		vec2 sc = floor(sq);
-		float sr = h(sc + 7.1);
-		vec2 sp = sc + 0.5 + (vec2(h(sc + 3.3), h(sc + 5.9)) - 0.5) * 0.6;
-		float sd = length(sq - sp);
-		float lit = step(0.72, sr);
-		float cap = (1.0 - smoothstep(0.07, 0.13 + fwidth(sd), sd)) * lit;
-		float halo = (1.0 - smoothstep(0.0, 0.45, sd)) * lit * 0.18;
-		vec2 tq = pos * 4.1 + 0.37;
-		vec2 tc = floor(tq);
-		float tr = h(tc + 1.9);
-		float td = length(tq - tc - 0.5 - (vec2(h(tc + 8.1), h(tc + 2.2)) - 0.5) * 0.5);
-		float tiny = (1.0 - smoothstep(0.05, 0.1 + fwidth(td), td)) * step(0.86, tr);
-		float pulse = 0.6 + 0.4 * sin(TIME * (1.1 + sr) + sr * 31.0);
-		vec3 col = mix(spores.rgb, spores2.rgb, step(0.9, sr));
-		c = mix(c, col * 0.5, cap * moss);
-		EMISSION += (col * (cap * 1.3 + halo) * pulse + spores.rgb * tiny * 0.6 + spores.rgb * gap * 0.1) * moss * spores.a * shade;
-	}
-
-	ALBEDO = clamp(c, 0.0, 1.0);
-	ROUGHNESS = rough;
-	if (up > 0.5) {
-		NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
-	}
-
-	if (seam.a > 0.0) {
-		float heat = smoothstep(0.56, 0.76, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
-		float pulse = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + pos.x * 0.6 + pos.y * 0.35), 2.0);
-		EMISSION = seam.rgb * max(gap, crack) * pulse * mix(0.6, 1.2, r) * mix(0.05, 1.25, heat);
-		EMISSION += seam.rgb * pit * (1.0 - bar) * (0.7 + 0.3 * pulse) * 0.2;
-	}
-}
-"""
+## Each crypt's floor is its own kind of place, drawn by one shader built a little
+## differently for each ("floor_style" in Floors.THEMES, version 134):
+## 0. Worn flagstones (the Drowned Vault, and the near ledge everywhere): uneven slabs in
+##    staggered rows, grime in patches and along the walls, cracked and chipped slabs, now
+##    and then an iron drain grate. A floor with "water" has shallow water in the low places
+##    and the gaps, rippling and lit from below.
+## 1. The Bone Crypt is an ossuary: polished dark stone panels framed by bands of bones laid
+##    end to end like the links of a chain, a bone rosette where bands cross and a great
+##    bone wheel in the middle of the room.
+## 2. The Frozen Ossuary is thick dark ice in big plates with pale cracks between them,
+##    frost drifting in from the walls, and old bones frozen deep inside, which slide as the
+##    camera moves because they lie under the surface.
+## 3. The Ember Catacomb stands on basalt: the tops of six-sided columns of black rock, each
+##    at its own height, with fire glowing in the joints ("seams") where the rock is hot.
+## 4. The Glowcap Grotto has no laid floor: dark earth under moss, with darker hollows, and
+##    glowing fungus threads running through the ground with light pulsing along them, and
+##    glowing caps in the moss ("spores").
+## Every style is darker by the walls, takes warm pools of light under the wall torches and
+## a little in the middle, and deeper endless loops add blood. Everything is worked out from
+## where the point is in the room, so there is no tiling pattern to spot.
+static func _floor_material(look: Dictionary, style := -1) -> Material:
+	if style < 0:
+		style = int(look.get("floor_style", 0))
+	if not _floor_shaders.has(style):
+		var sh := Shader.new()
+		sh.code = "shader_type spatial;\n#define STYLE %d\n" % style + FLOOR_CODE
+		_floor_shaders[style] = sh
 	var sm := ShaderMaterial.new()
-	sm.shader = _floor_shader
+	sm.shader = _floor_shaders[style]
 	sm.set_shader_parameter("grain", U.noise_tex(0.045, 11, 4))
 	sm.set_shader_parameter("blobs_a", U.noise_tex(0.016, 23))
 	sm.set_shader_parameter("blobs_b", U.noise_tex(0.018, 37))
@@ -331,9 +129,370 @@ void fragment() {
 	return sm
 
 
+const FLOOR_CODE := """
+uniform sampler2D grain : repeat_enable, filter_linear_mipmap;
+uniform sampler2D blobs_a : repeat_enable, filter_linear_mipmap;
+uniform sampler2D blobs_b : repeat_enable, filter_linear_mipmap;
+// Colours go straight to ALBEDO with no sRGB step, as the old flagstone texture did, so
+// the floor keeps the brightness the fights were tuned on.
+uniform vec4 tint = vec4(1.0);
+uniform vec4 grout = vec4(0.07, 0.06, 0.07, 1.0);
+uniform vec4 grime = vec4(0.2, 0.19, 0.13, 1.0);
+uniform float grime_amount = 0.6;
+uniform vec4 patch_tint = vec4(0.75, 0.76, 0.82, 1.0);
+uniform float patch_rough = 0.3;
+uniform float blood = 0.0;
+uniform vec4 seam : source_color = vec4(0.0);
+// Shallow water's colour; alpha is how much of the floor it covers (0 = dry).
+uniform vec4 water = vec4(0.0);
+// Glowing fungus (the Glowcap Grotto): its colour (alpha = 0 for none) and the rarer second.
+uniform vec4 spores = vec4(0.0);
+uniform vec4 spores2 = vec4(0.7, 1.0, 0.3, 1.0);
+uniform vec2 half_size = vec2(6.0, 10.0);
+// The wall torches' warm light on the floor (no real light needed): their colour, and how
+// strong (0 on the near ledge).
+uniform vec4 torch_glow = vec4(1.0, 0.6, 0.3, 1.0);
+uniform float torch_amount = 0.0;
+// 1 on the near ledge's box: its front face takes the pattern from its own plane and
+// keeps its real normal.
+uniform float ledge = 0.0;
+varying vec2 pos;
+varying float up;
+
+float h(vec2 q) {
+	return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+// A bone lying along x, centred on the point: a shaft `len` long and `w` thick with a pair
+// of knobs at each end. Below 0 is inside.
+float bone(vec2 p, float len, float w) {
+	float shaft = length(vec2(max(abs(p.x) - len * 0.5, 0.0), p.y)) - w;
+	float knob = length(vec2(abs(p.x) - len * 0.5, abs(p.y) - w * 0.9)) - w * 1.3;
+	return min(shaft, knob);
+}
+
+// The nearest hexagon (inner radius 0.5): xy = the point from its centre, zw = its id.
+vec4 hex(vec2 p) {
+	const vec2 s = vec2(1.0, 1.7320508);
+	vec4 c = floor(vec4(p, p - vec2(0.5, 1.0)) / s.xyxy) + 0.5;
+	vec4 d = vec4(p - c.xy * s, p - (c.zw + 0.5) * s);
+	return dot(d.xy, d.xy) < dot(d.zw, d.zw) ? vec4(d.xy, c.xy) : vec4(d.zw, c.zw + 0.5);
+}
+
+float hex_edge(vec2 d) {
+	d = abs(d);
+	return 0.5 - max(dot(d, vec2(0.5, 0.8660254)), d.x);
+}
+
+// Points scattered one per square: the distance to the nearest and the second nearest, and
+// the nearest one's square.
+vec2 cells(vec2 p, out vec2 id) {
+	vec2 i = floor(p);
+	vec2 f = fract(p);
+	float d1 = 8.0;
+	float d2 = 8.0;
+	id = i;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			vec2 o = vec2(h(i + g), h(i + g + 17.3)) * 0.8 + 0.1;
+			float d = length(g + o - f);
+			if (d < d1) {
+				d2 = d1;
+				d1 = d;
+				id = i + g;
+			} else if (d < d2) {
+				d2 = d;
+			}
+		}
+	}
+	return vec2(d1, d2);
+}
+
+void vertex() {
+	up = NORMAL.y;
+	pos = (ledge > 0.5 && abs(NORMAL.y) < 0.5) ? VERTEX.xy : VERTEX.xz;
+}
+
+void fragment() {
+	float fine = texture(grain, pos * 0.23).r;
+	float big = texture(blobs_a, pos * 0.05 + vec2(0.37, 0.11)).r;
+	float big2 = texture(blobs_b, pos * 0.065 + vec2(0.71, 0.53)).r;
+	// Darker by the walls (light does not reach the corners), a little by the low near ledge.
+	float wall = min(half_size.x - abs(pos.x), pos.y + half_size.y);
+	float shade = mix(0.5, 1.0, smoothstep(0.0, 2.4, wall)) * mix(0.8, 1.0, smoothstep(0.0, 1.2, half_size.y - pos.y));
+
+	vec3 c = vec3(0.3);
+	float rough = 0.85;
+	vec3 n = vec3(0.0, 1.0, 0.0);
+	float gap = 0.0;
+	float crack = 0.0;
+	float pit = 0.0;
+	float bar = 0.0;
+	float r = 0.0;
+	vec3 em = vec3(0.0);
+
+#if STYLE == 1
+	const float P = 3.0;
+	const float BW = 0.19;
+	const vec3 MORTAR = vec3(0.1, 0.085, 0.08);
+	const vec3 BRASS = vec3(0.5, 0.4, 0.25);
+	vec2 q = pos / P + 0.5;
+	vec2 cell = floor(q);
+	vec2 f = fract(q) - 0.5;
+	vec2 e = (0.5 - abs(f)) * P;
+	r = h(cell);
+	// Polished stone with faint pale veins, each panel a little different.
+	float vn = texture(grain, pos * 0.09 + vec2(r * 3.0, r)).r;
+	float vein = 1.0 - smoothstep(0.0, 0.03 + fwidth(vn), abs(vn - 0.5));
+	c = vec3(0.25, 0.235, 0.27) * (0.9 + 0.2 * r) * (0.95 + 0.1 * fine);
+	c = mix(c, vec3(0.38, 0.36, 0.4), vein * 0.22);
+	rough = 0.62;
+	// Dust along the walls and in patches.
+	float g = smoothstep(0.62, 0.9, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.35) * grime_amount;
+	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g * 0.6);
+	rough = mix(rough, 0.9, g);
+	// The bands of bones between the panels, sunk a little (a dark lip on the panel).
+	float ed = min(e.x, e.y);
+	float al = e.y < e.x ? pos.x : pos.y;
+	float band = 1.0 - smoothstep(BW - 0.01, BW + 0.01, ed);
+	c *= 1.0 - 0.3 * (1.0 - smoothstep(BW, BW + 0.09, ed));
+	float slot = floor(al / 0.5);
+	float bd = bone(vec2((fract(al / 0.5) - 0.5) * 0.5, ed), 0.31, 0.04);
+	float bone_in = (1.0 - smoothstep(-0.006, 0.006, bd)) * band;
+	vec3 ivory = vec3(0.66, 0.6, 0.49) * (0.86 + 0.22 * h(vec2(slot, cell.x * 3.0 + cell.y)));
+	ivory *= 0.72 + 0.38 * smoothstep(0.0, -0.035, bd);
+	float trim = 1.0 - smoothstep(0.01, 0.02, abs(ed - BW + 0.015));
+	c = mix(c, MORTAR, band);
+	c = mix(c, ivory, bone_in);
+	c = mix(c, BRASS, trim);
+	rough = mix(rough, 0.75, band);
+	rough = mix(rough, 0.3, trim);
+	// A rosette where four panels meet: a brass ring round a bone disc.
+	vec2 lc = (q - floor(q + 0.5)) * P;
+	float rd = length(lc);
+	float aa = fwidth(rd);
+	c = mix(c, MORTAR, 1.0 - smoothstep(0.3, 0.3 + aa, rd));
+	c = mix(c, BRASS, 1.0 - smoothstep(0.012, 0.024, abs(rd - 0.27)));
+	c = mix(c, vec3(0.66, 0.6, 0.49) * (0.7 + 0.4 * smoothstep(0.2, 0.0, rd)), 1.0 - smoothstep(0.17, 0.17 + aa, rd));
+	c = mix(c, MORTAR, 1.0 - smoothstep(0.05, 0.05 + aa, rd));
+	// The great wheel of bones in the middle of the room.
+	float R = length(pos);
+	if (R < 1.3) {
+		float a = atan(pos.y, pos.x);
+		const float N = 18.0;
+		float sa = (fract(a / 6.2831853 * N) - 0.5) * 6.2831853 / N;
+		float wb = bone(vec2(R - 0.9, R * sa), 0.34, 0.038);
+		float ring = smoothstep(0.6, 0.61, R) * (1.0 - smoothstep(1.2, 1.21, R));
+		c = mix(c, MORTAR, ring);
+		c = mix(c, vec3(0.66, 0.6, 0.49) * (0.72 + 0.38 * smoothstep(0.0, -0.035, wb)), (1.0 - smoothstep(-0.006, 0.006, wb)) * ring);
+		c = mix(c, BRASS, max(1.0 - smoothstep(0.012, 0.024, abs(R - 1.22)), 1.0 - smoothstep(0.012, 0.024, abs(R - 0.6))));
+		c = mix(c, BRASS, (1.0 - smoothstep(0.01, 0.02, abs(R - 0.32))) * 0.8);
+		rough = mix(rough, 0.7, ring);
+	}
+#elif STYLE == 2
+	vec2 id;
+	vec2 vd = cells(pos / 2.3, id);
+	r = h(id);
+	float pe = (vd.y - vd.x) * 2.3;
+	c = vec3(0.1, 0.17, 0.25) * (0.88 + 0.24 * r) * (0.96 + 0.08 * fine);
+	c = mix(c, vec3(0.2, 0.29, 0.37), smoothstep(0.35, 0.75, big) * 0.55);
+	// Bones under the ice, seen through the surface: they slide as the view moves.
+	vec3 wv = normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
+	vec2 par = -wv.xz / max(wv.y, 0.3);
+	float bones = 0.0;
+	for (int k = 0; k < 2; k++) {
+		float depth = k == 0 ? 0.3 : 0.75;
+		float cs = k == 0 ? 1.6 : 2.2;
+		vec2 bp = (pos + par * depth) / cs + vec2(float(k) * 7.3, float(k) * 3.1);
+		vec2 bc = floor(bp);
+		vec2 bl = (fract(bp) - 0.5) * cs - (vec2(h(bc + 1.1), h(bc + 2.2)) - 0.5) * 0.5;
+		float ang = h(bc + 4.4) * 3.1416;
+		vec2 dir = vec2(cos(ang), sin(ang));
+		vec2 lp = vec2(dot(bl, dir), dot(bl, vec2(-dir.y, dir.x)));
+		float d = bone(lp, mix(0.35, 0.7, h(bc + 6.6)), 0.05);
+		float soft = k == 0 ? 0.025 : 0.07;
+		bones = max(bones, (1.0 - smoothstep(-soft, soft, d)) * step(0.5, h(bc + float(k) * 9.0)) * (k == 0 ? 0.45 : 0.25));
+	}
+	c = mix(c, vec3(0.42, 0.52, 0.6), bones);
+	// Pale cracks between the plates, with a little white shatter beside each.
+	float crk = 1.0 - smoothstep(0.012, 0.026 + fwidth(pe), pe);
+	float shat = (1.0 - smoothstep(0.0, 0.16, pe)) * 0.22;
+	c = mix(c, vec3(0.62, 0.72, 0.82), max(crk * 0.85, shat));
+	// Frost drifts in from the walls and lies in patches.
+	float g = clamp(smoothstep(0.55, 0.85, big2 * 0.85 + (1.0 - smoothstep(0.0, 2.2, wall)) * 0.45) * grime_amount * 1.8, 0.0, 1.0);
+	c = mix(c, vec3(0.52, 0.58, 0.66) * (0.85 + 0.3 * fine), g);
+	rough = mix(mix(0.07, 0.85, g), 0.6, crk);
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.82);
+	n = normalize(vec3((r - 0.5) * 0.08, 1.0, (h(id + 3.0) - 0.5) * 0.08));
+#elif STYLE == 3
+	vec4 hx = hex(pos / 0.85);
+	r = h(hx.zw);
+	float he = hex_edge(hx.xy) * 0.85;
+	float ht = h(hx.zw + 2.7);
+	c = vec3(0.21, 0.19, 0.19) * (0.72 + 0.56 * ht) * (0.92 + 0.16 * fine);
+	// Pale ash on some columns, soot along the walls.
+	c = mix(c, vec3(0.44, 0.41, 0.39) * (0.85 + 0.3 * fine), smoothstep(0.62, 0.8, big2) * 0.55);
+	float g = smoothstep(0.6, 0.88, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.3) * grime_amount;
+	c = mix(c, grime.rgb, g * 0.8);
+	// Each column's top edge: the far and left sides catch the light, the others fall away.
+	float rim = 1.0 - smoothstep(0.02, 0.1, he);
+	c *= 1.0 + rim * mix(-0.32, 0.26, step(hx.y + hx.x * 0.4, 0.0));
+	gap = 1.0 - smoothstep(0.022, 0.032 + fwidth(he), he);
+	c = mix(c, grout.rgb, gap);
+	rough = mix(0.88 - 0.3 * ht, 0.95, gap);
+	n = normalize(vec3(0.0, 1.0, 0.0) + vec3(hx.x, 0.0, hx.y) * 1.6 * rim);
+#elif STYLE == 4
+	// Dark earth under moss.
+	float moss = smoothstep(0.4, 0.62, big + 0.12 * fine);
+	c = mix(vec3(0.15, 0.12, 0.1), vec3(0.12, 0.18, 0.1), moss) * (0.85 + 0.3 * fine);
+	rough = 0.95;
+	// Roots and darker hollows in the earth.
+	float hollow = smoothstep(0.6, 0.85, big2);
+	c *= 1.0 - 0.35 * hollow;
+	float stone = 0.0;
+	// Fungus threads where two slow noises cross their middle, with light running along them.
+	// Only where the ground is mossy enough, so they wind in a few long strands.
+	float t1 = texture(blobs_b, pos * 0.045 + vec2(0.2, 0.4)).r;
+	float th = (1.0 - smoothstep(0.0, 0.012 + fwidth(t1), abs(t1 - 0.5)));
+	float glow_band = (1.0 - smoothstep(0.0, 0.06, abs(t1 - 0.5))) * 0.25;
+	th *= (1.0 - stone) * smoothstep(0.3, 0.6, big);
+	glow_band *= (1.0 - stone) * smoothstep(0.3, 0.6, big);
+	float flow = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(TIME * 1.4 - t1 * 60.0 - pos.x * 0.3), 4.0);
+	c = mix(c, spores.rgb * 0.45, th * 0.7);
+	c = mix(c, c * vec3(1.0, 0.8, 1.0) + spores.rgb * 0.05, glow_band);
+	em += spores.rgb * (th * 0.7 + glow_band * 0.5) * flow * spores.a;
+	// Glowing caps in the moss, each pulsing at its own pace, with a soft halo.
+	vec2 sq = pos * 1.9;
+	vec2 sqc = floor(sq);
+	float spr = h(sqc + 7.1);
+	vec2 sp = sqc + 0.5 + (vec2(h(sqc + 3.3), h(sqc + 5.9)) - 0.5) * 0.6;
+	float sd = length(sq - sp);
+	float lit = step(0.75, spr) * moss;
+	float cap = (1.0 - smoothstep(0.07, 0.13 + fwidth(sd), sd)) * lit;
+	float halo = (1.0 - smoothstep(0.0, 0.45, sd)) * lit * 0.18;
+	float pulse = 0.6 + 0.4 * sin(TIME * (1.1 + spr) + spr * 31.0);
+	vec3 col = mix(spores.rgb, spores2.rgb, step(0.9, spr));
+	c = mix(c, col * 0.5, cap);
+	em += col * (cap * 1.3 + halo) * pulse * spores.a;
+#else
+	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
+	const vec2 SLAB = vec2(1.8, 1.3);
+	float row = floor(pos.y / SLAB.y);
+	vec2 s = vec2(pos.x / SLAB.x + h(vec2(row, 3.7)), pos.y / SLAB.y);
+	vec2 cell = floor(s);
+	vec2 f = fract(s) - 0.5;
+	vec2 e = (0.5 - abs(f)) * SLAB;
+	float edge = min(e.x, e.y);
+	r = h(cell);
+	float r2 = h(cell + 13.7);
+	c = vec3(0.37, 0.34, 0.39) * (0.86 + 0.26 * r) * (0.92 + 0.16 * fine);
+	c *= mix(vec3(1.0), vec3(1.07, 1.0, 0.9), step(0.6, r2));
+	c *= tint.rgb;
+	float g = smoothstep(0.6, 0.9, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.3) * grime_amount;
+	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g);
+	float p = smoothstep(0.62, 0.82, big2);
+	c *= mix(vec3(1.0), patch_tint.rgb, p * 0.7);
+	rough = mix(0.82, patch_rough, p);
+	float aa = fwidth(edge);
+	gap = 1.0 - smoothstep(0.022 - aa, 0.022 + aa, edge);
+	// About one slab in three has a crack: a wobbly line across its middle.
+	float a = r2 * 3.1416;
+	vec2 dir = vec2(cos(a), sin(a));
+	float off = dot(f, vec2(-dir.y, dir.x)) + 0.035 * sin(dot(f, dir) * 13.0 + r * 30.0);
+	crack = (1.0 - smoothstep(0.0, 0.014 + fwidth(off), abs(off))) * step(0.66, r)
+		* (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
+	// Far and left edges catch the light, near and right fall into shadow.
+	float rim_hi = max((1.0 - smoothstep(0.03, 0.11, e.y)) * step(f.y, 0.0), (1.0 - smoothstep(0.03, 0.11, e.x)) * step(f.x, 0.0));
+	float rim_lo = max((1.0 - smoothstep(0.03, 0.13, e.y)) * step(0.0, f.y), (1.0 - smoothstep(0.03, 0.13, e.x)) * step(0.0, f.x));
+	c *= 1.0 + 0.22 * rim_hi - 0.28 * rim_lo;
+	// About one slab in thirty is an iron drain grate.
+	float grate = step(0.967, h(cell * vec2(1.73, 2.31) + vec2(41.3, 7.9))) * step(1.5, wall) * (1.0 - ledge);
+	if (grate > 0.5) {
+		vec2 inset = e - vec2(0.3, 0.26);
+		pit = smoothstep(-0.01, 0.01, min(inset.x, inset.y));
+		float lip = smoothstep(-0.07, -0.05, min(inset.x, inset.y)) * (1.0 - pit);
+		float bx = abs(fract(f.x * SLAB.x / 0.24) - 0.5);
+		bar = (1.0 - smoothstep(0.17, 0.23, bx)) * pit;
+		c = mix(c, vec3(0.16, 0.15, 0.17), lip * 0.6);
+		c = mix(c, vec3(0.03, 0.025, 0.03), pit);
+		c = mix(c, vec3(0.32, 0.31, 0.34) * (0.8 + 0.4 * fine), bar);
+		crack = 0.0;
+	}
+	// Chipped slabs: about two in five have lost a corner.
+	if (step(0.6, h(cell + 5.5)) > 0.5 && grate < 0.5) {
+		vec2 cf = vec2(r2 > 0.5 ? 0.5 : -0.5, r > 0.5 ? 0.5 : -0.5);
+		vec2 dc = abs(f - cf) * SLAB;
+		float size = 0.16 + 0.14 * h(cell + 9.1);
+		float notch = 1.0 - smoothstep(size - 0.015, size + 0.015, dc.x + dc.y);
+		float brk = (1.0 - smoothstep(0.0, 0.04, abs(dc.x + dc.y - size - 0.03))) * (1.0 - notch);
+		c = mix(c, c * 0.45, notch);
+		c *= 1.0 + 0.25 * brk;
+	}
+	vec3 gap_col = mix(grout.rgb, grime.rgb * 0.9, smoothstep(0.15, 0.6, g) * 0.85);
+	c = mix(c, gap_col, gap);
+	c *= 1.0 - crack * 0.6;
+	// A little greyer and darker, so heroes, skeletons and their shots stand out.
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.78) * 0.88;
+	rough = mix(rough, 0.95, max(gap, crack));
+	vec2 bevel = sign(f) * (1.0 - smoothstep(0.0, 0.09, e)) * 0.6;
+	n = normalize(vec3(bevel.x + (r - 0.5) * 0.1, 1.0, bevel.y + (r2 - 0.5) * 0.1));
+	if (water.a > 0.0) {
+		float wpool = max(smoothstep(0.57, 0.6, big2), max(gap, crack) * 0.9) * water.a;
+		float deep = smoothstep(0.6, 0.8, big2);
+		float wrim = smoothstep(0.555, 0.57, big2) * (1.0 - smoothstep(0.575, 0.59, big2));
+		vec2 wq = pos * 1.6;
+		vec2 rip = vec2(sin(wq.x * 2.3 + TIME * 1.4 + sin(wq.y * 1.4 + TIME * 0.6)),
+			sin(wq.y * 2.1 - TIME * 1.2 + sin(wq.x * 1.6 - TIME * 0.5)));
+		float wl = pow(0.5 + 0.5 * sin(wq.x * 3.1 + rip.y * 1.6 + TIME * 0.9) * sin(wq.y * 2.9 + rip.x * 1.6 - TIME * 0.7), 9.0);
+		vec3 wet = water.rgb * mix(1.3, 0.8, deep) * (0.85 + 0.3 * fine);
+		c = mix(c * mix(1.0, 0.82, water.a), wet, wpool * 0.9);
+		c += vec3(0.32, 0.45, 0.42) * wrim * water.a * 0.3;
+		rough = mix(mix(rough, 0.5, water.a * 0.6), 0.03, wpool);
+		n = normalize(n * (1.0 - wpool) + vec3(rip.x * 0.12, 1.0, rip.y * 0.12) * wpool);
+		em += water.rgb * wl * wpool * (1.0 - deep * 0.5) * 0.5;
+	}
+#endif
+
+	if (blood > 0.0) {
+		float b = smoothstep(0.7, 0.78, texture(grain, pos * 0.07 + vec2(0.5, 0.2)).r) * blood;
+		c = mix(c, vec3(0.3, 0.03, 0.03), b);
+		rough = mix(rough, 0.35, b);
+	}
+	c *= shade;
+	// A soft lighter middle, as if light falls into the room from above.
+	c *= 1.0 + 0.1 * (1.0 - smoothstep(1.0, 8.0, length(pos * vec2(1.0, 0.55))));
+	// Warm pools of torchlight on the floor under the six wall torches, flickering.
+	if (torch_amount > 0.0) {
+		float tpool = 0.0;
+		for (int i = 0; i < 6; i++) {
+			vec2 tp = vec2(i % 2 == 0 ? -half_size.x : half_size.x, -6.0 + 6.0 * float(i / 2));
+			float d = length((pos - tp) * vec2(1.0, 0.8));
+			float fl = 0.85 + 0.15 * sin(TIME * 6.3 + float(i) * 1.7) * sin(TIME * 2.9 + float(i) * 4.1);
+			tpool += (1.0 - smoothstep(0.0, 4.2, d)) * fl;
+		}
+		c *= 1.0 + torch_glow.rgb * tpool * torch_amount;
+	}
+
+	ALBEDO = clamp(c, 0.0, 1.0);
+	ROUGHNESS = rough;
+	if (up > 0.5) {
+		NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
+	}
+	if (seam.a > 0.0) {
+		float heat = smoothstep(0.56, 0.76, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
+		float sp2 = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + pos.x * 0.6 + pos.y * 0.35), 2.0);
+		em += seam.rgb * max(gap, crack) * sp2 * mix(0.6, 1.2, r) * mix(0.05, 1.25, heat);
+		em += seam.rgb * pit * (1.0 - bar) * (0.7 + 0.3 * sp2) * 0.2;
+	}
+	EMISSION = em * shade;
+}
+"""
+
+
 ## The low near ledge: the floor's stone, darker, without the floor's fire, water or blood.
 static func _ledge_material(look: Dictionary) -> Material:
-	var m := _floor_material(look) as ShaderMaterial
+	var m := _floor_material(look, 0) as ShaderMaterial
 	m.set_shader_parameter("tint", (look.floor as Color) * 0.6)
 	m.set_shader_parameter("grime_amount", 0.0)
 	m.set_shader_parameter("blood", 0.0)

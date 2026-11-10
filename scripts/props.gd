@@ -148,9 +148,10 @@ static func _no_shadow(n: Node) -> void:
 ## plus each crypt's own bits: bones and skulls in the Bone Crypt, ice shards in the
 ## Frozen Ossuary, charcoal and bones in the Ember Catacomb, shells in the Drowned Vault and
 ## tiny glowing mushrooms in the Glowcap Grotto. They lie in small clusters, more of them by
-## the walls and at the feet of pillars, and are too low to block anyone. All of it is baked
+## the walls and at the feet of pillars, and are too low to block anyone. Kept few, so the
+## floors themselves carry each crypt's look. All of it is baked
 ## into one mesh (a draw or two per material) with no shadows, so it costs almost nothing.
-const SCATTER_CLUSTERS := 22
+const SCATTER_CLUSTERS := 10
 
 
 static func _scatter(room: Room, layout: Array, kind: String) -> void:
@@ -176,9 +177,9 @@ static func _scatter(room: Room, layout: Array, kind: String) -> void:
 		else:
 			spots.append(Vector3(rng.randf_range(-Room.HALF_W + 1.0, Room.HALF_W - 1.0), 0, rng.randf_range(-Room.HALF_L + 1.5, Room.HALF_L - 2.0)))
 	spots.shuffle()
-	for i in mini(spots.size(), SCATTER_CLUSTERS + 4):
+	for i in mini(spots.size(), SCATTER_CLUSTERS):
 		var at: Vector3 = spots[i]
-		var n := rng.randi_range(2, 5)
+		var n := rng.randi_range(1, 3)
 		for j in n:
 			var p := at + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
 			var yaw := Basis(Vector3.UP, rng.randf() * TAU)

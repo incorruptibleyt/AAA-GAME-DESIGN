@@ -18,7 +18,7 @@ const THEMES := [
 		"ambient": Color(0.2, 0.19, 0.28), "fog": Color(0.03, 0.03, 0.06), "background": Color(0.02, 0.02, 0.035),
 		"moon": Color(0.55, 0.6, 0.9), "torch": Color(1.0, 0.62, 0.3), "torch_energy": 1.4,
 		"motes": [Color(1.0, 0.55, 0.2, 0.9), Color(0.7, 0.6, 1.0, 0.35)], "motes_fall": false, "banner": Color(1, 0.7, 0.4),
-		"props": "bone", "pillar": "pillar_decorated", "light": [1.1, 2.0, 0.85, 1.0]},
+		"floor_style": 1, "props": "bone", "pillar": "pillar_decorated", "light": [1.1, 2.0, 0.85, 1.0]},
 	{"name": "Frozen Ossuary", "floor": Color(0.8, 0.88, 0.97),
 		# Frost creeping in from the walls; patches of dark, glassy ice.
 		"grout": Color(0.08, 0.1, 0.14), "grime": Color(0.64, 0.7, 0.78), "grime_amount": 0.4,
@@ -27,7 +27,7 @@ const THEMES := [
 		"ambient": Color(0.27, 0.31, 0.4), "fog": Color(0.05, 0.08, 0.13), "background": Color(0.02, 0.035, 0.06),
 		"moon": Color(0.72, 0.83, 0.95), "torch": Color(0.72, 0.87, 1.0), "torch_energy": 1.5,
 		"motes": [Color(0.95, 0.98, 1.0, 0.9), Color(0.6, 0.8, 1.0, 0.4)], "motes_fall": true, "banner": Color(0.6, 0.9, 1.0),
-		"props": "ice", "pillar": "column", "light": [1.05, 1.2, 0.15, 0.1]},
+		"floor_style": 2, "props": "ice", "pillar": "column", "light": [1.05, 1.2, 0.15, 0.1]},
 	# Charcoal slabs with fire in the gaps ("seams"), so fire and warnings stand out on them.
 	{"name": "Ember Catacomb", "floor": Color(0.34, 0.3, 0.3), "seams": Color(1.0, 0.28, 0.04),
 		# Soot in patches and along the walls; pale ash.
@@ -38,7 +38,7 @@ const THEMES := [
 		"moon": Color(0.9, 0.6, 0.45), "torch": Color(1.0, 0.45, 0.18), "torch_energy": 1.7,
 		# Embers stay small, dim and deep red so they never look like coins or enemy shots.
 		"motes": [Color(0.95, 0.38, 0.16, 0.5), Color(0.7, 0.15, 0.06, 0.2)], "motes_fall": false, "motes_size": 0.5,
-		"banner": Color(1, 0.55, 0.3), "props": "ember", "light": [1.35, 1.6, 0.4, 0.3]},
+		"banner": Color(1, 0.55, 0.3), "floor_style": 3, "props": "ember", "light": [1.35, 1.6, 0.4, 0.3]},
 	# Flooded halls: dark green-grey stone under shallow water that pools in the low places
 	# and fills the gaps, rippling and catching the light. Pale sea-green lamps.
 	{"name": "Drowned Vault", "floor": Color(0.76, 0.9, 0.88), "water": Color(0.07, 0.25, 0.27, 1.0),
@@ -65,7 +65,7 @@ const THEMES := [
 		"moon": Color(0.74, 0.86, 0.8), "torch": Color(1.0, 0.6, 0.85), "torch_energy": 1.5,
 		# Spores drifting up: small and pale, so they never look like shots or coins.
 		"motes": [Color(1.0, 0.6, 0.9, 0.45), Color(0.8, 1.0, 0.5, 0.25)], "motes_fall": false, "motes_size": 0.45,
-		"banner": Color(1.0, 0.6, 0.9), "props": "fungus", "pillar": "wall_pillar", "light": [1.25, 1.7, 0.3, 0.2]},
+		"banner": Color(1.0, 0.6, 0.9), "floor_style": 4, "props": "fungus", "pillar": "wall_pillar", "light": [1.25, 1.7, 0.3, 0.2]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
