@@ -951,7 +951,7 @@ func open_up(col: Color, tier := 0, silent := false) -> void:
 		_link_vel.append(out * rng.randf_range(1.2, 2.6) + Vector3(0, rng.randf_range(1.0, 3.0), 0))
 		_link_spin.append(Vector3(rng.randf_range(-12, 12), rng.randf_range(-12, 12), rng.randf_range(-12, 12)))
 	if not silent:
-		Sfx.play("crack", 0.7, 1.3)   # the chains snapping
+		Sfx.play("chest_snap" if Sfx.has("chest_snap") else "crack", 0.9)   # the chains snapping
 	for wave in ([0.35, 0.7] if tier >= 4 else ([0.35] if tier >= 3 else [])):
 		get_tree().create_timer(wave).timeout.connect(func():
 			if _opened and is_inside_tree():

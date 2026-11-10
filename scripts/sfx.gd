@@ -27,7 +27,8 @@ static var _frame := -1
 static var _started := {}
 
 ## Sounds that are the game talking to the player (menus, the announcer) skip the echo.
-const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", "vo_combo", "voice"]
+const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", "vo_combo", "voice",
+		"chest_rattle", "chest_snap", "chest_lid", "chest_coins", "chest_tick"]
 
 
 static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
@@ -142,7 +143,9 @@ func _load_samples() -> void:
 	# Barbarian's spinning axe and the Mage's chiming orb.
 	for sound in ["shoot", "shoot_rogue", "shoot_knight", "shoot_barbarian", "shoot_mage", "hit", "die", "hurt", "door", "upgrade", "coin", "click", "dash", "slam", "crack", "pickup",
 			"warn", "boom", "roar", "victory", "wraith", "beam", "ignite", "vo_prepare", "vo_win", "vo_lose", "vo_combo",
-			"splash", "spore", "roots", "heart", "tick", "sting", "shimmer", "voice"]:
+			"splash", "spore", "roots", "heart", "tick", "sting", "shimmer", "voice",
+			# Version 137: the Bone Drop chest's own sounds (tools/audio/chest.py).
+			"chest_rattle", "chest_snap", "chest_lid", "chest_coins", "chest_tick"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]

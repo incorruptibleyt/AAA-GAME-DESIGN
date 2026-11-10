@@ -22,3 +22,8 @@ The extra packs are fetched by `.github/workflows/fetch-audio-extra.yml` to the
   `heart`, `tick`, `sting`, `shimmer` and `voice` are the game's own code-made sounds saved as
   files at 44.1 kHz. The shots and hits in the game are Jesse's picks: option B from
   `tools/audio/options.py` for rogue, knight, barbarian and the hit, and a quieter `soft.py` mage.
+- Version 137: the Bone Drop chest (`chest_rattle_*`, `chest_snap_*`, `chest_lid_*`,
+  `chest_coins_*`, `chest_tick_*`) is made by `tools/audio/chest.py` from Kenney's RPG Audio
+  (metalLatch, metalClick, beltHandle, creak, chop, handleCoins) and Impact Sounds (metal and
+  wood), with made rumbles, thumps and chimes. The game uses option B; A and C come from the
+  same script.

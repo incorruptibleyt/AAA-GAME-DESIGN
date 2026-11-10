@@ -128,11 +128,38 @@ func _init() -> void:
 	_odds_btn.position = Vector2(-84, 24)
 	_odds_btn.pressed.connect(func(): _show_odds(not _odds.visible))
 	add_child(_odds_btn)
+	# Version 137: your coins, top left. A coin prize flies out of the chest into it and it
+	# counts up as they land.
+	_purse = PanelContainer.new()
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(0.08, 0.06, 0.1, 0.92)
+	psb.border_color = Color(0.85, 0.62, 0.2, 0.7)
+	psb.set_border_width_all(2)
+	psb.set_corner_radius_all(30)
+	psb.content_margin_left = 12
+	psb.content_margin_right = 18
+	psb.content_margin_top = 6
+	psb.content_margin_bottom = 6
+	_purse.add_theme_stylebox_override("panel", psb)
+	_purse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_purse.position = Vector2(20, 24)
+	var prow := HBoxContainer.new()
+	prow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	prow.add_theme_constant_override("separation", 8)
+	_purse.add_child(prow)
+	_purse_icon = Hud.coin_icon(34)
+	_purse_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	prow.add_child(_purse_icon)
+	_purse_label = Hud.label("0", 26, Hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	_purse_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	prow.add_child(_purse_label)
+	add_child(_purse)
 	# Version 125 (audit #8): the column and the "?" keep clear of a notch or camera hole.
 	visibility_changed.connect(func():
 		if visible:
 			Hud.safe_pad(col)
-			Hud.safe_pad(_odds_btn))
+			Hud.safe_pad(_odds_btn)
+			Hud.safe_pad(_purse))
 	_odds = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.06, 0.05, 0.09, 0.98)
@@ -173,6 +200,11 @@ func _init() -> void:
 	_odds_dim.gui_input.connect(func(e: InputEvent):
 		if e is InputEventMouseButton and (e as InputEventMouseButton).pressed:
 			_show_odds(false))
+	_fx = Control.new()
+	_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Hud.full(_fx)
+	_fx.draw.connect(_draw_fx)
+	add_child(_fx)
 	add_child(_odds_dim)
 	add_child(_odds)
 	gui_input.connect(func(e: InputEvent):
@@ -198,6 +230,7 @@ func close() -> void:
 	if _step == Step.OPENING:
 		_finish()   # the prize was already given; show it before leaving
 		return
+	_land_all()
 	_show_look(false)
 	_feat_mode = false
 	_feat_queue.clear()
@@ -276,6 +309,8 @@ func _show_look(on: bool) -> void:
 
 
 func _ready_next() -> void:
+	_land_all()
+	_set_purse(Game.coins)
 	_show_look(false)
 	_wear.visible = false
 	_odds_btn.visible = true
@@ -366,6 +401,7 @@ func _tap() -> void:
 			_action.modulate = Color(0.65, 0.65, 0.7)
 			_prize.text = ""
 			Sfx.play("click")
+			_sound("chest_rattle", 0.9)
 		Step.OPENING:
 			if _t > 0.2:
 				_finish()   # a second tap skips to the prize
@@ -408,6 +444,7 @@ func _process(delta: float) -> void:
 			_finish()
 	_chest.animate(_step, _t / OPEN_AT, _tier_color(), _shown_tier, delta)
 	_art.queue_redraw()
+	_fly(delta)
 
 
 func _finish() -> void:
@@ -425,6 +462,12 @@ func _finish() -> void:
 	_prize.label_settings.font_color = Hud.GOLD if _result.get("kind", "") == "coins" else c.lightened(0.35)
 	_prize.label_settings.font_size = 34 if _result.get("kind", "") == "coins" else 22
 	_chest.open_up(c, _shown_tier)
+	# The prize pops in; coins fly out of the chest into your purse and count up.
+	_prize.pivot_offset = _prize.size * 0.5
+	_prize.scale = Vector2(0.4, 0.4)
+	create_tween().tween_property(_prize, "scale", Vector2.ONE, 0.45).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(0.12)
+	if _result.get("kind", "") == "coins" and int(_result.get("coins", 0)) > 0:
+		_coin_shower(int(_result.coins))
 	# Version 122: Epic and Legendary get a bigger moment: the chest lifts and bursts twice
 	# (three times for Legendary) under a beam, the screen flashes white, and a sting plays.
 	if _shown_tier >= 3:
@@ -447,11 +490,124 @@ func _finish() -> void:
 	_update_pity()
 	_action.text = "OPEN NEXT" if _left > 0 else "DONE"
 	_show_later(_left > 0)
-	Sfx.play("victory" if _shown_tier >= 3 else ("upgrade" if _shown_tier >= 1 else "coin"), 0.8)
+	Sfx.play("victory" if _shown_tier >= 3 else ("upgrade" if _shown_tier >= 1 else "coin"), 0.7)
+	get_tree().create_timer(0.1).timeout.connect(func(): _sound("chest_lid", 0.9))
 	if _result.get("kind", "") == "coins":
-		Sfx.play("coin", 0.6, 1.2)
+		get_tree().create_timer(0.22).timeout.connect(func(): _sound("chest_coins", 0.8))
 	if Game.vibration:
 		Input.vibrate_handheld(90 if _shown_tier >= 4 else (60 if _shown_tier >= 3 else 35))
+
+
+## Plays a chest sound if this build has it (falls back to nothing).
+func _sound(n: String, vol := 1.0) -> void:
+	if Sfx.has(n):
+		Sfx.play(n, vol)
+
+
+# ---------------------------------------------------------------- coins into the purse
+
+var _purse: PanelContainer
+var _purse_icon: Control
+var _purse_label: Label
+var _purse_shown := 0
+var _purse_to := 0
+var _fx: Control
+var _flying: Array[Dictionary] = []
+var _counting := {}   # the prize line counting up: {from, to, t, dur}
+var _ticks := 0
+
+
+func _set_purse(n: int) -> void:
+	_purse_shown = n
+	_purse_to = n
+	_purse_label.text = Hud.thousands(n)
+
+
+## Throws `amount` coins out of the chest's mouth, each arcing into the purse.
+func _coin_shower(amount: int) -> void:
+	_purse_to = maxi(Game.coins, _purse_shown + amount)
+	var n := clampi(amount / 20, 8, 18)
+	var from := _art.global_position + _art.size * Vector2(0.5, 0.38) - _fx.global_position
+	var to := _purse_icon.global_position + _purse_icon.size * 0.5 - _fx.global_position
+	var left := amount
+	for i in n:
+		var share := left if i == n - 1 else amount / n
+		left -= share
+		var burst := from + Vector2(randf_range(-150, 150), randf_range(-170, -60))
+		_flying.append({"a": from, "b": burst, "c": to, "t": -0.3 - i * 0.045, "dur": 0.75,
+				"amt": share, "r": randf_range(17.0, 23.0), "spin": randf_range(-9.0, 9.0)})
+	_ticks = 0
+	_counting = {"from": 0, "to": amount, "t": -0.3, "dur": 0.3 + n * 0.045 + 0.75}
+	_prize.text = "+0 COINS"
+	_fx.queue_redraw()
+
+
+func _fly(delta: float) -> void:
+	if not _counting.is_empty():
+		_counting.t += delta
+		var f := clampf(float(_counting.t) / float(_counting.dur), 0.0, 1.0)
+		_prize.text = "+%s COINS" % Hud.thousands(roundi(lerpf(_counting.from, _counting.to, ease(f, 0.6))))
+		if f >= 1.0:
+			_counting = {}
+			_prize.scale = Vector2(1.25, 1.25)
+			create_tween().tween_property(_prize, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if _flying.is_empty():
+		return
+	for i in range(_flying.size() - 1, -1, -1):
+		var c: Dictionary = _flying[i]
+		c.t += delta
+		if c.t >= c.dur:
+			_flying.remove_at(i)
+			_land(int(c.amt))
+	_fx.queue_redraw()
+
+
+func _land(amt: int) -> void:
+	_purse_shown = mini(_purse_shown + amt, _purse_to)
+	if _flying.is_empty():
+		_purse_shown = _purse_to
+	_purse_label.text = Hud.thousands(_purse_shown)
+	_purse.pivot_offset = _purse.size * Vector2(0.2, 0.5)
+	_purse.scale = Vector2(1.12, 1.12)
+	create_tween().tween_property(_purse, "scale", Vector2.ONE, 0.12)
+	_ticks += 1
+	if _ticks % 2 == 1:
+		if Sfx.has("chest_tick"):
+			Sfx.play("chest_tick", 0.5, 1.0 + 0.02 * _ticks)
+		else:
+			Sfx.play("coin", 0.25, 1.4 + 0.03 * _ticks)
+
+
+## Skips the shower: every coin lands now (a fast tap to the next drop, or closing).
+func _land_all() -> void:
+	_flying.clear()
+	if not _counting.is_empty():
+		_prize.text = "+%s COINS" % Hud.thousands(int(_counting.to))
+		_counting = {}
+	if _purse_to != _purse_shown:
+		_set_purse(_purse_to)
+	_fx.queue_redraw()
+
+
+func _draw_fx() -> void:
+	for c: Dictionary in _flying:
+		if c.t < 0.0:
+			continue
+		var f: float = c.t / c.dur
+		# Out of the chest fast, a moment's hang, then swept into the purse.
+		var p: Vector2
+		if f < 0.3:
+			p = (c.a as Vector2).lerp(c.b, ease(f / 0.3, 0.4))
+		else:
+			var g := ease((f - 0.3) / 0.7, 2.2)
+			var mid: Vector2 = (c.b as Vector2).lerp(c.c, 0.5) + Vector2(0, -80)
+			p = (c.b as Vector2).lerp(mid, g).lerp(mid.lerp(c.c, g), g)
+		var r: float = c.r * lerpf(1.0, 0.75, f)
+		# A coin turning: squash it across as it spins.
+		var sx := absf(cos(c.t * float(c.spin)))
+		_fx.draw_set_transform(p, 0.0, Vector2(maxf(0.25, sx), 1.0))
+		Hud.draw_coin(_fx, Vector2.ZERO, r)
+	_fx.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 
 var _white: ColorRect
