@@ -8,11 +8,12 @@ const PLAYLISTS := {
 	"crypt": [preload("res://audio/music/crypt_lament_of_the_war.ogg"), preload("res://audio/music/crypt_evil_approach.ogg")],
 	"ice": [preload("res://audio/music/ice_fantasy_choir.ogg"), preload("res://audio/music/ice_siberian_intro.ogg")],
 	"ember": [preload("res://audio/music/ember_determined_pursuit.ogg"), preload("res://audio/music/ember_prepare_to_fight.ogg")],
+	"grotto": [preload("res://audio/music/grotto_unexplored.ogg"), preload("res://audio/music/grotto_col_legno.ogg")],
 	"boss": [preload("res://audio/music/boss_epic_boss_battle.ogg")],
 }
 ## One playlist per floor theme, in the order of Floors.THEMES (the Drowned Vault borrows
 ## the choir, which sounds like it is under water).
-const THEMES := ["crypt", "ice", "ember", "ice"]
+const THEMES := ["crypt", "ice", "ember", "ice", "grotto"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5

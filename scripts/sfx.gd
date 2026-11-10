@@ -86,6 +86,13 @@ func _ready() -> void:
 	# A heartbeat for low health (code-made on purpose: two soft low thumps).
 	# Water: a wash of noise that dies away with a little rising bloop (the Drowned Vault).
 	_clips["splash"] = _synth(0.5, func(t): return (_noise() * exp(-t * 7.0) * 0.55 + _sweep(t, 260, 760) * exp(-t * 16.0) * 0.3) * _env(t, 0.5) * 0.5)
+	# Version 128, the Glowcap Grotto: a soft "pff" of spores (breathy noise that swells and
+	# dies, over a low hollow pop), and roots tearing through the floor (a creak that bends
+	# down, under crackling grit).
+	_clips["spore"] = _synth(0.55, func(t): return (_noise() * (1.0 - exp(-t * 60.0)) * exp(-t * 7.5) * 0.5 \
+			+ _sine(t, 150.0 - t * 120.0) * exp(-t * 18.0) * 0.45 + _sine(t, 620.0 + t * 300.0) * exp(-t * 26.0) * 0.12) * _env(t, 0.55) * 0.6)
+	_clips["roots"] = _synth(0.6, func(t): return (_square(t, 95.0 - t * 60.0 + sin(t * 70.0) * 9.0) * 0.28 * exp(-t * 3.5) \
+			+ _noise() * (0.35 + 0.4 * float(sin(t * 210.0) > 0.7)) * exp(-t * 6.0) * 0.6) * _env(t, 0.6) * 0.55)
 	_clips["heart"] = _synth(0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
 	# Version 122: a short tick for numbers counting up, and a rising three-note sting for
 	# Epic and Legendary drops.

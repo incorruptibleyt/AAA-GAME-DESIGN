@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "L", "K", "C", "T"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S"]
 
 static var last_ms := 0
 
@@ -30,7 +30,7 @@ static func run() -> void:
 	room.add_child(holder)   # skeletons only stand still on the title screen
 	var at := hero.global_position
 	var spots: Array[Vector3] = []
-	for i in 20:
+	for i in 25:
 		spots.append(at + Vector3((i % 5 - 2) * 1.3, 0, (i / 5 - 1) * 1.3))
 	var tree := Game.get_tree()
 	var made: Array = []
@@ -161,6 +161,16 @@ static func run() -> void:
 		U.floor_quad(holder, Vector2(1, 1), Props._splash_mat(), spots[14] + Vector3(0, 0.03, 0))
 		U.floor_quad(holder, Vector2(1, 1), Props._foam_mat(), spots[16] + Vector3(0, 0.03, 0))
 		U.box(holder, Vector3(1, 0.6, 0.3), Tidecaller._foam_material(), spots[15] + Vector3(0, 0.3, 0)))
+	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
+	# a spore cloud, crawling roots and the Sporemother's pod.
+	steps.append(func():
+		Props._mesh(holder, Props._mushroom_clump()).position = spots[21]
+		Props._mesh(holder, Props._shelf_fungus()).position = spots[22]
+		Props._glow_pool(holder, 1.0)
+		SporeCloud.spawn(spots[23], 1.0, 0.5)
+		RootCrawl._burst(spots[23] + Vector3(0.5, 0, 0), 1.0, 0.2)
+		var pod := U.sphere(holder, 0.28, U.mat(Color(1.0, 0.42, 0.82), 0.4, 0.7))
+		pod.position = spots[24] + Vector3(0, 1, 0))
 
 	# Draw each batch for two frames. Frames, not frame_post_draw: that signal never comes
 	# without a screen (robot test runs).

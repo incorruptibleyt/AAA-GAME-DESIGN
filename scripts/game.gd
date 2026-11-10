@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-09g"
+const BUILD := "2026-11-10a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1147,23 +1147,27 @@ func _build_run() -> void:
 
 
 ## Who rules this floor: the Ember Catacomb (floor 3, then every Ember floor) has the
-## Cinder Colossus, the Drowned Vault (floor 6, 10, 14...) the Tidecaller; elsewhere the
-## Skeleton King and the Lich take turns (the King on odd floors).
+## Cinder Colossus, the Drowned Vault (floor 6, 11, 16...) the Tidecaller, the Glowcap
+## Grotto (floor 4, 10, 15...) the Sporemother; elsewhere the Skeleton King and the Lich
+## take turns (the King on odd floors).
 func boss_kind() -> String:
 	if Floors.hot() and not first_run:
 		return "C"
 	if Floors.drowned() and not first_run:
 		return "T"
+	if Floors.grotto() and not first_run:
+		return "S"
 	return "L" if floor_num % 2 == 0 else "K"
 
 
-## The skeleton only this floor's theme has: Frost Wraiths on the Frozen Ossuary ("f"),
-## Cinder Skeletons in the Ember Catacomb ("e"), Drowned Skeletons in the Drowned Vault
-## ("d"), none in the Bone Crypt.
+## The skeletons only this floor's theme has, one letter each: Frost Wraiths on the Frozen
+## Ossuary ("f"), Cinder Skeletons in the Ember Catacomb ("e"), Drowned Skeletons in the
+## Drowned Vault ("d"), Sporelings and Rootbinders in the Glowcap Grotto ("pr"), none in
+## the Bone Crypt.
 func theme_enemy() -> String:
 	if first_run:
 		return ""
-	return ["", "f", "e", "d"][Floors.index(floor_num)]
+	return ["", "f", "e", "d", "pr"][Floors.index(floor_num)]
 
 
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
@@ -1784,6 +1788,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	_wave_kinds.clear()
 	var mages := 0
 	var theme_kind := theme_enemy()
+	# With two kinds (the Glowcap Grotto), every other room puts the second one first, so a
+	# room with a single minion still meets both over a floor.
+	if theme_kind.length() > 1 and index % 2 == 1:
+		theme_kind = theme_kind.reverse()
 	# The tutorial teaches the basics first: bone spiders and bombers wait for floor 2. They
 	# are left out (they used to turn into extra minions, a bigger pack for a new player),
 	# unless that would leave fewer than two skeletons in the room.
@@ -1797,9 +1805,13 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			if plain >= 2:
 				continue
 			kind = "m"
-		# Ice and fire floors swap one minion in every room for their own skeleton.
-		if kind == "m" and theme_kind != "" and not _wave_kinds.has(theme_kind):
-			kind = theme_kind
+		# Each themed floor swaps one minion in every room for each of its own skeletons
+		# (the Glowcap Grotto has two kinds, so two minions change if the room has them).
+		if kind == "m":
+			for k in theme_kind:
+				if not _wave_kinds.has(k):
+					kind = k
+					break
 		if kind == "K":
 			kind = boss_kind()
 		# Floor 1 is for learning: never more than one skeleton mage in a wave.

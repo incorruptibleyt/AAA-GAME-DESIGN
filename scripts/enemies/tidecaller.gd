@@ -1,6 +1,6 @@
 class_name Tidecaller
 extends Enemy
-## The boss of the Drowned Vault (floor 6, then every fourth floor; Crypt Pass only): a huge
+## The boss of the Drowned Vault (floor 6, then every fifth floor; Crypt Pass only): a huge
 ## hooded skeleton with a staff, grown over with weed, that commands the water. Where the
 ## Cinder Colossus fills the floor with fire, it moves the water itself. Every attack has
 ## a warning:

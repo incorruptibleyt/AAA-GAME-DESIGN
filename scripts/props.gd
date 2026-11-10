@@ -3,7 +3,8 @@ class_name Props
 ## and not just in colour: skull piles and candles in the Bone Crypt, icicles and ice
 ## crystals in the Frozen Ossuary, braziers and lava grates in the Ember Catacomb (on the
 ## walls, so they never look like fire on the floor), broken columns grown over with kelp
-## and drains pouring water in the Drowned Vault. The pieces are simple shapes baked
+## and drains pouring water in the Drowned Vault, clumps of glowing mushrooms and shelf
+## fungus in the Glowcap Grotto. The pieces are simple shapes baked
 ## into one mesh per material and add no lights, so they stay cheap on phones. A corner
 ## piece only goes where the room's layout leaves that corner empty.
 
@@ -40,6 +41,9 @@ static func dress(room: Room, layout: Array) -> void:
 				Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.15, 0.8, 0.1))
 			"water":
 				_mesh(n, _kelp_column())
+			"fungus":
+				_mesh(n, _mushroom_clump())
+				_glow_pool(n, 2.6)
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
 		# it always points into the room (centred on the prop, it could push a skeleton out
 		# through the walls, where nothing could reach it).
@@ -63,6 +67,10 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_add_spout(n)
+				"fungus":
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_mesh(n, _shelf_fungus())
 	# Two more on the far wall, either side of the door.
 	for x in [-3.6, 3.6]:
 		match kind:
@@ -78,6 +86,10 @@ static func dress(room: Room, layout: Array) -> void:
 				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
 				_add_spout(n)
+			"fungus":
+				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_mesh(n, _shelf_fungus())
 
 
 static func _place(room: Room, p: Vector3, turn := true) -> Node3D:
@@ -354,3 +366,63 @@ static func _splash_mat() -> StandardMaterial3D:
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		_baked["splash_mat"] = m
 	return _baked["splash_mat"]
+
+
+## A clump of mushrooms in a corner: one tall glowing toadstool leaning out of the corner,
+## two middling ones and a few buttons around their feet, on a mound of dark moss.
+static func _mushroom_clump() -> ArrayMesh:
+	if _baked.has("mushrooms"):
+		return _baked["mushrooms"]
+	var moss := U.mat(Color(0.12, 0.13, 0.1), 0.95)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 61
+	var parts := []
+	parts.append([_sphere(), _xf(Vector3(0, 0.0, 0), Vector3(0.75, 0.22, 0.75)), moss])
+	# [height, cap radius, lean, distance out, angle]
+	var plan := [[1.75, 0.62, 0.12, 0.0, 0.0], [1.05, 0.4, 0.38, 0.45, 2.2], [0.8, 0.32, 0.45, 0.48, 4.1],
+		[0.38, 0.17, 0.3, 0.62, 1.0], [0.3, 0.14, 0.5, 0.6, 3.2], [0.42, 0.18, 0.25, 0.55, 5.3]]
+	for m in plan:
+		var a: float = m[4] + rng.randf() * 0.4
+		var at := Vector3(cos(a), 0, sin(a)) * float(m[3])
+		parts.append_array(FungalLook.mushroom_parts(m[0], m[1], m[2], at, -a, 6 if m[1] > 0.3 else 3))
+	_baked["mushrooms"] = _bake(parts)
+	return _baked["mushrooms"]
+
+
+## Shelf fungus growing out of a wall in three tiers, glowing at the rim, with a pale stalk
+## of tiny mushrooms below; +X points out of the wall.
+static func _shelf_fungus() -> ArrayMesh:
+	if _baked.has("shelf"):
+		return _baked["shelf"]
+	var mats := FungalLook.cap_materials()
+	var parts := []
+	var half := SphereMesh.new()
+	half.radius = 1.0
+	half.height = 1.0
+	half.is_hemisphere = true
+	half.radial_segments = 12
+	half.rings = 3
+	var tiers := [[1.55, 0.42, 0.0], [1.1, 0.32, 0.28], [0.75, 0.24, -0.22]]
+	for t in tiers:
+		var r: float = t[1]
+		# A flattened half-dome stuck to the wall: wide along the wall, shallow out of it.
+		parts.append([half, _xf(Vector3(0.0, t[0], t[2]), Vector3(r * 0.9, r * 0.32, r * 1.3)), mats[0]])
+		parts.append([_cone(r * 0.85, r * 0.85, 0.05, 12), _xf(Vector3(0.0, t[0] - 0.02, t[2]), Vector3(1.0, 1.0, 1.5)), mats[1]])
+		for k in 3:
+			var z: float = t[2] + (k - 1) * r * 0.55
+			parts.append([_sphere(), _xf(Vector3(r * 0.45, t[0] + r * 0.2, z), Vector3.ONE * r * 0.12), mats[2]])
+	for k in 3:
+		parts.append_array(FungalLook.mushroom_parts(0.22 + 0.06 * k, 0.09 + 0.02 * k, 0.4, Vector3(0.18, 0, (k - 1) * 0.22), 0.0, 3))
+	_baked["shelf"] = _bake(parts)
+	return _baked["shelf"]
+
+
+## The soft pink light a clump of glowcaps throws on the floor around it (no real light:
+## lights cost a lot on phones).
+static func _glow_pool(n: Node3D, size: float) -> void:
+	if not _baked.has("glow_pool"):
+		var m := U.unlit(Color(1.0, 0.4, 0.82, 0.32), U.soft_circle()).duplicate()
+		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_baked["glow_pool"] = m
+	var q := U.floor_quad(n, Vector2(size, size), _baked["glow_pool"], Vector3(0, 0.035, 0))
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

@@ -3,7 +3,8 @@ extends Node
 ## Room tone under the music, one for each floor theme: a slow cold draught in the Bone
 ## Crypt with water dripping somewhere, a thin whistling wind in the Frozen Ossuary with
 ## ice ticking now and then, a low fire roar in the Ember Catacomb with embers popping, and
-## water lapping in the Drowned Vault with bubbles rising.
+## water lapping in the Drowned Vault with bubbles rising, and in the Glowcap Grotto a soft
+## hollow cave air with a faint shimmer, where the fungus chimes now and then.
 ## All of it is made in code. The draught loops play on the Music bus, so they muffle with
 ## the music when the game is paused; the drips and pops go through the Effects echo. It
 ## follows the Sounds setting, and is silent on the title screen.
@@ -18,11 +19,11 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0)]
 
 static var _instance: Ambience
-var _beds: Array = [null, null, null, null]
-var _ones: Array = [null, null, null, null]
+var _beds: Array = [null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -88,6 +89,8 @@ func _build_all() -> void:
 	_ones[2] = _one(0.35, _pop)
 	_beds[3] = _loop(_water_bed)
 	_ones[3] = _one(0.4, _bubble)
+	_beds[4] = _loop(_grotto_bed)
+	_ones[4] = _one(1.2, _glimmer)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -186,6 +189,37 @@ func _water_bed(n: int) -> PackedFloat32Array:
 		var swell := 0.35 + 0.65 * pow(0.5 + 0.5 * sin(TAU * t / 2.0) * sin(TAU * t / 3.0 + 0.8), 2.0)
 		wash[i] = wash[i] * swell + (a[i] - b[i]) * 0.5
 	return wash
+
+
+## A big hollow cave: a slow low draught, a faint hum, and a soft shimmer up high that
+## swells and fades (two close notes beating slowly against each other).
+func _grotto_bed(n: int) -> PackedFloat32Array:
+	var x := _wind(n, 90.0, 360.0, 6.0, 1.9, 41)
+	for i in n:
+		var t := float(i) / RATE
+		# 1.5 and 3 seconds, so the swells meet again at the loop's seam (6 s).
+		var swell := 0.5 + 0.5 * sin(TAU * t / 3.0)
+		var shimmer := (sin(TAU * 1567.0 * t) + sin(TAU * 1568.5 * t)) * 0.5
+		x[i] += sin(TAU * 55.0 * t) * 0.02 + shimmer * 0.012 * swell * swell
+	return x
+
+
+## The fungus chiming: three soft bell notes falling (a little pentatonic tune), each
+## fading in gently instead of striking.
+func _glimmer(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var notes := [1760.0, 1480.0, 1175.0]
+	for k in notes.size():
+		var start := 0.16 * k
+		var hz: float = notes[k]
+		for i in n:
+			var t := float(i) / Sfx.RATE - start
+			if t < 0.0:
+				continue
+			var env := minf(t / 0.03, 1.0) * exp(-t * 5.0)
+			x[i] += (sin(TAU * hz * t) + sin(TAU * hz * 2.01 * t) * 0.25) * env * (0.32 - 0.06 * k)
+	return x
 
 
 ## Two bubbles rising out of deep water: low "bloops" that slide up.

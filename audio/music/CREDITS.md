@@ -13,3 +13,5 @@ required, but thank you to the composers. The files were fetched by
 | ember_determined_pursuit.ogg | Determined Pursuit | Emma_MA | https://opengameart.org/content/determined-pursuit-epic-orchestra-loop |
 | ember_prepare_to_fight.ogg | Prepare to Fight | Basil | https://opengameart.org/content/prepare-to-fight |
 | boss_epic_boss_battle.ogg | Epic Boss Battle | Juhani Junkala (SubspaceAudio) | https://opengameart.org/content/boss-battle-music |
+| grotto_unexplored.ogg | Unexplored (expanded) | tad, expanded by Bo Jingles | https://opengameart.org/content/unexplored-expansion |
+| grotto_col_legno.ogg | Col Legno | Vehicle | https://opengameart.org/content/col-legno |

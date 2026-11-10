@@ -1,9 +1,9 @@
 class_name Floors
 ## Each floor of the crypt has its own look, made from colours, lights, particles and its
-## own props (props.gd): the Bone Crypt, the Frozen Ossuary and the Ember Catacomb, then
-## round again. Past the free floors (the Crypt Pass) the Drowned Vault joins them: floor 6
-## is flooded, then every fourth floor (see index). Each endless loop below floor 5 darkens
-## them. To add a theme, copy an entry in THEMES. The floor keys (grout, grime, patch,
+## own props (props.gd): the Bone Crypt, the Frozen Ossuary, the Ember Catacomb and (version
+## 128) the Glowcap Grotto on floor 4. Past the free floors (the Crypt Pass) the Drowned
+## Vault joins them: floor 6 is flooded, then every fifth floor (see index). Each endless
+## loop below floor 5 darkens them. To add a theme, copy an entry in THEMES. The floor keys (grout, grime, patch,
 ## water) are explained in room.gd's _floor_material; colours there are as they look on
 ## screen. "light" is [ambient strength, sun strength, how far the sun turns warm, how far
 ## the ambient turns warm]: a bright, clear arena where every character reads (the Frozen
@@ -51,23 +51,42 @@ const THEMES := [
 		# Bubbles drifting up, pale so they never look like shots.
 		"motes": [Color(0.75, 1.0, 0.95, 0.45), Color(0.45, 0.8, 0.85, 0.2)], "motes_fall": false, "motes_size": 0.6,
 		"banner": Color(0.5, 0.95, 0.88), "props": "water", "light": [1.3, 1.7, 0.35, 0.2]},
+	# Version 128: a cave grown over with glowing mushrooms. Mossy green stone under cool
+	# green light, with pink and lime fungus glowing in the moss ("spores", room.gd), so it
+	# looks like none of the other four (and pink isn't used by hearts, coins or warnings).
+	{"name": "Glowcap Grotto", "floor": Color(0.68, 0.78, 0.62), "spores": Color(1.0, 0.36, 0.78, 1.0),
+		"spores2": Color(0.72, 1.0, 0.3),
+		# Mossy green stone, dark moss in patches and along the walls, and the pink glow of
+		# the fungus on top: green and pink sit opposite each other, so the glow pops.
+		"grout": Color(0.03, 0.045, 0.03), "grime": Color(0.08, 0.14, 0.07), "grime_amount": 0.75,
+		"patch_tint": Color(0.8, 0.92, 0.82), "patch_rough": 0.3,
+		"wall": Color(0.1, 0.13, 0.11), "trim": Color(0.21, 0.27, 0.22),
+		"ambient": Color(0.2, 0.24, 0.22), "fog": Color(0.03, 0.05, 0.04), "background": Color(0.015, 0.025, 0.02),
+		"moon": Color(0.74, 0.86, 0.8), "torch": Color(1.0, 0.6, 0.85), "torch_energy": 1.5,
+		# Spores drifting up: small and pale, so they never look like shots or coins.
+		"motes": [Color(1.0, 0.6, 0.9, 0.45), Color(0.8, 1.0, 0.5, 0.25)], "motes_fall": false, "motes_size": 0.45,
+		"banner": Color(1.0, 0.6, 0.9), "props": "fungus", "light": [1.25, 1.7, 0.3, 0.2]},
 ]
 
-## Where the Drowned Vault sits in THEMES.
+## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
 const DROWNED := 3
-## The free floors (1-5) keep the first three themes in turn.
-const FIRST_FREE := 3
+const GROTTO := 4
+## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, Frozen.
+const FREE_ORDER := [0, 1, 2, GROTTO, 1]
+## Each loop of the Crypt Pass (5 floors, see Loops) shows all five, the Drowned Vault first.
+const PASS_ORDER := [DROWNED, 0, 1, 2, GROTTO]
 
 
-## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Bone, Frozen; from
-## floor 6 the four themes take turns starting with the Drowned Vault (6, 10, 14...), so it
-## is the first thing the Crypt Pass shows. Music, room sounds and each theme's own skeleton
-## follow the same order.
+## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Grotto, Frozen
+## (until version 128 floor 4 was the Bone Crypt again, with the Lich for a second time);
+## from floor 6 the five themes take turns starting with the Drowned Vault (6, 11, 16...),
+## so it is the first thing the Crypt Pass shows. Music, room sounds and each theme's own
+## skeletons follow the same order.
 static func index(floor_num: int) -> int:
 	var f := maxi(floor_num, 1)
 	if f <= Store.FREE_FLOORS:
-		return (f - 1) % FIRST_FREE
-	return [DROWNED, 0, 1, 2][(f - Store.FREE_FLOORS - 1) % 4]
+		return FREE_ORDER[(f - 1) % FREE_ORDER.size()]
+	return PASS_ORDER[(f - Store.FREE_FLOORS - 1) % PASS_ORDER.size()]
 
 
 static func theme(floor_num: int) -> Dictionary:
@@ -106,3 +125,8 @@ static func hot() -> bool:
 ## The Drowned Vault (Crypt Pass floors only).
 static func drowned() -> bool:
 	return index(Game.floor_num) == DROWNED
+
+
+## The Glowcap Grotto (floor 4, then every fifth floor from 10).
+static func grotto() -> bool:
+	return index(Game.floor_num) == GROTTO

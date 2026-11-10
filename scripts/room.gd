@@ -88,7 +88,8 @@ static var _floor_shader: Shader
 ## slabs and darker floor by the walls. A floor with "seams" (the Ember Catacomb) has fire
 ## glowing in the gaps and cracks, hot in some places and cooled in others. A floor with
 ## "water" (the Drowned Vault) has shallow water in the low places and the gaps, rippling,
-## glossy and lit from below by moving light. Deeper endless loops add blood. Everything is worked out from where the point is in the room, so there
+## glossy and lit from below by moving light. A floor with "spores" (the Glowcap Grotto) has
+## little glowing fungus caps in its moss. Deeper endless loops add blood. Everything is worked out from where the point is in the room, so there
 ## is no tiling pattern to spot.
 static func _floor_material(look: Dictionary) -> Material:
 	if _floor_shader == null:
@@ -110,6 +111,10 @@ uniform float blood = 0.0;
 uniform vec4 seam : source_color = vec4(0.0);
 // Shallow water's colour; alpha is how much of the floor it covers (0 = dry).
 uniform vec4 water = vec4(0.0);
+// Glowing fungus in the moss (the Glowcap Grotto): its colour (alpha = 0 for none) and the
+// colour of the rarer second kind.
+uniform vec4 spores = vec4(0.0);
+uniform vec4 spores2 = vec4(0.7, 1.0, 0.3, 1.0);
 uniform vec2 half_size = vec2(6.0, 10.0);
 // 1 on the near ledge's box: its front face takes the pattern from its own plane and
 // keeps its real normal.
@@ -206,6 +211,32 @@ void fragment() {
 		EMISSION = water.rgb * light * pool * (1.0 - deep * 0.5) * 0.5 * shade;
 	}
 
+	if (spores.a > 0.0) {
+		// Little round glowing fungus caps where the moss lies thick (in its patches and
+		// along the walls), each pulsing at its own pace, a soft halo round each, and faint
+		// glowing threads in the gaps between the mossy slabs.
+		float moss = smoothstep(0.5, 0.8, big + (1.0 - smoothstep(0.0, 1.6, wall)) * 0.3);
+		// The moss itself: a deeper, greener stone.
+		c = mix(c, c * vec3(0.5, 0.72, 0.48), moss * 0.7);
+		vec2 sq = pos * 1.9;
+		vec2 sc = floor(sq);
+		float sr = h(sc + 7.1);
+		vec2 sp = sc + 0.5 + (vec2(h(sc + 3.3), h(sc + 5.9)) - 0.5) * 0.6;
+		float sd = length(sq - sp);
+		float lit = step(0.72, sr);
+		float cap = (1.0 - smoothstep(0.07, 0.13 + fwidth(sd), sd)) * lit;
+		float halo = (1.0 - smoothstep(0.0, 0.45, sd)) * lit * 0.18;
+		vec2 tq = pos * 4.1 + 0.37;
+		vec2 tc = floor(tq);
+		float tr = h(tc + 1.9);
+		float td = length(tq - tc - 0.5 - (vec2(h(tc + 8.1), h(tc + 2.2)) - 0.5) * 0.5);
+		float tiny = (1.0 - smoothstep(0.05, 0.1 + fwidth(td), td)) * step(0.86, tr);
+		float pulse = 0.6 + 0.4 * sin(TIME * (1.1 + sr) + sr * 31.0);
+		vec3 col = mix(spores.rgb, spores2.rgb, step(0.9, sr));
+		c = mix(c, col * 0.5, cap * moss);
+		EMISSION += (col * (cap * 1.3 + halo) * pulse + spores.rgb * tiny * 0.6 + spores.rgb * gap * 0.1) * moss * spores.a * shade;
+	}
+
 	ALBEDO = clamp(c, 0.0, 1.0);
 	ROUGHNESS = rough;
 	if (up > 0.5) {
@@ -231,6 +262,8 @@ void fragment() {
 	sm.set_shader_parameter("blood", look.get("blood", 0.0))
 	sm.set_shader_parameter("seam", look.get("seams", Color(0, 0, 0, 0)))
 	sm.set_shader_parameter("water", look.get("water", Color(0, 0, 0, 0)))
+	sm.set_shader_parameter("spores", look.get("spores", Color(0, 0, 0, 0)))
+	sm.set_shader_parameter("spores2", look.get("spores2", Color(0.7, 1.0, 0.3)))
 	sm.set_shader_parameter("half_size", Vector2(HALF_W, HALF_L))
 	return sm
 
@@ -243,6 +276,7 @@ static func _ledge_material(look: Dictionary) -> Material:
 	m.set_shader_parameter("blood", 0.0)
 	m.set_shader_parameter("seam", Color(0, 0, 0, 0))
 	m.set_shader_parameter("water", Color(0, 0, 0, 0))
+	m.set_shader_parameter("spores", Color(0, 0, 0, 0))
 	m.set_shader_parameter("half_size", Vector2(100, 100))
 	m.set_shader_parameter("ledge", 1.0)
 	return m

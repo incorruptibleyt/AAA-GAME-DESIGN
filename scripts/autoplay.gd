@@ -656,6 +656,22 @@ func _drive(delta: float) -> void:
 					_dashes += 1
 					if _dashes == 1:
 						print("[autoplay] first dash")
+		# Glowcap Grotto: keep out of spore clouds and away from crawling roots, and dash
+		# free when held.
+		for c in SporeCloud.all:
+			if is_instance_valid(c):
+				var d: Vector3 = hero.global_position - c.global_position
+				d.y = 0
+				if d.length() < c.radius + 0.9:
+					move += d.normalized() * (c.radius + 0.9 - d.length()) * 1.5
+		for r in RootCrawl.all:
+			if is_instance_valid(r):
+				var d: Vector3 = hero.global_position - r.global_position
+				d.y = 0
+				if d.length() < 3.0:
+					move += r.dir.cross(Vector3.UP) * signf(d.dot(r.dir.cross(Vector3.UP)) + 0.01) * (3.0 - d.length())
+		if hero.snare_left > 0.0 and hero.dash_ready():
+			hero.dash(Vector3.RIGHT if randf() < 0.5 else Vector3.LEFT)
 		for a: Actor in Actor.all:
 			if a.team == Actor.Team.UNDEAD and not a.dead:
 				var d := hero.global_position - a.global_position

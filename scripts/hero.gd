@@ -50,6 +50,11 @@ var magnet := 1.0
 var coin_bonus := 0.0
 ## Frozen slow by a Frost Wraith's beam: seconds left.
 var chill_left := 0.0
+## Held in place by roots (Glowcap Grotto): seconds left. A dash tears free.
+var snare_left := 0.0
+## After the roots let go (or a dash tears free), a moment when roots can't take hold again,
+## so two crawls in a row can't keep the hero pinned under the next attack.
+var snare_guard := 0.0
 ## Hero blessings (upgrades.gd) tune these.
 var dash_cooldown_time := DASH_COOLDOWN
 var crit_mult := 2.0
@@ -66,6 +71,8 @@ var _ward_bubble: MeshInstance3D
 const DASH_SPEED := 21.0
 const DASH_TIME := 0.17
 const DASH_COOLDOWN := 1.1
+## Seconds after getting free of roots before they can take hold again.
+const SNARE_GUARD := 1.5
 const TWIN_GAIN := 1.4
 var _dash_left := 0.0
 var _dash_cooldown := 0.0
@@ -147,6 +154,8 @@ func place_at(pos: Vector3) -> void:
 	# into the next one (the spin used to start the new room by itself, half a turn round).
 	_spin_left = 0.0
 	chill_left = 0.0
+	snare_left = 0.0
+	snare_guard = 0.0
 	_safe_left = 0.0
 	if visual:
 		visual.rotation.y = 0.0
@@ -182,6 +191,10 @@ func dash(dir: Vector3) -> void:
 		return
 	_dash_dir = dir.normalized()
 	_dash_left = DASH_TIME
+	if snare_left > 0.0:
+		snare_left = 0.0   # tearing free of the roots
+		snare_guard = SNARE_GUARD
+		Fx.magic(center(), RootCrawl.LIME, 12)
 	_last_dash_ms = Time.get_ticks_msec()
 	_dash_cooldown = dash_cooldown_time
 	_trail_t = 0.0
@@ -439,6 +452,17 @@ func _process(delta: float) -> void:
 		chill_left -= delta
 		if randf() < delta * 8.0:
 			Fx.magic(center(), Color(0.6, 0.9, 1.0), 2)
+	if snare_guard > 0.0:
+		snare_guard -= delta
+	if snare_left > 0.0:
+		snare_left -= delta
+		if snare_left <= 0.0:
+			snare_guard = SNARE_GUARD
+		if _moving:
+			# Held by the roots: it can turn and strain, but not move (shooting goes on).
+			face(move, 18.0, delta)
+			_moving = false
+			visual.set_moving(false)
 	if _moving:
 		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * delta, delta)
 		face(move, 18.0, delta)
@@ -713,6 +737,21 @@ func chill(seconds: float) -> void:
 		Fx.magic(center(), Color(0.6, 0.9, 1.0), 16)
 		Game.hud.callout("CHILLED!", Color(0.6, 0.9, 1.0))
 	chill_left = maxf(chill_left, seconds)
+
+
+## Held in place by roots for a moment (Rootbinders and the Sporemother). A dash tears free.
+func snare(seconds: float) -> void:
+	if not can_be_snared():
+		return
+	if snare_left <= 0.0:
+		Game.hud.callout("ROOTED! DASH FREE!", RootCrawl.LIME)
+	snare_left = maxf(snare_left, seconds)
+	Game.buzz(30)
+
+
+## False while held already, or just after getting free (see snare_guard).
+func can_be_snared() -> bool:
+	return snare_left <= 0.0 and snare_guard <= 0.0
 
 
 ## Refills Bone Ward and the healing allowances at the start of each room.

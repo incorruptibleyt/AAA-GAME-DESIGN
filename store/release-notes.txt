@@ -1,6 +1,6 @@
-Version 127: lighter and steadier
-- The game no longer writes a debug log to your phone and runs a little lighter.
-- Shots, hit flashes and damage numbers are reused, so crowded rooms stutter less on older phones.
-- Menus stay clear of camera holes and rounded corners, and the pause button is bigger.
-- Endless floors past 10 no longer turn into a wall.
+Version 128: the Glowcap Grotto
+- A new crypt on floor 4: a cave of glowing mushrooms with its own music.
+- New boss, the Sporemother: she lobs spore pods, sends roots crawling after you and grows rings of mushrooms. In phase 2 the whole floor blooms.
+- Two new skeletons: the Sporeling bursts into a spore cloud when it dies, and the Rootbinder sends roots that hold you in place (dash to break free).
+- The five free floors now have four different bosses.
 - Bug fixes.
