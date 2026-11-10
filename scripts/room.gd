@@ -50,7 +50,7 @@ func player_start() -> Vector3:
 
 func _build_shell() -> void:
 	var look := Floors.current()
-	var wall := U.mat(look.wall, 0.95)
+	var wall := _wall_material(look, U.mat(look.wall, 0.95))
 	var trim := U.mat(look.trim, 0.85)
 	var dark := U.mat(Color(0.02, 0.02, 0.04), 1.0)
 
@@ -65,7 +65,7 @@ func _build_shell() -> void:
 	# The near wall is only a low ledge so it never hides the hero from the camera. It is
 	# laid with darker stone than the floor, so the bottom of the screen reads as the top
 	# of a wall instead of a flat coloured bar.
-	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.5, t), _ledge_material(look), Vector3(0, 0.25, HALF_L + t / 2))
+	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.5, t), _wall_material(look, _ledge_material(look)), Vector3(0, 0.25, HALF_L + t / 2))
 	var side := HALF_W - DOOR_HALF
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(-DOOR_HALF - side / 2, WALL_H / 2, -HALF_L - t / 2))
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(DOOR_HALF + side / 2, WALL_H / 2, -HALF_L - t / 2))
@@ -486,6 +486,147 @@ void fragment() {
 		em += seam.rgb * pit * (1.0 - bar) * (0.7 + 0.3 * sp2) * 0.2;
 	}
 	EMISSION = em * shade;
+}
+"""
+
+
+static var _wall_shaders := {}
+
+## The walls match each crypt's floor (version 134), drawn by one shader built a little
+## differently for each floor_style (0 keeps the plain coloured walls):
+## 1. Bone Crypt: a catacomb wall of skulls in rows, between bands of stacked bone ends.
+## 2. Frozen Ossuary: dark ice with pale streaks running down it and frost at the foot.
+## 3. Ember Catacomb: upright basalt columns with fire glowing low in the joints.
+## 4. Glowcap Grotto: dark earth wall hung with roots, moss at the foot and a few glowing
+##    fungus threads.
+## The pattern follows where the point is in the world, so walls built from several boxes
+## join up, and a box's top takes the pattern seen from above.
+static func _wall_material(look: Dictionary, base: Material) -> Material:
+	var style := int(look.get("floor_style", 0))
+	if style == 0:
+		return base
+	if not _wall_shaders.has(style):
+		var sh := Shader.new()
+		sh.code = "shader_type spatial;\n#define STYLE %d\n" % style + WALL_CODE
+		_wall_shaders[style] = sh
+	var sm := ShaderMaterial.new()
+	sm.shader = _wall_shaders[style]
+	sm.set_shader_parameter("grain", U.noise_tex(0.045, 11, 4))
+	sm.set_shader_parameter("blobs", U.noise_tex(0.018, 37))
+	sm.set_shader_parameter("seam", look.get("seams", Color(0, 0, 0, 0)))
+	sm.set_shader_parameter("spores", look.get("spores", Color(0, 0, 0, 0)))
+	return sm
+
+
+const WALL_CODE := """
+uniform sampler2D grain : repeat_enable, filter_linear_mipmap;
+uniform sampler2D blobs : repeat_enable, filter_linear_mipmap;
+uniform vec4 seam : source_color = vec4(0.0);
+uniform vec4 spores = vec4(0.0);
+varying vec2 uv;
+varying float height;
+varying float top;
+
+float h(vec2 q) {
+	return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void vertex() {
+	vec3 wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	vec3 wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+	height = wp.y;
+	top = step(0.5, abs(wn.y));
+	uv = top > 0.5 ? wp.xz : (abs(wn.z) > 0.5 ? vec2(wp.x, wp.y) : vec2(wp.z, wp.y));
+}
+
+void fragment() {
+	float fine = texture(grain, uv * 0.3).r;
+	vec3 c = vec3(0.1);
+	float rough = 0.9;
+	vec3 em = vec3(0.0);
+#if STYLE == 1
+	const vec3 GAP = vec3(0.05, 0.045, 0.045);
+	vec3 ivory = vec3(0.5, 0.45, 0.37);
+	float row = floor(uv.y / 0.42);
+	bool skulls = top < 0.5 && mod(row, 2.0) < 1.0;
+	c = GAP;
+	if (skulls) {
+		float cx = floor(uv.x / 0.36 + row * 0.5);
+		vec2 lp = vec2((fract(uv.x / 0.36 + row * 0.5) - 0.5) * 0.36, (fract(uv.y / 0.42) - 0.5) * 0.42);
+		lp.x += (h(vec2(cx, row)) - 0.5) * 0.03;
+		float head = length(lp * vec2(1.0, 1.1) - vec2(0.0, 0.025)) - 0.14;
+		float jaw = length(max(abs(lp - vec2(0.0, -0.1)) - vec2(0.06, 0.03), 0.0)) - 0.02;
+		float skull = min(head, jaw);
+		float eyes = length(vec2(abs(lp.x) - 0.055, lp.y - 0.0)) - 0.038;
+		float nose = length(lp - vec2(0.0, -0.055)) - 0.018;
+		float aa = fwidth(skull);
+		float inside = 1.0 - smoothstep(-aa, aa, skull);
+		vec3 sk = ivory * (0.82 + 0.28 * h(vec2(cx, row + 3.0))) * (0.6 + 0.5 * smoothstep(0.0, -0.08, skull));
+		c = mix(c, sk, inside);
+		c = mix(c, GAP, (1.0 - smoothstep(-0.006, 0.006, min(eyes, nose))) * inside);
+	} else if (top > 0.5) {
+		// Seen from above: dark stone laid with rows of bones, like the floor's bands.
+		c = vec3(0.2, 0.19, 0.21) * (0.9 + 0.2 * fine);
+		vec2 lp = vec2((fract(uv.x / 0.5) - 0.5) * 0.5, (fract(uv.y / 0.5) - 0.5) * 0.5);
+		float bs = length(vec2(max(abs(lp.x) - 0.155, 0.0), lp.y)) - 0.04;
+		bs = min(bs, length(vec2(abs(lp.x) - 0.155, abs(lp.y) - 0.036)) - 0.052);
+		float inside = 1.0 - smoothstep(-0.006, 0.006, bs);
+		c = mix(c, ivory * (0.6 + 0.3 * smoothstep(0.0, -0.035, bs)), inside);
+	} else {
+		// The ends of long bones stacked tight, each with a darker hollow.
+		vec2 q = uv / 0.13;
+		q.x += mod(floor(q.y), 2.0) * 0.5;
+		vec2 lp = (fract(q) - 0.5) * 0.13;
+		float d = length(lp);
+		float r0 = 0.055 + 0.008 * h(floor(q));
+		float inside = 1.0 - smoothstep(r0 - 0.005, r0 + 0.005, d);
+		vec3 bc = ivory * (0.72 + 0.3 * h(floor(q) + 4.0)) * (0.7 + 0.4 * smoothstep(r0, 0.0, d));
+		c = mix(c, bc, inside);
+		c = mix(c, bc * 0.45, 1.0 - smoothstep(0.016, 0.024, d));
+	}
+	c *= 0.88 + 0.24 * fine;
+	rough = 0.8;
+#elif STYLE == 2
+	float streak = texture(blobs, vec2(uv.x * 0.9, uv.y * 0.08)).r;
+	c = vec3(0.07, 0.13, 0.21) * (0.85 + 0.3 * fine);
+	c = mix(c, vec3(0.3, 0.42, 0.55), smoothstep(0.55, 0.8, streak) * 0.6);
+	float crack = 1.0 - smoothstep(0.0, 0.02 + fwidth(streak), abs(streak - 0.42));
+	c = mix(c, vec3(0.55, 0.66, 0.78), crack * 0.6);
+	float frost = 1.0 - smoothstep(0.0, 0.7, height) + top;
+	c = mix(c, vec3(0.45, 0.52, 0.6) * (0.85 + 0.3 * fine), clamp(frost, 0.0, 1.0) * 0.7);
+	rough = mix(0.1, 0.85, clamp(frost, 0.0, 1.0));
+#elif STYLE == 3
+	const float w = 0.38;
+	float col = floor(uv.x / w);
+	float fx = fract(uv.x / w);
+	float ch = h(vec2(col, 1.3));
+	float seg = 0.7 + 0.6 * h(vec2(col, 8.1));
+	float fy = fract(uv.y / seg + ch);
+	c = vec3(0.16, 0.14, 0.14) * (0.7 + 0.6 * ch) * (0.9 + 0.2 * fine);
+	// Each column is rounded a little: lit on its left, dark on its right.
+	c *= 0.75 + 0.45 * smoothstep(1.0, 0.0, fx) * smoothstep(0.0, 0.2, fx);
+	float joint = max(1.0 - smoothstep(0.0, 0.05, min(fx, 1.0 - fx)), (1.0 - smoothstep(0.0, 0.03, min(fy, 1.0 - fy))) * (1.0 - top));
+	c = mix(c, vec3(0.03, 0.02, 0.02), joint);
+	float low = 1.0 - smoothstep(0.0, 1.1, height);
+	em += seam.rgb * joint * low * (0.45 + 0.35 * sin(TIME * 1.3 + col * 2.1)) * (1.0 - top);
+	rough = 0.85;
+#elif STYLE == 4
+	float rt = texture(blobs, vec2(uv.x * 0.35, uv.y * 0.06)).r;
+	c = vec3(0.12, 0.1, 0.08) * (0.8 + 0.4 * fine);
+	float root = 1.0 - smoothstep(0.0, 0.025 + fwidth(rt), abs(rt - 0.5));
+	float root2 = 1.0 - smoothstep(0.0, 0.02 + fwidth(rt), abs(rt - 0.35));
+	c = mix(c, vec3(0.26, 0.2, 0.14), max(root, root2 * 0.7));
+	float moss = clamp(1.0 - smoothstep(0.0, 0.9, height + (fine - 0.5) * 0.6) + top, 0.0, 1.0);
+	c = mix(c, vec3(0.1, 0.16, 0.08) * (0.8 + 0.4 * fine), moss);
+	float thread = (1.0 - smoothstep(0.0, 0.012 + fwidth(rt), abs(rt - 0.62))) * (1.0 - top);
+	c = mix(c, spores.rgb * 0.4, thread * 0.6);
+	em += spores.rgb * thread * (0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.4 - uv.y * 4.0 + uv.x), 4.0)) * 0.6;
+#endif
+	// Darker at the foot of the wall, where the floor meets it.
+	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
+	ALBEDO = c * foot;
+	ROUGHNESS = rough;
+	EMISSION = em;
 }
 """
 

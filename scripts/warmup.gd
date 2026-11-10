@@ -161,7 +161,9 @@ static func run() -> void:
 	# the Tidecaller's wave.
 	steps.append(func():
 		for i in Floors.THEMES.size():
-			U.floor_quad(holder, Vector2(1, 1), Room._floor_material(Floors.THEMES[i]), spots[i] + Vector3(0, 0.02, 0.6)))
+			U.floor_quad(holder, Vector2(1, 1), Room._floor_material(Floors.THEMES[i]), spots[i] + Vector3(0, 0.02, 0.6))
+			# Each crypt's own walls (version 134).
+			U.box(holder, Vector3(0.6, 0.6, 0.6), Room._wall_material(Floors.THEMES[i], U.mat(Color.GRAY)), spots[i] + Vector3(0.6, 0.3, 0.6)))
 	steps.append(func():
 		var props := [Props._skull_pile(true), Props._skull_pile(false), Props._crystals(), Props._icicles(), Props._brazier(), Props._grate(),
 			Props._kelp_column(), Props._spout()]
