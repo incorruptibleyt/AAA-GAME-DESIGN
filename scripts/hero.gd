@@ -518,7 +518,8 @@ func _pick_target() -> Actor:
 
 func _shoot(fwd: Vector3) -> void:
 	visual.attack()
-	Sfx.play("shoot", 0.5)
+	var shot := "shoot_" + hero_id
+	Sfx.play(shot if Sfx.has(shot) else "shoot", 0.5)
 	var right := fwd.cross(Vector3.UP).normalized()
 	var origin := global_position + Vector3.UP * 1.1 + fwd * 0.6
 	var col := Color(1.0, 0.55, 0.2) if burn_dps > 0.0 else bolt_color

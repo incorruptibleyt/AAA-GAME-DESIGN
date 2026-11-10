@@ -8,7 +8,8 @@ extends Node
 ## Game sounds play through the "Effects" bus (a short crypt echo); menu sounds and the
 ## announcer skip it (see make_buses).
 
-const RATE := 22050
+## Code-made sounds are worked out at CD quality (version 136; was 22050).
+const RATE := 44100
 
 static var _instance: Sfx
 var _clips := {}
@@ -20,7 +21,8 @@ static var enabled := true
 
 ## Most copies of one sound allowed to start in a single frame. A big crowd dying at once
 ## used to start ten copies of "die" and cut off every other sound in the 10-player pool.
-const PER_FRAME := {"hit": 2, "shoot": 2, "die": 3, "voice": 1}
+const PER_FRAME := {"hit": 2, "shoot": 2, "die": 3, "voice": 1,
+		"shoot_rogue": 2, "shoot_knight": 2, "shoot_barbarian": 2, "shoot_mage": 2}
 static var _frame := -1
 static var _started := {}
 
@@ -42,6 +44,11 @@ static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
 		_started[sound] = n + 1
 	var clip = _instance._clips[sound]
 	_instance._start(clip.pick_random() if clip is Array else clip, &"Master" if sound in DRY else &"Effects", volume, pitch)
+
+
+## Whether `sound` has anything to play (a hero's own shot falls back to "shoot").
+static func has(sound: String) -> bool:
+	return _instance != null and _instance._clips.has(sound)
 
 
 ## Plays a sound made elsewhere (the room tone's drips and pops) through the echo.
@@ -69,60 +76,73 @@ func _ready() -> void:
 		add_child(p)
 		_players.append(p)
 
-	_clips["shoot"] = _synth(0.12, func(t): return _sweep(t, 900, 300) * _env(t, 0.12) * 0.3)
-	_clips["hit"] = _synth(0.1, func(t): return (_noise() * 0.6 + _square(t, 140) * 0.4) * _env(t, 0.1) * 0.45)
-	_clips["die"] = _synth(0.3, func(t): return (_noise() * 0.7 + _sweep(t, 400, 60) * 0.3) * _env(t, 0.3) * 0.5)
-	_clips["hurt"] = _synth(0.25, func(t): return _square(t, 110 - t * 200) * _env(t, 0.25) * 0.35)
-	_clips["door"] = _synth(0.6, func(t): return (_noise() * 0.3 + _square(t, 55) * 0.2) * _env(t, 0.6) * 0.5)
-	_clips["upgrade"] = _synth(0.45, func(t): return (_sine(t, 523) + _sine(t, 784 if t > 0.15 else 659)) * _env(t, 0.45) * 0.22)
-	_clips["warn"] = _synth(0.15, func(t): return _sine(t, 1200) * _env(t, 0.15) * 0.12)
-	_clips["boom"] = _synth(0.5, func(t): return _noise() * _env(t, 0.5) * 0.55)
-	_clips["roar"] = _synth(1.1, func(t): return (_square(t, 70 + sin(t * 30) * 8) * 0.5 + _noise() * 0.3) * _env(t, 1.1) * 0.5)
-	_clips["coin"] = _synth(0.18, func(t): return (_sine(t, 1320 if t > 0.05 else 990)) * _env(t, 0.18) * 0.25)
-	_clips["click"] = _synth(0.06, func(t): return _sine(t, 700) * _env(t, 0.06) * 0.25)
-	_clips["dash"] = _synth(0.22, func(t): return (_noise() * 0.6 + _sweep(t, 300, 1400) * 0.25) * _env(t, 0.22) * 0.4)
-	_clips["slam"] = _synth(0.9, func(t): return (_sweep(t, 120, 35) * 0.7 + _noise() * 0.35 * exp(-t * 8.0)) * _env(t, 0.9) * 0.6)
-	_clips["crack"] = _synth(0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
+	# Recorded and pre-made files first; a sound is only worked out here when it has none
+	# (version 136: the code-made ones are saved as files by tools/audio, so start-up is quicker).
+	_load_samples()
+	_make("shoot", 0.12, func(t): return _sweep(t, 900, 300) * _env(t, 0.12) * 0.3)
+	_make("hit", 0.1, func(t): return (_noise() * 0.6 + _square(t, 140) * 0.4) * _env(t, 0.1) * 0.45)
+	_make("die", 0.3, func(t): return (_noise() * 0.7 + _sweep(t, 400, 60) * 0.3) * _env(t, 0.3) * 0.5)
+	_make("hurt", 0.25, func(t): return _square(t, 110 - t * 200) * _env(t, 0.25) * 0.35)
+	_make("door", 0.6, func(t): return (_noise() * 0.3 + _square(t, 55) * 0.2) * _env(t, 0.6) * 0.5)
+	_make("upgrade", 0.45, func(t): return (_sine(t, 523) + _sine(t, 784 if t > 0.15 else 659)) * _env(t, 0.45) * 0.22)
+	_make("warn", 0.15, func(t): return _sine(t, 1200) * _env(t, 0.15) * 0.12)
+	_make("boom", 0.5, func(t): return _noise() * _env(t, 0.5) * 0.55)
+	_make("roar", 1.1, func(t): return (_square(t, 70 + sin(t * 30) * 8) * 0.5 + _noise() * 0.3) * _env(t, 1.1) * 0.5)
+	_make("coin", 0.18, func(t): return (_sine(t, 1320 if t > 0.05 else 990)) * _env(t, 0.18) * 0.25)
+	_make("click", 0.06, func(t): return _sine(t, 700) * _env(t, 0.06) * 0.25)
+	_make("dash", 0.22, func(t): return (_noise() * 0.6 + _sweep(t, 300, 1400) * 0.25) * _env(t, 0.22) * 0.4)
+	_make("slam", 0.9, func(t): return (_sweep(t, 120, 35) * 0.7 + _noise() * 0.35 * exp(-t * 8.0)) * _env(t, 0.9) * 0.6)
+	_make("crack", 0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
 	# A heartbeat for low health (code-made on purpose: two soft low thumps).
 	# Water: a wash of noise that dies away with a little rising bloop (the Drowned Vault).
-	_clips["splash"] = _synth(0.5, func(t): return (_noise() * exp(-t * 7.0) * 0.55 + _sweep(t, 260, 760) * exp(-t * 16.0) * 0.3) * _env(t, 0.5) * 0.5)
+	_make("splash", 0.5, func(t): return (_noise() * exp(-t * 7.0) * 0.55 + _sweep(t, 260, 760) * exp(-t * 16.0) * 0.3) * _env(t, 0.5) * 0.5)
 	# Version 128, the Glowcap Grotto: a soft "pff" of spores (breathy noise that swells and
 	# dies, over a low hollow pop), and roots tearing through the floor (a creak that bends
 	# down, under crackling grit).
-	_clips["spore"] = _synth(0.55, func(t): return (_noise() * (1.0 - exp(-t * 60.0)) * exp(-t * 7.5) * 0.5 \
+	_make("spore", 0.55, func(t): return (_noise() * (1.0 - exp(-t * 60.0)) * exp(-t * 7.5) * 0.5 \
 			+ _sine(t, 150.0 - t * 120.0) * exp(-t * 18.0) * 0.45 + _sine(t, 620.0 + t * 300.0) * exp(-t * 26.0) * 0.12) * _env(t, 0.55) * 0.6)
-	_clips["roots"] = _synth(0.6, func(t): return (_square(t, 95.0 - t * 60.0 + sin(t * 70.0) * 9.0) * 0.28 * exp(-t * 3.5) \
+	_make("roots", 0.6, func(t): return (_square(t, 95.0 - t * 60.0 + sin(t * 70.0) * 9.0) * 0.28 * exp(-t * 3.5) \
 			+ _noise() * (0.35 + 0.4 * float(sin(t * 210.0) > 0.7)) * exp(-t * 6.0) * 0.6) * _env(t, 0.6) * 0.55)
-	_clips["heart"] = _synth(0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
+	_make("heart", 0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
 	# Version 122: a short tick for numbers counting up, and a rising three-note sting for
 	# Epic and Legendary drops.
-	_clips["tick"] = _synth(0.04, func(t): return _sine(t, 1800) * _env(t, 0.04) * 0.18)
-	_clips["sting"] = _synth(1.0, func(t): return (_sine(t, 659) * float(t < 0.18) + _sine(t, 880) * float(t >= 0.18 and t < 0.36) \
+	_make("tick", 0.04, func(t): return _sine(t, 1800) * _env(t, 0.04) * 0.18)
+	_make("sting", 1.0, func(t): return (_sine(t, 659) * float(t < 0.18) + _sine(t, 880) * float(t >= 0.18 and t < 0.36) \
 			+ (_sine(t, 1047) + _sine(t, 1319) * 0.6) * float(t >= 0.36)) * _env(t, 1.0) * 0.22)
 	# Version 129: the heroes' chatter. Not words: little sung syllables, one every few
 	# letters while a hero's speech bubble types out, at that hero's own pitch (Heroes.LIST
 	# "voice"). Three vowel colours, picked at random, so a line sounds like talk.
 	var vowels := [[1.0, 2.6], [1.0, 3.4], [1.0, 1.9]]
 	var syllables := []
-	for v in vowels:
+	for v in (vowels if not _clips.has("voice") else []):
 		var f1: float = 300.0 * v[0]
 		var f2: float = 300.0 * v[1]
 		syllables.append(_synth(0.075, func(t): return (_sine(t, f1 + t * 400.0) * 0.55 + _square(t, f1 + t * 400.0) * 0.12 \
 				+ _sine(t, f2) * 0.25) * minf(t * 160.0, 1.0) * exp(-t * 22.0) * 0.5))
-	_clips["voice"] = syllables
+	if not _clips.has("voice"):
+		_clips["voice"] = syllables
 	# Version 131: a look's reveal on the pedestal: two bright rising tones that shimmer,
 	# over a soft swell of air.
-	_clips["shimmer"] = _synth(1.1, func(t): return (_sine(t, 1568.0 + t * 500.0) * (0.55 + 0.45 * sin(t * 90.0)) * 0.35 \
+	_make("shimmer", 1.1, func(t): return (_sine(t, 1568.0 + t * 500.0) * (0.55 + 0.45 * sin(t * 90.0)) * 0.35 \
 			+ _sine(t, 2093.0 + t * 700.0) * (0.55 + 0.45 * sin(t * 70.0 + 1.3)) * 0.22 \
 			+ _noise() * (1.0 - exp(-t * 6.0)) * exp(-t * 4.0) * 0.12) * _env(t, 1.1) * 0.35)
-	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
-	_load_samples()
+	_make("victory", 1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
+
+
+## Works out a sound in code, unless a file for it was loaded.
+func _make(sound: String, seconds: float, wave: Callable) -> void:
+	if not _clips.has(sound):
+		_clips[sound] = _synth(seconds, wave)
 
 
 ## Looks for audio/sfx/<name>_0.ogg, _1.ogg ... and uses them instead of the synth.
 func _load_samples() -> void:
-	for sound in ["shoot", "hit", "die", "hurt", "door", "upgrade", "coin", "click", "dash", "slam", "crack", "pickup",
-			"warn", "boom", "roar", "victory", "wraith", "beam", "ignite", "vo_prepare", "vo_win", "vo_lose", "vo_combo"]:
+	# Version 136: each hero's own shot (made by tools/audio/design.py from Kenney's
+	# recordings layered with made sounds): the Rogue's crossbow, the Knight's sword wave, the
+	# Barbarian's spinning axe and the Mage's chiming orb.
+	for sound in ["shoot", "shoot_rogue", "shoot_knight", "shoot_barbarian", "shoot_mage", "hit", "die", "hurt", "door", "upgrade", "coin", "click", "dash", "slam", "crack", "pickup",
+			"warn", "boom", "roar", "victory", "wraith", "beam", "ignite", "vo_prepare", "vo_win", "vo_lose", "vo_combo",
+			"splash", "spore", "roots", "heart", "tick", "sting", "shimmer", "voice"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]

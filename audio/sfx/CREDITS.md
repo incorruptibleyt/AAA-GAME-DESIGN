@@ -16,3 +16,8 @@ Every sound here is CC0 (public domain): free to use, no credit required. Credit
 
 The extra packs are fetched by `.github/workflows/fetch-audio-extra.yml` to the
 `audio-pack-2` release.
+- Version 136: each hero's shot (`shoot_rogue_*`, `shoot_knight_*`, `shoot_barbarian_*`,
+  `shoot_mage_*`) and the hit (`hit_*`) are made by `tools/audio/design.py`, layering Kenney's
+  RPG Audio, Impact Sounds and Sci-Fi Sounds with made sounds. `splash`, `spore`, `roots`,
+  `heart`, `tick`, `sting`, `shimmer` and `voice` are the game's own code-made sounds saved as
+  files at 44.1 kHz.
