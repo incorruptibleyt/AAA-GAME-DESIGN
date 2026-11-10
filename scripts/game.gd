@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10q"
+const BUILD := "2026-11-10r"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -336,6 +336,7 @@ func _ready() -> void:
 	add_child(Music.new())
 	add_child(Ambience.new())
 	add_child(Telemetry.new())
+	add_child(Leaders.new())   # version 137: Google Play Games leaderboards
 	add_child(UpdateGate.new())   # asks Google Play for a newer version straight away
 	get_tree().node_added.connect(_count_added)
 	add_child(Store.new())
@@ -716,6 +717,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.feedback_visible():
 			hud.show_feedback(false)
+			return
+		if hud.leaders_visible():
+			hud.close_leaders()
 			return
 		if is_instance_valid(speed_card):
 			speed_card.queue_free()
@@ -4385,11 +4389,21 @@ func _save_score(cfg: ConfigFile) -> int:
 			return maxi(day_best, score)   # Practice never counts, so it's never a new best
 		if score > day_best:
 			cfg.set_value("daily", _daily_date, score)
+		_submit_score("daily")
 		return day_best
+	if event == "" and not first_run:
+		_submit_score("best")
 	var best := int(cfg.get_value("stats", "best_score", 0))
 	if score > best:
 		cfg.set_value("stats", "best_score", score)
 	return best
+
+
+## Version 137: puts the run's score on the Google Play leaderboard (kept until it can be sent).
+## Robot runs never send.
+func _submit_score(key: String) -> void:
+	if Leaders.instance and not "autoplay" in OS.get_cmdline_user_args():
+		Leaders.instance.submit.call_deferred(key, score)
 
 
 func _save_best(cfg: ConfigFile, room_reached: int) -> void:

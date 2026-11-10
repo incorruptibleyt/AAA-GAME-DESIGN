@@ -82,6 +82,27 @@ jobs:
           done
           ls -la addons/PlayUpdate/bin/*
 
+      # Leaderboards: a small Android plugin (android_plugins/PlayGames) for Google Play Games.
+      # It is always compiled (to catch mistakes), but only goes into the game once
+      # android_plugins/PlayGames/app_id.txt holds the Play Games project ID: without one, Play
+      # Games would stop the app at launch.
+      - name: Build the Play Games plugin
+        run: |
+          curl -sSL https://dl.google.com/dl/android/maven2/com/google/android/gms/play-services-games-v2/maven-metadata.xml | grep -o '<latest>[^<]*' || true
+          id=$(tr -cd '0-9' < android_plugins/PlayGames/app_id.txt)
+          mkdir -p android_plugins/PlayGames/src/main/res/values
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <string name="game_services_project_id" translatable="false">%s</string>\n</resources>\n' "${id:-0}" > android_plugins/PlayGames/src/main/res/values/games_ids.xml
+          "$RUNNER_TEMP/gradle-8.11.1/bin/gradle" -p android_plugins/PlayGames --no-daemon -q assembleRelease assembleDebug
+          if [ -n "$id" ]; then
+            for kind in release debug; do
+              mkdir -p addons/PlayGames/bin/$kind
+              cp android_plugins/PlayGames/build/outputs/aar/PlayGames-$kind.aar addons/PlayGames/bin/$kind/
+            done
+            ls -la addons/PlayGames/bin/*
+          else
+            echo "No Play Games project ID yet: the plugin is built but left out of the game."
+          fi
+
       # KayKit packs uploaded as .zip files to the ArtZips folder are unpacked into the game here.
       - name: Unpack KayKit art
         run: |

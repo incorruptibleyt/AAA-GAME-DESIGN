@@ -27,7 +27,7 @@ window/handheld/orientation=1
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res://addons/PlayUpdate/plugin.cfg")
+enabled=PackedStringArray("res://addons/GodotGooglePlayBilling/plugin.cfg", "res://addons/PlayUpdate/plugin.cfg", "res://addons/PlayGames/plugin.cfg")
 
 [input_devices]
 

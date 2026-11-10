@@ -238,6 +238,9 @@ var _records_box: Control
 var _records_grid: GridContainer
 var _records_note: Label
 var _title_records: Control
+var _leaders: LeaderScreen   # version 137: Daily Crypt and best-run leaderboards
+var _rw_leaders: Control
+var _daily_board: Button
 var _title_settings: Control
 var _title_drops: Button
 var _end_drop: Button
@@ -386,6 +389,8 @@ func _ready() -> void:
 		if _heroes_box.visible:
 			_heroes_box._stage.set_active(true))
 	_build_daily()
+	_leaders = LeaderScreen.new()
+	add_child(_leaders)
 	_build_omens()
 	_build_reports_ask()
 	_build_pass()
@@ -2358,6 +2363,13 @@ func _build_daily() -> void:
 	col.add_child(_centered(_daily_go))
 	_daily_next = label("", 16, Color(0.65, 0.63, 0.7))
 	col.add_child(_daily_next)
+	_daily_board = button("TODAY'S LEADERBOARD", 22, Color(0.05, 0.2, 0.1, 0.97), Color(0.5, 1.0, 0.65))
+	_daily_board.custom_minimum_size = Vector2(340, 66)
+	_daily_board.pressed.connect(func():
+		Sfx.play("click")
+		show_leaders("daily"))
+	_daily_board.visible = false
+	col.add_child(_centered(_daily_board))
 	var back := button("BACK", 26)
 	back.pressed.connect(func(): show_daily(false))
 	_frame(_daily_box, col, back)
@@ -2381,6 +2393,20 @@ func show_daily(v: bool, info := {}) -> void:
 	_daily_go.text = ("PLAY PRACTICE" if info.practice else "START OFFICIAL RUN") if info.open else "GET THE CRYPT PASS"
 	_daily_go.add_theme_font_size_override("font_size", 26)
 	_daily_next.text = info.next
+	_daily_board.visible = Leaders.available()
+
+
+## Version 137: the leaderboard screen, on "daily" or "best".
+func show_leaders(key := "daily") -> void:
+	_leaders.open(key)
+
+
+func leaders_visible() -> bool:
+	return _leaders.visible
+
+
+func close_leaders() -> void:
+	_leaders.close()
 
 
 func daily_visible() -> bool:
@@ -2611,7 +2637,7 @@ func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
 		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible \
-		or _rewards_box.visible or _feats.visible or _event.visible or _splash.visible
+		or _rewards_box.visible or _feats.visible or _event.visible or _splash.visible or _leaders.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -2701,7 +2727,7 @@ func _process(delta: float) -> void:
 	if _title_box.visible:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
 			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible or _drops.visible or _road.visible \
-			or _event.visible or _splash.visible or (_settings_only and _pause_box.visible))
+			or _event.visible or _splash.visible or _leaders.visible or (_settings_only and _pause_box.visible))
 	# The OPEN BONE DROP buttons glow gently, so a drop waiting isn't missed.
 	if _title_drops.is_visible_in_tree() or _end_drop.is_visible_in_tree():
 		var glow := 1.0 + 0.16 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.2))
@@ -3209,6 +3235,14 @@ func _build_rewards() -> void:
 	var rec := button("RECORDS", 24)
 	rec.pressed.connect(func(): records_pressed.emit())
 	col.add_child(_reward_row(rec, "Best runs, bosses beaten and totals"))
+	# Version 137: the leaderboards (only once Google Play Games is set up on this phone).
+	var lb := button("LEADERBOARDS", 24, Color(0.05, 0.2, 0.1, 0.97), Color(0.5, 1.0, 0.65))
+	lb.pressed.connect(func():
+		Sfx.play("click")
+		show_leaders("best"))
+	_rw_leaders = _reward_row(lb, "Today's Daily Crypt and this week's best runs")
+	_rw_leaders.visible = false
+	col.add_child(_rw_leaders)
 	# The same blue BACK as the Feats, Mastery and Armory screens (version 119: it was grey).
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 16)
@@ -3270,6 +3304,7 @@ func show_rewards(v: bool) -> void:
 		Sfx.play("click")
 		refresh_rewards()
 	_rewards_box.visible = v
+	_rw_leaders.visible = Leaders.available()
 
 
 func rewards_visible() -> bool:
@@ -3751,7 +3786,8 @@ func covers_world() -> bool:
 	return _style.visible or _feats.visible or _mastery.visible or _drops.visible or _heroes_box.visible \
 			or (_rewards_box != null and _rewards_box.visible) or _armory_box.visible or _records_box.visible \
 			or _pass_box.visible or _modes_box.visible or _daily_box.visible or _omen_box.visible \
-			or _fb_box.visible or _road.visible or _ask_box.visible or _event.visible or _splash.visible
+			or _fb_box.visible or _road.visible or _ask_box.visible or _event.visible or _splash.visible \
+			or (_leaders != null and _leaders.visible)
 
 
 func feats_visible() -> bool:

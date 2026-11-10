@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="org.godotengine.plugin.v2.PlayGames"
+            android:value="org.bonechain.playgames.PlayGamesPlugin" />
+        <!-- The game's Play Games project ID, written to res/values/games_ids.xml by CI from app_id.txt. -->
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="@string/game_services_project_id" />
+    </application>
+</manifest>
