@@ -34,7 +34,7 @@ for i, f0 in enumerate([600, 540, 660]):
 for i, f in enumerate([440, 494, 415]):
     a = mix((blip(f, f * 1.5, 0.16, 0.06), 0, 0.8), (blip(f * 1.5, f * 2.25, 0.12, 0.04), 0.012, 0.25),
             (whoosh(0.1, 1800, 800, 1.0, 0.01), 0, 0.35))
-    save(soften(a, 4000), "shoot_mage_%d" % i, -24.0, 0.2)
+    save(soften(a, 4000), "shoot_mage_%d" % i, -30.0, 0.2)  # Jesse: "a quieter version of A"
 # Hit: keep the punch and thump, a softer crack, nothing above ~6 kHz.
 for i in range(5):
     a = mix((load("k1/impact-sounds/impactPunch_medium_00%d.ogg" % i), 0, 0.8),

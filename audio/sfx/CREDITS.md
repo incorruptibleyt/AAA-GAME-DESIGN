@@ -20,4 +20,5 @@ The extra packs are fetched by `.github/workflows/fetch-audio-extra.yml` to the
   `shoot_mage_*`) and the hit (`hit_*`) are made by `tools/audio/design.py`, layering Kenney's
   RPG Audio, Impact Sounds and Sci-Fi Sounds with made sounds. `splash`, `spore`, `roots`,
   `heart`, `tick`, `sting`, `shimmer` and `voice` are the game's own code-made sounds saved as
-  files at 44.1 kHz.
+  files at 44.1 kHz. The shots and hits in the game are Jesse's picks: option B from
+  `tools/audio/options.py` for rogue, knight, barbarian and the hit, and a quieter `soft.py` mage.
