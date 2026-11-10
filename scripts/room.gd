@@ -405,7 +405,6 @@ void fragment() {
 	const vec3 GOLD = vec3(0.78, 0.58, 0.24);
 	c = mix(c, GOLD, inlay);
 	rough = mix(rough, 0.35, inlay);
-	em += vec3(0.5, 0.36, 0.14) * inlay * 0.12;
 	float bt = fract(TIME * 0.9);
 	float beat = exp(-bt * 9.0) + 0.6 * exp(-max(bt - 0.22, 0.0) * 9.0) * step(0.22, bt);
 	// Only a few slabs carry a blood vein (one in four), thin, so the marble stays black.
@@ -421,12 +420,12 @@ void fragment() {
 		float ring2 = 1.0 - smoothstep(0.012, 0.024 + aR, abs(R - 1.72));
 		float a = atan(pos.y, pos.x);
 		float ray = (1.0 - smoothstep(0.03, 0.06, abs(fract(a / 6.2831853 * 12.0) - 0.5) * 0.5)) * step(1.45, R) * (1.0 - step(1.7, R));
-		vec3 moon = vec3(0.55, 0.06, 0.05) * (0.85 + 0.3 * texture(blobs_a, pos * 0.4).r);
+		// Dark gold, still: a red, throbbing disc read as a danger circle (version 140).
+		vec3 moon = vec3(0.3, 0.2, 0.08) * (0.85 + 0.3 * texture(blobs_a, pos * 0.4).r);
 		c = mix(c, moon, disc);
 		c = mix(c, vec3(0.06, 0.02, 0.03), disc * dark * 0.85);
 		c = mix(c, GOLD * 1.2, max(max(ring, ring2), ray));
 		rough = mix(rough, 0.3, disc);
-		em += seam.rgb * disc * (1.0 - dark * 0.85) * (0.25 + 0.35 * beat) * seam.a;
 		em += vec3(1.0, 0.7, 0.3) * max(ring, ray) * 0.15;
 	}
 	n = normalize(vec3((r - 0.5) * 0.05, 1.0, (h(dcell + 3.0) - 0.5) * 0.05));

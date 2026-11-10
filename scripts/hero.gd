@@ -76,6 +76,11 @@ const SNARE_GUARD := 1.5
 const TWIN_GAIN := 1.4
 var _dash_left := 0.0
 var _dash_cooldown := 0.0
+## A dash asked for just before the dash recharged (DASH_BUFFER seconds early) goes off as
+## soon as it's ready, instead of being lost (version 140).
+const DASH_BUFFER := 0.12
+var _dash_wanted := Vector3.ZERO
+var _dash_wanted_t := 0.0
 var _last_dash_ms := -100000
 var _aura: MeshInstance3D
 var _dash_dir := Vector3.ZERO
@@ -187,8 +192,14 @@ func dash_ready() -> bool:
 ## Start a dash along `dir` (on the floor). Does nothing while it's recharging.
 func dash(dir: Vector3) -> void:
 	dir.y = 0.0
-	if dead or not dash_ready() or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING:
+	if dead or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING:
 		return
+	if not dash_ready():
+		if _dash_cooldown <= DASH_BUFFER:
+			_dash_wanted = dir
+			_dash_wanted_t = DASH_BUFFER + 0.02
+		return
+	_dash_wanted_t = 0.0
 	_dash_dir = dir.normalized()
 	_dash_left = DASH_TIME
 	if snare_left > 0.0:
@@ -419,6 +430,10 @@ func _process(delta: float) -> void:
 	_update_ward_bubble()
 	_update_dash_ring()
 	_dash_cooldown -= delta
+	if _dash_wanted_t > 0.0:
+		_dash_wanted_t -= delta
+		if dash_ready() and _dash_wanted_t > 0.0:
+			dash(_dash_wanted)
 	if _safe_left > 0.0 and _dash_left <= 0.0:
 		_safe_left -= delta
 	if _dash_left > 0.0:
@@ -466,7 +481,9 @@ func _process(delta: float) -> void:
 	if _moving:
 		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * delta, delta)
 		face(move, 18.0, delta)
-		_shot_timer = maxf(_shot_timer, 0.12)   # firing resumes shortly after you stop
+		# The reload keeps counting while you move (it used to wait), and firing resumes
+		# shortly after you stop.
+		_shot_timer = maxf(_shot_timer - delta, 0.12)
 		_retarget = 0.0   # and aims from where you stopped
 	else:
 		move_by(Vector3.ZERO, delta)

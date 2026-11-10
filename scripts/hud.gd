@@ -69,7 +69,7 @@ signal event_closed
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
 const FLICK_TIME := 0.22
-const FLICK_DISTANCE := 45.0
+const FLICK_DISTANCE := 70.0   # 45 before version 140: a small step often dashed
 
 const GOLD := Color(1.0, 0.8, 0.3)
 ## The chunky cartoon font for titles, buttons and big numbers (fonts/OFL-LilitaOne.txt).

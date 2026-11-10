@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10s"
+const BUILD := "2026-11-10t"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -202,7 +202,9 @@ var _daily_done := false
 ## Events (events.gd, version 134). `event` is "run" in the Blood Moon run (three floors of
 ## the event crypt, the Blood Moon Queen at the end), "hunt" in the Queen Hunt (her throne
 ## room only, on tier `event_tier`, 1-5), "" otherwise. Moon Shards earned this run wait
-## in _shards_unsaved until an end screen banks them. Event runs aren't saved mid-run.
+## in _shards_unsaved until a room clear or an end screen banks them. A Blood Moon run is saved
+## at each room like a normal one (version 140), and dropped if the event has ended by the time
+## it's continued. The Queen Hunt is one room, so it isn't.
 var event := ""
 var event_tier := 0
 var _event_requested := ""
@@ -1066,14 +1068,22 @@ func perfect_dodge(pos: Vector3, big := true) -> void:
 
 
 ## The DASH button dashes the way you're moving (or were moving a moment ago, before the
-## thumb left the stick to tap it), or the way you face if you've been still.
+## thumb left the stick to tap it). Standing still, it dashes the way you last moved, or
+## (after a while) straight back from the skeleton you're shooting. It used to go the way
+## the hero faced, which while shooting is right into that skeleton.
 func _dash_from_button() -> void:
 	if hero == null:
 		return
 	var m := hud.joystick + keyboard_move()
-	if m.length() <= 0.2 and Time.get_ticks_msec() - hud.last_move_ms < 450:
+	var since := Time.get_ticks_msec() - hud.last_move_ms
+	if m.length() <= 0.2 and since < 2000 and hud.last_move.length() > 0.2:
 		m = hud.last_move
-	hero.dash(Vector3(m.x, 0, m.y) if m.length() > 0.2 else -hero.global_transform.basis.z)
+	if m.length() > 0.2:
+		hero.dash(Vector3(m.x, 0, m.y))
+	else:
+		# Shooting, the hero faces its target: dash away from it. Otherwise the way it faces.
+		var back := is_instance_valid(hero._target) and alive_enemies > 0
+		hero.dash(hero.global_transform.basis.z * (1.0 if back else -1.0))
 
 
 ## Dash lessons: until you've pulled off a few perfect dodges, a shot about to hit you
@@ -2082,10 +2092,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 
 
 ## Saves the run as it is at the start of this room (or of the next floor, after a boss),
-## so it can be continued if the game is closed. Not during the first run.
+## so it can be continued if the game is closed. Not during the first run or the Queen Hunt.
 ## `loop_end`: saved on the end-of-loop screen, which CONTINUE comes back to.
 func _checkpoint(next_floor := false, loop_end := false) -> void:
-	if first_run or event != "" or hero == null or hero.dead:
+	if first_run or event == "hunt" or hero == null or hero.dead:
 		return
 	var h := RunSave.hero_state(hero)
 	if next_floor:
@@ -2103,7 +2113,8 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 		"feat_counts": {} if _rep.is_empty() else {"perfect": int(_rep.perfect), "special": int(_rep.special),
 			"best_chain": float(_rep.best_chain), "hits": int(_rep.hits)},
 		"rooms": [] if next_floor or loop_end else _run.duplicate(true),   # this floor's rooms, to come back to
-		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {}})
+		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {},
+		"event": event, "event_id": str(Events.current().get("id", "")) if event != "" else ""})
 
 
 ## "Floor 3 · Room 2" for the CONTINUE button, or "" when there's no saved run.
@@ -2111,6 +2122,8 @@ func continue_text() -> String:
 	var s := RunSave.read()
 	if s.is_empty():
 		return ""
+	if _event_save_stale(s):
+		return ""   # a Blood Moon run whose event has ended (the next run replaces it)
 	var where := "Floor %d · %s" % [s.floor, "Boss" if s.room >= EASY_ROOMS + MEDIUM_ROOMS + HARD_ROOMS else "Room %d" % (s.room + 1)]
 	if s.get("loop_end", false):
 		where = "Loop %d cleared" % Loops.loop_of(int(s.floor))
@@ -2118,13 +2131,21 @@ func continue_text() -> String:
 			where = "Floor %d cleared" % int(s.floor)
 	if _save_needs_pass(s):
 		where += " · Crypt Pass"
+	if str(s.get("event", "")) != "":
+		return "Blood Moon · " + where
 	return ("Daily Crypt · " if s.daily else "") + where
+
+
+## A saved Blood Moon run from an event that has since ended.
+func _event_save_stale(s: Dictionary) -> bool:
+	return str(s.get("event", "")) != "" and (not Events.active()
+			or str(Events.current().get("id", "")) != str(s.get("event_id", "")))
 
 
 ## A saved run only the Crypt Pass can carry on (past the free floors, a practice Daily or
 ## a Pass-only curse). After a refund, CONTINUE opens the Pass screen instead of resuming it.
 func _save_needs_pass(s: Dictionary) -> bool:
-	if Store.owned():
+	if Store.owned() or str(s.get("event", "")) != "":
 		return false
 	if bool(s.daily):
 		return bool(s.practice)
@@ -2146,6 +2167,13 @@ func _continue_run() -> void:
 	if _save_needs_pass(s):
 		_open_pass()
 		return
+	var ev := str(s.get("event", ""))
+	if _event_save_stale(s):
+		# The event ended while the title was up: its run can't go on.
+		RunSave.clear()
+		hud._title_continue.visible = false
+		hud.tip("The Blood Moon has set. That run ended with the event.", 4.0)
+		return
 	Sfx.play("click")
 	Floors.lobby = false
 	first_run = false
@@ -2156,6 +2184,9 @@ func _continue_run() -> void:
 	hud.show_pass(false)
 	hud.show_daily(false)
 	hud.show_hud(true)
+	event = ev   # before the run's counters reset, so the Moon Shard counter shows
+	event_tier = 1
+	_event_done = false
 	_reset_run_stats()
 	floor_num = int(s.floor)
 	_taken = (s.taken as Dictionary).duplicate()
@@ -2205,7 +2236,7 @@ func _continue_run() -> void:
 		_resume_loop_end()
 	else:
 		_go_to_room(int(s.room))
-		hud.tip("Run continued: floor %d" % floor_num, 3.0, 1.2)
+		hud.tip(("Blood Moon run continued: floor %d" if event != "" else "Run continued: floor %d") % floor_num, 3.0, 1.2)
 	print("[run] continued floor %d room %d hp %d/%d score %d omens %s door %s" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score, Loops.names(omens), Doors.describe(_door).get("title", "none")])
 
 
@@ -2752,7 +2783,7 @@ func _win() -> void:
 	_daily_done = daily and floor_num >= Curses.DAILY_FLOORS
 	_free_end = not daily and event == "" and floor_num >= Store.FREE_FLOORS and not Store.owned()
 	_loop_choice = not daily and event == "" and not _free_end and Loops.loop_end(floor_num)
-	if _daily_done or event != "":
+	if _daily_done or _event_done:
 		RunSave.clear()
 	elif _loop_choice or _free_end:
 		# At the free end the run is kept too: a Pass bought later (a pending payment, or
@@ -2797,7 +2828,7 @@ func _win() -> void:
 			pcfg.set_value("shown", "pass_card_win", true)
 			write_save(pcfg)
 			hud.show_pass_card(true, pass_hero_def())
-	hud.show_end_title(not _daily_done and not _free_end and not _event_done, "TITLE" if event != "" else "TITLE  (RUN SAVED)")
+	hud.show_end_title(not _daily_done and not _free_end and not _event_done, "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
 		hud.set_end_goal(_daily_goal())
@@ -3831,8 +3862,8 @@ func _draw_size_text() -> String:
 	return "%dx%d of %dx%d" % [roundi(win.x * k), roundi(win.y * k), win.x, win.y]
 
 
-## High looks best. Medium drops the moon's shadows (soft shadow discs stand in) and edge
-## smoothing and draws a little smaller; Low also turns off glow, outlines and colour grading
+## High looks best. Medium drops the moon's shadows (soft shadow discs stand in) and (off
+## phones) edge smoothing and draws a little smaller; Low also turns off glow, outlines and colour grading
 ## and draws the 3D world smaller still, for smoother play on older phones. The lowest level
 ## holds the game at 30 frames a second.
 func _set_graphics(level: int, save := true, by_watch := false) -> void:
@@ -3840,7 +3871,10 @@ func _set_graphics(level: int, save := true, by_watch := false) -> void:
 	var high := level >= 2
 	graphics_level = level
 	var vp := get_viewport()
-	vp.msaa_3d = Viewport.MSAA_2X if level == 3 else Viewport.MSAA_DISABLED
+	# Phones keep edge smoothing on at every level. Their graphics chips do it almost for free,
+	# and switching it off mid-run (the frame-rate watcher stepping High down to Medium) left
+	# the world drawn small in the top-left corner on a Galaxy S23 Ultra (Nov 10).
+	vp.msaa_3d = Viewport.MSAA_2X if level == 3 or OS.has_feature("mobile") else Viewport.MSAA_DISABLED
 	vp.scaling_3d_scale = _scale_3d(level)
 	_env.glow_enabled = high
 	_env.adjustment_enabled = high   # an extra full-screen pass; Low skips it
@@ -4389,7 +4423,8 @@ func _save_score(cfg: ConfigFile) -> int:
 			return maxi(day_best, score)   # Practice never counts, so it's never a new best
 		if score > day_best:
 			cfg.set_value("daily", _daily_date, score)
-		_submit_score("daily")
+		if _daily_date == Curses.today():   # a run that went past midnight missed its day's board
+			_submit_score("daily")
 		return day_best
 	if event == "" and not first_run:
 		_submit_score("best")

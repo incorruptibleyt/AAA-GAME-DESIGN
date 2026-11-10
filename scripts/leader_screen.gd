@@ -157,7 +157,8 @@ func _refresh() -> void:
 	var l := Leaders.instance
 	_see_all.visible = false
 	if not l.signed_in:
-		_status.text = "Sign in to Google Play Games\nto put your score on the board."
+		_status.text = ("Couldn't sign in to Google Play Games.\nCheck your connection and try again." if l.sign_in_failed
+				else "Sign in to Google Play Games\nto put your score on the board.")
 		_act.text = "SIGN IN"
 		_act.visible = true
 		return
@@ -210,14 +211,20 @@ func _show(top: Array, me: Array) -> void:
 	for r: Dictionary in top:
 		_list.add_child(_line(r))
 		mine_shown = mine_shown or bool(r.get("me", false))
-	if not mine_shown and not me.is_empty():
+	# The "around you" list can hold the scores next to the player's: only the player's own
+	# row goes in the "you" spot.
+	var mine: Dictionary = {}
+	for r: Dictionary in me:
+		if bool(r.get("me", false)):
+			mine = r
+	if not mine_shown and not mine.is_empty():
 		var gap := Hud.label("...", 16, Color(0.6, 0.58, 0.66))
 		_you.add_child(gap)
-		_you.add_child(_line(me[0]))
+		_you.add_child(_line(mine))
 	if top.is_empty():
 		_status.text = ("None of your Play Games friends has a score here yet." if _collection == Leaders.FRIENDS
 				else "No scores yet. Be the first!")
-	elif me.is_empty():
+	elif mine.is_empty() and not mine_shown:
 		_status.text = "Play a Daily Crypt official run to get on today's board." if _key == "daily" \
 				else "Finish a run to get on this week's board."
 	else:

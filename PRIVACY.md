@@ -34,9 +34,10 @@ The game saves your progress (coins, unlocked heroes, Armory upgrades, best floo
 
 ## Permissions
 
-- **Internet:** only to send the anonymous game reports described above (if you've turned them on) and feedback you choose to send.
+- **Internet:** only to send the anonymous game reports described above (if you've turned them on), feedback you choose to send, and leaderboard scores if you sign in to Google Play Games.
 - **Vibrate:** the phone buzzes briefly when your hero is hit (switch it off under Pause, Vibration).
 - **Google Play billing:** only to buy the Crypt Pass through Google Play.
+- **Google Play Games (leaderboards):** if you sign in to Play Games, your scores, your Play Games name and picture are shared with Google Play Games to show the leaderboards, including to your Play Games friends if you choose to share them. Google's privacy policy covers Play Games. Without signing in, nothing is sent.
 - **Network state:** added by Google Play billing, to check whether the phone is online before talking to Google Play. It can't see what you do online.
 
 The game asks for no other permissions. It cannot see your contacts, photos, location, microphone or camera.

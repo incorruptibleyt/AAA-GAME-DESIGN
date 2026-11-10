@@ -579,7 +579,7 @@ static func wisps(parent: Node3D, color: Color, count: int, half_w: float, half_
 		for i in count:
 			# Spread out: one in each slice of the room's length, at a random side and height.
 			var z := lerpf(-half_l, half_l, (i + 0.5) / count) * 0.75
-			mm.set_instance_transform(i, Transform3D(Basis(), Vector3(rng.randf_range(-half_w, half_w) * 0.6, rng.randf_range(1.3, 1.9), z)))
+			mm.set_instance_transform(i, Transform3D(Basis(), Vector3(rng.randf_range(-half_w, half_w) * 0.6, rng.randf_range(2.6, 3.2), z)))   # above shot height (was 1.3-1.9 m)
 		var mi := MultiMeshInstance3D.new()
 		mi.multimesh = mm
 		mi.material_override = _wisp_mats[key]
@@ -681,10 +681,10 @@ void fragment() {
 		ALBEDO = tint.rgb;
 		ALPHA = pow(max(0.0, 1.0 - d), 2.0) * 0.32 * fade;
 	} else {
-		float core = smoothstep(0.16, 0.02, d);
+		// A soft glow with no hard white middle, so it never reads as a shot (version 140).
 		float halo = pow(max(0.0, 1.0 - d), 2.2);
-		ALBEDO = mix(tint.rgb, vec3(1.0), core * 0.7);
-		ALPHA = clamp(core + halo * 0.9, 0.0, 1.0) * fade;
+		ALBEDO = tint.rgb;
+		ALPHA = clamp(halo * 0.9, 0.0, 1.0) * fade;
 	}
 }
 """

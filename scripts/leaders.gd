@@ -20,6 +20,12 @@ const PLUGIN := "PlayGames"
 const DAILY := "CgkI4tupibsDEAIQAQ"   # Daily Crypt (made first)
 const BEST := "CgkI4tupibsDEAIQAg"    # Best Run
 
+## Version 140: false until the Play Games setup is published in Play Console. Until then
+## Google only signs in its listed testers, so the leaderboard buttons show only to players
+## who are already signed in (testers); everyone else never sees a board that can't work.
+## Set to true in the first build after publishing.
+const LIVE := false
+
 const SPAN_DAILY := 0
 const SPAN_WEEKLY := 1
 const SPAN_ALL := 2
@@ -36,6 +42,9 @@ static var instance: Leaders
 
 var signed_in := false
 var player_name := ""
+## The player tapped SIGN IN and Google said no (shown on the leaderboard screen).
+var sign_in_failed := false
+var _asked := false
 var _pg: Object
 ## Robot pictures: pretend to be signed in with made-up scores ("fakeboard").
 var fake := false
@@ -58,13 +67,15 @@ func _ready() -> void:
 		var list = JSON.parse_string(json)
 		scores.emit(tag, list if list is Array else [], error))
 	_pg.connect("friends_access", func(state: int): friends.emit(state))
+	if _pg.has_signal("score_sent"):
+		_pg.connect("score_sent", _on_score_sent)
 	if _pg.is_ready():
 		_pg.check()
 
 
 ## True when leaderboards can be shown at all (set up, and on a phone with Play Games).
 static func available() -> bool:
-	return instance != null and (instance.fake or instance._pg != null)
+	return instance != null and (instance.fake or (instance._pg != null and (LIVE or instance.signed_in)))
 
 
 static func board_for(key: String) -> String:
@@ -74,6 +85,8 @@ static func board_for(key: String) -> String:
 func _on_signed_in(ok: int, name: String, detail: String) -> void:
 	signed_in = ok == 1
 	player_name = name
+	sign_in_failed = _asked and not signed_in
+	_asked = false
 	print("[leaders] signed in: %d %s (%s)" % [ok, name, detail])
 	if signed_in:
 		_send_waiting()
@@ -82,36 +95,55 @@ func _on_signed_in(ok: int, name: String, detail: String) -> void:
 
 func sign_in() -> void:
 	if _pg:
+		_asked = true
+		sign_in_failed = false
 		_pg.sign_in()
 
 
-## Sends `score` to the board ("daily" or "best"). Kept in the save until it's sent.
+## Sends `score` to the board ("daily" or "best"). The best waiting score per board stays in
+## the save until Google says it arrived (score_sent), so a dropped connection loses nothing.
+## A Daily Crypt score is kept with its day and thrown away once that day's board has closed.
 func submit(key: String, score: int) -> void:
 	var board := board_for(key)
 	if score <= 0 or board == "" or fake:
 		return
 	var cfg := Game._load_save()
 	var waiting := int(cfg.get_value(SAVE_SECTION, key, 0))
-	if signed_in and _pg:
-		_pg.submit(board, score)
-		if waiting > 0:
-			cfg.set_value(SAVE_SECTION, key, 0)
-			Game.write_save(cfg)
-	elif score > waiting:
+	if key == "daily" and str(cfg.get_value(SAVE_SECTION, "daily_date", "")) != Curses.today():
+		waiting = 0   # yesterday's: its board has closed
+	if score > waiting:
 		cfg.set_value(SAVE_SECTION, key, score)
+		if key == "daily":
+			cfg.set_value(SAVE_SECTION, "daily_date", Curses.today())
 		Game.write_save(cfg)
+	if signed_in:
+		_send_waiting()
 
 
 func _send_waiting() -> void:
+	if _pg == null:
+		return
 	var cfg := Game._load_save()
-	var sent := false
+	if int(cfg.get_value(SAVE_SECTION, "daily", 0)) > 0 \
+			and str(cfg.get_value(SAVE_SECTION, "daily_date", "")) != Curses.today():
+		cfg.set_value(SAVE_SECTION, "daily", 0)   # too late for its day's board
+		Game.write_save(cfg)
 	for key in ["daily", "best"]:
 		var s := int(cfg.get_value(SAVE_SECTION, key, 0))
 		if s > 0 and board_for(key) != "":
 			_pg.submit(board_for(key), s)
-			cfg.set_value(SAVE_SECTION, key, 0)
-			sent = true
-	if sent:
+
+
+## Google's answer to a sent score: once it has arrived, it no longer waits in the save.
+func _on_score_sent(board: String, score: int, ok: int) -> void:
+	print("[leaders] score %d to %s: %s" % [score, board, "sent" if ok == 1 else "not sent, kept for later"])
+	if ok != 1:
+		return
+	var key := "daily" if board == DAILY else "best"
+	var cfg := Game._load_save()
+	var s := int(cfg.get_value(SAVE_SECTION, key, 0))
+	if s > 0 and s <= score:
+		cfg.set_value(SAVE_SECTION, key, 0)
 		Game.write_save(cfg)
 
 

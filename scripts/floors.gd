@@ -10,7 +10,7 @@ class_name Floors
 ## Ossuary stays cool and gentler, as its pale floor would wash out white skeletons).
 
 const THEMES := [
-	{"name": "Bone Crypt", "wisp": Color(0.55, 1.0, 0.8), "floor": Color(1, 1, 1),
+	{"name": "Bone Crypt", "wisp": Color(1.0, 0.82, 0.55), "floor": Color(1, 1, 1),
 		# Moss and dirt in patches and along the walls; damp stone that shines in torchlight.
 		"grout": Color(0.07, 0.06, 0.07), "grime": Color(0.3, 0.29, 0.21), "grime_amount": 0.55,
 		"patch_tint": Color(0.86, 0.87, 0.92), "patch_rough": 0.45,
@@ -54,7 +54,7 @@ const THEMES := [
 	# Version 128: a cave grown over with glowing mushrooms. Mossy green stone under cool
 	# green light, with pink and lime fungus glowing in the moss ("spores", room.gd), so it
 	# looks like none of the other four (and pink isn't used by hearts, coins or warnings).
-	{"name": "Glowcap Grotto", "wisp": Color(1.0, 0.45, 0.85), "floor": Color(0.68, 0.78, 0.62), "spores": Color(1.0, 0.36, 0.78, 1.0),
+	{"name": "Glowcap Grotto", "wisp": Color(0.72, 0.9, 1.0), "floor": Color(0.68, 0.78, 0.62), "spores": Color(1.0, 0.36, 0.78, 1.0),
 		"spores2": Color(0.72, 1.0, 0.3),
 		# Mossy green stone, dark moss in patches and along the walls, and the pink glow of
 		# the fungus on top: green and pink sit opposite each other, so the glow pops.
@@ -68,9 +68,10 @@ const THEMES := [
 		"banner": Color(1.0, 0.6, 0.9), "floor_style": 4, "props": "fungus", "pillar": "wall_pillar", "light": [1.25, 1.7, 0.3, 0.2]},
 	# Version 134: the Blood Moon crypt, only in the Blood Moon event (events.gd). Black
 	# marble and gold under the red light of the moon, blood veins in the stone throbbing
-	# like a heart, blood-red wisps, petals falling. Warnings turn gold here as in the Ember
-	# Catacomb (it has "seams"), so they never melt into the red.
-	{"name": "Blood Moon Crypt", "wisp": Color(1.0, 0.28, 0.22), "floor": Color(1.0, 0.95, 1.0), "seams": Color(1.0, 0.1, 0.07),
+	# like a heart, pale wisps high up, petals falling. Warnings turn ice white here (telegraph.gd),
+	# so they never melt into the red or the gold. (Version 140: wisps are never a gameplay
+	# colour: not green like hearts, not pink or red like enemy shots.)
+	{"name": "Blood Moon Crypt", "wisp": Color(0.72, 0.9, 1.0), "floor": Color(1.0, 0.95, 1.0), "seams": Color(1.0, 0.1, 0.07),
 		"grout": Color(0.05, 0.02, 0.03), "grime": Color(0.05, 0.045, 0.07), "grime_amount": 0.5,
 		"patch_tint": Color(0.85, 0.8, 0.9), "patch_rough": 0.25,
 		"wall": Color(0.13, 0.06, 0.08), "trim": Color(0.32, 0.12, 0.13),

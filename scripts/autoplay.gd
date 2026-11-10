@@ -439,7 +439,7 @@ func _process(delta: float) -> void:
 				_event_lobby = false
 				_shopped = false
 				var req := Game._event_requested
-				Game._back_to_title()
+				Game._back_to_title(true)   # keeping a saved run (the "continue" test)
 				Game._event_requested = req
 				_t = 0.0
 				return

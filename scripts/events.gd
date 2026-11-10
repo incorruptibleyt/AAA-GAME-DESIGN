@@ -105,7 +105,8 @@ const CASKETS := [
 	{"id": "mythic", "name": "MYTHIC", "weight": 5, "color": Color(1.0, 0.25, 0.3)},
 	{"id": "legendary", "name": "LEGENDARY", "weight": 2, "color": Color(1.0, 0.78, 0.25)},
 ]
-const MAX_CASKETS := 20
+## Every casket earned is kept (version 140; before, any past 20 were lost).
+const MAX_CASKETS := 999
 
 ## Lab and robot: play this day of the first event (0 = the real date).
 static var forced_day := 0

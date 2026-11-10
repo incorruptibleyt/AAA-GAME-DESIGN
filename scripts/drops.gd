@@ -15,8 +15,10 @@ class_name Drops
 
 const SECTION := "drops"
 const MAX_PER_RUN := 3
-## Unopened drops past this aren't kept (more than a few would pile up unopened).
+## Coins can't buy a drop while this many wait unopened (the Armory row says FULL).
+## Drops earned in runs are always kept (version 140; before, any past 10 were lost).
 const MAX_WAITING := 10
+const KEEP_MAX := 999
 
 ## weight: chance out of 100. Colours match the blessing card rarities.
 const TIERS := [
@@ -118,11 +120,11 @@ static func buy(cfg: ConfigFile, today: String) -> void:
 		cfg.set_value(SECTION, "buy_day", today)
 		cfg.set_value(SECTION, "bought", 0)
 	cfg.set_value(SECTION, "bought", int(cfg.get_value(SECTION, "bought", 0)) + 1)
-	cfg.set_value(SECTION, "waiting", mini(waiting(cfg) + 1, MAX_WAITING))
+	cfg.set_value(SECTION, "waiting", mini(waiting(cfg) + 1, KEEP_MAX))
 
 
 static func add(cfg: ConfigFile, n := 1) -> void:
-	cfg.set_value(SECTION, "waiting", mini(waiting(cfg) + n, MAX_WAITING))
+	cfg.set_value(SECTION, "waiting", mini(waiting(cfg) + n, KEEP_MAX))
 	cfg.set_value(SECTION, "earned", int(cfg.get_value(SECTION, "earned", 0)) + n)
 
 

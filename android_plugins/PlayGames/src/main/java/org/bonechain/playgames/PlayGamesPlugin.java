@@ -35,6 +35,7 @@ import java.util.Set;
  *  - friends_access(state): 1 = the game may see the player's friends, 0 = not, 2 = Google's
  *    "share your friends" page was opened (the answer comes as another friends_access).
  *  - board_closed(): Google's own leaderboard page was closed.
+ *  - score_sent(board, score, ok): ok 1 = Google has the score, 0 = it didn't arrive (kept to retry).
  *
  * Every call is wrapped so that a problem here never stops the game.
  */
@@ -60,6 +61,7 @@ public class PlayGamesPlugin extends GodotPlugin {
         signals.add(new SignalInfo("scores_loaded", String.class, String.class, String.class));
         signals.add(new SignalInfo("friends_access", Integer.class));
         signals.add(new SignalInfo("board_closed"));
+        signals.add(new SignalInfo("score_sent", String.class, Integer.class, Integer.class));
         return signals;
     }
 
@@ -144,17 +146,23 @@ public class PlayGamesPlugin extends GodotPlugin {
         }
     }
 
-    /** Sends a score. Play Games keeps the best one for each day, week and all time. */
+    /**
+     * Sends a score and says whether it arrived (score_sent). Play Games keeps the best one for
+     * each day, week and all time.
+     */
     @UsedByGodot
     public void submit(String board, int score) {
         final Activity a = getActivity();
         if (!ready || a == null) {
+            emitSignal("score_sent", board, score, 0);
             return;
         }
         a.runOnUiThread(() -> {
             try {
-                PlayGames.getLeaderboardsClient(a).submitScore(board, (long) score);
-            } catch (Throwable ignored) {
+                PlayGames.getLeaderboardsClient(a).submitScoreImmediate(board, (long) score)
+                        .addOnCompleteListener(task -> emitSignal("score_sent", board, score, task.isSuccessful() ? 1 : 0));
+            } catch (Throwable t) {
+                emitSignal("score_sent", board, score, 0);
             }
         });
     }
