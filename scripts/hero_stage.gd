@@ -44,10 +44,22 @@ var _checking := false
 ## phone that can't draw it never loops).
 var _tries := 0
 var _redressed := false   # this opening: the hero was put on again
-var _rebuilt := false     # this opening: the stage was built again
 static var _session_tries := 0
-static var _drawn_ok := false   # a stage has once passed both looks this session
-static var _after_run_checked := false   # checked once after a death or win this session
+## Version 135: the size the stage asked for (the picture is drawn at a multiple of it).
+var _stage_size := Vector2.ZERO
+## Version 135: once the twice-size picture has failed on this phone, every stage is drawn
+## at its own size for the rest of the session (a smaller picture for the graphics chip).
+static var small := false
+## Version 135: the live stage failed on this phone this session, even after every repair.
+## The stages then show a ready-made picture of the hero (art/ui/heroes) straight away,
+## while the live one keeps being tried underneath; it takes over again once it draws.
+static var _live_failed := false
+## Reported once a session: the first failure, and what fixed it (or that nothing did).
+static var _told := false
+## The test robot's way to see the repairs and the picture: every look says "empty".
+static var fake_blank := false
+var _portrait := false   # this stage shows the ready-made picture now
+var _repair_step := ""   # this opening: the last repair tried
 ## Version 120: once a phone has drawn a stage with no see-through parts working, every
 ## stage after that draws on a solid backdrop instead (see _set_solid).
 static var solid := false
@@ -60,13 +72,15 @@ func _init(stage_size: Vector2) -> void:
 	stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	_full_size = Vector2i(stage_size * RENDER_SCALE)
+	_stage_size = stage_size
 	_make_viewport()
 	set_process(false)
 
 
 func _make_viewport() -> void:
 	_vp = SubViewport.new()
-	_vp.size = Vector2i.ONE   # full size only while the Heroes screen is open (set_active)
+	# Version 135: made at its size once and kept (no growing from 1 pixel on every opening).
+	_vp.size = _draw_size()
 	_vp.own_world_3d = true
 	_vp.transparent_bg = not solid
 	# Version 120: no MSAA. The stage is drawn at twice its size and shrunk, which already
@@ -248,6 +262,8 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	_ring_mat.albedo_color = col
 	_glow_mat.albedo_color = Color(col, 0.45)
 	_back_light.light_color = col
+	if _portrait:
+		_show_live(false)   # the picture of the new hero
 
 
 ## Shows off the look in `slot` that the hero on the pedestal has just won or is trying on
@@ -328,142 +344,188 @@ func emote(names: Array) -> void:
 		_visual.emote(names)
 
 
-## Only draws while the Heroes screen is open. Closed, its picture shrinks to 1 pixel, so the
-## big smoothed (4x) picture doesn't hold graphics memory the rest of the time.
-## On Low graphics it's drawn at 1.5x with 2x smoothing: about a quarter of the memory.
+## The picture's size: twice the stage's on High (sharp on big phones), 1.5 times on Low,
+## and just the stage's own size once a bigger picture has failed on this phone (small).
+func _draw_size() -> Vector2i:
+	var k := 1.0 if small else (RENDER_SCALE if Game._high_graphics else 1.5)
+	return Vector2i(maxi(2, int(_stage_size.x * k)), maxi(2, int(_stage_size.y * k)))
+
+
+## Only draws while its screen is open.
+## Version 135: the picture keeps its size while closed (on Low too) and is drawn every frame
+## while open (UPDATE_ALWAYS), the way Godot's own viewport containers draw. It used to be
+## asked for one picture at a time, 30 times a second, and shrunk to 1 pixel when closed on
+## Low; neither is needed, and both were unusual paths a phone's graphics driver could trip on.
 func set_active(on: bool) -> void:
-	var low := not Game._high_graphics
-	# On High the picture keeps its size while closed (about 5 MB), so it is never made
-	# again from nothing each time the screen opens; Low still frees it.
 	if on:
-		_vp.size = Vector2i(_full_size * 0.75) if low else _full_size
 		_tries = 0
 		_redressed = false
-		_rebuilt = false
-	elif low:
-		_vp.size = Vector2i.ONE
-	# Drawn 30 times a second (_process), not every frame: a slow turn looks the same.
-	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE if on else SubViewport.UPDATE_DISABLED
-	_draw_t = 0.0
+		_repair_step = ""
+	_start_drawing(on)
 	set_process(on)
 	_active = on
 	if on:
+		# A phone where the live stage failed this session shows the hero's picture at once
+		# (never an empty pedestal), and the check below swaps the live one back in if it draws.
+		_show_live(not _live_failed)
+		# Version 135: every opening is checked (one look at the picture, a few frames in).
+		_check_drawn()
+
+
+func _start_drawing(on: bool) -> void:
+	if on:
+		var want := _draw_size()
+		if _vp.size != want:
+			_vp.size = want
+	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
+
+
+## The live 3D stage, or the ready-made picture of the hero on show.
+func _show_live(live: bool) -> void:
+	var pic := _portrait_texture()
+	_portrait = not live and pic != null
+	if _portrait:
+		texture = pic
+		material = null
+	else:
 		texture = _vp.get_texture()
-		# Version 121: reading the picture back stalls the phone's graphics for a moment, so
-		# it is only checked until it has once come out right this session, or while a repair
-		# is under way. Version 126 (audit #13): after a death or a finished run (where the
-		# blank stage was seen) only the first opening a session is checked, unless this
-		# session has already needed a repair.
-		var after_run := Game.state in [Game.State.DEAD, Game.State.VICTORY]
-		if not _drawn_ok or _tries > 0 or (after_run and (not _after_run_checked or _session_tries > 0)):
-			if after_run:
-				_after_run_checked = true
-			_check_drawn()
+		material = _solid_mat if solid else null
 
 
-## A phone showed an empty stage (no hero, or no hero and no pedestal) on the Heroes and
-## Style screens, mostly when HEROES was tapped on the death screen. A moment after the
-## stage starts drawing, and again half a second later, look at its picture and repair
-## what's missing, a step further each time:
+## A ready-made picture of the hero on show (art/ui/heroes/<id>.png), or null.
+func _portrait_texture() -> Texture2D:
+	var path := "res://art/ui/heroes/%s.png" % str(_def.get("id", "rogue"))
+	return load(path) if ResourceLoader.exists(path) else null
+
+
+## How many things the stage drew in its last picture (Godot's own count: no stall).
+func _drawn_objects() -> int:
+	return RenderingServer.viewport_get_render_info(_vp.get_viewport_rid(),
+			RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE, RenderingServer.VIEWPORT_RENDER_INFO_OBJECTS_IN_FRAME)
+
+
+## A phone (a Galaxy S23 Ultra, Adreno 740) showed an empty stage on the Heroes and Style
+## screens: no hero and no pedestal, not even after the stage was built again, until the game
+## was restarted. It never happens on a computer. A few frames after the stage starts drawing,
+## look at its picture; if something is missing, repair it, a different way each time:
 ##   the pedestal drew but not the hero: put the hero on again;
 ##   nothing drew: build the little 3D world again from scratch;
-##   still nothing, or it drew but nothing in it is solid: draw on a solid backdrop
-##   from now on (for every stage this session), ignoring see-through-ness altogether.
+##   still nothing: build it on a solid backdrop (no see-through picture);
+##   still nothing: build it at a smaller size;
+##   still nothing: show the ready-made picture of the hero (and keep trying the live stage
+##   on later openings).
+## The first failure of a session, and what fixed it, go in the reports (with how many
+## things the stage drew, which tells "not drawn at all" from "drawn but not seen").
 func _check_drawn() -> void:
 	if _checking or DisplayServer.get_name() == "headless":
 		return
 	_checking = true
-	for wait in [3, 30]:
-		for i in wait:
-			await RenderingServer.frame_post_draw
-		if not _active or not is_inside_tree():
-			_checking = false
-			return
-		var seen := _look_at()
-		if seen == "ok":
-			continue
-		if _tries >= 3 or _session_tries >= 12:
-			_checking = false
-			return   # out of repairs: keep checking on later openings
-		_tries += 1
-		_session_tries += 1
-		_checking = false
-		_repair(seen)
-		return
+	for i in 4:
+		await RenderingServer.frame_post_draw
 	_checking = false
-	if _active and is_inside_tree():
-		_drawn_ok = true
+	if not _active or not is_inside_tree():
+		return
+	var seen := _look_at()
+	if seen == "ok":
+		if _repair_step != "" and not _told:
+			_told = true
+			push_error("Hero preview fixed by: %s" % _repair_step)
+		if _portrait or _live_failed:
+			_live_failed = false
+			_show_live(true)
+		return
+	var objs := _drawn_objects()
+	if not _told and _tries == 0:
+		push_error("Hero preview showed %s (%s, drew %d things, %s, graphics %d MB, %s%s)" % [seen, _vp.size, objs,
+				Game.State.keys()[Game.state], int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0),
+				"solid" if solid else "see-through", ", small" if small else ""])
+	# Out of repairs for this opening (only one try when the picture is already standing in).
+	if _tries >= (1 if _live_failed else 4) or _session_tries >= 16:
+		if not _live_failed:
+			_live_failed = true
+			if not _told:
+				_told = true
+				push_error("Hero preview: nothing fixed it (%s); showing the hero's picture" % _repair_step)
+		_show_live(false)
+		return
+	_tries += 1
+	_session_tries += 1
+	_repair(seen)
+	_check_drawn()
 
 
 ## What the picture shows: "ok", "no hero" (pedestal only), "empty", or "clear" (colours
 ## were drawn but every pixel is see-through, so the screen shows nothing).
 func _look_at() -> String:
+	if fake_blank:
+		return "empty"
 	var img := _vp.get_texture().get_image()
 	if img == null or img.is_empty():
 		return "empty"
 	var w := img.get_width()
 	var h := img.get_height()
+	if solid:
+		# A solid backdrop: the corners must be the backdrop's colour (version 135: an
+		# undrawn picture used to pass this look), and the hero must stand out against it.
+		return "ok" if _is_backdrop(img.get_pixel(2, 2)) and _is_backdrop(img.get_pixel(w - 3, 2)) \
+				and _hero_against_backdrop(img) else "empty"
 	var solid_px := 0
 	var colour_px := 0
 	var hero_px := 0
-	for y in range(h / 8, h, 10):
-		for x in range(0, w, 10):
+	var step := maxi(4, w / 100)
+	for y in range(h / 8, h, step):
+		for x in range(0, w, step):
 			var c := img.get_pixel(x, y)
-			var lit := c.r + c.g + c.b > 0.12
-			if c.a > 0.3 or (solid and lit):
+			if c.a > 0.3:
 				solid_px += 1
 				# The hero stands in the middle third, above the pedestal's top.
 				if x > w / 3 and x < w * 2 / 3 and y < h * 0.7:
 					hero_px += 1
-			elif lit:
+			elif c.r + c.g + c.b > 0.12:
 				colour_px += 1
-	if solid:
-		# A solid backdrop is lit everywhere: look for the hero against it instead.
-		return "ok" if _hero_against_backdrop(img) else "empty"
 	if solid_px == 0:
 		return "clear" if colour_px > 20 else "empty"
 	return "ok" if hero_px > 6 else "no hero"
+
+
+static func _is_backdrop(c: Color) -> bool:
+	return absf(c.r - BACKDROP.r) + absf(c.g - BACKDROP.g) + absf(c.b - BACKDROP.b) < 0.08
 
 
 ## On the solid backdrop: something in the hero's spot differs from the backdrop colour.
 func _hero_against_backdrop(img: Image) -> bool:
 	var w := img.get_width()
 	var h := img.get_height()
+	var step := maxi(4, w / 100)
 	var n := 0
-	for y in range(h / 8, int(h * 0.7), 10):
-		for x in range(w / 3, w * 2 / 3, 10):
-			var c := img.get_pixel(x, y)
-			if absf(c.r - BACKDROP.r) + absf(c.g - BACKDROP.g) + absf(c.b - BACKDROP.b) > 0.15:
+	for y in range(h / 8, int(h * 0.7), step):
+		for x in range(w / 3, w * 2 / 3, step):
+			if not _is_backdrop(img.get_pixel(x, y)):
 				n += 1
 	return n > 6
 
 
 func _repair(seen: String) -> void:
-	var was := _vp.size
-	var step := "rebuilt the stage"
 	if seen == "no hero" and not _redressed and not _def.is_empty():
 		_redressed = true
-		step = "put the hero on again"
+		_repair_step = "putting the hero on again"
 		show_hero(_def, _gold, _frame_col)
+		return
+	if _repair_step.begins_with("building it again") and not solid:
+		solid = true
+		_repair_step = "building it again on a solid backdrop"
+	elif _repair_step.begins_with("building it again") and not small:
+		small = true
+		_repair_step = "building it again smaller"
 	else:
-		if (seen == "clear" or _rebuilt) and not solid:
-			solid = true
-			step = "switched to a solid backdrop"
-		_rebuilt = true
-		_vp.queue_free()
-		_visual = null
-		_make_viewport()
-		if not _def.is_empty():
-			show_hero(_def, _gold, _frame_col)
-	push_error("Hero preview showed %s (%s, try %d, %s, graphics %d MB); %s" % [seen, was, _session_tries,
-			Game.State.keys()[Game.state],
-			int(Performance.get_monitor(Performance.RENDER_VIDEO_MEM_USED) / 1048576.0), step])
-	var keep := [_tries, _redressed, _rebuilt]
-	set_active(true)
-	# set_active starts the count again for a fresh opening: keep this opening's
-	_tries = keep[0]
-	_redressed = keep[1]
-	_rebuilt = keep[2]
+		_repair_step = "building it again"
+	_vp.queue_free()
+	_visual = null
+	_make_viewport()
+	if not _def.is_empty():
+		show_hero(_def, _gold, _frame_col)
+	_start_drawing(true)
+	_show_live(not _live_failed)
 
 
 ## The backdrop the stage is drawn on once see-through pictures fail: the Heroes and Style
@@ -493,14 +555,8 @@ func _notification(what: int) -> void:
 		_check_drawn.call_deferred()
 
 
-var _draw_t := 0.0
-
 func _process(delta: float) -> void:
 	_time += delta
-	_draw_t += delta
-	if _draw_t >= 1.0 / 30.0:
-		_draw_t = 0.0
-		_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	if _reveal_t >= 0.0:
 		_update_reveal(delta)
 		return
