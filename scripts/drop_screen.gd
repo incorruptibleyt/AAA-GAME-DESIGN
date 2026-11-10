@@ -24,7 +24,7 @@ var _flash := 0.0
 var _pop := 0.0
 var _art: Control
 var _look: HeroStage   # a drop-only look found: the hero wearing it, in place of the box
-var _chest: Chest
+var _chest: Reliquary
 var _wear: Button
 ## Feats won this run, shown one by one like a found look (reveal_feats): [{name, look, hero}].
 var _feat_queue: Array = []
@@ -68,17 +68,24 @@ func _init() -> void:
 	_pity = Hud.label("", 18, Color(0.55, 0.95, 1.0))
 	col.add_child(_pity)
 	_art = Control.new()
-	_art.custom_minimum_size = Vector2(320, 320)
+	_art.custom_minimum_size = Vector2(440, 420)
 	_art.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_art.draw.connect(_draw_art)
 	col.add_child(_art)
-	# Version 116: a real 3D reliquary in the middle of the glow (it was drawn flat).
-	_chest = Chest.new()
+	# Version 116: a real 3D reliquary in the middle of the glow (it was drawn flat);
+	# version 137: the chained bone reliquary (scripts/reliquary.gd), bigger.
+	_chest = Reliquary.new()
 	Hud.full(_chest)
+	# Its picture reaches past the art box (the lid, the beam and the plinth's edge), so
+	# nothing is cut off by a straight line.
+	_chest.offset_top = -110
+	_chest.offset_bottom = 30
+	_chest.offset_left = -50
+	_chest.offset_right = 50
 	_art.add_child(_chest)
 	_look = HeroStage.new(Vector2(320, 320))
-	_look.custom_minimum_size = Vector2(320, 320)
+	_look.custom_minimum_size = Vector2(440, 420)   # the chest's size, so nothing jumps
 	_look.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_look.visible = false
 	col.add_child(_look)
@@ -466,49 +473,53 @@ func _tier_color() -> Color:
 	return Drops.TIERS[clampi(_shown_tier, 0, Drops.TIERS.size() - 1)].color
 
 
+static var _soft: GradientTexture2D
+
+## A soft round glow (bright middle, fading to nothing), drawn tinted.
+static func _soft_glow() -> GradientTexture2D:
+	if _soft == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		g.add_point(0.35, Color(1, 1, 1, 0.45))
+		_soft = GradientTexture2D.new()
+		_soft.gradient = g
+		_soft.fill = GradientTexture2D.FILL_RADIAL
+		_soft.fill_from = Vector2(0.5, 0.5)
+		_soft.fill_to = Vector2(1.0, 0.5)
+		_soft.width = 128
+		_soft.height = 128
+	return _soft
+
+
+## Behind the 3D chest (version 137: soft light, not flat rings): a halo of the current
+## colour that swells as the rarity climbs, and soft rays turning once it's open.
 func _draw_art() -> void:
 	var a := _art
-	var c := a.size * 0.5
+	var c := a.size * 0.5 + Vector2(0, -10)
 	var col := _tier_color()
 	var open := _step == Step.OPEN
-	var shake := Vector2.ZERO
-	var tilt := 0.0
-	if _step == Step.OPENING:
-		var amp := 3.0 + 12.0 * clampf(_t / OPEN_AT, 0.0, 1.0)
-		shake = Vector2(sin(_t * 55.0) * amp, cos(_t * 41.0) * amp * 0.4)
-		tilt = sin(_t * 47.0) * 0.06 * amp / 15.0
-	elif _step == Step.CLOSED:
-		# A little hop now and then, asking to be opened.
-		var hop := fmod(Time.get_ticks_msec() / 1000.0, 2.2)
-		if hop < 0.35:
-			shake.y = -sin(hop / 0.35 * PI) * 10.0
 	var k := 1.0 + 0.18 * ease(_pop, 0.5)
-	# Glow: soft rings of the current colour (brighter as it climbs, and on each step).
-	var glow := 0.18 + 0.1 * _shown_tier + 0.4 * _flash
+	var glow := 0.3 + 0.12 * _shown_tier + 0.45 * _flash
 	if _step == Step.CLOSED:
-		glow = 0.12
-	for i in 7:
-		var r := (150.0 - i * 16.0) * k
-		var g := col
-		g.a = glow * (0.12 + 0.1 * i)
-		a.draw_circle(c, r, g)
-	# Rays once it's open, turning slowly.
+		glow = 0.16 + 0.04 * sin(Time.get_ticks_msec() / 1000.0 * 2.2)
+		col = Color(1.0, 0.3, 0.25) if casket else Color(0.6, 0.5, 1.0)
+	var r := 210.0 * k
+	a.draw_texture_rect(_soft_glow(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(col, glow))
 	if open:
-		var spin := Time.get_ticks_msec() / 1000.0 * 0.5
-		var ray := col
-		ray.a = 0.22 + 0.25 * _flash
-		for i in 12:
-			var ang := spin + TAU * i / 12.0
-			var d1 := Vector2.from_angle(ang - 0.09)
-			var d2 := Vector2.from_angle(ang + 0.09)
-			a.draw_colored_polygon(PackedVector2Array([c, c + d1 * 165.0 * k, c + d2 * 165.0 * k]), ray)
-	# (The reliquary itself is the 3D Chest below, version 116.)
-	var _unused := shake + Vector2(tilt, 0)
-	# The whole screen flashes the colour as it climbs and opens.
+		var spin := Time.get_ticks_msec() / 1000.0 * 0.35
+		var tip := Color(col, 0.0)
+		var base := Color(col.lightened(0.3), 0.3 + 0.3 * _flash)
+		for i in 14:
+			var ang := spin + TAU * i / 14.0
+			var len := (230.0 if i % 2 == 0 else 170.0) * k
+			var w := 0.07 if i % 2 == 0 else 0.05
+			a.draw_polygon(PackedVector2Array([c, c + Vector2.from_angle(ang - w) * len, c + Vector2.from_angle(ang + w) * len]),
+					PackedColorArray([base, tip, tip]))
+	# The colour flashes as it climbs and opens.
 	if _flash > 0.0:
-		var fl := col
-		fl.a = _flash * 0.35
-		a.draw_circle(c, 170.0, fl)
+		var fr := 240.0
+		a.draw_texture_rect(_soft_glow(), Rect2(c - Vector2(fr, fr), Vector2(fr, fr) * 2.0), false, Color(col.lightened(0.4), _flash * 0.6))
 
 
 ## A pile of coins, a star (Lucky Start) or an arrow (a free Armory level).
@@ -548,376 +559,3 @@ func _box(a: Control, r: Rect2, fill: Color, edge: Color, radius: int) -> void:
 	for p in [r.position + Vector2(14, 14), r.position + Vector2(r.size.x - 14, 14),
 			r.position + Vector2(14, r.size.y - 14), r.position + r.size - Vector2(14, 14)]:
 		a.draw_circle(p, 5.0, edge.lightened(0.25))
-
-
-# ---------------------------------------------------------------- the 3D reliquary
-
-## The Bone Drop's reliquary in 3D: a bone chest with iron bands and a skull on the front.
-## Closed, it hops now and then; opening, it shakes harder as cracks of light in the
-## rarity's colour split it; open, the lid flies back and a beam of that colour rises.
-class Chest extends SubViewportContainer:
-	var _vp: SubViewport
-	var _root: Node3D
-	var _lid: Node3D
-	var _seam: StandardMaterial3D
-	var _crack_mat: StandardMaterial3D
-	var _cracks: Array[MeshInstance3D] = []
-	var _beam: MeshInstance3D
-	var _beam_mat: StandardMaterial3D
-	var _light: OmniLight3D
-	var _trim: StandardMaterial3D
-	var _bone: StandardMaterial3D
-	var _bone_dark: StandardMaterial3D
-	## A Moon Casket (the Blood Moon event): black marble and crimson, trimmed in gold.
-	var moon := false
-	var _gem_mat: StandardMaterial3D
-	var _burst: CPUParticles3D
-	var _burst_mat: StandardMaterial3D
-	var _ring: MeshInstance3D
-	var _ring_mat: StandardMaterial3D
-	var _open := 0.0
-	var _opened := false
-	var _hop := 0.0
-
-	func _init() -> void:
-		stretch = true
-		mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_vp = SubViewport.new()
-		_vp.own_world_3d = true
-		_vp.transparent_bg = true
-		_vp.msaa_3d = Viewport.MSAA_2X
-		_vp.render_target_update_mode = SubViewport.UPDATE_WHEN_PARENT_VISIBLE
-		add_child(_vp)
-		var cam := Camera3D.new()
-		cam.position = Vector3(0, 1.55, 2.7)
-		cam.fov = 40.0
-		_vp.add_child(cam)
-		cam.look_at_from_position(cam.position, Vector3(0, 0.72, 0))   # the chest a little lower, room for the lid (and the Epic lift)
-		var sun := DirectionalLight3D.new()
-		sun.rotation = Vector3(-0.9, 0.5, 0)
-		sun.light_energy = 0.9
-		_vp.add_child(sun)
-		var env := WorldEnvironment.new()
-		env.environment = Environment.new()
-		env.environment.background_mode = Environment.BG_CLEAR_COLOR
-		env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		env.environment.ambient_light_color = Color(0.5, 0.45, 0.6)
-		env.environment.ambient_light_energy = 0.7
-		_vp.add_child(env)
-		_build()
-
-	func _build() -> void:
-		# Version 119: a modelled reliquary (domed lid, rib bones, iron corner caps, a skull
-		# with eyes and a gem in the drop's colour, gold trim at higher rarity) instead of
-		# plain boxes; a rim light from behind and a burst of sparks when it opens.
-		_root = Node3D.new()
-		_vp.add_child(_root)
-		var bone := StandardMaterial3D.new()
-		bone.albedo_color = Color(0.8, 0.73, 0.6)
-		bone.roughness = 0.65
-		bone.rim_enabled = true
-		bone.rim = 0.25
-		bone.rim_tint = 0.7
-		var bone_dark := bone.duplicate() as StandardMaterial3D
-		bone_dark.albedo_color = Color(0.36, 0.3, 0.26)
-		_bone = bone
-		_bone_dark = bone_dark
-		var iron := StandardMaterial3D.new()
-		iron.albedo_color = Color(0.17, 0.14, 0.18)
-		iron.metallic = 0.7
-		iron.roughness = 0.3
-		_trim = StandardMaterial3D.new()
-		_trim.albedo_color = Color(0.3, 0.27, 0.3)
-		_trim.metallic = 0.85
-		_trim.roughness = 0.25
-		var dark := StandardMaterial3D.new()
-		dark.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		dark.albedo_color = Color(0.04, 0.03, 0.05)
-		_seam = StandardMaterial3D.new()
-		_seam.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_seam.albedo_color = Color.WHITE
-		_crack_mat = _seam.duplicate()
-		_gem_mat = _seam.duplicate()
-		# A stepped iron plinth, then the bone body with a darker inset panel.
-		_box(_root, Vector3(1.36, 0.1, 0.92), iron, Vector3(0, 0.05, 0))
-		_box(_root, Vector3(1.2, 0.58, 0.78), bone, Vector3(0, 0.39, 0))
-		_box(_root, Vector3(0.98, 0.42, 0.02), bone_dark, Vector3(0, 0.39, 0.392))
-		# Rib bones across the front, like a ribcage.
-		var rib := CapsuleMesh.new()
-		rib.radius = 0.03
-		rib.height = 0.5
-		for i in 3:
-			for sd in [-1.0, 1.0]:
-				var r := _mesh(_root, rib, bone, Vector3(sd * 0.3, 0.25 + i * 0.13, 0.405))
-				r.rotation = Vector3(0, 0, sd * (1.25 - i * 0.12))
-		# Iron corner caps and gold-able trim bands.
-		for x in [-0.58, 0.58]:
-			for z in [-0.37, 0.37]:
-				_box(_root, Vector3(0.1, 0.62, 0.1), iron, Vector3(x, 0.39, z))
-				var stud := SphereMesh.new()
-				stud.radius = 0.05
-				stud.height = 0.1
-				_mesh(_root, stud, _trim, Vector3(x * 1.02, 0.68, z * 1.02))
-		_box(_root, Vector3(1.24, 0.05, 0.82), _trim, Vector3(0, 0.12, 0))
-		# The skull on the front: cranium, jaw, glowing eyes and a gem on the brow.
-		var cranium := SphereMesh.new()
-		cranium.radius = 0.17
-		cranium.height = 0.32
-		_mesh(_root, cranium, bone, Vector3(0, 0.44, 0.43)).scale = Vector3(1.0, 0.95, 0.7)
-		_box(_root, Vector3(0.18, 0.08, 0.1), bone, Vector3(0, 0.3, 0.45))
-		var eye := SphereMesh.new()
-		eye.radius = 0.05
-		eye.height = 0.1
-		for x in [-0.065, 0.065]:
-			_mesh(_root, eye, dark, Vector3(x, 0.44, 0.535))
-			_mesh(_root, eye, _crack_mat, Vector3(x, 0.44, 0.56)).scale = Vector3(0.45, 0.45, 0.45)
-		var gem := SphereMesh.new()
-		gem.radius = 0.07
-		gem.height = 0.14
-		gem.radial_segments = 6
-		gem.rings = 2
-		_mesh(_root, gem, _gem_mat, Vector3(0, 0.6, 0.5)).scale = Vector3(1.0, 1.3, 0.6)
-		# The glowing seam under the lid.
-		_box(_root, Vector3(1.22, 0.035, 0.8), _seam, Vector3(0, 0.675, 0))
-		# Cracks of light on the front, one more for each step up in rarity.
-		var crack_at := [Vector3(-0.38, 0.3, 0.41), Vector3(0.38, 0.5, 0.41), Vector3(-0.38, 0.55, 0.41), Vector3(0.38, 0.22, 0.41)]
-		for i in crack_at.size():
-			var c := _box(_root, Vector3(0.025, 0.22, 0.01), _crack_mat, crack_at[i])
-			c.rotation.z = [0.6, -0.5, -0.9, 0.8][i]
-			c.visible = false
-			_cracks.append(c)
-		# The domed lid, hinged at the back: half a barrel of bone with iron hoops and a
-		# skull-knob handle.
-		_lid = Node3D.new()
-		_lid.position = Vector3(0, 0.68, -0.4)
-		_root.add_child(_lid)
-		var dome := CylinderMesh.new()
-		dome.top_radius = 0.4
-		dome.bottom_radius = 0.4
-		dome.height = 1.24
-		dome.radial_segments = 20
-		var d := _mesh(_lid, dome, bone, Vector3(0, 0.0, 0.4))
-		d.rotation.z = PI * 0.5
-		d.scale = Vector3(0.55, 1.0, 1.0)
-		for x in [-0.42, 0.0, 0.42]:
-			var hoop := CylinderMesh.new()
-			hoop.top_radius = 0.42
-			hoop.bottom_radius = 0.42
-			hoop.height = 0.07
-			hoop.radial_segments = 20
-			var h := _mesh(_lid, hoop, _trim if x == 0.0 else iron, Vector3(x, 0.0, 0.4))
-			h.rotation.z = PI * 0.5
-			h.scale = Vector3(0.57, 1.0, 1.02)
-		var knob := SphereMesh.new()
-		knob.radius = 0.1
-		knob.height = 0.2
-		_mesh(_lid, knob, bone, Vector3(0, 0.26, 0.4))
-		# The beam of light, shown once it opens.
-		_beam_mat = StandardMaterial3D.new()
-		_beam_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		_beam_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_beam_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		_beam_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-		var bm := CylinderMesh.new()
-		bm.top_radius = 0.75
-		bm.bottom_radius = 0.48
-		bm.height = 2.4
-		bm.cap_top = false
-		bm.cap_bottom = false
-		_beam = _mesh(_root, bm, _beam_mat, Vector3(0, 1.85, 0))
-		_beam.visible = false
-		_light = OmniLight3D.new()
-		_light.position = Vector3(0, 0.9, 0.6)
-		_light.omni_range = 3.0
-		_light.light_energy = 0.0
-		_root.add_child(_light)
-		# A cool rim light from behind, so the chest stands out from the dark.
-		var rim := OmniLight3D.new()
-		rim.position = Vector3(0.6, 1.4, -1.4)
-		rim.omni_range = 4.0
-		rim.light_color = Color(0.6, 0.5, 1.0)
-		rim.light_energy = 1.4
-		_vp.add_child(rim)
-		# The burst: sparks thrown up and out when the lid flies off.
-		_burst = CPUParticles3D.new()
-		_burst.emitting = false
-		_burst.one_shot = true
-		_burst.explosiveness = 0.95
-		_burst.amount = 60
-		_burst.lifetime = 1.1
-		_burst.position = Vector3(0, 0.75, 0)
-		_burst.direction = Vector3.UP
-		_burst.spread = 70.0
-		_burst.initial_velocity_min = 2.5
-		_burst.initial_velocity_max = 5.0
-		_burst.gravity = Vector3(0, -6.0, 0)
-		_burst.scale_amount_min = 0.5
-		_burst.scale_amount_max = 1.2
-		var spark := SphereMesh.new()
-		spark.radius = 0.035
-		spark.height = 0.07
-		spark.radial_segments = 6
-		spark.rings = 3
-		_burst_mat = _seam.duplicate()
-		spark.material = _burst_mat
-		_burst.mesh = spark
-		_root.add_child(_burst)
-		# A ring of light on the floor that races outward on opening.
-		_ring_mat = _beam_mat.duplicate()
-		var ring := TorusMesh.new()
-		ring.inner_radius = 0.9
-		ring.outer_radius = 1.0
-		ring.rings = 32
-		ring.ring_segments = 6
-		_ring = _mesh(_root, ring, _ring_mat, Vector3(0, 0.05, 0))
-		_ring.scale = Vector3(1, 0.2, 1)
-		_ring.visible = false
-
-	func _box(parent: Node3D, size_v: Vector3, mat: Material, pos: Vector3) -> MeshInstance3D:
-		var b := BoxMesh.new()
-		b.size = size_v
-		return _mesh(parent, b, mat, pos)
-
-	func _mesh(parent: Node3D, m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:
-		var mi := MeshInstance3D.new()
-		mi.mesh = m
-		mi.material_override = mat
-		mi.position = pos
-		parent.add_child(mi)
-		return mi
-
-	## Like the hero preview (version 121): a moment after it first shows, look at the
-	## picture. If nothing in it is solid (this phone draws see-through pictures wrong), draw
-	## the chest on the screen's own dark colour from then on, and say so in the reports.
-	static var _seen_ok := false
-	static var _solid := false
-	var _checking := false
-
-	func check() -> void:
-		if _seen_ok or _checking or DisplayServer.get_name() == "headless":
-			return
-		_checking = true
-		for i in 20:
-			await RenderingServer.frame_post_draw
-		_checking = false
-		if not is_inside_tree() or not is_visible_in_tree():
-			return
-		var img := _vp.get_texture().get_image()
-		var solid_px := 0
-		var lit_px := 0
-		if img and not img.is_empty():
-			var w := img.get_width()
-			var h := img.get_height()
-			for y in range(h / 4, h, 8):
-				for x in range(w / 4, w * 3 / 4, 8):
-					var c := img.get_pixel(x, y)
-					if c.a > 0.3:
-						solid_px += 1
-					elif c.r + c.g + c.b > 0.12:
-						lit_px += 1
-		if solid_px > 6:
-			_seen_ok = true
-			return
-		if not _solid:
-			_solid = true
-			_use_solid()
-		push_error("Bone Drop chest showed %s (%s); switched to a solid backdrop" % ["clear" if lit_px > 6 else "empty", _vp.size])
-
-	func _use_solid() -> void:
-		_vp.transparent_bg = false
-		for n in _vp.get_children():
-			if n is WorldEnvironment:
-				n.environment.background_mode = Environment.BG_COLOR
-				n.environment.background_color = Color(0.02, 0.01, 0.04)
-
-	func casket_look(on: bool) -> void:
-		moon = on
-		_bone.albedo_color = Color(0.14, 0.12, 0.17) if on else Color(0.8, 0.73, 0.6)
-		_bone.roughness = 0.2 if on else 0.65
-		_bone.metallic = 0.35 if on else 0.0
-		_bone.rim_tint = 0.2 if on else 0.7
-		_bone_dark.albedo_color = Color(0.5, 0.04, 0.07) if on else Color(0.36, 0.3, 0.26)
-		_bone_dark.roughness = 0.3 if on else 0.65
-
-	func reset() -> void:
-		if _solid and _vp.transparent_bg:
-			_use_solid()
-		_lift = 0.0
-		_lift_to = 0.0
-		_opened = false
-		_open = 0.0
-		_lid.rotation = Vector3.ZERO
-		_lid.position = Vector3(0, 0.68, -0.4)
-		_beam.visible = false
-		_light.light_energy = 0.0
-		for c in _cracks:
-			c.visible = false
-		_ring.visible = false
-		_root.rotation = Vector3(0, -0.35, 0)
-		_root.position = Vector3.ZERO
-
-	var _lift := 0.0
-	var _lift_to := 0.0
-
-	func open_up(col: Color, tier := 0) -> void:
-		_opened = true
-		_open = 0.0
-		_lift_to = 0.12 if tier >= 3 else 0.0
-		_beam.visible = true
-		_beam_mat.albedo_color = Color(col, 0.35)
-		for wave in ([0.35, 0.7] if tier >= 4 else ([0.35] if tier >= 3 else [])):
-			get_tree().create_timer(wave).timeout.connect(func():
-				if _opened and is_inside_tree():
-					_burst.restart()
-					_burst.emitting = true
-					_ring.visible = true
-					_ring.scale = Vector3(0.3, 0.2, 0.3))
-		_light.light_color = col
-		_light.light_energy = 1.5
-		_burst_mat.albedo_color = col.lightened(0.35) * 1.6
-		_burst.restart()
-		_burst.emitting = true
-		_ring.visible = true
-		_ring.scale = Vector3(0.3, 0.2, 0.3)
-		_ring_mat.albedo_color = Color(col, 0.8)
-
-	func animate(step: int, k: float, col: Color, tier: int, delta: float) -> void:
-		_seam.albedo_color = col.lightened(0.3) * (1.0 + 0.6 * float(tier))
-		_crack_mat.albedo_color = col.lightened(0.4) * 1.6
-		_gem_mat.albedo_color = col.lightened(0.2) * (1.2 + 0.3 * float(tier))
-		# Iron trim at Common, turning gold as the rarity climbs.
-		_trim.albedo_color = Color(1.0, 0.78, 0.3) if moon else Color(0.3, 0.27, 0.3).lerp(Color(1.0, 0.78, 0.3), clampf(float(tier) / 4.0, 0.0, 1.0))
-		var t := Time.get_ticks_msec() / 1000.0
-		_root.position = Vector3.ZERO
-		_root.rotation = Vector3(0, -0.35 + sin(t * 0.6) * 0.12, 0)
-		if step == 0:   # closed: a hop now and then
-			var hop := fmod(t, 2.2)
-			if hop < 0.35:
-				_root.position.y = sin(hop / 0.35 * PI) * 0.12
-		elif step == 1:   # opening: shaking harder, cracks appearing
-			var amp := 0.02 + 0.07 * clampf(k, 0.0, 1.0)
-			_root.rotation.z = sin(t * 52.0) * amp * 2.0
-			_root.position.x = sin(t * 61.0) * amp
-			_lid.rotation.x = -absf(sin(t * 30.0)) * amp * 2.0
-			for i in _cracks.size():
-				_cracks[i].visible = i < tier
-			_light.light_color = col
-			_light.light_energy = 0.4 * float(tier)
-		elif _opened:
-			_open = minf(1.0, _open + delta * 3.0)
-			var e := ease(_open, 0.4)
-			# Version 121: a smaller swing and rise, so the open lid stays inside the picture.
-			_lid.rotation.x = -1.35 * e
-			_lid.position = Vector3(0, 0.68 + 0.12 * e, -0.4 - 0.15 * e)
-			_beam.scale = Vector3(1, 0.2 + 0.8 * e, 1)
-			_beam_mat.albedo_color = Color(col, 0.22 + 0.1 * sin(t * 4.0))
-			if _ring.visible:
-				var rs := _ring.scale.x + delta * 6.0
-				_ring.scale = Vector3(rs, 0.2, rs)
-				_ring_mat.albedo_color = Color(col, maxf(0.0, 0.8 - (rs - 0.3) * 0.25))
-				if rs > 3.6:
-					_ring.visible = false
-			for c in _cracks:
-				c.visible = true
-			_lift = move_toward(_lift, _lift_to, delta * 1.2)
-			_root.position.y += _lift
