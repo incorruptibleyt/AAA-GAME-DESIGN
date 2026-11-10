@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10n"
+const BUILD := "2026-11-10o"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -483,6 +483,7 @@ func _ready() -> void:
 	hud.show_hud(false)
 	await Warmup.run()   # while the screen is still black, before the title can be tapped
 	hud.show_title(true, _best_text(), coins)
+	_settle_events()
 	note_spot()
 	_title_hero_line(hero.hero_id)
 	_fade(1.0, 0.0, 0.6)
@@ -490,6 +491,7 @@ func _ready() -> void:
 	if not "autoplay" in args or "intro" in args:
 		_play_intro()
 		intro.finished.connect(_ask_reports_on_title)
+		intro.finished.connect(_maybe_event_splash.bind(false))
 	else:
 		Music.play("dungeon")
 	if "speedtest" in args:
@@ -752,6 +754,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.drops_visible():
 			hud.close_drops()
+			return
+		if hud.splash_visible():
+			hud.hide_event_splash()
 			return
 		if hud.event_visible():
 			hud.event_back()
@@ -1813,7 +1818,9 @@ func _back_to_title(keep_run := false) -> void:
 		hud.tip(mastery_note, 4.5, 0.5)
 	Music.play(title_track())
 	_set_state(State.TITLE)
+	_settle_events()
 	await _fade(1.0, 0.0, 0.4)
+	_maybe_event_splash()
 
 
 ## After beating the king: keep your blessings and go one floor deeper, where it's harder.
@@ -3076,7 +3083,7 @@ func _event_goal() -> String:
 	if Events.ready_count(cfg) > 0:
 		return "Event road: %d prize%s to claim!" % [Events.ready_count(cfg), "" if Events.ready_count(cfg) == 1 else "s"]
 	if i >= Events.ROAD.size():
-		return "Event road complete!"
+		return "Event road complete! Bonus Moon Casket in %d shards" % Events.to_next_bonus(cfg)
 	return "Event road: %d more shards to %s" % [int(Events.ROAD[i].at) - Events.shards(cfg), Events.step_text(Events.ROAD[i])]
 
 
@@ -3089,6 +3096,50 @@ func start_event(kind: String, tier := 1) -> void:
 	_event_tier_requested = tier
 	hud.show_event(false)
 	_start_run()
+
+
+## Version 135: the big splash, once when an event begins and once at each new chapter,
+## shown on the title a moment after it appears (and not over another screen).
+func _maybe_event_splash(force := false) -> void:
+	await get_tree().create_timer(0.9, true, false, true).timeout
+	var e := Events.current()
+	if e.is_empty() or first_run_pending() or state != State.TITLE or not hud.title_visible() or hud.covers_world():
+		return
+	var cfg := _load_save()
+	var c := Events.chapter(e)
+	var seen := int(cfg.get_value(Events.section(e), "splash", 0))
+	if seen >= c + 1 and not force:
+		return
+	cfg.set_value(Events.section(e), "splash", c + 1)
+	write_save(cfg)
+	var ch: Dictionary = Events.chapter_info(e)
+	var clock := "Ends in %s" % Events.time_text(Events.seconds_left(e))
+	if seen == 0:
+		# The event's first splash: its name, the story, and the chapter on now.
+		hud.show_event_splash("THE EVENT HAS BEGUN", str(e.name), "CHAPTER %d  ·  %s\n%s" % [c + 1, ch.name, ch.text],
+				str(e.story), "%d days  ·  %s" % [int(e.days), clock], Events.eclipse(e))
+	else:
+		hud.show_event_splash("%s  ·  CHAPTER %d" % [e.name, c + 1], str(ch.name), str(ch.text), "", clock, Events.eclipse(e))
+
+
+## Version 135: an event that ended pays out what was left on it, with a note on the title.
+func _settle_events() -> void:
+	var cfg := _load_save()
+	var r := Events.settle(cfg)
+	if r.is_empty():
+		return
+	coins += int(r.coins)
+	cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	record_add("coins", r.coins)
+	hud.set_coins(coins)
+	var parts := []
+	if int(r.prizes) > 0:
+		parts.append("%d road prize%s" % [r.prizes, "" if int(r.prizes) == 1 else "s"])
+	if int(r.caskets) > 0:
+		parts.append("%d Moon Casket%s" % [r.caskets, "" if int(r.caskets) == 1 else "s"])
+	hud.tip("The %s is over.\nYou hadn't claimed %s: +%d coins" % [str(r.name).capitalize(), " and ".join(parts), int(r.coins)], 6.0, 1.2)
+	hud.set_drops(Drops.waiting(_load_save()))
 
 
 func _open_event() -> void:

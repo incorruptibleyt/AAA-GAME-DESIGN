@@ -248,6 +248,7 @@ var _mastery: MasteryScreen
 var _style: StyleScreen
 var _drops: DropScreen
 var _event: EventScreen
+var _splash: EventArt.Splash   # version 135: an event or chapter beginning
 var _title_event: EventArt.Banner
 var _shard_box: Control
 var _shard_label: Label
@@ -347,6 +348,14 @@ func _ready() -> void:
 	_event.claim.connect(func(i: int): event_claim.emit(i))
 	_event.caskets_pressed.connect(func(): event_caskets.emit())
 	_event.closed.connect(func(): event_closed.emit())
+	_splash = EventArt.Splash.new()
+	add_child(_splash)
+	_splash.enter.connect(func():
+		_splash.visible = false
+		event_pressed.emit())
+	_splash.later.connect(func():
+		Sfx.play("click")
+		_splash.visible = false)
 	_drops = DropScreen.new()
 	add_child(_drops)
 	_drops.closed.connect(func(): drops_closed.emit())
@@ -2602,7 +2611,7 @@ func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
 		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible \
-		or _rewards_box.visible or _feats.visible or _event.visible
+		or _rewards_box.visible or _feats.visible or _event.visible or _splash.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -2691,7 +2700,7 @@ func _process(delta: float) -> void:
 	if _title_box.visible:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
 			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible or _drops.visible or _road.visible \
-			or _event.visible or (_settings_only and _pause_box.visible))
+			or _event.visible or _splash.visible or (_settings_only and _pause_box.visible))
 	# The OPEN BONE DROP buttons glow gently, so a drop waiting isn't missed.
 	if _title_drops.is_visible_in_tree() or _end_drop.is_visible_in_tree():
 		var glow := 1.0 + 0.16 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.2))
@@ -3307,6 +3316,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		_rewards_box.visible = false
 		_road.visible = false
 		_event.visible = false
+		_splash.visible = false
 		if not _end_box.visible:
 			_drops.visible = false
 	_title_free.visible = not has_pass and not locked   # not before the tutorial run is done
@@ -3724,7 +3734,7 @@ func covers_world() -> bool:
 	return _style.visible or _feats.visible or _mastery.visible or _drops.visible or _heroes_box.visible \
 			or (_rewards_box != null and _rewards_box.visible) or _armory_box.visible or _records_box.visible \
 			or _pass_box.visible or _modes_box.visible or _daily_box.visible or _omen_box.visible \
-			or _fb_box.visible or _road.visible or _ask_box.visible
+			or _fb_box.visible or _road.visible or _ask_box.visible or _event.visible or _splash.visible
 
 
 func feats_visible() -> bool:
@@ -4135,6 +4145,19 @@ func show_event(v: bool) -> void:
 
 func event_visible() -> bool:
 	return _event.visible
+
+
+## Version 135: the big splash when an event, or a new chapter of it, begins.
+func show_event_splash(kicker: String, title: String, line: String, story: String, clock: String, eclipse: bool) -> void:
+	_splash.play(kicker, title, line, story, clock, eclipse)
+
+
+func splash_visible() -> bool:
+	return _splash.visible
+
+
+func hide_event_splash() -> void:
+	_splash.visible = false
 
 
 ## Android back on the event screen: the road page first, then the screen.

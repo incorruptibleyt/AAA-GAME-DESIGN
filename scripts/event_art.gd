@@ -256,3 +256,178 @@ class Banner extends Button:
 		draw_style_box(sb, r)
 		# A gold line along the top, like the event's marble.
 		draw_line(Vector2(84, 7), Vector2(r.size.x - 18, 7), Color(1.0, 0.78, 0.4, 0.45), 2.0, true)
+
+
+## Version 135: the big moment when an event (or a new chapter of it) begins, shown once on
+## the title: the screen goes dark, the moon rises out of the bottom with rays turning behind
+## it and embers drifting up, then the words land one after another, with a sting.
+## Like the takeover splash a big mobile game shows when its season starts.
+class Splash extends ColorRect:
+	signal enter
+	signal later
+
+	var _rays: Rays
+	var _moon: Moon
+	var _kicker: Label
+	var _title: Label
+	var _line: Label
+	var _story: Label
+	var _clock: Label
+	var _go: Button
+	var _skip: Button
+	var _embers: CPUParticles2D
+	var _col: VBoxContainer
+	var _tw: Tween
+
+	func _init() -> void:
+		color = Color(0.02, 0.0, 0.01, 0.97)
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		visible = false
+		Hud.backdrop(self, "blood")
+		_rays = Rays.new()
+		add_child(_rays)
+		_moon = Moon.new()
+		add_child(_moon)
+		_embers = CPUParticles2D.new()
+		_embers.amount = 40
+		_embers.lifetime = 4.0
+		_embers.preprocess = 2.0
+		_embers.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
+		_embers.direction = Vector2.UP
+		_embers.spread = 18.0
+		_embers.gravity = Vector2(0, -20)
+		_embers.initial_velocity_min = 30.0
+		_embers.initial_velocity_max = 80.0
+		_embers.scale_amount_min = 2.0
+		_embers.scale_amount_max = 5.0
+		var g := Gradient.new()
+		g.set_color(0, Color(1.0, 0.55, 0.3, 0.0))
+		g.add_point(0.2, Color(1.0, 0.4, 0.25, 0.9))
+		g.set_color(g.get_point_count() - 1, Color(0.8, 0.05, 0.05, 0.0))
+		_embers.color_ramp = g
+		add_child(_embers)
+		_col = VBoxContainer.new()
+		_col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_col.alignment = BoxContainer.ALIGNMENT_CENTER
+		_col.add_theme_constant_override("separation", 10)
+		add_child(_col)
+		_kicker = Hud.label("", 22, Color(1.0, 0.8, 0.42))
+		_col.add_child(_kicker)
+		_title = Hud.label("", 66, Color(1.0, 0.9, 0.84))
+		_title.label_settings.outline_color = Color(0.3, 0.0, 0.03)
+		_title.label_settings.outline_size = 14
+		_title.label_settings.shadow_color = Color(1.0, 0.1, 0.05, 0.7)
+		_title.label_settings.shadow_size = 18
+		_col.add_child(_title)
+		_line = Hud.label("", 21, Color(1.0, 0.72, 0.62))
+		_col.add_child(_line)
+		_story = Hud.label("", 17, Color(0.86, 0.78, 0.82))
+		_col.add_child(_story)
+		_clock = Hud.label("", 18, Color(1.0, 0.8, 0.42))
+		_col.add_child(_clock)
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2(0, 10)
+		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_col.add_child(gap)
+		_go = Hud.button("ENTER THE EVENT", 28)
+		Hud.paint(_go, "red")
+		_go.custom_minimum_size = Vector2(380, 84)
+		_go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_go.pressed.connect(func(): enter.emit())
+		_col.add_child(_go)
+		_skip = Hud.button("LATER", 20)
+		Hud.paint(_skip, "slate")
+		_skip.custom_minimum_size = Vector2(200, 56)
+		_skip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		_skip.pressed.connect(func(): later.emit())
+		_col.add_child(_skip)
+		resized.connect(_layout)
+
+	func _layout() -> void:
+		var safe := Hud.safe_margins(get_viewport())
+		var top := 40.0 + safe.y
+		var bottom := 30.0 + safe.w
+		var m := minf(size.x * 0.82, size.y * 0.36)
+		_moon.size = Vector2(m, m)
+		_moon.pivot_offset = _moon.size * 0.5
+		_rays.size = Vector2(size.x, size.x) * 1.4
+		_rays.pivot_offset = _rays.size * 0.5
+		_embers.position = Vector2(size.x * 0.5, size.y + 10)
+		_embers.emission_rect_extents = Vector2(size.x * 0.5, 4)
+		_col.position = Vector2(20, top + m * 0.82)
+		_col.size = Vector2(size.x - 40, size.y - top - m * 0.82 - bottom)
+		for l: Label in [_kicker, _title, _line, _story, _clock]:
+			l.custom_minimum_size.x = size.x - 60
+		_moon_rest = Vector2((size.x - m) * 0.5, top)
+
+	var _moon_rest := Vector2.ZERO
+
+	## `kicker` small gold words over the title; `title` the big name; `line` and `story`
+	## under it; `clock` the countdown; `eclipse` the black moon of the last chapter.
+	func play(kicker: String, title: String, line: String, story: String, clock: String, eclipse: bool) -> void:
+		_kicker.text = kicker
+		_title.text = title
+		_line.text = line
+		_story.text = story
+		_story.visible = story != ""
+		_clock.text = clock
+		_moon.eclipse = eclipse
+		visible = true
+		_layout()
+		if _tw:
+			_tw.kill()
+		_tw = create_tween().set_ignore_time_scale(true)
+		_tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		# The moon rises from below the screen and grows a little as it settles.
+		_moon.position = Vector2(_moon_rest.x, size.y + 20)
+		_moon.scale = Vector2.ONE * 0.7
+		_rays.modulate.a = 0.0
+		_rays.position = _moon_rest + _moon.size * 0.5 - _rays.size * 0.5
+		self_modulate.a = 0.0
+		for c: Control in [_kicker, _title, _line, _story, _clock, _go, _skip]:
+			c.modulate.a = 0.0
+		_title.pivot_offset = Vector2(_title.custom_minimum_size.x * 0.5, 40)
+		_title.scale = Vector2.ONE * 1.6
+		# About a second and a half in all, and a tap finishes it at once.
+		_tw.set_parallel(true)
+		_tw.tween_property(self, "self_modulate:a", 1.0, 0.25)
+		_tw.tween_property(_moon, "position", _moon_rest, 0.9).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		_tw.tween_property(_moon, "scale", Vector2.ONE, 1.0).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_tw.tween_property(_rays, "modulate:a", 1.0, 0.8).set_delay(0.3)
+		_tw.tween_callback(func(): Sfx.play("roar", 0.5, 0.6)).set_delay(0.2)
+		_tw.tween_property(_kicker, "modulate:a", 1.0, 0.2).set_delay(0.6)
+		_tw.tween_callback(func(): Sfx.play("sting", 0.9)).set_delay(0.75)
+		_tw.tween_property(_title, "modulate:a", 1.0, 0.15).set_delay(0.75)
+		_tw.tween_property(_title, "scale", Vector2.ONE, 0.3).set_delay(0.75).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		_tw.tween_callback(func(): Game.buzz(40)).set_delay(0.85)
+		var at := 1.0
+		for c: Control in [_line, _story, _clock, _go, _skip]:
+			_tw.tween_property(c, "modulate:a", 1.0, 0.2).set_delay(at)
+			at += 0.12
+
+	## A tap while it plays shows it all at once (the buttons included).
+	func _gui_input(event: InputEvent) -> void:
+		if _tw and _tw.is_running() and (event is InputEventScreenTouch or event is InputEventMouseButton) and event.is_pressed():
+			_tw.custom_step(10.0)
+			accept_event()
+
+	func _process(delta: float) -> void:
+		if visible:
+			_rays.rotation += delta * 0.12
+
+
+## Soft rays turning slowly behind the rising moon (the splash).
+class Rays extends Control:
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := size.x * 0.5
+		for i in 14:
+			var a := TAU * i / 14.0
+			var w := 0.09
+			var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
+			var cols := PackedColorArray([Color(1.0, 0.25, 0.15, 0.22), Color(1.0, 0.1, 0.05, 0.0), Color(1.0, 0.1, 0.05, 0.0)])
+			draw_polygon(pts, cols)

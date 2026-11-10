@@ -216,6 +216,34 @@ static func shards(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
 static func add_shards(cfg: ConfigFile, n: int, e: Dictionary = BLOOD_MOON) -> void:
 	if n > 0:
 		cfg.set_value(section(e), "shards", shards(cfg, e) + n)
+		# Past the road's end, a bonus Moon Casket for every BONUS_EVERY shards more.
+		var due := bonus_earned(cfg, e) - int(cfg.get_value(section(e), "bonus_given", 0))
+		if due > 0:
+			add_caskets(cfg, due, e)
+			cfg.set_value(section(e), "bonus_given", bonus_earned(cfg, e))
+
+
+## Version 135: the road ends at 2,400 shards, which a keen player reaches in the first
+## week. After it, every 150 shards more is a bonus Moon Casket (given as they come), so
+## the second week still pays.
+const BONUS_EVERY := 150
+
+
+static func road_end() -> int:
+	return int(ROAD[ROAD.size() - 1].at)
+
+
+## Bonus caskets earned past the road's end.
+static func bonus_earned(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+	return maxi(0, shards(cfg, e) - road_end()) / BONUS_EVERY
+
+
+## Shards to the next bonus casket (0 before the road's end).
+static func to_next_bonus(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+	var over := shards(cfg, e) - road_end()
+	if over < 0:
+		return 0
+	return BONUS_EVERY - over % BONUS_EVERY
 
 
 static func caskets(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
@@ -288,6 +316,31 @@ static func claim(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> Dictio
 		"look":
 			give_look(cfg, s.look[0], s.look[1])
 	return s
+
+
+## Version 135: an event that has ended pays out, once, what was left on it: every road
+## prize reached but not claimed, and the Moon Caskets not opened (100 coins each, as the
+## casket screen is gone with the event). Writes into `cfg` (the caller adds the coins, which
+## it holds, and saves). Returns {name, coins, prizes, caskets}, or {} if nothing was left.
+static func settle(cfg: ConfigFile) -> Dictionary:
+	for e: Dictionary in LIST:
+		if day(e) <= int(e.days) or not cfg.has_section(section(e)) or bool(cfg.get_value(section(e), "settled", false)):
+			continue
+		cfg.set_value(section(e), "settled", true)
+		var coins := 0
+		var prizes := 0
+		for i in ROAD.size():
+			var st := claim(cfg, i, e)
+			if not st.is_empty():
+				prizes += 1
+				if st.kind == "coins":
+					coins += int(st.n)
+		var n := caskets(cfg, e)
+		cfg.set_value(section(e), "caskets", 0)
+		coins += n * 100
+		if prizes + n > 0:
+			return {"name": e.name, "coins": coins, "prizes": prizes, "caskets": n}
+	return {}
 
 
 # ---------------------------------------------------------------- event looks

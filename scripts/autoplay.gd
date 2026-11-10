@@ -253,6 +253,13 @@ func _event_pictures() -> void:
 	print("[autoplay] event day %d active=%s chapter=%d eclipse=%s double=%s lobby=%s floor_theme=%d" % [Events.day(), Events.active(),
 		Events.chapter(), Events.eclipse(), Events.double_today(), Floors.lobby, Floors.index(1)])
 	await _shot()   # the title
+	# Version 135: the splash when the event (or a chapter) begins.
+	await Game._maybe_event_splash(true)
+	await get_tree().create_timer(0.6).timeout
+	await _shot()
+	await get_tree().create_timer(2.6).timeout
+	await _shot()
+	Game.hud.hide_event_splash()
 	Game._open_event()
 	await get_tree().create_timer(0.6).timeout
 	await _shot()
