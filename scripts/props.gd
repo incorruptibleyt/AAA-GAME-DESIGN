@@ -71,6 +71,7 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_mesh(n, _shelf_fungus())
+	_dress_kit(room, layout, kind)
 	# Two more on the far wall, either side of the door.
 	for x in [-3.6, 3.6]:
 		match kind:
@@ -90,6 +91,56 @@ static func dress(room: Room, layout: Array) -> void:
 				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
 				_mesh(n, _shelf_fungus())
+
+
+## KayKit pieces along the walls (version 134): a banner either side of the door and a few
+## things left against the side walls between the torches, different on every floor, so the
+## edges of the room read as a real crypt and not a tiled box. Each sits tight to its wall
+## with a small collision circle. [model, height] pairs; the sides take them in a different
+## order, so the two walls don't mirror each other.
+const KIT := {
+	"bone": {"banner": "banner_patternA_red", "side": [["barrel_small", 0.8], ["box_small_decorated", 0.62], ["sword_shield_broken", 0.6], ["rubble_half", 0.5]]},
+	"ice": {"banner": "banner_patternB_white", "side": [["box_small", 0.6], ["rubble_half", 0.5], ["barrel_small", 0.8], ["sword_shield_broken", 0.6]]},
+	"ember": {"banner": "banner_patternC_red", "side": [["rubble_half", 0.55], ["barrel_small", 0.8], ["coin_stack_small", 0.35], ["box_small", 0.6]]},
+	"water": {"banner": "banner_patternA_blue", "side": [["rubble_half", 0.5], ["barrel_small", 0.8], ["box_small", 0.6], ["bottle_A_green", 0.4]]},
+	"fungus": {"banner": "banner_patternA_green", "side": [["rubble_half", 0.55], ["box_small", 0.6], ["barrel_small", 0.8], ["bottle_B_brown", 0.4]]},
+}
+const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
+
+
+static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
+	if not KIT.has(kind):
+		return
+	var kit: Dictionary = KIT[kind]
+	var banner := Art.get_model(kit.banner)
+	if banner:
+		for x in [-2.5, 2.5]:
+			var n := _place(room, Vector3(x, 0.75, -Room.HALF_L + 0.12), false)
+			_no_shadow(Art.place_prop(banner, n, 1.75))
+	for s in 2:
+		var side := -1.0 if s == 0 else 1.0
+		var col := 0 if s == 0 else Layouts.COLUMNS - 1
+		for i in KIT_Z.size():
+			var z: float = KIT_Z[i]
+			var row := roundi(z / Room.CELL + (Layouts.ROWS - 1) * 0.5)
+			var line: String = layout[row] if row >= 0 and row < layout.size() else ""
+			if col < line.length() and line[col] != ".":
+				continue
+			var pick: Array = kit.side[(i + s * 2) % kit.side.size()]
+			var scene := Art.get_model(pick[0])
+			if scene == null:
+				continue
+			var at := Vector3(side * (Room.HALF_W - 0.42), 0, z)
+			_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
+			room._add_obstacle(Vector3(side * Room.HALF_W, 0, z), 0.7)
+
+
+## Pieces flat against a wall cast no shadow worth its cost (a second draw each on High).
+static func _no_shadow(n: Node) -> void:
+	if n is GeometryInstance3D:
+		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for c in n.get_children():
+		_no_shadow(c)
 
 
 static func _place(room: Room, p: Vector3, turn := true) -> Node3D:

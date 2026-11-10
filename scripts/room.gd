@@ -116,6 +116,10 @@ uniform vec4 water = vec4(0.0);
 uniform vec4 spores = vec4(0.0);
 uniform vec4 spores2 = vec4(0.7, 1.0, 0.3, 1.0);
 uniform vec2 half_size = vec2(6.0, 10.0);
+// The wall torches' warm light on the floor (no real light needed): their colour, and how
+// strong (0 on the near ledge).
+uniform vec4 torch_glow = vec4(1.0, 0.6, 0.3, 1.0);
+uniform float torch_amount = 0.0;
 // 1 on the near ledge's box: its front face takes the pattern from its own plane and
 // keeps its real normal.
 uniform float ledge = 0.0;
@@ -132,8 +136,8 @@ void vertex() {
 }
 
 void fragment() {
-	// Slabs 1.5 m wide and 1.1 m deep, each row shifted sideways by its own amount.
-	const vec2 SLAB = vec2(1.5, 1.1);
+	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
+	const vec2 SLAB = vec2(1.8, 1.3);
 	float row = floor(pos.y / SLAB.y);
 	vec2 s = vec2(pos.x / SLAB.x + h(vec2(row, 3.7)), pos.y / SLAB.y);
 	vec2 cell = floor(s);
@@ -147,22 +151,23 @@ void fragment() {
 	float big = texture(blobs_a, pos * 0.05 + vec2(0.37, 0.11)).r;
 	float big2 = texture(blobs_b, pos * 0.065 + vec2(0.71, 0.53)).r;
 
-	// Stone: every slab a little lighter or darker, some warmer, all mottled.
-	vec3 c = vec3(0.37, 0.34, 0.39) * (0.84 + 0.3 * r) * (0.72 + 0.56 * fine);
+	// Stone: every slab a little lighter or darker, some warmer, only faintly mottled (a busy
+	// floor fights the fight for attention).
+	vec3 c = vec3(0.37, 0.34, 0.39) * (0.86 + 0.26 * r) * (0.92 + 0.16 * fine);
 	c *= mix(vec3(1.0), vec3(1.07, 1.0, 0.9), step(0.6, r2));
 	c *= tint.rgb;
 
 	// Darker by the walls (light does not reach the corners), a little by the low near ledge.
 	float wall = min(half_size.x - abs(pos.x), pos.y + half_size.y);
-	float shade = mix(0.62, 1.0, smoothstep(0.0, 1.3, wall)) * mix(0.85, 1.0, smoothstep(0.0, 0.8, half_size.y - pos.y));
+	float shade = mix(0.5, 1.0, smoothstep(0.0, 2.4, wall)) * mix(0.8, 1.0, smoothstep(0.0, 1.2, half_size.y - pos.y));
 
 	// Grime gathers in big patches and along the walls.
-	float g = smoothstep(0.58, 0.85, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.25) * grime_amount;
+	float g = smoothstep(0.62, 0.95, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.3) * grime_amount * 0.75;
 	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g);
 
 	// The second kind of patch changes colour and shine (wet stone and ice catch the torches).
-	float p = smoothstep(0.6, 0.72, big2);
-	c *= mix(vec3(1.0), patch_tint.rgb, p);
+	float p = smoothstep(0.62, 0.82, big2);
+	c *= mix(vec3(1.0), patch_tint.rgb, p * 0.7);
 	float rough = mix(0.82, patch_rough, p);
 
 	if (blood > 0.0) {
@@ -182,8 +187,47 @@ void fragment() {
 	float crack = (1.0 - smoothstep(0.0, 0.014 + fwidth(off), abs(off))) * step(0.84, r)
 		* (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
 
+	// Each slab's far and left edges catch the light and its near and right edges fall into
+	// shadow, painted in, so the stones read as chunky blocks under any light.
+	float rim_hi = max((1.0 - smoothstep(0.03, 0.11, e.y)) * step(f.y, 0.0), (1.0 - smoothstep(0.03, 0.11, e.x)) * step(f.x, 0.0));
+	float rim_lo = max((1.0 - smoothstep(0.03, 0.13, e.y)) * step(0.0, f.y), (1.0 - smoothstep(0.03, 0.13, e.x)) * step(0.0, f.x));
+	c *= 1.0 + 0.22 * rim_hi - 0.28 * rim_lo;
+
+	// About one slab in thirty is an iron drain grate set into the stone: a dark pit under
+	// iron bars, with a lip around it. (Ember grates only smoulder: a bright glow on the floor
+	// would read as fire to step out of.)
+	float grate = step(0.967, h(cell * vec2(1.73, 2.31) + vec2(41.3, 7.9))) * step(1.5, wall) * (1.0 - ledge);
+	float pit = 0.0;
+	float bar = 0.0;
+	if (grate > 0.5) {
+		vec2 inset = e - vec2(0.3, 0.26);
+		pit = smoothstep(-0.01, 0.01, min(inset.x, inset.y));
+		float lip = smoothstep(-0.07, -0.05, min(inset.x, inset.y)) * (1.0 - pit);
+		float bx = abs(fract(f.x * SLAB.x / 0.24) - 0.5);
+		bar = (1.0 - smoothstep(0.17, 0.23, bx)) * pit;
+		c = mix(c, vec3(0.16, 0.15, 0.17), lip * 0.6);
+		c = mix(c, vec3(0.03, 0.025, 0.03), pit);
+		c = mix(c, vec3(0.32, 0.31, 0.34) * (0.8 + 0.4 * fine), bar);
+		crack = 0.0;
+	}
+
 	c = mix(c, grout.rgb, gap);
 	c *= (1.0 - crack * 0.55) * shade;
+	// A little greyer and darker than the old floor, so heroes, skeletons and their shots stand
+	// out against it (the screen's colour boost lifts everything equally).
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.78) * 0.88;
+
+	// Warm pools of torchlight on the floor under the six wall torches, flickering.
+	if (torch_amount > 0.0) {
+		float pool = 0.0;
+		for (int i = 0; i < 6; i++) {
+			vec2 tp = vec2(i % 2 == 0 ? -half_size.x : half_size.x, -6.0 + 6.0 * float(i / 2));
+			float d = length((pos - tp) * vec2(1.0, 0.8));
+			float fl = 0.85 + 0.15 * sin(TIME * 6.3 + float(i) * 1.7) * sin(TIME * 2.9 + float(i) * 4.1);
+			pool += (1.0 - smoothstep(0.0, 3.8, d)) * fl;
+		}
+		c *= 1.0 + torch_glow.rgb * pool * torch_amount;
+	}
 	rough = mix(rough, 0.95, max(gap, crack));
 
 	// Slab edges are worn round and every slab sits a little crooked, so torchlight picks
@@ -247,6 +291,7 @@ void fragment() {
 		float heat = smoothstep(0.56, 0.76, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
 		float pulse = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + pos.x * 0.6 + pos.y * 0.35), 2.0);
 		EMISSION = seam.rgb * max(gap, crack) * pulse * mix(0.6, 1.2, r) * mix(0.05, 1.25, heat);
+		EMISSION += seam.rgb * pit * (1.0 - bar) * (0.7 + 0.3 * pulse) * 0.2;
 	}
 }
 """
@@ -265,6 +310,8 @@ void fragment() {
 	sm.set_shader_parameter("spores", look.get("spores", Color(0, 0, 0, 0)))
 	sm.set_shader_parameter("spores2", look.get("spores2", Color(0.7, 1.0, 0.3)))
 	sm.set_shader_parameter("half_size", Vector2(HALF_W, HALF_L))
+	sm.set_shader_parameter("torch_glow", look.torch)
+	sm.set_shader_parameter("torch_amount", look.get("pool", 1.3))
 	return sm
 
 
@@ -279,6 +326,7 @@ static func _ledge_material(look: Dictionary) -> Material:
 	m.set_shader_parameter("spores", Color(0, 0, 0, 0))
 	m.set_shader_parameter("half_size", Vector2(100, 100))
 	m.set_shader_parameter("ledge", 1.0)
+	m.set_shader_parameter("torch_amount", 0.0)
 	return m
 
 
