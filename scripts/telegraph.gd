@@ -2,7 +2,10 @@ class_name Telegraph
 extends Node3D
 ## A red marker on the floor that warns where an attack will land, then calls back.
 ## Fair warnings are what make dodging feel skilful instead of random.
-## Every warning has a dark rim so it reads on any floor; on the red Ember floor its
+## Version 135: one glowing shape drawn by a shader (it used to be three flat red quads): a
+## dark outline so it reads on any floor, a bright rim, faint stripes moving the way the
+## attack goes, and a fill that grows from the caster (or the middle) with a bright edge, so
+## you can see exactly when it lands; it flashes just before. On the red Ember floor its
 ## middle burns yellow-white. Dashing out of one as it lands is a perfect dodge (dodged()).
 
 ## How long after a line warning lands it still counts for a perfect dodge (charges and
@@ -16,9 +19,7 @@ static var active: Array[Telegraph] = []
 var duration := 1.0
 var elapsed := 0.0
 var on_done: Callable
-var _fill: MeshInstance3D
-var _fill_mat: StandardMaterial3D
-var _full: Vector3
+var _mat: ShaderMaterial
 var _is_line := false
 var _radius := 0.0
 var _width := 0.0
@@ -88,12 +89,8 @@ static func circle(pos: Vector3, r: float, seconds: float, done: Callable, volum
 	_parent().add_child(t)
 	t.global_position = Vector3(pos.x, 0.03, pos.z)
 	t._radius = r
-	U.floor_quad(t, Vector2(r * 2.3, r * 2.3), U.unlit(Color(0.04, 0.0, 0.0, 0.8), U.ring()), Vector3(0, -0.006, 0))
-	U.floor_quad(t, Vector2(r * 2, r * 2), U.unlit(_area(0.55), U.ring()))
-	t._fill_mat = U.unlit(_core(0.7), U.soft_circle()).duplicate()
-	t._fill = U.floor_quad(t, Vector2(r * 2, r * 2), t._fill_mat, Vector3(0, 0.01, 0))
-	t._fill.scale = Vector3.ZERO
-	t._full = Vector3.ONE
+	t._mat = _material(Vector2(r, 0.0), false)
+	U.floor_quad(t, Vector2(r * 2 + 0.4, r * 2 + 0.4), t._mat)
 	t.duration = seconds
 	t.on_done = done
 	if volume > 0.0:
@@ -111,12 +108,8 @@ static func line(origin: Vector3, direction: Vector3, length: float, width: floa
 	t.rotation.y = atan2(-direction.x, -direction.z)
 	t._width = width
 	t._length = length
-	U.floor_quad(t, Vector2(width + 0.3, length + 0.3), U.unlit(Color(0.04, 0.0, 0.0, 0.55)), Vector3(0, -0.006, -length / 2))
-	U.floor_quad(t, Vector2(width, length), U.unlit(_area(0.25)), Vector3(0, 0, -length / 2))
-	t._fill_mat = U.unlit(_core(0.6)).duplicate()
-	t._fill = U.floor_quad(t, Vector2(width, length), t._fill_mat, Vector3(0, 0.01, 0))
-	t._full = Vector3(1, 1, length)
-	t._fill.scale = Vector3(1, 1, 0.001)
+	t._mat = _material(Vector2(width, length), true)
+	U.floor_quad(t, Vector2(width + 0.4, length + 0.4), t._mat, Vector3(0, 0, -length / 2))
 	t.duration = seconds
 	t.on_done = done
 	Sfx.play("warn", 0.6)
@@ -129,14 +122,7 @@ func _process(delta: float) -> void:
 		if elapsed >= duration + AFTER:
 			queue_free()
 		return
-	var k := clampf(elapsed / duration, 0.0, 1.0)
-	if _is_line:
-		_fill.scale = Vector3(1, 1, maxf(k, 0.001))
-		_fill.position.z = -_full.z * k * 0.5
-	else:
-		_fill.scale = Vector3.ONE * k
-	var pulse := 0.6 + 0.4 * sin(elapsed * lerpf(8.0, 30.0, k))
-	_fill_mat.albedo_color.a = 0.45 + 0.4 * pulse * k
+	_mat.set_shader_parameter("k", clampf(elapsed / duration, 0.0, 1.0))
 	if elapsed >= duration:
 		# Hidden but kept a moment longer, so a dash just after it lands still counts.
 		_fired = true
@@ -151,3 +137,89 @@ func _process(delta: float) -> void:
 func cancel() -> void:
 	on_done = Callable()
 	queue_free()
+
+
+static var _shader: Shader
+
+
+static func _material(size: Vector2, is_line: bool) -> ShaderMaterial:
+	if _shader == null:
+		_shader = Shader.new()
+		_shader.code = SHADER
+	var m := ShaderMaterial.new()
+	m.shader = _shader
+	m.set_shader_parameter("core", _core(1.0))
+	m.set_shader_parameter("area", _area(0.3))
+	m.set_shader_parameter("size", size)
+	m.set_shader_parameter("is_line", 1.0 if is_line else 0.0)
+	m.set_shader_parameter("k", 0.0)
+	return m
+
+
+const SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, shadows_disabled;
+uniform vec4 core : source_color = vec4(1.0, 0.2, 0.1, 1.0);
+uniform vec4 area : source_color = vec4(1.0, 0.15, 0.1, 0.3);
+// A circle: (radius, 0). A strip: (width, length), starting at the caster.
+uniform vec2 size = vec2(1.0, 0.0);
+uniform float is_line = 0.0;
+// How full the warning is: 0 when it appears, 1 when the attack lands.
+uniform float k = 0.0;
+varying vec2 lp;
+
+void vertex() {
+	lp = VERTEX.xz;
+}
+
+void over(inout vec4 acc, vec3 c, float a) {
+	acc.rgb = c * a + acc.rgb * (1.0 - a);
+	acc.a = a + acc.a * (1.0 - a);
+}
+
+void fragment() {
+	// Metres to the shape's edge (above 0 inside), how far the fill has come and where this
+	// point is along the way it fills, and stripes moving the way the attack goes.
+	float edge;
+	float at;
+	float reach;
+	float stripe;
+	if (is_line > 0.5) {
+		float along = size.y * 0.5 - lp.y;
+		float across = abs(lp.x);
+		edge = min(size.x * 0.5 - across, min(along, size.y - along));
+		at = along;
+		reach = size.y;
+		float ch = fract((along - across * 0.9) / 0.7 - TIME * 2.4);
+		stripe = smoothstep(0.0, 0.06, ch) * (1.0 - smoothstep(0.26, 0.34, ch));
+	} else {
+		float d = length(lp);
+		edge = size.x - d;
+		at = d;
+		reach = size.x;
+		float ch = fract(d / 0.55 + TIME * 1.6);
+		stripe = smoothstep(0.0, 0.06, ch) * (1.0 - smoothstep(0.22, 0.3, ch));
+	}
+	float aa = fwidth(edge) + 0.004;
+	float inside = smoothstep(-aa, aa, edge);
+	float front = k * reach;
+	float filled = (1.0 - smoothstep(front - aa, front + aa, at)) * inside;
+	// A bright band just behind the fill's edge, so the eye follows it.
+	float lead = (1.0 - smoothstep(0.0, 0.22 + 0.1 * reach * 0.1, front - at)) * filled * step(0.02, k);
+	// The last moment before it lands: the whole shape flashes.
+	float flash = smoothstep(0.82, 1.0, k) * (0.5 + 0.5 * sin(TIME * 40.0));
+
+	vec4 acc = vec4(0.0);
+	// A dark outline just outside, so it reads on any floor.
+	over(acc, vec3(0.05, 0.0, 0.0), (1.0 - smoothstep(0.0, 0.14, -edge)) * (1.0 - inside) * 0.8);
+	over(acc, area.rgb, (0.1 + stripe * 0.14) * inside);
+	vec3 hot = mix(core.rgb, vec3(1.0), 0.35);
+	over(acc, core.rgb, filled * (0.3 + 0.2 * k + 0.3 * flash));
+	over(acc, hot, lead * 0.9);
+	// A bright rim just inside the edge, brighter as it fills.
+	float rim = (1.0 - smoothstep(0.045, 0.09, edge)) * inside;
+	over(acc, mix(core.rgb, hot, flash), rim * (0.85 + 0.15 * k));
+	ALBEDO = acc.rgb / max(acc.a, 0.001) * (1.0 + 0.25 * lead + 0.2 * rim);
+	ALPHA = acc.a;
+}
+"""

@@ -193,6 +193,9 @@ var _stick_start := Vector2.ZERO
 ## motion a slow drag used to count as a quick flick and fire a dash (audit fix 2).
 var _stick_start_ms := 0
 var _chain_box: Control
+## Where the slim chain row sits under the top bar, and how tall it is (version 135).
+const CHAIN_TOP := 80.0
+const CHAIN_H := 62.0
 var _chain_label: Label
 var _chain_pop := 0.0
 var _spine: ChainSpine
@@ -885,35 +888,36 @@ func _build_hud() -> void:
 	bar_holder.add_child(_boss_flash)
 	_boss_box.visible = false
 
-	# Bone Chain: a spine of six vertebrae across the top, the multiplier under it, and
-	# the run score under that. The cord behind the bones drains until the next kill.
+	# Bone Chain: a spine of six vertebrae across the top with the multiplier beside it, and
+	# the run score under them. The cord behind the bones drains until the next kill.
+	# Version 135: one slim row (it used to stack three rows down into the room).
 	_chain_box = Control.new()
 	_chain_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_chain_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_chain_box.offset_left = -160
-	_chain_box.offset_right = 160
-	_chain_box.offset_top = 88
-	_chain_box.offset_bottom = 210
+	_chain_box.offset_left = -150
+	_chain_box.offset_right = 150
+	_chain_box.offset_top = CHAIN_TOP
+	_chain_box.offset_bottom = CHAIN_TOP + CHAIN_H
 	_chain_box.modulate.a = 0.0
 	root.add_child(_chain_box)
 	_spine = ChainSpine.new()
-	_spine.position = Vector2(10, 0)
-	_spine.size = Vector2(300, 46)
+	_spine.position = Vector2(-6, 0)
+	_spine.size = Vector2(222, 40)
 	_chain_box.add_child(_spine)
-	_chain_label = label("x1.0", 46, ChainSpine.BONE)
-	_chain_label.position = Vector2(0, 42)
-	_chain_label.size = Vector2(320, 54)
-	_chain_label.pivot_offset = Vector2(160, 27)
+	_chain_label = label("x1.0", 36, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
+	_chain_label.position = Vector2(218, -4)
+	_chain_label.size = Vector2(100, 46)
+	_chain_label.pivot_offset = Vector2(34, 23)
 	_chain_box.add_child(_chain_label)
-	_score_label = label("", 18, Color(0.85, 0.82, 0.75))
+	_score_label = label("", 15, Color(0.85, 0.82, 0.75))
 	chunky(_score_label.label_settings)
-	_score_label.label_settings.outline_size = 5
-	_score_label.position = Vector2(0, 94)
-	_score_label.size = Vector2(320, 24)
+	_score_label.label_settings.outline_size = 4
+	_score_label.position = Vector2(0, 40)
+	_score_label.size = Vector2(300, 20)
 	_chain_box.add_child(_score_label)
-	_broken_label = label("", 30, Color(1, 0.35, 0.3))
-	_broken_label.position = Vector2(-40, 44)
-	_broken_label.size = Vector2(400, 44)
+	_broken_label = label("", 24, Color(1, 0.35, 0.3))
+	_broken_label.position = Vector2(-40, 0)
+	_broken_label.size = Vector2(380, 36)
 	_broken_label.modulate.a = 0.0
 	_chain_box.add_child(_broken_label)
 
@@ -924,8 +928,8 @@ func _build_hud() -> void:
 	_tip.set_anchors_preset(Control.PRESET_CENTER_TOP)
 	_tip.offset_left = -250
 	_tip.offset_right = 250
-	_tip.offset_top = 214
-	_tip.offset_bottom = 254
+	_tip.offset_top = CHAIN_TOP + CHAIN_H + 14
+	_tip.offset_bottom = CHAIN_TOP + CHAIN_H + 54
 	_tip.grow_vertical = Control.GROW_DIRECTION_END   # longer tips grow down, clear of the chain meter
 	_tip.label_settings.outline_size = 7
 	_tip.label_settings.outline_color = Color(0, 0, 0, 0.9)
@@ -2621,12 +2625,12 @@ func _process(delta: float) -> void:
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
 	_see_through(delta)
-	_chain_box.offset_top = 122.0 if _boss_box.visible else 88.0
-	_chain_box.offset_bottom = _chain_box.offset_top + 122.0
+	_chain_box.offset_top = CHAIN_TOP + (34.0 if _boss_box.visible else 0.0)
+	_chain_box.offset_bottom = _chain_box.offset_top + CHAIN_H
 	# Hidden behind the pause menu, where it would cross "Paused".
 	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.UPGRADE]
 	# With no chain going it stays faint (it sits over the far end of the room).
-	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.45) if meter else 0.0
+	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.35) if meter else 0.0
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)

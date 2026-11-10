@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10i"
+const BUILD := "2026-11-10j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
