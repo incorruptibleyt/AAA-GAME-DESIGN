@@ -15,9 +15,10 @@ extends Node
 const PLUGIN := "PlayGames"
 
 ## The IDs from Play Console (Play Games Services → Leaderboards). Empty until set up; the
-## leaderboard buttons stay hidden until then.
-const DAILY := ""
-const BEST := ""
+## leaderboard buttons stay hidden until then. (The project ID is in
+## android_plugins/PlayGames/app_id.txt.)
+const DAILY := "CgkI4tupibsDEAIQAQ"   # Daily Crypt (made first)
+const BEST := "CgkI4tupibsDEAIQAg"    # Best Run
 
 const SPAN_DAILY := 0
 const SPAN_WEEKLY := 1
