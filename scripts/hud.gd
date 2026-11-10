@@ -2694,6 +2694,7 @@ func _on_card(i: int) -> void:
 
 func _process(delta: float) -> void:
 	_event_process(delta)
+	_fade_buttons_over_hero(delta)
 	_cards_age += delta
 	_doors_age += delta
 	# The title's words and buttons would show faintly through the screens opened over it.
@@ -2986,6 +2987,22 @@ func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 	_perfect_tw.parallel().tween_method(_place_perfect, 0.0, 40.0, 0.9)
 	_perfect_tw.tween_property(_perfect_lbl, "modulate:a", 0.0, 0.25)
 	_perfect_tw.tween_callback(func(): _perfect_lbl.visible = false)
+
+
+## Version 135: the DASH and special buttons sit at the right edge, and a hero pressed
+## against that wall (the Sporemother's arena) stood hidden under them. While the hero is
+## under one, it fades to see-through; it still works the same.
+func _fade_buttons_over_hero(delta: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	var hero_ok := Game.state == Game.State.PLAYING and cam != null and Game.hero != null and is_instance_valid(Game.hero)
+	var feet := cam.unproject_position(Game.hero.global_position) if hero_ok else Vector2.ZERO
+	var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 1.6) if hero_ok else Vector2.ZERO
+	var hero_box := Rect2(head, Vector2.ZERO).expand(feet).grow(18.0)
+	for b: Control in [_dash_button, _special]:
+		if b == null:
+			continue
+		var under := hero_ok and b.is_visible_in_tree() and b.get_global_rect().intersects(hero_box)
+		b.modulate.a = move_toward(b.modulate.a, 0.35 if under else 1.0, delta * 4.0)
 
 
 func _place_perfect(rise: float) -> void:
