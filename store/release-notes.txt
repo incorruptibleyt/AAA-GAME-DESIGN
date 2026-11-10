@@ -1,6 +1,5 @@
-Version 128: the Glowcap Grotto
-- A new crypt on floor 4: a cave of glowing mushrooms with its own music.
-- New boss, the Sporemother: she lobs spore pods, sends roots crawling after you and grows rings of mushrooms. In phase 2 the whole floor blooms.
-- Two new skeletons: the Sporeling bursts into a spore cloud when it dies, and the Rootbinder sends roots that hold you in place (dash to break free).
-- The five free floors now have four different bosses.
+Version 129: meet the heroes
+- Every hero has a name and a personality: Wren the Rogue, Sir Bram the Knight, Bjorn the Barbarian and Quill the Mage.
+- Heroes talk! Each one has their own lines and their own little voice on the Heroes screen and at the start of a run.
+- Beat a boss and the camera moves in while your hero celebrates in their own way.
 - Bug fixes.

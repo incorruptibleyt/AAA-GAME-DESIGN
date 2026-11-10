@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10a"
+const BUILD := "2026-11-10b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1207,7 +1207,7 @@ func _on_screen_tapped() -> void:
 			if _state_time > 1.0:
 				_restart()
 		State.VICTORY:
-			if _state_time > 1.5 and not _loop_choice:   # the end of a loop has its own buttons
+			if _state_time > 1.5 and not _loop_choice and not _celebrating:   # the end of a loop has its own buttons
 				if _daily_done:
 					_back_to_title()
 				else:
@@ -1322,7 +1322,7 @@ func _mode_banner() -> void:
 	elif not curses.is_empty():
 		hud.tip("CURSE LEVEL %d  ·  Score x%s\n%s" % [Curses.level_of(curses), _mult_text(_score_mult), Curses.names(curses)], 4.0, 1.8)
 	elif _run_hero_id != "":
-		hud.tip("FREE TRIAL RUN  ·  %s" % Heroes.get_hero(_run_hero_id).title, 4.0, 1.8)
+		hud.tip("FREE TRIAL RUN  ·  %s" % Heroes.full_name(Heroes.get_hero(_run_hero_id)), 4.0, 1.8)
 
 
 ## 1.3 -> "1.3", 1.45 -> "1.45"
@@ -1769,6 +1769,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			_floor_hits = int(_rep.hits)
 	if not _in_boss_room():
 		hud.banner("Room %d" % (index + 1))
+	# A new run (not the tutorial): the hero says something as they step in (version 129).
+	if index == 0 and _run_time < 1.0 and not first_run:
+		_hello_soon()
 	if Doors.room_tip(_door) != "":
 		hud.tip(Doors.room_tip(_door), 3.5, 1.4)
 	if first_run:
@@ -2414,6 +2417,40 @@ func _clear_enemy_attacks() -> void:
 			(n as Telegraph).cancel()
 
 
+## The run-start line, once the room is under way (the floor's banner can hold the start
+## back a moment), and only while still in that first room.
+func _hello_soon() -> void:
+	var floor_at := floor_num
+	for i in 14:
+		await get_tree().create_timer(0.3, false).timeout
+		if floor_num != floor_at or _room_index != 0:
+			return
+		if state == State.PLAYING and _state_time > 0.6:
+			hud.hero_says("hello")
+			return
+
+
+## After the slow-motion finish on a boss: the camera moves in on the hero, who celebrates in
+## their own way (their emote, a burst in their colour) and says one of their "win" lines
+## (version 129; from version 122 to 128 everyone did the same cheer, mostly hidden by the
+## end screen a moment later). The end screen waits CELEBRATE seconds for it.
+const CELEBRATE := 1.8
+## True from the boss's fall until the end screen shows: taps don't descend yet.
+var _celebrating := false
+
+func _celebrate() -> void:
+	if hero == null or not is_instance_valid(hero) or hero.dead or state != State.VICTORY:
+		return
+	var h := Heroes.get_hero(hero.hero_id)
+	if hero.visual:
+		hero.visual.emote(h.get("emote", ["Cheer"]))
+	Fx.magic(hero.center() + Vector3.UP * 0.6, h.ring, 18)
+	Fx.shockwave(hero.global_position, h.ring, 2.2)
+	_zoom_point = hero.global_position
+	_zoom_hold = CELEBRATE + 0.4
+	hud.hero_says("win")
+
+
 func _win() -> void:
 	var boss_name := boss.display_name() if is_instance_valid(boss) else "The boss"
 	var where := boss.global_position if is_instance_valid(boss) else hero.global_position
@@ -2421,16 +2458,19 @@ func _win() -> void:
 	_report_room_done("F%d Boss" % floor_num)
 	_set_state(State.VICTORY)
 	finisher(where, 0.2, 1.0, Color(1, 0.5, 0.3))
-	if hero and hero.visual:
-		hero.visual.play_named("Cheer")   # version 122: the hero celebrates the win
 	_clear_enemy_attacks()
 	Pickup.collect_all()
 	hud.hide_boss()
-	await get_tree().create_timer(1.2, true, false, true).timeout
+	_celebrating = true
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	_celebrate()
+	await get_tree().create_timer(0.2, true, false, true).timeout
 	Pickup.grant_all()   # coins still flying to the hero count, and are saved
 	_save_coins()
 	Sfx.play("victory")
 	Sfx.play("vo_win", 0.8)
+	# The hero's moment before the end screen covers them (version 129).
+	await get_tree().create_timer(CELEBRATE - 0.2, true, false, true).timeout
 	var cfg := _load_save()
 	# A floor's boss beaten for the first time (not in the Daily Crypt): worth sharing,
 	# unless it's the tutorial.
@@ -2478,6 +2518,8 @@ func _win() -> void:
 		extra += "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
+	_celebrating = false
+	hud.hero_quiet()   # the bubble would show through the end screen
 	var tap := "Tap to return to the title" if _daily_done else "Tap to descend to floor %d" % (floor_num + 1)
 	hud.show_end(true, true, "%s of floor %d has fallen.\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d\nBone Road  +%d bones%s" % [boss_name, floor_num, _format_time(_run_time), _kills, run_coins, bones, extra],
 		tap, false, score, best, _free_end)
@@ -2585,6 +2627,8 @@ func _resume() -> void:
 func _set_state(s: int) -> void:
 	state = s
 	_state_time = 0.0
+	if hud and (s == State.DEAD or s == State.TITLE):
+		hud.hero_quiet()
 	if s != State.PLAYING:
 		Engine.time_scale = 1.0
 		_hit_stop_left = 0.0
@@ -2814,7 +2858,7 @@ func _give_mastery_on_title() -> String:
 
 func _title_hero_line(id: String, trial := false) -> void:
 	var cfg := _load_save()
-	hud.set_title_hero(Heroes.get_hero(id).title + (" (free trial run)" if trial else ""), HeroMastery.level(cfg, id), HeroMastery.has_frame(cfg, id))
+	hud.set_title_hero(Heroes.full_name(Heroes.get_hero(id)) + (" (free trial run)" if trial else ""), HeroMastery.level(cfg, id), HeroMastery.has_frame(cfg, id))
 
 
 func _open_road() -> void:

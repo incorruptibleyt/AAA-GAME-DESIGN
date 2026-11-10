@@ -27,6 +27,10 @@ var _stage: HeroStage
 var _tabs: Array[Button] = []
 var _coin_label: Label
 var _name: Label
+## Version 129: who the hero is ("THE ROGUE · Quick, cheeky..."), and their speech bubble.
+var _who: Label
+var _bubble: SpeechBubble
+var _spoke := ""
 var _badge: Label
 var _mastery_bar: MasteryBar
 var _style_button: Button
@@ -94,6 +98,8 @@ func _init() -> void:
 	col.add_child(_build_stage())
 	_name = Hud.label("", 36, Color.WHITE)
 	col.add_child(_name)
+	_who = Hud.label("", 16, TEXT)
+	col.add_child(_who)
 	_badge = Hud.label("", 16, Hud.GOLD)
 	col.add_child(_badge)
 	# Hero Mastery: tap for every level and the mastery color.
@@ -150,8 +156,10 @@ func _build_stage() -> Control:
 		b.custom_minimum_size = Vector2(56, 84)
 		b.anchor_left = 0.0 if side < 0 else 1.0
 		b.anchor_right = b.anchor_left
-		b.anchor_top = 0.5
-		b.anchor_bottom = 0.5
+		# Low on the pedestal picture (version 129), leaving the space beside the hero's face
+		# for their speech bubble.
+		b.anchor_top = 0.62
+		b.anchor_bottom = 0.62
 		b.offset_left = 0.0 if side < 0 else -56.0
 		b.offset_right = b.offset_left + 56.0
 		b.offset_top = -42.0
@@ -291,6 +299,7 @@ func open(rows: Array, coins: int) -> void:
 			if rows[i].selected or rows[i].trying:
 				_index = i
 		_shown_id = ""
+		_spoke = ""
 	visible = true
 	_stage.set_active(true)
 	_refresh()
@@ -319,6 +328,8 @@ func _fit() -> void:
 func close() -> void:
 	visible = false
 	_stage.set_active(false)
+	if _bubble:
+		_bubble.hide_now()
 
 
 ## Which hero is on show (the test robot pictures each one).
@@ -355,8 +366,13 @@ func _refresh() -> void:
 		Hud.paint(t, "gold" if on else "slate")
 		var owned: bool = _rows[i].unlocked
 		t.add_theme_color_override("font_color", Color.WHITE if on else (Color(1, 0.93, 0.8) if owned else DIM))
-	_name.text = def.title.to_upper()
+	_name.text = Heroes.hero_name(def).to_upper()
 	_name.label_settings.font_color = ring.lightened(0.25)
+	_who.text = "THE %s  ·  %s" % [def.title.to_upper(), Heroes.get_hero(r.id).get("about", "")]
+	_who.label_settings.font_color = ring.lightened(0.55)
+	if _spoke != r.id:
+		_spoke = r.id
+		_greet.call_deferred(def)
 	var bits := []
 	var title := HeroMastery.title_for(HeroMastery.level_for(int(r.get("points", 0))))
 	if title != "":
@@ -399,6 +415,42 @@ func _refresh() -> void:
 	_fit_soon()
 
 
+func def_for(r: Dictionary) -> Dictionary:
+	return r.get("def", Heroes.get_hero(r.id))
+
+
+## A hero says hello when they step onto the pedestal: one of their lines in a speech bubble
+## beside their head, and their emote (version 129).
+func _greet(def: Dictionary) -> void:
+	if not visible:
+		return
+	if _bubble == null:
+		_bubble = SpeechBubble.new()
+		_bubble.side = SpeechBubble.Side.RIGHT
+		_bubble.max_width = 150.0
+		_bubble.text_size = 19
+		add_child(_bubble)
+	var h := Heroes.get_hero(str(def.id))
+	_stage.emote(h.get("emote", []))
+	_bubble.say(str(h.get("name", def.title)), Heroes.line(def, "pick"), def.ring, float(h.get("voice", 1.0)))
+	_place_bubble()
+
+
+func _place_bubble() -> void:
+	if _bubble == null:
+		return
+	var box := _stage_box.get_global_rect()
+	var mine := get_global_rect()
+	# Just left of the hero's face (near the top of the pedestal picture), above the < button
+	# (which sits low for this), the tail pointing at the face.
+	_bubble.point_at(box.position - mine.position + Vector2(box.size.x * 0.5 - 50.0, box.size.y * 0.27))
+
+
+func _process(_delta: float) -> void:
+	if visible and _bubble and _bubble.talking():
+		_place_bubble()
+
+
 ## How full a stat bar is: the weakest hero gets a third of a bar, the strongest a full one.
 func _share(key: String, value: float) -> float:
 	var lo := INF
@@ -424,7 +476,7 @@ func _fill_action(r: Dictionary, ring: Color) -> void:
 		_action_text.text = "CHOSEN"
 		text_col = ring.lightened(0.45)
 	elif r.unlocked:
-		_action_text.text = "PLAY AS " + Heroes.get_hero(r.id).title.to_upper()
+		_action_text.text = "PLAY AS " + Heroes.hero_name(def_for(r)).to_upper()
 		role = "green"
 	else:
 		_action_text.text = "UNLOCK"

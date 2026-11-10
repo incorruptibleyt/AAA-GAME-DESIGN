@@ -178,8 +178,19 @@ func set_moving(m: bool) -> void:
 func attack(spell := false) -> void:
 	if _dead:
 		return
+	_queue.clear()
 	_punch = 1.0
 	_play("cast" if spell and _anim_names.has("cast") else "attack", true)
+
+
+## A hero's emote (version 129): the model's own animations, one after another, then back
+## to idle. Names the model doesn't have are skipped.
+var _queue: Array = []
+
+func emote(names: Array) -> void:
+	_queue = names.filter(func(n): return _anim != null and _anim.has_animation(n))
+	if not _queue.is_empty():
+		play_named(_queue.pop_front())
 
 
 ## Plays one of the model's own animations once, by name (a boss's leap or summon).
@@ -257,7 +268,10 @@ func _process(delta: float) -> void:
 	if _anim:
 		# Return to idle/run once a one-shot (attack, hit) finishes.
 		if not _dead and (_anim.current_animation == "" or (not _anim.is_playing())):
-			_play("run" if _moving else "idle", true)
+			if not _queue.is_empty():
+				play_named(_queue.pop_front())
+			else:
+				_play("run" if _moving else "idle", true)
 		return
 	if _dead:
 		return

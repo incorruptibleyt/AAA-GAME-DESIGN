@@ -2146,7 +2146,7 @@ func show_pass_card(v: bool, def := {}) -> void:
 	_pass_card_stage.set_active(_pass_card.visible)
 	if _pass_card.visible:
 		_pass_card_stage.show_hero(def)
-		_pass_card_line.text = "Your %s in the\nCrypt King set.\nEndless floors, every\nhero and more." % str(def.title)
+		_pass_card_line.text = "%s in the\nCrypt King set.\nEndless floors, every\nhero and more." % Heroes.hero_name(def)
 	_fit_end_soon()
 
 
@@ -2819,6 +2819,31 @@ func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 	_callout.offset_top = -190.0 + drop
 	_callout.offset_bottom = -130.0 + drop
 	_callout_time = 1.1
+
+
+## The hero talking in a run (version 129): one of their lines ("hello" at the start of a
+## run, "win" over a beaten boss) in a speech bubble over their head. It sits under every
+## other part of the HUD, so a menu or the victory card covers it, never the other way round.
+var _hero_bubble: SpeechBubble
+
+func hero_says(kind: String) -> void:
+	var h := Game.hero
+	if h == null or not is_instance_valid(h) or h.dead:
+		return
+	var def := Heroes.get_hero(h.hero_id)
+	var text := Heroes.line(def, kind)
+	if text == "":
+		return
+	if _hero_bubble == null:
+		_hero_bubble = SpeechBubble.new()
+		add_child(_hero_bubble)
+		move_child(_hero_bubble, 0)
+	_hero_bubble.say(str(def.get("name", def.title)), text, def.ring, float(def.get("voice", 1.0)), h, 2.6)
+
+
+func hero_quiet() -> void:
+	if _hero_bubble:
+		_hero_bubble.hide_now()
 
 
 ## PERFECT! just above the hero's head, where the eye already is (it used to show at the top

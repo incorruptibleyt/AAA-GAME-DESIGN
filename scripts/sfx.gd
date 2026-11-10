@@ -20,12 +20,12 @@ static var enabled := true
 
 ## Most copies of one sound allowed to start in a single frame. A big crowd dying at once
 ## used to start ten copies of "die" and cut off every other sound in the 10-player pool.
-const PER_FRAME := {"hit": 2, "shoot": 2, "die": 3}
+const PER_FRAME := {"hit": 2, "shoot": 2, "die": 3, "voice": 1}
 static var _frame := -1
 static var _started := {}
 
 ## Sounds that are the game talking to the player (menus, the announcer) skip the echo.
-const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", "vo_combo"]
+const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", "vo_combo", "voice"]
 
 
 static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
@@ -99,6 +99,17 @@ func _ready() -> void:
 	_clips["tick"] = _synth(0.04, func(t): return _sine(t, 1800) * _env(t, 0.04) * 0.18)
 	_clips["sting"] = _synth(1.0, func(t): return (_sine(t, 659) * float(t < 0.18) + _sine(t, 880) * float(t >= 0.18 and t < 0.36) \
 			+ (_sine(t, 1047) + _sine(t, 1319) * 0.6) * float(t >= 0.36)) * _env(t, 1.0) * 0.22)
+	# Version 129: the heroes' chatter. Not words: little sung syllables, one every few
+	# letters while a hero's speech bubble types out, at that hero's own pitch (Heroes.LIST
+	# "voice"). Three vowel colours, picked at random, so a line sounds like talk.
+	var vowels := [[1.0, 2.6], [1.0, 3.4], [1.0, 1.9]]
+	var syllables := []
+	for v in vowels:
+		var f1: float = 300.0 * v[0]
+		var f2: float = 300.0 * v[1]
+		syllables.append(_synth(0.075, func(t): return (_sine(t, f1 + t * 400.0) * 0.55 + _square(t, f1 + t * 400.0) * 0.12 \
+				+ _sine(t, f2) * 0.25) * minf(t * 160.0, 1.0) * exp(-t * 22.0) * 0.5))
+	_clips["voice"] = syllables
 	_clips["victory"] = _synth(1.2, func(t): return (_sine(t, 523) + _sine(t, 659) * float(t > 0.3) + _sine(t, 784) * float(t > 0.6)) * _env(t, 1.2) * 0.2)
 	_load_samples()
 

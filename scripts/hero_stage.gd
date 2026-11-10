@@ -170,6 +170,12 @@ func show_hero(def: Dictionary, gold := false) -> void:
 	_back_light.light_color = col
 
 
+## The hero on the pedestal plays their emote (version 129).
+func emote(names: Array) -> void:
+	if _visual:
+		_visual.emote(names)
+
+
 ## Only draws while the Heroes screen is open. Closed, its picture shrinks to 1 pixel, so the
 ## big smoothed (4x) picture doesn't hold graphics memory the rest of the time.
 ## On Low graphics it's drawn at 1.5x with 2x smoothing: about a quarter of the memory.
