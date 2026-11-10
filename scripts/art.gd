@@ -189,6 +189,12 @@ static func fit_height(node: Node3D, height: float) -> void:
 		node.position.y -= box.position.y * s
 
 
+## The widest side of a placed model, in metres, as it stands.
+static func width_of(node: Node3D) -> float:
+	var box := _bounds(node, Transform3D.IDENTITY)
+	return maxf(box.size.x, box.size.z)
+
+
 static func _bounds(node: Node, xf: Transform3D) -> AABB:
 	var result := AABB()
 	var first := true

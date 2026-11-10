@@ -72,6 +72,7 @@ static func dress(room: Room, layout: Array) -> void:
 					n.rotation.y = 0.0 if side < 0 else PI
 					_mesh(n, _shelf_fungus())
 	_dress_kit(room, layout, kind)
+	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
 	for x in [-3.6, 3.6]:
 		match kind:
@@ -141,6 +142,109 @@ static func _no_shadow(n: Node) -> void:
 		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	for c in n.get_children():
 		_no_shadow(c)
+
+
+## Little things lying on the floor (version 134): pebbles and broken stone everywhere,
+## plus each crypt's own bits: bones and skulls in the Bone Crypt, ice shards in the
+## Frozen Ossuary, charcoal and bones in the Ember Catacomb, shells in the Drowned Vault and
+## tiny glowing mushrooms in the Glowcap Grotto. They lie in small clusters, more of them by
+## the walls and at the feet of pillars, and are too low to block anyone. All of it is baked
+## into one mesh (a draw or two per material) with no shadows, so it costs almost nothing.
+const SCATTER_CLUSTERS := 22
+
+
+static func _scatter(room: Room, layout: Array, kind: String) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(layout)) + Game.floor_num * 7919
+	var look := Floors.current()
+	var stone := U.mat((look.floor as Color) * Color(0.42, 0.4, 0.46), 0.95)
+	var chip := U.mat((look.floor as Color) * Color(0.62, 0.6, 0.66), 0.9)
+	var bone := U.mat(Color(0.82, 0.78, 0.66), 0.85)
+	var dark := U.mat(Color(0.06, 0.05, 0.05), 1.0)
+	var parts := []
+	# Spots: the feet of pillars and other obstacles, the walls, and the open floor.
+	var spots: Array[Vector3] = []
+	for o: Dictionary in room.obstacles:
+		var p: Vector3 = o.pos
+		if absf(p.x) < Room.HALF_W - 0.8 and absf(p.z) < Room.HALF_L - 0.8:
+			var a := rng.randf() * TAU
+			spots.append(p + Vector3(cos(a), 0, sin(a)) * (float(o.r) + 0.15))
+	while spots.size() < SCATTER_CLUSTERS:
+		if rng.randf() < 0.45:
+			var side := -1.0 if rng.randf() < 0.5 else 1.0
+			spots.append(Vector3(side * (Room.HALF_W - rng.randf_range(0.25, 0.7)), 0, rng.randf_range(-Room.HALF_L + 1.0, Room.HALF_L - 1.5)))
+		else:
+			spots.append(Vector3(rng.randf_range(-Room.HALF_W + 1.0, Room.HALF_W - 1.0), 0, rng.randf_range(-Room.HALF_L + 1.5, Room.HALF_L - 2.0)))
+	spots.shuffle()
+	for i in mini(spots.size(), SCATTER_CLUSTERS + 4):
+		var at: Vector3 = spots[i]
+		var n := rng.randi_range(2, 5)
+		for j in n:
+			var p := at + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
+			var yaw := Basis(Vector3.UP, rng.randf() * TAU)
+			var roll := rng.randf()
+			if roll < 0.5:
+				# Pebbles and broken stone.
+				var sz := rng.randf_range(0.08, 0.17)
+				var m := chip if rng.randf() < 0.4 else stone
+				if rng.randf() < 0.5:
+					parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.35, Vector3(sz, sz * 0.55, sz * 0.8), yaw), m])
+				else:
+					parts.append([_cube(), _xf(p + Vector3.UP * sz * 0.4, Vector3(sz * 1.6, sz, sz * 1.2), yaw * Basis(Vector3.RIGHT, rng.randf_range(-0.4, 0.4))), m])
+			else:
+				_scatter_piece(parts, kind, p, yaw, rng, bone, dark)
+	if parts.is_empty():
+		return
+	var mi := _mesh(_place(room, Vector3.ZERO, false), _bake(parts))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, rng: RandomNumberGenerator, bone: Material, dark: Material) -> void:
+	match kind:
+		"bone", "ember":
+			if kind == "ember" and rng.randf() < 0.5:
+				# Charcoal.
+				var sz := rng.randf_range(0.1, 0.18)
+				parts.append([_cube(), _xf(p + Vector3.UP * sz * 0.35, Vector3(sz * 1.5, sz * 0.7, sz), yaw), dark])
+			elif rng.randf() < 0.22:
+				# A small skull, looking any way.
+				var sz := 0.16
+				parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.85, Vector3(sz, sz * 0.92, sz * 1.05), yaw), bone])
+				parts.append([_cube(), _xf(p + Vector3.UP * sz * 0.3 + yaw * Vector3(0, 0, -sz * 0.4), Vector3(sz * 0.95, sz * 0.4, sz * 0.7), yaw), bone])
+				for ex in [-0.38, 0.38]:
+					parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.9 + yaw * Vector3(ex * sz, 0, -sz * 0.88), Vector3.ONE * sz * 0.26), dark])
+			else:
+				# A long bone with knobbed ends, lying flat.
+				var bl := rng.randf_range(0.42, 0.7)
+				var flat := yaw * Basis(Vector3.RIGHT, PI / 2)
+				parts.append([_cone(0.04, 0.04, bl, 6), Transform3D(flat, p + Vector3.UP * 0.05), bone])
+				for e in [-0.5, 0.5]:
+					parts.append([_sphere(), _xf(p + Vector3.UP * 0.06 + yaw * Vector3(0, 0, e * bl), Vector3.ONE * 0.068), bone])
+		"ice":
+			# Frost-white shards lying almost flat (pale, so they never look like a Frost Wraith's bolt).
+			var ice := U.mat(Color(0.82, 0.9, 0.97), 0.35)
+			var h := rng.randf_range(0.16, 0.3)
+			var tilt := yaw * Basis(Vector3.RIGHT, rng.randf_range(1.0, 1.35))
+			parts.append([_cone(0.0, h * 0.3, h, 4), Transform3D(tilt, p + Vector3.UP * 0.05), ice])
+		"water":
+			# Shells: little pale fans.
+			var sz := rng.randf_range(0.1, 0.16)
+			parts.append([_cone(0.0, sz, sz * 0.5, 7), _xf(p + Vector3.UP * sz * 0.15, Vector3(1, 0.6, 1.3), yaw), bone])
+		"fungus":
+			# A tiny mushroom: a stalk and a glowing cap.
+			var h := rng.randf_range(0.13, 0.24)
+			parts.append([_cone(0.03, 0.038, h, 5), Transform3D(yaw, p + Vector3.UP * h * 0.5), bone])
+			parts.append([_sphere(), _xf(p + Vector3.UP * h, Vector3(h * 0.55, h * 0.3, h * 0.55), yaw), _cap_mat(rng.randf() < 0.75)])
+		_:
+			pass
+
+
+static func _cap_mat(pink: bool) -> Material:
+	var key := "cap_pink" if pink else "cap_lime"
+	if not _baked.has(key):
+		var col := Color(0.85, 0.42, 0.66) if pink else Color(0.6, 0.78, 0.35)
+		_baked[key] = U.mat(col.lerp(Color(0.45, 0.4, 0.4), 0.45), 0.7)   # dull, unlit: glowing pink means spores
+	return _baked[key]
 
 
 static func _place(room: Room, p: Vector3, turn := true) -> Node3D:

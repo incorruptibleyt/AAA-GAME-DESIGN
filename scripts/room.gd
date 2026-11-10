@@ -162,7 +162,7 @@ void fragment() {
 	float shade = mix(0.5, 1.0, smoothstep(0.0, 2.4, wall)) * mix(0.8, 1.0, smoothstep(0.0, 1.2, half_size.y - pos.y));
 
 	// Grime gathers in big patches and along the walls.
-	float g = smoothstep(0.62, 0.95, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.3) * grime_amount * 0.75;
+	float g = smoothstep(0.6, 0.9, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.3) * grime_amount;
 	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g);
 
 	// The second kind of patch changes colour and shine (wet stone and ice catch the torches).
@@ -180,11 +180,11 @@ void fragment() {
 	float aa = fwidth(edge);
 	float gap = 1.0 - smoothstep(0.022 - aa, 0.022 + aa, edge);
 
-	// About one slab in six has a crack: a wobbly line across its middle.
+	// About one slab in three has a crack: a wobbly line across its middle.
 	float a = r2 * 3.1416;
 	vec2 dir = vec2(cos(a), sin(a));
 	float off = dot(f, vec2(-dir.y, dir.x)) + 0.035 * sin(dot(f, dir) * 13.0 + r * 30.0);
-	float crack = (1.0 - smoothstep(0.0, 0.014 + fwidth(off), abs(off))) * step(0.84, r)
+	float crack = (1.0 - smoothstep(0.0, 0.014 + fwidth(off), abs(off))) * step(0.66, r)
 		* (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
 
 	// Each slab's far and left edges catch the light and its near and right edges fall into
@@ -211,8 +211,24 @@ void fragment() {
 		crack = 0.0;
 	}
 
-	c = mix(c, grout.rgb, gap);
-	c *= (1.0 - crack * 0.55) * shade;
+	// Chipped slabs: about two in five have lost a corner, a dark broken notch with a pale
+	// broken edge.
+	if (step(0.6, h(cell + 5.5)) > 0.5 && grate < 0.5) {
+		vec2 cf = vec2(r2 > 0.5 ? 0.5 : -0.5, r > 0.5 ? 0.5 : -0.5);
+		vec2 dc = abs(f - cf) * SLAB;
+		float size = 0.16 + 0.14 * h(cell + 9.1);
+		float notch = 1.0 - smoothstep(size - 0.015, size + 0.015, dc.x + dc.y);
+		float brk = (1.0 - smoothstep(0.0, 0.04, abs(dc.x + dc.y - size - 0.03))) * (1.0 - notch);
+		c = mix(c, c * 0.45, notch);
+		c *= 1.0 + 0.25 * brk;
+	}
+
+	// Moss, frost or soot grows into the gaps where the floor is dirtiest.
+	vec3 gap_col = mix(grout.rgb, grime.rgb * 0.9, smoothstep(0.15, 0.6, g) * 0.85);
+	c = mix(c, gap_col, gap);
+	c *= (1.0 - crack * 0.6) * shade;
+	// A soft lighter middle, as if light falls into the room from above.
+	c *= 1.0 + 0.1 * (1.0 - smoothstep(1.0, 8.0, length(pos * vec2(1.0, 0.55))));
 	// A little greyer and darker than the old floor, so heroes, skeletons and their shots stand
 	// out against it (the screen's colour boost lifts everything equally).
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.78) * 0.88;
@@ -224,7 +240,7 @@ void fragment() {
 			vec2 tp = vec2(i % 2 == 0 ? -half_size.x : half_size.x, -6.0 + 6.0 * float(i / 2));
 			float d = length((pos - tp) * vec2(1.0, 0.8));
 			float fl = 0.85 + 0.15 * sin(TIME * 6.3 + float(i) * 1.7) * sin(TIME * 2.9 + float(i) * 4.1);
-			pool += (1.0 - smoothstep(0.0, 3.8, d)) * fl;
+			pool += (1.0 - smoothstep(0.0, 4.2, d)) * fl;
 		}
 		c *= 1.0 + torch_glow.rgb * pool * torch_amount;
 	}
@@ -311,7 +327,7 @@ void fragment() {
 	sm.set_shader_parameter("spores2", look.get("spores2", Color(0.7, 1.0, 0.3)))
 	sm.set_shader_parameter("half_size", Vector2(HALF_W, HALF_L))
 	sm.set_shader_parameter("torch_glow", look.torch)
-	sm.set_shader_parameter("torch_amount", look.get("pool", 1.3))
+	sm.set_shader_parameter("torch_amount", look.get("pool", 1.5))
 	return sm
 
 
@@ -405,9 +421,18 @@ func _read_layout(layout: Array) -> void:
 			match ch:
 				"#":
 					_add_obstacle(p, 0.6)
-					var prefab := Art.get_model(Art.PILLAR)
+					# Each crypt has its own pillars (version 134).
+					var prefab := Art.get_model(str(Floors.current().get("pillar", Art.PILLAR)))
+					if prefab == null:
+						prefab = Art.get_model(Art.PILLAR)
 					if prefab:
-						Art.place_prop(prefab, _anchor(p), WALL_H + 0.4)
+						var pillar := Art.place_prop(prefab, _anchor(p), WALL_H + 0.4)
+						# Some crypt pillars are chunky: keep them no wider than the old one, so
+						# what you see matches what blocks you.
+						var wide := Art.width_of(pillar)
+						if wide > 1.25:
+							pillar.scale.x *= 1.25 / wide
+							pillar.scale.z *= 1.25 / wide
 					else:
 						U.box(self, Vector3(1.2, 0.3, 1.2), stone, p + Vector3.UP * 0.15)
 						U.cylinder(self, 0.45, WALL_H + 0.4, stone, p)
