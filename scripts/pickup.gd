@@ -55,11 +55,7 @@ func _ready() -> void:
 	_gem = Node3D.new()
 	add_child(_gem)
 	if coin:
-		var gold := U.mat(Color(1.0, 0.78, 0.2), 0.25, 1.2)
-		var c := U.cylinder(_gem, 0.22, 0.06, gold, Vector3(0, -0.03, 0))
-		c.rotation.x = PI / 2
-		var shine := U.floor_quad(self, Vector2(0.8, 0.8), U.unlit(Color(1, 0.8, 0.3, 0.4), U.soft_circle()), Vector3(0, 0.04, 0))
-		shine.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_build_coin()
 		return
 	# Green since version 116: pink hearts looked like the pink enemy shots.
 	var red := U.mat(Color(0.3, 1.0, 0.45), 0.3, 2.2)
@@ -71,6 +67,81 @@ func _ready() -> void:
 	var glow := U.floor_quad(self, Vector2(1.3, 1.3), U.unlit(Color(0.3, 1.0, 0.45, 0.5), U.soft_circle()), Vector3(0, 0.04, 0))
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	Fx.magic(global_position + Vector3.UP * 0.6, Color(0.4, 1.0, 0.5), 8)
+
+
+static var _gold: ShaderMaterial
+static var _twinkle: ShaderMaterial
+static var _twinkle_mesh: QuadMesh
+
+## A proper gold coin (since version 136): a thick disc whose faces have a bright rim, a
+## darker sunken middle and a stud, so it reads as a coin from every angle as it spins. The
+## gold has a bright edge and a shine that sweeps across it, and now and then a star
+## twinkles on it. One mesh and one star per coin, to keep the draw count low.
+func _build_coin() -> void:
+	if _gold == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode specular_schlick_ggx;
+varying vec3 lp;
+varying vec3 ln;
+void vertex() {
+	lp = VERTEX;
+	ln = NORMAL;
+}
+void fragment() {
+	vec3 gold = vec3(1.0, 0.74, 0.18);
+	float glow = 0.55;
+	if (abs(ln.y) > 0.5) {
+		float r = length(lp.xz);
+		float face = smoothstep(0.185, 0.175, r) * smoothstep(0.06, 0.07, r);
+		float ring = smoothstep(0.195, 0.186, r) * smoothstep(0.174, 0.183, r);
+		gold = mix(gold, vec3(0.8, 0.5, 0.09), face);
+		glow += ring * 0.6 - face * 0.25;
+	}
+	ALBEDO = gold;
+	ROUGHNESS = 0.3;
+	SPECULAR = 0.9;
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	vec3 wp = (INV_VIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float band = smoothstep(0.9, 1.0, sin(wp.x * 5.0 + wp.y * 7.0 - TIME * 4.0));
+	EMISSION = gold * (glow + fres * 1.3) + vec3(1.0, 0.95, 0.75) * band * 0.7;
+}
+"""
+		_gold = ShaderMaterial.new()
+		_gold.shader = sh
+		var tw := Shader.new()
+		tw.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+varying float flash;
+void vertex() {
+	float seed = MODEL_MATRIX[3].x * 2.3 + MODEL_MATRIX[3].z * 1.7;
+	flash = pow(max(0.0, sin(TIME * 2.0 + seed)), 30.0);
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+}
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float star = max(0.0, 1.0 - abs(p.x) * 9.0) * max(0.0, 1.0 - abs(p.y)) + max(0.0, 1.0 - abs(p.y) * 9.0) * max(0.0, 1.0 - abs(p.x));
+	star += max(0.0, 1.0 - length(p) * 3.0);
+	ALBEDO = vec3(1.0, 0.95, 0.75);
+	ALPHA = clamp(star, 0.0, 1.0) * flash;
+}
+"""
+		_twinkle = ShaderMaterial.new()
+		_twinkle.shader = tw
+		_twinkle_mesh = QuadMesh.new()
+		_twinkle_mesh.size = Vector2(0.6, 0.6)
+	var c := U.cylinder(_gem, 0.25, 0.08, _gold, Vector3(0, -0.04, 0))
+	c.rotation.x = PI / 2 - 0.55   # leaning back, so the face catches the eye as it spins
+	var star := MeshInstance3D.new()
+	star.mesh = _twinkle_mesh
+	star.material_override = _twinkle
+	star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	star.position = Vector3(0.1, 0.12, 0.06)
+	_gem.add_child(star)
+	var shine := U.floor_quad(self, Vector2(0.9, 0.9), U.unlit(Color(1, 0.8, 0.3, 0.45), U.soft_circle()), Vector3(0, 0.04, 0))
+	shine.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 ## What one heart heals. Treasure Magnet's hearts heal 30% more.

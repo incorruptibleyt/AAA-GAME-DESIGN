@@ -126,7 +126,12 @@ static func run() -> void:
 		wall.position = Vector2(0, 310)
 		layer.add_child(wall)
 		var bd := MenuBackdrop.add_to(wall)
-		bd.show_off(stage, Vector2(0.5, 0.4), 0.8, 0.3))
+		bd.show_off(stage, Vector2(0.5, 0.4), 0.8, 0.3)
+		# the candle shrine under short lists (version 136)
+		var shrine := MenuBackdrop._Shrine.new()
+		shrine.visible = true
+		wall.add_child(shrine)
+		shrine.place(Rect2(0, 0, 300, 260), 240.0, Color.WHITE))
 
 	# Shots, warnings, fire, pickups and every particle effect: a few at a time, so a slow
 	# phone never spends long on one frame (Android closes an app that stops answering),
@@ -154,7 +159,8 @@ static func run() -> void:
 		Fx.magic(at + Vector3.UP, Color(1, 0.6, 0.2))
 		Fx.shockwave(at, Color(1, 0.9, 0.6), 2.0))
 	steps.append(func():
-		Fx.flame(holder, Vector2(0.5, 0.7), at + Vector3(0, 0, 0.6)))
+		Fx.flame(holder, Vector2(0.5, 0.7), at + Vector3(0, 0, 0.6))
+		Fx.wisps(holder, Color(0.6, 1.0, 0.85), 2, 1.0, 1.0))   # the room's wisps (version 136)
 
 	# Each floor's own flagstones and props (the Frozen Ossuary's ice, the Ember
 	# Catacomb's fire seams and braziers, the Drowned Vault's water and falling water), and

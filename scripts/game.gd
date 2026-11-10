@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10m"
+const BUILD := "2026-11-10n"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1858,6 +1858,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	var look := Floors.current()
 	_light_room(look)
 	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, [14, 14, 24, 36][graphics_level], look.motes, look.motes_fall, look.get("motes_size", 1.0))
+	Fx.wisps(room, look.get("wisp", Color(0.6, 1.0, 0.85)), [2, 3, 4, 5][graphics_level], Room.HALF_W - 0.8, Room.HALF_L - 0.8)
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start(), _run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save()))
 	hero.place_at(room.player_start())

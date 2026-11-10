@@ -41,6 +41,9 @@ var _floor_at := 0.86                 # where in the focus the floor meets the w
 var _arch := 0.0                      # the archway's width, as a part of the focus's width
 var _key := Color.WHITE
 var _key_to := Color.WHITE
+## On a screen of lists with a big empty stretch below them (version 136): a shrine fills
+## it, the Bone Chain carved in the wall and glowing, with candles on the floor before it.
+var _shrine: _Shrine
 var _t := 0.0
 
 static var _shader: Shader
@@ -111,6 +114,9 @@ func _init() -> void:
 		t.visible = false
 		add_child(t)
 		_torches.append(t)
+	_shrine = _Shrine.new()
+	_shrine.visible = false
+	add_child(_shrine)
 	resized.connect(_layout)
 
 
@@ -175,6 +181,9 @@ func _on_shown() -> void:
 	if on:
 		_dust.restart()
 		_layout()
+		# Lists fill in as the screen opens, so look at the empty space again a moment later.
+		get_tree().create_timer(0.15).timeout.connect(_layout)
+	_shrine.set_process(on and _shrine.visible)
 	for t in _torches:
 		t.set_process(on and t.visible)
 
@@ -220,6 +229,12 @@ func _layout() -> void:
 		key_pos = Vector3(s.x * 0.5, -s.y * 0.04, 260.0)
 		torch_l = Vector2(-26.0, s.y * 0.16)
 		torch_r = Vector2(s.x + 26.0, s.y * 0.16)
+	var gap := _empty_band(s) if _focus == null else Vector2(-1, -1)
+	_shrine.visible = gap.y - gap.x > 300.0
+	_shrine.set_process(_shrine.visible and is_visible_in_tree())
+	if _shrine.visible:
+		horizon = gap.y - 64.0
+		_shrine.place(Rect2(0, gap.x, s.x, gap.y - gap.x), horizon, _key_to)
 	_mat.set_shader_parameter("key_pos", key_pos)
 	_mat.set_shader_parameter("key_radius", s.y * (0.42 if horizon > 0.0 else 0.75))
 	_mat.set_shader_parameter("torch_l", Vector3(torch_l.x, torch_l.y, 46.0))
@@ -247,6 +262,43 @@ func _process(delta: float) -> void:
 	_torches[1].flicker = f2
 	if not _foci.is_empty():
 		_layout()   # the pedestal or chest can move as the screen settles
+
+
+## The empty stretch on a screen of lists, between the bottom of what it shows and the top
+## of its buttons at the bottom (top, bottom), or (-1, -1) if there is none.
+func _empty_band(s: Vector2) -> Vector2:
+	var host := get_parent() as Control
+	if host == null:
+		return Vector2(-1, -1)
+	var o := get_global_rect().position
+	var low := 0.0
+	var high := s.y
+	var stack: Array = host.get_children()
+	var seen := 0
+	while not stack.is_empty() and seen < 400:
+		seen += 1
+		var c = stack.pop_back()
+		if c == self or not (c is Control) or not c.visible:
+			continue
+		var r: Rect2 = c.get_global_rect()
+		r.position -= o
+		if r.size.x < 1.0 or r.size.y < 1.0:
+			continue
+		if c is Container and not c is ScrollContainer and r.size.y > s.y * 0.4:
+			stack.append_array(c.get_children())   # a frame around everything: look inside
+			continue
+		if c.get_class() == "Control" or c is ColorRect and c.color.a > 0.9 and r.size.y > s.y * 0.9:
+			stack.append_array(c.get_children())
+			continue
+		if c is Label and c.text == "":
+			continue
+		if r.get_center().y < s.y * 0.72:
+			low = maxf(low, r.end.y)
+		else:
+			high = minf(high, r.position.y)
+	if low <= 0.0:
+		return Vector2(-1, -1)
+	return Vector2(low + 28.0, high - 16.0)
 
 
 static func dot() -> GradientTexture2D:
@@ -445,3 +497,130 @@ class _Torch extends Node2D:
 		cup.append(cup[0])
 		draw_polyline(cup, edge, 2.0)
 		draw_line(Vector2(-14, -8), Vector2(14, -8), Color(1.0, 0.7, 0.3, 0.9), 3.0)
+
+
+## The shrine under a short list: the Bone Chain (a ring of linked bones around two crossed
+## ones) carved in the wall and glowing in the screen's light, and a row of candles on the
+## floor in front of it.
+class _Shrine extends Control:
+	const CANDLES := [Vector3(-0.30, 34, 0), Vector3(-0.19, 50, 18), Vector3(-0.08, 28, 6), Vector3(0.08, 30, 8),
+		Vector3(0.19, 46, 20), Vector3(0.30, 36, 2)]   # x (part of the width), height, how far forward
+	var _emblem: ColorRect
+	var _mat: ShaderMaterial
+	var _glows: _Glows
+	var _floor := 0.0
+	var _t := 0.0
+	static var _shader: Shader
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_emblem = ColorRect.new()
+		_emblem.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		if _shader == null:
+			_shader = Shader.new()
+			_shader.code = EMBLEM
+		_mat = ShaderMaterial.new()
+		_mat.shader = _shader
+		_emblem.material = _mat
+		add_child(_emblem)
+		_glows = _Glows.new()
+		var add := CanvasItemMaterial.new()
+		add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+		_glows.material = add
+		add_child(_glows)
+
+	## Fills `band` (in the backdrop's space), with the floor at `floor_y`, lit in `key`.
+	func place(band: Rect2, floor_y: float, key: Color) -> void:
+		position = Vector2.ZERO
+		size = band.end
+		_floor = floor_y
+		var d := minf(band.size.x * 0.6, (floor_y - band.position.y) * 0.92)
+		_emblem.size = Vector2(d, d)
+		_emblem.position = Vector2(band.size.x * 0.5 - d * 0.5, band.position.y + (floor_y - band.position.y - d) * 0.45)
+		_mat.set_shader_parameter("col", Vector3(key.r, key.g, key.b).lerp(Vector3(1.0, 0.9, 0.75), 0.45))
+		_glows.spots.clear()
+		for c in CANDLES:
+			_glows.spots.append(Vector3(band.size.x * (0.5 + c.x), floor_y + 14.0 + c.z, c.y))
+		_glows.queue_redraw()
+		queue_redraw()
+
+	func _process(delta: float) -> void:
+		_t += delta
+		_glows.t = _t
+		_glows.queue_redraw()
+
+	func _draw() -> void:
+		# the candles' wax, lit warm on one side
+		for c in _glows.spots:
+			var w := 12.0
+			var base := Vector2(c.x, c.y)
+			draw_rect(Rect2(base.x - w * 0.5, base.y - c.z, w, c.z), Color(0.78, 0.68, 0.55))
+			draw_rect(Rect2(base.x - w * 0.5, base.y - c.z, w * 0.35, c.z), Color(0.95, 0.86, 0.68))
+			draw_circle(base + Vector2(0, -c.z), w * 0.5, Color(0.9, 0.8, 0.62))
+			draw_rect(Rect2(base.x - w * 0.5 - 2, base.y - 3, w + 4, 4), Color(0.3, 0.24, 0.2))   # a drip of wax at the foot
+			draw_line(base + Vector2(0, -c.z), base + Vector2(0, -c.z - 6), Color(0.12, 0.08, 0.06), 2.0)
+
+	const EMBLEM := """
+shader_type canvas_item;
+render_mode blend_add;
+uniform vec3 col = vec3(1.0, 0.85, 0.6);
+
+float capsule(vec2 p, vec2 a, vec2 b, float r) {
+	vec2 pa = p - a, ba = b - a;
+	float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+	return length(pa - ba * h) - r;
+}
+// A bone along x: a shaft with two knobs at each end.
+float bone(vec2 p, float len, float w) {
+	float d = capsule(p, vec2(-len * 0.5, 0.0), vec2(len * 0.5, 0.0), w * 0.42);
+	d = min(d, length(p - vec2(-len * 0.5, w * 0.48)) - w * 0.55);
+	d = min(d, length(p - vec2(-len * 0.5, -w * 0.48)) - w * 0.55);
+	d = min(d, length(p - vec2(len * 0.5, w * 0.48)) - w * 0.55);
+	d = min(d, length(p - vec2(len * 0.5, -w * 0.48)) - w * 0.55);
+	return d;
+}
+vec2 rot(vec2 p, float a) { return vec2(cos(a) * p.x - sin(a) * p.y, sin(a) * p.x + cos(a) * p.y); }
+
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float spin = TIME * 0.06;
+	float N = 11.0;
+	float seg = 6.2831853 / N;
+	float a = atan(p.y, p.x) + spin;
+	float k = floor(a / seg + 0.5);
+	vec2 q = rot(p, -(k * seg - spin));       // this bone's own frame: x out from the middle
+	float R = 0.74;
+	float d = bone(vec2(q.y, q.x - R), 2.0 * 3.14159 * R / N * 0.86, 0.085);
+	// the next bone over, so the links overlap like a chain
+	d = min(d, length(vec2(q.y - 3.14159 * R / N, q.x - R)) - 0.05);
+	// two crossed bones in the middle, and a thin ring around them
+	d = min(d, bone(rot(p, 0.785), 0.62, 0.11));
+	d = min(d, bone(rot(p, -0.785), 0.62, 0.11));
+	d = min(d, abs(length(p) - 0.52) - 0.012);
+	d = min(d, abs(length(p) - 0.95) - 0.01);
+	float aa = fwidth(d) * 1.2;
+	float body = 1.0 - smoothstep(0.0, aa, d);
+	float rim = (1.0 - smoothstep(0.0, aa, abs(d + 0.012))) * 0.8;   // a lit edge round each carving
+	float glow = exp(-max(d, 0.0) * 14.0) * 0.35;
+	float pulse = 0.82 + 0.18 * sin(TIME * 1.4);
+	float fade = 1.0 - smoothstep(0.9, 1.0, length(p));
+	COLOR = vec4(col * (body * 0.32 + rim * 0.5 + glow) * pulse * fade, 1.0);
+}
+"""
+
+
+## The candle flames and their warm glow, added on top.
+class _Glows extends Node2D:
+	var spots: Array = []
+	var t := 0.0
+
+	func _draw() -> void:
+		var dot := MenuBackdrop.dot()
+		for i in spots.size():
+			var c: Vector3 = spots[i]
+			var f := 1.0 + 0.12 * sin(t * 9.0 + i * 1.7) + 0.07 * sin(t * 17.0 + i)
+			var tip := Vector2(c.x, c.y - c.z - 13.0)
+			var g := 110.0 * f
+			draw_texture_rect(dot, Rect2(tip - Vector2(g, g) * 0.5, Vector2(g, g)), false, Color(1.0, 0.5, 0.18, 0.28))
+			draw_texture_rect(dot, Rect2(tip - Vector2(7, 11) * f, Vector2(14, 22) * f), false, Color(1.0, 0.72, 0.3, 0.95))
+			draw_texture_rect(dot, Rect2(tip - Vector2(3.5, 5) * f + Vector2(0, 3), Vector2(7, 10) * f), false, Color(1.0, 0.97, 0.85, 1.0))

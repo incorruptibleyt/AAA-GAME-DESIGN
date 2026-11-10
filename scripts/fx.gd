@@ -527,6 +527,86 @@ static func ambience(parent: Node3D, half_w: float, half_l: float, amount := 36,
 	return p
 
 
+static var _wisp_mats := {}
+static var _wisp_shader: Shader
+
+## Glowing wisps (since version 136): soft lights that wander slowly through the air of a
+## room, each with a faint pool of its colour on the floor below it. All the movement is in
+## the shader, and every wisp of a room is one draw for the lights and one for the pools.
+static func wisps(parent: Node3D, color: Color, count: int, half_w: float, half_l: float) -> void:
+	if count <= 0:
+		return
+	for pool in [false, true]:
+		var key := "%s/%s" % [color.to_html(), pool]
+		if not _wisp_mats.has(key):
+			if _wisp_shader == null:
+				_wisp_shader = Shader.new()
+				_wisp_shader.code = WISP_CODE
+			var m := ShaderMaterial.new()
+			m.shader = _wisp_shader
+			m.set_shader_parameter("tint", color)
+			m.set_shader_parameter("pool", 1.0 if pool else 0.0)
+			m.set_shader_parameter("size", 3.0 if pool else 1.1)
+			_wisp_mats[key] = m
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		if pool:
+			var plane := PlaneMesh.new()
+			plane.size = Vector2.ONE
+			mm.mesh = plane
+		else:
+			var q := QuadMesh.new()
+			q.size = Vector2.ONE
+			mm.mesh = q
+		mm.instance_count = count
+		var rng := RandomNumberGenerator.new()
+		rng.seed = count * 31 + int(half_w * 10)
+		for i in count:
+			# Spread out: one in each slice of the room's length, at a random side and height.
+			var z := lerpf(-half_l, half_l, (i + 0.5) / count) * 0.75
+			mm.set_instance_transform(i, Transform3D(Basis(), Vector3(rng.randf_range(-half_w, half_w) * 0.6, rng.randf_range(1.3, 1.9), z)))
+		var mi := MultiMeshInstance3D.new()
+		mi.multimesh = mm
+		mi.material_override = _wisp_mats[key]
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.extra_cull_margin = 6.0
+		parent.add_child(mi)
+
+
+const WISP_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 tint : source_color;
+uniform float pool = 0.0;
+uniform float size = 0.5;
+varying float fade;
+void vertex() {
+	vec3 o = MODEL_MATRIX[3].xyz;
+	float seed = o.x * 1.7 + o.z * 3.1;
+	float t = TIME * 0.28 + seed;
+	vec3 off = vec3(sin(t) * 1.5 + sin(t * 2.3 + 1.0) * 0.45, sin(t * 1.7 + seed) * 0.3, cos(t * 0.8) * 1.3 + sin(t * 1.9) * 0.4);
+	fade = 0.7 + 0.3 * sin(TIME * 2.1 + seed * 5.0);
+	if (pool > 0.5) {
+		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(vec4(size, 0.0, 0.0, 0.0), vec4(0.0, size, 0.0, 0.0), vec4(0.0, 0.0, size, 0.0), vec4(o.x + off.x, 0.035, o.z + off.z, 1.0));
+	} else {
+		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0] * size, INV_VIEW_MATRIX[1] * size, INV_VIEW_MATRIX[2] * size, vec4(o + off, 1.0));
+	}
+}
+void fragment() {
+	float d = length(UV * 2.0 - 1.0);
+	if (pool > 0.5) {
+		ALBEDO = tint.rgb;
+		ALPHA = pow(max(0.0, 1.0 - d), 2.0) * 0.32 * fade;
+	} else {
+		float core = smoothstep(0.16, 0.02, d);
+		float halo = pow(max(0.0, 1.0 - d), 2.2);
+		ALBEDO = mix(tint.rgb, vec3(1.0), core * 0.7);
+		ALPHA = clamp(core + halo * 0.9, 0.0, 1.0) * fade;
+	}
+}
+"""
+
+
 static func magic(pos: Vector3, color: Color, count := 18) -> void:
 	_burst(pos, count, color, 1.0, 4.0, 0.6, -0.2, false, "glint")
 
