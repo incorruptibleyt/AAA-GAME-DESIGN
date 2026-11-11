@@ -177,7 +177,8 @@ static func apply(id: String, h: Hero) -> void:
 
 ## Pick up to `count` different blessings the hero can still take. Rarer cards are
 ## less likely, and a synergy the hero has just unlocked always takes the first slot.
-## `finish_synergy` (first run) also offers the missing half of a synergy you half own.
+## `finish_synergy` (first run) also offers the missing half of a synergy you half own,
+## Wildfire first.
 ## `family` (a door's path) makes all but one card that family when it can, and
 ## `better` (the Champion's Door) leaves out common cards. `rng` (the Daily Crypt's, seeded)
 ## gives everyone with the same blessings the same cards; without it they're random.
@@ -196,7 +197,10 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 		if not rarer.is_empty():
 			pool = rarer
 	if finish_synergy and out.is_empty():
-		for s in SYNERGIES:
+		# Wildfire first: room 1 offered half of it (roll_commons), and it's the one you see.
+		var order := SYNERGIES.duplicate()
+		order.sort_custom(func(a, b): return a.id == "wildfire" and b.id != "wildfire")
+		for s in order:
 			var half: Array = s.parts.filter(func(id): return not taken.has(id))
 			if half.size() == 1:
 				var u := get_def(half[0])
@@ -241,10 +245,17 @@ static func _weighted(pool: Array, rng: RandomNumberGenerator = null) -> Diction
 	return pool[0]
 
 
-## The very first pick: three plain common cards, one of them Vitality (half of Ossuary).
+## The very first pick (tutorial room 1): Vitality, one plain common card and one you can
+## SEE (Twin Shots or Fire Shots, half of Wildfire), so the first choice changes how the
+## hero shoots. Version 142 (review fix 10): it used to be three plain commons.
 static func roll_commons(taken: Dictionary) -> Array:
 	var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and not u.has("hero") and not u.has("vault") and not u.has("event") and taken.get(u.id, 0) < u.max and u.id != "vitality")
 	pool.shuffle()
-	var out := [get_def("vitality")] + pool.slice(0, 2)
+	var shots := ["multishot", "fire"].filter(func(id): return taken.get(id, 0) < int(get_def(id).max))
+	shots.shuffle()
+	var out := [get_def("vitality")]
+	if not shots.is_empty():
+		out.append(get_def(shots[0]))
+	out += pool.slice(0, 3 - out.size())
 	out.shuffle()
 	return out

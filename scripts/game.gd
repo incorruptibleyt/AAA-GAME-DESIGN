@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-11a"
+const BUILD := "2026-11-11b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -934,6 +934,7 @@ func keyboard_move() -> Vector2:
 const VIEW_HALF_WIDTH := 4.4
 ## The hero sits this far above the middle of the screen, away from the thumb.
 const HERO_ABOVE_CENTRE := 0.9
+const NEAR_EXTRA := 1.5
 ## The title screen's lobby camera looks down at this angle (the fight camera is steeper),
 ## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
 const LOBBY_PITCH := 24.0
@@ -980,7 +981,9 @@ func _room_focus() -> Vector3:
 	var d := _cam_distance()
 	var bottom := d * (cos(p) - sin(p) / tan(p + half_v))
 	var top := d * (cos(p) - sin(p) / tan(p - half_v))
-	var hi := Room.HALF_L + 0.6 - bottom
+	# Version 142: the camera follows 1.5 m further toward the near wall, so a hero standing
+	# against it sits above the DASH and special buttons instead of under them.
+	var hi := Room.HALF_L + 0.6 + NEAR_EXTRA - bottom
 	var lo := -Room.HALF_L - 2.5 - top
 	var z := (lo + hi) * 0.5 if lo > hi else clampf(hero.global_position.z + HERO_ABOVE_CENTRE, lo, hi)
 	var x_room := maxf(0.0, Room.HALF_W + 0.6 - VIEW_HALF_WIDTH)
@@ -1605,7 +1608,8 @@ func _apply_armory() -> void:
 	if event == "hunt":
 		var names := []
 		for i in int(Events.TIERS[event_tier - 1].gifts):
-			var g := Upgrades.roll(_taken, 2, false, "", false, null).filter(func(x: Dictionary): return x.rarity != "synergy")
+			var g := Upgrades.roll(_taken, 4, false, "", false, null).filter(func(x: Dictionary):
+				return x.rarity != "synergy" and not str(x.id) in Events.HUNT_NO_GIFT)
 			if g.is_empty():
 				continue
 			var u: Dictionary = g[0]
@@ -1978,7 +1982,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	_snap_camera()
 	if not spawn_enemies:
 		return
-	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), floor_num)
+	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), 1 if event == "hunt" else floor_num)   # (the hunt has no floors)
 	if not _rep.is_empty():
 		_rep.room_start = _run_time
 		_rep.room_chain = chain
@@ -2285,7 +2289,12 @@ func _boss_intro() -> void:
 	get_tree().create_timer(0.7, true, false, true).timeout.connect(func(): Sfx.play("vo_prepare", 0.8))
 	shake(0.5)
 	hud.flash(Color(1, 0.3, 0.2), 0.3)
-	hud.show_boss_card(b.display_name(), "Ruler of floor %d" % floor_num)
+	var sub := "Ruler of floor %d" % floor_num
+	if event == "hunt":
+		sub = "Queen Hunt  ·  %s" % str(Events.TIERS[event_tier - 1].name)
+	elif event != "":
+		sub = "Ruler of the Blood Moon" if boss_kind() == "Q" else "Guardian of the Blood Moon"
+	hud.show_boss_card(b.display_name(), sub)
 	await get_tree().create_timer(1.8, true, false, true).timeout
 	hud.hide_boss_card()
 	_intro_focus = false
@@ -2754,6 +2763,10 @@ func _win() -> void:
 		if event == "hunt":
 			hunt = Events.record_hunt(cfg, event_tier)
 			_add_shards(int(hunt.shards))
+			var el: Array = Events.ECLIPSE_LOOK
+			if event_tier == Events.TIERS.size() and not Events.has_look(cfg, el[0], el[1]):
+				Events.give_look(cfg, el[0], el[1])
+				hunt.eclipse_look = true
 			if hunt.casket:
 				_caskets_run += 1
 		elif _event_done:
@@ -2799,6 +2812,8 @@ func _win() -> void:
 		extra += "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
 	elif event == "hunt":
 		extra += "\n\nQueen Hunt %s won!%s" % [str(Events.TIERS[event_tier - 1].name), "  +1 Moon Casket (the day's first win)" if hunt.get("casket", false) else ""]
+		if hunt.get("eclipse_look", false):
+			extra += "\nNew glow: Blood Eclipse! Wear it in Style."
 	elif _event_done:
 		extra += "\n\nThe Blood Moon Queen has fallen!  +1 Moon Casket"
 	elif _free_end:
@@ -2837,11 +2852,19 @@ func _win() -> void:
 	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
 	_state_time = 0.0
-	_last_report = run_report("Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")], was_first)
+	var won := "Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")]
+	if event == "hunt":
+		won = "Won the Queen Hunt %s (event day %d)" % [str(Events.TIERS[event_tier - 1].name), Events.day()]
+	elif event != "":
+		won = "Blood Moon run: beat floor %d of %d (event day %d)" % [floor_num, Events.RUN_FLOORS, Events.day()]
+	_last_report = run_report(won, was_first)
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
 	_reveal_feats_soon()
-	_ask_reports()
+	# Version 142 (review fix 10): not on the tutorial's win screen; the title asks at the
+	# next launch instead (_ask_reports_on_title), once the first win is behind them.
+	if not was_first:
+		_ask_reports()
 	_ask_review(was_first)
 
 

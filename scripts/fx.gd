@@ -202,14 +202,14 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.position = Vector3(0, 0.3, 0)
 		"regal":
 			# The Crypt King: big gold glints rising slowly in a wide ring, and hanging behind.
-			p.amount = 16
+			p.amount = 10   # (16, up to 0.95 before v142: a gold haze over the hero in fights)
 			p.lifetime = 1.6
 			p.spread = 12.0
 			p.initial_velocity_min = 0.45
 			p.initial_velocity_max = 0.8
 			p.gravity = Vector3.ZERO
-			p.scale_amount_min = 0.55
-			p.scale_amount_max = 0.95
+			p.scale_amount_min = 0.35
+			p.scale_amount_max = 0.6
 			p.emission_ring_radius = 1.0
 			p.emission_ring_inner_radius = 0.85
 			p.position = Vector3(0, 0.05, 0)

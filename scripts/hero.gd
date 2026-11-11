@@ -129,7 +129,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	if not h._master_aura.is_empty():
 		h._build_motif()   # a Master aura's own trail of light, instead of the gold sparkles
 		if h._master_aura.get("sigil", false):
-			h._rings.append(CryptSigil.make(h, 2.4, 0.8))   # the Crypt King's turning gold sigil
+			h._rings.append(CryptSigil.make(h, 1.7, 0.8))   # the Crypt King's turning gold sigil (2.4 m before v142: it hid the hero's feet and nearby shots)
 	elif h._master or HeroStyle.worn(cfg, def.id, "glow") in ["gold", HeroStyle.PASS_KEY]:
 		h._build_sparkles()   # Masters (and the Gold glow) leave a trail of gold sparkles
 	h._build_dash_ring()

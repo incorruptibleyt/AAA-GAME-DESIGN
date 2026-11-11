@@ -223,7 +223,8 @@ func _show_preview() -> void:
 				_note.label_settings.font_color = Color(0.5, 0.95, 1.0)
 				return
 			if x.has("event"):
-				_note.text = "Trying on: %s  ·  Blood Moon set: win it on the event road" % HeroStyle.item_label(_id, slot, key)
+				_note.text = ("Trying on: %s  ·  Blood Moon: beat the Queen Hunt's ECLIPSE tier" if x.get("hunt", false)
+						else "Trying on: %s  ·  Blood Moon set: win it on the event road") % HeroStyle.item_label(_id, slot, key)
 				_note.label_settings.font_color = Color(1.0, 0.45, 0.4)
 				return
 			if x.has("drop"):

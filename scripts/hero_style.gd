@@ -215,6 +215,9 @@ const EXTRA := {
 		"abyss": {"name": "Abyss", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
 		"moonlight": {"name": "Moonlight", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
+		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
+		# with a gold corona, blood-red shots.
+		"blood_eclipse": {"name": "Blood Eclipse", "ring": Color(0.55, 0.02, 0.08), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.3, 0.26), "event": "blood_moon", "hunt": true},
 	},
 	"aura": {
 		"quickstep": {"name": "Quickstep", "ink": Color(1.0, 0.9, 0.3), "spark": Color(1.0, 0.95, 0.6), "motif": "quick", "feat": "rusher"},

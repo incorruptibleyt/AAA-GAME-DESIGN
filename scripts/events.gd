@@ -52,13 +52,21 @@ const PASS_BONUS := 0.5
 ## The Queen Hunt: straight to the Queen, with blessings to start, on one of five tiers.
 ## hp: the Queen's health; floor: how deep the hunt counts as (skeleton toughness);
 ## gifts: blessings to start with; shards: a win (half again for the day's first).
+## Version 142: the top tiers were a 5-7 minute slog (the Queen's health grows with the
+## floor too: Eclipse had 18,900). Now her health climbs evenly, about 1,600 / 2,800 / 4,100
+## / 5,300 / 7,100, for fights of roughly 1 to 2 minutes; the floor still makes her hit harder.
 const TIERS := [
 	{"name": "TIER I", "hp": 0.75, "floor": 2, "gifts": 4, "shards": 35},
-	{"name": "TIER II", "hp": 1.0, "floor": 3, "gifts": 5, "shards": 50},
-	{"name": "TIER III", "hp": 1.25, "floor": 4, "gifts": 6, "shards": 65},
-	{"name": "TIER IV", "hp": 1.4, "floor": 5, "gifts": 7, "shards": 80},
-	{"name": "ECLIPSE", "hp": 1.6, "floor": 6, "gifts": 8, "shards": 100},
+	{"name": "TIER II", "hp": 0.85, "floor": 3, "gifts": 5, "shards": 50},
+	{"name": "TIER III", "hp": 0.8, "floor": 4, "gifts": 6, "shards": 65},
+	{"name": "TIER IV", "hp": 0.65, "floor": 5, "gifts": 7, "shards": 80},
+	{"name": "ECLIPSE", "hp": 0.6, "floor": 6, "gifts": 8, "shards": 100},
 ]
+## The Queen Hunt's own prize: a glow found nowhere else, for beating ECLIPSE once.
+const ECLIPSE_LOOK := ["glow", "blood_eclipse"]
+## Blessings never given as the Queen Hunt's starting gifts: they do little or nothing in a
+## fight with one Queen (coins, hearts, the chain, Moon Surge shards).
+const HUNT_NO_GIFT := ["greed", "magnet", "harvest", "links", "marrow", "shardhunter", "bloodlust", "ossuary"]
 
 ## The event road: 30 steps, about 2,400 shards in all (a couple of runs a day for the two
 ## weeks). kind: casket (n Moon Caskets), coins, drop (Bone Drops), lucky (Lucky Starts) or
