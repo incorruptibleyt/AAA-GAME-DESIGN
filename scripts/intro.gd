@@ -170,7 +170,7 @@ func _build_crypt() -> void:
 	_vp = SubViewport.new()
 	_vp.own_world_3d = true
 	_vp.size = get_window().size
-	_vp.msaa_3d = Viewport.MSAA_2X if Game._high_graphics else Viewport.MSAA_DISABLED
+	_vp.msaa_3d = Viewport.MSAA_2X if Game._high_graphics and Game.msaa_ok() else Viewport.MSAA_DISABLED
 	_vp.scaling_3d_scale = 1.0 if Game._high_graphics else 0.6
 	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 	add_child(_vp)

@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-10t"
+const BUILD := "2026-11-11a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3848,6 +3848,18 @@ const PIXELS_HIGH := 1.9e6
 const PIXELS_MEDIUM := 1.55e6
 const PIXELS_LOW := 1.2e6
 
+## 3D edge smoothing (MSAA) only off phones. Version 141: on a phone, Godot 4.7's
+## Compatibility renderer makes a new framebuffer EVERY frame when MSAA is used with a
+## smaller-than-screen 3D picture (the "render to texture" path in
+## RenderSceneBuffersGLES3::_check_render_buffers never counts as set up), and never frees
+## them. After some play there are tens of thousands; changing Graphics then deletes the
+## picture they all point at, and on Jesse's Galaxy S23 Ultra (Adreno 740) the screen broke:
+## v139 drew the world small in the top-left corner (High to Medium mid-run), v140 (MSAA kept
+## on) froze the screen after switching to Low. Without MSAA nothing piles up.
+static func msaa_ok() -> bool:
+	return not OS.has_feature("mobile")
+
+
 func _scale_3d(level: int) -> float:
 	var win := get_window().size
 	var px := maxf(1.0, float(win.x) * float(win.y))
@@ -3871,10 +3883,7 @@ func _set_graphics(level: int, save := true, by_watch := false) -> void:
 	var high := level >= 2
 	graphics_level = level
 	var vp := get_viewport()
-	# Phones keep edge smoothing on at every level. Their graphics chips do it almost for free,
-	# and switching it off mid-run (the frame-rate watcher stepping High down to Medium) left
-	# the world drawn small in the top-left corner on a Galaxy S23 Ultra (Nov 10).
-	vp.msaa_3d = Viewport.MSAA_2X if level == 3 or OS.has_feature("mobile") else Viewport.MSAA_DISABLED
+	vp.msaa_3d = Viewport.MSAA_2X if level == 3 and msaa_ok() else Viewport.MSAA_DISABLED
 	vp.scaling_3d_scale = _scale_3d(level)
 	_env.glow_enabled = high
 	_env.adjustment_enabled = high   # an extra full-screen pass; Low skips it

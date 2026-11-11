@@ -72,7 +72,7 @@ func _init() -> void:
 	_vp = SubViewport.new()
 	_vp.own_world_3d = true
 	_vp.transparent_bg = true
-	_vp.msaa_3d = Viewport.MSAA_2X
+	_vp.msaa_3d = Viewport.MSAA_2X if Game.msaa_ok() else Viewport.MSAA_DISABLED   # see Game.msaa_ok
 	_vp.render_target_update_mode = SubViewport.UPDATE_WHEN_PARENT_VISIBLE
 	add_child(_vp)
 	var cam := Camera3D.new()
