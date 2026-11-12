@@ -5,7 +5,7 @@ extends Node3D
 ## Version 135: one glowing shape drawn by a shader (it used to be three flat red quads): a
 ## dark outline so it reads on any floor, a bright rim, faint stripes moving the way the
 ## attack goes, and a fill that grows from the caster (or the middle) with a bright edge, so
-## you can see exactly when it lands; it flashes just before. On the red Ember floor its
+## you can see exactly when it lands; it brightens just before. On the red Ember floor its
 ## middle burns yellow-white. Dashing out of one as it lands is a perfect dodge (dodged()).
 
 ## How long after a line warning lands it still counts for a perfect dodge (charges and
@@ -211,8 +211,11 @@ void fragment() {
 	float filled = (1.0 - smoothstep(front - aa, front + aa, at)) * inside;
 	// A bright band just behind the fill's edge, so the eye follows it.
 	float lead = (1.0 - smoothstep(0.0, 0.22 + 0.1 * reach * 0.1, front - at)) * filled * step(0.02, k);
-	// The last moment before it lands: the whole shape flashes.
-	float flash = smoothstep(0.82, 1.0, k) * (0.5 + 0.5 * sin(TIME * 40.0));
+	// The last moment before it lands: the whole shape brightens. Version 146 (accessibility
+	// review): it used to flicker 6 times a second, and several big warnings flickering red
+	// together is the kind of flashing that can trigger photosensitive seizures (the safe
+	// limit is 3 a second). A steady swell says "now" just as clearly.
+	float flash = smoothstep(0.8, 1.0, k);
 
 	vec4 acc = vec4(0.0);
 	// A dark outline just outside, so it reads on any floor.
