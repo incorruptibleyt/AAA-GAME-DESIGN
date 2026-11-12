@@ -308,12 +308,25 @@ static func step_text(s: Dictionary) -> String:
 	return "%d coins" % int(s.n)
 
 
+## Version 145 (round 2 review): a Legendary Moon Casket can hand out a set look before
+## the road gets to it. That road step then pays this many coins instead of nothing.
+const EARLY_LOOK_COINS := 500
+
+
+## What road step `i` pays: the step itself, or coins in place of a look already found.
+static func step_for(cfg: ConfigFile, i: int) -> Dictionary:
+	var s: Dictionary = ROAD[i]
+	if str(s.kind) == "look" and has_look(cfg, s.look[0], s.look[1]):
+		return {"at": s.at, "kind": "coins", "n": EARLY_LOOK_COINS, "early": s.look}
+	return s
+
+
 ## Claims road step `i` into `cfg` (the caller adds coins, which it holds). Returns the
 ## step, or {} if it can't be claimed.
 static func claim(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> Dictionary:
 	if i < 0 or i >= ROAD.size() or claimed(cfg, i, e) or shards(cfg, e) < int(ROAD[i].at):
 		return {}
-	var s: Dictionary = ROAD[i]
+	var s := step_for(cfg, i)
 	cfg.set_value(section(e), "got_%d" % i, true)
 	match str(s.kind):
 		"casket":

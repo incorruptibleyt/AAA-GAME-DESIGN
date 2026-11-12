@@ -582,9 +582,12 @@ func _road_row(cfg: ConfigFile, i: int, s: int) -> Control:
 	var what := Events.step_text(st)
 	if look:
 		what = "BLOOD MOON SET: " + what
+		# Found early in a Legendary casket: this step pays coins instead.
+		if not got and Events.has_look(cfg, str(st.look[0]), str(st.look[1])):
+			what = "%d COINS (%s found early)" % [Events.EARLY_LOOK_COINS, Events.step_text(st)]
 	texts.add_child(Hud.label(what, 20 if look else 21, (GOLD if look else TEXT) if reached else (Color(0.85, 0.65, 0.35) if look else DIM), HORIZONTAL_ALIGNMENT_LEFT))
 	var need := ("Claimed" if got else "Ready!") if reached else "%d shards to go" % (int(st.at) - s)
-	if look:
+	if look and not what.contains("found early"):
 		need += "  ·  every hero can wear it"
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if reached and not got:

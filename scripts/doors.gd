@@ -12,14 +12,16 @@ const TREASURE_COINS := 0.6
 const PATHS := {"bolt": "Hunter's Path", "flame": "Burning Path", "frost": "Frozen Path", "bone": "Bone Path"}
 
 
-## Two different doors. `boss_next`: no Champion's Door before the boss.
+## Two different doors. `boss_next`: no Champion's Door before the boss, and no Treasure
+## Room either (version 145: its gold room and its coins belong to a room of skeletons, and
+## the boss room has only the boss).
 ## `can_reroll`: no Shrine with Narrow Path. `taken`: the hero's blessings; a path is only
 ## offered for a family with at least 2 cards the hero can still get, so its promise ("2 of 3
 ## are ... blessings") is kept. The Daily Crypt passes its own `rng`, so everyone gets the
 ## same doors.
 static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool, taken := {}) -> Array:
 	var families: Array = PATHS.keys().filter(func(f): return Upgrades.family_left(taken, f) >= 2)
-	var kinds := KINDS.filter(func(k): return not (k == "champion" and boss_next) and not (k == "shrine" and not can_reroll) \
+	var kinds := KINDS.filter(func(k): return not (k in ["champion", "treasure"] and boss_next) and not (k == "shrine" and not can_reroll) \
 		and not (k == "path" and families.is_empty()))
 	var out := []
 	while out.size() < 2 and not kinds.is_empty():
