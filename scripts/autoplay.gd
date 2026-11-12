@@ -58,6 +58,8 @@ var _special_shots := 0
 var _force_special := false
 var _perks: PackedStringArray = []
 var _card_shot := false
+var _cards_shot := false
+var _door_kind := ""
 var _door_shot := false
 var _pass_menu := false
 var _curse_menu := false
@@ -92,6 +94,7 @@ var _intro_marks: Array = [0.1, 0.3, 0.6, 1.0, 1.3, 1.7, 1.95, 2.06, 2.2, 2.6, 3
 ## switches itself to Low graphics (and that a chosen setting is left alone).
 var _slow_phone := false
 var _slow_t := -1.0
+## "doorkind=treasure" (or champion, spring, shrine): always take a door of that kind.
 ## "cards=a,b,c": the first blessing pick offers exactly these cards (for pictures).
 var _force_cards: Array = []
 ## The Blood Moon (events.gd): `eday=N` plays day N of the event, `event=run` or
@@ -220,6 +223,8 @@ func _ready() -> void:
 			Game.write_save(cfg)
 		elif a == "eventmenu":
 			_event_menu = true
+		elif a.begins_with("doorkind="):
+			_door_kind = a.substr(9)
 		elif a.begins_with("cards="):
 			_force_cards = Array(a.substr(6).split(","))
 		elif a.begins_with("runs="):
@@ -243,6 +248,22 @@ func _back_at_end() -> void:
 	print("[autoplay] after back: state=%s, title CONTINUE '%s'" % [Game.State.keys()[Game.state], Game.continue_text()])
 	if shots_dir != "":
 		await _shot()
+	if "remindask" in OS.get_cmdline_user_args():
+		# Version 143: the reminders question comes a moment after the title is back.
+		for i in 30:
+			if Game.hud.reminders_ask_visible():
+				break
+			await get_tree().create_timer(0.2).timeout
+		print("[autoplay] reminders question shown: ", Game.hud.reminders_ask_visible())
+		if Game.hud.reminders_ask_visible():
+			await get_tree().create_timer(0.5).timeout
+			if shots_dir != "":
+				await _shot()
+			Game.hud.reminders_answered.emit("remindyes" in OS.get_cmdline_user_args())
+			await get_tree().create_timer(0.3).timeout
+			print("[autoplay] reminders now: ", PhoneReminders.on(Game._load_save()), "\n", PhoneReminders.describe(PhoneReminders.last_list))
+			if shots_dir != "":
+				await _shot()
 	get_tree().quit()
 
 
@@ -335,6 +356,15 @@ func _process(delta: float) -> void:
 		await _icon_sheet()
 		get_tree().quit()
 		return
+	if Game.hud.reminders_ask_visible() and not _answering:
+		# Version 143: the once-only reminders question on the title: picture it, then answer.
+		_answering = true
+		print("[autoplay] reminders question shown")
+		if shots_dir != "":
+			await _shot()
+		Game.hud.reminders_answered.emit("remindyes" in OS.get_cmdline_user_args())
+		print("[autoplay] reminders now: ", PhoneReminders.on(Game._load_save()), "\n", PhoneReminders.describe(PhoneReminders.last_list))
+		_answering = false
 	if Game.hud.reports_ask_visible() and not _answering:
 		# The once-only "send reports?" question after a run: picture it, then say no.
 		_answering = true
@@ -355,9 +385,9 @@ func _process(delta: float) -> void:
 		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
 		if Game.state == Game.State.UPGRADE and not _force_cards.is_empty():
 			Game._choices = _force_cards.map(func(id): return Upgrades.get_def(id))
-			Game.hud.show_cards(Game._choices, Game.rerolls, true)
+			Game.hud.show_cards(Game._choices, Game.rerolls, true, null, Game._taken)
 			_force_cards = []
-		if shots_dir != "" and Game.state in [Game.State.UPGRADE, Game.State.VICTORY, Game.State.DEAD, Game.State.PAUSED]:
+		if shots_dir != "" and Game.state in [Game.State.VICTORY, Game.State.DEAD, Game.State.PAUSED]:
 			_shot.call_deferred()
 		if shots_dir != "" and Game.state == Game.State.PLAYING and Room.current and Room.current.door_open:
 			_next_shot = _t + 0.3   # catch the exit arrow right after a blessing
@@ -510,9 +540,21 @@ func _process(delta: float) -> void:
 				_shot()
 			if Game.hud._doors_age > 1.0:
 				var pick := randi() % Game._doors.size()
+				if _door_kind != "":
+					# "doorkind=treasure": always take that kind of door (for pictures of its room).
+					Game._doors[0] = {"kind": _door_kind, "family": ""}
+					pick = 0
 				print("[autoplay] doors: %s -> %s" % [" or ".join(Game._doors.map(func(d): return Doors.describe(d).title)), Doors.describe(Game._doors[pick]).title])
 				Game.hud._on_door(pick)
 		Game.State.UPGRADE:
+			# Version 143: the cards are dealt over about 0.65 s; picture them once all landed.
+			if shots_dir != "" and Game.hud._cards_age < 0.85:
+				return
+			if shots_dir != "" and not _cards_shot:
+				_cards_shot = true
+				_shot()
+				return
+			_cards_shot = false
 			if Game.rerolls > 0 and Game.hud._cards_age >= 0.45:
 				print("[autoplay] reroll: %s" % ", ".join(Game._choices.map(func(u): return u.title)))
 				Game._on_reroll()

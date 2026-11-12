@@ -59,6 +59,9 @@ signal loop_deeper
 signal loop_bank
 signal omen_picked(id: String)
 signal reports_answered(on: bool)
+## Version 143: phone reminders, asked once and switched in Settings.
+signal reminders_answered(on: bool)
+signal reminders_toggled(on: bool)
 ## The Blood Moon event (events.gd, version 134).
 signal event_pressed
 signal event_run
@@ -119,6 +122,8 @@ var _stick_origin := Vector2.ZERO
 var _cards_box: Control
 var _cards_mastery: Label   # "WIZARD MASTERY 3!" over the cards after a mid-run level-up
 var _cards: Array[Button] = []
+var _cards_have: PanelContainer   # the row of blessings already held, over the cards
+var _cards_have_row: HFlowContainer
 var _reroll_button: Button
 ## Doors (doors.gd): two to pick from after a blessing.
 var _doors_box: Control
@@ -313,6 +318,10 @@ var _loop_deeper_button: Button
 var _loop_bank_button: Button
 var _omen_box: Control
 var _ask_box: Control
+var _rem_box: Control
+var _rem_text: Label
+var _reminders_button: Button
+var _reminders_on := false
 var _omen_info: Label
 var _omen_rows: VBoxContainer
 var _omen_have: Label
@@ -393,6 +402,7 @@ func _ready() -> void:
 	add_child(_leaders)
 	_build_omens()
 	_build_reports_ask()
+	_build_reminders_ask()
 	_build_pass()
 	_build_boss_card()
 	_build_phase_banner()
@@ -1189,7 +1199,10 @@ func _build_danger() -> void:
 
 
 func _build_cards() -> void:
-	_cards_box = overlay(Color(0.02, 0.01, 0.04, 0.85))
+	# Version 143 (review change 4): the room stays in view behind the cards, dimmed, so the
+	# pick feels like a moment in the crypt rather than a menu (it was an opaque purple
+	# page). Below 0.7 the overlay gets no painted backdrop.
+	_cards_box = overlay(Color(0.02, 0.01, 0.04, 0.62))
 	add_child(_cards_box)
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -1198,6 +1211,38 @@ func _build_cards() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 18)
 	_cards_box.add_child(col)
+	# What you already hold, as a row of small badges, so a card's "completes" badge and
+	# the build it adds to can be read at a glance.
+	_cards_have = PanelContainer.new()
+	_cards_have.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cards_have.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_cards_have.custom_minimum_size = Vector2(440, 0)   # (a flow row has no width of its own)
+	var hb := StyleBoxFlat.new()
+	hb.bg_color = Color(0.05, 0.03, 0.08, 0.82)
+	hb.border_color = Color(1, 0.85, 0.55, 0.35)
+	hb.set_border_width_all(2)
+	hb.set_corner_radius_all(14)
+	hb.content_margin_left = 12
+	hb.content_margin_right = 12
+	hb.content_margin_top = 4
+	hb.content_margin_bottom = 6
+	_cards_have.add_theme_stylebox_override("panel", hb)
+	var hv := VBoxContainer.new()
+	hv.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hv.add_theme_constant_override("separation", 0)
+	_cards_have.add_child(hv)
+	var have_t := label("YOUR BLESSINGS", 14, Color(0.8, 0.74, 0.9))
+	have_t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	hv.add_child(have_t)
+	_cards_have_row = HFlowContainer.new()
+	_cards_have_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_cards_have_row.alignment = FlowContainer.ALIGNMENT_CENTER
+	_cards_have_row.add_theme_constant_override("h_separation", 2)
+	_cards_have_row.add_theme_constant_override("v_separation", 0)
+	_cards_have_row.custom_minimum_size = Vector2(0, 40)
+	hv.add_child(_cards_have_row)
+	_cards_have.visible = false
+	col.add_child(_cards_have)
 	_cards_mastery = label("", 28, GOLD)
 	_cards_mastery.visible = false
 	col.add_child(_cards_mastery)
@@ -1252,6 +1297,27 @@ func _build_cards() -> void:
 		pill.content_margin_right = 9
 		r.add_theme_stylebox_override("normal", pill)
 		b.add_child(r)
+		# "UNLOCKS WILDFIRE": this card is the missing half of a synergy you half own.
+		var combo := label("", 15, INK, HORIZONTAL_ALIGNMENT_CENTER)
+		combo.anchor_left = 1.0
+		combo.anchor_right = 1.0
+		combo.anchor_top = 1.0
+		combo.anchor_bottom = 1.0
+		combo.offset_left = -230
+		combo.offset_right = -12
+		combo.offset_top = -13   # hangs over the card's bottom edge like a sticker
+		combo.offset_bottom = 13
+		combo.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		combo.autowrap_mode = TextServer.AUTOWRAP_OFF
+		combo.label_settings.outline_size = 0
+		var cp := StyleBoxFlat.new()
+		cp.bg_color = Color(1.0, 0.8, 0.3)
+		cp.set_corner_radius_all(11)
+		cp.content_margin_left = 10
+		cp.content_margin_right = 10
+		combo.add_theme_stylebox_override("normal", cp)
+		combo.visible = false
+		b.add_child(combo)
 		var shine := Panel.new()
 		shine.name = "Shine"
 		shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1958,9 +2024,16 @@ func _build_pause() -> void:
 	_vibration_button = button("Vibration: On", 22)
 	_vibration_button.pressed.connect(func(): vibration_toggled.emit(not _vibration_on))
 	col.add_child(_centered(_vibration_button))
-	_reports_button = button("Send reports: Off", 22)
+	# Reports and reminders share a row (version 143), so the menu still fits a 16:9 phone.
+	_reports_button = button("Send reports: Off", 18)
+	_reports_button.custom_minimum_size = Vector2(212, 66)
 	_reports_button.pressed.connect(func(): reports_toggled.emit(not _reports_on))
-	col.add_child(_centered(_reports_button))
+	_reminders_button = button("Reminders: Off", 18)
+	_reminders_button.custom_minimum_size = Vector2(212, 66)
+	_reminders_button.pressed.connect(func(): reminders_toggled.emit(not _reminders_on))
+	var pair := _pair(_reports_button, _reminders_button)
+	pair.add_theme_constant_override("separation", 12)
+	col.add_child(pair)
 	# Three small buttons side by side, so the menu still fits a 16:9 phone.
 	var small := HBoxContainer.new()
 	small.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2503,6 +2576,53 @@ func _build_reports_ask() -> void:
 	col.add_child(_centered(privacy_button()))
 
 
+## Version 143: phone reminders, asked once on the title (see Game._ask_reminders_on_title).
+func _build_reminders_ask() -> void:
+	_rem_box = overlay(Color(0.02, 0.01, 0.03, 0.94))
+	add_child(_rem_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 30
+	col.offset_right = -30
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 18)
+	_rem_box.add_child(col)
+	col.add_child(label("NEVER MISS A NIGHT", 40, GOLD))
+	_rem_text = label("", 22, Color(0.92, 0.9, 0.86))
+	_rem_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(_rem_text)
+	var small := label("At most one a day, in the evening. Turn them off any time in Settings.", 17, Color(0.7, 0.68, 0.66))
+	small.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(small)
+	var yes := button("YES, REMIND ME", 26, Color(0.2, 0.32, 0.18, 0.97), Color(0.6, 0.95, 0.55))
+	yes.custom_minimum_size = Vector2(360, 80)
+	yes.pressed.connect(func(): reminders_answered.emit(true))
+	col.add_child(_centered(yes))
+	var no := button("NO THANKS", 24)
+	no.custom_minimum_size = Vector2(360, 70)
+	no.pressed.connect(func(): reminders_answered.emit(false))
+	col.add_child(_centered(no))
+	_rem_box.visible = false
+
+
+## `event_name`: an event on now or coming soon, named in the question.
+func show_reminders_ask(v: bool, event_name := "") -> void:
+	if v:
+		_rem_text.text = ("Get a reminder when the %s begins, when each new chapter opens, and when your Daily streak is about to end?" % event_name) \
+				if event_name != "" else "Get a reminder when the Daily Crypt is ready, when events begin, and when your streak is about to end?"
+	_rem_box.visible = v
+
+
+func reminders_ask_visible() -> bool:
+	return _rem_box.visible
+
+
+func set_reminders_label(on: bool) -> void:
+	_reminders_on = on
+	_reminders_button.text = "Reminders: On" if on else "Reminders: Off"
+
+
 func show_reports_ask(v: bool) -> void:
 	_ask_box.visible = v
 
@@ -2635,7 +2755,7 @@ func _place_title_buttons() -> void:
 
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
-		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _modes_box.visible or _heroes_box.visible \
+		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _rem_box.visible or _modes_box.visible or _heroes_box.visible \
 		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible \
 		or _rewards_box.visible or _feats.visible or _event.visible or _splash.visible or _leaders.visible
 
@@ -2647,7 +2767,7 @@ func _input(event: InputEvent) -> void:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
 			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _end_loop.visible \
-					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible \
+					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible and not _rem_box.visible \
 					and not _heroes_box.visible and not _drops.visible \
 					and not (_end_drop.visible and _end_drop.get_global_rect().has_point(t.position)) \
 					and not (_end_looks.visible and _end_looks.get_global_rect().has_point(t.position)) and not _style.visible \
@@ -2720,7 +2840,6 @@ func _on_card(i: int) -> void:
 
 func _process(delta: float) -> void:
 	_event_process(delta)
-	_fade_buttons_over_hero(delta)
 	_cards_age += delta
 	_doors_age += delta
 	# The title's words and buttons would show faintly through the screens opened over it.
@@ -2810,22 +2929,47 @@ func _process(delta: float) -> void:
 		_banner.pivot_offset = _banner.size / 2
 
 
-## A-8: the DASH and special buttons and the boss bar sit over the arena. When the hero or
-## an enemy goes behind one, it turns see-through so the fight under it stays readable.
-## The buttons still answer taps.
+## A-8: the DASH and special buttons and the boss bar sit over the arena. When the hero, an
+## enemy, an enemy shot or the hero's own body goes behind one, it turns see-through so the
+## fight under it stays readable. The buttons still answer taps.
+## Version 143: this used to be two functions (this one and _fade_buttons_over_hero) pulling
+## the same alpha in opposite directions, so a hero half under DASH kept it solid.
 func _see_through(delta: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	var fighting := Game.state == Game.State.PLAYING and cam != null
+	var hero_box := Rect2()
+	var hero_ok := fighting and Game.hero != null and is_instance_valid(Game.hero)
+	if hero_ok:
+		var feet := cam.unproject_position(Game.hero.global_position)
+		var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 1.6)
+		hero_box = Rect2(head, Vector2.ZERO).expand(feet).grow(22.0)
 	for c: Control in [_special, _dash_button, _boss_box]:
+		if c == null:
+			continue
 		var want := 1.0
-		if fighting and c.visible:
+		if fighting and c.is_visible_in_tree():
 			var r := c.get_global_rect().grow(14.0)
-			for a in Actor.all:
-				if is_instance_valid(a) and not a.dead and not cam.is_position_behind(a.center()) \
-						and r.has_point(cam.unproject_position(a.center())):
-					want = 0.35
-					break
-		c.modulate.a = move_toward(c.modulate.a, want, delta * 5.0)
+			if hero_ok and c != _boss_box and r.intersects(hero_box):
+				want = 0.3
+			if want > 0.5:
+				for a in Actor.all:
+					if is_instance_valid(a) and not a.dead and not cam.is_position_behind(a.center()) \
+							and r.has_point(cam.unproject_position(a.center())):
+						want = 0.35
+						break
+			if want > 0.5:
+				for p in Projectile.danger:
+					if is_instance_valid(p) and not cam.is_position_behind(p.global_position) \
+							and r.has_point(cam.unproject_position(p.global_position)):
+						want = 0.35
+						break
+			if want > 0.5:
+				for t in Telegraph.active:
+					if is_instance_valid(t) and t.elapsed < t.duration and not cam.is_position_behind(t.global_position) \
+							and r.has_point(cam.unproject_position(t.global_position)):
+						want = 0.35
+						break
+		c.modulate.a = move_toward(c.modulate.a, want, delta * (6.0 if want < c.modulate.a else 3.0))
 
 
 # ---------------------------------------------------------------- API used by game.gd
@@ -3015,22 +3159,6 @@ func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 	_perfect_tw.tween_callback(func(): _perfect_lbl.visible = false)
 
 
-## Version 135: the DASH and special buttons sit at the right edge, and a hero pressed
-## against that wall (the Sporemother's arena) stood hidden under them. While the hero is
-## under one, it fades to see-through; it still works the same.
-func _fade_buttons_over_hero(delta: float) -> void:
-	var cam := get_viewport().get_camera_3d()
-	var hero_ok := Game.state == Game.State.PLAYING and cam != null and Game.hero != null and is_instance_valid(Game.hero)
-	var feet := cam.unproject_position(Game.hero.global_position) if hero_ok else Vector2.ZERO
-	var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 1.6) if hero_ok else Vector2.ZERO
-	var hero_box := Rect2(head, Vector2.ZERO).expand(feet).grow(18.0)
-	for b: Control in [_dash_button, _special]:
-		if b == null:
-			continue
-		var under := hero_ok and b.is_visible_in_tree() and b.get_global_rect().intersects(hero_box)
-		b.modulate.a = move_toward(b.modulate.a, 0.35 if under else 1.0, delta * 4.0)
-
-
 func _place_perfect(rise: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null or Game.hero == null or not is_instance_valid(Game.hero) or _perfect_lbl == null:
@@ -3082,8 +3210,9 @@ func top_band() -> float:
 ## as a tag and border colour. `rerolls` is how many free rerolls are left.
 ## `mastery` is a mid-run Hero Mastery level-up line to show over the cards ("" for none;
 ## null keeps what shows, for a reroll).
-func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = null) -> void:
+func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = null, taken: Dictionary = {}) -> void:
 	DamageNumber.clear_all()
+	_fill_have(taken)
 	if mastery != null:
 		_cards_mastery.text = str(mastery)
 		_cards_mastery.visible = str(mastery) != ""
@@ -3108,15 +3237,34 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		var kind: String = Heroes.get_hero(u.hero).title.to_upper() if u.has("hero") else Upgrades.FAMILIES[u.family].name.to_upper()
 		(labels[3] as Label).text = "%s · %s" % [kind, rar.name] if tags else kind
 		var col: Color = rar.color if tags else Color(0.62, 0.64, 0.7)
-		_paint_card(b, col, tags and u.rarity != "common")
-		# Dealt in one after another, each card flipping over from edge on.
+		var bright: bool = tags and u.rarity != "common"
+		_paint_card(b, col, bright)
+		# Version 143: rarer cards stand taller (rare 144, epic and synergy 154) and glow in
+		# their colour, so the good one is found before the words are read.
+		b.custom_minimum_size.y = 132.0 if not bright else (144.0 if u.rarity == "rare" else 154.0)
+		var syn := Upgrades.completes(u, taken) if tags else {}
+		var combo := labels[4] as Label
+		combo.visible = not syn.is_empty()
+		if combo.visible:
+			combo.text = "★ UNLOCKS %s" % str(syn.title).to_upper()
+			combo.offset_left = combo.offset_right - combo.get_minimum_size().x
+		# Dealt in one after another, each card flipping over from edge on with a tick that
+		# climbs, and a shimmer when a rare one lands.
 		b.scale = Vector2(0.0, 0.92)
 		b.modulate.a = 0.0
 		var tw := b.create_tween()
 		tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		tw.tween_interval(0.07 * i)
+		tw.tween_interval(0.05 + 0.13 * i)
+		tw.tween_callback(Sfx.play.bind("chest_tick", 0.7, 1.0 + 0.15 * i))
 		tw.tween_property(b, "modulate:a", 1.0, 0.05)
 		tw.parallel().tween_property(b, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		if bright or combo.visible:
+			tw.tween_callback(Sfx.play.bind("shimmer", 0.5, 1.1 + 0.1 * i))
+		if combo.visible:
+			combo.pivot_offset = combo.get_minimum_size() * 0.5
+			combo.scale = Vector2(0.2, 0.2)
+			tw.tween_property(combo, "scale", Vector2(1.15, 1.15), 0.14).set_ease(Tween.EASE_OUT)
+			tw.tween_property(combo, "scale", Vector2.ONE, 0.12)
 		var tag := labels[3] as Label
 		tag.offset_left = tag.offset_right - tag.get_minimum_size().x   # the ribbon fits its words
 		var shine := b.get_node("ShineClip/Shine") as Panel
@@ -3129,6 +3277,32 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 	_reroll_button.text = "Reroll (%d left)" % rerolls
 	_cards_box.visible = true
 	_cards_age = 0.0
+
+
+## The "YOUR BLESSINGS" row over the cards: one small badge per blessing held (a stacked one
+## shows once with its count). Hidden before the first pick.
+func _fill_have(taken: Dictionary) -> void:
+	for c in _cards_have_row.get_children():
+		_cards_have_row.remove_child(c)
+		c.queue_free()
+	for id in taken:
+		var u := Upgrades.get_def(str(id))
+		if u.is_empty():
+			continue
+		var holder := Control.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.custom_minimum_size = Vector2(40, 40)
+		var ic := BlessingIcon.new()
+		ic.show_for(u)
+		ic.scale = Vector2(0.62, 0.62)
+		holder.add_child(ic)
+		if int(taken[id]) > 1:
+			var n := label("x%d" % int(taken[id]), 13, Color.WHITE)
+			n.position = Vector2(20, 22)
+			n.size = Vector2(24, 18)
+			holder.add_child(n)
+		_cards_have_row.add_child(holder)
+	_cards_have.visible = _cards_have_row.get_child_count() > 0
 
 
 ## A blessing card in its rarity colour: the frame and the thick lip under it, a band across
@@ -3144,6 +3318,11 @@ func _paint_card(b: Button, col: Color, bright: bool) -> void:
 	normal.shadow_color = Color(0, 0, 0, 0.4)
 	normal.shadow_size = 3
 	normal.shadow_offset = Vector2(0, 5)
+	if bright:
+		# Version 143: rare and better cards glow in their colour over the dimmed room.
+		normal.shadow_color = Color(col, 0.5)
+		normal.shadow_size = 16
+		normal.shadow_offset = Vector2(0, 3)
 	normal.anti_aliasing_size = 1.2
 	var lip := normal.duplicate() as StyleBoxFlat
 	var pressed := normal.duplicate() as StyleBoxFlat
@@ -3786,7 +3965,7 @@ func covers_world() -> bool:
 	return _style.visible or _feats.visible or _mastery.visible or _drops.visible or _heroes_box.visible \
 			or (_rewards_box != null and _rewards_box.visible) or _armory_box.visible or _records_box.visible \
 			or _pass_box.visible or _modes_box.visible or _daily_box.visible or _omen_box.visible \
-			or _fb_box.visible or _road.visible or _ask_box.visible or _event.visible or _splash.visible \
+			or _fb_box.visible or _road.visible or _ask_box.visible or _rem_box.visible or _event.visible or _splash.visible \
 			or (_leaders != null and _leaders.visible)
 
 

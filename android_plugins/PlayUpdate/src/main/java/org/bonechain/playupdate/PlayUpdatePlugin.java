@@ -160,4 +160,62 @@ public class PlayUpdatePlugin extends GodotPlugin {
             }
         });
     }
+
+    // ------------------------------------------------------------- reminders (version 143)
+
+    /** Replaces the game's phone reminders with the list in `json` (see Reminders). */
+    @UsedByGodot
+    public void remindersSchedule(String json) {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            return;
+        }
+        try {
+            Reminders.ensureChannel(activity.getApplicationContext());
+            Reminders.schedule(activity.getApplicationContext(), json);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Clears every phone reminder (the player turned them off). */
+    @UsedByGodot
+    public void remindersClear() {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            return;
+        }
+        try {
+            Reminders.cancelAll(activity.getApplicationContext());
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Whether this phone lets the game show notifications at all (the Android setting). */
+    @UsedByGodot
+    public boolean remindersAllowed() {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            return false;
+        }
+        try {
+            android.app.NotificationManager nm = (android.app.NotificationManager)
+                    activity.getSystemService(android.content.Context.NOTIFICATION_SERVICE);
+            return nm != null && (android.os.Build.VERSION.SDK_INT < 24 || nm.areNotificationsEnabled());
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** Shows a reminder now, for the robot and for testing on a phone. */
+    @UsedByGodot
+    public void remindersTest(String title, String text) {
+        final Activity activity = getActivity();
+        if (activity == null) {
+            return;
+        }
+        try {
+            Reminders.post(activity.getApplicationContext(), 1, title, text);
+        } catch (Throwable ignored) {
+        }
+    }
 }

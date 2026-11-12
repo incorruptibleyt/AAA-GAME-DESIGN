@@ -17,6 +17,10 @@ static var current: Room
 var obstacles: Array = []   # [{pos: Vector3, r: float}]
 var spawns: Array = []      # [{kind: String, pos: Vector3}]
 var door_open := false
+## The room's mood (room_mood.gd): "plain", "shaft", "circle", "treasure", "champion",
+## "approach" or "boss". `torch_k` dims the torches (the boss approach burns them low).
+var mood := "plain"
+var torch_k := 1.0
 
 var _portcullis: Node3D
 var _exit_light: OmniLight3D
@@ -734,7 +738,7 @@ func apply_graphics(high: bool) -> void:
 		var keep := (i != 2 and i != 3) if high else (i == 2 or i == 3)
 		_torch_lights[i].visible = keep
 		_torch_lights[i].omni_range = 9.5 if high else 11.0
-		_torch_lights[i].light_energy = Floors.current().torch_energy * (1.0 if high else 1.2)
+		_torch_lights[i].light_energy = Floors.current().torch_energy * (1.0 if high else 1.2) * torch_k
 
 
 func _build_door(trim: Material, dark: Material) -> void:

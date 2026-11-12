@@ -39,6 +39,10 @@ var _road_note: Label
 var _road_scroll: ScrollContainer
 var _road_list: VBoxContainer
 var _t := 0.0
+## Version 143: the Blood Moon set, worn by your hero, at the top of the event screen.
+var _set_stage: HeroStage
+var _set_title: Label
+var _set_pieces: VBoxContainer
 
 
 func _init() -> void:
@@ -126,6 +130,7 @@ func _build_main() -> void:
 	col.add_child(_road_bar)
 	_road_sub = Hud.label("", 16, DIM)
 	col.add_child(_road_sub)
+	_build_set_card(col)
 	# The Blood Moon run.
 	var run := _card(col, "BLOOD MOON RUN", "Three floors of the Blood Moon Crypt. Moon Surges make every skeleton faster and worth a shard. Bloodbats, Moon Howlers, and the Queen at the end.")
 	_run_sub = Hud.label("", 16, GOLD)
@@ -160,8 +165,91 @@ func _build_main() -> void:
 	var back := Hud.button("BACK", 26)
 	back.pressed.connect(func():
 		visible = false
+		_set_stage.set_active(false)
 		closed.emit())
 	_main.add_child(Hud.back_corner(back))
+
+
+## Version 143 (review change 2): the event's prize you can see. Your hero stands on a
+## pedestal wearing the whole Blood Moon set, beside its four pieces and how far each one
+## is up the road. Players work toward what they can see; before, the set was one line of
+## text at step 525 of a list.
+func _build_set_card(parent: Control) -> void:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.16, 0.05, 0.05, 0.95)
+	sb.border_color = Color(1.0, 0.72, 0.32)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(18)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	sb.shadow_color = Color(1.0, 0.2, 0.1, 0.25)
+	sb.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", sb)
+	parent.add_child(panel)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_theme_constant_override("separation", 8)
+	panel.add_child(row)
+	_set_stage = HeroStage.new(Vector2(190, 236))
+	_set_stage.custom_minimum_size = Vector2(190, 236)
+	_set_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_set_stage)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 4)
+	row.add_child(v)
+	_set_title = Hud.label("THE BLOOD MOON SET", 24, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	v.add_child(_set_title)
+	v.add_child(Hud.label("Every hero can wear it. Only in this event.", 14, TEXT, HORIZONTAL_ALIGNMENT_LEFT))
+	_set_pieces = VBoxContainer.new()
+	_set_pieces.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_set_pieces.add_theme_constant_override("separation", 2)
+	v.add_child(_set_pieces)
+	var b := Hud.button("SEE THE ROAD", 18, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
+	b.custom_minimum_size = Vector2(200, 52)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	b.pressed.connect(func():
+		Sfx.play("click")
+		show_road())
+	v.add_child(b)
+
+
+## The set card filled from the save: the hero in all four pieces, each piece found or not.
+func _fill_set(cfg: ConfigFile) -> void:
+	var id := Heroes.selected(cfg)
+	var p := HeroStyle.picks(cfg, id)
+	var found := 0
+	for c in _set_pieces.get_children():
+		_set_pieces.remove_child(c)
+		c.queue_free()
+	var s := Events.shards(cfg)
+	for st: Dictionary in Events.ROAD:
+		if str(st.kind) != "look":
+			continue
+		p[str(st.look[0])] = str(st.look[1])
+		var got := Events.has_look(cfg, str(st.look[0]), str(st.look[1]))
+		found += 1 if got else 0
+		var line := HBoxContainer.new()
+		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		line.add_theme_constant_override("separation", 6)
+		line.add_child(EventArt.RoadIcon.new("look", 22.0, not got))
+		var name := Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 16, TEXT if got else Color(0.85, 0.75, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+		name.autowrap_mode = TextServer.AUTOWRAP_OFF
+		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		line.add_child(name)
+		var need := Hud.label("FOUND" if got else ("ready!" if s >= int(st.at) else Hud.thousands(int(st.at))), 14, DONE if got else (Hud.GOLD if s >= int(st.at) else DIM))
+		need.autowrap_mode = TextServer.AUTOWRAP_OFF
+		line.add_child(need)
+		_set_pieces.add_child(line)
+	_set_title.text = "THE BLOOD MOON SET  %d/4" % found
+	_set_stage.show_hero(HeroStyle.dressed(Heroes.get_hero(id), p), found >= 4, Color(1.0, 0.3, 0.26))
+	_set_stage.set_active(visible and _main.visible)
 
 
 ## A dark crimson card with a heading and a line of text; returns its column.
@@ -221,7 +309,8 @@ func _build_road() -> void:
 	back.pressed.connect(func():
 		Sfx.play("click")
 		_road_page.visible = false
-		_main.visible = true)
+		_main.visible = true
+		_set_stage.set_active(true))
 	_road_page.add_child(Hud.back_corner(back))
 
 
@@ -238,6 +327,7 @@ func road_open() -> bool:
 func show_road() -> void:
 	_main.visible = false
 	_road_page.visible = true
+	_set_stage.set_active(false)
 	_fill_road(Game._load_save())
 
 
@@ -246,8 +336,10 @@ func back() -> void:
 	if _road_page.visible:
 		_road_page.visible = false
 		_main.visible = true
+		_set_stage.set_active(true)
 	else:
 		visible = false
+		_set_stage.set_active(false)
 		closed.emit()
 
 
@@ -281,6 +373,7 @@ func refresh(cfg: ConfigFile) -> void:
 		_road_sub.text = "Next: %s  ·  the road ends in the Blood Moon set" % Events.step_text(Events.ROAD[ni])
 	else:
 		_road_sub.text = "Road walked! Next bonus Moon Casket in %d shards" % Events.to_next_bonus(cfg)
+	_fill_set(cfg)
 	var bonus := []
 	if Events.double_today(e) and live:
 		bonus.append("double shards today")
@@ -478,6 +571,9 @@ func _road_row(cfg: ConfigFile, i: int, s: int) -> Control:
 	at.custom_minimum_size = Vector2(64, 0)
 	at.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(at)
+	var icon := EventArt.RoadIcon.new(str(st.kind), 54.0 if look else 46.0, got)
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(icon)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL

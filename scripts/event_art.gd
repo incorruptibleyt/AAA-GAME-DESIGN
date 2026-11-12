@@ -431,3 +431,56 @@ class Rays extends Control:
 			var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
 			var cols := PackedColorArray([Color(1.0, 0.25, 0.15, 0.22), Color(1.0, 0.1, 0.05, 0.0), Color(1.0, 0.1, 0.05, 0.0)])
 			draw_polygon(pts, cols)
+
+
+## Version 143 (review change 2): a small picture for each Event Road prize, so the road
+## reads at a glance: a crimson Moon Casket, a stack of coins, a bone Bone Drop, a green
+## Lucky Start clover and a gold star for a piece of the Blood Moon set.
+class RoadIcon extends Control:
+	var kind := "coins"
+	var dim := false
+
+	func _init(k: String, size_px := 48.0, faded := false) -> void:
+		kind = k
+		dim = faded
+		custom_minimum_size = Vector2(size_px, size_px)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5
+		var a := 0.45 if dim else 1.0
+		draw_circle(c, r, Color(0.05, 0.01, 0.02, 0.85 * a))
+		match kind:
+			"casket":
+				var body := Rect2(c + Vector2(-r * 0.62, -r * 0.18), Vector2(r * 1.24, r * 0.78))
+				draw_rect(body, Color(0.62, 0.08, 0.1, a))
+				draw_rect(Rect2(c + Vector2(-r * 0.66, -r * 0.5), Vector2(r * 1.32, r * 0.36)), Color(0.85, 0.16, 0.16, a))
+				draw_rect(Rect2(c + Vector2(-r * 0.1, -r * 0.5), Vector2(r * 0.2, r * 1.1)), Color(1.0, 0.78, 0.4, a))
+				draw_circle(c + Vector2(0, -r * 0.05), r * 0.13, Color(1.0, 0.9, 0.6, a))
+			"coins":
+				for i in 3:
+					var o := c + Vector2(0, r * (0.32 - i * 0.24))
+					draw_circle(o, r * 0.5, Color(0.55, 0.36, 0.06, a))
+					draw_circle(o + Vector2(0, -r * 0.06), r * 0.46, Color(1.0, 0.8, 0.28, a))
+				draw_circle(c + Vector2(-r * 0.12, -r * 0.3), r * 0.1, Color(1.0, 0.97, 0.8, a))
+			"drop":
+				var box := Rect2(c + Vector2(-r * 0.6, -r * 0.3), Vector2(r * 1.2, r * 0.78))
+				draw_rect(box, Color(0.86, 0.8, 0.66, a))
+				draw_rect(Rect2(c + Vector2(-r * 0.64, -r * 0.56), Vector2(r * 1.28, r * 0.3)), Color(0.95, 0.9, 0.78, a))
+				for x in [-0.32, 0.0, 0.32]:
+					draw_line(c + Vector2(r * x, -r * 0.2), c + Vector2(r * x, r * 0.42), Color(0.5, 0.42, 0.3, a), 2.0)
+				draw_circle(c + Vector2(0, -r * 0.4), r * 0.12, Color(0.7, 0.4, 1.0, a))
+			"lucky":
+				for d in [Vector2(0, -1), Vector2(1, 0), Vector2(0, 1), Vector2(-1, 0)]:
+					draw_circle(c + d * r * 0.3, r * 0.3, Color(0.35, 0.85, 0.4, a))
+				draw_circle(c, r * 0.16, Color(0.85, 1.0, 0.7, a))
+			"look":
+				var pts := PackedVector2Array()
+				for i in 10:
+					var ang := -PI / 2 + i * PI / 5
+					var rr := r * (0.78 if i % 2 == 0 else 0.34)
+					pts.append(c + Vector2(cos(ang), sin(ang)) * rr)
+				draw_colored_polygon(pts, Color(1.0, 0.78, 0.3, a))
+				draw_circle(c, r * 0.18, Color(1.0, 0.3, 0.26, a))
+		draw_arc(c, r - 1.5, 0, TAU, 40, Color(1.0, 0.78, 0.4, 0.55 * a), 2.0, true)

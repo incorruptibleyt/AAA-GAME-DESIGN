@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-11b"
+const BUILD := "2026-11-11c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -432,6 +432,10 @@ func _ready() -> void:
 	hud.loop_deeper.connect(_open_omens)
 	hud.loop_bank.connect(_bank_run)
 	hud.omen_picked.connect(_pick_omen)
+	hud.reminders_toggled.connect(_set_reminders)
+	hud.reminders_answered.connect(func(on: bool):
+		hud.show_reminders_ask(false)
+		_set_reminders(on))
 	hud.reports_answered.connect(func(on: bool):
 		hud.show_reports_ask(false)
 		_set_reports(on)
@@ -474,6 +478,10 @@ func _ready() -> void:
 			or cfg.has_section_key("settings", "high_graphics"))) and not "autoplay" in OS.get_cmdline_user_args()
 	_auto_rewatch = _auto_graphics
 	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
+	hud.set_reminders_label(PhoneReminders.on(cfg))
+	PhoneReminders.refresh(cfg)
+	if "reminders" in OS.get_cmdline_user_args():
+		print("[reminders]\n" + PhoneReminders.describe(PhoneReminders.build(cfg, int(Time.get_unix_time_from_system()))))
 	Telemetry.instance.daily_open()
 	hud.set_coins(coins)
 
@@ -494,6 +502,7 @@ func _ready() -> void:
 	if not "autoplay" in args or "intro" in args:
 		_play_intro()
 		intro.finished.connect(_ask_reports_on_title)
+		intro.finished.connect(_ask_reminders_on_title)
 		intro.finished.connect(_maybe_event_splash.bind(false))
 	else:
 		Music.play("dungeon")
@@ -687,6 +696,7 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		if what == NOTIFICATION_APPLICATION_PAUSED:
 			_report_left()
+			PhoneReminders.refresh(_load_save())
 			if not _feats_unsaved.is_empty():
 				var fcfg := _load_save()
 				_flush_feats(fcfg)
@@ -704,6 +714,7 @@ func _notification(what: int) -> void:
 			Store.instance.recheck()
 		_check_new_day()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		PhoneReminders.refresh(_load_save())
 		if Telemetry.instance:
 			Telemetry.instance.session_open(false)
 	elif what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -726,6 +737,10 @@ func _notification(what: int) -> void:
 		if is_instance_valid(speed_card):
 			speed_card.queue_free()
 			speed_card = null
+			return
+		if hud.reminders_ask_visible():
+			hud.show_reminders_ask(false)
+			_set_reminders(false)   # backing out is a no
 			return
 		if hud.reports_ask_visible():
 			hud.show_reports_ask(false)
@@ -1839,6 +1854,7 @@ func _back_to_title(keep_run := false) -> void:
 	_settle_events()
 	await _fade(1.0, 0.0, 0.4)
 	_maybe_event_splash()
+	_ask_reminders_on_title()
 
 
 ## After beating the king: keep your blessings and go one floor deeper, where it's harder.
@@ -1973,6 +1989,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
 	var look := Floors.current()
 	_light_room(look)
+	# Version 143: every room gets its own mood (gold treasure, the champion's ring, the lit
+	# boss gate, light shafts and ritual circles), so a floor's rooms stop looking alike.
+	var mood := RoomMood.pick(index, _run.size(), _door, floor_num)
+	RoomMood.apply(room, mood, _run[index])
+	if mood == "approach":
+		_env.ambient_light_energy *= 0.6
 	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, [14, 14, 24, 36][graphics_level], look.motes, look.motes_fall, look.get("motes_size", 1.0))
 	Fx.wisps(room, look.get("wisp", Color(0.6, 1.0, 0.85)), [2, 3, 4, 5][graphics_level], Room.HALF_W - 0.8, Room.HALF_L - 0.8)
 	if hero == null:
@@ -2602,7 +2624,7 @@ func _room_cleared() -> void:
 	_set_state(State.UPGRADE)
 	get_tree().paused = true
 	hud.clear_banner()
-	hud.show_cards(_choices, rerolls if step >= 3 else 0, step >= 2, lv_line)
+	hud.show_cards(_choices, rerolls if step >= 3 else 0, step >= 2, lv_line, _taken)
 
 
 ## One free reroll per run swaps all three cards.
@@ -2612,7 +2634,7 @@ func _on_reroll() -> void:
 	rerolls -= 1
 	_choices = Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, false, _pick_family, _pick_better, _pick_rng)
 	Sfx.play("click")
-	hud.show_cards(_choices, rerolls, true)
+	hud.show_cards(_choices, rerolls, true, null, _taken)
 
 
 func _on_card_picked(i: int) -> void:
@@ -3657,6 +3679,45 @@ func _set_reports(on: bool) -> void:
 	if not on and Telemetry.instance:
 		Telemetry.instance.clear_queue()   # nothing waiting goes out after a no
 	Sfx.play("click")
+
+
+## Version 143: phone reminders (PhoneReminders), off until the player says yes.
+func _set_reminders(on: bool) -> void:
+	var cfg := _load_save()
+	if on:
+		PhoneReminders.enable(cfg)
+	else:
+		PhoneReminders.disable(cfg)
+	write_save(cfg)
+	PhoneReminders.refresh(cfg)
+	hud.set_reminders_label(on)
+	if on:
+		hud.tip("Reminders on: at most one a day, in the evening.", 3.0, 0.3)
+	Sfx.play("click")
+
+
+## Asked once, on the title after a boss win that wasn't the tutorial's (the player knows
+## the game by then), or as soon as the tutorial is done while an event is near. Never on
+## top of the reports question, a splash or a menu.
+func _ask_reminders_on_title() -> void:
+	var cfg := _load_save()
+	if PhoneReminders.asked(cfg) or first_run_pending():
+		return
+	var wins := int(cfg.get_value("stats", "wins", 0))
+	var event_near := not Events.current().is_empty() or not Events.coming().is_empty()
+	if wins < 2 and not (event_near and wins >= 1) and not "remindask" in OS.get_cmdline_user_args():
+		return
+	await get_tree().create_timer(2.2, true, false, true).timeout
+	if state != State.TITLE or not hud.title_visible() or hud.covers_world() or hud.reports_ask_visible() \
+			or hud.settings_visible() or hud.feedback_visible() or _load_save().has_section_key("settings", PhoneReminders.KEY):
+		return
+	if Telemetry.configured() and not _load_save().has_section_key("settings", "reports"):
+		return   # the reports question comes first; this one waits for the next title
+	cfg = _load_save()
+	cfg.set_value("settings", PhoneReminders.ASKED, true)   # asked once, whatever the answer
+	write_save(cfg)
+	var e := Events.current() if not Events.current().is_empty() else Events.coming()
+	hud.show_reminders_ask(true, "" if e.is_empty() else str(e.name).capitalize())
 
 
 ## Reports are off until the player says yes. The game asks once: on the title after the

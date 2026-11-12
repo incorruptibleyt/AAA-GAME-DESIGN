@@ -83,6 +83,20 @@ const SYNERGIES := [
 ]
 
 
+## The synergy that taking `u` now would unlock (its other half is already held), or {}.
+## Version 143: the blessing cards wear a badge for it.
+static func completes(u: Dictionary, taken: Dictionary) -> Dictionary:
+	if taken.has(u.id):
+		return {}
+	for s in SYNERGIES:
+		if taken.has(s.id) or not (s.parts as Array).has(u.id):
+			continue
+		var other: String = s.parts[1] if s.parts[0] == u.id else s.parts[0]
+		if taken.has(other):
+			return s
+	return {}
+
+
 static func get_def(id: String) -> Dictionary:
 	for u in LIST + SYNERGIES:
 		if u.id == id:
