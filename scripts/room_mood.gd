@@ -56,7 +56,12 @@ static func apply(room: Room, mood: String, layout: Array) -> void:
 					continue
 				var n := _place(room, p, signf(p.x) * PI / 2.0 if scene == chest else randf() * TAU)
 				Art.place_prop(scene, n, 0.7 if scene == chest else 0.38)
-				room._add_obstacle(p, 0.45 if scene == chest else 0.3)
+				# Against a wall the circle sits on the wall line (as props.gd does), so a push out of
+				# it always points into the room and never towards the wall behind it.
+				if c.x in [0, 8]:
+					room._add_obstacle(Vector3(signf(p.x) * Room.HALF_W, 0, p.z), 0.75)
+				else:
+					room._add_obstacle(p, 0.45 if scene == chest else 0.3)
 			for l in room._torch_lights:
 				l.light_color = torch.lerp(GOLD, 0.5)
 		"champion":
@@ -80,12 +85,14 @@ static func apply(room: Room, mood: String, layout: Array) -> void:
 			_pool(room, Vector3(0, 0, door_z + 1.6), Vector2(4.6, 3.6), Color(RED, 0.35), false)
 			_light(room, Vector3(0, 1.8, door_z + 1.3), Color(1.0, 0.45, 0.2), 1.8, 6.5)
 			for side in [-1.0, 1.0]:
-				var p := Vector3(side * (Room.DOOR_HALF + 0.75), 0, door_z + 0.6)
+				var p := Vector3(side * (Room.DOOR_HALF + 1.1), 0, door_z + 0.6)
+				if not _free(layout, Vector2i(2 if side < 0 else 6, 0)):
+					continue   # a pillar, trap or skeleton already stands there
 				var n := _place(room, p, 0.0)
 				Props._mesh(n, Props._brazier())
 				Fx.flame(n, Vector2(0.7, 0.95), Vector3(0, 0.8, 0))
 				Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.12, 0.8, 0.1))
-				room._add_obstacle(p, 0.45)
+				room._add_obstacle(Vector3(p.x, 0, door_z), 1.0)   # on the wall line (see above)
 		"shaft":
 			# A cold light falling through a crack in the ceiling, off to one side.
 			var x := -2.2 if randf() < 0.5 else 2.2

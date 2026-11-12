@@ -38,6 +38,13 @@ static func on(cfg: ConfigFile) -> bool:
 	return bool(cfg.get_value(SECTION, KEY, false))
 
 
+## Reminders are on in the game but the phone won't show them (the player said no to
+## Android's question, or turned the game's notifications off in the phone's settings).
+static func blocked(cfg: ConfigFile) -> bool:
+	var p := _plugin()
+	return on(cfg) and p != null and not bool(p.remindersAllowed())
+
+
 static func asked(cfg: ConfigFile) -> bool:
 	return cfg.has_section_key(SECTION, KEY) or bool(cfg.get_value(SECTION, ASKED, false))
 

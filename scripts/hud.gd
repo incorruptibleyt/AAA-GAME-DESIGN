@@ -2618,9 +2618,10 @@ func reminders_ask_visible() -> bool:
 	return _rem_box.visible
 
 
-func set_reminders_label(on: bool) -> void:
+## `blocked`: on in the game, but the phone won't show them (see PhoneReminders.blocked).
+func set_reminders_label(on: bool, blocked := false) -> void:
 	_reminders_on = on
-	_reminders_button.text = "Reminders: On" if on else "Reminders: Off"
+	_reminders_button.text = ("Reminders: Blocked" if blocked else "Reminders: On") if on else "Reminders: Off"
 
 
 func show_reports_ask(v: bool) -> void:

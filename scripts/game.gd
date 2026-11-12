@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-11c"
+const BUILD := "2026-11-12a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -478,7 +478,8 @@ func _ready() -> void:
 			or cfg.has_section_key("settings", "high_graphics"))) and not "autoplay" in OS.get_cmdline_user_args()
 	_auto_rewatch = _auto_graphics
 	hud.set_reports_label(bool(cfg.get_value("settings", "reports", false)), Telemetry.configured())
-	hud.set_reminders_label(PhoneReminders.on(cfg))
+	_rem_blocked_said = PhoneReminders.blocked(cfg)   # (said only when it changes in a session)
+	hud.set_reminders_label(PhoneReminders.on(cfg), _rem_blocked_said)
 	PhoneReminders.refresh(cfg)
 	if "reminders" in OS.get_cmdline_user_args():
 		print("[reminders]\n" + PhoneReminders.describe(PhoneReminders.build(cfg, int(Time.get_unix_time_from_system()))))
@@ -713,6 +714,7 @@ func _notification(what: int) -> void:
 		if Store.instance:
 			Store.instance.recheck()
 		_check_new_day()
+		_check_reminders_allowed()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
 		PhoneReminders.refresh(_load_save())
 		if Telemetry.instance:
@@ -3694,6 +3696,18 @@ func _set_reminders(on: bool) -> void:
 	if on:
 		hud.tip("Reminders on: at most one a day, in the evening.", 3.0, 0.3)
 	Sfx.play("click")
+
+
+## Back in the game (after Android's notification question, or the phone's settings): say
+## so if reminders are on but the phone blocks them, once per change.
+var _rem_blocked_said := false
+func _check_reminders_allowed() -> void:
+	var cfg := _load_save()
+	var blocked := PhoneReminders.blocked(cfg)
+	hud.set_reminders_label(PhoneReminders.on(cfg), blocked)
+	if blocked and not _rem_blocked_said and state != State.PLAYING:
+		hud.tip("Your phone is blocking Bone Chain's reminders. Allow notifications for Bone Chain in the phone's Settings.", 5.0, 0.3)
+	_rem_blocked_said = blocked
 
 
 ## Asked once, on the title after a boss win that wasn't the tutorial's (the player knows
