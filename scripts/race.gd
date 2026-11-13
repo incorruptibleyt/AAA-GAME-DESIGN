@@ -85,6 +85,18 @@ const ORDER := ["easy", "medium", "hard"]
 ## quicker). The rival also loses time to your surges, so RACER at 0.97 gives you a little
 ## better than even odds, and the climb comes from meeting more CHAMPIONs higher up.
 const MATCH := {"easy": 1.15, "medium": 0.97, "hard": 0.88}
+## Version 156 (deeper review fix 2): matching every rival to your own speed meant getting
+## better never moved you up, and players stalled at Gold. Now rivals match your speed only
+## while you learn (under LADDER_FROM trophies); from there each trophy count has its own
+## fixed race time (LADDER: [trophies, seconds for an even rival]), so a quicker player
+## climbs until the rivals are as quick as they are. LADDER_BLEND trophies ease from one to
+## the other.
+const LADDER := [[200, 130.0], [500, 105.0], [900, 85.0], [1400, 70.0], [2500, 55.0]]
+const LADDER_FROM := 200
+const LADDER_BLEND := 100
+## After this many losses in a row on the ladder, the next rival runs slower than your
+## usual time (a way back for a player who climbed past their speed).
+const COMEBACK_LOSSES := 3
 ## Races remembered for your usual time, and how many before rivals are matched to it.
 const PACE_KEEP := 5
 const PACE_MIN := 2
@@ -231,14 +243,38 @@ static func usual_pace(cfg: ConfigFile) -> float:
 	return float(p[p.size() / 2])
 
 
-## A rival's plan times x this to match your speed (0 until a few races are known), kept
-## within the tables' widest range.
+## A rival's plan times x this (0 = the tables as they are). Under LADDER_FROM trophies the
+## rival is matched to your usual speed (once a few races are known); from there its time
+## comes from the trophy ladder, blended over LADDER_BLEND trophies.
 static func match_scale(cfg: ConfigFile, skill: String) -> float:
+	var t := trophies(cfg)
 	var usual := usual_pace(cfg)
-	if usual <= 0.0:
+	var mine := 0.0
+	if usual > 0.0:
+		mine = clampf(usual * float(MATCH[skill]), table_time("hard") * 0.8, table_time("easy") * 1.35)
+	var want := mine
+	if t >= LADDER_FROM:
+		var lad := ladder_time(t) * float(MATCH[skill])
+		var k := clampf(float(t - LADDER_FROM) / float(LADDER_BLEND), 0.0, 1.0)
+		want = lerpf(mine, lad, k) if mine > 0.0 else lad
+		# A way back after a run of losses: this rival is slower than you usually are.
+		if usual > 0.0 and stat(cfg, "losses_row") >= COMEBACK_LOSSES:
+			want = maxf(want, usual * float(MATCH.easy))
+	if want <= 0.0:
 		return 0.0
-	var want := clampf(usual * float(MATCH[skill]), table_time("hard") * 0.8, table_time("easy") * 1.35)
 	return want / table_time(skill)
+
+
+## An even rival's whole race time at `t` trophies on the ladder.
+static func ladder_time(t: int) -> float:
+	if t <= int(LADDER[0][0]):
+		return float(LADDER[0][1])
+	for i in LADDER.size() - 1:
+		var a: Array = LADDER[i]
+		var b: Array = LADDER[i + 1]
+		if t <= int(b[0]):
+			return lerpf(float(a[1]), float(b[1]), float(t - int(a[0])) / float(int(b[0]) - int(a[0])))
+	return float(LADDER[-1][1])
 
 
 ## A whole race's plan time for a skill from the tables alone.
@@ -344,12 +380,8 @@ static func look_at(slot: String, key: String) -> int:
 static func pick_skill(cfg: ConfigFile, rng: RandomNumberGenerator) -> String:
 	var t := trophies(cfg)
 	var w: Array = [1.0, 0.0, 0.0]
-	if t >= 900:
-		w = [0.0, 0.35, 0.65]
-	elif t >= 500:
-		w = [0.0, 0.6, 0.4]
-	elif t >= 200:
-		w = [0.15, 0.65, 0.2]
+	if t >= LADDER_FROM:
+		w = [0.2, 0.6, 0.2]   # (the ladder makes rivals quicker as trophies rise)
 	elif t >= 60:
 		w = [0.6, 0.4, 0.0]
 	var r := rng.randf()

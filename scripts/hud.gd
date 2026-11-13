@@ -136,6 +136,7 @@ var _stick_origin := Vector2.ZERO
 
 var _cards_box: Control
 var _cards_mastery: Label   # "WIZARD MASTERY 3!" over the cards after a mid-run level-up
+var _cards_clock: Label     # in a race (version 156): the race clock, still running
 var _cards: Array[Button] = []
 var _cards_have: PanelContainer   # the row of blessings already held, over the cards
 var _cards_have_row: HFlowContainer
@@ -144,6 +145,7 @@ var _reroll_button: Button
 var _doors_box: Control
 var _door_buttons: Array[Button] = []
 var _doors_next: Label
+var _doors_clock: Label     # in a race: the race clock, as on the blessing cards
 var _doors_age := 0.0
 var _special: SpecialButton
 var _dash_button: DashButton
@@ -1314,6 +1316,11 @@ func _build_cards() -> void:
 	_cards_mastery.visible = false
 	col.add_child(_cards_mastery)
 	col.add_child(label("CHOOSE A BLESSING", 40, Color(1, 0.85, 0.55)))
+	_cards_clock = label("", 20, Color(1.0, 0.62, 0.62))
+	chunky(_cards_clock.label_settings)
+	_cards_clock.label_settings.outline_size = 5
+	_cards_clock.visible = false
+	col.add_child(_cards_clock)
 	for i in 3:
 		# A chunky card: a frame and a thick lip in the blessing's rarity colour (painted in
 		# show_cards), a band of that colour across the top, the badge on the left, the name
@@ -1436,6 +1443,11 @@ func _build_doors() -> void:
 	col.add_child(label("CHOOSE YOUR DOOR", 40, Color(1, 0.85, 0.55)))
 	_doors_next = label("", 18, Color(0.78, 0.78, 0.86))
 	col.add_child(_doors_next)
+	_doors_clock = label("", 20, Color(1.0, 0.62, 0.62))
+	chunky(_doors_clock.label_settings)
+	_doors_clock.label_settings.outline_size = 5
+	_doors_clock.visible = false
+	col.add_child(_doors_clock)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -3334,6 +3346,17 @@ func top_band() -> float:
 ## as a tag and border colour. `rerolls` is how many free rerolls are left.
 ## `mastery` is a mid-run Hero Mastery level-up line to show over the cards ("" for none;
 ## null keeps what shows, for a reroll).
+## The race clock under the blessing title ("" hides it): the race doesn't stop while you
+## read the cards, and now the cards say so.
+func set_cards_clock(text: String) -> void:
+	for l: Label in [_cards_clock, _doors_clock]:
+		if l == null:
+			continue
+		l.visible = text != ""
+		if text != "" and l.text != text:
+			l.text = text
+
+
 func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = null, taken: Dictionary = {}) -> void:
 	DamageNumber.clear_all()
 	_fill_have(taken)

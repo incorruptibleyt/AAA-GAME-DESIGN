@@ -259,7 +259,7 @@ func _build_lobby() -> void:
 	for line: String in ["Same rooms, same cards, same Race Kit. No Armory: skill wins.",
 			"Kills fill SURGE. Tap it to stun your rival, for longer at its boss.",
 			"Fall and you get back up. Keep going!",
-			"After a few races, rivals run at your speed."]:
+			"From Silver up, rivals get quicker. Get faster to climb!"]:
 		hv.add_child(Hud.label("•  " + line, 16, TEXT, HORIZONTAL_ALIGNMENT_LEFT))
 	_l_stats = Hud.label("", 16, DIM)
 	col.add_child(_l_stats)
@@ -527,7 +527,7 @@ func show_result(res: Dictionary, m: Race.Match) -> void:
 	_r_bar.frac = Race.league_progress(before)
 	_r_bar.col = Race.LEAGUES[mini(li + 1, Race.LEAGUES.size() - 1)].col
 	_r_bar.queue_redraw()
-	var lines := ["+%d coins" % int(res.coins)]
+	var lines := ["+%d coins" % int(res.coins) + ("  ·  +%d bones" % int(res.bones) if int(res.get("bones", 0)) > 0 else "")]
 	if int(res.get("streak_bonus", 0)) > 0:
 		lines.append("Win streak: +%d trophies" % int(res.streak_bonus))
 	if bool(res.drop):
@@ -1015,9 +1015,15 @@ class Bar extends Control:
 	var _quip := ""
 	var _quip_t := 0.0
 	var _quip_said := -99.0
+	var _pill_w := 84.0
+	# Version 156 (deeper review fix 3): a thinner track with bigger faces, and the gap and
+	# the rival's name together in one pill under it (they were two loose lines of text).
 	const TRACK_TOP := 54.0
 	const TRACK_BOTTOM := 300.0
 	const W := 92.0
+	const FACE := 21.0          # a racer's face on the track (was 17)
+	const PILL_TOP := TRACK_BOTTOM + 22.0
+	const PILL_H := 54.0
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1029,22 +1035,30 @@ class Bar extends Control:
 		_clock.position = Vector2(0, 0)
 		_clock.size = Vector2(W, 26)
 		add_child(_clock)
-		_gap = Hud.label("", 16, Color.WHITE)
+		_gap = Hud.label("", 18, Color.WHITE)
+		Hud.chunky(_gap.label_settings)
 		_gap.label_settings.outline_size = 5
-		_gap.position = Vector2(-10, TRACK_BOTTOM + 18)
-		_gap.size = Vector2(W + 20, 24)
+		_gap.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_gap.position = Vector2(4, PILL_TOP + 2)
+		_gap.size = Vector2(W - 8, 26)
 		add_child(_gap)
-		_name = Hud.label("", 16, RaceScreen.RIVAL, HORIZONTAL_ALIGNMENT_LEFT)
-		_name.label_settings.outline_size = 5
+		_name = Hud.label("", 16, RaceScreen.RIVAL.lightened(0.2))
+		_name.label_settings.outline_size = 4
 		_name.autowrap_mode = TextServer.AUTOWRAP_OFF
-		_name.position = Vector2(6, TRACK_BOTTOM + 40)
-		_name.size = Vector2(150, 22)
+		_name.position = Vector2(4, PILL_TOP + 27)
+		_name.size = Vector2(W - 8, 22)
 		add_child(_name)
 
 	func setup(my_hero: String, rival_hero: String, rival_name: String) -> void:
 		_me_tex = _tex(my_hero)
 		_them_tex = _tex(rival_hero)
-		_name.text = rival_name
+		_name.text = "vs " + rival_name
+		# The pill is as wide as the name needs (at least the track's width).
+		var font := Hud.UI_FONT
+		var nw := font.get_string_size(_name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x if font else 120.0
+		_pill_w = clampf(nw + 22.0, W - 8.0, 200.0)
+		_gap.size.x = _pill_w
+		_name.size.x = _pill_w
 		me = 0.0
 		them = 0.0
 		surge = 0.0
@@ -1079,7 +1093,7 @@ class Bar extends Control:
 		_quip_t = maxf(0.0, _quip_t - delta)
 		_clock.text = RaceScreen._clock(t)
 		if absf(gap) < 0.5:
-			_gap.text = "NECK & NECK"
+			_gap.text = "EVEN"
 			_gap.label_settings.font_color = Color.WHITE
 		else:
 			_gap.text = ("AHEAD %ds" if gap > 0.0 else "BEHIND %ds") % roundi(absf(gap))
@@ -1095,19 +1109,27 @@ class Bar extends Control:
 		var bg := StyleBoxFlat.new()
 		bg.bg_color = Color(0.02, 0.01, 0.05, 0.42)
 		bg.set_corner_radius_all(16)
-		draw_style_box(bg, Rect2(4, 0, W - 8.0, TRACK_BOTTOM + 70))
-		# The track: a dark groove, lit teal up to you.
+		draw_style_box(bg, Rect2(4, 0, W - 8.0, TRACK_BOTTOM + 14))
+		# The gap pill: who's ahead and by how much, and who you're racing.
+		var lead := RaceScreen.TEAL if gap >= 0.5 else (RaceScreen.RIVAL if gap <= -0.5 else Color(0.85, 0.85, 0.9))
+		var pill := StyleBoxFlat.new()
+		pill.bg_color = Color(0.03, 0.02, 0.06, 0.82)
+		pill.border_color = Color(lead, 0.9)
+		pill.set_border_width_all(3)
+		pill.set_corner_radius_all(14)
+		draw_style_box(pill, Rect2(4, PILL_TOP, _pill_w, PILL_H))
+		# The track: a slim dark groove, lit teal up to you.
 		var top := TRACK_TOP
 		var bot := TRACK_BOTTOM
-		draw_rect(Rect2(cx - 9, top - 4, 18, bot - top + 8), Hud.INK)
-		draw_rect(Rect2(cx - 6, top, 12, bot - top), Color(0.1, 0.12, 0.18, 0.9))
+		draw_rect(Rect2(cx - 6, top - 4, 12, bot - top + 8), Hud.INK)
+		draw_rect(Rect2(cx - 3, top, 6, bot - top), Color(0.1, 0.12, 0.18, 0.9))
 		var my := _y(me)
-		draw_rect(Rect2(cx - 6, my, 12, bot - my), Color(RaceScreen.TEAL, 0.75))
+		draw_rect(Rect2(cx - 3, my, 6, bot - my), Color(RaceScreen.TEAL, 0.85))
 		# A notch at the end of each room, and the boss's crown at the finish.
 		for i in range(1, Race.LEGS):
 			var y := _y(i)
-			draw_rect(Rect2(cx - 14, y - 2, 28, 4), Hud.INK)
-			draw_rect(Rect2(cx - 12, y - 1, 24, 2), Color(0.85, 0.85, 0.95, 0.8))
+			draw_rect(Rect2(cx - 10, y - 2, 20, 4), Hud.INK)
+			draw_rect(Rect2(cx - 8, y - 1, 16, 2), Color(0.85, 0.85, 0.95, 0.8))
 		var cy := top - 12.0
 		draw_circle(Vector2(cx, cy), 17.0, Hud.INK)
 		draw_circle(Vector2(cx, cy), 14.0, Color(0.32, 0.08, 0.1))
@@ -1115,10 +1137,10 @@ class Bar extends Control:
 			Vector2(cx, cy - 9), Vector2(cx + 5, cy), Vector2(cx + 10, cy - 5), Vector2(cx + 10, cy + 6)]), Hud.GOLD)
 		# The racers: the rival on the right of the track, you on the left (on top).
 		var ty := _y(them)
-		_marker(Vector2(cx + 20, ty), _them_tex, RaceScreen.RIVAL, _flash_them, stunned, down)
-		_marker(Vector2(cx - 20, my), _me_tex, RaceScreen.YOU, _flash_me, false, me_down)
+		_marker(Vector2(cx + 21, ty), _them_tex, RaceScreen.RIVAL, _flash_them, stunned, down)
+		_marker(Vector2(cx - 21, my), _me_tex, RaceScreen.YOU, _flash_me, false, me_down)
 		if _quip_t > 0.0 and _quip != "":
-			_bubble(Vector2(cx + 40, ty), _quip, minf(1.0, _quip_t * 3.0))
+			_bubble(Vector2(cx + 45, ty), _quip, minf(1.0, _quip_t * 3.0))
 		# (SURGE is its own button by the special since version 155.)
 
 	## A speech bubble pointing left at the rival's marker.
@@ -1136,7 +1158,7 @@ class Bar extends Control:
 		draw_string(font, Vector2(box.position.x + 9.0, at.y + 6.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.12, 0.06, 0.08, a))
 
 	func _marker(p: Vector2, tex: Texture2D, col: Color, flash: float, stun: bool, is_down: bool) -> void:
-		var r := 17.0 + 5.0 * flash
+		var r := FACE + 5.0 * flash
 		draw_circle(p, r + 3.0, Hud.INK)
 		draw_circle(p, r, col.lerp(Color.WHITE, flash * 0.7))
 		var ir := r - 3.0

@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13i"
+const BUILD := "2026-11-13j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -4666,6 +4666,13 @@ func _race_tick(dt: float) -> void:
 	b.stunned = r.stun > 0.0
 	b.down = r.down > 0.0
 	b.me_down = hero != null and hero.down_left > 0.0
+	# Version 156 (deeper review fix 3): the cards say the clock is running.
+	if _race_live and state == State.UPGRADE:
+		var g := _race.gap()
+		var who := "" if absf(g) < 1.0 else ("  ·  %s %ds" % ["AHEAD" if g > 0.0 else "BEHIND", roundi(absf(g))])
+		hud.set_cards_clock("RACE CLOCK RUNNING  %s%s" % [RaceScreen._clock(_race.t), who])
+	else:
+		hud.set_cards_clock("")
 	_race_lead_check()
 
 
@@ -4845,15 +4852,22 @@ func _race_end(won: bool, left := false) -> void:
 	m.won = won
 	_race_live = false
 	hud.race_surge.visible = false
+	hud.set_cards_clock("")
 	if is_instance_valid(_race_ghost):
 		_race_ghost.leave()
 	_race_ghost = null
+	# Version 156: a race win pays the Bone Road like a boss win (rooms already pay theirs).
+	if won:
+		_add_bones(BoneRoad.BOSS_BONES)
+	var bones := _road_shown
+	_road_shown = 0
 	_save_coins()
 	var cfg := _load_save()
 	# This race's pace (projected to the line when the rival got there first) sets how quick
 	# the next rivals are. A race left from the pause menu says nothing about it.
 	var pace := 0.0 if left else (m.t if won else Race.pace_of(m.t, m.me()))
 	var res := Race.record(cfg, won, pace)
+	res.bones = bones
 	coins += int(res.coins)
 	cfg.set_value("stats", "coins", coins)
 	write_save(cfg)
