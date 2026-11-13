@@ -90,6 +90,9 @@ func _brain() -> void:
 ## Phase 2: vanish, come back, and fire twin fans from both hands at once.
 func _blink_volley() -> void:
 	await _teleport()
+	if not _alive():
+		return
+	await _volley_glow()
 	var rounds := 2 if _gentle() else 3
 	for r in rounds:
 		var hero := Game.hero
@@ -156,7 +159,24 @@ func _teleport() -> void:
 	await _wait(0.5)
 
 
+## Version 149 (difficulty review, fix 6): the fans used to leave the moment the move began,
+## the one big attack in the game with no warning. Now the Lich's hands glow first, with the
+## same warning sound as the Bone Spitter.
+const VOLLEY_WARN := 0.35
+
+
+func _volley_glow() -> void:
+	visual.attack(true)
+	Fx.magic(center() + Vector3.UP * 0.3, Color(0.75, 0.5, 1.0), 28)
+	Fx.shockwave(global_position, Color(0.75, 0.5, 1.0), 2.4)
+	Sfx.play("warn", 0.4)
+	await _wait(VOLLEY_WARN)
+
+
 func _volleys() -> void:
+	await _volley_glow()
+	if not _alive():
+		return
 	var rounds := 4 if _enraged else 3
 	for r in rounds:
 		var hero := Game.hero

@@ -99,13 +99,19 @@ func _bone_ring() -> void:
 ## Phase 2: three charges back to back, each aimed again, the last one ending in a ring.
 ## In the tutorial (version 121) it is two slower charges and no ring, so a new player
 ## sees the idea without being overwhelmed.
+## Version 149 (difficulty review, fix 5): every King fight shows this move since version
+## 147, and the King lands the most final blows. A longer breath between charges (0.35 s,
+## was 0.15) means the dash (1.1 s to recharge) is always back for the next one, and each
+## charge in the Rush hits for 20 (a single charge still hits for 24).
+const RUSH_REST := 0.35
+const RUSH_HIT := 20.0
 func _royal_rush() -> void:
 	Sfx.play("roar", 0.7)
 	var tutorial: bool = Game.first_run and Game.floor_num == 1
 	for i in (2 if tutorial else 3):
 		if not _alive():
 			return
-		await _charge(0.8 if tutorial else 0.55, 0.45 if tutorial else 0.15)
+		await _charge(0.8 if tutorial else 0.55, 0.45 if tutorial else RUSH_REST, RUSH_HIT)
 	if _alive() and not tutorial:
 		await _bone_ring_once()
 
@@ -120,7 +126,7 @@ func _bone_ring_once() -> void:
 	await _wait(0.6)
 
 
-func _charge(wind_time := -1.0, rest := 0.7) -> void:
+func _charge(wind_time := -1.0, rest := 0.7, hit := 24.0) -> void:
 	var hero := Game.hero
 	if hero == null:
 		return
@@ -137,7 +143,7 @@ func _charge(wind_time := -1.0, rest := 0.7) -> void:
 		await get_tree().process_frame
 		t += get_process_delta_time()
 	visual.attack()
-	contact_damage = 24.0   # was 28: on floor 5 one rush took 45% of a Mage's health
+	contact_damage = hit   # 24 (was 28): on floor 5 one rush took 45% of a Mage's health
 	t = 0.0
 	while t < 0.6:
 		if not _alive():

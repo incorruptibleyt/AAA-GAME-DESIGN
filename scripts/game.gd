@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13b"
+const BUILD := "2026-11-13c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -665,6 +665,8 @@ func _process(delta: float) -> void:
 		if _hit_stop_left <= 0.0:
 			Engine.time_scale = 0.12 if _lesson_left > 0.0 else 1.0
 	_update_dash_lesson(delta / maxf(Engine.time_scale, 0.01))
+	if _nudge_left > 0.0:
+		_nudge_left = 0.0 if hero == null or hero.is_dashing() else _nudge_left - delta
 	_update_glow(delta / maxf(Engine.time_scale, 0.01))
 	_update_camera(delta / maxf(Engine.time_scale, 0.01))
 	_update_exit_arrow()
@@ -867,10 +869,20 @@ func damage_scale() -> float:
 
 ## Version 147 (hard review of v143, item 2): a new tester fell in the tutorial's first room
 ## in 49 s. The tutorial's first room now hits at half strength (the rest of the tutorial
-## floor 0.75, as before), and floor 1 of a player's next 3 runs hits 15% softer while they
-## learn the dash. Not in the Daily Crypt or the event, so those stay the same for everyone.
-const NEWCOMER_RUNS := 4   # the tutorial plus 3 more
+## floor 0.75, as before).
+## Version 149 (difficulty review, fix 1): the help after the tutorial lasts until a player
+## has beaten floor 1 twice (the tutorial counts), not just their first runs: 23 of 30 deaths
+## of players with a small Armory were on floor 1, some long after their 4th run. Two floor-1
+## falls in a row make floor 1 softer still, with more hearts, until it's beaten.
+## Never in the Daily Crypt or the event, so those stay the same for everyone.
+const NEWCOMER_CLEARS := 2   # floor-1 wins before the help ends
+const NEWCOMER_MULT := 0.85
+const STRUGGLE_FALLS := 2    # floor-1 falls in a row before the extra help
+const STRUGGLE_MULT := 0.75
+const STRUGGLE_HEARTS := 1.5
+const ASSIST := "assist"
 var _newcomer := false
+var _struggling := false
 
 
 func newcomer_mult() -> float:
@@ -878,12 +890,44 @@ func newcomer_mult() -> float:
 		return 1.0
 	if first_run:
 		return 0.5 if _room_index == 0 else 0.75
-	return 0.85 if _newcomer and not daily and event == "" else 1.0
+	if daily or event != "":
+		return 1.0
+	return STRUGGLE_MULT if _struggling else (NEWCOMER_MULT if _newcomer else 1.0)
 
 
-## True for a player's first NEWCOMER_RUNS runs (the run starting now counted).
+## Hearts drop this much more often while the extra floor-1 help is on.
+func assist_hearts() -> float:
+	return STRUGGLE_HEARTS if _struggling and floor_num == 1 and not first_run and not daily and event == "" else 1.0
+
+
+## Floor-1 wins so far. Saves from before version 149 didn't count them: a player whose
+## best boss is floor 2 or deeper has plainly beaten floor 1 enough, and one whose best is
+## floor 1 has won there as often as they've won at all.
+func f1_clears(cfg: ConfigFile) -> int:
+	if cfg.has_section_key(ASSIST, "f1_clears"):
+		return int(cfg.get_value(ASSIST, "f1_clears"))
+	var best := _best_boss(cfg)
+	if best >= 2:
+		return NEWCOMER_CLEARS
+	return mini(int(cfg.get_value("stats", "wins", 0)), NEWCOMER_CLEARS) if best == 1 else 0
+
+
+## Is the run starting now one that gets the floor-1 help?
 func _check_newcomer() -> void:
-	_newcomer = record(_load_save(), "runs") <= NEWCOMER_RUNS
+	var cfg := _load_save()
+	_newcomer = f1_clears(cfg) < NEWCOMER_CLEARS
+	_struggling = int(cfg.get_value(ASSIST, "f1_falls", 0)) >= STRUGGLE_FALLS
+
+
+## Counts a floor-1 win or fall (not the Daily Crypt or the event). `cfg` is written by the caller.
+func _note_floor_one(cfg: ConfigFile, won: bool) -> void:
+	if floor_num != 1 or daily or event != "":
+		return
+	if won:
+		cfg.set_value(ASSIST, "f1_clears", mini(f1_clears(cfg) + 1, 99))
+		cfg.set_value(ASSIST, "f1_falls", 0)
+	elif not first_run:
+		cfg.set_value(ASSIST, "f1_falls", int(cfg.get_value(ASSIST, "f1_falls", 0)) + 1)
 
 
 func speed_scale() -> float:
@@ -1164,6 +1208,37 @@ func _update_dash_lesson(real_delta: float) -> void:
 			hud.tip("", 0.0)
 			hud.show_hint("Flick your thumb\nor tap DASH!")
 			return
+
+
+## Version 149 (difficulty review, fix 2): 9 of 23 floor-1 deaths dashed once or never.
+## Four hits in one room without a single dash makes the DASH button pulse with a short
+## reminder. Once a run at most, and never again after DASH_NUDGES runs that showed it.
+const DASH_NUDGE_HITS := 4
+const DASH_NUDGES := 3
+const DASH_NUDGE_TIME := 4.0
+var _room_dashes := 0
+var _nudged_run := false
+var _nudge_left := 0.0
+
+
+func dash_nudge_active() -> bool:
+	return _nudge_left > 0.0
+
+
+func _dash_nudge_check() -> void:
+	if _nudged_run or first_run or hero == null or hero.dead or not dash_unlocked() or state != State.PLAYING:
+		return
+	if int(_rep.hits) - _room_hits < DASH_NUDGE_HITS or int(_rep.dash) > _room_dashes:
+		return
+	_nudged_run = true
+	var cfg := _load_save()
+	var shown := int(cfg.get_value("tips", "dash_nudges", 0))
+	if shown >= DASH_NUDGES:
+		return
+	cfg.set_value("tips", "dash_nudges", shown + 1)
+	write_save(cfg)
+	_nudge_left = DASH_NUDGE_TIME
+	hud.tip("Tap DASH to dodge!\nYou can't be hit mid-dash.", DASH_NUDGE_TIME)
 
 
 func _end_dash_lesson() -> void:
@@ -1501,6 +1576,7 @@ func report_damage(amount: float) -> void:
 	_rep.damage[src] = _rep.damage.get(src, 0.0) + amount
 	_rep.hits += 1
 	_rep.killed_by = src
+	_dash_nudge_check()
 
 
 func report_event(what: String, amount := 1.0) -> void:
@@ -1525,7 +1601,8 @@ func run_report(result: String, was_first := false) -> String:
 	var lines := []
 	lines.append("Bone Chain run report (build %s, install %s)" % [BUILD, Telemetry.install_id(cfg)])
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
-	lines.append("Score %d | First run %s" % [score, "yes" if first_run or was_first else "no"])
+	lines.append("Score %d | First run %s | Floor-1 help %s" % [score, "yes" if first_run or was_first else "no",
+		"extra" if _struggling else ("yes" if _newcomer else "no")])
 	lines.append("Bone Road %d bones (%d to claim) | Bone Drops waiting %d, opened %d, this run %d | Lucky Starts %d" % [BoneRoad.bones(cfg),
 		BoneRoad.ready_count(cfg), Drops.waiting(cfg), int(cfg.get_value(Drops.SECTION, "opened", 0)), _drops_run, Drops.lucky(cfg)])
 	var masteries := []
@@ -1602,6 +1679,8 @@ func _reset_run_stats() -> void:
 	_best_chain_hold = 0.0
 	_best_chain4 = 1.0
 	_room_hits = 0
+	_room_dashes = 0
+	_nudged_run = false
 	_swipe_tips = 0
 	_run_time = 0.0
 	_kills = 0
@@ -2037,6 +2116,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_rep.room_start = _run_time
 		_rep.room_chain = chain
 		_room_hits = int(_rep.hits)
+		_room_dashes = int(_rep.dash)
 		_room_special = int(_rep.special)
 		if index == 0:
 			_floor_hits = int(_rep.hits)
@@ -2081,6 +2161,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		if first_run and (kind == "s" or kind == "x"):
 			if plain >= 2:
 				continue
+			kind = "m"
+		# Version 149 (difficulty review, fix 3): nothing shoots in the tutorial's first room.
+		# Arrows and shards arrive in room 2, with the dash lesson.
+		if ftue_room() == 1 and (kind == "a" or kind == "t"):
 			kind = "m"
 		# Each themed floor swaps one minion in every room for each of its own skeletons
 		# (the Glowcap Grotto has two kinds, so two minions change if the room has them).
@@ -2802,6 +2886,7 @@ func _win() -> void:
 	# unless it's the tutorial.
 	var prev_boss := _best_boss(cfg)
 	_share_reason = "boss" if not daily and event == "" and not first_run and floor_num > prev_boss else ""
+	_note_floor_one(cfg, true)
 	if not daily and event == "" and floor_num > prev_boss:
 		cfg.set_value("stats", "best_boss", floor_num)
 	# The event: shards for the boss, the Queen's fall counted, a hunt's win saved (the day's
@@ -2936,6 +3021,7 @@ func on_hero_died() -> void:
 	var shards := _bank_shards(cfg)
 	var mastery := _bank_mastery(cfg)
 	var best := _save_score(cfg)
+	_note_floor_one(cfg, false)
 	_save_best(cfg, _room_index + 1)
 	write_save(cfg)
 	var was_first := first_run

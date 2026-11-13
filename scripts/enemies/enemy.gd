@@ -510,7 +510,7 @@ func _on_death() -> void:
 		_death_burst(Game.hero)
 		if Game.hero.perks.has("splinters"):
 			_splinters(Game.hero)
-	var hearts := FIRST_RUN_HEARTS if Game.first_run else 1.0
+	var hearts := (FIRST_RUN_HEARTS if Game.first_run else 1.0) * Game.assist_hearts()
 	if randf() < drop_chance * hearts + (Game.heart_bonus if drop_chance > 0.0 else 0.0) and not Game.curses.has("famine"):
 		Pickup.drop(global_position)
 	var coins := coin_value()

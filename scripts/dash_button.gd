@@ -25,7 +25,7 @@ func _process(_delta: float) -> void:
 	visible = Game.hero != null and Game.state in [Game.State.PLAYING, Game.State.PAUSED, Game.State.UPGRADE] and Game.dash_unlocked()
 	if visible:
 		var h := Game.hero
-		var lesson := Game.dash_lesson_active()
+		var lesson := Game.dash_lesson_active() or Game.dash_nudge_active()
 		var now := [h.get_instance_id(), lesson, h.dash_ready(), snappedf(clampf(h._dash_cooldown / h.dash_cooldown_time, 0.0, 1.0), 0.005), size]
 		if lesson or now != _drawn:   # the lesson pulse animates; otherwise redraw on change
 			_drawn = now
@@ -39,7 +39,7 @@ func _draw() -> void:
 	var c := size / 2.0
 	var r := size.x / 2.0 - 3.0
 	var can_dash := h.dash_ready()
-	var lesson := Game.dash_lesson_active()
+	var lesson := Game.dash_lesson_active() or Game.dash_nudge_active()
 	var pulse := 1.0 + (0.12 * sin(Time.get_ticks_msec() * 0.02) if lesson else 0.0)
 	var col := Color(0.25, 0.62, 1.0)
 	Hud.draw_round_button(self, c, r * pulse, col, can_dash or lesson)

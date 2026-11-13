@@ -841,9 +841,10 @@ func _read_layout(layout: Array) -> void:
 						var b := U.box(self, Vector3.ONE * 0.55, wood, p + Vector3(0.1, 1.175, 0.05))
 						b.rotation.y = randf_range(0.3, 0.9)
 				"^":
-					var trap := SpikeTrap.new()
-					add_child(trap)
-					trap.position = p
+					if Game.ftue_room() != 1:   # no spikes in the tutorial's first room (version 149)
+						var trap := SpikeTrap.new()
+						add_child(trap)
+						trap.position = p
 				"m", "w", "a", "g", "K", "L", "x", "t", "s":
 					spawns.append({"kind": ch, "pos": p})
 
