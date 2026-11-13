@@ -780,6 +780,8 @@ func _force_skill() -> void:
 		return
 	var r: Race.Rival = Game._race.rival
 	r.skill = _race_skill
+	var k := Race.match_scale(Game._load_save(), r.skill)
+	r.scale = k if k > 0.0 else 1.0
 	r.ends.clear()
 	r.downs.clear()
 	var rng := RandomNumberGenerator.new()

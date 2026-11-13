@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13g"
+const BUILD := "2026-11-13h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -267,6 +267,8 @@ var _race_kills_room := 0
 var _race_goal := 1
 var _race_room_t := 0.0
 var _race_note := ""
+var _race_lead := 0        # who leads on the track: 1 you, -1 the rival, 0 not yet said
+var _race_lead_t := 0.0    # race time of the last lead callout
 
 
 ## How many times Omen `id` has been taken this run.
@@ -3046,6 +3048,11 @@ func _win() -> void:
 	var best := _save_score(cfg)
 	_save_best(cfg, _run.size())
 	var heroic_new := prev_boss < Curses.unlock_boss("heroic") and Curses.unlocked("heroic", cfg)
+	# The floor-1 win that opens the Crypt Race says so, once.
+	var race_new := floor_num == 1 and not race and not daily and event == "" and Race.unlocked(cfg) \
+		and Race.stat(cfg, "races") == 0 and not bool(cfg.get_value(Race.SECTION, "told", false))
+	if race_new:
+		cfg.set_value(Race.SECTION, "told", true)
 	# Curse mastery: beating the floor 5 boss (or a deeper one) at a Curse Level.
 	var rewards := []
 	if not daily and event == "" and floor_num >= Store.FREE_FLOORS and Curses.level_of(curses) > 0 and hero:
@@ -3084,6 +3091,8 @@ func _win() -> void:
 		extra += "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
+	if race_new:
+		extra += "\n\nCRYPT RACE unlocked! Race a rival through the same crypt.\nFind it in MODES."
 	if heroic_new:
 		extra += "\n\nHEROIC unlocked! Harder runs, +50% coins.\nTurn it on in MODES, then CURSES."
 	_celebrating = false
@@ -4555,7 +4564,9 @@ func _open_race() -> void:
 func _race_find() -> void:
 	if state != State.TITLE:
 		return
-	_race = Race.new_match(_load_save())
+	var cfg := _load_save()
+	_race = Race.new_match(cfg)
+	write_save(cfg)   # (the rival's name, so the next one is someone else)
 	print("[race] vs %s (%s, %s) kit %s, rival legs %s, falls at %s" % [_race.rival.name, _race.rival.skill, _race.rival.hero_id,
 		Race.kit_text(_race.kit), _race.rival.ends.map(func(x: float) -> String: return "%.1f" % x), _race.rival.downs])
 	hud.race_screen.start_search(_race)
@@ -4581,15 +4592,21 @@ func _race_go() -> void:
 	_race_tick(0.0)
 	await _fade(1.0, 0.0, 0.4)
 	var m := _race
+	_race_lead = 0
+	_race_lead_t = 0.0
+	Sfx.play("vo_prepare", 0.8)
 	for n: String in ["3", "2", "1"]:
 		if _race != m:
 			return
 		hud.callout(n, Color.WHITE)
-		Sfx.play("click", 1.0, 0.8)
+		Sfx.play("tick", 1.0, 0.9)
+		if vibration:
+			Input.vibrate_handheld(30)
 		await get_tree().create_timer(0.7).timeout
 	if _race != m or state != State.TRANSITION:
 		return
 	hud.callout("GO!", RaceScreen.TEAL.lightened(0.3))
+	Sfx.play("tick", 1.0, 1.6)
 	Sfx.play("door", 1.0)
 	Sfx.play("vo_combo", 0.6)
 	_race_live = true
@@ -4608,11 +4625,13 @@ func _race_tick(dt: float) -> void:
 			"down":
 				if state == State.PLAYING:
 					hud.banner("%s FELL!" % r.name.to_upper(), RaceScreen.TEAL)
+				_race_quip(["Ouch!", "Oof!", "My bones!"], true)
 			"surge":
 				_race_incoming()
 			"boss":
 				if state == State.PLAYING and _race.legs < Race.LEGS - 1:
 					hud.banner("%s REACHED THE BOSS!" % r.name.to_upper(), RaceScreen.RIVAL)
+					_race_quip(["Boss time!", "Nearly there!"], true)
 			"finish":
 				_race_end(false)
 				return
@@ -4636,6 +4655,37 @@ func _race_tick(dt: float) -> void:
 	b.stunned = r.stun > 0.0
 	b.down = r.down > 0.0
 	b.me_down = hero != null and hero.down_left > 0.0
+	_race_lead_check()
+
+
+## A lead change on the track gets called out: "YOU TOOK THE LEAD!" / "RORY TOOK THE LEAD!".
+## Two seconds either way before it counts, and at most one call every eight seconds.
+func _race_lead_check() -> void:
+	if not _race_live or state != State.PLAYING or _race.t < 6.0 or _race.t - _race_lead_t < 8.0:
+		return
+	var g := _race.gap()
+	var now := 1 if g > 2.0 else (-1 if g < -2.0 else 0)
+	if now == 0 or now == _race_lead or hud._banner_time > 0.4:
+		return
+	var first := _race_lead == 0
+	_race_lead = now
+	_race_lead_t = _race.t
+	if first and now == 1:
+		return   # ahead from the start: nothing has changed yet
+	if now == 1:
+		hud.banner("YOU TOOK THE LEAD!", RaceScreen.TEAL.lightened(0.3))
+		Sfx.play("upgrade", 0.5, 1.4)
+		_race_quip(["Hey!", "Not for long!", "Lucky..."], true)
+	else:
+		hud.banner("%s TOOK THE LEAD!" % _race.rival.name.to_upper(), RaceScreen.RIVAL)
+		Sfx.play("warn", 0.6)
+		_race_quip(["Catch me!", "See ya!", "Too slow!"], true)
+
+
+## The rival's chatter by its marker on the track (a bot, so a few short canned lines).
+func _race_quip(lines: Array, force := false) -> void:
+	if race and _race and not _race.over:
+		hud.race_bar.quip(str(lines.pick_random()), force)
 
 
 ## A skeleton killed in a race fills the SURGE meter (an elite 3, double at Chain x2 or more);
@@ -4653,6 +4703,7 @@ func _race_kill(e: Enemy) -> void:
 		_race.sent += 1
 		_race.rival.stun += Race.SURGE_STUN
 		hud.race_bar.sent()
+		_race_quip(["Argh!", "Zapped!", "No fair!"])
 		hud.callout_at_hero("SURGE!", RaceScreen.TEAL.lightened(0.3))
 		Sfx.play("upgrade", 0.55, 1.3)
 		if hero:
@@ -4663,6 +4714,7 @@ func _race_kill(e: Enemy) -> void:
 func _race_incoming() -> void:
 	_race.got += 1
 	hud.race_bar.got()
+	_race_quip(["Incoming!", "Surprise!", "Have some!"])
 	if _race_can_spawn():
 		_race_spawn()
 	else:
@@ -4679,6 +4731,8 @@ func _race_spawn() -> void:
 	var spots := _wave_spots(n)
 	hud.banner("%s SENT A SURGE!" % _race.rival.name.to_upper(), RaceScreen.RIVAL)
 	Sfx.play("warn")
+	if vibration:
+		Input.vibrate_handheld(50)
 	for p: Vector3 in spots:
 		Fx.dust(p, 14)
 		Fx.magic(p + Vector3.UP * 0.5, RaceScreen.RIVAL, 16)
@@ -4699,7 +4753,9 @@ func race_knocked_down() -> void:
 	_race.falls += 1
 	report_event("knocked_down")
 	hud.callout("KNOCKED DOWN!", RaceScreen.RIVAL)
-	hud.banner("Up in %d seconds..." % int(Race.DOWN_TIME), Color(1, 0.8, 0.75))
+	hud.banner("Up in %d..." % int(Race.DOWN_TIME), Color(1, 0.8, 0.75))
+	if vibration:
+		Input.vibrate_handheld(80)
 
 
 func race_down_tick(left: int) -> void:
@@ -4745,7 +4801,10 @@ func _race_end(won: bool, left := false) -> void:
 	_race_live = false
 	_save_coins()
 	var cfg := _load_save()
-	var res := Race.record(cfg, won)
+	# This race's pace (projected to the line when the rival got there first) sets how quick
+	# the next rivals are. A race left from the pause menu says nothing about it.
+	var pace := 0.0 if left else (m.t if won else Race.pace_of(m.t, m.me()))
+	var res := Race.record(cfg, won, pace)
 	coins += int(res.coins)
 	cfg.set_value("stats", "coins", coins)
 	write_save(cfg)

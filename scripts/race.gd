@@ -78,6 +78,14 @@ const SKILLS := {
 	"hard": {"name": "CHAMPION", "room": 17.5, "boss": 21.0, "falls": [0.1, 0.0], "surge": 16.0},
 }
 const ORDER := ["easy", "medium", "hard"]
+## Rivals are matched to your own speed once you have raced a few times (version 154): a
+## rival's whole race takes your usual race time times this (Rookie slower, Champion
+## quicker). The rival also loses time to your surges, so RACER at 0.97 gives you a little
+## better than even odds, and the climb comes from meeting more CHAMPIONs higher up.
+const MATCH := {"easy": 1.15, "medium": 0.97, "hard": 0.88}
+## Races remembered for your usual time, and how many before rivals are matched to it.
+const PACE_KEEP := 5
+const PACE_MIN := 2
 ## How long each leg takes against a medium room: easy room, medium, medium, hard (the boss
 ## has its own time).
 const LEG_MULT := [0.8, 1.0, 1.0, 1.2]
@@ -160,8 +168,14 @@ static func settle_left(cfg: ConfigFile) -> Dictionary:
 
 ## Writes a race's result into the save: trophies, streaks, coins, the day's first-win drop.
 ## The caller adds `coins` to the coins it holds. Returns what changed, for the results screen.
-static func record(cfg: ConfigFile, won: bool) -> Dictionary:
+static func record(cfg: ConfigFile, won: bool, pace := 0.0) -> Dictionary:
 	mark_running(cfg, false)
+	if pace > 0.0:
+		var paces: Array = cfg.get_value(SECTION, "paces", [])
+		paces.append(snappedf(pace, 0.1))
+		while paces.size() > PACE_KEEP:
+			paces.pop_front()
+		cfg.set_value(SECTION, "paces", paces)
 	var before := trophies(cfg)
 	var t := before
 	var out := {"won": won, "before": before, "drop": false, "league_up": false, "league_down": false}
@@ -175,6 +189,13 @@ static func record(cfg: ConfigFile, won: bool) -> Dictionary:
 		cfg.set_value(SECTION, "streak", stat(cfg, "streak") + 1)
 		cfg.set_value(SECTION, "losses_row", 0)
 		out.coins = WIN_COINS
+		# Your best winning time, for the results and the lobby.
+		var bt := float(cfg.get_value(SECTION, "best_t", 0.0))
+		out.best_t = bt
+		if pace > 0.0 and (bt <= 0.0 or pace < bt):
+			cfg.set_value(SECTION, "best_t", snappedf(pace, 0.1))
+			out.best_t = pace
+			out.time_best = bt > 0.0   # a new best (the first win is just a time)
 		if first_win_ready(cfg):
 			cfg.set_value(SECTION, "won_day", Curses.today())
 			Drops.add(cfg, 1)
@@ -196,6 +217,50 @@ static func record(cfg: ConfigFile, won: bool) -> Dictionary:
 	out.new_best = t > old_best
 	out.road_new = road_ready(cfg) > 0 and _road_reached(old_best) < _road_reached(maxi(t, old_best))
 	return out
+
+
+## Your usual race time: the middle of your last few (0 until PACE_MIN races are known).
+static func usual_pace(cfg: ConfigFile) -> float:
+	var paces: Array = cfg.get_value(SECTION, "paces", [])
+	if paces.size() < PACE_MIN:
+		return 0.0
+	var p := paces.duplicate()
+	p.sort()
+	return float(p[p.size() / 2])
+
+
+## A rival's plan times x this to match your speed (0 until a few races are known), kept
+## within the tables' widest range.
+static func match_scale(cfg: ConfigFile, skill: String) -> float:
+	var usual := usual_pace(cfg)
+	if usual <= 0.0:
+		return 0.0
+	var want := clampf(usual * float(MATCH[skill]), table_time("hard") * 0.8, table_time("easy") * 1.35)
+	return want / table_time(skill)
+
+
+## A whole race's plan time for a skill from the tables alone.
+static func table_time(skill: String) -> float:
+	var s: Dictionary = SKILLS[skill]
+	var t := float(s.boss)
+	for i in LEGS - 1:
+		t += float(s.room) * float(LEG_MULT[i])
+	return t
+
+
+## How long a full race would take at this pace: `t` seconds to reach place `p` on the track,
+## scaled by how much of a medium race that part is. 0 when too little of the race was run.
+static func pace_of(t: float, p: float) -> float:
+	if p < 1.5 or t <= 0.0:
+		return 0.0
+	var ref := Rival.new()
+	ref.skill = "medium"
+	var s: Dictionary = SKILLS.medium
+	var acc := 0.0
+	for i in LEGS:
+		acc += float(s.boss) if i == LEGS - 1 else float(s.room) * float(LEG_MULT[i])
+		ref.ends.append(acc)
+	return t * acc / maxf(ref.time_at(p), 1.0)
 
 
 # ---------------------------------------------------------------- the Race Road
@@ -278,9 +343,9 @@ static func pick_skill(cfg: ConfigFile, rng: RandomNumberGenerator) -> String:
 	var t := trophies(cfg)
 	var w: Array = [1.0, 0.0, 0.0]
 	if t >= 900:
-		w = [0.0, 0.25, 0.75]
+		w = [0.0, 0.35, 0.65]
 	elif t >= 500:
-		w = [0.0, 0.5, 0.5]
+		w = [0.0, 0.6, 0.4]
 	elif t >= 200:
 		w = [0.15, 0.65, 0.2]
 	elif t >= 60:
@@ -308,7 +373,11 @@ static func new_match(cfg: ConfigFile) -> Match:
 	var r := Rival.new()
 	r.skill = pick_skill(cfg, rng)
 	var mine := Heroes.selected(cfg)
-	r.name = NAMES[rng.randi() % NAMES.size()]
+	# Not the rival you just raced (RACE AGAIN brings someone new).
+	var last := str(cfg.get_value(SECTION, "last_rival", ""))
+	var names := NAMES.filter(func(n: String) -> bool: return n != last)
+	r.name = str(names[rng.randi() % names.size()])
+	cfg.set_value(SECTION, "last_rival", r.name)
 	# A different hero from yours, so the two racers are easy to tell apart.
 	var others: Array = []
 	for h in Heroes.LIST:
@@ -318,6 +387,10 @@ static func new_match(cfg: ConfigFile) -> Match:
 		others.append(mine)
 	r.hero_id = str(others[rng.randi() % others.size()])
 	r.trophies = maxi(0, trophies(cfg) + rng.randi_range(-30, 30))
+	r.scale = match_scale(cfg, r.skill)
+	r.matched = r.scale > 0.0
+	if not r.matched:
+		r.scale = 1.0
 	r.plan(rng)
 	m.rival = r
 	m.kit = kit(m.date)
@@ -392,13 +465,15 @@ class Rival extends RefCounted:
 	var down := 0.0
 	var surge_in := 0.0           # seconds to its next surge
 	var falls := 0
+	var scale := 1.0              # the plan's times x this (matched to the player's speed)
+	var matched := false
 	var _at_boss := false
 	var _rng := RandomNumberGenerator.new()
 
 	func plan(rng: RandomNumberGenerator) -> void:
 		_rng.seed = rng.randi()
 		var s: Dictionary = SKILLS[skill]
-		var pace := _rng.randf_range(0.93, 1.07)
+		var pace := _rng.randf_range(0.95, 1.05) * scale
 		var t := 0.0
 		for i in LEGS:
 			var base: float = s.boss if i == LEGS - 1 else float(s.room) * float(LEG_MULT[i])
@@ -409,7 +484,7 @@ class Rival extends RefCounted:
 			if _rng.randf() < c:
 				downs.append(_rng.randf_range(t * 0.15, t * 0.95))
 		downs.sort()
-		surge_in = float(s.surge) * _rng.randf_range(0.8, 1.2)
+		surge_in = float(s.surge) * scale * _rng.randf_range(0.8, 1.2)
 
 	## Advances the rival `dt` seconds. Returns what happened: "down", "up", "surge", "boss" (into
 	## the boss room), "finish" or "".
@@ -435,7 +510,7 @@ class Rival extends RefCounted:
 			return "boss"
 		surge_in -= dt
 		if surge_in <= 0.0:
-			surge_in = float(SKILLS[skill].surge) * _rng.randf_range(0.75, 1.25)
+			surge_in = float(SKILLS[skill].surge) * scale * _rng.randf_range(0.75, 1.25)
 			return "surge"
 		return ""
 

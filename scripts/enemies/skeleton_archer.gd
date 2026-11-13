@@ -5,6 +5,9 @@ extends Enemy
 var _shot_timer := 1.5
 var _aiming := false
 var _strafe := 1.0
+## At most this many archers aim at once (difficulty review fix 7): a third waits its turn, so
+## three or four archers never fire one wall of arrows with no gap to dash through.
+const MAX_AIMING := 2
 
 
 func _setup() -> void:
@@ -42,6 +45,9 @@ func _think(hero: Hero, delta: float) -> void:
 		walk(to.normalized().cross(Vector3.UP) * _strafe, delta, 0.6)
 
 	if _shot_timer <= 0.0 and dist < 12.0:
+		if _others_aiming() >= MAX_AIMING:
+			_shot_timer = randf_range(0.3, 0.7)   # wait a moment: too many arrows on the way already
+			return
 		_aiming = true
 		var d := to.normalized()
 		track(Telegraph.line(global_position, d, minf(dist + 2.0, 12.0), 0.35, 0.55, func(): _release(d)))
@@ -55,3 +61,11 @@ func _release(d: Vector3) -> void:
 	visual.attack()
 	var p := Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + d * 0.5, d, 12.0, 10.0, Color(1, 0.8, 0.3), 0.2, "Archer")
 	p.push = 5.0
+
+
+func _others_aiming() -> int:
+	var n := 0
+	for a: Actor in Actor.all:
+		if a != self and a is SkeletonArcher and not a.dead and (a as SkeletonArcher)._aiming:
+			n += 1
+	return n

@@ -258,7 +258,8 @@ func _build_lobby() -> void:
 	how.add_child(hv)
 	for line: String in ["Same rooms, same cards, same Race Kit. No Armory: skill wins.",
 			"Kills fill your SURGE. A full one stuns your rival.",
-			"Fall and you get back up. Keep going!"]:
+			"Fall and you get back up. Keep going!",
+			"After a few races, rivals run at your speed."]:
 		hv.add_child(Hud.label("•  " + line, 16, TEXT, HORIZONTAL_ALIGNMENT_LEFT))
 	_l_stats = Hud.label("", 16, DIM)
 	col.add_child(_l_stats)
@@ -297,6 +298,9 @@ func open_lobby(cfg: ConfigFile, note := "") -> void:
 		_l_road_line.text = "Every step claimed. Champion!"
 	var races := Race.stat(cfg, "races")
 	_l_stats.text = "Races %d  ·  Wins %d  ·  Best %d trophies" % [races, Race.stat(cfg, "wins"), Race.best(cfg)] if races > 0 else "Your first race is waiting!"
+	var bt := float(cfg.get_value(Race.SECTION, "best_t", 0.0))
+	if bt > 0.0:
+		_l_stats.text += "  ·  Best time %s" % _clock(bt)
 
 
 # ---------------------------------------------------------------- search and VS
@@ -533,7 +537,12 @@ func show_result(res: Dictionary, m: Race.Match) -> void:
 	if not won and d == 0 and before < Race.SAFE_UNDER:
 		lines.append("No trophies lost while you learn (under %d)" % Race.SAFE_UNDER)
 	_r_rewards.text = "\n".join(lines)
-	_r_stats.text = "Time %s  ·  Surges sent %d, got %d  ·  Falls %d" % [_clock(m.t), m.sent, m.got, m.falls]
+	var tline := "Time %s" % _clock(m.t)
+	if bool(res.get("time_best", false)):
+		tline += " (NEW BEST!)"
+	elif won and float(res.get("best_t", 0.0)) > 0.0 and float(res.best_t) < m.t - 0.05:
+		tline += "  ·  Best %s" % _clock(float(res.best_t))
+	_r_stats.text = "%s  ·  Surges sent %d, got %d  ·  Falls %d" % [tline, m.sent, m.got, m.falls]
 	_fill_order(won, m)
 	_r_road.text = "ROAD: CLAIM!" if Race.road_ready(Game._load_save()) > 0 else "RACE ROAD"
 	# The trophies count to their new number, then the league bar fills (or empties).
@@ -1003,6 +1012,9 @@ class Bar extends Control:
 	var _gap: Label
 	var _name: Label
 	var _pulse := 0.0
+	var _quip := ""
+	var _quip_t := 0.0
+	var _quip_said := -99.0
 	const TRACK_TOP := 54.0
 	const TRACK_BOTTOM := 300.0
 	const W := 92.0
@@ -1043,6 +1055,15 @@ class Bar extends Control:
 		var path := "res://art/ui/heroes/%s.png" % id
 		return load(path) if ResourceLoader.exists(path) else null
 
+	## The rival says something short in a bubble by its marker (a bot's chatter: "Catch me!").
+	## `force` skips the five-second rest between quips.
+	func quip(text: String, force := false) -> void:
+		if not force and _pulse - _quip_said < 5.0:
+			return
+		_quip = text
+		_quip_t = 2.4
+		_quip_said = _pulse
+
 	func sent() -> void:
 		_flash_them = 1.0
 
@@ -1055,6 +1076,7 @@ class Bar extends Control:
 		_flash_me = maxf(0.0, _flash_me - delta * 1.5)
 		_flash_them = maxf(0.0, _flash_them - delta * 1.5)
 		_pulse += delta
+		_quip_t = maxf(0.0, _quip_t - delta)
 		_clock.text = RaceScreen._clock(t)
 		if absf(gap) < 0.5:
 			_gap.text = "NECK & NECK"
@@ -1095,6 +1117,8 @@ class Bar extends Control:
 		var ty := _y(them)
 		_marker(Vector2(cx + 20, ty), _them_tex, RaceScreen.RIVAL, _flash_them, stunned, down)
 		_marker(Vector2(cx - 20, my), _me_tex, RaceScreen.YOU, _flash_me, false, me_down)
+		if _quip_t > 0.0 and _quip != "":
+			_bubble(Vector2(cx + 40, ty), _quip, minf(1.0, _quip_t * 3.0))
 		# SURGE: a ring that fills with kills, bright when nearly full.
 		var sc := Vector2(cx, bot + 44)
 		draw_circle(sc, 26.0, Hud.INK)
@@ -1109,6 +1133,20 @@ class Bar extends Control:
 		var font := Hud.UI_FONT
 		draw_string_outline(font, Vector2(cx - 26, bot + 84), "SURGE", HORIZONTAL_ALIGNMENT_CENTER, 52, 16, 6, Hud.INK)
 		draw_string(font, Vector2(cx - 26, bot + 84), "SURGE", HORIZONTAL_ALIGNMENT_CENTER, 52, 16, RaceScreen.TEAL.lightened(0.3))
+
+	## A speech bubble pointing left at the rival's marker.
+	func _bubble(at: Vector2, text: String, a: float) -> void:
+		var font := Hud.UI_FONT
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x + 18.0
+		var box := Rect2(at.x + 8.0, at.y - 15.0, w, 30.0)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(1, 1, 1, 0.95 * a)
+		sb.border_color = Color(RaceScreen.RIVAL, a)
+		sb.set_border_width_all(3)
+		sb.set_corner_radius_all(12)
+		draw_colored_polygon(PackedVector2Array([at + Vector2(0, 0), at + Vector2(11, -7), at + Vector2(11, 7)]), Color(RaceScreen.RIVAL, a))
+		draw_style_box(sb, box)
+		draw_string(font, Vector2(box.position.x + 9.0, at.y + 6.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.12, 0.06, 0.08, a))
 
 	func _marker(p: Vector2, tex: Texture2D, col: Color, flash: float, stun: bool, is_down: bool) -> void:
 		var r := 17.0 + 5.0 * flash

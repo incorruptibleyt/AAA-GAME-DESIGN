@@ -494,6 +494,8 @@ static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
 	var world := Game.world
 	if world == null:
 		return
+	# Screen shake Off also calms the big rings (accessibility review 6: reduce motion).
+	radius *= lerpf(0.6, 1.0, minf(1.0, Game.shake_scale / 0.35))
 	var ring := MeshInstance3D.new()
 	# A crisp ring: thin (about 40 cm across at full size, however wide it grows), so it
 	# never turns into a haze over the room. One mesh per ring thickness, shared by every
