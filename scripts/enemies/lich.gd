@@ -167,8 +167,8 @@ const VOLLEY_WARN := 0.35
 
 func _volley_glow() -> void:
 	visual.attack(true)
-	Fx.magic(center() + Vector3.UP * 0.3, Color(0.75, 0.5, 1.0), 28)
-	Fx.shockwave(global_position, Color(0.75, 0.5, 1.0), 2.4)
+	Fx.magic(center() + Vector3.UP * 0.3, Color(0.95, 0.75, 1.0), 36)
+	Fx.shockwave(global_position, Color(1.0, 0.8, 1.0), 3.0)
 	Sfx.play("warn", 0.4)
 	await _wait(VOLLEY_WARN)
 
