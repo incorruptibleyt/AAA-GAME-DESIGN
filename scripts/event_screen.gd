@@ -212,7 +212,7 @@ func _build_set_card(parent: Control) -> void:
 	_set_pieces.add_theme_constant_override("separation", 2)
 	v.add_child(_set_pieces)
 	var b := Hud.button("SEE THE ROAD", 18, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-	b.custom_minimum_size = Vector2(200, 52)
+	b.custom_minimum_size = Vector2(200, 64)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	b.pressed.connect(func():
 		Sfx.play("click")
@@ -592,7 +592,7 @@ func _road_row(cfg: ConfigFile, i: int, s: int) -> Control:
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if reached and not got:
 		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-		c.custom_minimum_size = Vector2(118, 60)
+		c.custom_minimum_size = Vector2(118, 64)
 		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		c.pressed.connect(func(): claim.emit(i))
 		h.add_child(c)

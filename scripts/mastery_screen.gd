@@ -106,7 +106,7 @@ func _build_style_row() -> PanelContainer:
 	_style_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(_style_text)
 	var b := Hud.button("STYLE", 22)
-	b.custom_minimum_size = Vector2(150, 58)
+	b.custom_minimum_size = Vector2(150, 64)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func():
 		Sfx.play("click")
@@ -142,7 +142,7 @@ func _build_train_row() -> PanelContainer:
 	h.add_child(_train_text)
 	# A chunky green button: a coin and the price on it (or TOMORROW when today's are used).
 	var b := Hud.button("TRAIN", 22, Color(0.2, 0.6, 0.25))
-	b.custom_minimum_size = Vector2(150, 58)
+	b.custom_minimum_size = Vector2(150, 64)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	b.pressed.connect(func():
 		if not _train_btn.disabled:

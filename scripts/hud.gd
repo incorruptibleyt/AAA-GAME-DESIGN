@@ -152,6 +152,7 @@ var _end_stats: Label
 var _end_goal: Label
 var _pause_box: Control
 var _pause_button: Button
+var _score_shown := -1
 var _danger: TextureRect
 var _beat_phase := 0.0
 var _hint: Label
@@ -708,7 +709,7 @@ static func draw_coin(c: CanvasItem, centre: Vector2, r: float) -> void:
 static func privacy_button(text_size := 18) -> Button:
 	var b := button("Privacy policy", text_size, Color(0.08, 0.07, 0.1, 0.85), Color(0.6, 0.55, 0.6, 0.4))
 	b.add_theme_color_override("font_color", Color(0.75, 0.72, 0.78))
-	b.custom_minimum_size = Vector2(200, 58)
+	b.custom_minimum_size = Vector2(200, 64)
 	b.pressed.connect(func(): OS.shell_open(Game.PRIVACY_URL))
 	return b
 
@@ -892,10 +893,10 @@ func _build_hud() -> void:
 		_pause_button.add_theme_stylebox_override(st, pb)
 	squash(_pause_button)
 	_pause_button.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	_pause_button.offset_left = -74   # 60 x 60 (version 125, audit #9): a thumb-sized target
+	_pause_button.offset_left = -78   # 64 x 64 (version 147; 60 in version 125, audit #9): a thumb-sized target
 	_pause_button.offset_right = -14
 	_pause_button.offset_top = 6
-	_pause_button.offset_bottom = 66
+	_pause_button.offset_bottom = 70
 	_pause_button.pressed.connect(func(): pause_pressed.emit())
 	root.add_child(_pause_button)
 
@@ -1346,7 +1347,7 @@ func _build_cards() -> void:
 		col.add_child(b)
 		_cards.append(b)
 	_reroll_button = button("Reroll", 22)
-	_reroll_button.custom_minimum_size = Vector2(220, 60)
+	_reroll_button.custom_minimum_size = Vector2(220, 64)
 	_reroll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_reroll_button.pressed.connect(func():
 		if _cards_age >= 0.45:
@@ -1523,11 +1524,11 @@ func _build_title() -> void:
 	# The Bone Road's bar (bone_road.gd): bones so far, and the next reward.
 	# Side by side, so the hero below stays in view on short phones.
 	_title_road = RoadScreen.Bar.new()
-	_title_road.custom_minimum_size = Vector2(250, 58)
+	_title_road.custom_minimum_size = Vector2(250, 64)
 	_title_road.pressed.connect(func(): road_pressed.emit())
 	# Bone Drops waiting to be opened (drops.gd).
 	_title_drops = _drop_button()
-	_title_drops.custom_minimum_size = Vector2(240, 58)
+	_title_drops.custom_minimum_size = Vector2(240, 64)
 	_title_drops.add_theme_font_size_override("font_size", 17)
 	var row := _pair(_title_road, _title_drops)
 	(row as HBoxContainer).add_theme_constant_override("separation", 10)
@@ -1891,7 +1892,7 @@ func _build_end() -> void:
 	_end_mastery.visible = false
 	col.add_child(_centered(_end_mastery))
 	_end_looks = button("SEE 3 NEW LOOKS", 20, Color(0.22, 0.14, 0.3, 0.97), GOLD)
-	_end_looks.custom_minimum_size = Vector2(300, 60)
+	_end_looks.custom_minimum_size = Vector2(300, 64)
 	_end_looks.visible = false
 	_end_looks.pressed.connect(func():
 		if not _end_looks_for.is_empty():
@@ -1908,14 +1909,14 @@ func _build_end() -> void:
 	_share_card.visible = false
 	col.add_child(_share_card)
 	_share_button = button("SHARE RESULT", 20, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	_share_button.custom_minimum_size = Vector2(240, 60)
+	_share_button.custom_minimum_size = Vector2(240, 64)
 	_share_button.pressed.connect(func():
 		_share_button.disabled = true
 		share_pressed.emit())
 	# Copies a detailed report of the run (with the install number the privacy policy asks
 	# for), for players who send reports and want to share one.
 	_copy_button = button("COPY REPORT", 20, Color(0.1, 0.12, 0.18, 0.95), Color(0.5, 0.75, 1.0, 0.7))
-	_copy_button.custom_minimum_size = Vector2(240, 60)
+	_copy_button.custom_minimum_size = Vector2(240, 64)
 	_copy_button.pressed.connect(func():
 		_copy_button.text = "Copied!"
 		copy_report_pressed.emit())
@@ -2041,18 +2042,18 @@ func _build_pause() -> void:
 	small.add_child(privacy_button(16))
 	var fb := button("Send feedback", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
 	fb.add_theme_color_override("font_color", Color(1, 0.88, 0.62))
-	fb.custom_minimum_size = Vector2(160, 58)
+	fb.custom_minimum_size = Vector2(160, 64)
 	fb.pressed.connect(show_feedback.bind(true))
 	small.add_child(fb)
 	# Rate us: opens the game's Google Play page (the in-app rating card is only for happy moments).
 	var rate := button("Rate us", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
 	rate.add_theme_color_override("font_color", Color(1, 0.88, 0.62))
-	rate.custom_minimum_size = Vector2(150, 58)
+	rate.custom_minimum_size = Vector2(150, 64)
 	rate.pressed.connect(func():
 		Sfx.play("click")
 		UpdateGate.open_store_page())
 	small.add_child(rate)
-	(small.get_child(0) as Control).custom_minimum_size = Vector2(160, 58)
+	(small.get_child(0) as Control).custom_minimum_size = Vector2(160, 64)
 	col.add_child(small)
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
@@ -2213,7 +2214,7 @@ func _build_armory() -> void:
 	var tabs := []
 	for tab in [["upgrades", "UPGRADES"], ["vault", "VAULT"]]:
 		var tb := button(tab[1], 20)
-		tb.custom_minimum_size = Vector2(200, 60)
+		tb.custom_minimum_size = Vector2(200, 64)
 		var id: String = tab[0]
 		tb.pressed.connect(func():
 			Sfx.play("click")
@@ -2273,7 +2274,7 @@ func _build_pass() -> void:
 	_pass_back.custom_minimum_size = Vector2(320, 70)
 	_pass_back.pressed.connect(func(): show_pass(false))
 	_pass_restore = button("Restore purchase", 18, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
-	_pass_restore.custom_minimum_size = Vector2(220, 58)
+	_pass_restore.custom_minimum_size = Vector2(220, 64)
 	_pass_restore.pressed.connect(func(): pass_restore.emit())
 	col.add_child(_centered(_pass_back))
 	col.add_child(_pair(_pass_restore, privacy_button()))
@@ -2316,7 +2317,7 @@ func _build_pass_card(col: Control) -> void:
 	_pass_card_line.custom_minimum_size = Vector2(250, 0)
 	v.add_child(_pass_card_line)
 	var b := button("SEE THE PASS", 22, Color(0.45, 0.3, 0.08, 0.98), GOLD)
-	b.custom_minimum_size = Vector2(240, 60)
+	b.custom_minimum_size = Vector2(240, 64)
 	b.pressed.connect(func(): pass_pressed.emit())
 	v.add_child(_centered(b))
 	_pass_card = _centered(panel)
@@ -2559,7 +2560,7 @@ func _build_reports_ask() -> void:
 	more.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	more.visible = false
 	var what := button("WHAT'S SENT?", 18, Color(0.08, 0.07, 0.1, 0.9), Color(0.5, 0.48, 0.5, 0.6))
-	what.custom_minimum_size = Vector2(240, 60)
+	what.custom_minimum_size = Vector2(240, 64)
 	what.pressed.connect(func():
 		more.visible = not more.visible
 		Sfx.play("click"))
@@ -2868,7 +2869,10 @@ func _process(delta: float) -> void:
 	var pulse := 1.0 + _chain_pop * 0.5 + (0.05 * sin(Time.get_ticks_msec() * 0.012) if Game.chain >= Game.chain_max() else 0.0)
 	_chain_label.scale = Vector2(pulse, pulse)
 	_shown_score = move_toward(_shown_score, Game.score, maxf(40.0, absf(Game.score - _shown_score) * 8.0) * delta)
-	_score_label.text = "SCORE  " + Hud.thousands(roundi(_shown_score))
+	var shown := roundi(_shown_score)
+	if shown != _score_shown:   # version 147: new text only when the number changes
+		_score_shown = shown
+		_score_label.text = "SCORE  " + Hud.thousands(shown)
 	if _broken_time > 0.0:
 		_broken_time -= delta
 		_broken_label.modulate.a = clampf(_broken_time / 0.4, 0.0, 1.0)
@@ -3749,7 +3753,7 @@ func _curse_row(r: Dictionary) -> Button:
 	var locked: bool = r.get("locked", false)
 	var red := Color(0.95, 0.35, 0.4)
 	var b := button("", 20, Color(0.2, 0.06, 0.09, 0.98) if on else Color(0.12, 0.1, 0.16, 0.98), red if on else Color(0.4, 0.35, 0.45, 0.6))
-	b.custom_minimum_size = Vector2(0, 60)
+	b.custom_minimum_size = Vector2(0, 64)
 	if on:
 		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4)
 	b.pressed.connect(func(): curse_toggled.emit(r.id))
@@ -3895,7 +3899,11 @@ func _set_end_tap(tap_text: String) -> void:
 	var deeper := tap_text.begins_with("Tap to descend")
 	_end_tap.text = tap_text.replace("Tap to descend", "DESCEND").to_upper() if deeper else tap_text
 	(_end_tap as Pulse).low = 0.85 if deeper else 0.1
-	_end_tap.label_settings.font_size = 30
+	# Version 147: the green DESCEND button is the main way on, so it is big (about 96 px,
+	# 73 dp on a phone; was about 66) with bigger letters.
+	_end_tap.label_settings.font_size = 36 if deeper else 30
+	_end_tap.custom_minimum_size = Vector2(400, 96) if deeper else Vector2.ZERO
+	_end_tap.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_end_tap.autowrap_mode = TextServer.AUTOWRAP_OFF if deeper else TextServer.AUTOWRAP_WORD_SMART
 	_end_tap.size_flags_horizontal = Control.SIZE_SHRINK_CENTER if deeper else Control.SIZE_FILL
 	if deeper:
@@ -3908,10 +3916,10 @@ func _set_end_tap(tap_text: String) -> void:
 		sb.shadow_color = Color(0, 0, 0, 0.35)
 		sb.shadow_size = 2
 		sb.shadow_offset = Vector2(0, 4)
-		sb.content_margin_left = 34
-		sb.content_margin_right = 34
-		sb.content_margin_top = 12
-		sb.content_margin_bottom = 12
+		sb.content_margin_left = 40
+		sb.content_margin_right = 40
+		sb.content_margin_top = 16
+		sb.content_margin_bottom = 16
 		_end_tap.add_theme_stylebox_override("normal", sb)
 	else:
 		_end_tap.remove_theme_stylebox_override("normal")

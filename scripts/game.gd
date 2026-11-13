@@ -91,7 +91,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-12c"
+const BUILD := "2026-11-13a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -859,7 +859,28 @@ func health_scale() -> float:
 ## the dash yet could fall in the first room in 17 seconds.
 func damage_scale() -> float:
 	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 5, 0)) * (1.25 if _hourglass_out else 1.0) \
-		* pow(1.25, _omen("blades")) * (0.75 if first_run and floor_num == 1 else 1.0)
+		* pow(1.25, _omen("blades")) * newcomer_mult()
+
+
+## Version 147 (hard review of v143, item 2): a new tester fell in the tutorial's first room
+## in 49 s. The tutorial's first room now hits at half strength (the rest of the tutorial
+## floor 0.75, as before), and floor 1 of a player's next 3 runs hits 15% softer while they
+## learn the dash. Not in the Daily Crypt or the event, so those stay the same for everyone.
+const NEWCOMER_RUNS := 4   # the tutorial plus 3 more
+var _newcomer := false
+
+
+func newcomer_mult() -> float:
+	if floor_num != 1:
+		return 1.0
+	if first_run:
+		return 0.5 if _room_index == 0 else 0.75
+	return 0.85 if _newcomer and not daily and event == "" else 1.0
+
+
+## True for a player's first NEWCOMER_RUNS runs (the run starting now counted).
+func _check_newcomer() -> void:
+	_newcomer = record(_load_save(), "runs") <= NEWCOMER_RUNS
 
 
 func speed_scale() -> float:
@@ -1372,6 +1393,7 @@ func _start_run() -> void:
 	hud.show_hud(true)
 	_reset_run_stats()
 	record_add("runs", 1)
+	_check_newcomer()
 	_pick_curses()
 	if daily or event != "":
 		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room
@@ -1698,6 +1720,7 @@ func _restart() -> void:
 	else:
 		_run_hero_id = ""   # a free trial is one run
 	first_run = first_run_pending()   # true only after a first death in the tutorial
+	_check_newcomer()
 	_build_run()
 	_pick_curses()
 	hud.show_hud(true)

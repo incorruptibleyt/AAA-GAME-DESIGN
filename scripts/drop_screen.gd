@@ -188,7 +188,7 @@ func _init() -> void:
 	odds_col.add_child(_odds_grid)
 	odds_col.add_child(_odds_text)
 	var close_b := Hud.button("CLOSE", 20)
-	close_b.custom_minimum_size = Vector2(160, 60)
+	close_b.custom_minimum_size = Vector2(160, 64)
 	close_b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	close_b.pressed.connect(func(): _show_odds(false))
 	odds_col.add_child(close_b)

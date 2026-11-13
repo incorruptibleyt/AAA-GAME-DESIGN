@@ -90,7 +90,7 @@ func _init() -> void:
 	col.add_child(tabs)
 	for i in Heroes.LIST.size():
 		var t := Hud.button(Heroes.LIST[i].title, 17)
-		t.custom_minimum_size = Vector2(0, 58)   # A-11: easy to hit with a thumb
+		t.custom_minimum_size = Vector2(0, 64)   # A-11: easy to hit with a thumb
 		t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		t.pressed.connect(_switch.bind(i))
 		tabs.add_child(t)

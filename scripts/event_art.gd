@@ -338,7 +338,7 @@ class Splash extends ColorRect:
 		_col.add_child(_go)
 		_skip = Hud.button("LATER", 20)
 		Hud.paint(_skip, "slate")
-		_skip.custom_minimum_size = Vector2(200, 56)
+		_skip.custom_minimum_size = Vector2(200, 64)
 		_skip.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_skip.pressed.connect(func(): later.emit())
 		_col.add_child(_skip)

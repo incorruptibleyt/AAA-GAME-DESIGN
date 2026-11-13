@@ -84,7 +84,7 @@ func _init() -> void:
 	col.add_child(tabs)
 	for t: Array in TABS:
 		var b := Hud.button(t[1], 17)
-		b.custom_minimum_size = Vector2(0, 58)
+		b.custom_minimum_size = Vector2(0, 64)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(func():
 			Sfx.play("click")

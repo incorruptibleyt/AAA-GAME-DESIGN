@@ -3,7 +3,7 @@ extends Control
 ## Small red arrows on the screen edge pointing at undead and warning markers that are
 ## just off-screen, so the closer camera never hides an attack that is on its way.
 
-const MARGIN := 22.0
+const MARGIN := 30.0
 const RED := Color(1.0, 0.18, 0.32)
 
 
@@ -12,44 +12,62 @@ func _ready() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 
 
-var _was_playing := false
+## Each arrow is two entries: where it sits on the margin, and the way it points.
+var _arrows := PackedVector2Array()
+var _had_arrows := false
 
 
 func _process(_delta: float) -> void:
-	# Enemies move every frame in a fight; outside one, clear the arrows once and stop.
-	var playing := Game.state == Game.State.PLAYING
-	if playing or _was_playing:
+	# Version 147: the arrows are worked out here into one reused list, and the screen is
+	# only redrawn while there are arrows (or to clear the last ones), not every frame.
+	_arrows.clear()
+	if Game.state == Game.State.PLAYING:
+		_find_arrows()
+	var has := not _arrows.is_empty()
+	if has or _had_arrows:
 		queue_redraw()
-	_was_playing = playing
+	_had_arrows = has
 
 
-func _draw() -> void:
-	var cam := Game._camera
-	if Game.state != Game.State.PLAYING or cam == null or Room.current == null:
+func _add_point(cam: Camera3D, p: Vector3, view: Vector2, mid: Vector2, inner: Rect2) -> void:
+	if cam.is_position_behind(p):
 		return
-	var points: Array[Vector3] = []
-	for a: Actor in Actor.all:
-		if a.team == Actor.Team.UNDEAD and not a.dead:
-			points.append(a.global_position)
-	for t: Telegraph in Telegraph.active:
-		if is_instance_valid(t):
-			points.append(t.global_position)
+	var s := cam.unproject_position(p)
+	if Rect2(Vector2.ZERO, view).has_point(s):
+		return
+	# Walk from the screen middle towards the point and stop at the margin.
+	var d := (s - mid)
+	var k := minf(absf((inner.size.x / 2.0) / d.x) if d.x != 0.0 else INF,
+			absf((inner.size.y / 2.0) / d.y) if d.y != 0.0 else INF)
+	_arrows.append(mid + d * k)
+	_arrows.append(d.normalized())
+
+
+func _find_arrows() -> void:
+	var cam := Game._camera
+	if cam == null or Room.current == null:
+		return
 	var view := get_viewport_rect().size
 	var mid := view / 2.0
 	var inner := Rect2(Vector2(MARGIN, MARGIN), view - Vector2(MARGIN, MARGIN) * 2.0)
-	for p in points:
-		if cam.is_position_behind(p):
-			continue
-		var s := cam.unproject_position(p)
-		if Rect2(Vector2.ZERO, view).has_point(s):
-			continue
-		# Walk from the screen middle towards the point and stop at the margin.
-		var d := (s - mid)
-		var k := minf(absf((inner.size.x / 2.0) / d.x) if d.x != 0.0 else INF,
-				absf((inner.size.y / 2.0) / d.y) if d.y != 0.0 else INF)
-		var at := mid + d * k
-		var n := d.normalized()
+	for a: Actor in Actor.all:
+		if a.team == Actor.Team.UNDEAD and not a.dead:
+			_add_point(cam, a.global_position, view, mid, inner)
+	for t: Telegraph in Telegraph.active:
+		if is_instance_valid(t):
+			_add_point(cam, t.global_position, view, mid, inner)
+
+
+func _draw() -> void:
+	# Version 147 (accessibility review item 3): bigger arrows (about 1.6x) with a white edge,
+	# so they read on any floor and not only by their red colour.
+	for i in range(0, _arrows.size(), 2):
+		var at := _arrows[i]
+		var n := _arrows[i + 1]
 		var side := Vector2(-n.y, n.x)
-		var tip := at + n * 10.0
-		draw_colored_polygon(PackedVector2Array([tip, at - n * 8.0 + side * 10.0, at - n * 8.0 - side * 10.0]), RED)
-		draw_polyline(PackedVector2Array([tip, at - n * 8.0 + side * 10.0, at - n * 8.0 - side * 10.0, tip]), Color(0.1, 0, 0.03), 2.0)
+		var tip := at + n * 16.0
+		var tri := PackedVector2Array([tip, at - n * 13.0 + side * 16.0, at - n * 13.0 - side * 16.0])
+		draw_colored_polygon(tri, RED)
+		tri.append(tip)
+		draw_polyline(tri, Color(0.1, 0, 0.03), 6.0)
+		draw_polyline(tri, Color.WHITE, 3.0)

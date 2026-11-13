@@ -232,6 +232,7 @@ func _process(delta: float) -> void:
 	visual.position.y = 0.0
 	_slow_left -= delta
 	_roar_left -= delta
+	_guard_left -= delta
 
 	var hero := Game.hero
 	if Game.state != Game.State.PLAYING or hero == null or hero.dead:
@@ -269,6 +270,10 @@ func next_move(moves: Array) -> String:
 			if ok:
 				break
 	_last_move = str(_bag.pop_front())
+	if _guard_move != "" and _last_move == _guard_move:
+		# Phase 2's own move has begun: the boss can fall once players have seen it start.
+		_guard_move = ""
+		_guard_left = minf(_guard_left, GUARD_AFTER_MOVE)
 	return _last_move
 
 
@@ -276,12 +281,23 @@ func next_move(moves: Array) -> String:
 ## stops and roars for a second under a big PHASE 2 banner, glows in its colour for the rest
 ## of the fight, and its new move (`move`, called `move_name` on the banner) comes next.
 var _roar_left := 0.0
+## Version 147 (hard review of the Tweaks report, #4): strong heroes killed bosses in 6-11 s,
+## often before phase 2's own move ever came. Now a boss can't fall below 1 health until
+## that move has started (and GUARD_AFTER_MOVE more), and never for more than GUARD_TIME;
+## during the roar shots still hit but do a quarter of their damage.
+const GUARD_TIME := 5.0
+const GUARD_AFTER_MOVE := 1.5
+const ROAR_DAMAGE := 0.25
+var _guard_left := 0.0
+var _guard_move := ""
 
 
 func phase_two(col: Color, move := "", move_name := "") -> void:
 	_bag.clear()
 	if move != "":
 		_bag = [move]   # the new attack comes right after the roar
+		_guard_move = move
+		_guard_left = GUARD_TIME
 	_roar_left = 1.0
 	Game.buzz(70)
 	_flinch_left = maxf(_flinch_left, 1.0)   # stands still while it roars
@@ -443,6 +459,16 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		amount *= 1.3
 	if health < max_health * 0.3 and Game.hero and Game.hero.perks.has("executioner"):
 		amount *= 1.5
+	if is_boss:
+		if _roar_left > 0.0:
+			amount *= ROAR_DAMAGE
+		if _guard_left > 0.0:
+			amount = minf(amount, health - 1.0)
+			if amount <= 0.0:
+				Fx.sparks(center())   # still answers the hit, but holds on to its last health
+				if visual:
+					visual.hit()
+				return
 	super.take_damage(amount, direction, push * knockback_scale, crit)
 	Game.note_progress()
 	if _bar:
