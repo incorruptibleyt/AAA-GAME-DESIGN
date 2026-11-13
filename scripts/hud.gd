@@ -3793,8 +3793,9 @@ func _fill_shop(rows: Array, coins: int) -> void:
 func _curse_row(r: Dictionary) -> Button:
 	var on: bool = r.on
 	var locked: bool = r.get("locked", false)
-	var red := Color(0.95, 0.35, 0.4)
-	var b := button("", 20, Color(0.2, 0.06, 0.09, 0.98) if on else Color(0.12, 0.1, 0.16, 0.98), red if on else Color(0.4, 0.35, 0.45, 0.6))
+	var red := GOLD if r.get("gold", false) else Color(0.95, 0.35, 0.4)
+	var on_bg := Color(0.2, 0.15, 0.04, 0.98) if r.get("gold", false) else Color(0.2, 0.06, 0.09, 0.98)
+	var b := button("", 20, on_bg if on else Color(0.12, 0.1, 0.16, 0.98), red if on else Color(0.4, 0.35, 0.45, 0.6))
 	b.custom_minimum_size = Vector2(0, 64)
 	if on:
 		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4)
@@ -3820,7 +3821,7 @@ func _curse_row(r: Dictionary) -> Button:
 	var d := label(r.text, 15, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
 	d.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(d)
-	var tag := label("PASS" if locked else ("ON" if on else "OFF"), 20, GOLD.darkened(0.2) if locked else (red if on else Color(0.6, 0.58, 0.62)))
+	var tag := label(str(r.get("lock", "PASS")) if locked else ("ON" if on else "OFF"), 20, GOLD.darkened(0.2) if locked else (red if on else Color(0.6, 0.58, 0.62)))
 	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(tag)
 	return b

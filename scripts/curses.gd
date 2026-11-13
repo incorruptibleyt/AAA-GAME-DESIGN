@@ -11,6 +11,7 @@ class_name Curses
 ## after it come with the Crypt Pass.
 
 const LIST := [
+	{"id": "heroic", "title": "Heroic", "text": "Skeletons +35% health and damage, +50% coins", "level": 2, "free": true, "unlock_boss": 5},
 	{"id": "restless", "title": "Restless Dead", "text": "Skeletons move 20% faster", "level": 1, "free": true},
 	{"id": "gilded", "title": "Gilded Horde", "text": "Twice as many purple elites", "level": 1},
 	{"id": "narrow", "title": "Narrow Path", "text": "Two blessings to choose from, no reroll", "level": 1},
@@ -59,16 +60,27 @@ static func is_curse(id: String) -> bool:
 	return false
 
 
-## Free players get the free curse; the Crypt Pass opens them all.
+## Free players get the free curses; the Crypt Pass opens them all.
 static func available(id: String, owned: bool) -> bool:
 	return owned or bool(get_curse(id).get("free", false))
+
+
+## Version 151 (coins review fix 6): Heroic opens for everyone, free, once the floor 5 boss
+## has fallen. It gives players who cleared the free floors a harder run that pays more,
+## and a free Curse Level 2 (with Restless Dead, 3) for the hero rewards.
+static func unlock_boss(id: String) -> int:
+	return int(get_curse(id).get("unlock_boss", 0))
+
+
+static func unlocked(id: String, cfg: ConfigFile) -> bool:
+	return Game._best_boss(cfg) >= unlock_boss(id)
 
 
 ## The curses the player switched on in the Curses screen (and is allowed to use).
 static func chosen(cfg: ConfigFile, owned := true) -> Array:
 	var ids := []
 	for c: Dictionary in LIST:
-		if bool(cfg.get_value(SAVE_SECTION, c.id, false)) and available(c.id, owned):
+		if bool(cfg.get_value(SAVE_SECTION, c.id, false)) and available(c.id, owned) and unlocked(c.id, cfg):
 			ids.append(c.id)
 	return ids
 

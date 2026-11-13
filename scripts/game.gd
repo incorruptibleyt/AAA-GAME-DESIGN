@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13d"
+const BUILD := "2026-11-13e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -853,7 +853,7 @@ const SHARE_FLOORS := 3
 ## (Version 124, audit fix 1: the damage blessings stop at 10 picks each, so a hero's damage
 ## stops growing around floor 13; at 45% a floor forever, floor 20 skeletons took 13 s each.)
 func health_scale() -> float:
-	return pow(1.55, mini(floor_num, 4) - 1) * pow(1.6, clampi(floor_num - 4, 0, 1)) \
+	return heroic_mult() * pow(1.55, mini(floor_num, 4) - 1) * pow(1.6, clampi(floor_num - 4, 0, 1)) \
 		* pow(1.45, clampi(floor_num - 5, 0, 5)) * pow(1.25, maxi(floor_num - 10, 0)) * pow(1.25, _omen("bones"))
 
 
@@ -864,7 +864,17 @@ func health_scale() -> float:
 ## the dash yet could fall in the first room in 17 seconds.
 func damage_scale() -> float:
 	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 5, 0)) * (1.25 if _hourglass_out else 1.0) \
-		* pow(1.25, _omen("blades")) * newcomer_mult()
+		* pow(1.25, _omen("blades")) * newcomer_mult() * heroic_mult()
+
+
+## Heroic (a free curse after the floor 5 boss, version 151): skeletons and bosses have 35%
+## more health and hit 35% harder, and coins come 50% faster.
+const HEROIC_MULT := 1.35
+const HEROIC_COINS := 1.5
+
+
+func heroic_mult() -> float:
+	return HEROIC_MULT if curses.has("heroic") else 1.0
 
 
 ## Version 147 (hard review of v143, item 2): a new tester fell in the tutorial's first room
@@ -952,7 +962,7 @@ func speed_scale() -> float:
 ## Daily Crypt rules and Omens that change coins and hearts.
 func coin_mult() -> float:
 	var treasure := 1.0 + Doors.TREASURE_COINS if _door.get("kind", "") == "treasure" else 1.0
-	return (1.5 if curses.has("rich") else 1.0) * pow(1.5, _omen("gold")) * treasure
+	return (1.5 if curses.has("rich") else 1.0) * (HEROIC_COINS if curses.has("heroic") else 1.0) * pow(1.5, _omen("gold")) * treasure
 
 
 ## Hearts heal 20% more per floor, so they keep up with skeletons that hit harder deeper
@@ -1560,7 +1570,9 @@ func _mode_banner() -> void:
 		hud.tip("DAILY CRYPT #%d%s  ·  Score x%s\n%s" % [Curses.day_number(_daily_date), "  ·  Practice" if _daily_practice else "",
 			_mult_text(_score_mult), Curses.names(curses)], 5.0, 1.8)
 	elif not curses.is_empty():
-		hud.tip("CURSE LEVEL %d  ·  Score x%s\n%s" % [Curses.level_of(curses), _mult_text(_score_mult), Curses.names(curses)], 4.0, 1.8)
+		var others := curses.filter(func(c): return c != "heroic")
+		hud.tip("%sCURSE LEVEL %d  ·  Score x%s\n%s" % ["HEROIC  ·  " if curses.has("heroic") else "", Curses.level_of(curses), _mult_text(_score_mult),
+			Curses.names(others) if others else "Tougher skeletons, +50% coins"], 4.0, 1.8)
 	elif _run_hero_id != "":
 		hud.tip("FREE TRIAL RUN  ·  %s" % Heroes.full_name(Heroes.get_hero(_run_hero_id)), 4.0, 1.8)
 
@@ -2934,6 +2946,7 @@ func _win() -> void:
 	var mastery := _bank_mastery(cfg)
 	var best := _save_score(cfg)
 	_save_best(cfg, _run.size())
+	var heroic_new := prev_boss < Curses.unlock_boss("heroic") and Curses.unlocked("heroic", cfg)
 	# Curse mastery: beating the floor 5 boss (or a deeper one) at a Curse Level.
 	var rewards := []
 	if not daily and event == "" and floor_num >= Store.FREE_FLOORS and Curses.level_of(curses) > 0 and hero:
@@ -2972,6 +2985,8 @@ func _win() -> void:
 		extra += "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
+	if heroic_new:
+		extra += "\n\nHEROIC unlocked! Harder runs, +50% coins.\nTurn it on in MODES, then CURSES."
 	_celebrating = false
 	hud.hero_quiet()   # the bubble would show through the end screen
 	var tap := "Tap to return to the title" if _daily_done or _event_done else "Tap to descend to floor %d" % (floor_num + 1)
@@ -4388,8 +4403,10 @@ func _show_curses() -> void:
 	var on := Curses.chosen(cfg, owned)
 	var rows := []
 	for c: Dictionary in Curses.LIST:
-		rows.append({"id": c.id, "title": c.title, "text": c.text, "level": c.level, "on": on.has(c.id),
-			"locked": not Curses.available(c.id, owned)})
+		var shut := not Curses.unlocked(c.id, cfg)
+		rows.append({"id": c.id, "title": c.title, "text": "Beat the floor %d boss to open it" % Curses.unlock_boss(c.id) if shut else c.text,
+			"level": c.level, "on": on.has(c.id), "locked": shut or not Curses.available(c.id, owned),
+			"lock": "LOCKED" if shut else "PASS", "gold": c.id == "heroic"})
 	var hero_id := _trial_hero if _trial_hero != "" else Heroes.selected(cfg)
 	var m := Curses.mastery(cfg, hero_id)
 	var next := Curses.next_reward(m)
@@ -4399,6 +4416,9 @@ func _show_curses() -> void:
 
 
 func _toggle_curse(id: String) -> void:
+	if not Curses.unlocked(id, _load_save()):
+		Sfx.play("click")   # its row already says how to open it
+		return
 	if not Curses.available(id, Store.owned()):
 		_open_pass()
 		return

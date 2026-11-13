@@ -439,7 +439,7 @@ func _process(delta: float) -> void:
 				if _pass_menu:
 					Game.hud.pass_buy.emit()
 				else:
-					Game.hud.curse_toggled.emit(Curses.LIST[2].id)
+					Game.hud.curse_toggled.emit(Curses.LIST[3].id)
 				await get_tree().create_timer(0.5).timeout
 				_shot()
 				print("[autoplay] pass owned=%s curses=%s" % [Store.owned(), Curses.chosen(Game._load_save())])
