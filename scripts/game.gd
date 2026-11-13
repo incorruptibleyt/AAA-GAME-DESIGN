@@ -1616,7 +1616,7 @@ func run_report(result: String, was_first := false) -> String:
 	lines.append("Bone Chain run report (build %s, install %s)" % [BUILD, Telemetry.install_id(cfg)])
 	lines.append("Hero: %s | %s | Time %s" % [Heroes.get_hero(hero.hero_id).title if hero else "?", result, _format_time(_run_time)])
 	lines.append("Score %d | First run %s | Floor-1 help %s" % [score, "yes" if first_run or was_first else "no",
-		"extra" if _struggling else ("yes" if _newcomer else "no")])
+		"tutorial" if first_run or was_first else ("extra" if _struggling else ("yes" if _newcomer else "no"))])
 	lines.append("Bone Road %d bones (%d to claim) | Bone Drops waiting %d, opened %d, this run %d | Lucky Starts %d" % [BoneRoad.bones(cfg),
 		BoneRoad.ready_count(cfg), Drops.waiting(cfg), int(cfg.get_value(Drops.SECTION, "opened", 0)), _drops_run, Drops.lucky(cfg)])
 	var masteries := []
