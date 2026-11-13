@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13e"
+const BUILD := "2026-11-13f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -378,6 +378,8 @@ func _ready() -> void:
 			_on_play_pressed())
 	hud.armory_pressed.connect(_open_armory)
 	hud.armory_buy.connect(_buy_upgrade)
+	hud.bazaar_look.connect(_bazaar_preview)
+	hud.bazaar_buy.connect(_bazaar_buy)
 	hud.heroes_pressed.connect(_open_heroes)
 	hud.records_pressed.connect(_open_records)
 	hud.drops_pressed.connect(_open_drops)
@@ -875,6 +877,23 @@ const HEROIC_COINS := 1.5
 
 func heroic_mult() -> float:
 	return HEROIC_MULT if curses.has("heroic") else 1.0
+
+
+## "  (Heroic +50%)" after the run's coins on the end screens.
+func _heroic_tag() -> String:
+	return "  (Heroic +50%%)" if curses.has("heroic") else ""
+
+
+## Version 152 (Heroic polish): is Heroic switched on for the next run? (The title's PLAY
+## pill.) And has it opened but not been looked at yet? (The MODES pill and the Curses card.)
+func heroic_on() -> bool:
+	var cfg := _load_save()
+	return Curses.chosen(cfg, Store.owned()).has("heroic")
+
+
+func heroic_new() -> bool:
+	var cfg := _load_save()
+	return Curses.unlocked("heroic", cfg) and not bool(cfg.get_value(Curses.SAVE_SECTION, "heroic_seen", false))
 
 
 ## Version 147 (hard review of v143, item 2): a new tester fell in the tutorial's first room
@@ -2993,7 +3012,7 @@ func _win() -> void:
 	if shards > 0:
 		extra = "\nMoon Shards  +%d" % shards + extra
 	var fallen := "%s has fallen." % boss_name if event == "hunt" else "%s of floor %d has fallen." % [boss_name, floor_num]
-	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, bones, extra],
+	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, _heroic_tag(), bones, extra],
 		tap, false, score, best, _free_end)
 	# The hero and the rings at their feet would show between the end screen's buttons
 	# (as YOU DIED hides them); they come back as the next room starts (place_at).
@@ -3069,7 +3088,7 @@ func on_hero_died() -> void:
 	elif floor_num > 1:
 		where += " on floor %d" % floor_num
 	# (The brave-try top-up has its own line below, so "Coins kept" is what the run found.)
-	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d" % (run_coins - brave)
+	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d%s" % [run_coins - brave, _heroic_tag()]
 	if day_bonus > 0:
 		coin_line += "  (+%d first run today)" % day_bonus
 	if brave > 0:
@@ -4399,6 +4418,9 @@ func _open_curses() -> void:
 ## next reward the chosen hero can earn with them.
 func _show_curses() -> void:
 	var cfg := _load_save()
+	if Curses.unlocked("heroic", cfg) and not bool(cfg.get_value(Curses.SAVE_SECTION, "heroic_seen", false)):
+		cfg.set_value(Curses.SAVE_SECTION, "heroic_seen", true)
+		write_save(cfg)
 	var owned := Store.owned()
 	var on := Curses.chosen(cfg, owned)
 	var rows := []
@@ -4623,7 +4645,61 @@ func _armory_rows() -> Array:
 		var has := Armory.vault_has(cfg, v.id)
 		rows.append({"id": v.id, "title": u.title, "text": u.text, "level": 1 if has else 0, "max": 1,
 			"cost": -1 if has else int(v.cost), "vault": u})
+	# The Bone Bazaar (version 152): today's three looks.
+	var day := str(cfg.get_value(Bazaar.SECTION, "day", ""))
+	var offer := Bazaar.today(cfg)
+	if day != Curses.today():
+		write_save(cfg)   # the day's looks are picked once and kept
+	var hero_id := Heroes.selected(cfg)
+	for l: Array in offer:
+		var slot: String = l[0]
+		var key: String = l[1]
+		rows.append({"id": "bazaar", "look": l, "title": HeroStyle.item_name(hero_id, slot, key),
+			"text": "%s  ·  every hero" % Bazaar.slot_name(slot), "level": 0, "max": 1,
+			"cost": -1 if Bazaar.has(cfg, slot, key) else Bazaar.price(slot, key),
+			"hero": hero_id, "base": Heroes.get_hero(hero_id)})
+		var e := HeroStyle.extra(slot, key)
+		if e.has("drop"):
+			var tier: Dictionary = Drops.TIERS[int(e.drop)]
+			rows[-1].from = "Bone Drop look  ·  %s" % str(tier.name).capitalize()
+			rows[-1].from_color = Color(tier.color).lightened(0.25)
+		else:
+			rows[-1].from = "Only in the Bazaar"
+			rows[-1].from_color = Color(1.0, 0.75, 0.45)
 	return rows
+
+
+## The Bone Bazaar: a look on show, worn by the chosen hero, with its price and BUY.
+func _bazaar_preview(slot: String, key: String) -> void:
+	var cfg := _load_save()
+	var id := Heroes.selected(cfg)
+	var picks := HeroStyle.picks(cfg, id)
+	for s: String in HeroStyle.PASS_SLOTS:
+		if picks.get(s, "") == HeroStyle.pass_key(s):
+			picks[s] = ""
+	picks[slot] = key
+	var price := Bazaar.price(slot, key)
+	hud.show_offer({"name": HeroStyle.item_name(id, slot, key), "kind": Bazaar.slot_name(slot), "look": [slot, key],
+		"hero": id, "preview": HeroStyle.dressed(Heroes.get_hero(id), picks), "price": price,
+		"owned": Bazaar.has(cfg, slot, key), "afford": coins >= price})
+
+
+func _bazaar_buy(slot: String, key: String) -> void:
+	var cfg := _load_save()
+	var price := Bazaar.price(slot, key)
+	if price <= 0 or Bazaar.has(cfg, slot, key) or coins < price or not Bazaar.today(cfg).has([slot, key]):
+		Sfx.play("hurt")
+		return
+	coins -= price
+	cfg.set_value("stats", "coins", coins)
+	Bazaar.give(cfg, slot, key)
+	write_save(cfg)
+	print("[bazaar] bought %s/%s for %d" % [slot, key, price])
+	hud.set_coins(coins)
+	hud.offer_bought(coins)
+	hud.show_armory(true, _armory_rows(), coins)
+	hud.show_title(hud.title_visible(), _best_text(), coins)
+	_refresh_end_goal()
 
 
 func _buy_upgrade(id: String) -> void:

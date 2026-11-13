@@ -13,6 +13,7 @@ signal feats      # the FEATS button: the Feats screen (feats_screen.gd)
 const TABS := [["outfit", "OUTFIT"], ["head", "HEAD"], ["hold", "WEAPON"], ["glow", "GLOW"], ["aura", "AURA"]]
 const TEXT := Color(0.88, 0.87, 0.92)
 const DIM := Color(0.6, 0.58, 0.66)
+const BAZAAR := Color(1.0, 0.62, 0.3)   # Bone Bazaar looks (version 152)
 ## The pedestal's height; on short (16:9) screens it shrinks so the looks keep their room.
 const STAGE_H := 300.0
 const STAGE_MIN := 190.0
@@ -227,8 +228,12 @@ func _show_preview() -> void:
 						else "Trying on: %s  ·  Blood Moon set: win it on the event road") % HeroStyle.item_label(_id, slot, key)
 				_note.label_settings.font_color = Color(1.0, 0.45, 0.4)
 				return
+			if x.has("bazaar"):
+				_note.text = "Trying on: %s  ·  sometimes sold in the Bone Bazaar (Armory)" % HeroStyle.item_label(_id, slot, key)
+				_note.label_settings.font_color = BAZAAR
+				return
 			if x.has("drop"):
-				_note.text = "Trying on: %s  ·  only found in %s Bone Drops" % [HeroStyle.item_label(_id, slot, key), str(Drops.TIERS[int(x.drop)].name).capitalize()]
+				_note.text = "Trying on: %s  ·  found in %s Bone Drops or the Bazaar" % [HeroStyle.item_label(_id, slot, key), str(Drops.TIERS[int(x.drop)].name).capitalize()]
 				_note.label_settings.font_color = Drops.TIERS[int(x.drop)].color.lightened(0.3)
 				return
 			var lv := HeroStyle.item_level(_id, slot, key)
@@ -266,7 +271,7 @@ func _show_tab(slot: String, to_top := false) -> void:
 			rank = 0
 		elif it.get("pass", false):
 			rank = 1
-		elif it.has("feat") or it.has("drop") or it.has("event"):
+		elif HeroStyle.is_special(it):
 			rank = 2
 		order[it.key] = rank * 1000 + i
 	list.sort_custom(func(x: Dictionary, y: Dictionary) -> bool: return order[x.key] < order[y.key])
@@ -287,7 +292,7 @@ func _keep_scroll(to: int) -> void:
 
 
 func _got(it: Dictionary) -> bool:
-	if it.has("feat") or it.has("drop") or it.has("event"):
+	if HeroStyle.is_special(it):
 		return _cfg != null and HeroStyle.has_look(_cfg, _id, it.slot, it.key)
 	return _owned if it.get("pass", false) else it.level <= _level
 
@@ -319,7 +324,7 @@ func _card(it: Dictionary) -> Button:
 	var sw := Swatch.new()
 	sw.custom_minimum_size = Vector2(0, 58)
 	sw.setup(_id, it.slot, it.key, _base)
-	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.6 if it.has("feat") or it.has("drop") or it.has("event") else 0.45)
+	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.6 if HeroStyle.is_special(it) else 0.45)
 	v.add_child(sw)
 	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -329,13 +334,15 @@ func _card(it: Dictionary) -> Button:
 		v.add_child(Hud.label("%s ONLY" % str(_base.title).to_upper(), 14, Color(_base.ring).lightened(0.3) if got else DIM))
 	if paid:
 		v.add_child(Hud.label("CRYPT PASS", 14, Hud.GOLD))
-	var special: bool = it.has("feat") or it.has("drop") or it.has("event")
+	var special: bool = HeroStyle.is_special(it)
 	if it.has("event"):
 		v.add_child(Hud.label("BLOOD MOON", 14, Color(1.0, 0.42, 0.38)))
 	elif it.has("feat"):
 		v.add_child(Hud.label("FEAT", 14, Color(0.5, 0.95, 1.0)))
 	elif it.has("drop"):
 		v.add_child(Hud.label("BONE DROP", 14, Drops.TIERS[int(it.drop)].color.lightened(0.2)))
+	elif it.has("bazaar"):
+		v.add_child(Hud.label("BAZAAR", 14, BAZAAR))
 	var state := "WEARING" if worn else ("TAP TO WEAR" if got else ("TAP TO TRY ON" if paid or special else "LEVEL %d" % it.level))
 	v.add_child(Hud.label(state, 15, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else (Color(1.0, 0.8, 0.5) if paid else DIM))))
 	# The finger can drag the list from on top of a card (PASS lets the list see the drag),

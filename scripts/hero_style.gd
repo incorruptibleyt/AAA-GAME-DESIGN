@@ -194,6 +194,11 @@ const EXTRA := {
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
 		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
 		"blood_moon": {"name": "Blood Moon", "a": Color(0.3, 0.03, 0.06), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
+		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
+		"tidecaller": {"name": "Tidecaller", "a": Color(0.05, 0.3, 0.36), "b": Color(0.55, 1.0, 0.85), "pat": 1, "bazaar": 900},
+		"sunforged": {"name": "Sunforged", "a": Color(0.95, 0.62, 0.18), "b": Color(1.0, 0.95, 0.75), "pat": 5, "bazaar": 900},
+		"plaguebone": {"name": "Plaguebone", "a": Color(0.22, 0.24, 0.14), "b": Color(0.75, 0.95, 0.3), "pat": 8, "bazaar": 900},
+		"nightbloom": {"name": "Nightbloom", "a": Color(0.18, 0.06, 0.24), "b": Color(1.0, 0.55, 0.85), "pat": 3, "bazaar": 900},
 	},
 	"head": {
 		"storm_halo": {"name": "Storm Halo", "hat": true, "extras": ["storm_halo"], "feat": "bossbreaker"},
@@ -218,6 +223,10 @@ const EXTRA := {
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
 		# with a gold corona, blood-red shots.
 		"blood_eclipse": {"name": "Blood Eclipse", "ring": Color(0.55, 0.02, 0.08), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.3, 0.26), "event": "blood_moon", "hunt": true},
+		"candle": {"name": "Candlelight", "ring": Color(1.0, 0.86, 0.55), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
+		"sulfur": {"name": "Sulfur", "ring": Color(1.0, 0.95, 0.2), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
+		"spectral": {"name": "Spectral", "ring": Color(0.45, 1.0, 0.85), "ring2": Color(0.9, 1.0, 1.0), "bolt": Color(0.75, 1.0, 0.95), "bazaar": 600},
+		"sapphire": {"name": "Sapphire", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(0.6, 0.85, 1.0), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
 	},
 	"aura": {
 		"quickstep": {"name": "Quickstep", "ink": Color(1.0, 0.9, 0.3), "spark": Color(1.0, 0.95, 0.6), "motif": "quick", "feat": "rusher"},
@@ -231,6 +240,8 @@ const EXTRA := {
 		# The set's crown jewel: a blood-red outline pulsing to gold, a swarm of little bats
 		# circling the hero, and a blood moon on the floor under them.
 		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.18, 0.14), "ink2": Color(1.0, 0.72, 0.3), "spark": Color(1.0, 0.3, 0.22), "motif": "bats", "shine": true, "event": "blood_moon"},
+		"wisp": {"name": "Will-o'-Wisp", "ink": Color(0.35, 0.75, 1.0), "ink2": Color(0.6, 1.0, 0.95), "spark": Color(0.6, 0.9, 1.0), "motif": "fireflies", "bazaar": 1500},
+		"golden_souls": {"name": "Golden Souls", "ink": Color(1.0, 0.82, 0.35), "spark": Color(1.0, 0.9, 0.55), "motif": "souls", "bazaar": 1500},
 	},
 }
 ## Each hero's own head (hidden under a Skull Helm).
@@ -314,6 +325,8 @@ static func items(id: String) -> Array:
 				it.feat = e.feat
 			elif e.has("event"):
 				it.event = e.event
+			elif e.has("bazaar"):
+				it.bazaar = int(e.bazaar)
 			else:
 				it.drop = int(e.drop)
 			out.append(it)
@@ -324,7 +337,12 @@ static func items(id: String) -> Array:
 
 ## A Mastery look (not a Crypt King, Feat or Bone Drop look).
 static func is_mastery(it: Dictionary) -> bool:
-	return it.key != "" and not it.get("pass", false) and not it.has("feat") and not it.has("drop") and not it.has("event")
+	return it.key != "" and not it.get("pass", false) and not is_special(it)
+
+
+## A Feat, Bone Drop, event or Bone Bazaar look: won or bought, not a Mastery level.
+static func is_special(it: Dictionary) -> bool:
+	return it.has("feat") or it.has("drop") or it.has("event") or it.has("bazaar")
 
 
 ## The slots the Crypt King set fills, and each look's key ("crypt", "crypt_crown"...).
@@ -350,6 +368,8 @@ static func has_look(cfg: ConfigFile, id: String, slot: String, key: String) -> 
 		return Feats.done(cfg, e.feat)
 	if e.has("drop"):
 		return Drops.has_look(cfg, slot, key)
+	if e.has("bazaar"):
+		return Bazaar.owns(cfg, slot, key)
 	if e.has("event"):
 		return Events.has_look(cfg, slot, key)
 	return item_level(id, slot, key) <= HeroMastery.level(cfg, id)
@@ -463,7 +483,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		d.bolt_color = glow.bolt
 		# Feat, Bone Drop and Pass glows shine brighter and wider on the hero's edges, so the
 		# player can see what they won (version 119: the Eclipse reveal showed a faint rim).
-		if glow.has("feat") or glow.has("drop") or glow.has("event") or is_pass(p.get("glow", "")):
+		if is_special(glow) or is_pass(p.get("glow", "")):
 			d.rim_strong = true
 		if glow.has("ring2"):
 			# A Legend road glow shimmers between two colours; a little stronger than a plain

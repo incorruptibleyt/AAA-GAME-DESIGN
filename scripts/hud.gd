@@ -15,6 +15,9 @@ signal pause_pressed
 signal play_pressed
 signal armory_pressed
 signal armory_buy(id: String)
+## Version 152: a look on the Bone Bazaar tab was tapped (its preview), or bought there.
+signal bazaar_look(slot: String, key: String)
+signal bazaar_buy(slot: String, key: String)
 signal heroes_pressed
 signal records_pressed
 signal drops_pressed
@@ -75,6 +78,7 @@ signal event_closed
 const FLICK_TIME := 0.22
 const FLICK_DISTANCE := 70.0   # 45 before version 140: a small step often dashed
 
+const BAZAAR_AMBER := Color(1.0, 0.62, 0.3)   # the Bone Bazaar (version 152)
 const GOLD := Color(1.0, 0.8, 0.3)
 ## The chunky cartoon font for titles, buttons and big numbers (fonts/OFL-LilitaOne.txt).
 const UI_FONT := preload("res://fonts/LilitaOne-Regular.ttf")
@@ -108,6 +112,8 @@ var _hp_shown := Vector2i(-1, -1)
 var _hp_fill: Control
 var _hp_label: Label
 var _room_label: Label
+var _heroic_crest: Label   # version 152: a gold HEROIC under the pause button while Heroic is on
+var _title_play_badge: Label   # HEROIC on PLAY while it's switched on
 var _boss_box: Control
 var _boss_fill: Control
 var _banner: Label
@@ -177,6 +183,7 @@ var _shop_sub: Label
 var _armory_tabs: Control
 var _tab_buttons := {}
 var _armory_tab := "upgrades"
+var _bazaar_tab_badge: Label
 var _shop_rows: Array = []
 var _shop_coins := 0
 var _title_hero: Label
@@ -285,6 +292,7 @@ var _road: RoadScreen
 var _mode_daily_text: Label
 var _mode_daily_tag: Label
 var _mode_curses_tag: Label
+var _mode_curses_line: Label
 var _modes_tutorial: Button
 var _heroes_box: HeroScreen
 var _end_offer: Control
@@ -378,6 +386,7 @@ func _ready() -> void:
 	add_child(_drops)
 	_drops.closed.connect(func(): drops_closed.emit())
 	_drops.wear.connect(func(id: String, slot: String, key: String): found_wear.emit(id, slot, key))
+	_drops.buy_look.connect(func(slot: String, key: String): bazaar_buy.emit(slot, key))
 	_road = RoadScreen.new()
 	add_child(_road)
 	_road.claim.connect(func(i: int): road_claim.emit(i))
@@ -840,6 +849,18 @@ func _build_hud() -> void:
 	_shard_label.pivot_offset = Vector2(0, 16)
 	_shard_box.add_child(_shard_label)
 
+	_heroic_crest = label("HEROIC", 16, GOLD, HORIZONTAL_ALIGNMENT_CENTER)
+	chunky(_heroic_crest.label_settings)
+	_heroic_crest.label_settings.outline_size = 5
+	_heroic_crest.label_settings.outline_color = Color(0.25, 0.14, 0.0)
+	_heroic_crest.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_heroic_crest.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_heroic_crest.offset_left = -92
+	_heroic_crest.offset_right = 0
+	_heroic_crest.offset_top = 72
+	_heroic_crest.offset_bottom = 94
+	_heroic_crest.visible = false
+	root.add_child(_heroic_crest)
 	_room_label = label("", 22, Color(1, 0.95, 0.85), HORIZONTAL_ALIGNMENT_RIGHT)
 	chunky(_room_label.label_settings)
 	_room_label.label_settings.outline_size = 6
@@ -1579,6 +1600,9 @@ func _build_title() -> void:
 	play.custom_minimum_size = Vector2(300, 92)
 	play.pressed.connect(func(): _guarded(play, play_pressed))
 	_title_play = play
+	_title_play_badge = _badge_pill("HEROIC")
+	_title_play_badge.offset_left = -84
+	play.add_child(_title_play_badge)
 	col.add_child(_centered(play))
 	var heroes := button("HEROES", 26)
 	heroes.custom_minimum_size = Vector2(222, 74)
@@ -1683,7 +1707,7 @@ func _build_modes() -> void:
 	_mode_daily_tag = daily[2]
 	var curses := _mode_card("curses", "CURSES", Color(0.95, 0.35, 0.4), func(): curses_pressed.emit())
 	col.add_child(curses[0])
-	(curses[1] as Label).text = "Turn on curses for harder runs, more score\nand rewards for your hero."
+	_mode_curses_line = curses[1]
 	_mode_curses_tag = curses[2]
 	_modes_tutorial = button("Tutorial run", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_modes_tutorial.custom_minimum_size = Vector2(260, 62)
@@ -1758,7 +1782,9 @@ func show_modes(v: bool) -> void:
 	_mode_daily_text.text = "%s: %s.\nThe same crypt for everyone, once a day." % [theme.name, theme.text]
 	_mode_daily_tag.text = "PLAYED" if Curses.official_used(cfg) else "READY"
 	var level := Curses.level_of(Curses.chosen(cfg, owned))
-	_mode_curses_tag.text = "LEVEL %d" % level if level > 0 else "OFF"
+	_mode_curses_tag.text = "NEW" if Game.heroic_new() else ("LEVEL %d" % level if level > 0 else "OFF")
+	_mode_curses_line.text = ("HEROIC is open, free: tougher skeletons,\n+50% coins. Curses add more." if Curses.unlocked("heroic", cfg)
+			else "Turn on curses for harder runs, more score\nand rewards for your hero.")
 
 
 ## RECORDS on the title: lifetime bests and totals (rows of [name, value] from game.gd).
@@ -2236,17 +2262,23 @@ func _build_armory() -> void:
 	_shop_sub = label("Upgrades bought here last forever.", 18, Color(0.8, 0.8, 0.85))
 	col.add_child(_shop_sub)
 	var tabs := []
-	for tab in [["upgrades", "UPGRADES"], ["vault", "VAULT"]]:
+	for tab in [["upgrades", "UPGRADES"], ["vault", "VAULT"], ["bazaar", "BAZAAR"]]:
 		var tb := button(tab[1], 20)
-		tb.custom_minimum_size = Vector2(200, 64)
+		tb.custom_minimum_size = Vector2(148, 64)
 		var id: String = tab[0]
 		tb.pressed.connect(func():
 			Sfx.play("click")
 			_armory_tab = id
 			_fill_shop(_shop_rows, _shop_coins))
 		_tab_buttons[id] = tb
+		if id == "bazaar":
+			_bazaar_tab_badge = _badge_pill("NEW")
+			_bazaar_tab_badge.offset_left = -52
+			tb.add_child(_bazaar_tab_badge)
 		tabs.append(tb)
 	_armory_tabs = _pair(tabs[0], tabs[1])
+	_armory_tabs.add_theme_constant_override("separation", 10)
+	_armory_tabs.add_child(tabs[2])
 	col.add_child(_armory_tabs)
 	_armory_coins = coin_row(30, col, true)
 	_armory_rows = VBoxContainer.new()
@@ -3005,6 +3037,9 @@ func _see_through(delta: float) -> void:
 
 func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
 	_room_label.text = "Boss" if boss else "Room %d / %d" % [index, total]
+	var heroic := Game.curses.has("heroic")
+	_heroic_crest.visible = heroic
+	_room_label.label_settings.font_color = Color(1.0, 0.86, 0.5) if heroic else Color(1, 0.95, 0.85)
 	if floor_num > 1:
 		_room_label.text = "F%d · %s" % [floor_num, _room_label.text]
 	_boss_box.visible = boss
@@ -3406,11 +3441,16 @@ func refresh_looks_badge() -> void:
 ## floor 1 again and again. The ARMORY buttons wear a gold UPGRADE tag whenever something in
 ## the Armory or the Vault is affordable.
 func refresh_armory_badge() -> void:
-	var on := Game.armory_ready()
-	if _title_armory_badge:
-		_title_armory_badge.visible = on
-	if _end_armory_badge:
-		_end_armory_badge.visible = on
+	var up := Game.armory_ready()
+	# Version 152: with nothing to upgrade, the day's new Bazaar looks get the pill instead.
+	var cfg := Game._load_save()
+	var fresh := not up and Game.f1_clears(cfg) >= Game.NEWCOMER_CLEARS and Bazaar.unseen(cfg)
+	for pill: Label in [_title_armory_badge, _end_armory_badge]:
+		if pill:
+			pill.visible = up or fresh
+			pill.text = "UPGRADE" if up else "NEW LOOKS"
+	if _bazaar_tab_badge:
+		_bazaar_tab_badge.visible = Bazaar.unseen(cfg)
 
 
 var _rewards_box: ColorRect
@@ -3579,7 +3619,9 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		var ni := BoneRoad.next_index(cfg)
 		_title_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
 				BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
-	_title_modes_badge.visible = not Curses.official_used(Game._load_save())
+	var heroic_new := Game.heroic_new()
+	_title_modes_badge.text = "HEROIC!" if heroic_new else "DAILY READY"
+	_title_modes_badge.visible = heroic_new or not Curses.official_used(Game._load_save())
 	refresh_looks_badge()
 	_title_lock.visible = locked
 	if not v:
@@ -3614,6 +3656,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_continue_where.text = where
 	_title_spacer.visible = not _title_continue.visible
 	_title_play.text = "NEW RUN" if _title_continue.visible else "PLAY"
+	_title_play_badge.visible = v and not locked and Game.heroic_on()
 	_title_play.add_theme_font_size_override("font_size", 32 if _title_continue.visible else 38)
 	_title_play.remove_meta("armed")
 
@@ -3777,17 +3820,93 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	_shop_rows = rows
 	_shop_coins = coins
 	var vault := _armory_tab == "vault"
-	_shop_sub.text = "New blessings. Buy one once and it can\nturn up in all your runs." if vault else "Upgrades bought here last forever."
+	var bazaar := _armory_tab == "bazaar"
+	_shop_title.text = "BONE BAZAAR" if bazaar else "ARMORY"
+	_shop_title.label_settings.font_color = BAZAAR_AMBER if bazaar else Color(1, 0.85, 0.55)
+	_shop_sub.text = ("Three looks a day. Buy once, every hero can wear it.\n%s" % Bazaar.refresh_text()) if bazaar \
+			else ("New blessings. Buy one once and it can\nturn up in all your runs." if vault else "Upgrades bought here last forever.")
+	if bazaar:
+		var cfg := Game._load_save()
+		if Bazaar.unseen(cfg):
+			Bazaar.mark_seen(cfg)
+			Game.write_save(cfg)
+	refresh_armory_badge()
 	_armory_tabs.visible = true
 	for id: String in _tab_buttons:
 		paint(_tab_buttons[id], "gold" if id == _armory_tab else "slate")
 	_armory_coins.get_parent().visible = true
-	_armory_coins.text = str(coins)
+	_armory_coins.text = thousands(coins)
 	for c in _armory_rows.get_children():
 		c.queue_free()
+	var shown := 0
 	for r: Dictionary in rows:
-		if r.has("vault") == vault:
+		if bazaar and r.has("look"):
+			_armory_rows.add_child(_bazaar_row(r, coins))
+			shown += 1
+		elif not bazaar and not r.has("look") and r.has("vault") == vault:
 			_armory_rows.add_child(_armory_row(r, coins))
+	if bazaar and shown == 0:
+		_armory_rows.add_child(label("Every look is yours!\nNew ones may come in later updates.", 20, Color(0.8, 0.8, 0.85)))
+	elif bazaar:
+		_armory_rows.add_child(label("Feat looks are never sold: win them in runs.", 15, Color(0.62, 0.6, 0.66)))
+
+
+## A Bone Bazaar look: its picture, name and kind, and its price (or OWNED). A tap shows the
+## hero wearing it, with BUY (drop_screen.gd show_offer).
+func _bazaar_row(r: Dictionary, coins: int) -> Button:
+	var owned: bool = r.cost < 0
+	var afford: bool = not owned and r.cost <= coins
+	var amber := BAZAAR_AMBER
+	var b := button("", 20, Color(0.16, 0.1, 0.06, 0.98) if not owned else Color(0.1, 0.09, 0.12, 0.98), amber if afford else Color(0.5, 0.4, 0.32, 0.7))
+	b.custom_minimum_size = Vector2(0, 150)
+	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(3 if afford else 2)
+	var look: Array = r.look
+	b.pressed.connect(func(): bazaar_look.emit(str(look[0]), str(look[1])))
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 12)
+	full(m)
+	b.add_child(m)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 12)
+	m.add_child(h)
+	var sw := StyleScreen.Swatch.new()
+	sw.custom_minimum_size = Vector2(116, 116)
+	sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sw.setup(str(r.hero), str(look[0]), str(look[1]), r.base)
+	h.add_child(sw)
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.add_theme_constant_override("separation", 0)
+	h.add_child(texts)
+	var t := label(r.title, 26, amber.lightened(0.35) if not owned else Color(0.7, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(t)
+	var d := label(r.text, 16, Color(0.82, 0.8, 0.86), HORIZONTAL_ALIGNMENT_LEFT)
+	d.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(d)
+	if r.has("from"):
+		var f := label(r.from, 15, r.from_color, HORIZONTAL_ALIGNMENT_LEFT)
+		f.autowrap_mode = TextServer.AUTOWRAP_OFF
+		texts.add_child(f)
+	texts.add_child(label("Tap to try it on" if not owned else "Tap to wear it", 15, Color(0.62, 0.6, 0.66), HORIZONTAL_ALIGNMENT_LEFT))
+	if owned:
+		var tag := label("OWNED", 22, Color(0.6, 1, 0.6))
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		h.add_child(tag)
+	else:
+		var price := HBoxContainer.new()
+		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		h.add_child(price)
+		var cost_label := coin_row(28, price)
+		cost_label.text = thousands(int(r.cost))
+		if not afford:
+			cost_label.label_settings.font_color = Color(0.6, 0.55, 0.5)
+	return b
 
 
 func _curse_row(r: Dictionary) -> Button:
@@ -3796,9 +3915,9 @@ func _curse_row(r: Dictionary) -> Button:
 	var red := GOLD if r.get("gold", false) else Color(0.95, 0.35, 0.4)
 	var on_bg := Color(0.2, 0.15, 0.04, 0.98) if r.get("gold", false) else Color(0.2, 0.06, 0.09, 0.98)
 	var b := button("", 20, on_bg if on else Color(0.12, 0.1, 0.16, 0.98), red if on else Color(0.4, 0.35, 0.45, 0.6))
-	b.custom_minimum_size = Vector2(0, 64)
-	if on:
-		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4)
+	b.custom_minimum_size = Vector2(0, 80 if r.get("gold", false) else 64)
+	if on or r.get("gold", false):
+		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4 if on else 2)
 	b.pressed.connect(func(): curse_toggled.emit(r.id))
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3815,7 +3934,7 @@ func _curse_row(r: Dictionary) -> Button:
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	texts.add_theme_constant_override("separation", 0)
 	h.add_child(texts)
-	var t := label("%s   Lv %d" % [r.title, r.level], 20, red.lightened(0.3) if on else (Color(0.6, 0.58, 0.62) if locked else Color.WHITE), HORIZONTAL_ALIGNMENT_LEFT)
+	var t := label("%s   Lv %d%s" % [r.title, r.level, "  ·  FREE" if r.get("gold", false) and not locked else ""], 22 if r.get("gold", false) else 20, red.lightened(0.3) if on else (Color(0.6, 0.58, 0.62) if locked else Color.WHITE), HORIZONTAL_ALIGNMENT_LEFT)
 	t.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(t)
 	var d := label(r.text, 15, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
@@ -4004,6 +4123,15 @@ func mastery_trained(cfg: ConfigFile, id: String, before: int, coins: int, level
 ## The big reveal for Feats won this run (drop_screen.gd reveal_feats).
 func reveal_feats(list: Array) -> void:
 	_drops.reveal_feats(list)
+
+
+## The Bone Bazaar's preview of a look (drop_screen.gd show_offer), and after buying it.
+func show_offer(o: Dictionary) -> void:
+	_drops.show_offer(o)
+
+
+func offer_bought(coins_left: int) -> void:
+	_drops.offer_bought(coins_left)
 
 
 func open_feats(cfg: ConfigFile, id: String) -> void:

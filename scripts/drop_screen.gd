@@ -31,6 +31,9 @@ var _feat_queue: Array = []
 var _feat_mode := false
 ## Wear a found look: (hero id, slot, key).
 signal wear(id: String, slot: String, key: String)
+## The Bone Bazaar (version 152): a look on show to buy, with BUY in place of WEAR IT.
+signal buy_look(slot: String, key: String)
+var _offer := {}
 var _head: Label
 var _count: Label
 var _rarity: Label
@@ -45,6 +48,7 @@ var _odds_grid: GridContainer
 var _odds_dim: ColorRect   # darkens the chest and its text behind the odds (version 119)
 ## Moon Caskets (events.gd, version 134) open here too, with the event's name and colours.
 var casket := false
+const BAZAAR := Color(1.0, 0.62, 0.3)
 
 
 func _init() -> void:
@@ -216,6 +220,7 @@ func _init() -> void:
 ## Shows the screen with `waiting` drops to open.
 func open_screen(waiting: int, is_casket := false) -> void:
 	casket = is_casket
+	_offer = {}
 	_feat_mode = false
 	_feat_queue.clear()
 	_left = waiting
@@ -234,6 +239,7 @@ func close() -> void:
 	_show_look(false)
 	_feat_mode = false
 	_feat_queue.clear()
+	_offer = {}
 	visible = false
 	closed.emit()
 
@@ -241,6 +247,9 @@ func close() -> void:
 func _on_wear() -> void:
 	var look: Array = _result.get("look", [])
 	if look.size() < 2:
+		return
+	if not _offer.is_empty() and not _offer.get("owned", false):
+		buy_look.emit(str(look[0]), str(look[1]))
 		return
 	wear.emit(str(_result.get("hero", "")), str(look[0]), str(look[1]))
 	_wear.text = "WEARING!"
@@ -253,10 +262,66 @@ func _on_wear() -> void:
 func reveal_feats(list: Array) -> void:
 	if list.is_empty():
 		return
+	_offer = {}
 	_feat_queue = list.duplicate()
 	_feat_mode = true
 	visible = true
 	_next_feat()
+
+
+## The Bone Bazaar's look on show: the hero wearing it, its name and price, BUY and BACK.
+## o: {name, kind, look, hero, preview, price, owned, afford}
+func show_offer(o: Dictionary) -> void:
+	_offer = o
+	_feat_mode = false
+	_feat_queue.clear()
+	visible = true
+	_result = {"kind": "look", "look": o.look, "hero": o.hero, "preview": o.preview, "tier": 3, "color": BAZAAR}
+	_step = Step.OPEN
+	_t = 0.0
+	_flash = 0.0
+	_pop = 0.0
+	_set_purse(Game.coins)
+	_head.text = "BONE BAZAAR"
+	_head.label_settings.font_color = BAZAAR
+	_count.text = "%s  ·  every hero can wear it" % str(o.kind)
+	_pity.text = ""
+	_rarity.text = str(o.name).to_upper()
+	_rarity.label_settings.font_color = BAZAAR.lightened(0.3)
+	_prize.label_settings.font_size = 22
+	_show_look(true)
+	_wear.visible = true
+	_offer_buttons()
+	_action.text = "BACK"
+	_show_later(false)
+	_odds_btn.visible = false
+	Sfx.play("click")
+
+
+func _offer_buttons() -> void:
+	var owned: bool = _offer.get("owned", false)
+	var afford: bool = _offer.get("afford", false)
+	_wear.disabled = not owned and not afford
+	_wear.text = "WEAR IT" if owned else ("BUY  %s" % Hud.thousands(int(_offer.price)))
+	_prize.text = "Yours! Wear it any time on the Style screen." if owned else \
+			("Buy it once, keep it for good." if afford else "You need %s more coins." % Hud.thousands(int(_offer.price) - Game.coins))
+	_prize.label_settings.font_color = Color(0.7, 1, 0.7) if owned else (Color(0.9, 0.88, 0.95) if afford else Color(0.75, 0.7, 0.68))
+
+
+## Bought: coins fly out of the purse, and BUY turns into WEAR IT.
+func offer_bought(coins_left: int) -> void:
+	_offer.owned = true
+	_set_purse(coins_left)
+	_offer_buttons()
+	_head.text = "YOURS!"
+	_flash = 0.8
+	_pop = 1.0
+	_white_flash(0.4)
+	if _offer.look.size() >= 2:
+		_look.reveal(str(_offer.look[0]))
+	Sfx.play("victory", 0.8)
+	if Game.vibration:
+		Input.vibrate_handheld(60)
 
 
 func _next_feat() -> void:
@@ -408,6 +473,9 @@ func _tap() -> void:
 		Step.OPEN:
 			if _t < 0.35:
 				return   # a quick double tap shouldn't open the next one by mistake
+			if not _offer.is_empty():
+				close()
+				return
 			if _feat_mode:
 				if not _feat_queue.is_empty():
 					_next_feat()
