@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13f"
+const BUILD := "2026-11-13g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -253,6 +253,20 @@ var _pick_better := false
 ## rerolls), elites and waves; in other runs they're random (_pick_rng null).
 var _pick_rng: RandomNumberGenerator
 var _room_rng := RandomNumberGenerator.new()
+
+
+## The Crypt Race (race.gd, version 153): `race` is on in a race; _race is the race itself
+## (the rival, the clock, surges, the result). The clock (Race.Clock) runs on real time from
+## GO (_race_live) to the finish, also over the blessing cards and the pause menu.
+var race := false
+var _race_requested := false
+var _race: Race.Match
+var _race_clock: Race.Clock
+var _race_live := false
+var _race_kills_room := 0
+var _race_goal := 1
+var _race_room_t := 0.0
+var _race_note := ""
 
 
 ## How many times Omen `id` has been taken this run.
@@ -422,6 +436,15 @@ func _ready() -> void:
 			_daily_requested = true
 			_on_play_pressed())
 	hud.event_pressed.connect(_open_event)
+	hud.race_pressed.connect(_open_race)
+	hud.race_find.connect(_race_find)
+	hud.race_go.connect(_race_go)
+	hud.race_again.connect(_race_again)
+	hud.race_claim.connect(_claim_race_road)
+	hud.race_to_title.connect(_race_to_title)
+	_race_clock = Race.Clock.new()
+	_race_clock.on_tick = _race_tick
+	add_child(_race_clock)
 	hud.event_run.connect(func(): start_event("run"))
 	hud.event_hunt.connect(func(t: int): start_event("hunt", t))
 	hud.event_claim.connect(_claim_event_road)
@@ -472,6 +495,12 @@ func _ready() -> void:
 			cfg.set_value("stats", "coins", coins)
 		for l: Dictionary in g.levels:
 			print("[mastery] %s level %d (on launch): %s" % [h.id, l.level, HeroMastery.level_text(l.level, h.id)])
+	# A Crypt Race left by closing the game counts as a loss (so leaving can't dodge one).
+	var left := Race.settle_left(cfg)
+	if not left.is_empty():
+		_race_note = "Your last Crypt Race was left before the end, so it counted as a loss%s." % \
+			(" (%d trophies)" % int(left.delta) if int(left.delta) < 0 else "")
+		print("[race] left race settled as a loss: %s" % left)
 	write_save(cfg)
 	_set_music(bool(cfg.get_value("settings", "music", true)), false)
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
@@ -739,6 +768,8 @@ func _notification(what: int) -> void:
 			return
 		if hud.feedback_visible():
 			hud.show_feedback(false)
+			return
+		if hud.race_screen.back_pressed():
 			return
 		if hud.leaders_visible():
 			hud.close_leaders()
@@ -1363,8 +1394,10 @@ func _build_run() -> void:
 	if floor_num <= 1:
 		_seen_rooms.clear()
 	# The Daily Crypt picks the same rooms for everyone that day.
-	var rng := Curses.daily_rng(100 + floor_num, _daily_date) if daily else null
+	var rng := Curses.daily_rng(100 + floor_num, _daily_date) if daily or race else null
 	var piles := [[Layouts.EASY, EASY_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, HARD_ROOMS]]
+	if race:
+		piles = [[Layouts.EASY, Race.ROOMS[0]], [Layouts.MEDIUM, Race.ROOMS[1]], [Layouts.HARD, Race.ROOMS[2]]]
 	if first_run:
 		piles = [[Layouts.EASY, EASY_ROOMS + HARD_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, 0]]   # no hard room in the tutorial
 	for p in piles.size():
@@ -1452,6 +1485,8 @@ func _in_boss_room() -> bool:
 
 
 func _on_screen_tapped() -> void:
+	if race and state != State.PAUSED:
+		return   # a race's result has its own buttons
 	match state:
 		State.TITLE:
 			_start_run()
@@ -1481,13 +1516,16 @@ func title_track() -> String:
 
 func _start_run() -> void:
 	Floors.lobby = false
-	var held := RunSave.held()
-	if held > 0:
-		coins += held   # giving up the saved run gives its held-back coins back
-		hud.set_coins(coins)
-		_save_coins()
-	RunSave.clear()   # starting something new gives up a saved run
-	first_run = first_run_pending() or _tutorial_requested
+	race = _race_requested and _race != null and not first_run_pending()
+	_race_requested = false
+	if not race:   # (a Crypt Race leaves a saved run alone: CONTINUE is still there after it)
+		var held := RunSave.held()
+		if held > 0:
+			coins += held   # giving up the saved run gives its held-back coins back
+			hud.set_coins(coins)
+			_save_coins()
+		RunSave.clear()   # starting something new gives up a saved run
+	first_run = (first_run_pending() or _tutorial_requested) and not race
 	_tutorial_requested = false
 	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run
 	_daily_requested = false
@@ -1496,12 +1534,15 @@ func _start_run() -> void:
 	event_tier = clampi(_event_tier_requested, 1, Events.TIERS.size())
 	_event_requested = ""
 	_event_done = false
-	if event != "":
+	if event != "" or race:
 		daily = false
+	if race:
+		event = ""
+		_daily_date = _race.date   # the race's seed: the same rooms, cards and doors for both
 	_run_hero_id = ""
 	if daily:
 		_begin_daily()
-	elif _trial_hero != "" and not first_run:
+	elif _trial_hero != "" and not first_run and not race:
 		_run_hero_id = _trial_hero
 		var cfg := _load_save()
 		cfg.set_value(TRIAL_SECTION, _trial_hero, true)
@@ -1515,9 +1556,12 @@ func _start_run() -> void:
 	_reset_run_stats()
 	record_add("runs", 1)
 	_check_newcomer()
+	if race:
+		_newcomer = false   # the same crypt for both racers: no floor-1 help
+		_struggling = false
 	_pick_curses()
-	if daily or event != "":
-		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room
+	if daily or event != "" or race:
+		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt
 	_use_run_hero()
 	_apply_armory()
 	_go_to_room(0)
@@ -1566,7 +1610,7 @@ func _swap_hero(id: String, again := false) -> bool:
 
 ## Curses chosen on the Curses screen, or the day's rules in the Daily Crypt.
 func _pick_curses() -> void:
-	if first_run or event != "":
+	if first_run or event != "" or race:
 		curses = []
 	elif daily:
 		curses = Curses.daily_rules(_daily_date)
@@ -1581,7 +1625,9 @@ func _update_score_mult() -> void:
 
 
 func _mode_banner() -> void:
-	if event == "run":
+	if race:
+		hud.tip("CRYPT RACE  ·  vs %s\nRace Kit: %s" % [_race.rival.name, Race.kit_text(_race.kit)], 4.0, 0.3)
+	elif event == "run":
 		hud.tip("BLOOD MOON  ·  %s\nKill skeletons during a Moon Surge for bonus shards!" % str(Events.chapter_info().name), 5.0, 1.8)
 	elif event == "hunt":
 		hud.tip("QUEEN HUNT  ·  %s\n%d blessings to start. Bring her down!" % [str(Events.TIERS[event_tier - 1].name), int(Events.TIERS[event_tier - 1].gifts)], 4.5, 1.8)
@@ -1660,6 +1706,9 @@ func run_report(result: String, was_first := false) -> String:
 		var p := HeroStyle.picks(cfg, hero.hero_id)
 		var worn := HeroStyle.SLOTS.map(func(slot: String) -> String: return str(p[slot]) if p[slot] != "" else "-")
 		lines.append("Look %s (outfit/head/weapon/glow/aura)" % "/".join(worn))
+	if race and _race:
+		lines.append("Mode: Crypt Race vs %s (bot, %s) | trophies %d | kit %s | t %.1f s | rival at %.2f | surges sent %d got %d | falls %d (rival %d)" % [
+			_race.rival.name, _race.rival.skill, _race.trophies, Race.kit_text(_race.kit), _race.t, _race.them(), _race.sent, _race.got, _race.falls, _race.rival.falls])
 	if daily or not curses.is_empty():
 		lines.append("Mode: %s | %s: %s (Curse Level %d, score x%s)" % ["Daily Crypt #%d %s%s" % [Curses.day_number(_daily_date), _daily_date, " practice" if _daily_practice else ""] if daily else "Normal",
 			"Rules" if daily else "Curses", Curses.names(curses) if curses else "none", Curses.level_of(curses), _mult_text(_score_mult)])
@@ -1756,6 +1805,15 @@ func _reset_run_stats() -> void:
 ## Gives the hero everything bought in the Armory. Called once at the start of each run.
 func _apply_armory() -> void:
 	var cfg := _load_save()
+	if race:
+		# The Crypt Race leaves the Armory, the Vault and Lucky Starts at home: both racers start
+		# the same, with the race's two-blessing Race Kit.
+		vault = []
+		heart_bonus = 0.0
+		for id: String in _race.kit:
+			_taken[id] = _taken.get(id, 0) + 1
+			Upgrades.apply(id, hero)
+		return
 	vault = Armory.vault_owned(cfg)
 	Armory.apply_to_hero(cfg, hero)
 	heart_bonus = Armory.heart_bonus(cfg)
@@ -1864,6 +1922,11 @@ func _quit_to_title() -> void:
 		return
 	hud.show_pause(false)
 	get_tree().paused = false
+	if race:
+		_race_end(false, true)   # leaving a race is a loss
+		_back_to_title(true)
+		hud.tip("You left the Crypt Race: it counted as a loss.", 4.0, 1.0)
+		return
 	Telemetry.instance.send("run", run_report("Quit on floor %d, room %d" % [floor_num, _room_index + 1]))
 	_back_to_title()   # (its _save_coins keeps the Bone Road bones)
 
@@ -1974,6 +2037,10 @@ func _back_to_title(keep_run := false) -> void:
 	_daily_done = false
 	event = ""
 	_event_done = false
+	race = false
+	_race = null
+	_race_live = false
+	hud.race_bar.visible = false
 	_end_surge()
 	omens.clear()
 	_loop_choice = false
@@ -2124,7 +2191,7 @@ func _go_to_room(index: int) -> void:
 func _load_room(index: int, spawn_enemies: bool) -> void:
 	_room_index = index
 	_room_serial += 1
-	if daily:
+	if daily or race:
 		_room_rng = Curses.daily_rng(700 + floor_num * 10 + index, _daily_date)
 	else:
 		_room_rng.randomize()
@@ -2165,7 +2232,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_room_special = int(_rep.special)
 		if index == 0:
 			_floor_hits = int(_rep.hits)
-	if not _in_boss_room():
+	if not _in_boss_room() and not (race and index == 0):   # (a race's first room has its 3-2-1)
 		hud.banner("Room %d" % (index + 1))
 	# A new run (not the tutorial): the hero says something as they step in (version 129).
 	if index == 0 and _run_time < 1.0 and not first_run:
@@ -2271,6 +2338,11 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_set_state(State.PLAYING)
 	if alive_enemies == 0:
 		room.open_door()
+	if race:
+		# For the race track: about how many skeletons this room holds (later waves bring one more).
+		_race_kills_room = 0
+		_race_room_t = 0.0
+		_race_goal = maxi(1, alive_enemies * _wave_total + _wave_total - 1)
 	_checkpoint()
 	note_spot()
 
@@ -2279,7 +2351,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 ## so it can be continued if the game is closed. Not during the first run or the Queen Hunt.
 ## `loop_end`: saved on the end-of-loop screen, which CONTINUE comes back to.
 func _checkpoint(next_floor := false, loop_end := false) -> void:
-	if first_run or event == "hunt" or hero == null or hero.dead:
+	if first_run or race or event == "hunt" or hero == null or hero.dead:
 		return
 	var h := RunSave.hero_state(hero)
 	if next_floor:
@@ -2542,6 +2614,8 @@ func on_enemy_died(e: Enemy) -> void:
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
+	if race and not e.is_boss:
+		_race_kill(e)
 	if event != "" and not e.is_boss:
 		var in_surge := surge > 0.5
 		var n := (Events.ELITE_SHARDS if e.elite else 0) + (Events.SURGE_SHARDS if in_surge else 0)
@@ -2751,6 +2825,9 @@ func _room_cleared() -> void:
 		if int(_rep.hits) == _room_hits:
 			_feat("untouched")
 	_report_room_done("F%dR%d" % [floor_num, _room_index + 1])
+	if race and _race and not _race.over:
+		_race.legs = _room_index + 1
+		_race.leg_frac = 0.0
 	_add_bones(BoneRoad.ROOM_BONES)
 	_add_shards(Events.ROOM_SHARDS)
 	_add_mastery(HeroMastery.ROOM_POINTS, true)
@@ -2768,7 +2845,7 @@ func _room_cleared() -> void:
 	_pick_family = str(_door.get("family", ""))
 	_pick_better = _door.get("kind", "") == "champion"
 	_door = {}
-	_pick_rng = Curses.daily_rng(500 + floor_num * 10 + _room_index, _daily_date) if daily else null
+	_pick_rng = Curses.daily_rng(500 + floor_num * 10 + _room_index, _daily_date) if daily or race else null
 	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better, _pick_rng)
 	var lv_line := _mastery_callout
 	_mastery_callout = ""
@@ -2819,7 +2896,7 @@ func _door_offer() -> Array:
 	if first_run or _room_index + 1 >= _run.size():
 		return []
 	var rng := RandomNumberGenerator.new()
-	if daily:
+	if daily or race:
 		rng = Curses.daily_rng(300 + floor_num * 10 + _room_index, _daily_date)
 	else:
 		rng.randomize()
@@ -2907,6 +2984,9 @@ func _celebrate() -> void:
 
 
 func _win() -> void:
+	if race:
+		_race_finish_line()
+		return
 	var boss_name := boss.display_name() if is_instance_valid(boss) else "The boss"
 	var where := boss.global_position if is_instance_valid(boss) else hero.global_position
 	_boss_feats()
@@ -3054,6 +3134,9 @@ func _win() -> void:
 
 func on_hero_died() -> void:
 	if state == State.DEAD or state == State.VICTORY:
+		return
+	if race:
+		_race_end(false)   # (a racer is knocked down, not killed: this is only a safety net)
 		return
 	_set_state(State.DEAD)
 	RunSave.clear()
@@ -4453,6 +4536,300 @@ func _toggle_curse(id: String) -> void:
 
 
 ## The Daily Crypt screen: today's theme, hero and rules, and START (or how to get it).
+# ---------------------------------------------------------------- the Crypt Race (race.gd)
+
+## CRYPT RACE on the MODES screen: the race lobby, once floor 1 is won twice.
+func _open_race() -> void:
+	if state != State.TITLE:
+		return
+	var cfg := _load_save()
+	Sfx.play("click")
+	if not Race.unlocked(cfg):
+		hud.tip("The Crypt Race opens after %d floor 1 wins.\nYou have %d so far." % [Race.UNLOCK_CLEARS, mini(f1_clears(cfg), Race.UNLOCK_CLEARS)], 3.5)
+		return
+	hud.race_screen.open_lobby(cfg, _race_note)
+	_race_note = ""
+
+
+## RACE!: a rival is found (a bot, in part A) and the VS card shows.
+func _race_find() -> void:
+	if state != State.TITLE:
+		return
+	_race = Race.new_match(_load_save())
+	print("[race] vs %s (%s, %s) kit %s, rival legs %s, falls at %s" % [_race.rival.name, _race.rival.skill, _race.rival.hero_id,
+		Race.kit_text(_race.kit), _race.rival.ends.map(func(x: float) -> String: return "%.1f" % x), _race.rival.downs])
+	hud.race_screen.start_search(_race)
+
+
+## The VS card is done: into the race crypt, a 3-2-1 countdown, and GO.
+func _race_go() -> void:
+	if state != State.TITLE or _race == null:
+		return
+	hud.race_screen.close()
+	hud.show_modes(false)
+	var cfg := _load_save()
+	Race.mark_running(cfg, true)   # closing the game from here on counts as a loss
+	write_save(cfg)
+	hud.set_fade(1.0)
+	_race_requested = true
+	_start_run()
+	if not race:
+		return
+	_set_state(State.TRANSITION)   # nobody moves until GO
+	hud.race_bar.setup(hero.hero_id, _race.rival.hero_id, _race.rival.name)
+	hud.race_bar.visible = true
+	_race_tick(0.0)
+	await _fade(1.0, 0.0, 0.4)
+	var m := _race
+	for n: String in ["3", "2", "1"]:
+		if _race != m:
+			return
+		hud.callout(n, Color.WHITE)
+		Sfx.play("click", 1.0, 0.8)
+		await get_tree().create_timer(0.7).timeout
+	if _race != m or state != State.TRANSITION:
+		return
+	hud.callout("GO!", RaceScreen.TEAL.lightened(0.3))
+	Sfx.play("door", 1.0)
+	Sfx.play("vo_combo", 0.6)
+	_race_live = true
+	_set_state(State.PLAYING)
+
+
+## Every frame of a race, on real time (Race.Clock): the rival's run, surges, the track.
+func _race_tick(dt: float) -> void:
+	if not race or _race == null or _race.over:
+		return
+	var r := _race.rival
+	if _race_live:
+		_race.t += dt
+		_race_room_t += dt
+		match r.tick(dt):
+			"down":
+				if state == State.PLAYING:
+					hud.banner("%s FELL!" % r.name.to_upper(), RaceScreen.TEAL)
+			"surge":
+				_race_incoming()
+			"boss":
+				if state == State.PLAYING and _race.legs < Race.LEGS - 1:
+					hud.banner("%s REACHED THE BOSS!" % r.name.to_upper(), RaceScreen.RIVAL)
+			"finish":
+				_race_end(false)
+				return
+		if _race.queued > 0 and _race_room_t > 2.0 and _race_can_spawn():
+			_race.queued -= 1
+			_race_spawn()
+	# Where the player is on the track: rooms cleared, and how far through this one.
+	if _race.legs <= _room_index:
+		if _in_boss_room():
+			_race.leg_frac = 1.0 - boss_bar() if not _bosses.is_empty() else 0.0
+		else:
+			_race.leg_frac = float(_race_kills_room) / float(_race_goal)
+	else:
+		_race.leg_frac = 0.0
+	var b := hud.race_bar
+	b.me = _race.me()
+	b.them = r.progress()
+	b.t = _race.t
+	b.surge = _race.surge / Race.SURGE_POINTS
+	b.gap = _race.gap()
+	b.stunned = r.stun > 0.0
+	b.down = r.down > 0.0
+	b.me_down = hero != null and hero.down_left > 0.0
+
+
+## A skeleton killed in a race fills the SURGE meter (an elite 3, double at Chain x2 or more);
+## a full meter stuns the rival.
+func _race_kill(e: Enemy) -> void:
+	_race_kills_room += 1
+	if _race.over:
+		return
+	var pts := 3.0 if e.elite else 1.0
+	if chain >= 2.0:
+		pts *= 2.0
+	_race.surge += pts
+	if _race.surge >= Race.SURGE_POINTS:
+		_race.surge = minf(_race.surge - Race.SURGE_POINTS, Race.SURGE_POINTS * 0.5)
+		_race.sent += 1
+		_race.rival.stun += Race.SURGE_STUN
+		hud.race_bar.sent()
+		hud.callout_at_hero("SURGE!", RaceScreen.TEAL.lightened(0.3))
+		Sfx.play("upgrade", 0.55, 1.3)
+		if hero:
+			Fx.magic(hero.center(), RaceScreen.TEAL, 24)
+
+
+## The rival's surge: skeletons thrown into this room now, or at the next fight.
+func _race_incoming() -> void:
+	_race.got += 1
+	hud.race_bar.got()
+	if _race_can_spawn():
+		_race_spawn()
+	else:
+		_race.queued = mini(_race.queued + 1, 2)
+
+
+func _race_can_spawn() -> bool:
+	return state == State.PLAYING and alive_enemies > 0 and _cleared_serial != _room_serial and Room.current != null \
+		and hero != null and hero.down_left <= 0.0
+
+
+func _race_spawn() -> void:
+	var n := 1 if _in_boss_room() else Race.SURGE_FOES
+	var spots := _wave_spots(n)
+	hud.banner("%s SENT A SURGE!" % _race.rival.name.to_upper(), RaceScreen.RIVAL)
+	Sfx.play("warn")
+	for p: Vector3 in spots:
+		Fx.dust(p, 14)
+		Fx.magic(p + Vector3.UP * 0.5, RaceScreen.RIVAL, 16)
+	var serial := _room_serial
+	await get_tree().create_timer(0.6, false).timeout
+	if not race or _race == null or _race.over or state != State.PLAYING or serial != _room_serial or _cleared_serial == _room_serial:
+		return
+	var kinds := ["m", "a"]
+	for i in spots.size():
+		spawn_enemy(kinds[i % kinds.size()], spots[i])
+		_race_goal += 1
+
+
+## Knocked down (hero.gd _knock_down): the rival keeps going.
+func race_knocked_down() -> void:
+	if _race == null:
+		return
+	_race.falls += 1
+	report_event("knocked_down")
+	hud.callout("KNOCKED DOWN!", RaceScreen.RIVAL)
+	hud.banner("Up in %d seconds..." % int(Race.DOWN_TIME), Color(1, 0.8, 0.75))
+
+
+func race_down_tick(left: int) -> void:
+	if race and _race and not _race.over:
+		hud.banner("Up in %d..." % left, Color(1, 0.8, 0.75))
+
+
+func race_got_up() -> void:
+	if race and _race and not _race.over:
+		hud.banner("BACK UP! GO!", RaceScreen.TEAL.lightened(0.3))
+
+
+## The boss fell in a race: across the line first.
+func _race_finish_line() -> void:
+	var where := boss.global_position if is_instance_valid(boss) else hero.global_position
+	_race.legs = Race.LEGS
+	_race.leg_frac = 0.0
+	_boss_feats()
+	_report_room_done("Race boss")
+	_set_state(State.VICTORY)
+	finisher(where, 0.2, 1.0, RaceScreen.TEAL)
+	_clear_enemy_attacks()
+	Pickup.collect_all()
+	hud.hide_boss()
+	_race_end(true)
+	Sfx.play("victory")
+	Sfx.play("vo_win", 0.8)
+	await get_tree().create_timer(1.0, true, false, true).timeout
+	_celebrate()
+	await get_tree().create_timer(0.2, true, false, true).timeout
+	Pickup.grant_all()
+	_save_coins()
+
+
+## The race is over: the result is saved, the fight stops, and the result screen follows.
+## `left`: the player left from the pause menu (no result screen; the title follows).
+func _race_end(won: bool, left := false) -> void:
+	if _race == null or _race.over:
+		return
+	var m := _race
+	m.over = true
+	m.won = won
+	_race_live = false
+	_save_coins()
+	var cfg := _load_save()
+	var res := Race.record(cfg, won)
+	coins += int(res.coins)
+	cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	record_add("coins", int(res.coins))
+	hud.set_coins(coins)
+	var r := m.rival
+	var ahead := maxf(0.0, r.ends[Race.LEGS - 1] - r.clock) + r.stun + maxf(0.0, r.down)
+	if won:
+		res.line = "You crossed the line %s ahead of %s!" % ["%.1f s" % ahead if ahead < 10.0 else "%d s" % roundi(ahead), r.name] if ahead >= 0.5 \
+			else "A photo finish! You beat %s by a hair." % r.name
+	else:
+		var close := m.me() >= Race.LEGS - 0.15
+		var where := "fighting the boss" if m.legs >= Race.LEGS - 1 else "in room %d of %d" % [m.legs + 1, Race.LEGS - 1]
+		res.line = ("So close! %s crossed the line first." % r.name) if close else ("%s crossed the line first.\nYou were %s." % [r.name, where])
+		if left:
+			res.line = "You left the race."
+	_last_report = run_report("Crypt Race %s vs %s (%s): %s, trophies %d -> %d" % ["WON" if won else ("LEFT" if left else "LOST"), r.name, r.skill,
+		res.line.replace("\n", " "), int(res.before), int(res.after)])
+	print("[report]\n" + _last_report)
+	Telemetry.instance.send("run", _last_report)
+	print("[race] %s in %.1f s (sent %d, got %d, falls %d; rival falls %d, at %.2f), trophies %d -> %d" % ["won" if won else "lost",
+		m.t, m.sent, m.got, m.falls, r.falls, r.progress(), int(res.before), int(res.after)])
+	if left:
+		return
+	if state == State.UPGRADE:
+		hud.hide_choices()
+	if state == State.PAUSED:
+		hud.show_pause(false)
+	get_tree().paused = false
+	if not won:
+		_set_state(State.DEAD)
+		for a: Actor in Actor.all.duplicate():
+			if a is Enemy and not a.dead:
+				(a as Enemy).crumble()
+		_clear_enemy_attacks()
+		hud.hide_boss()
+		hud.callout("%s WINS" % r.name.to_upper(), RaceScreen.RIVAL)
+		Sfx.play("vo_lose", 0.8)
+	_reveal_feats_soon()
+	await get_tree().create_timer(2.6 if won else 2.0).timeout
+	if _race != m:
+		return
+	hud.race_bar.visible = false
+	hud.race_screen.show_result(res, m)
+
+
+## RACE AGAIN: back to the title, and straight on to the next rival.
+func _race_again() -> void:
+	if not race:
+		return
+	hud.race_screen.close()
+	await _back_to_title(true)
+	if state == State.TITLE:
+		_race_find()
+
+
+func _race_to_title() -> void:
+	if not race:
+		return
+	hud.race_screen.close()
+	_back_to_title(true)
+
+
+func _claim_race_road(i: int) -> void:
+	var cfg := _load_save()
+	var s := Race.claim(cfg, i)
+	if s.is_empty():
+		return
+	if s.kind == "coins":
+		coins += int(s.n)
+		cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	if s.kind == "coins":
+		record_add("coins", s.n)
+	hud.set_coins(coins)
+	Sfx.play("upgrade")
+	Sfx.play("coin", 0.6, 1.2)
+	if s.kind == "look":
+		hud.callout("NEW %s!" % str(HeroStyle.extra(s.slot, s.key).name).to_upper(), RaceScreen.TEAL.lightened(0.3))
+	print("[race] claimed road %d: %s" % [i, Race.road_text(s)])
+	hud.race_screen.open_road(_load_save())
+	hud.set_drops(Drops.waiting(_load_save()))
+
+
 func _open_daily() -> void:
 	if state != State.TITLE:
 		return

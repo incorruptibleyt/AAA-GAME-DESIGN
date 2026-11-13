@@ -1,6 +1,7 @@
 extends SceneTree
 ## Renders the 3D parts of the store art (icon and banner) and the Crypt Pass screen's
-## pictures (tile_floors, tile_heroes, tile_daily, tile_curses) with a transparent background.
+## pictures (tile_floors, tile_heroes, tile_daily, tile_curses, and the MODES screen's tile_race)
+## with a transparent background.
 ## tile_floors shows the Drowned Vault (the floor only the Pass opens) since version 81.
 ## Run under a display:  godot --rendering-driver opengl3 -s tools/store/render_art.gd -- shot=icon out=<file.png>
 
@@ -111,6 +112,18 @@ func _tile(world: Node3D, cam: Camera3D) -> void:
 			_light(world, Vector3(-2.5, 3.5, 3.5), Color(1.0, 0.92, 0.8), 1.4)
 			_light(world, Vector3(0.0, 3.0, -2.5), Color(1.0, 0.75, 0.25), 3.5)
 			_light(world, Vector3(3.0, 2.0, 1.0), Color(1.0, 0.6, 0.2), 1.5)
+		"tile_race":
+			# The Crypt Race (version 153): the Rogue and the Barbarian sprinting neck and neck,
+			# a skeleton bowled over behind them, lit teal (the race's colour) and rival red.
+			var r := _model(world, "Rogue_Hooded", Vector3(1.05, 0.0, 0.5), deg_to_rad(38.0), "Running_A", 0.12)
+			Art.hide_parts(r, ["Knife", "Knife_Offhand", "2H_Crossbow", "Throwable"])
+			var b := _model(world, "Barbarian", Vector3(-0.75, 0.0, -0.35), deg_to_rad(42.0), "Running_A", 0.45)
+			Art.hide_parts(b, ["1H_Axe_Offhand", "Barbarian_Round_Shield", "2H_Axe", "Mug"])
+			_skeleton(world, "Skeleton_Minion", Vector3(-2.35, 0.0, -1.3), 80.0, "Death_A", 0.3, "Skeleton_Axe")
+			cam.look_at_from_position(Vector3(0.2, 1.7, 7.0), Vector3(0.1, 0.95, 0.0))
+			_light(world, Vector3(-2.5, 3.5, 3.5), Color(0.85, 0.95, 1.0), 1.3)
+			_light(world, Vector3(2.5, 2.0, 1.5), Color(0.3, 0.9, 1.0), 3.2)
+			_light(world, Vector3(-3.0, 2.5, -2.5), Color(1.0, 0.35, 0.3), 3.0)
 		"tile_curses":
 			# A skeleton mage casting a curse between its two guards.
 			_skeleton(world, "Skeleton_Mage", Vector3(0.0, 0.0, 0.0), 0.0, "Spellcast_Summon", 0.6, "Skeleton_Staff")

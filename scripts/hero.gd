@@ -36,6 +36,8 @@ var _dash_ring: MeshInstance3D
 var _ring_mat: StandardMaterial3D
 ## From the Armory: survive one killing blow per run.
 var second_wind := false
+## Crypt Race (race.gd): seconds left lying down after a fall. A racer is never out.
+var down_left := 0.0
 ## Blessings that aren't plain numbers.
 var frost := false
 var frost_time := 1.5
@@ -167,7 +169,7 @@ func place_at(pos: Vector3) -> void:
 
 
 func can_be_hit() -> bool:
-	return not dead and _invulnerable <= 0.0 and _dash_left <= 0.0 and _safe_left <= 0.0 and Game.state == Game.State.PLAYING
+	return not dead and down_left <= 0.0 and _invulnerable <= 0.0 and _dash_left <= 0.0 and _safe_left <= 0.0 and Game.state == Game.State.PLAYING
 
 
 func heal(amount: float) -> void:
@@ -192,7 +194,7 @@ func dash_ready() -> bool:
 ## Start a dash along `dir` (on the floor). Does nothing while it's recharging.
 func dash(dir: Vector3) -> void:
 	dir.y = 0.0
-	if dead or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING:
+	if dead or down_left > 0.0 or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING:
 		return
 	if not dash_ready():
 		if _dash_cooldown <= DASH_BUFFER:
@@ -299,7 +301,7 @@ func add_charge(amount: float) -> void:
 
 ## Each hero has one big move, used from the button on the right.
 func use_special() -> void:
-	if dead or not special_ready() or Game.state != Game.State.PLAYING or not Game.special_unlocked():
+	if dead or down_left > 0.0 or not special_ready() or Game.state != Game.State.PLAYING or not Game.special_unlocked():
 		return
 	special_charge = 0.0
 	Game.report_event("special")
@@ -426,6 +428,9 @@ func on_kill() -> void:
 
 func _process(delta: float) -> void:
 	if dead:
+		return
+	if down_left > 0.0:
+		_lie_down(delta)
 		return
 	_update_ward_bubble()
 	_update_dash_ring()
@@ -607,6 +612,9 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		Game.shake(0.4)
 		Game.hud.banner("Second Wind!", Color(1, 0.9, 0.5))
 		return
+	if Game.race and amount * Game.damage_scale() * (1.0 - armor) >= health:
+		_knock_down()
+		return
 	var before := health
 	super.take_damage(amount * Game.damage_scale() * (1.0 - armor), direction, push, crit)
 	Game.report_damage(before - health)
@@ -622,6 +630,52 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	Game.shake(0.35)
 	Game.hit_stop(0.06)
 	_invulnerable = 0.7
+
+
+## Crypt Race: a hit that would end the run knocks the hero down instead. They lie still for
+## Race.DOWN_TIME (the rival keeps going), then get up with Race.GET_UP of their health and
+## a shove that clears the skeletons round them.
+func _knock_down() -> void:
+	health = 0.0
+	down_left = Race.DOWN_TIME
+	_dash_left = 0.0
+	_spin_left = 0.0
+	knockback = Vector3.ZERO
+	visual.set_visible_blink(true)
+	visual.knock_down()
+	Sfx.play("hurt")
+	Sfx.play("vo_lose", 0.6)
+	if Game.vibration:
+		Input.vibrate_handheld(120)
+	Game.shake(0.6)
+	Game.race_knocked_down()
+
+
+func _lie_down(delta: float) -> void:
+	var was := ceili(down_left)
+	down_left -= delta
+	# The getting-up count ticks down on screen: 3, 2, 1.
+	if ceili(down_left) < was and down_left > 0.0:
+		Game.race_down_tick(ceili(down_left))
+	move_by(Vector3.ZERO, delta)
+	# The health bar fills as they get their breath back.
+	health = max_health * Race.GET_UP * clampf(1.0 - down_left / Race.DOWN_TIME, 0.0, 1.0)
+	if down_left > 0.0:
+		return
+	down_left = 0.0
+	health = max_health * Race.GET_UP
+	_invulnerable = 1.6
+	visual.stand_up()
+	Fx.shockwave(global_position, Color(0.4, 0.95, 1.0), 4.0)
+	Fx.magic(center(), Color(0.5, 0.95, 1.0), 30)
+	Sfx.play("upgrade", 0.7)
+	for a: Actor in Actor.all:
+		if a is Enemy and not a.dead and not (a as Enemy).is_boss:
+			var d := a.global_position - global_position
+			d.y = 0.0
+			if d.length() < 4.0:
+				a.knockback += (d.normalized() if d.length() > 0.01 else Vector3.FORWARD) * 10.0
+	Game.race_got_up()
 
 
 ## Grave Aura (a Curse mastery reward): a slow red glow on the floor under the hero.

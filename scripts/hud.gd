@@ -73,6 +73,13 @@ signal event_hunt(tier: int)
 signal event_claim(index: int)
 signal event_caskets
 signal event_closed
+## The Crypt Race (race.gd, version 153).
+signal race_pressed
+signal race_find
+signal race_go
+signal race_again
+signal race_claim(index: int)
+signal race_to_title
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
 const FLICK_TIME := 0.22
@@ -292,6 +299,11 @@ var _road: RoadScreen
 var _mode_daily_text: Label
 var _mode_daily_tag: Label
 var _mode_curses_tag: Label
+var _mode_race_line: Label
+var _mode_race_tag: Label
+## The Crypt Race's screens, and its track on the left of the screen in a race.
+var race_screen: RaceScreen
+var race_bar: RaceScreen.Bar
 var _mode_curses_line: Label
 var _modes_tutorial: Button
 var _heroes_box: HeroScreen
@@ -391,6 +403,14 @@ func _ready() -> void:
 	add_child(_road)
 	_road.claim.connect(func(i: int): road_claim.emit(i))
 	_road.closed.connect(func(): road_closed.emit())
+	race_screen = RaceScreen.new()
+	add_child(race_screen)
+	race_screen.race_pressed.connect(func(): race_find.emit())
+	race_screen.go.connect(func(): race_go.emit())
+	race_screen.again.connect(func(): race_again.emit())
+	race_screen.claim.connect(func(i: int): race_claim.emit(i))
+	race_screen.to_title.connect(func(): race_to_title.emit())
+	race_screen.closed.connect(func(): show_modes(true))
 	_mastery = MasteryScreen.new()
 	add_child(_mastery)
 	_mastery.style.connect(func(id: String): style_pressed.emit(id))
@@ -870,6 +890,10 @@ func _build_hud() -> void:
 	_room_label.offset_top = 12
 	_room_label.offset_bottom = 48
 	root.add_child(_room_label)
+	race_bar = RaceScreen.Bar.new()
+	race_bar.position = Vector2(4, 104)
+	race_bar.visible = false
+	root.add_child(race_bar)
 
 	_wave_label = label("", 20, Color(1, 0.62, 0.45), HORIZONTAL_ALIGNMENT_RIGHT)
 	chunky(_wave_label.label_settings)
@@ -1701,6 +1725,10 @@ func _build_modes() -> void:
 	_modes_box.add_child(col)
 	col.add_child(label("MODES", 46, Color(1, 0.85, 0.55)))
 	col.add_child(label("More ways to run the crypt.", 18, Color(0.8, 0.8, 0.85)))
+	var race := _mode_card("race", "CRYPT RACE", RaceScreen.TEAL, func(): race_pressed.emit())
+	col.add_child(race[0])
+	_mode_race_line = race[1]
+	_mode_race_tag = race[2]
 	var daily := _mode_card("daily", "DAILY CRYPT", GOLD, func(): daily_pressed.emit())
 	col.add_child(daily[0])
 	_mode_daily_text = daily[1]
@@ -1722,7 +1750,7 @@ func _build_modes() -> void:
 ## Returns [button, line, tag].
 func _mode_card(pic: String, title: String, col: Color, on_press: Callable) -> Array:
 	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), Color(col, 0.75))
-	b.custom_minimum_size = Vector2(0, 228)
+	b.custom_minimum_size = Vector2(0, 200)   # 228 before the Crypt Race made it three cards
 	for state in ["normal", "pressed"]:
 		var sb := b.get_theme_stylebox(state) as StyleBoxFlat
 		sb.set_border_width_all(3)
@@ -1739,7 +1767,7 @@ func _mode_card(pic: String, title: String, col: Color, on_press: Callable) -> A
 	m.add_child(v)
 	var img := TextureRect.new()
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	img.custom_minimum_size = Vector2(0, 112)
+	img.custom_minimum_size = Vector2(0, 92)
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	var path := "res://art/ui/pass_%s.png" % pic
@@ -1783,6 +1811,13 @@ func show_modes(v: bool) -> void:
 	_mode_daily_tag.text = "PLAYED" if Curses.official_used(cfg) else "READY"
 	var level := Curses.level_of(Curses.chosen(cfg, owned))
 	_mode_curses_tag.text = "NEW" if Game.heroic_new() else ("LEVEL %d" % level if level > 0 else "OFF")
+	if Race.unlocked(cfg):
+		var t := Race.trophies(cfg)
+		_mode_race_line.text = "Race a rival through the same crypt.\n%s League  ·  %d trophies" % [str(Race.league(t).name).capitalize(), t]
+		_mode_race_tag.text = "NEW" if Race.stat(cfg, "races") == 0 else ("CLAIM!" if Race.road_ready(cfg) > 0 else "RACE!")
+	else:
+		_mode_race_line.text = "Race a rival through the same crypt.\nOpens after %d floor 1 wins." % Race.UNLOCK_CLEARS
+		_mode_race_tag.text = "LOCKED"
 	_mode_curses_line.text = ("HEROIC is open, free: tougher skeletons,\n+50% coins. Curses add more." if Curses.unlocked("heroic", cfg)
 			else "Turn on curses for harder runs, more score\nand rewards for your hero.")
 
@@ -2225,6 +2260,17 @@ func _on_resume_pressed() -> void:
 		resume_pressed.emit()
 
 
+## The blessing cards and doors, put away at once (a Crypt Race ended while they showed).
+func hide_choices() -> void:
+	_cards_box.visible = false
+	_doors_box.visible = false
+
+
+## In a Crypt Race the rival doesn't stop, and leaving counts as a loss.
+func _quit_text() -> String:
+	return "Leave race (a loss)" if Game.race else "Quit run"
+
+
 ## Quitting loses the run, so the first tap only asks; a second tap within 3 s quits.
 func _on_quit_pressed() -> void:
 	if _quit_armed:
@@ -2239,7 +2285,7 @@ func _on_quit_pressed() -> void:
 
 func _disarm_quit() -> void:
 	_quit_armed = false
-	_quit_button.text = "Quit run"
+	_quit_button.text = _quit_text()
 	_quit_button.add_theme_color_override("font_color", Color(1, 0.93, 0.8))
 
 
@@ -2815,7 +2861,7 @@ func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _rem_box.visible or _modes_box.visible or _heroes_box.visible \
 		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible \
-		or _rewards_box.visible or _feats.visible or _event.visible or _splash.visible or _leaders.visible
+		or _rewards_box.visible or _feats.visible or _event.visible or _splash.visible or _leaders.visible or race_screen.visible
 
 
 func _input(event: InputEvent) -> void:
@@ -3620,8 +3666,10 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		_title_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
 				BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
 	var heroic_new := Game.heroic_new()
-	_title_modes_badge.text = "HEROIC!" if heroic_new else "DAILY READY"
-	_title_modes_badge.visible = heroic_new or not Curses.official_used(Game._load_save())
+	var tcfg := Game._load_save()
+	var race_new := Race.unlocked(tcfg) and Race.stat(tcfg, "races") == 0
+	_title_modes_badge.text = "HEROIC!" if heroic_new else ("NEW: RACE" if race_new else "DAILY READY")
+	_title_modes_badge.visible = heroic_new or race_new or not Curses.official_used(tcfg)
 	refresh_looks_badge()
 	_title_lock.visible = locked
 	if not v:
@@ -4489,8 +4537,9 @@ func show_pause(v: bool, settings_only := false) -> void:
 	if v:
 		_hide_phase()
 	_settings_only = v and settings_only
-	_pause_title.text = "SETTINGS" if _settings_only else "PAUSED"
-	_resume_button.text = "BACK" if _settings_only else "RESUME"
+	_pause_title.text = "SETTINGS" if _settings_only else ("RACE ON!" if Game.race else "PAUSED")
+	_resume_button.text = "BACK" if _settings_only else ("BACK TO THE RACE" if Game.race else "RESUME")
+	_quit_button.text = _quit_text()
 	_quit_button.visible = not _settings_only
 	(_speed_button.get_parent() as Control).visible = _settings_only
 	# Darker over the busy title screen than over a paused room.

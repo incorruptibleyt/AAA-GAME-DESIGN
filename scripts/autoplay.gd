@@ -102,6 +102,18 @@ var _force_cards: Array = []
 ## `shards=N caskets=N` fill the event save first.
 var _event_menu := false
 var _event_lobby := false
+## The Crypt Race (race.gd): `race` races (with `runs=N`, N races in a row), `trophies=N` sets
+## the trophies first, `racemenu` takes pictures of the lobby, search, VS card, the race,
+## the result and the Race Road, `raceskill=hard` forces the rival's skill, `racelose` stands
+## still so the rival wins, and `racedown` knocks the hero down once in room 1.
+var _race := false
+var _race_menu := false
+var _race_started := false
+var _race_skill := ""
+var _race_lose := false
+var _race_down := false
+var _race_wins := 0
+var _race_count := 0
 
 
 func _ready() -> void:
@@ -223,6 +235,24 @@ func _ready() -> void:
 			Game.write_save(cfg)
 		elif a == "eventmenu":
 			_event_menu = true
+		elif a == "race" or a == "racemenu":
+			_race = true
+			_race_menu = a == "racemenu"
+			_skip_first_run()
+			var cfg := Game._load_save()
+			cfg.set_value(Game.ASSIST, "f1_clears", maxi(Game.f1_clears(cfg), Race.UNLOCK_CLEARS))
+			Game.write_save(cfg)
+		elif a.begins_with("trophies="):
+			var cfg := Game._load_save()
+			cfg.set_value(Race.SECTION, "trophies", int(a.substr(9)))
+			cfg.set_value(Race.SECTION, "best", maxi(Race.best(cfg), int(a.substr(9))))
+			Game.write_save(cfg)
+		elif a.begins_with("raceskill="):
+			_race_skill = a.substr(10)
+		elif a == "racelose":
+			_race_lose = true
+		elif a == "racedown":
+			_race_down = true
 		elif a.begins_with("doorkind="):
 			_door_kind = a.substr(9)
 		elif a.begins_with("cards="):
@@ -480,6 +510,11 @@ func _process(delta: float) -> void:
 				return
 			if _event_menu:
 				return
+			if _race:
+				if _t > 1.5 and not _race_started:
+					_race_started = true
+					await _race_start()
+				return
 			if _daily_menu and _t > 1.2 and not _shopped:
 				_shopped = true
 				Game._open_daily()
@@ -604,6 +639,32 @@ func _process(delta: float) -> void:
 				else:
 					runs -= 1
 					Game.hud.loop_deeper.emit()
+		Game.State.DEAD, Game.State.VICTORY when Game.race:
+			var rs: RaceScreen = Game.hud.race_screen
+			if rs.visible and rs._result.visible and rs._shown_t > 2.2 and not _answering:
+				_answering = true
+				_race_count += 1
+				if Game._race.won:
+					_race_wins += 1
+				var cfg := Game._load_save()
+				print("[autoplay] RACE %d %s vs %s (%s) in %.1f s: %s | trophies %d (best %d), coins %d, wins %d of %d, road ready %d" % [_race_count,
+					"WON" if Game._race.won else "LOST", Game._race.rival.name, Game._race.rival.skill, Game._race.t, rs._r_sub.text.replace("\n", " "),
+					Race.trophies(cfg), Race.best(cfg), Game.coins, _race_wins, _race_count, Race.road_ready(cfg)])
+				if shots_dir != "":
+					await _shot()
+				if _race_menu:
+					await _race_road_pictures()
+					get_tree().quit()
+					return
+				runs -= 1
+				if runs <= 0:
+					get_tree().quit()
+					return
+				_race_started = true
+				Game._race_again()
+				await get_tree().create_timer(0.5).timeout
+				_force_skill()
+				_answering = false
 		Game.State.DEAD, Game.State.VICTORY:
 			if _end_back and Game._state_time > 2.5:
 				_back_at_end()
@@ -655,7 +716,17 @@ func _process(delta: float) -> void:
 				_loop_menu = false
 				await _shot()
 				get_tree().quit()
+		Game.State.PLAYING when Game.race and _race_lose:
+			pass   # stands still: the rival wins
 		Game.State.PLAYING:
+			if _race_down and Game.race and Game._room_index == 0 and Game._state_time > 3.0:
+				_race_down = false
+				Game.hero.take_damage(1e9, Vector3.ZERO, 0.0)
+				print("[autoplay] race: knocked down on purpose, down_left %.1f, hp %.0f" % [Game.hero.down_left, Game.hero.health])
+				if shots_dir != "":
+					_shot.call_deferred()
+					get_tree().create_timer(2.0).timeout.connect(_shot)
+					get_tree().create_timer(4.6).timeout.connect(_shot)
 			if _kill_at > 0 and Game._room_index == _kill_at - 1 and Game._state_time > 1.0:
 				print("[autoplay] closing the game on floor %d room %d: hp %d/%d score %d coins %d run coins %d" % [Game.floor_num, Game._room_index + 1, Game.hero.health, Game.hero.max_health, Game.score, Game.coins, Game.run_coins])
 				get_tree().quit()
@@ -676,6 +747,61 @@ func _process(delta: float) -> void:
 		for a: Actor in Actor.all:
 			print("   ", a.name, " ", a.get_script().get_global_name(), " pos=", a.global_position, " hp=", a.health, " dead=", a.dead)
 		get_tree().quit(1)
+
+
+## The Crypt Race from the title: MODES, the lobby, RACE!, and (with `racemenu`) pictures
+## of each screen on the way.
+func _race_start() -> void:
+	if _race_menu:
+		Game.hud.show_title(true, Game._best_text(), Game.coins)
+		Game.hud.show_modes(true)
+		await get_tree().create_timer(0.6).timeout
+		await _shot()
+	Game._open_race()
+	await get_tree().create_timer(0.6).timeout
+	print("[autoplay] race lobby: %s / %s / %s" % [Game.hud.race_screen._l_league.text, Game.hud.race_screen._l_trophies.text, Game.hud.race_screen._l_road_line.text])
+	if _race_menu:
+		await _shot()
+	Game.hud.race_screen.race_pressed.emit()
+	await get_tree().process_frame
+	_force_skill()
+	if _race_menu:
+		await get_tree().create_timer(0.7).timeout
+		await _shot()
+		while not Game.hud.race_screen._vs.visible:
+			await get_tree().process_frame
+		await get_tree().create_timer(0.7).timeout
+		await _shot()
+
+
+## `raceskill=`: this race's rival has that skill (planned again).
+func _force_skill() -> void:
+	if _race_skill == "" or Game._race == null:
+		return
+	var r: Race.Rival = Game._race.rival
+	r.skill = _race_skill
+	r.ends.clear()
+	r.downs.clear()
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	r.plan(rng)
+
+
+## `racemenu`: the Race Road after the result, a claim, and the lobby again.
+func _race_road_pictures() -> void:
+	var rs: RaceScreen = Game.hud.race_screen
+	rs._r_road.pressed.emit()
+	await get_tree().create_timer(0.6).timeout
+	await _shot()
+	var cfg := Game._load_save()
+	for i in Race.ROAD.size():
+		if Race.best(cfg) >= int(Race.ROAD[i].at) and not Race.road_claimed(cfg, i):
+			Game._claim_race_road(i)
+			cfg = Game._load_save()
+	await get_tree().create_timer(0.5).timeout
+	await _shot()
+	print("[autoplay] race road claimed up to best %d: coins %d, drops %d, looks photon %s pacesetter %s comet %s" % [Race.best(cfg), Game.coins,
+		Drops.waiting(cfg), Race.has_look(cfg, "glow", "photon"), Race.has_look(cfg, "outfit", "pacesetter"), Race.has_look(cfg, "aura", "comet")])
 
 
 ## Lines up one of every skeleton type for a close look, takes a picture and quits.

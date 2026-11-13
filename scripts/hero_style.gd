@@ -199,6 +199,9 @@ const EXTRA := {
 		"sunforged": {"name": "Sunforged", "a": Color(0.95, 0.62, 0.18), "b": Color(1.0, 0.95, 0.75), "pat": 5, "bazaar": 900},
 		"plaguebone": {"name": "Plaguebone", "a": Color(0.22, 0.24, 0.14), "b": Color(0.75, 0.95, 0.3), "pat": 8, "bazaar": 900},
 		"nightbloom": {"name": "Nightbloom", "a": Color(0.18, 0.06, 0.24), "b": Color(1.0, 0.55, 0.85), "pat": 3, "bazaar": 900},
+		# The Crypt Race (race.gd, version 153): "race" is the Race Road step's trophies.
+		"pacesetter": {"name": "Pacesetter", "a": Color(0.1, 0.1, 0.13), "b": Color(1.0, 0.5, 0.1), "pat": 15, "race": 275},
+		"crystal_sprint": {"name": "Crystal Sprint", "a": Color(0.05, 0.12, 0.26), "b": Color(0.45, 0.95, 1.0), "pat": 16, "race": 900},
 	},
 	"head": {
 		"storm_halo": {"name": "Storm Halo", "hat": true, "extras": ["storm_halo"], "feat": "bossbreaker"},
@@ -227,6 +230,9 @@ const EXTRA := {
 		"sulfur": {"name": "Sulfur", "ring": Color(1.0, 0.95, 0.2), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
 		"spectral": {"name": "Spectral", "ring": Color(0.45, 1.0, 0.85), "ring2": Color(0.9, 1.0, 1.0), "bolt": Color(0.75, 1.0, 0.95), "bazaar": 600},
 		"sapphire": {"name": "Sapphire", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(0.6, 0.85, 1.0), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
+		# Crypt Race glows: Photon (electric white-cyan), Afterburn (flame orange to jet blue).
+		"photon": {"name": "Photon", "ring": Color(0.35, 0.95, 1.0), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.75, 1.0, 1.0), "race": 100},
+		"afterburn": {"name": "Afterburn", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
 	},
 	"aura": {
 		"quickstep": {"name": "Quickstep", "ink": Color(1.0, 0.9, 0.3), "spark": Color(1.0, 0.95, 0.6), "motif": "quick", "feat": "rusher"},
@@ -242,6 +248,10 @@ const EXTRA := {
 		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.18, 0.14), "ink2": Color(1.0, 0.72, 0.3), "spark": Color(1.0, 0.3, 0.22), "motif": "bats", "shine": true, "event": "blood_moon"},
 		"wisp": {"name": "Will-o'-Wisp", "ink": Color(0.35, 0.75, 1.0), "ink2": Color(0.6, 1.0, 0.95), "spark": Color(0.6, 0.9, 1.0), "motif": "fireflies", "bazaar": 1500},
 		"golden_souls": {"name": "Golden Souls", "ink": Color(1.0, 0.82, 0.35), "spark": Color(1.0, 0.9, 0.55), "motif": "souls", "bazaar": 1500},
+		# Crypt Race auras: a comet's tail of teal glints streaming behind the hero, and the Bone
+		# King league's own, violet and gold, with the shine.
+		"comet": {"name": "Comet", "ink": Color(0.3, 0.9, 1.0), "ink2": Color(0.9, 1.0, 1.0), "spark": Color(0.55, 0.95, 1.0), "motif": "comet", "race": 500},
+		"bone_comet": {"name": "Bone King Comet", "ink": Color(0.86, 0.52, 1.0), "ink2": Color(1.0, 0.82, 0.35), "spark": Color(1.0, 0.85, 0.5), "motif": "comet", "shine": true, "race": 1400},
 	},
 }
 ## Each hero's own head (hidden under a Skull Helm).
@@ -327,6 +337,8 @@ static func items(id: String) -> Array:
 				it.event = e.event
 			elif e.has("bazaar"):
 				it.bazaar = int(e.bazaar)
+			elif e.has("race"):
+				it.race = int(e.race)
 			else:
 				it.drop = int(e.drop)
 			out.append(it)
@@ -342,7 +354,7 @@ static func is_mastery(it: Dictionary) -> bool:
 
 ## A Feat, Bone Drop, event or Bone Bazaar look: won or bought, not a Mastery level.
 static func is_special(it: Dictionary) -> bool:
-	return it.has("feat") or it.has("drop") or it.has("event") or it.has("bazaar")
+	return it.has("feat") or it.has("drop") or it.has("event") or it.has("bazaar") or it.has("race")
 
 
 ## The slots the Crypt King set fills, and each look's key ("crypt", "crypt_crown"...).
@@ -370,6 +382,8 @@ static func has_look(cfg: ConfigFile, id: String, slot: String, key: String) -> 
 		return Drops.has_look(cfg, slot, key)
 	if e.has("bazaar"):
 		return Bazaar.owns(cfg, slot, key)
+	if e.has("race"):
+		return Race.has_look(cfg, slot, key)
 	if e.has("event"):
 		return Events.has_look(cfg, slot, key)
 	return item_level(id, slot, key) <= HeroMastery.level(cfg, id)
@@ -1031,6 +1045,25 @@ void fragment() {
 			moon *= step(0.68, h) * (0.6 + 0.4 * sin(TIME * 2.0 + h * 30.0));
 			al = mix(al, vec3(0.16, 0.02, 0.04), 0.7);
 			em = vec3(1.0, 0.12, 0.1) * vein * (0.45 + 1.5 * hb) + vec3(1.0, 0.2, 0.15) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.6;
+		} else if (pat == 15 || pat == 16) {
+			// The Crypt Race outfits (version 153). Pacesetter: black racing cloth with hot
+			// orange speed streaks shooting back round the hero, and a chevron stripe down the
+			// middle. Crystal Sprint: the same streaks in ice blue over deep navy, with crystal
+			// glints riding them.
+			float ang = atan(mpos.x, mpos.z);
+			vec3 hot = pat == 15 ? vec3(1.0, 0.48, 0.08) : vec3(0.35, 0.92, 1.0);
+			vec3 tip = pat == 15 ? vec3(1.0, 0.9, 0.55) : vec3(0.9, 1.0, 1.0);
+			float lane = floor(q.y * 6.0);
+			float h = hash3(vec3(lane, 1.7, 3.1));
+			float run = fract(ang * 0.9 + TIME * (0.9 + h * 0.8) + h * 7.0);
+			float streak = smoothstep(0.0, 0.55, run) * (1.0 - smoothstep(0.55, 0.62, run));
+			float thin = 1.0 - smoothstep(0.08, 0.22, abs(fract(q.y * 6.0) - 0.5));
+			streak *= thin * step(0.35, h);
+			float chev = 1.0 - smoothstep(0.04, 0.09, abs(fract(q.y * 2.5 - abs(mpos.x) * 3.0 + TIME * 0.6) - 0.5));
+			chev *= 1.0 - smoothstep(0.12, 0.2, abs(mpos.x));
+			float glint = pat == 16 ? twinkle(q * 7.0 + vec3(TIME * 0.5, 0.0, 0.0), 0.1, 5.0) : 0.0;
+			al = mix(al, pat == 15 ? vec3(0.06, 0.06, 0.08) : vec3(0.04, 0.1, 0.22), 0.65);
+			em = mix(hot, tip, streak * streak) * streak * 1.6 + hot * chev * 0.9 + hot * edge * 0.5 + vec3(1.0) * glint * 2.2;
 		}
 		ALBEDO = mix(ALBEDO, al, w);
 		EMISSION += em * w;

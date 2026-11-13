@@ -194,7 +194,7 @@ func _collect_meshes(n: Node) -> void:
 # ---------------------------------------------------------------- API
 
 func set_moving(m: bool) -> void:
-	if _dead:
+	if _dead or _held:
 		return
 	_moving = m
 	if _anim and _anim.current_animation in [_anim_names.get("idle", ""), _anim_names.get("run", ""), ""]:
@@ -202,7 +202,7 @@ func set_moving(m: bool) -> void:
 
 
 func attack(spell := false) -> void:
-	if _dead:
+	if _dead or _held:
 		return
 	_queue.clear()
 	_punch = 1.0
@@ -241,7 +241,7 @@ const FLASH_GAP := 0.25
 const SOFT_FLASH_GAP := 0.5
 
 func hit() -> void:
-	if _dead:
+	if _dead or _held:
 		return
 	var now := Time.get_ticks_msec()
 	if now - _last_flash_ms < int((SOFT_FLASH_GAP if soft_flash else FLASH_GAP) * 1000.0):
@@ -266,6 +266,36 @@ func die() -> void:
 		tw.tween_property(_model, "rotation:x", -1.45, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tw.tween_interval(0.4)
 		tw.tween_property(_model, "position:y", -1.5, 0.8)
+
+
+## Crypt Race (version 153): knocked down, lying still until stand_up(). Held on the death
+## animation's last pose, so it looks like a fall, not a death (the model doesn't sink).
+var _held := false
+
+func knock_down() -> void:
+	if _dead:
+		return
+	_queue.clear()
+	_held = true
+	_set_flash(false)
+	if _anim and _anim.has_animation("Death_A"):
+		_anim.play("Death_A", 0.1)
+		_anim.seek(0.0, true)
+	else:
+		var tw := create_tween()
+		tw.tween_property(_model, "rotation:x", -1.45, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+
+
+func stand_up() -> void:
+	if not _held:
+		return
+	_held = false
+	if _anim and _anim.has_animation("Lie_StandUp"):
+		_anim.play("Lie_StandUp", 0.15)
+		_anim.seek(0.0, true)
+	elif _anim == null:
+		var tw := create_tween()
+		tw.tween_property(_model, "rotation:x", 0.0, 0.25)
 
 
 func set_visible_blink(v: bool) -> void:
@@ -293,7 +323,7 @@ func _process(delta: float) -> void:
 
 	if _anim:
 		# Return to idle/run once a one-shot (attack, hit) finishes.
-		if not _dead and (_anim.current_animation == "" or (not _anim.is_playing())):
+		if not _dead and not _held and (_anim.current_animation == "" or (not _anim.is_playing())):
 			if not _queue.is_empty():
 				play_named(_queue.pop_front())
 			else:

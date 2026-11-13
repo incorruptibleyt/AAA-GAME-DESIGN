@@ -240,6 +240,20 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.emission_ring_radius = 0.55
 			p.emission_ring_inner_radius = 0.3
 			p.position = Vector3(0, 0.6, 0)
+		"comet":
+			# The Crypt Race's Comet auras: bright glints left streaming behind the hero as they
+			# run (the trail stays where it was made), drifting up a little as they fade.
+			p.amount = 30
+			p.lifetime = 0.75
+			p.spread = 180.0
+			p.initial_velocity_min = 0.05
+			p.initial_velocity_max = 0.25
+			p.gravity = Vector3(0, 0.6, 0)
+			p.scale_amount_min = 0.3
+			p.scale_amount_max = 0.55
+			p.emission_ring_radius = 0.5
+			p.emission_ring_inner_radius = 0.2
+			p.position = Vector3(0, 0.6, 0)
 		"souls":
 			# Phantom: pale souls drifting slowly up and fading.
 			p.amount = 12

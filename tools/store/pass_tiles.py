@@ -11,7 +11,10 @@ TINTS = {  # inner glow, outer
     "heroes": ((50, 70, 150), (14, 12, 30)),
     "daily": ((150, 105, 30), (20, 14, 18)),
     "curses": ((150, 20, 30), (18, 8, 16)),
+    "race": ((20, 110, 135), (6, 14, 22)),   # the Crypt Race's teal (version 153)
 }
+if len(sys.argv) > 3:   # only some: pass_tiles.py <render> <out> race
+    TINTS = {k: v for k, v in TINTS.items() if k in sys.argv[3:]}
 for name, (inner, outer) in TINTS.items():
     glow = Image.new("RGB", (W, H), outer)
     d = ImageDraw.Draw(glow)
