@@ -257,7 +257,7 @@ func _build_lobby() -> void:
 	hv.add_theme_constant_override("separation", 3)
 	how.add_child(hv)
 	for line: String in ["Same rooms, same cards, same Race Kit. No Armory: skill wins.",
-			"Kills fill your SURGE. A full one stuns your rival.",
+			"Kills fill SURGE. Tap it to stun your rival, for longer at its boss.",
 			"Fall and you get back up. Keep going!",
 			"After a few races, rivals run at your speed."]:
 		hv.add_child(Hud.label("•  " + line, 16, TEXT, HORIZONTAL_ALIGNMENT_LEFT))
@@ -1031,13 +1031,13 @@ class Bar extends Control:
 		add_child(_clock)
 		_gap = Hud.label("", 16, Color.WHITE)
 		_gap.label_settings.outline_size = 5
-		_gap.position = Vector2(-10, TRACK_BOTTOM + 86)
+		_gap.position = Vector2(-10, TRACK_BOTTOM + 18)
 		_gap.size = Vector2(W + 20, 24)
 		add_child(_gap)
 		_name = Hud.label("", 16, RaceScreen.RIVAL, HORIZONTAL_ALIGNMENT_LEFT)
 		_name.label_settings.outline_size = 5
 		_name.autowrap_mode = TextServer.AUTOWRAP_OFF
-		_name.position = Vector2(6, TRACK_BOTTOM + 108)
+		_name.position = Vector2(6, TRACK_BOTTOM + 40)
 		_name.size = Vector2(150, 22)
 		add_child(_name)
 
@@ -1095,7 +1095,7 @@ class Bar extends Control:
 		var bg := StyleBoxFlat.new()
 		bg.bg_color = Color(0.02, 0.01, 0.05, 0.42)
 		bg.set_corner_radius_all(16)
-		draw_style_box(bg, Rect2(4, 0, W - 8.0, TRACK_BOTTOM + 132))
+		draw_style_box(bg, Rect2(4, 0, W - 8.0, TRACK_BOTTOM + 70))
 		# The track: a dark groove, lit teal up to you.
 		var top := TRACK_TOP
 		var bot := TRACK_BOTTOM
@@ -1119,20 +1119,7 @@ class Bar extends Control:
 		_marker(Vector2(cx - 20, my), _me_tex, RaceScreen.YOU, _flash_me, false, me_down)
 		if _quip_t > 0.0 and _quip != "":
 			_bubble(Vector2(cx + 40, ty), _quip, minf(1.0, _quip_t * 3.0))
-		# SURGE: a ring that fills with kills, bright when nearly full.
-		var sc := Vector2(cx, bot + 44)
-		draw_circle(sc, 26.0, Hud.INK)
-		draw_circle(sc, 22.0, Color(0.06, 0.08, 0.12))
-		var f := clampf(surge, 0.0, 1.0)
-		if f > 0.0:
-			var glow := 0.75 + 0.25 * sin(_pulse * 10.0) if f > 0.75 else 1.0
-			draw_arc(sc, 17.0, -PI / 2.0, -PI / 2.0 + TAU * f, 32, Color(RaceScreen.TEAL, glow), 8.0)
-		# A lightning bolt in the ring.
-		draw_colored_polygon(PackedVector2Array([sc + Vector2(3, -12), sc + Vector2(-6, 2), sc + Vector2(0, 2),
-			sc + Vector2(-3, 12), sc + Vector2(6, -2), sc + Vector2(0, -2)]), RaceScreen.TEAL.lightened(0.4) if f > 0.0 else Color(0.4, 0.42, 0.5))
-		var font := Hud.UI_FONT
-		draw_string_outline(font, Vector2(cx - 26, bot + 84), "SURGE", HORIZONTAL_ALIGNMENT_CENTER, 52, 16, 6, Hud.INK)
-		draw_string(font, Vector2(cx - 26, bot + 84), "SURGE", HORIZONTAL_ALIGNMENT_CENTER, 52, 16, RaceScreen.TEAL.lightened(0.3))
+		# (SURGE is its own button by the special since version 155.)
 
 	## A speech bubble pointing left at the rival's marker.
 	func _bubble(at: Vector2, text: String, a: float) -> void:

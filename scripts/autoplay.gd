@@ -30,6 +30,7 @@ extends Node
 ## between pictures (for 1080 x 1920 store screenshots). `chains=1.2,2,3` (with `die`)
 ## fills in the chain reached in each room before, to picture the Daily Crypt share card.
 
+var _surge_held := 0.0
 var god := false
 var start_room := 1
 var runs := 1
@@ -890,6 +891,14 @@ func _drive(delta: float) -> void:
 		hero.special_charge = 1.0
 	if hero.special_ready() and Game.alive_enemies >= 3:
 		hero.use_special()
+	# The race's SURGE button: pressed at once while the rival fights its boss, else after a
+	# few seconds of holding it (so robot races try both).
+	if Game.race and Game.hud.race_surge.visible and Game.hud.race_surge.ready_now():
+		_surge_held += get_process_delta_time()
+		if Game.hud.race_surge.big or _surge_held > 4.0:
+			_surge_held = 0.0
+			print("[autoplay] race: SURGE pressed%s" % (" (big)" if Game.hud.race_surge.big else ""))
+			Game.race_fire_surge()
 		if shots_dir != "" and _special_shots < 2:
 			_special_shots += 1
 			get_tree().create_timer(0.35, true, false, true).timeout.connect(_shot)

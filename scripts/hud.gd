@@ -80,6 +80,7 @@ signal race_go
 signal race_again
 signal race_claim(index: int)
 signal race_to_title
+signal race_surge_pressed
 
 ## A quick flick of the thumb (short and fast) is a dash rather than a step.
 const FLICK_TIME := 0.22
@@ -304,6 +305,7 @@ var _mode_race_tag: Label
 ## The Crypt Race's screens, and its track on the left of the screen in a race.
 var race_screen: RaceScreen
 var race_bar: RaceScreen.Bar
+var race_surge: SurgeButton   # the Crypt Race's SURGE button, left of the special
 var _mode_curses_line: Label
 var _modes_tutorial: Button
 var _heroes_box: HeroScreen
@@ -924,6 +926,14 @@ func _build_hud() -> void:
 	_special.offset_top = -260
 	_special.offset_bottom = -160
 	root.add_child(_special)
+	race_surge = SurgeButton.new()
+	race_surge.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	race_surge.offset_left = -228
+	race_surge.offset_right = -144
+	race_surge.offset_top = -246
+	race_surge.offset_bottom = -162
+	race_surge.visible = false
+	root.add_child(race_surge)
 
 	_dash_button = DashButton.new()
 	_dash_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
@@ -2884,6 +2894,10 @@ func _input(event: InputEvent) -> void:
 			if _safe.visible and _pause_button.get_global_rect().grow(12.0).has_point(t.position):
 				if not _pause_button.get_global_rect().has_point(t.position) and _pause_button.is_visible_in_tree() and not _overlay_open():
 					pause_pressed.emit()
+				return
+			if _safe.visible and race_surge.visible and not _overlay_open() \
+					and race_surge.get_global_rect().grow(6.0).has_point(t.position):
+				race_surge_pressed.emit()
 				return
 			if _safe.visible and _special.visible and not _overlay_open() \
 					and _special.get_global_rect().grow(4.0).has_point(t.position):

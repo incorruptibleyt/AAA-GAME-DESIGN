@@ -145,7 +145,9 @@ func _load_samples() -> void:
 			"warn", "boom", "roar", "victory", "wraith", "beam", "ignite", "vo_prepare", "vo_win", "vo_lose", "vo_combo",
 			"splash", "spore", "roots", "heart", "tick", "sting", "shimmer", "voice",
 			# Version 137: the Bone Drop chest's own sounds (tools/audio/chest.py).
-			"chest_rattle", "chest_snap", "chest_lid", "chest_coins", "chest_tick"]:
+			"chest_rattle", "chest_snap", "chest_lid", "chest_coins", "chest_tick",
+			# Version 155: the Crypt Race's own sounds (tools/audio/race.py).
+			"race_count", "race_go", "race_lead", "race_lost", "race_surge", "race_hit", "race_final", "race_win", "race_lose"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]

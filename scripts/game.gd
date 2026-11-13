@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13h"
+const BUILD := "2026-11-13i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -267,6 +267,7 @@ var _race_kills_room := 0
 var _race_goal := 1
 var _race_room_t := 0.0
 var _race_note := ""
+var _race_ghost: RivalGhost   # the rival, seen, while it's in your room (rival_ghost.gd)
 var _race_lead := 0        # who leads on the track: 1 you, -1 the rival, 0 not yet said
 var _race_lead_t := 0.0    # race time of the last lead callout
 
@@ -444,6 +445,7 @@ func _ready() -> void:
 	hud.race_again.connect(_race_again)
 	hud.race_claim.connect(_claim_race_road)
 	hud.race_to_title.connect(_race_to_title)
+	hud.race_surge_pressed.connect(race_fire_surge)
 	_race_clock = Race.Clock.new()
 	_race_clock.on_tick = _race_tick
 	add_child(_race_clock)
@@ -2043,6 +2045,7 @@ func _back_to_title(keep_run := false) -> void:
 	_race = null
 	_race_live = false
 	hud.race_bar.visible = false
+	hud.race_surge.visible = false
 	_end_surge()
 	omens.clear()
 	_loop_choice = false
@@ -2248,6 +2251,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		# Version 148: only in a player's first few runs (it showed on every floor 1 forever).
 		hud.show_hint("Drag to move. Lift to shoot.\nFlick your thumb to dash!" if floor_num == 1 and index == 0 and _newcomer else "")
 	Music.play(("queen" if boss_kind() == "Q" else "boss") if _in_boss_room() else "dungeon")
+	if race and _race and not _race.over and _in_boss_room():
+		Sfx.play("race_final", 0.9)   # the last leg (version 155)
 	if not _start_blessing.is_empty():
 		var u := _start_blessing
 		_start_blessing = {}
@@ -4599,15 +4604,15 @@ func _race_go() -> void:
 		if _race != m:
 			return
 		hud.callout(n, Color.WHITE)
-		Sfx.play("tick", 1.0, 0.9)
+		Sfx.play("race_count")
 		if vibration:
 			Input.vibrate_handheld(30)
 		await get_tree().create_timer(0.7).timeout
 	if _race != m or state != State.TRANSITION:
 		return
 	hud.callout("GO!", RaceScreen.TEAL.lightened(0.3))
-	Sfx.play("tick", 1.0, 1.6)
-	Sfx.play("door", 1.0)
+	Sfx.play("race_go")
+	Sfx.play("door", 0.7)
 	Sfx.play("vo_combo", 0.6)
 	_race_live = true
 	_set_state(State.PLAYING)
@@ -4631,6 +4636,7 @@ func _race_tick(dt: float) -> void:
 			"boss":
 				if state == State.PLAYING and _race.legs < Race.LEGS - 1:
 					hud.banner("%s REACHED THE BOSS!" % r.name.to_upper(), RaceScreen.RIVAL)
+					Sfx.play("race_final", 0.9)
 					_race_quip(["Boss time!", "Nearly there!"], true)
 			"finish":
 				_race_end(false)
@@ -4638,6 +4644,7 @@ func _race_tick(dt: float) -> void:
 		if _race.queued > 0 and _race_room_t > 2.0 and _race_can_spawn():
 			_race.queued -= 1
 			_race_spawn()
+		_race_ghost_check()
 	# Where the player is on the track: rooms cleared, and how far through this one.
 	if _race.legs <= _room_index:
 		if _in_boss_room():
@@ -4651,11 +4658,32 @@ func _race_tick(dt: float) -> void:
 	b.them = r.progress()
 	b.t = _race.t
 	b.surge = _race.surge / Race.SURGE_POINTS
+	var sb := hud.race_surge
+	sb.visible = _race_live and state in [State.PLAYING, State.UPGRADE, State.PAUSED]
+	sb.fill = b.surge
+	sb.big = r.room() >= Race.LEGS - 1 and not r.done()
 	b.gap = _race.gap()
 	b.stunned = r.stun > 0.0
 	b.down = r.down > 0.0
 	b.me_down = hero != null and hero.down_left > 0.0
 	_race_lead_check()
+
+
+## The rival's ghost: shown while the rival is in the room you're in, gone out of the far
+## door when it moves on. It comes in at the entrance when it has only just reached the room.
+func _race_ghost_check() -> void:
+	var r := _race.rival
+	var here := not r.done() and r.room() == _room_index and Room.current != null
+	if is_instance_valid(_race_ghost):
+		if _race_ghost.get_parent() != Room.current:
+			_race_ghost = null   # (an old room's, freed with it)
+		elif not here:
+			_race_ghost.leave()
+			_race_ghost = null
+		return
+	if here and state == State.PLAYING:
+		_race_ghost = RivalGhost.make(r, _room_index, r.progress() - _room_index < 0.12)
+		print("[race] ghost of %s in room %d at %.2f" % [r.name, _room_index, r.progress()])
 
 
 ## A lead change on the track gets called out: "YOU TOOK THE LEAD!" / "RORY TOOK THE LEAD!".
@@ -4674,11 +4702,11 @@ func _race_lead_check() -> void:
 		return   # ahead from the start: nothing has changed yet
 	if now == 1:
 		hud.banner("YOU TOOK THE LEAD!", RaceScreen.TEAL.lightened(0.3))
-		Sfx.play("upgrade", 0.5, 1.4)
+		Sfx.play("race_lead")
 		_race_quip(["Hey!", "Not for long!", "Lucky..."], true)
 	else:
 		hud.banner("%s TOOK THE LEAD!" % _race.rival.name.to_upper(), RaceScreen.RIVAL)
-		Sfx.play("warn", 0.6)
+		Sfx.play("race_lost")
 		_race_quip(["Catch me!", "See ya!", "Too slow!"], true)
 
 
@@ -4697,17 +4725,34 @@ func _race_kill(e: Enemy) -> void:
 	var pts := 3.0 if e.elite else 1.0
 	if chain >= 2.0:
 		pts *= 2.0
-	_race.surge += pts
-	if _race.surge >= Race.SURGE_POINTS:
-		_race.surge = minf(_race.surge - Race.SURGE_POINTS, Race.SURGE_POINTS * 0.5)
-		_race.sent += 1
-		_race.rival.stun += Race.SURGE_STUN
-		hud.race_bar.sent()
-		_race_quip(["Argh!", "Zapped!", "No fair!"])
-		hud.callout_at_hero("SURGE!", RaceScreen.TEAL.lightened(0.3))
-		Sfx.play("upgrade", 0.55, 1.3)
-		if hero:
-			Fx.magic(hero.center(), RaceScreen.TEAL, 24)
+	# Version 155 (Supercell review fix 3): a full meter waits for you to press SURGE, and
+	# while it waits, kills fill nothing.
+	var was := _race.surge
+	_race.surge = minf(Race.SURGE_POINTS, _race.surge + pts)
+	if was < Race.SURGE_POINTS and _race.surge >= Race.SURGE_POINTS:
+		hud.callout_at_hero("SURGE READY!", RaceScreen.TEAL.lightened(0.3))
+		Sfx.play("upgrade", 0.45, 1.6)
+		if vibration:
+			Input.vibrate_handheld(25)
+
+
+## SURGE pressed: the rival is stunned (half as long again while it fights its boss).
+func race_fire_surge() -> void:
+	if not race or _race == null or _race.over or not _race_live or state != State.PLAYING or _race.surge < Race.SURGE_POINTS:
+		return
+	_race.surge = 0.0
+	_race.sent += 1
+	var big := _race.rival.room() >= Race.LEGS - 1
+	_race.rival.stun += Race.SURGE_STUN * (Race.BIG_SURGE if big else 1.0)
+	hud.race_bar.sent()
+	_race_quip(["Argh!", "Zapped!", "No fair!"] if not big else ["NOT NOW!", "My boss!", "Argh!"], true)
+	hud.callout_at_hero("BIG SURGE!" if big else "SURGE!", Color(1.0, 0.85, 0.4) if big else RaceScreen.TEAL.lightened(0.3))
+	Sfx.play("race_surge", 1.0, 0.9 if big else 1.0)
+	if vibration:
+		Input.vibrate_handheld(60)
+	if hero:
+		Fx.magic(hero.center(), RaceScreen.TEAL, 24)
+		Fx.shockwave(hero.global_position, RaceScreen.TEAL, 3.0)
 
 
 ## The rival's surge: skeletons thrown into this room now, or at the next fight.
@@ -4730,7 +4775,7 @@ func _race_spawn() -> void:
 	var n := 1 if _in_boss_room() else Race.SURGE_FOES
 	var spots := _wave_spots(n)
 	hud.banner("%s SENT A SURGE!" % _race.rival.name.to_upper(), RaceScreen.RIVAL)
-	Sfx.play("warn")
+	Sfx.play("race_hit")
 	if vibration:
 		Input.vibrate_handheld(50)
 	for p: Vector3 in spots:
@@ -4781,7 +4826,7 @@ func _race_finish_line() -> void:
 	Pickup.collect_all()
 	hud.hide_boss()
 	_race_end(true)
-	Sfx.play("victory")
+	Sfx.play("race_win")
 	Sfx.play("vo_win", 0.8)
 	await get_tree().create_timer(1.0, true, false, true).timeout
 	_celebrate()
@@ -4799,6 +4844,10 @@ func _race_end(won: bool, left := false) -> void:
 	m.over = true
 	m.won = won
 	_race_live = false
+	hud.race_surge.visible = false
+	if is_instance_valid(_race_ghost):
+		_race_ghost.leave()
+	_race_ghost = null
 	_save_coins()
 	var cfg := _load_save()
 	# This race's pace (projected to the line when the rival got there first) sets how quick
@@ -4842,12 +4891,15 @@ func _race_end(won: bool, left := false) -> void:
 		_clear_enemy_attacks()
 		hud.hide_boss()
 		hud.callout("%s WINS" % r.name.to_upper(), RaceScreen.RIVAL)
+		if not left:
+			Sfx.play("race_lose")
 		Sfx.play("vo_lose", 0.8)
 	_reveal_feats_soon()
 	await get_tree().create_timer(2.6 if won else 2.0).timeout
 	if _race != m:
 		return
 	hud.race_bar.visible = false
+	hud.race_surge.visible = false
 	hud.race_screen.show_result(res, m)
 
 

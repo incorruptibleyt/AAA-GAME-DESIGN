@@ -39,6 +39,8 @@ const GET_UP := 0.5
 const SURGE_POINTS := 16.0
 ## A surge stuns the rival this long; a rival's surge throws SURGE_FOES skeletons in.
 const SURGE_STUN := 2.0
+## A surge fired while the rival fights its boss (version 155): stunned this much longer.
+const BIG_SURGE := 1.5
 const SURGE_FOES := 2
 
 const LEAGUES := [
