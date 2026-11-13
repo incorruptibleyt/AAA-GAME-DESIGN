@@ -395,7 +395,9 @@ func _refresh() -> void:
 	_badge.label_settings.font_color = Hud.GOLD
 	_badge.text = "  ·  ".join(bits)
 	_badge.visible = not bits.is_empty()
-	_text.text = def.text
+	_text.text = "%s  ·  %s" % [Heroes.difficulty_text(def), def.text]
+	if int(def.get("difficulty", 2)) >= 3 and Game.f1_clears(Game._load_save()) < Game.NEWCOMER_CLEARS:
+		_text.text += "\nNew to the crypt? Try the Armory first."
 	_mastery_bar.set_points(r.id, def.title, ring, int(r.get("points", 0)))
 	# New looks waiting: the Style button says so, in gold.
 	var fresh := int(r.get("new_looks", 0))

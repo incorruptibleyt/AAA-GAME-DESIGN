@@ -5,7 +5,7 @@ class_name Heroes
 ## hero's own colour: the ring at their feet and the glow around their edges.
 
 const LIST := [
-	{"id": "rogue", "title": "Rogue", "text": "Quick crossbow bolts. A good all-rounder.", "cost": 0,
+	{"id": "rogue", "difficulty": 2, "title": "Rogue", "text": "Quick crossbow bolts. A good all-rounder.", "cost": 0,
 		"key": "Rogue_Hooded", "hide": ["Knife", "Knife_Offhand", "2H_Crossbow", "Throwable"], "attack_anim": "1H_Ranged_Shoot",
 		"body": Color(0.25, 0.45, 0.78), "hood": true, "ring": Color(0.3, 0.6, 1.0),
 		"health": 100.0, "move_speed": 5.2, "damage": 12.0, "rate": 1.8, "bolt_speed": 17.0, "bolt_size": 0.22,
@@ -18,7 +18,7 @@ const LIST := [
 		"hello": ["Stay sharp, stay quiet.", "In and out. Easy.", "Let's see what's down here."],
 		"win": ["Too easy. Next!", "Didn't even break a sweat.", "Who's counting? Me. I'm counting."],
 		"emote": ["Jump_Full_Short", "1H_Ranged_Reload"]},
-	{"id": "knight", "title": "Knight", "text": "Tough and armored. Slow sword waves cut through enemies.", "cost": 100,
+	{"id": "knight", "difficulty": 1, "title": "Knight", "text": "Tough and armored. Slow sword waves cut through enemies.", "cost": 100,
 		"key": "Knight", "hide": ["1H_Sword_Offhand", "Badge_Shield", "Rectangle_Shield", "Spike_Shield", "2H_Sword"],
 		"attack_anim": "1H_Melee_Attack_Slice_Horizontal", "body": Color(0.6, 0.62, 0.7), "helmet": true, "ring": Color(1.0, 0.85, 0.35),
 		"health": 150.0, "move_speed": 4.7, "damage": 22.0, "rate": 1.0, "bolt_speed": 13.0, "bolt_size": 0.4,
@@ -29,7 +29,7 @@ const LIST := [
 		"hello": ["Stay behind my shield.", "Steady now. Forward!", "On my honour, we'll clear it."],
 		"win": ["Duty done. Onward!", "A fair fight, fairly won.", "Rest now, old bones."],
 		"emote": ["Block", "Cheer"]},
-	{"id": "barbarian", "title": "Barbarian", "text": "Hurls heavy axes and heals a little with every kill.", "cost": 200,
+	{"id": "barbarian", "difficulty": 2, "title": "Barbarian", "text": "Hurls heavy axes and heals a little with every kill.", "cost": 200,
 		"key": "Barbarian", "hide": ["1H_Axe_Offhand", "Barbarian_Round_Shield", "2H_Axe", "Mug"], "attack_anim": "Throw",
 		"body": Color(0.7, 0.45, 0.3), "horns": true, "ring": Color(0.35, 1.0, 0.5),
 		"health": 120.0, "move_speed": 5.0, "damage": 16.0, "rate": 1.4, "bolt_speed": 15.0, "bolt_size": 0.3,
@@ -40,7 +40,7 @@ const LIST := [
 		"hello": ["Come out, bones! Bjorn is here!", "Smells like a fight. Good!", "Last one down is a skeleton!"],
 		"win": ["HA! Who's next?!", "That one was crunchy!", "Bring me a bigger one!"],
 		"emote": ["2H_Melee_Attack_Spin", "Cheer"]},
-	{"id": "mage", "title": "Mage", "text": "Fragile, but magic orbs explode and hit whole groups.", "cost": 300,
+	{"id": "mage", "difficulty": 3, "title": "Mage", "text": "Fragile, but magic orbs explode and hit whole groups.", "cost": 300,
 		"key": "Mage", "hide": ["Spellbook", "Spellbook_open", "1H_Wand"], "attack_anim": "Spellcast_Shoot",
 		"body": Color(0.45, 0.3, 0.75), "hat": true, "ring": Color(0.8, 0.5, 1.0),
 		"health": 80.0, "move_speed": 5.4, "damage": 11.0, "rate": 1.7, "bolt_speed": 14.0, "bolt_size": 0.3,
@@ -52,6 +52,15 @@ const LIST := [
 		"win": ["As calculated.", "Was that the boss? Huh.", "Write that one down!"],
 		"emote": ["Spellcast_Raise", "Spellcast_Long"]},
 ]
+
+## Version 150 (coins review, fix 3): how hard each hero is to play, shown on the Heroes
+## screen. New players were buying the 300-coin Mage, the most fragile hero, before the Armory.
+const DIFFICULTY := ["", "★ Easy", "★★ Normal", "★★★ Hard"]
+
+
+static func difficulty_text(def: Dictionary) -> String:
+	return DIFFICULTY[clampi(int(def.get("difficulty", 2)), 1, 3)]
+
 
 const SAVE_SECTION := "heroes"
 

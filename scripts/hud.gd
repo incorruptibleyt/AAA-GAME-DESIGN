@@ -242,6 +242,8 @@ var _title_modes_row: Control
 var _title_modes_badge: Label
 var _title_heroes_badge: Label
 var _end_heroes_badge: Label   # the same tag on the end screen's HEROES button
+var _title_armory_badge: Label   # UPGRADE: something in the Armory is affordable (version 150)
+var _end_armory_badge: Label
 var _modes_box: Control
 var _records_box: Control
 var _records_grid: GridContainer
@@ -1589,6 +1591,8 @@ func _build_title() -> void:
 	armory.custom_minimum_size = Vector2(222, 74)
 	armory.pressed.connect(func(): armory_pressed.emit())
 	_title_armory = armory
+	_title_armory_badge = _badge_pill("UPGRADE")
+	armory.add_child(_title_armory_badge)
 	_title_shop_row = _pair(heroes, armory)
 	col.add_child(_title_shop_row)
 	# MODES holds the Daily Crypt, Curses and the tutorial run; then the Crypt Pass.
@@ -1953,6 +1957,8 @@ func _build_end() -> void:
 	var armory := button("ARMORY", 26)
 	armory.custom_minimum_size = Vector2(222, 74)
 	armory.pressed.connect(func(): armory_pressed.emit())
+	_end_armory_badge = _badge_pill("UPGRADE")
+	armory.add_child(_end_armory_badge)
 	buttons.add_child(_pair(heroes, armory))
 	var end_pass := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	end_pass.pressed.connect(func(): pass_pressed.emit())
@@ -3393,6 +3399,18 @@ func refresh_looks_badge() -> void:
 		n += HeroStyle.unseen(cfg, h.id)
 	_title_heroes_badge.visible = n > 0
 	_end_heroes_badge.visible = n > 0
+	refresh_armory_badge()
+
+
+## Version 150 (coins review, fix 1): a tester kept about 900 coins unspent while falling on
+## floor 1 again and again. The ARMORY buttons wear a gold UPGRADE tag whenever something in
+## the Armory or the Vault is affordable.
+func refresh_armory_badge() -> void:
+	var on := Game.armory_ready()
+	if _title_armory_badge:
+		_title_armory_badge.visible = on
+	if _end_armory_badge:
+		_end_armory_badge.visible = on
 
 
 var _rewards_box: ColorRect
@@ -3711,6 +3729,7 @@ func armory_visible() -> bool:
 func show_armory(v: bool, rows := [], coins := 0) -> void:
 	_armory_box.visible = v
 	if not v:
+		refresh_armory_badge()
 		return
 	_shop_curses = false
 	_shop_title.text = "ARMORY"
@@ -3878,6 +3897,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_box.visible = v
 	if v:
 		_hide_phase()
+		refresh_looks_badge()   # NEW LOOKS and UPGRADE, with this run's coins counted
 	_end_offer.visible = v and offer
 	_end_loop.visible = false
 	if not v:

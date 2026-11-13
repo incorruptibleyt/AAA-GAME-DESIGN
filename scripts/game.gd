@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13c"
+const BUILD := "2026-11-13d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -917,6 +917,20 @@ func _check_newcomer() -> void:
 	var cfg := _load_save()
 	_newcomer = f1_clears(cfg) < NEWCOMER_CLEARS
 	_struggling = int(cfg.get_value(ASSIST, "f1_falls", 0)) >= STRUGGLE_FALLS
+
+
+## Version 150 (coins review, fix 2): a floor-1 death in rooms 1-2 paid about 10 coins, so
+## the players who most need the Armory could barely buy it. While the floor-1 help is on, a
+## floor-1 death pays at least BRAVE_BASE coins plus BRAVE_ROOM for each room cleared (the
+## run's own coins count toward it). It ends with the help, after two floor-1 wins.
+const BRAVE_BASE := 30
+const BRAVE_ROOM := 10
+
+
+func _brave_coins() -> int:
+	if floor_num != 1 or first_run or daily or event != "" or not (_newcomer or _struggling):
+		return 0
+	return maxi(0, BRAVE_BASE + BRAVE_ROOM * _room_index - run_coins)
 
 
 ## Counts a floor-1 win or fall (not the Daily Crypt or the event). `cfg` is written by the caller.
@@ -3009,6 +3023,10 @@ func on_hero_died() -> void:
 		return
 	_set_state(State.DEAD)
 	RunSave.clear()
+	var brave := _brave_coins()
+	if brave > 0:
+		add_coins(brave)
+		hud.set_coins(coins)
 	_save_coins()
 	Sfx.play("vo_lose", 0.8)
 	await get_tree().create_timer(1.4, true, false, true).timeout
@@ -3035,9 +3053,12 @@ func on_hero_died() -> void:
 		where = "the Queen Hunt (%s)" % str(Events.TIERS[event_tier - 1].name).capitalize()
 	elif floor_num > 1:
 		where += " on floor %d" % floor_num
-	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d" % run_coins
+	# (The brave-try top-up has its own line below, so "Coins kept" is what the run found.)
+	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d" % (run_coins - brave)
 	if day_bonus > 0:
 		coin_line += "  (+%d first run today)" % day_bonus
+	if brave > 0:
+		coin_line += "\nBrave try  +%d coins" % brave
 	if bones > 0:
 		coin_line += "\nBone Road  +%d bones" % bones
 	if shards > 0:
@@ -4712,11 +4733,21 @@ func _claim_day_bonus() -> int:
 ## The closest thing to work toward, in one line, for the death screen and the title:
 ## something the coins can buy in the Armory now, else the next floor's boss (up to the
 ## end of the free floors), else what the cheapest upgrade still needs, else a deeper
-## floor or the best score. Empty until the tutorial is done.
-func next_goal() -> String:
-	if first_run_pending():
-		return ""
-	var cfg := _load_save()
+## Version 150 (coins review, fix 4): with the Armory and the Vault full, the NEXT line points
+## to where spare coins go: Training the chosen hero, or a Bone Drop from the Armory.
+func _spare_coins_goal(cfg: ConfigFile) -> String:
+	var today := Curses.today()
+	var id := Heroes.selected(cfg)
+	if coins >= HeroMastery.TRAIN_COST and HeroMastery.train_left(cfg, today) > 0 \
+			and HeroMastery.level(cfg, id) < HeroMastery.MAX_LEVEL:
+		return "NEXT: train %s on the Heroes screen (%d coins)" % [Heroes.hero_name(Heroes.get_hero(id)), HeroMastery.TRAIN_COST]
+	if coins >= Drops.BUY_COST and Drops.buys_left(cfg, today) > 0 and Drops.waiting(cfg) < Drops.MAX_WAITING:
+		return "NEXT: buy a Bone Drop in the Armory (%d coins)" % Drops.BUY_COST
+	return ""
+
+
+## The cheapest Armory upgrade or Vault blessing still to buy: {name, cost}, or {} if all bought.
+func _cheapest_upgrade(cfg: ConfigFile) -> Dictionary:
 	var cheapest := {}
 	for u: Dictionary in Armory.LIST:
 		var cost := Armory.next_cost(cfg, u)
@@ -4726,8 +4757,30 @@ func next_goal() -> String:
 	for v: Dictionary in Armory.VAULT:
 		if not Armory.vault_has(cfg, v.id) and (cheapest.is_empty() or int(v.cost) < int(cheapest.cost)):
 			cheapest = {"name": str(Upgrades.get_def(v.id).get("title", v.id)), "cost": int(v.cost)}
+	return cheapest
+
+
+## True when the player can afford something in the Armory (the UPGRADE tag). Never during
+## the tutorial, while the Armory is still closed.
+func armory_ready() -> bool:
+	if first_run_pending():
+		return false
+	var cheapest := _cheapest_upgrade(_load_save())
+	return not cheapest.is_empty() and coins >= int(cheapest.cost)
+
+
+## floor or the best score. Empty until the tutorial is done.
+func next_goal() -> String:
+	if first_run_pending():
+		return ""
+	var cfg := _load_save()
+	var cheapest := _cheapest_upgrade(cfg)
 	if not cheapest.is_empty() and coins >= int(cheapest.cost):
 		return "NEXT: buy %s in the Armory" % cheapest.name
+	if cheapest.is_empty():
+		var spare := _spare_coins_goal(cfg)
+		if spare != "":
+			return spare
 	var beaten := _best_boss(cfg)
 	if beaten < Store.FREE_FLOORS:
 		return "NEXT: beat the floor %d boss" % (beaten + 1)
