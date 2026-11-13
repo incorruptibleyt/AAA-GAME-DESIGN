@@ -36,6 +36,7 @@ var _lobby_light: SpotLight3D
 var _shake := 0.0
 var shake_scale := 1.0   # the Screen shake setting
 var vibration := true    # the Vibration setting
+var colorblind := false  # the Colour-blind setting (attack warnings, version 148)
 var _run: Array = []
 var _room_index := 0
 var _taken := {}
@@ -91,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13a"
+const BUILD := "2026-11-13b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -407,6 +408,7 @@ func _ready() -> void:
 	hud.speed_test_pressed.connect(start_speed_test)
 	hud.shake_changed.connect(_set_shake)
 	hud.vibration_toggled.connect(_set_vibration)
+	hud.colorblind_toggled.connect(_set_colorblind)
 	hud.reports_toggled.connect(_set_reports)
 	hud.dash_flicked.connect(func(d: Vector2): if hero: hero.dash(Vector3(d.x, 0, d.y)))
 	hud.pass_pressed.connect(_open_pass)
@@ -474,6 +476,7 @@ func _ready() -> void:
 	_set_graphics(_saved_graphics(cfg), false)
 	_set_shake(int(cfg.get_value("settings", "shake", 2)), false)
 	_set_vibration(bool(cfg.get_value("settings", "vibration", true)), false)
+	_set_colorblind(bool(cfg.get_value("settings", "colorblind", false)), false)
 	_auto_graphics = (bool(cfg.get_value("settings", "graphics_auto", false)) or not (cfg.has_section_key("settings", "graphics")
 			or cfg.has_section_key("settings", "high_graphics"))) and not "autoplay" in OS.get_cmdline_user_args()
 	_auto_rewatch = _auto_graphics
@@ -2048,7 +2051,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		hud.show_hint("Drag your thumb to move.\nLift it to shoot!" if index == 0 else "")
 		_ftue_room_intro()
 	else:
-		hud.show_hint("Drag to move. Lift to shoot.\nFlick your thumb to dash!" if floor_num == 1 and index == 0 else "")
+		# Version 148: only in a player's first few runs (it showed on every floor 1 forever).
+		hud.show_hint("Drag to move. Lift to shoot.\nFlick your thumb to dash!" if floor_num == 1 and index == 0 and _newcomer else "")
 	Music.play(("queen" if boss_kind() == "Q" else "boss") if _in_boss_room() else "dungeon")
 	if not _start_blessing.is_empty():
 		var u := _start_blessing
@@ -3683,6 +3687,15 @@ func _set_shake(level: int, save := true) -> void:
 func buzz(ms: int) -> void:
 	if Game.vibration:
 		Input.vibrate_handheld(ms)
+
+
+func _set_colorblind(on: bool, save := true) -> void:
+	colorblind = on
+	hud.set_colorblind_label(on)
+	if save:
+		var cfg := _load_save()
+		cfg.set_value("settings", "colorblind", on)
+		write_save(cfg)
 
 
 func _set_vibration(on: bool, save := true) -> void:

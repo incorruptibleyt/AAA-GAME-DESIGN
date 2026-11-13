@@ -109,7 +109,7 @@ func set_points(id: String, hero_name: String, col: Color, p: int, header := "")
 		_full_name = header
 	_fit_name()
 	_gain.text = "LEVELS  >" if mouse_filter == Control.MOUSE_FILTER_STOP else ""
-	_gain.label_settings.font_size = 15 if _gain.text != "" else 19
+	_gain.label_settings.font_size = 16 if _gain.text != "" else 19
 	_news.visible = false
 	_t = -1.0
 	set_process(false)

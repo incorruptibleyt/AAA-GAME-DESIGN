@@ -42,6 +42,7 @@ signal graphics_toggled(level: int)
 signal speed_test_pressed
 signal shake_changed(level: int)
 signal vibration_toggled(on: bool)
+signal colorblind_toggled(on: bool)
 signal reports_toggled(on: bool)
 signal dash_flicked(dir: Vector2)
 signal pass_pressed
@@ -194,6 +195,8 @@ var _shake_button: Button
 var _shake_level := 2
 var _vibration_button: Button
 var _vibration_on := true
+var _colorblind_button: Button
+var _colorblind_on := false
 var _reports_button: Button
 var _fb_box: Control
 var _fb_text: TextEdit
@@ -436,7 +439,13 @@ void fragment() {
 
 # ---------------------------------------------------------------- building
 
+## The smallest text size (version 148, accessibility review item 2): 16 game px is about
+## 12 sp on a phone, Android's smallest size for reading text. 14-15 px lines were ~10-11 sp.
+const MIN_TEXT := 16
+
+
 static func label(text: String, size: int, col := Color.WHITE, align := HORIZONTAL_ALIGNMENT_CENTER) -> Label:
+	size = maxi(size, MIN_TEXT)
 	var l := Label.new()
 	l.text = text
 	l.horizontal_alignment = align
@@ -2022,9 +2031,18 @@ func _build_pause() -> void:
 	_shake_button = button("Screen shake: Full", 22)
 	_shake_button.pressed.connect(func(): shake_changed.emit((_shake_level + 2) % 3))
 	col.add_child(_centered(_shake_button))
-	_vibration_button = button("Vibration: On", 22)
+	# Vibration and Colour-blind share a row (version 148), so the menu still fits a 16:9 phone.
+	_vibration_button = button("Vibration: On", 18)
+	_vibration_button.custom_minimum_size = Vector2(212, 66)
 	_vibration_button.pressed.connect(func(): vibration_toggled.emit(not _vibration_on))
-	col.add_child(_centered(_vibration_button))
+	# Colour-blind warnings (accessibility review item 1): attack warnings in a colour that
+	# stands out from each floor for every kind of colour blindness.
+	_colorblind_button = button("Colour-blind: Off", 18)
+	_colorblind_button.custom_minimum_size = Vector2(212, 66)
+	_colorblind_button.pressed.connect(func(): colorblind_toggled.emit(not _colorblind_on))
+	var vpair := _pair(_vibration_button, _colorblind_button)
+	vpair.add_theme_constant_override("separation", 12)
+	col.add_child(vpair)
 	# Reports and reminders share a row (version 143), so the menu still fits a 16:9 phone.
 	_reports_button = button("Send reports: Off", 18)
 	_reports_button.custom_minimum_size = Vector2(212, 66)
@@ -3673,6 +3691,11 @@ func set_graphics_label(level: int) -> void:
 func set_shake_label(level: int) -> void:
 	_shake_level = level
 	_shake_button.text = "Screen shake: " + ["Off", "Reduced", "Full"][clampi(level, 0, 2)]
+
+
+func set_colorblind_label(on: bool) -> void:
+	_colorblind_on = on
+	_colorblind_button.text = "Colour-blind: On" if on else "Colour-blind: Off"
 
 
 func set_vibration_label(on: bool) -> void:
