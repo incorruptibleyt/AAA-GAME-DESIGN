@@ -125,3 +125,15 @@ func _on_death() -> void:
 	visual.position.y = 0.0
 	super._on_death()
 	Fx.magic(center(), WATER, 18)
+
+
+## Version 163 (Tweaks report #13): its rise is its warning's callback, so when the wall
+## watchdog moves it and cancels that warning, it comes straight up instead of staying
+## under the floor, unhittable, until the room watchdog crumbled it 40 s later.
+func _cancel_attacks() -> void:
+	super._cancel_attacks()
+	if not dead and (_mode == Mode.RISING or _mode == Mode.UNDER):
+		_surface()
+		_timer = randf_range(2.8, 3.6)
+		contact_damage = _touch_damage * elite_mult()
+		visual.position.y = 0.0

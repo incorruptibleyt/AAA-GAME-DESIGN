@@ -3098,7 +3098,8 @@ func _input(event: InputEvent) -> void:
 				if not _pause_button.get_global_rect().has_point(t.position) and _pause_button.is_visible_in_tree() and not _overlay_open():
 					pause_pressed.emit()
 				return
-			if _safe.visible and race_surge.visible and not _overlay_open() \
+			# Version 163 (Tweaks report #7): an empty SURGE lets the touch through to the stick.
+			if _safe.visible and race_surge.visible and not _overlay_open() and race_surge.ready_now() \
 					and race_surge.get_global_rect().grow(6.0).has_point(t.position):
 				race_surge_pressed.emit()
 				return
@@ -3126,6 +3127,21 @@ func _input(event: InputEvent) -> void:
 			_release_stick()
 	elif event is InputEventScreenDrag:
 		var d := event as InputEventScreenDrag
+		# Version 163 (Tweaks report #2): a thumb already down when the fight began (the race's
+		# 3-2-1, a room fade) takes the stick as soon as it moves, instead of having to lift.
+		if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING and _safe.visible \
+				and not (_special.visible and _special.get_global_rect().grow(4.0).has_point(d.position)) \
+				and not (_dash_button.visible and _dash_button.get_global_rect().grow(4.0).has_point(d.position)) \
+				and not (race_surge.visible and race_surge.get_global_rect().grow(6.0).has_point(d.position)) \
+				and not _pause_button.get_global_rect().grow(12.0).has_point(d.position):
+			_stick_touch = d.index
+			_stick_origin = d.position
+			_stick_start = d.position
+			_stick_start_ms = Time.get_ticks_msec()
+			_stick.visible = true
+			_stick.position = _stick_origin
+			_stick.knob = Vector2.ZERO
+			joystick = Vector2.ZERO
 		if d.index == _stick_touch:
 			var delta := d.position - _stick_origin
 			if delta.length() > STICK_RADIUS:

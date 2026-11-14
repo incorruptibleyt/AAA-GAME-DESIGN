@@ -177,12 +177,15 @@ static func mark_running(cfg: ConfigFile, on: bool) -> void:
 static func settle_left(cfg: ConfigFile) -> Dictionary:
 	if not bool(cfg.get_value(SECTION, "running", false)):
 		return {}
-	return record(cfg, false)
+	return record(cfg, false, 0.0, true)
 
 
 ## Writes a race's result into the save: trophies, streaks, coins, the day's first-win drop.
 ## The caller adds `coins` to the coins it holds. Returns what changed, for the results screen.
-static func record(cfg: ConfigFile, won: bool, pace := 0.0) -> Dictionary:
+## `left`: the race was walked out of (quit from the pause menu, or the game closed). Version
+## 163 (Tweaks report #1): that pays no coins and doesn't count toward the easier rival a
+## losing streak brings, so quitting at GO can't farm coins or pick the rival.
+static func record(cfg: ConfigFile, won: bool, pace := 0.0, left := false) -> Dictionary:
 	mark_running(cfg, false)
 	if pace > 0.0:
 		var paces: Array = cfg.get_value(SECTION, "paces", [])
@@ -220,8 +223,9 @@ static func record(cfg: ConfigFile, won: bool, pace := 0.0) -> Dictionary:
 		t = before if before < SAFE_UNDER else maxi(floor_t, before - LOSS)
 		out.delta = t - before
 		cfg.set_value(SECTION, "streak", 0)
-		cfg.set_value(SECTION, "losses_row", stat(cfg, "losses_row") + 1)
-		out.coins = LOSS_COINS
+		if not left:
+			cfg.set_value(SECTION, "losses_row", stat(cfg, "losses_row") + 1)
+		out.coins = 0 if left else LOSS_COINS
 	cfg.set_value(SECTION, "trophies", t)
 	out.after = t
 	out.league_up = league_index(t) > league_index(before)

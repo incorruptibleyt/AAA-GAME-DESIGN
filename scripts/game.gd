@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-14f"
+const BUILD := "2026-11-14g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -109,6 +109,7 @@ var _longest_at := ""
 var _longest_new := ""   # what appeared during the longest frame
 var _added_now := {}
 var _added_before := {}
+var _spare_added := {}
 var _high_graphics := true   # Medium or High: glow, outlines, colour grading
 ## Graphics: 3 High (everything), 2 Medium (no shadows or edge smoothing, a slightly smaller
 ## 3D picture), 1 Low (no glow or outlines either), 0 Low held at a steady 30 frames a second.
@@ -636,7 +637,11 @@ func _process(delta: float) -> void:
 	var added := _added_now
 	var added_before := _added_before
 	_added_before = added
-	_added_now = {}
+	# Version 163 (Tweaks report #11): three Dictionaries take turns instead of a new one each
+	# frame (added_before is still read below this frame, so it is emptied next frame).
+	_spare_added.clear()
+	_added_now = _spare_added
+	_spare_added = added_before
 	if _pause_wanted:
 		if state == State.PLAYING:
 			_pause_wanted = false
@@ -2763,7 +2768,11 @@ func _room_watchdog(delta: float) -> void:
 				_finish_room(hero.global_position if hero else Vector3.ZERO)
 		return
 	_no_enemies_time = 0.0
-	_stall_time += delta
+	# Version 163 (Tweaks report #4): only a hero who stands (and so shoots) and still hits
+	# nothing counts as stuck. Heroes don't shoot while moving, so one who kept running got
+	# the room crumbled for them after 40 s, with full coins.
+	if hero == null or not hero._moving:
+		_stall_time += delta
 	if _stall_time > 20.0 and _stall_step == 0:
 		_stall_step = 1
 		for a: Actor in Actor.all.duplicate():
@@ -4899,7 +4908,7 @@ func _race_end(won: bool, left := false) -> void:
 	# This race's pace (projected to the line when the rival got there first) sets how quick
 	# the next rivals are. A race left from the pause menu says nothing about it.
 	var pace := 0.0 if left else (m.t if won else Race.pace_of(m.t, m.me()))
-	var res := Race.record(cfg, won, pace)
+	var res := Race.record(cfg, won, pace, left)
 	res.bones = bones
 	coins += int(res.coins)
 	cfg.set_value("stats", "coins", coins)
