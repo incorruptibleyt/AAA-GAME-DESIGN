@@ -2393,7 +2393,11 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 		"daily": daily, "daily_date": _daily_date, "practice": _daily_practice, "run_hero": _run_hero_id,
 		"heart_bonus": heart_bonus, "omens": omens.duplicate(), "loop_end": loop_end, "seen_rooms": _seen_rooms.duplicate(), "balance": 2,
 		"feat_counts": {} if _rep.is_empty() else {"perfect": int(_rep.perfect), "special": int(_rep.special),
-			"best_chain": float(_rep.best_chain), "hits": int(_rep.hits)},
+			"best_chain": float(_rep.best_chain), "hits": int(_rep.hits),
+			# version 158: the run report after CONTINUE kept the hit count but lost the damage
+			# and room times ("94 damage in 27 hits"); they carry on now too
+			"damage": (_rep.damage as Dictionary).duplicate(), "room_times": (_rep.rooms as Array).duplicate(),
+			"dash": int(_rep.dash), "healed": float(_rep.healed)},
 		"rooms": [] if next_floor or loop_end else _run.duplicate(true),   # this floor's rooms, to come back to
 		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {},
 		"event": event, "event_id": str(Events.current().get("id", "")) if event != "" else ""})
@@ -2506,6 +2510,10 @@ func _continue_run() -> void:
 		_rep.special = int(fc.get("special", 0))
 		_rep.best_chain = float(fc.get("best_chain", 1.0))
 		_rep.hits = int(fc.get("hits", 0))
+		_rep.damage = (fc.get("damage", {}) as Dictionary).duplicate()
+		_rep.rooms = (fc.get("room_times", []) as Array).duplicate()
+		_rep.dash = int(fc.get("dash", 0))
+		_rep.healed = float(fc.get("healed", 0.0))
 	_continued_floor = floor_num
 	# The same rooms as before the game was closed. Building new ones would change the rest
 	# of the floor (and of a Daily Crypt) and use up five more rooms each time.

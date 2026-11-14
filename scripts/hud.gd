@@ -3222,7 +3222,11 @@ func _see_through(delta: float) -> void:
 		if c == null:
 			continue
 		var want := 1.0
-		if fighting and c.is_visible_in_tree():
+		# Version 158: while the blessing cards or the doors are up, DASH and the special
+		# step back out of the way (they showed through the dimmed room under the cards).
+		if c != _boss_box and (_cards_box.visible or _doors_box.visible):
+			want = 0.0
+		elif fighting and c.is_visible_in_tree():
 			var r := c.get_global_rect().grow(14.0)
 			if hero_ok and c != _boss_box and r.intersects(hero_box):
 				want = 0.3
