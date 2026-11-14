@@ -3218,7 +3218,7 @@ func _see_through(delta: float) -> void:
 		var feet := cam.unproject_position(Game.hero.global_position)
 		var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 1.6)
 		hero_box = Rect2(head, Vector2.ZERO).expand(feet).grow(22.0)
-	for c: Control in [_special, _dash_button, _boss_box]:
+	for c: Control in [_special, _dash_button, race_surge, _boss_box]:
 		if c == null:
 			continue
 		var want := 1.0
