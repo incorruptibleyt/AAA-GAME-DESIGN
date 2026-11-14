@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-14g"
+const BUILD := "2026-11-14h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -137,6 +137,7 @@ var _auto_play_t := 0.0
 var fps_override := -1.0
 ## The opening animation while it plays.
 var intro: Intro
+var _back_ms := -10000   # when Back was last pressed on the title (twice to leave)
 var _combo := 0
 ## Bone Chain: kills close together grow a multiplier on damage and coins.
 ## +0.1 per kill (+0.3 for elites), up to x3, gone after 2.5 s without a kill.
@@ -421,7 +422,10 @@ func _ready() -> void:
 	hud.hero_pick.connect(_pick_hero)
 	hud.resume_pressed.connect(func(): if state == State.PAUSED: _resume())
 	hud.quit_run_pressed.connect(_quit_to_title)
-	hud.retry_pressed.connect(func(): if state == State.DEAD and not hud.armory_visible() and not hud.heroes_visible(): _on_screen_tapped())
+	# Version 164: TRY AGAIN answers after 0.3 s (a tap anywhere else still waits 1 s), with a click.
+	hud.retry_pressed.connect(func(): if state == State.DEAD and not race and _state_time > 0.3 and not hud.armory_visible() and not hud.heroes_visible():
+		Sfx.play("click")
+		_restart())
 	hud.music_toggled.connect(_set_music)
 	hud.sounds_toggled.connect(_set_sounds)
 	hud.graphics_toggled.connect(_set_graphics)
@@ -542,6 +546,10 @@ func _ready() -> void:
 	var args := OS.get_cmdline_user_args()
 	if not "autoplay" in args or "intro" in args:
 		_play_intro()
+		# Version 164: the whole opening plays on the first launch only; after that it goes
+		# straight to its short glide onto the title.
+		if int(_load_save().get_value("stats", "launches", 1)) > 1:
+			intro.skip()
 		intro.finished.connect(_ask_reports_on_title)
 		intro.finished.connect(func(): Telemetry.step("intro_end"))
 		intro.finished.connect(_ask_reminders_on_title)
@@ -855,6 +863,15 @@ func _notification(what: int) -> void:
 			State.DEAD, State.VICTORY:
 				_end_to_title()
 			State.TITLE:
+				# Version 164: Back skips the intro, and the title needs Back twice to leave
+				# (one stray Back used to close the game).
+				if is_instance_valid(intro):
+					intro.skip()
+					return
+				if Time.get_ticks_msec() - _back_ms > 2000:
+					_back_ms = Time.get_ticks_msec()
+					hud.tip("Press Back again to leave", 2.0)
+					return
 				if Telemetry.instance:
 					Telemetry.instance.session_open(false)
 				get_tree().quit()
@@ -1513,6 +1530,7 @@ func _on_screen_tapped() -> void:
 				_restart()
 		State.VICTORY:
 			if _state_time > 1.5 and not _loop_choice and not _celebrating:   # the end of a loop has its own buttons
+				Sfx.play("click")
 				if _daily_done or _event_done:
 					_back_to_title()
 				else:
@@ -1900,6 +1918,11 @@ func _apply_armory() -> void:
 
 func _restart() -> void:
 	_set_state(State.TRANSITION)
+	# Version 164: a tutorial retry starts in the room the player fell in, with the same rooms
+	# and the blessings they had, instead of from room 1 again.
+	var fell_room := _room_index
+	var fell_taken := _taken.duplicate()
+	var fell_run := _run.duplicate(true)
 	await _fade(0.0, 1.0, 0.4)
 	hud.show_end(false)
 	if hero:
@@ -1927,13 +1950,22 @@ func _restart() -> void:
 	else:
 		_run_hero_id = ""   # a free trial is one run
 	first_run = first_run_pending()   # true only after a first death in the tutorial
+	var again_at := fell_room if first_run and fell_room > 0 and fell_room < fell_run.size() else 0
 	_check_newcomer()
 	_build_run()
+	if again_at > 0:
+		_run = fell_run
 	_pick_curses()
 	hud.show_hud(true)
 	_load_room(0, false)
 	_apply_armory()
-	_load_room(0, true)
+	if again_at > 0:
+		# Only the blessings the Armory didn't just give back.
+		for id in fell_taken:
+			for k in int(fell_taken[id]) - int(_taken.get(id, 0)):
+				_taken[id] = _taken.get(id, 0) + 1
+				Upgrades.apply(id, hero)
+	_load_room(again_at, true)
 	await _fade(1.0, 0.0, 0.4)
 	_mode_banner()
 
@@ -2328,8 +2360,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			e.make_elite()
 		_wave_kinds.append(kind)
 		# Twin Wardens: a second boss beside the first, each with 35% less health.
-		if e.is_boss and curses.has("twin"):
-			var twin := spawn_enemy(kind, s.pos + Vector3(2.4, 0, 0))
+		# Version 164: the last free floor ends with the King and the Lich together (floor 5
+		# had the same theme and boss as floor 1 and 2), the same way.
+		var duo := e.is_boss and kind == "K" and floor_num == Store.FREE_FLOORS and not first_run \
+			and event == "" and not race and not daily and not curses.has("twin")
+		if e.is_boss and (curses.has("twin") or duo):
+			var twin := spawn_enemy("L" if duo else kind, s.pos + Vector3(2.4, 0, 0))
 			e.global_position = s.pos - Vector3(2.4, 0, 0)
 			for b: Enemy in [e, twin]:
 				b.max_health *= 0.65
@@ -2585,7 +2621,14 @@ func _boss_intro() -> void:
 		sub = "Queen Hunt  ·  %s" % str(Events.TIERS[event_tier - 1].name)
 	elif event != "":
 		sub = "Ruler of the Blood Moon" if boss_kind() == "Q" else "Guardian of the Blood Moon"
-	hud.show_boss_card(b.display_name(), sub)
+	var title := b.display_name()
+	if _bosses.size() > 1 and not curses.has("twin"):
+		var other: Enemy = _bosses[1] if _bosses[0] == b else _bosses[0]
+		if is_instance_valid(other):
+			title = "%s & %s" % [b.display_name(), other.display_name()]
+			sub = "Together, on floor %d" % floor_num
+			hud.set_boss_name(title)
+	hud.show_boss_card(title, sub)
 	await get_tree().create_timer(1.8, true, false, true).timeout
 	hud.hide_boss_card()
 	_intro_focus = false
@@ -3200,7 +3243,7 @@ func on_hero_died() -> void:
 		hud.set_coins(coins)
 	_save_coins()
 	Sfx.play("vo_lose", 0.8)
-	await get_tree().create_timer(1.4, true, false, true).timeout
+	await get_tree().create_timer(0.9, true, false, true).timeout   # (1.4 s before version 164)
 	var cfg := _load_save()
 	# A Bone Drop for getting somewhere: room 3 or further, or any deeper floor. Not in the
 	# tutorial (its win gives the first one).
@@ -3237,7 +3280,7 @@ func on_hero_died() -> void:
 	if shards > 0:
 		coin_line += "\nMoon Shards  +%d" % shards
 	if tutorial_again:
-		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nThe tutorial starts again from room 1." % run_coins
+		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nYou start again in this room." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
 	var note := not Store.owned() and floor_num >= 3 and event == "" and not _pass_note_shown
 	if note:

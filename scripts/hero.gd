@@ -194,7 +194,8 @@ func dash_ready() -> bool:
 ## Start a dash along `dir` (on the floor). Does nothing while it's recharging.
 func dash(dir: Vector3) -> void:
 	dir.y = 0.0
-	if dead or down_left > 0.0 or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING:
+	# (Version 164: not before the tutorial teaches it in room 2, a flick used to dash in room 1.)
+	if dead or down_left > 0.0 or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING or not Game.dash_unlocked():
 		return
 	if not dash_ready():
 		if _dash_cooldown <= DASH_BUFFER:

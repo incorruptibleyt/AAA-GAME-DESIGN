@@ -132,6 +132,9 @@ var _shown_hp := 1.0
 
 var _stick: Joystick
 var _stick_touch := -1
+## Version 164: touches that began on DASH, the special or SURGE. Sliding off a button
+## no longer turns that thumb into the stick.
+var _button_touches := {}
 var _stick_origin := Vector2.ZERO
 
 var _cards_box: Control
@@ -995,7 +998,10 @@ func _build_hud() -> void:
 	_pause_button.offset_right = -14
 	_pause_button.offset_top = 6
 	_pause_button.offset_bottom = 70
-	_pause_button.pressed.connect(func(): pause_pressed.emit())
+	_pause_button.pressed.connect(func():
+		if Game.state == Game.State.PLAYING:
+			Sfx.play("click")
+		pause_pressed.emit())
 	root.add_child(_pause_button)
 
 	# A tip in the empty space at the bottom of the screen during the first room.
@@ -2222,7 +2228,9 @@ func _build_end() -> void:
 	# Back to the title from the death screen, or after a win (the run stays saved).
 	_end_title_btn = button("TITLE", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_end_title_btn.custom_minimum_size = Vector2(222, 66)
-	_end_title_btn.pressed.connect(func(): title_pressed.emit())
+	_end_title_btn.pressed.connect(func():
+		Sfx.play("click")
+		title_pressed.emit())
 	_end_title_button = _centered(_end_title_btn)
 	_end_title_button.visible = false
 	col.add_child(_end_title_button)
@@ -2466,6 +2474,7 @@ func _on_feedback_send() -> void:
 
 
 func _on_resume_pressed() -> void:
+	Sfx.play("click")
 	if _settings_only:
 		show_settings(false)
 	else:
@@ -2485,6 +2494,7 @@ func _quit_text() -> String:
 
 ## Quitting loses the run, so the first tap only asks; a second tap within 3 s quits.
 func _on_quit_pressed() -> void:
+	Sfx.play("click")
 	if _quit_armed:
 		_disarm_quit()
 		quit_run_pressed.emit()
@@ -3083,6 +3093,7 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var t := event as InputEventScreenTouch
 		if t.pressed:
+			_button_touches.erase(t.index)
 			if _end_box.visible and not _end_buttons.visible and not _end_offer.visible and not _end_loop.visible \
 					and not _armory_box.visible and not _pass_box.visible and not _omen_box.visible and not _ask_box.visible and not _rem_box.visible \
 					and not _heroes_box.visible and not _drops.visible \
@@ -3096,19 +3107,23 @@ func _input(event: InputEvent) -> void:
 			# The pause button looks small but answers a little way around it too.
 			if _safe.visible and _pause_button.get_global_rect().grow(12.0).has_point(t.position):
 				if not _pause_button.get_global_rect().has_point(t.position) and _pause_button.is_visible_in_tree() and not _overlay_open():
+					Sfx.play("click")
 					pause_pressed.emit()
 				return
 			# Version 163 (Tweaks report #7): an empty SURGE lets the touch through to the stick.
 			if _safe.visible and race_surge.visible and not _overlay_open() and race_surge.ready_now() \
 					and race_surge.get_global_rect().grow(6.0).has_point(t.position):
+				_button_touches[t.index] = true
 				race_surge_pressed.emit()
 				return
 			if _safe.visible and _special.visible and not _overlay_open() \
 					and _special.get_global_rect().grow(4.0).has_point(t.position):
+				_button_touches[t.index] = true
 				special_pressed.emit()
 				return
 			if _safe.visible and _dash_button.visible and not _overlay_open() \
 					and _dash_button.get_global_rect().grow(4.0).has_point(t.position):
+				_button_touches[t.index] = true
 				dash_pressed.emit()
 				return
 			if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING:
@@ -3120,6 +3135,8 @@ func _input(event: InputEvent) -> void:
 				_stick.position = _stick_origin
 				_stick.knob = Vector2.ZERO
 				joystick = Vector2.ZERO
+		elif _button_touches.erase(t.index):
+			pass   # a thumb lifted off a button
 		elif t.index == _stick_touch:
 			var flick := t.position - _stick_start
 			if Time.get_ticks_msec() - _stick_start_ms < int(FLICK_TIME * 1000.0) and flick.length() > FLICK_DISTANCE:
@@ -3130,6 +3147,7 @@ func _input(event: InputEvent) -> void:
 		# Version 163 (Tweaks report #2): a thumb already down when the fight began (the race's
 		# 3-2-1, a room fade) takes the stick as soon as it moves, instead of having to lift.
 		if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING and _safe.visible \
+				and not _button_touches.has(d.index) \
 				and not (_special.visible and _special.get_global_rect().grow(4.0).has_point(d.position)) \
 				and not (_dash_button.visible and _dash_button.get_global_rect().grow(4.0).has_point(d.position)) \
 				and not (race_surge.visible and race_surge.get_global_rect().grow(6.0).has_point(d.position)) \
