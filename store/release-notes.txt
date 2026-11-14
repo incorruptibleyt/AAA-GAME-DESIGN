@@ -1,0 +1,5 @@
+Version 133: smoother on every phone
+- New Medium graphics, between High and Low.
+- New Low · 30 FPS graphics: a steady frame rate for older phones.
+- If your phone struggles, graphics now step down one level at a time instead of dropping straight to Low.
+- New Speed Test in Settings: one minute of fighting that plays itself and shows how smoothly the game runs on your phone. Nothing is saved.

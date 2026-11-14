@@ -1,0 +1,25 @@
+// Godot Android plugin (v2) for Google Play Games Services: sign-in, leaderboard scores and the
+// friends list. CI builds it with `gradle assembleRelease assembleDebug` and copies the .aar files
+// to addons/PlayGames/bin/ (only once app_id.txt holds the game's Play Games project ID).
+plugins {
+    id 'com.android.library' version '8.7.3'
+}
+
+android {
+    namespace 'org.bonechain.playgames'
+    compileSdk 35
+    defaultConfig {
+        minSdk 24
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // Godot's library comes with the game; Play Games is added to the Android build by
+    // addons/PlayGames/export_plugin.gd (keep the two versions the same).
+    compileOnly 'org.godotengine:godot:4.7.2.stable'
+    compileOnly 'com.google.android.gms:play-services-games-v2:20.1.2'
+}

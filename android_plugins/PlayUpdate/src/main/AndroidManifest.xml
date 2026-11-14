@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Version 143: phone reminders the player turns on in the game (Android 13+ asks first). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <application>
+        <meta-data
+            android:name="org.godotengine.plugin.v2.PlayUpdate"
+            android:value="org.bonechain.playupdate.PlayUpdatePlugin" />
+        <receiver
+            android:name="org.bonechain.playupdate.Reminders$ReminderReceiver"
+            android:exported="false" />
+        <receiver
+            android:name="org.bonechain.playupdate.Reminders$BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

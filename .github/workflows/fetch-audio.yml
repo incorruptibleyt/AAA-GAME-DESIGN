@@ -1,0 +1,47 @@
+# Downloads free CC0 sound packs by Kenney (kenney.nl) and posts the .ogg files as one
+# zip on the "audio-pack" release so they can be added to the game.
+
+name: Fetch Kenney audio
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/fetch-audio.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Download the packs
+        run: |
+          set -e
+          mkdir -p out
+          for pack in rpg-audio impact-sounds interface-sounds ui-audio voiceover-pack-fighter; do
+            url=$(curl -sSL "https://kenney.nl/assets/$pack" | grep -oE 'https://kenney\.nl/media/pages/assets/[^"]+\.zip' | head -1 || true)
+            echo "$pack -> $url"
+            if [ -z "$url" ]; then continue; fi
+            curl -sSL -o "$pack.zip" "$url"
+            mkdir -p "src/$pack"
+            unzip -q "$pack.zip" -d "src/$pack"
+            mkdir -p "out/$pack"
+            find "src/$pack" -type f \( -iname '*.ogg' -o -iname 'license*' \) -exec cp {} "out/$pack/" \;
+          done
+          find out -type f | sort
+          du -sh out
+          (cd out && zip -q -r ../kenney-audio.zip .)
+          ls -la kenney-audio.zip
+
+      - name: Publish as the "audio-pack" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release delete audio-pack --yes --cleanup-tag || true
+          gh release create audio-pack kenney-audio.zip --prerelease --target "$GITHUB_SHA" \
+            --title "Kenney audio pack (CC0)" \
+            --notes "Sound effects from Kenney's RPG Audio, Impact Sounds, Interface Sounds, UI Audio and Voiceover Fighter packs. CC0 licence."

@@ -1,0 +1,288 @@
+class_name Telemetry
+extends Node
+## Automatic, anonymous reports. At the end of every run (and when the game hits an
+## error, or seems to have crashed last time) it posts a short text report to a Google
+## Form, whose answers land in a Google Sheet. No account, ad ID or personal data:
+## just a random install number made on the phone, the build, the phone model and
+## the run report. It's off until the player says yes (they're asked once, after a run),
+## and can be switched either way in the pause menu ("Send reports"). SEND FEEDBACK in the
+## pause menu posts a typed note the same way, even with reports off.
+##
+## To point it at a different form, change FORM_ID and ENTRY (from the form's
+## "Get pre-filled link"). Leaving FORM_ID empty switches reports off completely.
+
+const FORM_ID := "1FAIpQLSfn55v80P_BKC4IcLw9wsS7d9d2618GsHbo8ktg1IbYK3eogw"
+const ENTRY := "entry.999248691"
+const QUEUE_PATH := "user://report_queue.json"
+const MAX_QUEUE := 20
+const MAX_ERRORS := 5   # error reports per session, so one bug can't spam
+const STEPS := "steps"         # the save section for the first-week steps (version 157)
+const STEP_DAYS := 8           # steps stop this many days after the first launch
+
+static var instance: Telemetry
+
+var _http: HTTPRequest
+var _queue: Array = []
+var _busy := false
+var _errors: Array = []
+var _errors_sent := 0
+var _mutex := Mutex.new()
+var _seen := {}
+
+
+class ErrorCatcher extends Logger:
+	var owner: Telemetry
+
+	func _log_error(function: String, file: String, line: int, code: String, rationale: String, _editor_notify: bool, error_type: int, script_backtraces: Array[ScriptBacktrace]) -> void:
+		if error_type == ERROR_TYPE_WARNING:
+			return   # warnings are noise on players' phones
+		var text := "ERROR %s (%s:%d %s)" % [rationale if rationale != "" else code, file, line, function]
+		if not script_backtraces.is_empty():
+			text += "\n" + script_backtraces[0].format()
+		owner.catch_error(text)
+
+	func _log_message(_message: String, _error: bool) -> void:
+		pass
+
+
+static func configured() -> bool:
+	return FORM_ID != "" and ENTRY != ""
+
+
+var _away := false
+
+
+func _ready() -> void:
+	instance = self
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	_http = HTTPRequest.new()
+	_http.timeout = 15.0
+	_http.request_completed.connect(_on_done)
+	add_child(_http)
+	if not active():
+		if "autoplay" in OS.get_cmdline_user_args():
+			_steps_begin()   # (printed, not sent: lets the robot check the steps)
+		return
+	var catcher := ErrorCatcher.new()
+	catcher.owner = self
+	OS.add_logger(catcher)
+	_load_queue()
+	_check_last_session()
+	session_open(true)
+	_steps_begin()
+
+
+## Version 157. The first launch of a new save turns the steps on; an older save (one that
+## has played) never sends any. Later launches say which day the player came back on.
+func _steps_begin() -> void:
+	var cfg := Game._load_save()
+	var now := int(Time.get_unix_time_from_system())
+	if not cfg.has_section(STEPS):
+		var fresh := int(cfg.get_value("stats", "best_room", 0)) == 0 and int(cfg.get_value("stats", "wins", 0)) == 0 \
+				and not bool(cfg.get_value("stats", "first_run_done", false))
+		cfg.set_value(STEPS, "on", fresh)
+		cfg.set_value(STEPS, "t0", now)
+		Game.write_save(cfg)
+		step("opened")
+		return
+	var day := int((now - int(cfg.get_value(STEPS, "t0", now))) / 86400)
+	if day >= 1 and day <= 7:
+		step("day%d" % (day + 1))   # day2 = came back the day after the first launch
+
+
+## One first-week step (see the note at the top). Each name goes once per install.
+static func step(what: String) -> void:
+	var t := instance
+	if t == null or not (t.active() or "autoplay" in OS.get_cmdline_user_args()):
+		return
+	var cfg := Game._load_save()
+	if not bool(cfg.get_value(STEPS, "on", false)) or cfg.has_section_key(STEPS, what):
+		return
+	if cfg.has_section_key("settings", "reports") and not bool(cfg.get_value("settings", "reports", false)):
+		return   # they said no: nothing more goes
+	var secs := maxi(0, int(Time.get_unix_time_from_system()) - int(cfg.get_value(STEPS, "t0", 0)))
+	if secs > STEP_DAYS * 86400:
+		return
+	cfg.set_value(STEPS, what, secs)
+	Game.write_save(cfg)
+	var line := "step | build %s | install %s\n%s | %d s" % [Game.BUILD, install_id(cfg), what, secs]
+	if not t.active():
+		print("[step] " + line.replace("\n", " | "))   # the test robot: shown, never sent
+		return
+	t._queue.append(line)
+	# Offline, the queue keeps its last 20: an old step goes first, so a step can't push out
+	# a crash or run report (version 158).
+	while t._queue.size() > MAX_QUEUE:
+		var old := -1
+		for k in t._queue.size() - 1:
+			if str(t._queue[k]).begins_with("step |"):
+				old = k
+				break
+		t._queue.remove_at(old if old >= 0 else 0)
+	t._save_queue()
+	t._flush()
+
+
+## Reports go out only from a real install with a form set up, and never from the test robot.
+func active() -> bool:
+	return configured() and not "autoplay" in OS.get_cmdline_user_args() and OS.has_feature("template")
+
+
+func enabled() -> bool:
+	return active() and bool(Game._load_save().get_value("settings", "reports", false))
+
+
+func send(kind: String, body: String) -> void:
+	if not enabled() or (Game.bench and kind != "bench"):
+		return   # (a SPEED TEST sends only its own result, never a run report)
+	_post(kind, body)
+
+
+## A note the player typed in SEND FEEDBACK. Sent even with reports off, because pressing
+## SEND is asking for it to go; it carries the same anonymous header as a report.
+## False where nothing can be sent (the robot, the editor, or no form set up).
+func send_feedback(note: String) -> bool:
+	if not active():
+		return false
+	_post("feedback", note + "\nWhere: " + Game.where_text())
+	return true
+
+
+func _post(kind: String, body: String) -> void:
+	var cfg := Game._load_save()
+	var head := "%s | build %s | install %s | %s | Android %s | %s | RAM %s" % [kind, Game.BUILD, install_id(cfg),
+		OS.get_model_name(), OS.get_version(), RenderingServer.get_video_adapter_name(), Game.ram_text()]
+	_queue.append(head + "\n" + body)
+	while _queue.size() > MAX_QUEUE:
+		_queue.pop_front()
+	_save_queue()
+	_flush()
+
+
+## Called by the logger, possibly from another thread: just remember it for _process.
+func catch_error(text: String) -> void:
+	_mutex.lock()
+	if _errors.size() < MAX_ERRORS and not _seen.has(text):
+		_seen[text] = true   # the same error every frame is reported once
+		_errors.append(text)
+	_mutex.unlock()
+
+
+func _process(_delta: float) -> void:
+	if _errors.is_empty():
+		return
+	_mutex.lock()
+	var list := _errors.duplicate()
+	_errors.clear()
+	_mutex.unlock()
+	for e in list:
+		if _errors_sent < MAX_ERRORS:
+			_errors_sent += 1
+			send("error", e + "\nWhere: " + Game.where_text())
+
+
+## Marks the game as running. If it's still marked next launch, the game didn't close
+## normally (a crash, or Android killing it while open), so the next launch reports it.
+## With reports on, one short note a day when the game opens (Game.open_text), so testers
+## who play without finishing a run still show up.
+func daily_open() -> void:
+	if not enabled():
+		return
+	var cfg := Game._load_save()
+	var today := Time.get_date_string_from_system(true)
+	if str(cfg.get_value("telemetry", "open_day", "")) == today:
+		return
+	cfg.set_value("telemetry", "open_day", today)
+	Game.write_save(cfg)
+	send("open", Game.open_text())
+
+
+func session_open(open: bool) -> void:
+	if not active() or (open and _away):
+		return
+	var cfg := Game._load_save()
+	cfg.set_value("telemetry", "open", open)
+	cfg.set_value("telemetry", "where", Game.where_text())
+	Game.write_save(cfg)
+
+
+## The game went to the background (or came back). While away, Android may close it at any
+## time without a crash, so the marker stays off; loading steps that finish in the background
+## (note_spot) can't turn it back on until the player returns.
+func set_away(away: bool) -> void:
+	_away = false
+	session_open(not away)
+	_away = away
+
+
+func _check_last_session() -> void:
+	var cfg := Game._load_save()
+	if not bool(cfg.get_value("telemetry", "open", false)):
+		return
+	send("possible crash", "The game didn't close normally last time.\nLast seen: %s\n%s" % [cfg.get_value("telemetry", "where", "?"), _last_log()])
+
+
+## The end of the previous session's log file, if Godot kept one.
+func _last_log() -> String:
+	# Version 127 (audit #14): release builds keep no log file, and one left by an older
+	# version would be about a different session.
+	if not bool(ProjectSettings.get_setting("debug/file_logging/enable_file_logging", false)):
+		return ""
+	var dir := DirAccess.open("user://logs")
+	if dir == null:
+		return ""
+	var files := Array(dir.get_files()).filter(func(f: String): return f.ends_with(".log") and f != "godot.log")
+	if files.is_empty():
+		return ""
+	files.sort()
+	var text := FileAccess.get_file_as_string("user://logs/" + files[-1])
+	var lines := text.split("\n")
+	return "Log tail:\n" + "\n".join(lines.slice(maxi(0, lines.size() - 30)))
+
+
+static func install_id(cfg: ConfigFile) -> String:
+	var id := str(cfg.get_value("telemetry", "id", ""))
+	if id == "":
+		id = "%08x" % (randi() & 0x7fffffff)
+		cfg.set_value("telemetry", "id", id)
+		Game.write_save(cfg)
+	return id
+
+
+func _flush() -> void:
+	# With reports off only typed feedback can be waiting here (switching reports off
+	# clears the rest), and the player asked for that to go.
+	if _busy or _queue.is_empty() or not active():
+		return
+	_busy = true
+	var url := "https://docs.google.com/forms/d/e/%s/formResponse" % FORM_ID
+	var data := "%s=%s" % [ENTRY, (_queue[0] as String).uri_encode()]
+	if _http.request(url, ["Content-Type: application/x-www-form-urlencoded"], HTTPClient.METHOD_POST, data) != OK:
+		_busy = false
+
+
+func _on_done(result: int, code: int, _headers: PackedStringArray, _body: PackedByteArray) -> void:
+	_busy = false
+	if result == HTTPRequest.RESULT_SUCCESS and code < 400:
+		_queue.pop_front()
+		_save_queue()
+		_flush()
+	# Otherwise (offline, say) it stays queued and goes with the next report or launch.
+
+
+func _load_queue() -> void:
+	var parsed = JSON.parse_string(FileAccess.get_file_as_string(QUEUE_PATH)) if FileAccess.file_exists(QUEUE_PATH) else null
+	_queue = parsed if parsed is Array else []
+	_flush()
+
+
+## Reports were switched off: drop any still waiting to be sent (typed feedback stays).
+func clear_queue() -> void:
+	_queue = _queue.filter(func(q): return str(q).begins_with("feedback |"))
+	_save_queue()
+
+
+func _save_queue() -> void:
+	var f := FileAccess.open(QUEUE_PATH, FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify(_queue))
