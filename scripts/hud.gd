@@ -139,6 +139,12 @@ var _cards_mastery: Label   # "WIZARD MASTERY 3!" over the cards after a mid-run
 var _cards_clock: Label     # in a race (version 156): the race clock, still running
 var _cards: Array[Button] = []
 var _cards_have: PanelContainer   # the row of blessings already held, over the cards
+var _cards_row: HBoxContainer
+var _cards_ready: Array[bool] = [false, false, false]   # a card can be picked once it's face up
+var _cards_picking := false
+var _cards_tweens: Array = []
+const CARD_SIZE := Vector2(160, 368)
+const CARD_GAP := 10
 var _cards_have_row: HFlowContainer
 var _reroll_button: Button
 ## Doors (doors.gd): two to pick from after a blessing.
@@ -1271,14 +1277,18 @@ func _build_cards() -> void:
 	# Version 143 (review change 4): the room stays in view behind the cards, dimmed, so the
 	# pick feels like a moment in the crypt rather than a menu (it was an opaque purple
 	# page). Below 0.7 the overlay gets no painted backdrop.
-	_cards_box = overlay(Color(0.02, 0.01, 0.04, 0.62))
+	_cards_box = overlay(Color(0.02, 0.01, 0.04, 0.42))
 	add_child(_cards_box)
+	# Version 157: the room shows more, with candlelight pooled behind the cards and the
+	# corners sunk in shadow, so the pick happens in the lit crypt.
+	_cards_box.add_child(_radial_light(Color(0, 0, 0, 0.0), Color(0.01, 0.0, 0.03, 0.72), Vector2(0.5, 0.55), Vector2(1.25, 1.1)))
+	_cards_box.add_child(_radial_light(Color(1.0, 0.62, 0.28, 0.2), Color(1.0, 0.5, 0.2, 0.0), Vector2(0.5, 0.56), Vector2(0.5, 0.86)))
 	var col := VBoxContainer.new()
 	col.set_anchors_preset(Control.PRESET_FULL_RECT)
-	col.offset_left = 30
-	col.offset_right = -30
+	col.offset_left = 16
+	col.offset_right = -16
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 18)
+	col.add_theme_constant_override("separation", 16)
 	_cards_box.add_child(col)
 	# What you already hold, as a row of small badges, so a card's "completes" badge and
 	# the build it adds to can be read at a glance.
@@ -1321,74 +1331,108 @@ func _build_cards() -> void:
 	_cards_clock.label_settings.outline_size = 5
 	_cards_clock.visible = false
 	col.add_child(_cards_clock)
+	# Version 157 (review fix 5): three tall cards side by side, dealt face down over the
+	# lit crypt and flipped over one by one (they were a list of wide rows).
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", CARD_GAP)
 	for i in 3:
-		# A chunky card: a frame and a thick lip in the blessing's rarity colour (painted in
-		# show_cards), a band of that colour across the top, the badge on the left, the name
-		# in the cartoon font and the rarity on a ribbon. Rare ones and up get a shine.
+		var holder := Control.new()   # keeps the card's place in the row while it flies in
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.custom_minimum_size = CARD_SIZE
+		row.add_child(holder)
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(0, 132)
+		b.size = CARD_SIZE
+		b.pivot_offset = CARD_SIZE * 0.5
 		b.focus_mode = Control.FOCUS_NONE
-		b.add_theme_stylebox_override("normal", StyleBoxFlat.new())
-		b.add_theme_stylebox_override("hover", StyleBoxFlat.new())
-		b.add_theme_stylebox_override("pressed", StyleBoxFlat.new())
-		b.add_theme_stylebox_override("hover_pressed", StyleBoxFlat.new())
+		for st in ["normal", "hover", "pressed", "hover_pressed"]:
+			b.add_theme_stylebox_override(st, StyleBoxFlat.new())
 		b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
+		holder.add_child(b)
+		# A soft glow round the card: gold and breathing for a synergy, the rarity colour
+		# for rare and epic ones.
+		var aura := Panel.new()
+		aura.name = "Aura"
+		aura.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		aura.position = Vector2(4, 6)
+		aura.size = CARD_SIZE - Vector2(8, 12)
+		aura.show_behind_parent = true
+		b.add_child(aura)
 		var band := Panel.new()
 		band.name = "Band"
 		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		band.anchor_right = 1.0
-		band.offset_left = 4
-		band.offset_top = 4
-		band.offset_right = -4
-		band.offset_bottom = 48
-		b.add_child(band, false, Node.INTERNAL_MODE_FRONT)
-		var t := label("", 28, Color.WHITE, HORIZONTAL_ALIGNMENT_LEFT)
-		t.position = Vector2(104, 6)
-		t.size = Vector2(250, 44)
-		t.autowrap_mode = TextServer.AUTOWRAP_OFF
-		b.add_child(t)
-		var d := label("", 18, Color(0.88, 0.86, 0.94), HORIZONTAL_ALIGNMENT_LEFT)
-		d.position = Vector2(104, 52)
-		d.size = Vector2(362, 62)
-		b.add_child(d)
+		band.position = Vector2(4, 4)
+		band.size = Vector2(CARD_SIZE.x - 8, 38)
+		b.add_child(band)
+		var kind := label("", 16, INK)
+		kind.name = "Kind"
+		kind.label_settings.outline_size = 0
+		kind.autowrap_mode = TextServer.AUTOWRAP_OFF
+		kind.clip_text = true
+		kind.position = Vector2(6, 4)
+		kind.size = Vector2(CARD_SIZE.x - 12, 38)
+		b.add_child(kind)
+		# The badge sits on a lit disc, like a relic in a niche.
+		var niche := Panel.new()
+		niche.name = "Niche"
+		niche.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		niche.size = Vector2(112, 112)
+		niche.position = Vector2((CARD_SIZE.x - 112) * 0.5, 48)
+		b.add_child(niche)
 		var icon := BlessingIcon.new()
-		icon.zoom = 1.25
-		icon.position = Vector2(14, 22)
+		icon.name = "Icon"
+		icon.zoom = 1.5
+		icon.position = Vector2((CARD_SIZE.x - 96) * 0.5, 56)
 		b.add_child(icon)
-		var r := label("", 13, INK, HORIZONTAL_ALIGNMENT_CENTER)
-		r.anchor_left = 1.0
-		r.anchor_right = 1.0
-		r.offset_left = -150
-		r.offset_right = -12
-		r.offset_top = 12
-		r.offset_bottom = 34
+		# The name (one or two lines) with the words straight under it.
+		var words := VBoxContainer.new()
+		words.name = "Words"
+		words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		words.add_theme_constant_override("separation", 4)
+		words.position = Vector2(6, 164)
+		words.size = Vector2(CARD_SIZE.x - 12, CARD_SIZE.y - 164 - 54)
+		b.add_child(words)
+		var t := label("", 24, Color.WHITE)
+		t.name = "Title"
+		chunky(t.label_settings)   # (the cartoon font, below its usual size)
+		t.label_settings.line_spacing = -5
+		t.custom_minimum_size.x = CARD_SIZE.x - 12
+		words.add_child(t)
+		var d := label("", 16, Color(0.9, 0.88, 0.95))
+		d.name = "Desc"
+		d.label_settings.line_spacing = -2
+		d.custom_minimum_size.x = CARD_SIZE.x - 12
+		words.add_child(d)
+		var r := label("", 16, INK)
+		r.name = "Rarity"
 		r.autowrap_mode = TextServer.AUTOWRAP_OFF
 		r.label_settings.outline_size = 0
-		r.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 		var pill := StyleBoxFlat.new()
-		pill.set_corner_radius_all(11)
-		pill.content_margin_left = 9
-		pill.content_margin_right = 9
+		pill.set_corner_radius_all(12)
+		pill.content_margin_left = 12
+		pill.content_margin_right = 12
 		r.add_theme_stylebox_override("normal", pill)
 		b.add_child(r)
-		# "UNLOCKS WILDFIRE": this card is the missing half of a synergy you half own.
-		var combo := label("", 15, INK, HORIZONTAL_ALIGNMENT_CENTER)
-		combo.anchor_left = 1.0
-		combo.anchor_right = 1.0
-		combo.anchor_top = 1.0
-		combo.anchor_bottom = 1.0
-		combo.offset_left = -230
-		combo.offset_right = -12
-		combo.offset_top = -13   # hangs over the card's bottom edge like a sticker
-		combo.offset_bottom = 13
-		combo.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		# "UNLOCKS WILDFIRE": this card is the missing half of a synergy you half own. A
+		# gold sticker hung over the card's top edge.
+		var combo := label("", 16, INK)
+		combo.name = "Combo"
 		combo.autowrap_mode = TextServer.AUTOWRAP_OFF
 		combo.label_settings.outline_size = 0
+		combo.label_settings.line_spacing = -3
 		var cp := StyleBoxFlat.new()
-		cp.bg_color = Color(1.0, 0.8, 0.3)
-		cp.set_corner_radius_all(11)
+		cp.bg_color = GOLD
+		cp.border_color = Color(1, 0.96, 0.75)
+		cp.set_border_width_all(2)
+		cp.set_corner_radius_all(12)
 		cp.content_margin_left = 10
 		cp.content_margin_right = 10
+		cp.content_margin_top = 1
+		cp.content_margin_bottom = 2
+		cp.shadow_color = Color(0, 0, 0, 0.45)
+		cp.shadow_size = 2
+		cp.shadow_offset = Vector2(0, 3)
 		combo.add_theme_stylebox_override("normal", cp)
 		combo.visible = false
 		b.add_child(combo)
@@ -1396,36 +1440,110 @@ func _build_cards() -> void:
 		shine.name = "Shine"
 		shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var ss := StyleBoxFlat.new()
-		ss.bg_color = Color(1, 1, 1, 0.22)
-		ss.skew = Vector2(-0.6, 0)
+		ss.bg_color = Color(1, 1, 1, 0.2)
+		ss.skew = Vector2(-0.5, 0)
 		shine.add_theme_stylebox_override("panel", ss)
-		shine.size = Vector2(46, 150)
-		shine.position = Vector2(-120, -8)
+		shine.size = Vector2(40, CARD_SIZE.y + 20)
+		shine.position = Vector2(-90, -10)
 		shine.visible = false
 		var clip := Control.new()   # keeps the glint inside the card
 		clip.name = "ShineClip"
 		clip.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		clip.clip_contents = true
-		clip.anchor_right = 1.0
-		clip.anchor_bottom = 1.0
-		clip.offset_left = 4
-		clip.offset_top = 4
-		clip.offset_right = -4
-		clip.offset_bottom = -10
+		clip.position = Vector2(4, 4)
+		clip.size = CARD_SIZE - Vector2(8, 14)
 		clip.add_child(shine)
-		b.add_child(clip, false, Node.INTERNAL_MODE_BACK)
-		b.resized.connect(func(): b.pivot_offset = b.size * 0.5)
+		b.add_child(clip)
+		# The back, shown while the card is dealt: bone-gold frame, crossed bones and chain.
+		var back := Control.new()
+		back.name = "Back"
+		back.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		back.size = CARD_SIZE
+		back.draw.connect(_draw_card_back.bind(back))
+		b.add_child(back)
 		var idx := i
 		b.pressed.connect(func(): _on_card(idx))
-		col.add_child(b)
 		_cards.append(b)
+	var gap := Control.new()   # room for a synergy sticker over a card's top edge
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	gap.custom_minimum_size = Vector2(0, 10)
+	col.add_child(gap)
+	col.add_child(row)
+	_cards_row = row
 	_reroll_button = button("Reroll", 22)
 	_reroll_button.custom_minimum_size = Vector2(220, 64)
 	_reroll_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_reroll_button.pressed.connect(func():
-		if _cards_age >= 0.45:
+		if _cards_age >= 0.45 and not _cards_picking:
 			reroll_pressed.emit())
 	col.add_child(_reroll_button)
+
+
+## A full-screen radial glow (or shadow) from `from` (0-1 across the screen) to `to`.
+static func _radial_light(inner: Color, outer: Color, from: Vector2, to: Vector2) -> TextureRect:
+	var g := Gradient.new()
+	g.set_color(0, inner)
+	g.set_color(1, outer)
+	var tex := GradientTexture2D.new()
+	tex.gradient = g
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = from
+	tex.fill_to = to
+	tex.width = 128
+	tex.height = 228
+	var t := TextureRect.new()
+	t.texture = tex
+	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	t.stretch_mode = TextureRect.STRETCH_SCALE
+	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	t.set_anchors_preset(Control.PRESET_FULL_RECT)
+	return t
+
+
+## A blessing card's back: deep purple, a bone-gold frame, crossed bones in a ring and a
+## chain running top to bottom.
+func _draw_card_back(c: Control) -> void:
+	var sz := c.size
+	var r := Rect2(Vector2(2, 2), sz - Vector2(4, 10))
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.16, 0.1, 0.24)
+	sb.border_color = Color(0.93, 0.8, 0.52)
+	sb.set_border_width_all(4)
+	sb.border_width_bottom = 10
+	sb.border_color = Color(0.82, 0.68, 0.42)
+	sb.set_corner_radius_all(18)
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 4
+	sb.shadow_offset = Vector2(0, 5)
+	sb.anti_aliasing_size = 1.2
+	c.draw_style_box(sb, r)
+	var bone := Color(0.93, 0.85, 0.66)
+	var dim := Color(0.93, 0.85, 0.66, 0.28)
+	# an inner frame with little diamonds at the corners
+	var ir := r.grow(-12)
+	ir.size.y -= 6
+	c.draw_rect(ir, dim, false, 2.0)
+	for p: Vector2 in [ir.position, ir.position + Vector2(ir.size.x, 0), ir.position + Vector2(0, ir.size.y), ir.end]:
+		c.draw_colored_polygon(PackedVector2Array([p + Vector2(0, -6), p + Vector2(6, 0), p + Vector2(0, 6), p + Vector2(-6, 0)]), bone)
+	var mid := Vector2(sz.x * 0.5, r.get_center().y)
+	# the chain: links above and below the ring
+	for k in range(-5, 6):
+		if absi(k) < 2:
+			continue
+		var y := mid.y + k * 24.0
+		var w := 7.0 if k % 2 == 0 else 3.0
+		c.draw_rect(Rect2(Vector2(mid.x - w, y - 10), Vector2(w * 2, 20)), dim if absi(k) > 3 else Color(bone, 0.55), false, 3.0)
+	c.draw_circle(mid, 40, Color(0.1, 0.06, 0.16))
+	c.draw_arc(mid, 40, 0, TAU, 40, bone, 4.0, true)
+	c.draw_arc(mid, 32, 0, TAU, 40, dim, 2.0, true)
+	for dir: Vector2 in [Vector2(1, 1).normalized(), Vector2(1, -1).normalized()]:
+		var a := mid - dir * 20
+		var b := mid + dir * 20
+		c.draw_line(a, b, bone, 6.0, true)
+		var n := Vector2(-dir.y, dir.x) * 4.5
+		for e: Vector2 in [a, b]:
+			c.draw_circle(e + n, 5.0, bone)
+			c.draw_circle(e - n, 5.0, bone)
 
 
 ## Two tall arched doors side by side, each with a picture, a name and what it promises.
@@ -2960,10 +3078,34 @@ func _release_stick() -> void:
 
 func _on_card(i: int) -> void:
 	# Ignore taps in the first moment so a thumb that was moving doesn't pick by accident.
-	if not _cards_box.visible or _cards_age < 0.45:
+	if not _cards_box.visible or _cards_age < 0.45 or _cards_picking or i >= _cards.size() or not _cards_ready[i]:
 		return
-	_cards_box.visible = false
-	card_picked.emit(i)
+	# Version 157: the chosen card rises and flares while the others drop away.
+	_cards_picking = true
+	for tw in _cards_tweens:
+		if tw is Tween and (tw as Tween).is_valid():
+			(tw as Tween).kill()
+	_cards_tweens.clear()
+	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.set_parallel()
+	for k in _cards.size():
+		var b := _cards[k]
+		if k == i:
+			b.get_node("Aura").visible = true
+			b.get_node("Aura").modulate.a = 1.0
+			tw.tween_property(b, "scale", Vector2(1.08, 1.08), 0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+			tw.tween_property(b, "position:y", -14.0, 0.12)
+			tw.tween_property(b, "modulate", Color(1.5, 1.4, 1.2), 0.1)
+		else:
+			tw.tween_property(b, "position:y", 90.0, 0.22).set_ease(Tween.EASE_IN)
+			tw.tween_property(b, "modulate:a", 0.0, 0.2)
+	tw.chain().tween_interval(0.12)
+	tw.chain().tween_callback(func():
+		_cards_picking = false
+		if _cards_box.visible:   # (not if something closed the cards meanwhile)
+			_cards_box.visible = false
+			card_picked.emit(i))
 
 
 # ---------------------------------------------------------------- per frame
@@ -3369,57 +3511,109 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 			var tw := _cards_mastery.create_tween()
 			tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 			tw.tween_property(_cards_mastery, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	for tw in _cards_tweens:
+		if tw is Tween and (tw as Tween).is_valid():
+			(tw as Tween).kill()
+	_cards_tweens.clear()
+	_cards_picking = false
+	var partners := {}   # held blessings a card would complete: their badges glow too
 	for i in _cards.size():
 		var b := _cards[i]
-		b.visible = i < choices.size()
-		if not b.visible:
+		var holder := b.get_parent() as Control
+		holder.visible = i < choices.size()
+		_cards_ready[i] = false
+		if not holder.visible:
 			continue
 		var u: Dictionary = choices[i]
 		var rar: Dictionary = Upgrades.RARITIES[u.rarity]
-		var labels := b.get_children()
-		(labels[0] as Label).text = u.title
-		(labels[0] as Label).label_settings.font_color = Upgrades.color(u)
-		(labels[1] as Label).text = Upgrades.card_text(u)
-		(labels[2] as BlessingIcon).show_for(u)
+		var title := b.get_node("Words/Title") as Label
+		title.text = u.title
+		title.label_settings.font_color = Upgrades.color(u)
+		(b.get_node("Words/Desc") as Label).text = Upgrades.card_text(u)
+		(b.get_node("Icon") as BlessingIcon).show_for(u)
 		var kind: String = Heroes.get_hero(u.hero).title.to_upper() if u.has("hero") else Upgrades.FAMILIES[u.family].name.to_upper()
-		(labels[3] as Label).text = "%s · %s" % [kind, rar.name] if tags else kind
+		(b.get_node("Kind") as Label).text = kind
+		var rl := b.get_node("Rarity") as Label
+		rl.visible = tags
+		rl.text = str(rar.name)
 		var col: Color = rar.color if tags else Color(0.62, 0.64, 0.7)
 		var bright: bool = tags and u.rarity != "common"
-		_paint_card(b, col, bright)
-		# Version 143: rarer cards stand taller (rare 144, epic and synergy 154) and glow in
-		# their colour, so the good one is found before the words are read.
-		b.custom_minimum_size.y = 132.0 if not bright else (144.0 if u.rarity == "rare" else 154.0)
 		var syn := Upgrades.completes(u, taken) if tags else {}
-		var combo := labels[4] as Label
+		_paint_card(b, col, bright, not syn.is_empty())
+		var rs := rl.get_minimum_size()
+		rl.size = rs
+		rl.position = Vector2((CARD_SIZE.x - rs.x) * 0.5, CARD_SIZE.y - 22 - rs.y)
+		var combo := b.get_node("Combo") as Label
 		combo.visible = not syn.is_empty()
 		if combo.visible:
+			# hung over the card's top edge, above the band; two lines if one is too wide
 			combo.text = "★ UNLOCKS %s" % str(syn.title).to_upper()
-			combo.offset_left = combo.offset_right - combo.get_minimum_size().x
-		# Dealt in one after another, each card flipping over from edge on with a tick that
-		# climbs, and a shimmer when a rare one lands.
-		b.scale = Vector2(0.0, 0.92)
-		b.modulate.a = 0.0
+			if combo.get_minimum_size().x > CARD_SIZE.x + 6:
+				combo.text = "★ UNLOCKS\n%s" % str(syn.title).to_upper()
+			combo.size = combo.get_minimum_size()
+			combo.position = Vector2((CARD_SIZE.x - combo.size.x) * 0.5, 8 - combo.size.y)
+			combo.pivot_offset = combo.size * 0.5
+			for part in syn.parts:
+				if part != u.id:
+					partners[str(part)] = true
+		var shine := b.get_node("ShineClip/Shine") as Panel
+		shine.visible = false
+		var back := b.get_node("Back") as Control
+		back.visible = true
+		var face: Array[Node] = []
+		for n in ["Band", "Kind", "Niche", "Icon", "Words", "Rarity", "Combo", "ShineClip"]:
+			face.append(b.get_node(n))
+		# (what shows once it's face up: set here, as a reroll mid-deal finds them hidden)
+		var face_vis: Array = [true, true, true, true, true, tags, combo.visible, true]
+		for n in face:
+			(n as CanvasItem).visible = false
+		var aura := b.get_node("Aura") as Panel
+		aura.visible = false
+		aura.modulate.a = 1.0
+		# Dealt face down from below, one after another, then each flips over with a tick that
+		# climbs, a shimmer for a rare one and a gold flare for a synergy.
+		b.position = Vector2(0, 300 + 40 * i)
+		b.rotation = deg_to_rad(-7.0 + 7.0 * i)
+		b.scale = Vector2(0.92, 0.92)
+		b.modulate = Color(1, 1, 1, 0)
 		var tw := b.create_tween()
+		_cards_tweens.append(tw)
 		tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-		tw.tween_interval(0.05 + 0.13 * i)
-		tw.tween_callback(Sfx.play.bind("chest_tick", 0.7, 1.0 + 0.15 * i))
-		tw.tween_property(b, "modulate:a", 1.0, 0.05)
-		tw.parallel().tween_property(b, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(0.04 + 0.1 * i)
+		tw.tween_property(b, "modulate:a", 1.0, 0.08)
+		tw.parallel().tween_property(b, "position", Vector2.ZERO, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(b, "rotation", 0.0, 0.24).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		tw.parallel().tween_property(b, "scale", Vector2.ONE, 0.24)
+		tw.tween_interval(0.04 + 0.04 * (choices.size() - 1 - i))
+		tw.tween_property(b, "scale:x", 0.0, 0.08).set_ease(Tween.EASE_IN)
+		var idx := i
+		tw.tween_callback(func():
+			back.visible = false
+			for k in face.size():
+				(face[k] as CanvasItem).visible = face_vis[k]
+			aura.visible = bright or combo.visible
+			Sfx.play("chest_tick", 0.7, 1.0 + 0.15 * idx))
+		tw.tween_property(b, "scale:x", 1.0, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_callback(func(): _cards_ready[idx] = true)
 		if bright or combo.visible:
 			tw.tween_callback(Sfx.play.bind("shimmer", 0.5, 1.1 + 0.1 * i))
 		if combo.visible:
-			combo.pivot_offset = combo.get_minimum_size() * 0.5
 			combo.scale = Vector2(0.2, 0.2)
 			tw.tween_property(combo, "scale", Vector2(1.15, 1.15), 0.14).set_ease(Tween.EASE_OUT)
 			tw.tween_property(combo, "scale", Vector2.ONE, 0.12)
-		var tag := labels[3] as Label
-		tag.offset_left = tag.offset_right - tag.get_minimum_size().x   # the ribbon fits its words
-		var shine := b.get_node("ShineClip/Shine") as Panel
-		shine.visible = tags and u.rarity != "common"
-		if shine.visible:
+			# the synergy's gold glow breathes while the cards are up
+			var pulse := aura.create_tween().set_loops()
+			pulse.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			pulse.tween_property(aura, "modulate:a", 0.45, 0.6).set_trans(Tween.TRANS_SINE)
+			pulse.tween_property(aura, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
+			_cards_tweens.append(pulse)
+		if bright:
 			# A glint sweeps across rare, epic and synergy cards as they land.
-			shine.position.x = -120
-			tw.tween_property(shine, "position:x", 560.0, 0.45).set_ease(Tween.EASE_IN_OUT)
+			tw.tween_callback(func():
+				shine.visible = true
+				shine.position.x = -90.0)
+			tw.tween_property(shine, "position:x", CARD_SIZE.x + 60.0, 0.4).set_ease(Tween.EASE_IN_OUT)
+	_glow_partners(partners)
 	_reroll_button.visible = rerolls > 0
 	_reroll_button.text = "Reroll (%d left)" % rerolls
 	_cards_box.visible = true
@@ -3439,6 +3633,7 @@ func _fill_have(taken: Dictionary) -> void:
 		var holder := Control.new()
 		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		holder.custom_minimum_size = Vector2(40, 40)
+		holder.set_meta("id", str(id))
 		var ic := BlessingIcon.new()
 		ic.show_for(u)
 		ic.scale = Vector2(0.62, 0.62)
@@ -3453,40 +3648,74 @@ func _fill_have(taken: Dictionary) -> void:
 
 
 ## A blessing card in its rarity colour: the frame and the thick lip under it, a band across
-## the top, the ribbon. `bright` (rare and up) gets a deeper tint and a stronger band.
-func _paint_card(b: Button, col: Color, bright: bool) -> void:
+## the top, the lit niche behind the badge, the ribbon. `bright` (rare and up) gets a deeper
+## tint and a glow; `synergy` (it completes one) a gold frame and a gold glow.
+func _paint_card(b: Button, col: Color, bright: bool, synergy := false) -> void:
 	var face := Color(0.13, 0.1, 0.19).lerp(col.darkened(0.6), 0.32 if bright else 0.14)
+	var edge := GOLD if synergy else (col if bright else col.darkened(0.15))
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = face
-	normal.border_color = col if bright else col.darkened(0.15)
+	normal.border_color = edge
 	normal.set_border_width_all(4)
 	normal.border_width_bottom = 10   # the card's thick lip
 	normal.set_corner_radius_all(18)
-	normal.shadow_color = Color(0, 0, 0, 0.4)
-	normal.shadow_size = 3
+	normal.shadow_color = Color(0, 0, 0, 0.45)
+	normal.shadow_size = 4
 	normal.shadow_offset = Vector2(0, 5)
-	if bright:
-		# Version 143: rare and better cards glow in their colour over the dimmed room.
-		normal.shadow_color = Color(col, 0.5)
-		normal.shadow_size = 16
-		normal.shadow_offset = Vector2(0, 3)
 	normal.anti_aliasing_size = 1.2
-	var lip := normal.duplicate() as StyleBoxFlat
 	var pressed := normal.duplicate() as StyleBoxFlat
 	pressed.bg_color = face.lightened(0.08)
 	pressed.border_width_bottom = 5
 	pressed.border_width_top = 9
 	b.add_theme_stylebox_override("normal", normal)
-	b.add_theme_stylebox_override("hover", lip)
+	b.add_theme_stylebox_override("hover", normal.duplicate())
 	b.add_theme_stylebox_override("pressed", pressed)
 	b.add_theme_stylebox_override("hover_pressed", pressed)
+	var glow := StyleBoxFlat.new()
+	glow.bg_color = Color(GOLD if synergy else col, 0.35)
+	glow.set_corner_radius_all(20)
+	glow.shadow_color = Color(GOLD if synergy else col, 0.75 if synergy else 0.5)
+	glow.shadow_size = 26 if synergy else 16
+	(b.get_node("Aura") as Panel).add_theme_stylebox_override("panel", glow)
 	var band := StyleBoxFlat.new()
-	band.bg_color = Color(col, 0.26 if bright else 0.12)
+	band.bg_color = col if bright else col.darkened(0.25)
 	band.corner_radius_top_left = 14
 	band.corner_radius_top_right = 14
 	(b.get_node("Band") as Panel).add_theme_stylebox_override("panel", band)
-	var r := b.get_child(3) as Label
+	var niche := StyleBoxFlat.new()
+	niche.bg_color = Color(col.lightened(0.2), 0.16 if bright else 0.1)
+	niche.set_corner_radius_all(56)
+	niche.border_color = Color(col, 0.35)
+	niche.set_border_width_all(2)
+	(b.get_node("Niche") as Panel).add_theme_stylebox_override("panel", niche)
+	var r := b.get_node("Rarity") as Label
 	(r.get_theme_stylebox("normal") as StyleBoxFlat).bg_color = col
+
+
+## The held blessings a card on offer would complete glow gold in YOUR BLESSINGS, so the
+## pair reads at a glance.
+func _glow_partners(partners: Dictionary) -> void:
+	for h in _cards_have_row.get_children():
+		if not partners.has(str(h.get_meta("id", ""))):
+			continue
+		var ring := Panel.new()
+		ring.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(GOLD, 0.0)
+		sb.border_color = GOLD
+		sb.set_border_width_all(3)
+		sb.set_corner_radius_all(20)
+		sb.shadow_color = Color(GOLD, 0.6)
+		sb.shadow_size = 8
+		ring.add_theme_stylebox_override("panel", sb)
+		ring.position = Vector2(-1, -1)
+		ring.size = Vector2(42, 42)
+		h.add_child(ring)
+		h.move_child(ring, 0)
+		var pulse := ring.create_tween().set_loops()
+		pulse.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		pulse.tween_property(ring, "modulate:a", 0.35, 0.6).set_trans(Tween.TRANS_SINE)
+		pulse.tween_property(ring, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
 
 
 ## A little gold tag for the top right corner of a title button.

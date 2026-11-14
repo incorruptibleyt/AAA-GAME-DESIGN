@@ -1,12 +1,12 @@
 # Bone Chain privacy policy
 
-_Last updated: November 3, 2026_
+_Last updated: November 14, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
 ## The short version
 
-Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. Reports are off until then. The game asks you once, when you open it (or at the end of a run, if you started playing before answering), and you can change your answer at any time in the pause menu (**Send reports**). You can also type a note to the developer with **Send feedback** in the pause menu. There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
+Bone Chain has no accounts and no ads, and it never collects your name, email, contacts, location or advertising ID. To help fix bugs and balance the game, it can send short **anonymous game reports** to the developer, but **only if you say yes**. The game asks you once, after your first boss win, and you can change your answer at any time in the pause menu (**Send reports**). In your first week, a new install also sends a few tiny **anonymous progress notes** (for example "reached room 3" or "came back on day 2"), so the developer can see where new players get stuck. These carry no phone details, and they stop for good if you answer No or turn **Send reports** off. You can also type a note to the developer with **Send feedback** in the pause menu. There is one optional purchase, the **Crypt Pass**, which is paid for through Google Play.
 
 ## What the game reports
 
@@ -18,11 +18,13 @@ If you have turned reports on, then when a run ends, when the game hits an error
 - **A random install number** made on your phone the first time you play. It is not linked to you, your Google account or your phone's advertising ID, and it changes if you reinstall.
 - **Technical details:** the game version, phone model, Android version, graphics chip name, how much memory the phone has, and how much memory the game is using.
 
+**First-week progress notes:** on a new install, for its first 8 days, the game sends a one-line note the first time you reach certain points: opening the game, finishing loading, the end of the opening scene, each room of the tutorial, your first kill, winning or falling in the tutorial (and in which room), leaving or quitting it, your first normal run, your first Crypt Race, reaching floor 2, and opening the game again on days 2 to 8. Each note holds only the name of that point, the game version, the random install number and how many seconds have passed since you first opened the game. Each is sent once. They are sent before you're asked about reports; if you answer No, or turn **Send reports** off, no more are sent and any still waiting on your phone are deleted. A game already played before this version never sends them.
+
 **Feedback you type:** if you open **Send feedback** in the pause menu and tap **SEND**, your note is sent the same way, with the random install number, the technical details above and where you were in the game. This happens even if reports are off, because you chose to send it. Please don't include your name, email or other personal details in the note.
 
 Reports are sent over an encrypted (HTTPS) connection to a Google Form owned by the developer, and stored in the developer's Google account (Google acts as a service provider). They are used only to fix bugs and balance the game. They are never sold, shared with anyone else, or used for advertising. Reports are kept for up to 12 months and then deleted.
 
-If you're offline, up to 20 reports wait on your phone and are sent later. Turning reports off stops new ones being sent and deletes any still waiting on your phone. With reports off, the game sends nothing except a note you choose to send with **Send feedback**.
+If you're offline, up to 20 reports wait on your phone and are sent later. Turning reports off stops new ones being sent and deletes any still waiting on your phone. With reports off, the game sends nothing except a note you choose to send with **Send feedback**. (Before you've answered the reports question, only the first-week progress notes above are sent.)
 
 ## The Crypt Pass (in-app purchase)
 
@@ -34,7 +36,7 @@ The game saves your progress (coins, unlocked heroes, Armory upgrades, best floo
 
 ## Permissions
 
-- **Internet:** only to send the anonymous game reports described above (if you've turned them on), feedback you choose to send, and leaderboard scores if you sign in to Google Play Games.
+- **Internet:** only to send the anonymous game reports described above (if you've turned them on), the first-week progress notes, feedback you choose to send, and leaderboard scores if you sign in to Google Play Games.
 - **Vibrate:** the phone buzzes briefly when your hero is hit (switch it off under Pause, Vibration).
 - **Google Play billing:** only to buy the Crypt Pass through Google Play.
 - **Google Play Games (leaderboards):** if you sign in to Play Games, your scores, your Play Games name and picture are shared with Google Play Games to show the leaderboards, including to your Play Games friends if you choose to share them. Google's privacy policy covers Play Games. Without signing in, nothing is sent.
@@ -52,7 +54,7 @@ Bone Chain is not made for children under 13 and does not knowingly collect info
 
 ## Changes
 
-If a future version collects anything else (for example ads), this policy will be updated first and the Google Play data safety section will say so.
+Version 157 (November 2026) added the first-week progress notes. If a future version collects anything else (for example ads), this policy will be updated first and the Google Play data safety section will say so.
 
 ## Contact
 

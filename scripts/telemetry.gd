@@ -16,6 +16,8 @@ const ENTRY := "entry.999248691"
 const QUEUE_PATH := "user://report_queue.json"
 const MAX_QUEUE := 20
 const MAX_ERRORS := 5   # error reports per session, so one bug can't spam
+const STEPS := "steps"         # the save section for the first-week steps (version 157)
+const STEP_DAYS := 8           # steps stop this many days after the first launch
 
 static var instance: Telemetry
 
@@ -58,6 +60,8 @@ func _ready() -> void:
 	_http.request_completed.connect(_on_done)
 	add_child(_http)
 	if not active():
+		if "autoplay" in OS.get_cmdline_user_args():
+			_steps_begin()   # (printed, not sent: lets the robot check the steps)
 		return
 	var catcher := ErrorCatcher.new()
 	catcher.owner = self
@@ -65,6 +69,51 @@ func _ready() -> void:
 	_load_queue()
 	_check_last_session()
 	session_open(true)
+	_steps_begin()
+
+
+## Version 157. The first launch of a new save turns the steps on; an older save (one that
+## has played) never sends any. Later launches say which day the player came back on.
+func _steps_begin() -> void:
+	var cfg := Game._load_save()
+	var now := int(Time.get_unix_time_from_system())
+	if not cfg.has_section(STEPS):
+		var fresh := int(cfg.get_value("stats", "best_room", 0)) == 0 and int(cfg.get_value("stats", "wins", 0)) == 0 \
+				and not bool(cfg.get_value("stats", "first_run_done", false))
+		cfg.set_value(STEPS, "on", fresh)
+		cfg.set_value(STEPS, "t0", now)
+		Game.write_save(cfg)
+		step("opened")
+		return
+	var day := int((now - int(cfg.get_value(STEPS, "t0", now))) / 86400)
+	if day >= 1 and day <= 7:
+		step("day%d" % (day + 1))   # day2 = came back the day after the first launch
+
+
+## One first-week step (see the note at the top). Each name goes once per install.
+static func step(what: String) -> void:
+	var t := instance
+	if t == null or not (t.active() or "autoplay" in OS.get_cmdline_user_args()):
+		return
+	var cfg := Game._load_save()
+	if not bool(cfg.get_value(STEPS, "on", false)) or cfg.has_section_key(STEPS, what):
+		return
+	if cfg.has_section_key("settings", "reports") and not bool(cfg.get_value("settings", "reports", false)):
+		return   # they said no: nothing more goes
+	var secs := maxi(0, int(Time.get_unix_time_from_system()) - int(cfg.get_value(STEPS, "t0", 0)))
+	if secs > STEP_DAYS * 86400:
+		return
+	cfg.set_value(STEPS, what, secs)
+	Game.write_save(cfg)
+	var line := "step | build %s | install %s\n%s | %d s" % [Game.BUILD, install_id(cfg), what, secs]
+	if not t.active():
+		print("[step] " + line.replace("\n", " | "))   # the test robot: shown, never sent
+		return
+	t._queue.append(line)
+	while t._queue.size() > MAX_QUEUE:
+		t._queue.pop_front()
+	t._save_queue()
+	t._flush()
 
 
 ## Reports go out only from a real install with a form set up, and never from the test robot.

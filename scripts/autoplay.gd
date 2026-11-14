@@ -98,6 +98,8 @@ var _slow_t := -1.0
 ## "doorkind=treasure" (or champion, spring, shrine): always take a door of that kind.
 ## "cards=a,b,c": the first blessing pick offers exactly these cards (for pictures).
 var _force_cards: Array = []
+## "cardframes": pictures of the first blessing deal part way through (version 157).
+var _card_frames: Array = []
 ## The Blood Moon (events.gd): `eday=N` plays day N of the event, `event=run` or
 ## `event=hunt tier=N` starts it, `eventmenu` takes pictures of the event screens and
 ## `shards=N caskets=N` fill the event save first.
@@ -256,6 +258,8 @@ func _ready() -> void:
 			_race_down = true
 		elif a.begins_with("doorkind="):
 			_door_kind = a.substr(9)
+		elif a == "cardframes":
+			_card_frames = [0.2, 0.36, 0.5, 0.7]
 		elif a.begins_with("cards="):
 			_force_cards = Array(a.substr(6).split(","))
 		elif a.begins_with("runs="):
@@ -583,8 +587,13 @@ func _process(delta: float) -> void:
 				print("[autoplay] doors: %s -> %s" % [" or ".join(Game._doors.map(func(d): return Doors.describe(d).title)), Doors.describe(Game._doors[pick]).title])
 				Game.hud._on_door(pick)
 		Game.State.UPGRADE:
-			# Version 143: the cards are dealt over about 0.65 s; picture them once all landed.
-			if shots_dir != "" and Game.hud._cards_age < 0.85:
+			# Version 157: the cards are dealt and flipped over about 0.8 s, then a glint
+			# sweeps the rare ones; picture them once all that is done.
+			if shots_dir != "" and not _card_frames.is_empty() and Game.hud._cards_age >= _card_frames[0]:
+				_card_frames.pop_front()
+				_shot()
+				return
+			if shots_dir != "" and Game.hud._cards_age < 1.25:
 				return
 			if shots_dir != "" and not _cards_shot:
 				_cards_shot = true

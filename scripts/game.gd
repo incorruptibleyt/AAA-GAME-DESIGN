@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-13j"
+const BUILD := "2026-11-14a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -533,6 +533,7 @@ func _ready() -> void:
 	hud.show_hud(false)
 	await Warmup.run()   # while the screen is still black, before the title can be tapped
 	hud.show_title(true, _best_text(), coins)
+	Telemetry.step("title")   # (version 157: loading finished on a new install)
 	_settle_events()
 	note_spot()
 	_title_hero_line(hero.hero_id)
@@ -541,6 +542,7 @@ func _ready() -> void:
 	if not "autoplay" in args or "intro" in args:
 		_play_intro()
 		intro.finished.connect(_ask_reports_on_title)
+		intro.finished.connect(func(): Telemetry.step("intro_end"))
 		intro.finished.connect(_ask_reminders_on_title)
 		intro.finished.connect(_maybe_event_splash.bind(false))
 	else:
@@ -861,7 +863,14 @@ func _report_left() -> void:
 			or _rep.get("left", false) or Telemetry.instance == null:
 		return
 	_rep["left"] = true
+	if first_run:
+		Telemetry.step("left_" + _step_room())
 	Telemetry.instance.send("run", run_report("Left the game on floor %d, room %d" % [floor_num, _room_index + 1]))
+
+
+## The room for a first-week step (version 157): "room1" to "room5", or "boss".
+func _step_room() -> String:
+	return "boss" if _in_boss_room() else "room%d" % (_room_index + 1)
 
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
@@ -1559,6 +1568,10 @@ func _start_run() -> void:
 	hud.show_hud(true)
 	_reset_run_stats()
 	record_add("runs", 1)
+	if race:
+		Telemetry.step("race1")
+	elif not first_run:
+		Telemetry.step("run2")   # the first run after the tutorial (version 157)
 	_check_newcomer()
 	if race:
 		_newcomer = false   # the same crypt for both racers: no floor-1 help
@@ -1931,6 +1944,8 @@ func _quit_to_title() -> void:
 		_back_to_title(true)
 		hud.tip("You left the Crypt Race: it counted as a loss.", 4.0, 1.0)
 		return
+	if first_run:
+		Telemetry.step("quit_" + _step_room())
 	Telemetry.instance.send("run", run_report("Quit on floor %d, room %d" % [floor_num, _room_index + 1]))
 	_back_to_title()   # (its _save_coins keeps the Bone Road bones)
 
@@ -2229,6 +2244,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if not spawn_enemies:
 		return
 	hud.set_room(index + 1, _combat_rooms(), _in_boss_room(), 1 if event == "hunt" else floor_num)   # (the hunt has no floors)
+	if first_run and floor_num == 1:
+		Telemetry.step(_step_room())   # version 157: how far new players get
+	elif index == 0 and floor_num == 2 and not race and event == "":
+		Telemetry.step("floor2")
 	if not _rep.is_empty():
 		_rep.room_start = _run_time
 		_rep.room_chain = chain
@@ -2618,6 +2637,8 @@ func on_enemy_died(e: Enemy) -> void:
 	note_progress()
 	_kills += 1
 	record_add("kills", 1)
+	if _kills == 1 and first_run:
+		Telemetry.step("kill1")
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
@@ -3064,6 +3085,8 @@ func _win() -> void:
 		rewards = Curses.record_mastery(cfg, hero.hero_id, Curses.level_of(curses))
 	write_save(cfg)
 	var was_first := first_run
+	if was_first:
+		Telemetry.step("won")
 	_finish_first_run()
 	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
 	Music.play("dungeon")
@@ -3174,6 +3197,8 @@ func on_hero_died() -> void:
 	_save_best(cfg, _room_index + 1)
 	write_save(cfg)
 	var was_first := first_run
+	if was_first and not bool(cfg.get_value("stats", "first_run_done", false)):
+		Telemetry.step("died%d_%s" % [int(cfg.get_value("stats", "tutorial_deaths", 0)) + 1, _step_room()])
 	_share_reason = "best" if not daily and event == "" and not was_first and score > best and score > 0 else ""
 	var day_bonus := _claim_day_bonus()
 	var tutorial_again := first_run and _tutorial_retry()
