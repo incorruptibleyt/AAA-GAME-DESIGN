@@ -351,7 +351,7 @@ void fragment() {
 	// Each column's top edge: the far and left sides catch the light, the others fall away.
 	float rim = 1.0 - smoothstep(0.02, 0.1, he);
 	c *= 1.0 + rim * mix(-0.32, 0.26, step(hx.y + hx.x * 0.4, 0.0));
-	gap = 1.0 - smoothstep(0.022, 0.032 + fwidth(he), he);
+	gap = 1.0 - smoothstep(0.016, 0.026 + fwidth(he), he);   // thinner joints (version 162)
 	c = mix(c, grout.rgb, gap);
 	rough = mix(0.88 - 0.3 * ht, 0.95, gap);
 	n = normalize(vec3(0.0, 1.0, 0.0) + vec3(hx.x, 0.0, hx.y) * 1.6 * rim);
@@ -374,7 +374,7 @@ void fragment() {
 	float flow = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(TIME * 1.4 - t1 * 60.0 - pos.x * 0.3), 4.0);
 	c = mix(c, spores.rgb * 0.45, th * 0.7);
 	c = mix(c, c * vec3(1.0, 0.8, 1.0) + spores.rgb * 0.05, glow_band);
-	em += spores.rgb * (th * 0.7 + glow_band * 0.5) * flow * spores.a;
+	em += spores.rgb * (th * 0.5 + glow_band * 0.35) * flow * spores.a;   // softer (version 162)
 	// Glowing caps in the moss, each pulsing at its own pace, with a soft halo.
 	vec2 sq = pos * 1.9;
 	vec2 sqc = floor(sq);
@@ -545,9 +545,11 @@ void fragment() {
 		NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
 	}
 	if (seam.a > 0.0) {
-		float heat = smoothstep(0.56, 0.76, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
+		// Version 162: fire only in a few hot patches (was 0.56-0.76 with a glow everywhere),
+		// so the Ember floor stops glowing orange edge to edge under the fight.
+		float heat = smoothstep(0.62, 0.8, texture(blobs_b, pos * 0.05 + vec2(TIME * 0.006, 0.6)).r);
 		float sp2 = 0.4 + 0.6 * pow(0.5 + 0.5 * sin(TIME * 1.3 + r * 6.283 + pos.x * 0.6 + pos.y * 0.35), 2.0);
-		em += seam.rgb * max(gap, crack) * sp2 * mix(0.6, 1.2, r) * mix(0.05, 1.25, heat);
+		em += seam.rgb * max(gap, crack) * sp2 * mix(0.6, 1.2, r) * mix(0.0, 1.1, heat);
 		em += seam.rgb * pit * (1.0 - bar) * (0.7 + 0.3 * sp2) * 0.2;
 	}
 	EMISSION = em * shade;
@@ -715,7 +717,9 @@ void fragment() {
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
-	ALBEDO = c * foot;
+	// Version 162: the tops of the walls sit darker (the near wall's top is the strip along
+	// the bottom of the screen, and it was brighter than the floor it frames).
+	ALBEDO = c * foot * mix(1.0, 0.68, top);
 	ROUGHNESS = rough;
 	EMISSION = em;
 }
@@ -725,7 +729,7 @@ void fragment() {
 ## The low near ledge: the floor's stone, darker, without the floor's fire, water or blood.
 static func _ledge_material(look: Dictionary) -> Material:
 	var m := _floor_material(look, 0) as ShaderMaterial
-	m.set_shader_parameter("tint", (look.floor as Color) * 0.6)
+	m.set_shader_parameter("tint", (look.floor as Color) * 0.5)
 	m.set_shader_parameter("grime_amount", 0.0)
 	m.set_shader_parameter("blood", 0.0)
 	m.set_shader_parameter("seam", Color(0, 0, 0, 0))

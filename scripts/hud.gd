@@ -1383,6 +1383,26 @@ func _build_cards() -> void:
 		aura.size = CARD_SIZE - Vector2(8, 12)
 		aura.show_behind_parent = true
 		b.add_child(aura)
+		# Version 162: light of the blessing's own colour falls from the top of the card and
+		# glows behind its badge, so even a common card has colour (two tiny shared textures).
+		var sheen := TextureRect.new()
+		sheen.name = "Sheen"
+		sheen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		sheen.texture = _card_sheen_tex()
+		sheen.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		sheen.stretch_mode = TextureRect.STRETCH_SCALE
+		sheen.position = Vector2(4, 30)
+		sheen.size = Vector2(CARD_SIZE.x - 8, CARD_SIZE.y * 0.62)
+		b.add_child(sheen)
+		var halo := TextureRect.new()
+		halo.name = "Halo"
+		halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		halo.texture = _card_halo_tex()
+		halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		halo.stretch_mode = TextureRect.STRETCH_SCALE
+		halo.size = Vector2(176, 176)
+		halo.position = Vector2((CARD_SIZE.x - 176) * 0.5, 16)
+		b.add_child(halo)
 		var band := Panel.new()
 		band.name = "Band"
 		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3622,10 +3642,13 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		var back := b.get_node("Back") as Control
 		back.visible = true
 		var face: Array[Node] = []
-		for n in ["Band", "Kind", "Niche", "Icon", "Words", "Rarity", "Combo", "ShineClip"]:
+		for n in ["Band", "Kind", "Niche", "Icon", "Words", "Rarity", "Combo", "ShineClip", "Sheen", "Halo"]:
 			face.append(b.get_node(n))
 		# (what shows once it's face up: set here, as a reroll mid-deal finds them hidden)
-		var face_vis: Array = [true, true, true, true, true, tags, combo.visible, true]
+		var face_vis: Array = [true, true, true, true, true, tags, combo.visible, true, true, true]
+		var fam_col := Upgrades.color(u)
+		(b.get_node("Sheen") as CanvasItem).modulate = Color(fam_col, 0.55 if bright else 0.4)
+		(b.get_node("Halo") as CanvasItem).modulate = Color(fam_col, 0.7 if bright else 0.5)
 		for n in face:
 			(n as CanvasItem).visible = false
 		var aura := b.get_node("Aura") as Panel
@@ -3751,6 +3774,38 @@ func _paint_card(b: Button, col: Color, bright: bool, synergy := false) -> void:
 	(b.get_node("Niche") as Panel).add_theme_stylebox_override("panel", niche)
 	var r := b.get_node("Rarity") as Label
 	(r.get_theme_stylebox("normal") as StyleBoxFlat).bg_color = col
+
+
+static var _sheen_tex: GradientTexture2D
+static var _halo_tex: GradientTexture2D
+
+static func _card_sheen_tex() -> GradientTexture2D:
+	if _sheen_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 0.5))
+		g.set_color(1, Color(1, 1, 1, 0.0))
+		_sheen_tex = GradientTexture2D.new()
+		_sheen_tex.gradient = g
+		_sheen_tex.fill_from = Vector2(0, 0)
+		_sheen_tex.fill_to = Vector2(0, 1)
+		_sheen_tex.width = 4
+		_sheen_tex.height = 64
+	return _sheen_tex
+
+
+static func _card_halo_tex() -> GradientTexture2D:
+	if _halo_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 0.6))
+		g.set_color(1, Color(1, 1, 1, 0.0))
+		_halo_tex = GradientTexture2D.new()
+		_halo_tex.gradient = g
+		_halo_tex.fill = GradientTexture2D.FILL_RADIAL
+		_halo_tex.fill_from = Vector2(0.5, 0.5)
+		_halo_tex.fill_to = Vector2(1.0, 0.5)
+		_halo_tex.width = 64
+		_halo_tex.height = 64
+	return _halo_tex
 
 
 ## The held blessings a card on offer would complete glow gold in YOUR BLESSINGS, so the
