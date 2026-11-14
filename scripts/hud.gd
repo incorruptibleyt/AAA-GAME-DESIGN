@@ -150,6 +150,7 @@ var _reroll_button: Button
 ## Doors (doors.gd): two to pick from after a blessing.
 var _doors_box: Control
 var _door_buttons: Array[Button] = []
+var _door_arches: Array[DoorArch] = []
 var _doors_next: Label
 var _doors_clock: Label     # in a race: the race clock, as on the blessing cards
 var _doors_age := 0.0
@@ -1594,88 +1595,42 @@ func _build_doors() -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	col.add_child(row)
+	row.add_theme_constant_override("separation", 12)
 	for i in 2:
+		# Version 161: each door is a carved stone archway (DoorArch) glowing with the
+		# colour of what waits behind it; the button itself is invisible, only for the tap.
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(232, 380)
-		var normal := StyleBoxFlat.new()
-		normal.bg_color = Color(0.09, 0.07, 0.12, 0.98)
-		normal.corner_radius_top_left = 116
-		normal.corner_radius_top_right = 116
-		normal.corner_radius_bottom_left = 6
-		normal.corner_radius_bottom_right = 6
-		normal.set_border_width_all(5)
-		normal.shadow_color = Color(0, 0, 0, 0.5)
-		normal.shadow_size = 8
-		var pressed := normal.duplicate() as StyleBoxFlat
-		pressed.bg_color = Color(0.2, 0.17, 0.26)
-		b.add_theme_stylebox_override("normal", normal)
-		b.add_theme_stylebox_override("hover", normal)
-		b.add_theme_stylebox_override("pressed", pressed)
+		b.custom_minimum_size = Vector2(240, 400)
+		for sb_name in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
+			b.add_theme_stylebox_override(sb_name, StyleBoxEmpty.new())
+		var arch := DoorArch.new()
+		full(arch)
+		b.add_child(arch)
+		b.button_down.connect(arch.set_pressed.bind(true))
+		b.button_up.connect(arch.set_pressed.bind(false))
+		_door_arches.append(arch)
 		var inner := VBoxContainer.new()
 		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		full(inner)
-		inner.offset_left = 14
-		inner.offset_right = -14
-		inner.offset_top = 44
-		inner.offset_bottom = -20
-		inner.add_theme_constant_override("separation", 16)
+		inner.offset_left = 26
+		inner.offset_right = -26
+		inner.offset_top = 62
+		inner.offset_bottom = -30
+		inner.add_theme_constant_override("separation", 12)
 		b.add_child(inner)
-		# A darker doorway inside the frame.
-		var way := Panel.new()
-		way.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		full(way)
-		way.offset_left = 16
-		way.offset_right = -16
-		way.offset_top = 16
-		var way_sb := StyleBoxFlat.new()
-		way_sb.bg_color = Color(0.03, 0.02, 0.05, 0.95)
-		way_sb.corner_radius_top_left = 100
-		way_sb.corner_radius_top_right = 100
-		way_sb.set_border_width_all(2)
-		way.add_theme_stylebox_override("panel", way_sb)
-		# Version 159: light of the door's colour spills up from beyond the threshold, so
-		# each doorway glows with what waits behind it (one shared gradient, tinted).
-		var spill := TextureRect.new()
-		spill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		spill.texture = _door_spill_tex()
-		spill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		spill.stretch_mode = TextureRect.STRETCH_SCALE
-		spill.anchor_right = 1.0
-		spill.anchor_top = 0.35
-		spill.anchor_bottom = 1.0
-		spill.offset_left = 2
-		spill.offset_right = -2
-		spill.offset_bottom = -2
-		way.add_child(spill)
-		b.add_child(way)
-		b.move_child(way, 0)
 		var icon := BlessingIcon.new()
 		icon.zoom = 1.6
 		inner.add_child(_centered(icon))
-		inner.add_child(label("", 25, Color.WHITE))
-		inner.add_child(label("", 18, Color(0.85, 0.85, 0.9)))
+		var name_l := label("", 25, Color.WHITE)
+		chunky(name_l.label_settings)
+		name_l.label_settings.outline_size = 6
+		inner.add_child(name_l)
+		inner.add_child(label("", 16, Color(0.9, 0.9, 0.95)))
 		var idx := i
 		b.pressed.connect(func(): _on_door(idx))
 		row.add_child(b)
 		_door_buttons.append(b)
-
-
-static var _spill_tex: GradientTexture2D
-
-static func _door_spill_tex() -> GradientTexture2D:
-	if _spill_tex == null:
-		var g := Gradient.new()
-		g.set_color(0, Color(1, 1, 1, 0.0))
-		g.set_color(1, Color(1, 1, 1, 0.42))
-		g.add_point(0.75, Color(1, 1, 1, 0.16))
-		_spill_tex = GradientTexture2D.new()
-		_spill_tex.gradient = g
-		_spill_tex.fill_from = Vector2(0, 0)
-		_spill_tex.fill_to = Vector2(0, 1)
-		_spill_tex.width = 4
-		_spill_tex.height = 64
-	return _spill_tex
 
 
 ## doors: Doors.describe() of each door. `boss_next`: the boss waits behind them.
@@ -1689,18 +1644,17 @@ func show_doors(doors: Array, boss_next := false) -> void:
 			continue
 		var d: Dictionary = doors[i]
 		var inner := b.get_child(1)
-		((b.get_child(0) as Panel).get_theme_stylebox("panel") as StyleBoxFlat).border_color = Color(d.color, 0.35)
-		(b.get_child(0).get_child(0) as TextureRect).modulate = d.color
+		_door_arches[i].color = d.color
+		_door_arches[i].press = 0.0
+		_door_arches[i].lit = -0.2 * i   # the light comes on behind each door in turn
 		(inner.get_child(0).get_child(0) as BlessingIcon).show_icon(d.icon, d.family, d.color)
 		var t := inner.get_child(1) as Label
 		t.text = d.title
-		t.label_settings.font_color = d.color
+		t.label_settings.font_color = (d.color as Color).lightened(0.25)
 		(inner.get_child(2) as Label).text = d.text
-		for sb_name in ["normal", "pressed"]:
-			(b.get_theme_stylebox(sb_name) as StyleBoxFlat).border_color = d.color
 	# Version 160: on a tall phone the doors stand taller (up to half the screen), so the
 	# screen is two great doorways instead of two small ones in an empty purple field.
-	var tall := clampf(get_viewport().get_visible_rect().size.y * 0.5, 380.0, 620.0)
+	var tall := clampf(get_viewport().get_visible_rect().size.y * 0.5, 400.0, 620.0)
 	for b in _door_buttons:
 		b.custom_minimum_size.y = tall
 	_doors_box.visible = true
