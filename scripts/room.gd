@@ -251,7 +251,7 @@ void fragment() {
 	// Polished stone with faint pale veins, each panel a little different.
 	float vn = texture(grain, pos * 0.09 + vec2(r * 3.0, r)).r;
 	float vein = 1.0 - smoothstep(0.0, 0.03 + fwidth(vn), abs(vn - 0.5));
-	c = vec3(0.25, 0.235, 0.27) * (0.9 + 0.2 * r) * (0.95 + 0.1 * fine);
+	c = vec3(0.265, 0.25, 0.285) * (0.9 + 0.2 * r) * (0.95 + 0.1 * fine);
 	c = mix(c, vec3(0.38, 0.36, 0.4), vein * 0.22);
 	rough = 0.62;
 	// Dust along the walls and in patches.
@@ -266,12 +266,14 @@ void fragment() {
 	float slot = floor(al / 0.5);
 	float bd = bone(vec2((fract(al / 0.5) - 0.5) * 0.5, ed), 0.31, 0.04);
 	float bone_in = (1.0 - smoothstep(-0.006, 0.006, bd)) * band;
-	vec3 ivory = vec3(0.66, 0.6, 0.49) * (0.86 + 0.22 * h(vec2(slot, cell.x * 3.0 + cell.y)));
+	// Version 159: the bones in the bands are a duller, darker ivory and the brass trim only
+	// a third as strong, so the floor's grid stops competing with skeletons and shots.
+	vec3 ivory = vec3(0.4, 0.365, 0.3) * (0.86 + 0.22 * h(vec2(slot, cell.x * 3.0 + cell.y)));
 	ivory *= 0.72 + 0.38 * smoothstep(0.0, -0.035, bd);
 	float trim = 1.0 - smoothstep(0.01, 0.02, abs(ed - BW + 0.015));
 	c = mix(c, MORTAR, band);
 	c = mix(c, ivory, bone_in);
-	c = mix(c, BRASS, trim);
+	c = mix(c, BRASS, trim * 0.3);
 	rough = mix(rough, 0.75, band);
 	rough = mix(rough, 0.3, trim);
 	// A rosette where four panels meet: a brass ring round a bone disc.
@@ -279,8 +281,8 @@ void fragment() {
 	float rd = length(lc);
 	float aa = fwidth(rd);
 	c = mix(c, MORTAR, 1.0 - smoothstep(0.3, 0.3 + aa, rd));
-	c = mix(c, BRASS, 1.0 - smoothstep(0.012, 0.024, abs(rd - 0.27)));
-	c = mix(c, vec3(0.66, 0.6, 0.49) * (0.7 + 0.4 * smoothstep(0.2, 0.0, rd)), 1.0 - smoothstep(0.17, 0.17 + aa, rd));
+	c = mix(c, BRASS, (1.0 - smoothstep(0.012, 0.024, abs(rd - 0.27))) * 0.5);
+	c = mix(c, vec3(0.5, 0.455, 0.375) * (0.7 + 0.4 * smoothstep(0.2, 0.0, rd)), 1.0 - smoothstep(0.17, 0.17 + aa, rd));
 	c = mix(c, MORTAR, 1.0 - smoothstep(0.05, 0.05 + aa, rd));
 	// The great wheel of bones in the middle of the room.
 	float R = length(pos);
@@ -324,7 +326,10 @@ void fragment() {
 	// Pale cracks between the plates, with a little white shatter beside each.
 	float crk = 1.0 - smoothstep(0.012, 0.026 + fwidth(pe), pe);
 	float shat = (1.0 - smoothstep(0.0, 0.16, pe)) * 0.22;
-	c = mix(c, vec3(0.62, 0.72, 0.82), max(crk * 0.85, shat));
+	// Version 159: softer cracks (were 0.85 and 0.22), so the bright web stops fighting the
+	// white frost bolts and warnings for attention.
+	shat *= 0.55;
+	c = mix(c, vec3(0.55, 0.65, 0.76), max(crk * 0.5, shat));
 	// Frost drifts in from the walls and lies in patches.
 	float g = clamp(smoothstep(0.55, 0.85, big2 * 0.85 + (1.0 - smoothstep(0.0, 2.2, wall)) * 0.45) * grime_amount * 1.8, 0.0, 1.0);
 	c = mix(c, vec3(0.52, 0.58, 0.66) * (0.85 + 0.3 * fine), g);

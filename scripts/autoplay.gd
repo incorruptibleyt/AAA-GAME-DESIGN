@@ -424,6 +424,8 @@ func _process(delta: float) -> void:
 			_force_cards = []
 		if shots_dir != "" and Game.state in [Game.State.VICTORY, Game.State.DEAD, Game.State.PAUSED]:
 			_shot.call_deferred()
+			if Game.state != Game.State.PAUSED:
+				get_tree().create_timer(3.0, true, false, true).timeout.connect(_shot)   # after the end screen has settled
 		if shots_dir != "" and Game.state == Game.State.PLAYING and Room.current and Room.current.door_open:
 			_next_shot = _t + 0.3   # catch the exit arrow right after a blessing
 	if shots_dir != "" and _t > _next_shot and Game.state == Game.State.PLAYING:

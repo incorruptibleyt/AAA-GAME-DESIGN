@@ -158,6 +158,7 @@ var _dash_button: DashButton
 var _quit_button: Button
 var _quit_armed := false
 var _pause_title: Label
+var _pause_head: Label   # SETTINGS over the switches' card (hidden on the title's Settings)
 var _resume_button: Button
 ## The pause menu opened from the title screen as Settings: BACK instead of RESUME, no Quit run.
 var _settings_only := false
@@ -517,25 +518,47 @@ static func chunky(s: LabelSettings) -> void:
 ## Behind a full-screen menu (solid, `r.color.a` over 0.93): the lit crypt wall, in
 ## `theme`'s light (MenuBackdrop, version 130). Behind a see-through one (pause, the end of a
 ## run, cards and doors over the room): a deep blue-purple glow, so the room still shows.
-static var _backdrop_tex: GradientTexture2D
+## Version 159: the glow takes the moment's mood: "crypt" blue-purple, "death" a deep blood
+## red from the top (YOU DIED), "victory" warm gold. Three tiny cached textures, no shader.
+static var _glow_tex := {}
+const GLOWS := {
+	"crypt": [Color(0.22, 0.16, 0.4), Color(0.05, 0.035, 0.11)],
+	"death": [Color(0.27, 0.045, 0.08), Color(0.04, 0.012, 0.035)],
+	"victory": [Color(0.42, 0.28, 0.1), Color(0.07, 0.04, 0.06)],
+}
+
+static func glow_texture(mood: String) -> GradientTexture2D:
+	if not GLOWS.has(mood):
+		mood = "crypt"
+	if not _glow_tex.has(mood):
+		var g := Gradient.new()
+		g.set_color(0, GLOWS[mood][0])
+		g.set_color(1, GLOWS[mood][1])
+		var t := GradientTexture2D.new()
+		t.gradient = g
+		t.fill = GradientTexture2D.FILL_RADIAL
+		t.fill_from = Vector2(0.5, 0.28 if mood == "crypt" else 0.12)
+		t.fill_to = Vector2(1.15, 1.0)
+		t.width = 128
+		t.height = 256
+		_glow_tex[mood] = t
+	return _glow_tex[mood]
+
+
+## Swaps the mood of a see-through overlay's glow (see backdrop).
+static func set_glow(r: ColorRect, mood: String) -> void:
+	var t := r.get_node_or_null("Glow") as TextureRect
+	if t:
+		t.texture = glow_texture(mood)
+
 
 static func backdrop(r: ColorRect, theme := "crypt") -> void:
 	if r.color.a > 0.93:
 		MenuBackdrop.add_to(r, theme)
 		return
-	if _backdrop_tex == null:
-		var g := Gradient.new()
-		g.set_color(0, Color(0.22, 0.16, 0.4))
-		g.set_color(1, Color(0.05, 0.035, 0.11))
-		_backdrop_tex = GradientTexture2D.new()
-		_backdrop_tex.gradient = g
-		_backdrop_tex.fill = GradientTexture2D.FILL_RADIAL
-		_backdrop_tex.fill_from = Vector2(0.5, 0.28)
-		_backdrop_tex.fill_to = Vector2(1.15, 1.0)
-		_backdrop_tex.width = 128
-		_backdrop_tex.height = 256
 	var t := TextureRect.new()
-	t.texture = _backdrop_tex
+	t.name = "Glow"
+	t.texture = glow_texture("crypt")
 	t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	t.stretch_mode = TextureRect.STRETCH_SCALE
 	t.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1548,7 +1571,7 @@ func _draw_card_back(c: Control) -> void:
 
 ## Two tall arched doors side by side, each with a picture, a name and what it promises.
 func _build_doors() -> void:
-	_doors_box = overlay(Color(0.02, 0.01, 0.04, 0.9))
+	_doors_box = overlay(Color(0.02, 0.01, 0.04, 0.8))
 	add_child(_doors_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2216,28 +2239,46 @@ func _build_pause() -> void:
 	_pause_box.add_child(col)
 	_pause_title = label("PAUSED", 52, Color(1, 0.85, 0.55))
 	col.add_child(_pause_title)
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 8)
-	col.add_child(gap)
 	var resume := button("RESUME", 32, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
 	resume.custom_minimum_size = Vector2(300, 86)
 	resume.pressed.connect(_on_resume_pressed)
 	_resume_button = resume
 	col.add_child(_centered(resume))
+	# Version 159: the switches sit together on one dark card, so the menu reads as
+	# "Resume, your settings, leave" instead of a wall of blue buttons.
+	var card := PanelContainer.new()
+	var csb := StyleBoxFlat.new()
+	csb.bg_color = Color(0.06, 0.045, 0.1, 0.82)
+	csb.border_color = Color(1, 0.8, 0.45, 0.28)
+	csb.set_border_width_all(2)
+	csb.set_corner_radius_all(22)
+	csb.content_margin_left = 16
+	csb.content_margin_right = 16
+	csb.content_margin_top = 8
+	csb.content_margin_bottom = 14
+	card.add_theme_stylebox_override("panel", csb)
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sc := VBoxContainer.new()
+	sc.add_theme_constant_override("separation", 10)
+	sc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_child(sc)
+	_pause_head = label("SETTINGS", 16, Color(1, 0.85, 0.55, 0.75))
+	sc.add_child(_pause_head)
+	col.add_child(_centered(card))
 	_music_button = button("Music: On", 26)
 	_music_button.pressed.connect(func(): music_toggled.emit(not _music_on))
-	col.add_child(_centered(_music_button))
+	sc.add_child(_centered(_music_button))
 	_sounds_button = button("Sounds: On", 26)
 	_sounds_button.pressed.connect(func(): sounds_toggled.emit(not _sounds_on))
-	col.add_child(_centered(_sounds_button))
+	sc.add_child(_centered(_sounds_button))
 	_graphics_button = button("Graphics: High", 26)
 	# High, Medium, Low, Low at a steady 30, then back to High.
 	_graphics_button.pressed.connect(func(): graphics_toggled.emit((_graphics_level + 3) % 4))
-	col.add_child(_centered(_graphics_button))
+	sc.add_child(_centered(_graphics_button))
 	# Full, Reduced, Off, then back to Full.
 	_shake_button = button("Screen shake: Full", 22)
 	_shake_button.pressed.connect(func(): shake_changed.emit((_shake_level + 2) % 3))
-	col.add_child(_centered(_shake_button))
+	sc.add_child(_centered(_shake_button))
 	# Vibration and Colour-blind share a row (version 148), so the menu still fits a 16:9 phone.
 	_vibration_button = button("Vibration: On", 18)
 	_vibration_button.custom_minimum_size = Vector2(212, 66)
@@ -2249,7 +2290,7 @@ func _build_pause() -> void:
 	_colorblind_button.pressed.connect(func(): colorblind_toggled.emit(not _colorblind_on))
 	var vpair := _pair(_vibration_button, _colorblind_button)
 	vpair.add_theme_constant_override("separation", 12)
-	col.add_child(vpair)
+	sc.add_child(vpair)
 	# Reports and reminders share a row (version 143), so the menu still fits a 16:9 phone.
 	_reports_button = button("Send reports: Off", 18)
 	_reports_button.custom_minimum_size = Vector2(212, 66)
@@ -2259,7 +2300,7 @@ func _build_pause() -> void:
 	_reminders_button.pressed.connect(func(): reminders_toggled.emit(not _reminders_on))
 	var pair := _pair(_reports_button, _reminders_button)
 	pair.add_theme_constant_override("separation", 12)
-	col.add_child(pair)
+	sc.add_child(pair)
 	# Three small buttons side by side, so the menu still fits a 16:9 phone.
 	var small := HBoxContainer.new()
 	small.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2283,6 +2324,8 @@ func _build_pause() -> void:
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
+	_toggle_look(_graphics_button, true)
+	_toggle_look(_shake_button, true)
 	# SPEED TEST, in the same place on the title's Settings (where there's no run to quit).
 	_speed_button = button("Speed test", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_speed_button.pressed.connect(func():
@@ -2865,6 +2908,7 @@ func reminders_ask_visible() -> bool:
 func set_reminders_label(on: bool, blocked := false) -> void:
 	_reminders_on = on
 	_reminders_button.text = ("Reminders: Blocked" if blocked else "Reminders: On") if on else "Reminders: Off"
+	_toggle_look(_reminders_button, on and not blocked)
 
 
 func show_reports_ask(v: bool) -> void:
@@ -4056,12 +4100,22 @@ func set_toggles(music: bool, sounds: bool) -> void:
 	_sounds_on = sounds
 	_music_button.text = "Music: On" if music else "Music: Off"
 	_sounds_button.text = "Sounds: On" if sounds else "Sounds: Off"
+	_toggle_look(_music_button, music)
+	_toggle_look(_sounds_button, sounds)
+
+
+## Version 159: a switch reads at a glance, blue when on and grey when off.
+static func _toggle_look(b: Button, on: bool) -> void:
+	if b and not (b.has_meta("toggle_on") and b.get_meta("toggle_on") == on):
+		b.set_meta("toggle_on", on)
+		paint(b, "blue" if on else "slate")
 
 
 ## Anonymous run and crash reports (see telemetry.gd). Hidden if no form is set up.
 func set_reports_label(on: bool, available: bool) -> void:
 	_reports_on = on
 	_reports_button.text = "Send reports: On" if on else "Send reports: Off"
+	_toggle_look(_reports_button, on)
 	_reports_button.get_parent().visible = available
 
 
@@ -4079,11 +4133,13 @@ func set_shake_label(level: int) -> void:
 func set_colorblind_label(on: bool) -> void:
 	_colorblind_on = on
 	_colorblind_button.text = "Colour-blind: On" if on else "Colour-blind: Off"
+	_toggle_look(_colorblind_button, on)
 
 
 func set_vibration_label(on: bool) -> void:
 	_vibration_on = on
 	_vibration_button.text = "Vibration: On" if on else "Vibration: Off"
+	_toggle_look(_vibration_button, on)
 
 
 func armory_visible() -> bool:
@@ -4370,6 +4426,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_share_card.visible = false
 	_end_spacer.custom_minimum_size.y = 100.0 if not buttons else 24.0
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
+	set_glow(_end_box, "victory" if victory else "death")
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	_start_tally(stats, score >= 0)
 	_end_goal.visible = false
@@ -4815,6 +4872,7 @@ func show_pause(v: bool, settings_only := false) -> void:
 	_resume_button.text = "BACK" if _settings_only else ("BACK TO THE RACE" if Game.race else "RESUME")
 	_quit_button.text = _quit_text()
 	_quit_button.visible = not _settings_only
+	_pause_head.visible = not _settings_only
 	(_speed_button.get_parent() as Control).visible = _settings_only
 	# Darker over the busy title screen than over a paused room.
 	(_pause_box as ColorRect).color.a = 0.9 if _settings_only else 0.7
