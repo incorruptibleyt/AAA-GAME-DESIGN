@@ -240,8 +240,10 @@ void fragment() {
 
 #if STYLE == 1
 	const float P = 3.0;
-	const float BW = 0.19;
-	const vec3 MORTAR = vec3(0.1, 0.085, 0.08);
+	// Version 160: narrower bands in a softer mortar (were 0.19 wide in 0.1/0.085/0.08), so
+	// the bone grid reads as texture under the fight, not as bright lines across it.
+	const float BW = 0.14;
+	const vec3 MORTAR = vec3(0.15, 0.13, 0.125);
 	const vec3 BRASS = vec3(0.5, 0.4, 0.25);
 	vec2 q = pos / P + 0.5;
 	vec2 cell = floor(q);
@@ -262,9 +264,9 @@ void fragment() {
 	float ed = min(e.x, e.y);
 	float al = e.y < e.x ? pos.x : pos.y;
 	float band = 1.0 - smoothstep(BW - 0.01, BW + 0.01, ed);
-	c *= 1.0 - 0.3 * (1.0 - smoothstep(BW, BW + 0.09, ed));
+	c *= 1.0 - 0.16 * (1.0 - smoothstep(BW, BW + 0.07, ed));
 	float slot = floor(al / 0.5);
-	float bd = bone(vec2((fract(al / 0.5) - 0.5) * 0.5, ed), 0.31, 0.04);
+	float bd = bone(vec2((fract(al / 0.5) - 0.5) * 0.5, ed), 0.31, 0.032);
 	float bone_in = (1.0 - smoothstep(-0.006, 0.006, bd)) * band;
 	// Version 159: the bones in the bands are a duller, darker ivory and the brass trim only
 	// a third as strong, so the floor's grid stops competing with skeletons and shots.
@@ -280,10 +282,10 @@ void fragment() {
 	vec2 lc = (q - floor(q + 0.5)) * P;
 	float rd = length(lc);
 	float aa = fwidth(rd);
-	c = mix(c, MORTAR, 1.0 - smoothstep(0.3, 0.3 + aa, rd));
-	c = mix(c, BRASS, (1.0 - smoothstep(0.012, 0.024, abs(rd - 0.27))) * 0.5);
-	c = mix(c, vec3(0.5, 0.455, 0.375) * (0.7 + 0.4 * smoothstep(0.2, 0.0, rd)), 1.0 - smoothstep(0.17, 0.17 + aa, rd));
-	c = mix(c, MORTAR, 1.0 - smoothstep(0.05, 0.05 + aa, rd));
+	c = mix(c, MORTAR, 1.0 - smoothstep(0.22, 0.22 + aa, rd));
+	c = mix(c, BRASS, (1.0 - smoothstep(0.01, 0.02, abs(rd - 0.2))) * 0.4);
+	c = mix(c, vec3(0.4, 0.365, 0.3) * (0.7 + 0.4 * smoothstep(0.14, 0.0, rd)), 1.0 - smoothstep(0.12, 0.12 + aa, rd));
+	c = mix(c, MORTAR, 1.0 - smoothstep(0.04, 0.04 + aa, rd));
 	// The great wheel of bones in the middle of the room.
 	float R = length(pos);
 	if (R < 1.3) {

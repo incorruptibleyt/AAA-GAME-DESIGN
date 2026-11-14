@@ -1698,6 +1698,11 @@ func show_doors(doors: Array, boss_next := false) -> void:
 		(inner.get_child(2) as Label).text = d.text
 		for sb_name in ["normal", "pressed"]:
 			(b.get_theme_stylebox(sb_name) as StyleBoxFlat).border_color = d.color
+	# Version 160: on a tall phone the doors stand taller (up to half the screen), so the
+	# screen is two great doorways instead of two small ones in an empty purple field.
+	var tall := clampf(get_viewport().get_visible_rect().size.y * 0.5, 380.0, 620.0)
+	for b in _door_buttons:
+		b.custom_minimum_size.y = tall
 	_doors_box.visible = true
 	_doors_age = 0.0
 
