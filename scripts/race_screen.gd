@@ -174,6 +174,7 @@ static func _pill(text: String, col: Color, size := 16) -> Label:
 func _build_lobby() -> void:
 	var col := _page()
 	_lobby = col.get_parent()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER   # (version 158: tall phones had a gap below)
 	col.add_child(Hud.label("CRYPT RACE", 46, TEAL.lightened(0.3)))
 	col.add_child(Hud.label("Race a rival through the same crypt.\nFirst to fell the boss wins!", 18, TEXT))
 	var top := HBoxContainer.new()
@@ -419,6 +420,7 @@ func _show_vs() -> void:
 func _build_result() -> void:
 	var col := _page()
 	_result = col.get_parent()
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 8)
 	_r_title = Hud.label("", 56, YOU)
 	col.add_child(_r_title)

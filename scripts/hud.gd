@@ -3113,6 +3113,10 @@ func _on_card(i: int) -> void:
 func _process(delta: float) -> void:
 	_event_process(delta)
 	_cards_age += delta
+	# Version 158: "SURGE READY!" (or PERFECT!) caught by the pause menu, the cards or an end
+	# screen stayed on top of it, frozen.
+	if _perfect_lbl and _perfect_lbl.visible and Game.state != Game.State.PLAYING:
+		_perfect_lbl.visible = false
 	_doors_age += delta
 	# The title's words and buttons would show faintly through the screens opened over it.
 	if _title_box.visible:

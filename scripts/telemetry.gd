@@ -110,8 +110,15 @@ static func step(what: String) -> void:
 		print("[step] " + line.replace("\n", " | "))   # the test robot: shown, never sent
 		return
 	t._queue.append(line)
+	# Offline, the queue keeps its last 20: an old step goes first, so a step can't push out
+	# a crash or run report (version 158).
 	while t._queue.size() > MAX_QUEUE:
-		t._queue.pop_front()
+		var old := -1
+		for k in t._queue.size() - 1:
+			if str(t._queue[k]).begins_with("step |"):
+				old = k
+				break
+		t._queue.remove_at(old if old >= 0 else 0)
 	t._save_queue()
 	t._flush()
 
