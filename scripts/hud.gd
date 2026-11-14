@@ -1634,6 +1634,20 @@ func _build_doors() -> void:
 		way_sb.corner_radius_top_right = 100
 		way_sb.set_border_width_all(2)
 		way.add_theme_stylebox_override("panel", way_sb)
+		# Version 159: light of the door's colour spills up from beyond the threshold, so
+		# each doorway glows with what waits behind it (one shared gradient, tinted).
+		var spill := TextureRect.new()
+		spill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		spill.texture = _door_spill_tex()
+		spill.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		spill.stretch_mode = TextureRect.STRETCH_SCALE
+		spill.anchor_right = 1.0
+		spill.anchor_top = 0.35
+		spill.anchor_bottom = 1.0
+		spill.offset_left = 2
+		spill.offset_right = -2
+		spill.offset_bottom = -2
+		way.add_child(spill)
 		b.add_child(way)
 		b.move_child(way, 0)
 		var icon := BlessingIcon.new()
@@ -1645,6 +1659,23 @@ func _build_doors() -> void:
 		b.pressed.connect(func(): _on_door(idx))
 		row.add_child(b)
 		_door_buttons.append(b)
+
+
+static var _spill_tex: GradientTexture2D
+
+static func _door_spill_tex() -> GradientTexture2D:
+	if _spill_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 0.0))
+		g.set_color(1, Color(1, 1, 1, 0.42))
+		g.add_point(0.75, Color(1, 1, 1, 0.16))
+		_spill_tex = GradientTexture2D.new()
+		_spill_tex.gradient = g
+		_spill_tex.fill_from = Vector2(0, 0)
+		_spill_tex.fill_to = Vector2(0, 1)
+		_spill_tex.width = 4
+		_spill_tex.height = 64
+	return _spill_tex
 
 
 ## doors: Doors.describe() of each door. `boss_next`: the boss waits behind them.
@@ -1659,6 +1690,7 @@ func show_doors(doors: Array, boss_next := false) -> void:
 		var d: Dictionary = doors[i]
 		var inner := b.get_child(1)
 		((b.get_child(0) as Panel).get_theme_stylebox("panel") as StyleBoxFlat).border_color = Color(d.color, 0.35)
+		(b.get_child(0).get_child(0) as TextureRect).modulate = d.color
 		(inner.get_child(0).get_child(0) as BlessingIcon).show_icon(d.icon, d.family, d.color)
 		var t := inner.get_child(1) as Label
 		t.text = d.title
@@ -1900,7 +1932,7 @@ func _build_modes() -> void:
 	col.add_child(curses[0])
 	_mode_curses_line = curses[1]
 	_mode_curses_tag = curses[2]
-	_modes_tutorial = button("Tutorial run", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_modes_tutorial = button("Replay tutorial", 20, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_modes_tutorial.custom_minimum_size = Vector2(260, 62)
 	_modes_tutorial.pressed.connect(func(): _guarded(_modes_tutorial, tutorial_pressed))
 	col.add_child(_centered(_modes_tutorial))
@@ -1914,6 +1946,9 @@ func _build_modes() -> void:
 func _mode_card(pic: String, title: String, col: Color, on_press: Callable) -> Array:
 	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), Color(col, 0.75))
 	b.custom_minimum_size = Vector2(0, 200)   # 228 before the Crypt Race made it three cards
+	# Version 159: on a tall phone the cards share the empty space below them, and the
+	# picture grows with its card, so the heroes' heads are no longer cut off.
+	b.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	for state in ["normal", "pressed"]:
 		var sb := b.get_theme_stylebox(state) as StyleBoxFlat
 		sb.set_border_width_all(3)
@@ -1931,6 +1966,7 @@ func _mode_card(pic: String, title: String, col: Color, on_press: Callable) -> A
 	var img := TextureRect.new()
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	img.custom_minimum_size = Vector2(0, 92)
+	img.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	var path := "res://art/ui/pass_%s.png" % pic
@@ -1953,8 +1989,22 @@ func _mode_card(pic: String, title: String, col: Color, on_press: Callable) -> A
 	texts.add_child(line)
 	var tag := label("", 18, col)
 	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
-	tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	h.add_child(tag)
+	# Version 159: the tag (READY, LOCKED...) sits in a little pill of the card's colour.
+	var pill := PanelContainer.new()
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pill.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(col.darkened(0.6), 0.85)
+	psb.border_color = Color(col, 0.8)
+	psb.set_border_width_all(2)
+	psb.set_corner_radius_all(14)
+	psb.content_margin_left = 12
+	psb.content_margin_right = 12
+	psb.content_margin_top = 2
+	psb.content_margin_bottom = 2
+	pill.add_theme_stylebox_override("panel", psb)
+	pill.add_child(tag)
+	h.add_child(pill)
 	return [b, line, tag]
 
 
