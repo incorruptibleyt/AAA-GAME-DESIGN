@@ -36,8 +36,9 @@ static func dress(room: Room, layout: Array) -> void:
 				var candle := Art.get_model("candle_triple")
 				if candle:
 					var at := p + Vector3(0, 0, -signf(p.z) * 0.7)
-					Art.place_prop(candle, _place(room, at), 0.6)
-					room._add_obstacle(at, 0.3)
+					if room.leaves_gap(at, 0.3):
+						Art.place_prop(candle, _place(room, at), 0.6)
+						room._add_obstacle(at, 0.3)
 			"ice":
 				_mesh(n, _crystals())
 			"ember":
@@ -140,6 +141,10 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 			if scene == null:
 				continue
 			var at := Vector3(side * (Room.HALF_W - 0.42), 0, z)
+			# Version 165: not where it would narrow the way past a pillar one column in from
+			# the wall (that made pockets a skeleton couldn't reach, or get out of).
+			if not room.leaves_gap(Vector3(side * Room.HALF_W, 0, z), 0.7):
+				continue
 			_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
 			room._add_obstacle(Vector3(side * Room.HALF_W, 0, z), 0.7)
 

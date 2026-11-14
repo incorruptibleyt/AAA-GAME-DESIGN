@@ -51,6 +51,8 @@ static func apply(room: Room, mood: String, layout: Array) -> void:
 					continue
 				var p := Room.cell_to_world(c.x, c.y)
 				p.x = signf(p.x) * (Room.HALF_W - 0.45) if c.x in [0, 8] else p.x
+				if not c.x in [0, 8] and not room.leaves_gap(p, 0.45):
+					continue   # (version 164: never closing a gap between two props)
 				var scene := chest if i == 4 and chest else coins
 				if scene == null:
 					continue
@@ -104,7 +106,7 @@ static func apply(room: Room, mood: String, layout: Array) -> void:
 			if candle:
 				for c: Vector2i in [Vector2i(4, 4), Vector2i(2, 6), Vector2i(6, 6), Vector2i(4, 8)]:
 					var p := Room.cell_to_world(c.x, c.y)
-					if not _free(layout, c) or not room.is_walkable(p, 0.6):
+					if not _free(layout, c) or not room.is_walkable(p, 0.6) or not room.leaves_gap(p, 0.3):
 						continue
 					Art.place_prop(candle, _place(room, p, randf() * TAU), 0.55)
 					room._add_obstacle(p, 0.3)

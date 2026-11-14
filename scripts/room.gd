@@ -954,31 +954,192 @@ func is_walkable(p: Vector3, r: float) -> bool:
 
 
 ## Bends a walking direction around any pillar or barrel straight ahead, so skeletons
-## don't get stuck pushing into one.
+## don't get stuck pushing into one. Version 164: it looks at the nearest thing in the way
+## (not the first in the list), and only turns towards a side that is open, trying wider
+## turns when two props stand close (two crates and a candle used to make a pocket that
+## skeletons rocked in, unable to choose a side).
 func steer(pos: Vector3, dir: Vector3, r: float) -> Vector3:
+	var o = _blocker(pos, dir, r)
+	if o == null:
+		return dir
+	var to: Vector3 = o.pos - pos
+	to.y = 0.0
+	var side := to - dir * to.dot(dir)
+	var tangent := dir.cross(Vector3.UP)
+	if side.dot(tangent) > 0.0:
+		tangent = -tangent
+	elif side.length_squared() < 0.0001 and fmod(pos.x + pos.z, 2.0) < 1.0:
+		tangent = -tangent
+	# A pillar next to a wall: go round the open side instead of pushing into the wall.
+	# The gap is measured from the pillar itself (measured from the skeleton, one a little
+	# to the side of a pillar one column in from the wall flipped its mind every frame).
+	var probe: Vector3 = o.pos + tangent * (o.r + r + 0.1)
+	if absf(probe.x) > HALF_W - r or absf(probe.z) > HALF_L - r:
+		tangent = -tangent
+	var bent := (dir + tangent * 1.5).normalized()
+	if _blocker(pos, bent, r) == null:
+		return bent
+	# The usual turn runs into something else: the first open direction, nearest the
+	# way it wanted to go, on its chosen side first.
+	var lean := 1.0 if dir.cross(bent).y > 0.0 else -1.0
+	for ang in [0.6, 1.0, 1.35, 1.75, 2.2]:
+		for s in [lean, -lean]:
+			var c := dir.rotated(Vector3.UP, s * ang)
+			if _blocker(pos, c, r) == null and _clamp_walls(pos + c * (r + 0.4), r).distance_squared_to(pos + c * (r + 0.4)) < 0.0001:
+				return c
+	return bent
+
+
+## The nearest obstacle a circle of radius `r` would walk into going along `dir`, or null.
+func _blocker(pos: Vector3, dir: Vector3, r: float):
+	var best = null
+	var best_ahead := INF
 	for o in obstacles:
 		var to: Vector3 = o.pos - pos
 		to.y = 0.0
 		var ahead := to.dot(dir)
-		if ahead <= 0.0 or ahead > o.r + r + 1.2:
+		if ahead <= 0.0 or ahead > o.r + r + 1.2 or ahead >= best_ahead:
 			continue
-		var side := to - dir * ahead
-		if side.length() >= o.r + r:
+		if (to - dir * ahead).length() >= o.r + r:
 			continue
-		var tangent := dir.cross(Vector3.UP)
-		if side.dot(tangent) > 0.0:
-			tangent = -tangent
-		elif side.length_squared() < 0.0001 and fmod(pos.x + pos.z, 2.0) < 1.0:
-			tangent = -tangent
-		# A pillar next to a wall: go round the open side instead of pushing into the wall.
-		# The gap is measured from the pillar itself. It used to be measured from the skeleton,
-		# so one a little to the side of a pillar one column in from the wall (where there is
-		# room to pass) flipped its mind every frame and stood there pushing into the pillar.
-		var probe: Vector3 = o.pos + tangent * (o.r + r + 0.1)
-		if absf(probe.x) > HALF_W - r or absf(probe.z) > HALF_L - r:
-			tangent = -tangent
-		return (dir + tangent * 1.5).normalized()
-	return dir
+		best = o
+		best_ahead = ahead
+	return best
+
+
+## True when a prop of radius `r` at `p` leaves room for a big skeleton to walk past it: it
+## either touches each pillar, crate or other prop (so they block as one) or leaves a gap
+## of at least `gap` metres. (A candle between two crates once closed the gap.)
+func leaves_gap(p: Vector3, r: float, gap := 1.4) -> bool:
+	for o in obstacles:
+		var d: Vector3 = p - o.pos
+		d.y = 0.0
+		var free: float = d.length() - o.r - r
+		if free > 0.0 and free < gap:
+			return false
+	return true
+
+
+# ---------------------------------------------------------------- finding a way round
+
+## Version 165: skeletons who can't walk straight to the hero follow a small map of the room
+## (half-metre squares) round crates, pillars and props, so two props close together can
+## never trap one. The map of open squares is made once a room; the way to the hero is
+## worked out again only when the hero has moved to another square (and at most four times
+## a second).
+const NAV := 0.5
+const NAV_W := int(HALF_W * 2.0 / NAV)   # 24
+const NAV_L := int(HALF_L * 2.0 / NAV)   # 40
+const NAV_CLEAR := 0.5                   # room a skeleton needs round its middle
+
+## Whether the last route() call found the straight line clear (steer() then still bends
+## round anything small; when it wasn't clear, the route already goes round it).
+var last_clear := true
+var _nav_open := PackedByteArray()
+var _nav_dist := PackedInt32Array()
+var _nav_goal := -1
+var _nav_ms := -100000
+
+
+func _nav_cell(p: Vector3) -> int:
+	var cx := clampi(int((p.x + HALF_W) / NAV), 0, NAV_W - 1)
+	var cz := clampi(int((p.z + HALF_L) / NAV), 0, NAV_L - 1)
+	return cz * NAV_W + cx
+
+
+func _nav_center(i: int) -> Vector3:
+	return Vector3(-HALF_W + (i % NAV_W + 0.5) * NAV, 0.0, -HALF_L + (i / NAV_W + 0.5) * NAV)
+
+
+func _nav_build() -> void:
+	_nav_open.resize(NAV_W * NAV_L)
+	for i in NAV_W * NAV_L:
+		_nav_open[i] = 1 if is_walkable(_nav_center(i), NAV_CLEAR) else 0
+
+
+func _nav_flood(goal: int) -> void:
+	_nav_goal = goal
+	_nav_ms = Time.get_ticks_msec()
+	_nav_dist.resize(NAV_W * NAV_L)
+	_nav_dist.fill(-1)
+	_nav_dist[goal] = 0
+	var queue := PackedInt32Array([goal])
+	var head := 0
+	while head < queue.size():
+		var c := queue[head]
+		head += 1
+		var x := c % NAV_W
+		var z := c / NAV_W
+		var d := _nav_dist[c] + 1
+		for k in 4:
+			var nx := x + (1 if k == 0 else (-1 if k == 1 else 0))
+			var nz := z + (1 if k == 2 else (-1 if k == 3 else 0))
+			if nx < 0 or nz < 0 or nx >= NAV_W or nz >= NAV_L:
+				continue
+			var n := nz * NAV_W + nx
+			if _nav_dist[n] != -1 or _nav_open[n] == 0:
+				continue
+			_nav_dist[n] = d
+			queue.append(n)
+
+
+## True when a circle of radius `r` can walk the straight line from `a` to `b` without
+## touching an obstacle.
+func clear_walk(a: Vector3, b: Vector3, r: float) -> bool:
+	var ab := b - a
+	ab.y = 0.0
+	var len2 := ab.length_squared()
+	for o in obstacles:
+		var ao: Vector3 = o.pos - a
+		ao.y = 0.0
+		var t := clampf(ao.dot(ab) / len2, 0.0, 1.0) if len2 > 0.0001 else 0.0
+		var m: float = o.r + r
+		if (ao - ab * t).length_squared() < m * m:
+			return false
+	return true
+
+
+## The way to walk from `pos` towards `goal` round anything in between: straight at it
+## when the line is clear, else towards the next open square on the shortest way round.
+func route(pos: Vector3, goal: Vector3, r: float) -> Vector3:
+	var to := goal - pos
+	to.y = 0.0
+	last_clear = clear_walk(pos, goal, r * 0.9)
+	if last_clear:
+		return to.normalized()
+	if _nav_open.is_empty():
+		_nav_build()
+	var g := _nav_cell(goal)
+	if g != _nav_goal and Time.get_ticks_msec() - _nav_ms > 250:
+		_nav_flood(g)
+	if _nav_dist.is_empty():
+		return to.normalized()
+	var here := _nav_cell(pos)
+	var best := -1
+	var best_d := _nav_dist[here] if _nav_dist[here] >= 0 else 1 << 30
+	var x := here % NAV_W
+	var z := here / NAV_W
+	# Looks a few squares ahead along the way and walks at the farthest one in clear sight,
+	# so the path is smooth rather than square by square.
+	for dz in range(-3, 4):
+		for dx in range(-3, 4):
+			var nx := x + dx
+			var nz := z + dz
+			if nx < 0 or nz < 0 or nx >= NAV_W or nz >= NAV_L:
+				continue
+			var n := nz * NAV_W + nx
+			var nd := _nav_dist[n]
+			if nd < 0 or nd >= best_d:
+				continue
+			if not clear_walk(pos, _nav_center(n), r * 0.9):
+				continue
+			best = n
+			best_d = nd
+	if best == -1:
+		return to.normalized()
+	var way := _nav_center(best) - pos
+	way.y = 0.0
+	return way.normalized() if way.length_squared() > 0.0001 else to.normalized()
 
 
 func blocks_shot(p: Vector3, r: float) -> bool:

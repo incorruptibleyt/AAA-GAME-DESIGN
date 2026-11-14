@@ -11,10 +11,28 @@ class_name Warmup
 
 const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "b", "h", "Q", "q"]
 
+## Version 165: the skeletons, floor and effects of the first floor. A new player's first
+## launch warms only these (with the hero they play), and the rest waits for the black
+## screen after the tutorial: on a cheap phone (an Adreno 619) the whole set took 53 s on
+## the first launch, nearly a minute before the title. Once the whole set has been drawn
+## for a build, later launches warm only these too (the phone keeps the rest ready).
+const FIRST_FOES := ["m", "w", "a", "g", "x", "t", "s", "K"]
+
 static var last_ms := 0
+static var last_core := false
 
 
-static func run() -> void:
+## Which warm-up this launch needs: true for the short one (see FIRST_FOES).
+static func core_only(cfg: ConfigFile) -> bool:
+	return str(cfg.get_value("stats", "warmed_build", "")) == Game.BUILD or Game.first_run_pending()
+
+
+## Notes that this build's whole set has been drawn (see core_only).
+static func mark_full(cfg: ConfigFile) -> void:
+	cfg.set_value("stats", "warmed_build", Game.BUILD)
+
+
+static func run(core := false) -> void:
 	var room := Room.current
 	var hero: Hero = Game.hero
 	if room == null or hero == null or Game.world == null:
@@ -44,20 +62,23 @@ static func run() -> void:
 	# Every kind of skeleton (and a golden elite) with its health bar and a damage number,
 	# then every hero with its glow.
 	var foes: Array[Enemy] = []
-	for k in range(0, FOES.size(), 4):
+	var kinds: Array = FIRST_FOES if core else FOES
+	for k in range(0, kinds.size(), 4):
 		steps.append(func():
-			for i in range(k, mini(k + 4, FOES.size())):
-				var e := Enemy.create(FOES[i], holder, spots[i])
+			for i in range(k, mini(k + 4, kinds.size())):
+				var e := Enemy.create(kinds[i], holder, spots[i])
 				e._spawn_timer = 0.0
-				if FOES[i] == "w":
+				if kinds[i] == "w":
 					e.make_elite()
 				if e._bar:
 					e._bar.reveal()
-				DamageNumber.hit(e, 1234567890.0, FOES[i] == "K")
+				DamageNumber.hit(e, 1234567890.0, kinds[i] == "K")
 				foes.append(e))
 	var heroes: Array[CharacterVisual] = []
 	steps.append(func():
 		for i in Heroes.LIST.size():
+			if core and Heroes.LIST[i].id != hero.hero_id:
+				continue   # (the short warm-up: only the hero being played)
 			var v := CharacterVisual.new()
 			v.outline_me = true   # so the outline shader is ready before the first run
 			holder.add_child(v)
@@ -83,7 +104,7 @@ static func run() -> void:
 	for slot: String in ["head", "outfit", "glow", "aura"]:
 		keys[slot] = HeroStyle.EXTRA[slot].keys()
 		most = maxi(most, keys[slot].size())
-	for half in 2:
+	for half in (0 if core else 2):
 		steps.append(func():
 			for i in range(half * ceili(most / 2.0), mini(most, (half + 1) * ceili(most / 2.0))):
 				var v := CharacterVisual.new()
@@ -102,7 +123,7 @@ static func run() -> void:
 	# its own lights, so their shaders differ from the room's (version 119: the first reveal
 	# and the first chest could stall while these were prepared). Drawn behind the loading
 	# screen, on a layer under it.
-	steps.append(func():
+	if not core: steps.append(func():
 		var layer := CanvasLayer.new()
 		layer.layer = -1
 		Game.add_child(layer)
@@ -167,10 +188,12 @@ static func run() -> void:
 	# the Tidecaller's wave.
 	steps.append(func():
 		for i in Floors.THEMES.size():
+			if core and Floors.THEMES[i] != Floors.current():
+				continue
 			U.floor_quad(holder, Vector2(1, 1), Room._floor_material(Floors.THEMES[i]), spots[i] + Vector3(0, 0.02, 0.6))
 			# Each crypt's own walls (version 134).
 			U.box(holder, Vector3(0.6, 0.6, 0.6), Room._wall_material(Floors.THEMES[i], U.mat(Color.GRAY)), spots[i] + Vector3(0.6, 0.3, 0.6)))
-	steps.append(func():
+	if not core: steps.append(func():
 		var props := [Props._skull_pile(true), Props._skull_pile(false), Props._crystals(), Props._icicles(), Props._brazier(), Props._grate(),
 			Props._kelp_column(), Props._spout()]
 		for i in props.size():
@@ -180,7 +203,10 @@ static func run() -> void:
 		U.box(holder, Vector3(1, 0.6, 0.3), Tidecaller._foam_material(), spots[15] + Vector3(0, 0.3, 0)))
 	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
 	# a spore cloud, crawling roots and the Sporemother's pod.
-	steps.append(func():
+	if core: steps.append(func():
+		Props._mesh(holder, Props._skull_pile(true)).position = spots[5] + Vector3(0, 0, -0.6)
+		Props._mesh(holder, Props._skull_pile(false)).position = spots[6] + Vector3(0, 0, -0.6))
+	if not core: steps.append(func():
 		Props._mesh(holder, Props._mushroom_clump()).position = spots[21]
 		Props._mesh(holder, Props._shelf_fungus()).position = spots[22]
 		Props._glow_pool(holder, 1.0)
@@ -229,7 +255,8 @@ static func run() -> void:
 	bar.queue_free()
 	AudioServer.set_bus_mute(bus, muted)
 	last_ms = Time.get_ticks_msec() - started
-	print("[warmup] %d ms" % last_ms)
+	last_core = core
+	print("[warmup] %d ms%s" % [last_ms, " (first floor only)" if core else ""])
 
 
 ## A thin bone-white bar low on the black launch screen. It stays hidden on a quick launch

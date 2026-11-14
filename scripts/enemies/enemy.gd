@@ -432,7 +432,20 @@ func walk(dir: Vector3, delta: float, speed_scale := 1.0) -> void:
 		return
 	dir = dir.normalized()
 	if Room.current:
-		dir = Room.current.steer(global_position, dir, radius)
+		# Version 165: walking at the hero (not backing off or circling), it finds the way
+		# round props instead of only bending at the one in front.
+		var routed := false
+		var hero := Game.hero
+		if hero and radius <= 0.8:
+			var at := hero.global_position - global_position
+			at.y = 0.0
+			if at.length_squared() > 0.01 and dir.dot(at.normalized()) > 0.6:
+				var way: Vector3 = Room.current.route(global_position, hero.global_position, radius)
+				if not Room.current.last_clear:
+					dir = way
+					routed = true
+		if not routed:
+			dir = Room.current.steer(global_position, dir, radius)
 	if _slow_left > 0.0:
 		speed_scale *= 0.55
 	speed_scale *= Game.surge_mult()   # a Blood Moon surge (events)

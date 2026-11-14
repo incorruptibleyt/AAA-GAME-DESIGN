@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-14h"
+const BUILD := "2026-11-14i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -536,7 +536,14 @@ func _ready() -> void:
 	_snap_camera()
 	_set_state(State.TITLE)
 	hud.show_hud(false)
-	await Warmup.run()   # while the screen is still black, before the title can be tapped
+	# While the screen is still black, before the title can be tapped. Version 165: a short
+	# one for a new player (and on launches after this build's full one), see warmup.gd.
+	var wcfg := _load_save()
+	var short_warm := Warmup.core_only(wcfg)
+	await Warmup.run(short_warm)
+	if not short_warm:
+		Warmup.mark_full(wcfg)
+		write_save(wcfg)
 	hud.show_title(true, _best_text(), coins)
 	Telemetry.step("title")   # (version 157: loading finished on a new install)
 	_settle_events()
@@ -2117,6 +2124,13 @@ func _back_to_title(keep_run := false) -> void:
 	_load_room(0, false)
 	hero.place_at(Vector3(0, 0, 2))
 	_snap_camera()
+	# Version 165: after the tutorial, while the screen is black, the rest of the warm-up
+	# that a new player's first launch left out (every floor, skeleton and look).
+	if not Warmup.core_only(_load_save()):
+		await Warmup.run(false)
+		var wcfg := _load_save()
+		Warmup.mark_full(wcfg)
+		write_save(wcfg)
 	_title_hero_line(hero.hero_id)
 	hud.show_hud(false)
 	hud.hide_boss()
@@ -4247,7 +4261,8 @@ func _watch_frame_rate(fps: float) -> void:
 		sorted.sort()
 		if sorted[4] < (45.0 if graphics_level > 1 else 38.0):
 			var first := graphics_level == 3 or not bool(_load_save().get_value("settings", "graphics_auto", false))
-			_set_graphics(graphics_level - 1, true, true)
+			# Version 165: far too slow (under 28) goes straight to Low · 30 FPS.
+			_set_graphics(0 if sorted[4] < 28.0 else graphics_level - 1, true, true)
 			_auto_fps.clear()
 			_auto_seen = 0
 			print("[graphics] frame rate %d: stepped down to %s" % [roundi(sorted[4]), GRAPHICS_NAMES[graphics_level]])
@@ -4265,7 +4280,35 @@ static func _saved_graphics(cfg: ConfigFile) -> int:
 		return clampi(int(cfg.get_value("settings", "graphics", 3)), 0, 3)
 	if cfg.has_section_key("settings", "high_graphics"):
 		return 3 if bool(cfg.get_value("settings", "high_graphics", true)) else 1
+	if weak_gpu():
+		return 0   # version 165: Low · 30 FPS (a Nokia G310 ran Medium at 20 FPS, Low · 30 steady)
 	return 1 if low_memory_phone() else 3
+
+
+## Version 165: graphics chips too slow for this game's High or Medium, so a new install
+## starts on Low · 30 FPS (the frame-rate watch can't be relied on to get there: a Nokia G310
+## with an Adreno 619 played its whole tutorial on Medium at 20 FPS). Older and budget
+## Adreno (600 to 619 and the 500s), Mali G31 to G57 and T-series, PowerVR and software ones.
+static func weak_gpu(gpu := "") -> bool:
+	if gpu == "":
+		gpu = RenderingServer.get_video_adapter_name()
+	var g := gpu.to_lower()
+	if g.contains("swiftshader") or g.contains("llvmpipe") or g.contains("powervr"):
+		return OS.has_feature("mobile")
+	var adreno := g.find("adreno")
+	if adreno >= 0:
+		var digits := ""
+		for ch in g.substr(adreno):
+			if ch >= "0" and ch <= "9":
+				digits += ch
+			elif digits != "":
+				break
+		var n := int(digits) if digits != "" else 0
+		return n > 0 and n <= 619
+	for m in ["mali-g31", "mali-g51", "mali-g52", "mali-g57", "mali-t"]:
+		if g.contains(m):
+			return true
+	return false
 
 
 ## The frame rate of the slowest 1% of frames, from a run's frame-length counts (0 if none).
