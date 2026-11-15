@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-15b"
+const BUILD := "2026-11-15c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -558,8 +558,14 @@ func _ready() -> void:
 		_play_intro()
 		# Version 164: the whole opening plays on the first launch only; after that it goes
 		# straight to its short glide onto the title.
-		if int(_load_save().get_value("stats", "launches", 1)) > 1:
+		var first_launch := int(_load_save().get_value("stats", "launches", 1)) <= 1
+		if not first_launch:
 			intro.skip()
+		# Version 168 (first 5 minutes): a brand-new player goes from the opening straight
+		# into the tutorial. 10 new installs reached the title but only 3 pressed PLAY, and
+		# the ones who did sat on the title for 45-77 s first.
+		elif first_run_pending() and not "autoplay" in args:
+			intro.finished.connect(_straight_to_tutorial)
 		intro.finished.connect(_ask_reports_on_title)
 		intro.finished.connect(func(): Telemetry.step("intro_end"))
 		intro.finished.connect(_ask_reminders_on_title)
@@ -570,6 +576,15 @@ func _ready() -> void:
 		get_tree().create_timer(1.0).timeout.connect(start_speed_test)
 	elif "autoplay" in args:
 		add_child(Autoplay.new())
+
+
+## Version 168: the first launch's opening hands over to the tutorial's first room, after a
+## short look at the title (PLAY still works if they tap it first).
+func _straight_to_tutorial() -> void:
+	await get_tree().create_timer(0.9).timeout
+	if state == State.TITLE and first_run_pending() and hud.title_visible() and not hud.covers_world():
+		print("[run] straight into the tutorial")
+		_start_run()
 
 
 ## The opening scene, which hands over to the title screen (the music starts on its big hit).
@@ -2338,6 +2353,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		get_tree().create_timer(3.4, false).timeout.connect(func(): hud.banner("Lucky Start: " + u.title, Upgrades.color(u)))
 	_wave_kinds.clear()
 	var mages := 0
+	var spitters := 0
 	var theme_kind := theme_enemy()
 	# With two kinds (the Glowcap Grotto), every other room puts the second one first, so a
 	# room with a single minion still meets both over a floor.
@@ -2360,6 +2376,10 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		# Arrows and shards arrive in room 2, with the dash lesson.
 		if ftue_room() == 1 and (kind == "a" or kind == "t"):
 			kind = "m"
+		if first_run and kind == "t":
+			spitters += 1
+			if spitters > 1:
+				kind = "m"
 		# Each themed floor swaps one minion in every room for each of its own skeletons
 		# (the Glowcap Grotto has two kinds, so two minions change if the room has them).
 		if kind == "m":
@@ -2871,7 +2891,9 @@ func _next_wave() -> void:
 	var kinds := _wave_kinds.duplicate()
 	U.shuffle(kinds, _room_rng)
 	# Later waves bring one extra skeleton (two with the Swarm rule, and one per Omen of the Horde).
-	kinds.append(kinds[0])
+	# Version 168: not in the tutorial, where new players took 1-3 minutes a room.
+	if not first_run:
+		kinds.append(kinds[0])
 	if curses.has("swarm"):
 		kinds.append(kinds[1 % kinds.size()])
 	for i in _omen("horde"):
@@ -2879,6 +2901,7 @@ func _next_wave() -> void:
 	# First run, room 2: there's always an archer, so the dash lesson has arrows to teach with.
 	if ftue_room() == 2 and not kinds.has("a"):
 		kinds[0] = "a"
+	_one_spitter(kinds)
 	if floor_num == 1:
 		var first := kinds.find("g")
 		for i in kinds.size():
@@ -2908,6 +2931,17 @@ func _next_wave() -> void:
 
 
 ## Free floor spots at least 4.5 away from the hero, spread around the room.
+## Version 168: Bone Spitters dealt the most damage in the tutorial deaths of real new
+## players (75 and 68 of their health). The tutorial has at most one a wave.
+func _one_spitter(kinds: Array) -> void:
+	if not first_run:
+		return
+	var first := kinds.find("t")
+	for i in kinds.size():
+		if kinds[i] == "t" and i != first:
+			kinds[i] = "m"
+
+
 func _wave_spots(count: int) -> Array:
 	var room := Room.current
 	var spots := []

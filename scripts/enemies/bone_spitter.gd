@@ -44,7 +44,8 @@ func _think(hero: Hero, delta: float) -> void:
 func _spit(d: Vector3) -> void:
 	visual.attack()
 	Sfx.play("shoot", 0.7)
-	for angle in [-0.28, 0.0, 0.28]:
+	# Version 168: one shard instead of a fan of three in the tutorial.
+	for angle in ([0.0] if Game.first_run else [-0.28, 0.0, 0.28]):
 		var dir := d.rotated(Vector3.UP, angle)
 		# Shards fly at 7 m/s (were 8), easier to dodge: they were a top-three damage source on
 		# floor 3 in every run report.
