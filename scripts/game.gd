@@ -8,6 +8,7 @@ enum State { TITLE, PLAYING, UPGRADE, TRANSITION, PAUSED, DEAD, VICTORY }
 const EASY_ROOMS := 2
 const MEDIUM_ROOMS := 2
 const HARD_ROOMS := 1
+const TUTORIAL_ROOMS := 2   # version 169: room 1 move and shoot, room 2 dash, then the boss
 const SAVE_PATH := "user://save.cfg"
 const SAVE_BACKUP := "user://save.cfg.bak"
 
@@ -92,7 +93,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-15c"
+const BUILD := "2026-11-15d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -302,11 +303,11 @@ func dash_unlocked() -> bool:
 
 
 func chain_unlocked() -> bool:
-	return ftue_room() >= 3
+	return ftue_room() >= 3   # the tutorial's boss room (version 169)
 
 
 func special_unlocked() -> bool:
-	return ftue_room() >= 4
+	return ftue_room() >= 3
 
 
 ## A new player who dies in the tutorial gets it once more from room 1. A second death (or
@@ -1007,7 +1008,14 @@ var _newcomer := false
 var _struggling := false
 
 
+## Version 169: the tutorial is now 3 rooms, so a player who goes straight on to floor 2
+## has 2 blessings instead of 5. They get the 3 missing ones as they go down (_tutorial_gifts),
+## and that floor hits a little softer, like a newcomer's floor 1.
+var _after_tutorial := false
+
 func newcomer_mult() -> float:
+	if floor_num == 2 and _after_tutorial and not daily and event == "":
+		return NEWCOMER_MULT
 	if floor_num != 1:
 		return 1.0
 	if first_run:
@@ -1355,6 +1363,7 @@ const DASH_NUDGE_TIME := 4.0
 var _room_dashes := 0
 var _nudged_run := false
 var _nudge_left := 0.0
+const TUTORIAL_DASH_PULSE := 8.0   # version 169: the DASH button pulses as the dash room starts
 
 
 func dash_nudge_active() -> bool:
@@ -1461,7 +1470,9 @@ func _build_run() -> void:
 	if race:
 		piles = [[Layouts.EASY, Race.ROOMS[0]], [Layouts.MEDIUM, Race.ROOMS[1]], [Layouts.HARD, Race.ROOMS[2]]]
 	if first_run:
-		piles = [[Layouts.EASY, EASY_ROOMS + HARD_ROOMS], [Layouts.MEDIUM, MEDIUM_ROOMS], [Layouts.HARD, 0]]   # no hard room in the tutorial
+		# Version 169 (teaching review, change 1): the tutorial is two easy rooms and the boss
+		# (move, dash, boss). Real new players needed 5 to 9 minutes for 5 rooms and a boss.
+		piles = [[Layouts.EASY, TUTORIAL_ROOMS], [Layouts.MEDIUM, 0], [Layouts.HARD, 0]]
 	for p in piles.size():
 		var all: Array = piles[p][0]
 		var count: int = piles[p][1]
@@ -1590,6 +1601,7 @@ func _start_run() -> void:
 		RunSave.clear()   # starting something new gives up a saved run
 	first_run = (first_run_pending() or _tutorial_requested) and not race
 	_tutorial_requested = false
+	_after_tutorial = false
 	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run
 	_daily_requested = false
 	_daily_done = false
@@ -1627,8 +1639,10 @@ func _start_run() -> void:
 		_newcomer = false   # the same crypt for both racers: no floor-1 help
 		_struggling = false
 	_pick_curses()
-	if daily or event != "" or race:
-		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt
+	# Version 169: the tutorial too. The run built for the title had 5 rooms (medium and hard
+	# ones too), so a first launch played that instead of the tutorial's own easy rooms.
+	if daily or event != "" or race or first_run:
+		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt; the tutorial
 	_use_run_hero()
 	_apply_armory()
 	_go_to_room(0)
@@ -1944,6 +1958,7 @@ func _apply_armory() -> void:
 
 
 func _restart() -> void:
+	_after_tutorial = false
 	_set_state(State.TRANSITION)
 	# Version 164: a tutorial retry starts in the room the player fell in, with the same rooms
 	# and the blessings they had, instead of from room 1 again.
@@ -2192,11 +2207,37 @@ func _descend() -> void:
 			rerolls += 1
 	_build_run()
 	_load_room(0, true)
+	_tutorial_gifts()
 	var loop := Loops.loop_of(floor_num)
 	hud.banner(("Loop %d · " % loop if loop > 1 else "") + "Floor %d: %s" % [floor_num, Floors.current().name], Floors.current().banner)
 	if new_loop and not omens.is_empty():
 		hud.tip("LOOP %d  ·  Score x%s\nOmens: %s" % [loop, _mult_text(_score_mult), Loops.names(omens)], 4.0, 1.8)
 	await _fade(1.0, 0.0, 0.5)
+
+
+## Version 169: the 3-room tutorial gives 2 blessings where the old 5 rooms gave 5. Going
+## on to floor 2 straight after it adds the 3 missing ones, so floor 2 isn't harder than before.
+const TUTORIAL_GIFTS := 3
+
+func _tutorial_gifts() -> void:
+	if not _after_tutorial or floor_num != 2 or hero == null:
+		return
+	var names: Array[String] = []
+	for i in TUTORIAL_GIFTS:
+		# Fighting blessings only (no coin cards), as the Queen Hunt's gifts.
+		var g := Upgrades.roll(_taken, 4, false, "", false, null).filter(func(x: Dictionary):
+			return x.rarity != "synergy" and not str(x.id) in Events.HUNT_NO_GIFT)
+		if g.is_empty():
+			continue
+		var u: Dictionary = g[0]
+		_taken[u.id] = _taken.get(u.id, 0) + 1
+		Upgrades.apply(u.id, hero)
+		names.append(str(u.title))
+	hero.heal(hero.max_health)   # and a full heal: the old tutorial's 5 rooms dropped more hearts
+	if not names.is_empty():
+		var line := "Gifts for the road: " + ", ".join(names)
+		print("[run] " + line)
+		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner(line, Color(1.0, 0.82, 0.3)))
 
 
 ## The coins BANK AND LEAVE pays on top of the run's own.
@@ -2335,7 +2376,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if Doors.room_tip(_door) != "":
 		hud.tip(Doors.room_tip(_door), 3.5, 1.4)
 	if first_run:
-		hud.show_hint("Drag your thumb to move.\nLift it to shoot!" if index == 0 else "")
+		hud.show_hint("Drag to move. Lift to shoot." if index == 0 else "")
 		_ftue_room_intro()
 	else:
 		# Version 148: only in a player's first few runs (it showed on every floor 1 forever).
@@ -2376,6 +2417,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		# Arrows and shards arrive in room 2, with the dash lesson.
 		if ftue_room() == 1 and (kind == "a" or kind == "t"):
 			kind = "m"
+		# Version 169: the dash room always has an archer to dash through.
+		if ftue_room() == 2 and kind == "m" and not _wave_kinds.has("a"):
+			kind = "a"
 		if first_run and kind == "t":
 			spitters += 1
 			if spitters > 1:
@@ -2621,23 +2665,24 @@ func on_swipe_warning() -> void:
 	if dash_unlocked():
 		if _swipe_tips < 2:
 			_swipe_tips = 2
-			hud.tip("Red circle? A hit is coming!\nFlick your thumb to DASH out.", 4.0)
+			hud.tip("Red circle? DASH out!", 3.0)
 	elif _swipe_tips < 1:
 		_swipe_tips = 1
-		hud.tip("Red circle? A hit is coming!\nStep out of it!", 4.0)
+		hud.tip("Red circle? Step out!", 3.0)
 
 
 ## The one new thing each first-run room teaches.
 func _ftue_room_intro() -> void:
 	match ftue_room():
-		2: hud.tip("NEW: DASH!\nFlick your thumb or tap DASH\nto zip through arrows.", 6.0, 1.8)
+		# Version 169 (teaching review, changes 3 and 4): one short line a room, and the
+		# button itself pulses. Room 2 is the dash room: slow arrows, the slow-motion lesson,
+		# and the hero can't fall anywhere in the tutorial.
+		2:
+			hud.tip("NEW: DASH! Flick or tap DASH.", 4.0, 1.8)
+			_nudge_left = TUTORIAL_DASH_PULSE
 		3:
-			hud.tip("Quick kills grow your chain.\nA big chain hits harder!", 6.0, 1.8)
-			Sfx.play("upgrade", 0.5)
-		4:
 			hero.special_charge = 1.0
-			hud.tip("Your special move is ready!\nTap the star button to use it.", 999.0, 1.8)
-		5: hud.tip("Pick two blessings that match\nto get a gold SYNERGY card!", 5.0, 1.8)
+			hud.tip("Star button = special move!", 4.0, 3.5)
 		_: hud.tip("", 0.0)
 
 
@@ -3200,6 +3245,7 @@ func _win() -> void:
 	var was_first := first_run
 	if was_first:
 		Telemetry.step("won")
+		_after_tutorial = true
 	_finish_first_run()
 	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
 	Music.play("dungeon")

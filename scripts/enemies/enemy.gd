@@ -73,8 +73,8 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	e._setup()
 	# Deeper floors make skeletons tougher and a little quicker.
 	# Bosses get an extra 30% per floor on top, up to 2.2x from floor 5 (version 124: uncapped,
-	# the floor 20 King took 18 minutes). The tutorial's King has 70%.
-	var boss_scale := minf(2.2, 1.0 + 0.3 * (Game.floor_num - 1)) * (0.7 if Game.first_run else 1.0)
+	# the floor 20 King took 18 minutes). The tutorial's King has 50% (version 169, was 70%).
+	var boss_scale := minf(2.2, 1.0 + 0.3 * (Game.floor_num - 1)) * (0.5 if Game.first_run else 1.0)
 	e.init_health(e.max_health * Game.health_scale() * (boss_scale if e.is_boss else 1.0))
 	e.move_speed *= Game.speed_scale()
 	e._bar = HealthBar.attach(e)

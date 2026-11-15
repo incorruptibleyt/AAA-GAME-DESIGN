@@ -616,8 +616,13 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	if Game.race and amount * Game.damage_scale() * (1.0 - armor) >= health:
 		_knock_down()
 		return
+	# Version 169 (teaching review, change 2): nobody falls in the tutorial. A hit that would
+	# end it leaves the hero on 1 health instead, so the first run always ends in a win.
+	var scaled := amount * Game.damage_scale() * (1.0 - armor)
+	if Game.first_run and Game.floor_num == 1 and scaled >= health:
+		scaled = maxf(0.0, health - 1.0)
 	var before := health
-	super.take_damage(amount * Game.damage_scale() * (1.0 - armor), direction, push, crit)
+	super.take_damage(scaled, direction, push, crit)
 	Game.report_damage(before - health)
 	if health < before:
 		_hurt_ms = Time.get_ticks_msec()

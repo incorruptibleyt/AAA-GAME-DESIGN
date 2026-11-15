@@ -59,7 +59,7 @@ func _release(d: Vector3) -> void:
 	if dead:
 		return
 	visual.attack()
-	var p := Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + d * 0.5, d, 12.0, 10.0, Color(1, 0.8, 0.3), 0.2, "Archer")
+	var p := Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + d * 0.5, d, 8.0 if Game.first_run else 12.0, 10.0, Color(1, 0.8, 0.3), 0.2, "Archer")   # slower in the tutorial (version 169)
 	p.push = 5.0
 
 
