@@ -3320,6 +3320,9 @@ func _process(delta: float) -> void:
 ## fight under it stays readable. The buttons still answer taps.
 ## Version 143: this used to be two functions (this one and _fade_buttons_over_hero) pulling
 ## the same alpha in opposite directions, so a hero half under DASH kept it solid.
+var _see_pts := PackedVector2Array()
+
+
 func _see_through(delta: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	var fighting := Game.state == Game.State.PLAYING and cam != null
@@ -3329,6 +3332,19 @@ func _see_through(delta: float) -> void:
 		var feet := cam.unproject_position(Game.hero.global_position)
 		var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 1.6)
 		hero_box = Rect2(head, Vector2.ZERO).expand(feet).grow(22.0)
+	# Version 166 (Tweaks report #9): every skeleton, enemy shot and warning is put on the
+	# screen once a frame, then each button checks that list (it was once per button).
+	_see_pts.clear()
+	if fighting:
+		for a in Actor.all:
+			if is_instance_valid(a) and not a.dead and not cam.is_position_behind(a.center()):
+				_see_pts.append(cam.unproject_position(a.center()))
+		for p in Projectile.danger:
+			if is_instance_valid(p) and not cam.is_position_behind(p.global_position):
+				_see_pts.append(cam.unproject_position(p.global_position))
+		for t in Telegraph.active:
+			if is_instance_valid(t) and t.elapsed < t.duration and not cam.is_position_behind(t.global_position):
+				_see_pts.append(cam.unproject_position(t.global_position))
 	for c: Control in [_special, _dash_button, race_surge, _boss_box]:
 		if c == null:
 			continue
@@ -3342,21 +3358,8 @@ func _see_through(delta: float) -> void:
 			if hero_ok and c != _boss_box and r.intersects(hero_box):
 				want = 0.3
 			if want > 0.5:
-				for a in Actor.all:
-					if is_instance_valid(a) and not a.dead and not cam.is_position_behind(a.center()) \
-							and r.has_point(cam.unproject_position(a.center())):
-						want = 0.35
-						break
-			if want > 0.5:
-				for p in Projectile.danger:
-					if is_instance_valid(p) and not cam.is_position_behind(p.global_position) \
-							and r.has_point(cam.unproject_position(p.global_position)):
-						want = 0.35
-						break
-			if want > 0.5:
-				for t in Telegraph.active:
-					if is_instance_valid(t) and t.elapsed < t.duration and not cam.is_position_behind(t.global_position) \
-							and r.has_point(cam.unproject_position(t.global_position)):
+				for q in _see_pts:
+					if r.has_point(q):
 						want = 0.35
 						break
 		c.modulate.a = move_toward(c.modulate.a, want, delta * (6.0 if want < c.modulate.a else 3.0))
@@ -4074,15 +4077,16 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_modes_row.visible = not locked
 	_title_records.visible = not locked
 	_title_road.visible = not locked
+	# Version 166 (Tweaks report #10): the save is read once here, not five times.
+	var tcfg := Game._load_save()
 	if v:
-		var cfg := Game._load_save()
+		var cfg := tcfg
 		set_drops(0 if locked else Drops.waiting(cfg))
 		refresh_rewards()
 		var ni := BoneRoad.next_index(cfg)
 		_title_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
 				BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
-	var heroic_new := Game.heroic_new()
-	var tcfg := Game._load_save()
+	var heroic_new := Curses.unlocked("heroic", tcfg) and not bool(tcfg.get_value(Curses.SAVE_SECTION, "heroic_seen", false))
 	var race_new := Race.unlocked(tcfg) and Race.stat(tcfg, "races") == 0
 	_title_modes_badge.text = "HEROIC!" if heroic_new else ("NEW: RACE" if race_new else "DAILY READY")
 	_title_modes_badge.visible = heroic_new or race_new or not Curses.official_used(tcfg)
@@ -4120,7 +4124,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_continue_where.text = where
 	_title_spacer.visible = not _title_continue.visible
 	_title_play.text = "NEW RUN" if _title_continue.visible else "PLAY"
-	_title_play_badge.visible = v and not locked and Game.heroic_on()
+	_title_play_badge.visible = v and not locked and Curses.chosen(tcfg, has_pass).has("heroic")
 	_title_play.add_theme_font_size_override("font_size", 32 if _title_continue.visible else 38)
 	_title_play.remove_meta("armed")
 

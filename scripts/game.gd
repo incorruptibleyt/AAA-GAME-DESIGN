@@ -92,7 +92,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-14i"
+const BUILD := "2026-11-15a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -272,6 +272,9 @@ var _race_note := ""
 var _race_ghost: RivalGhost   # the rival, seen, while it's in your room (rival_ghost.gd)
 var _race_lead := 0        # who leads on the track: 1 you, -1 the rival, 0 not yet said
 var _race_lead_t := 0.0    # race time of the last lead callout
+## Version 166 (Tweaks report #3): true while the phone has taken the screen (the notification
+## shade, a call, the Play purchase sheet). The race clock stops; RESUME or focus back clears it.
+var away := false
 
 
 ## How many times Omen `id` has been taken this run.
@@ -757,6 +760,7 @@ func _check_new_day() -> void:
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		away = true
 		if what == NOTIFICATION_APPLICATION_PAUSED:
 			_report_left()
 			PhoneReminders.refresh(_load_save())
@@ -771,6 +775,7 @@ func _notification(what: int) -> void:
 		if Telemetry.instance:
 			Telemetry.instance.set_away(true)
 	elif what == NOTIFICATION_APPLICATION_RESUMED or what == NOTIFICATION_APPLICATION_FOCUS_IN:
+		away = false
 		if Telemetry.instance:
 			Telemetry.instance.set_away(false)
 		if Store.instance:
@@ -3330,6 +3335,7 @@ func _pause() -> void:
 
 
 func _resume() -> void:
+	away = false   # (a safety net: a tap on RESUME means the player is here)
 	hud.show_pause(false)
 	get_tree().paused = false
 	_set_state(_state_before_pause)

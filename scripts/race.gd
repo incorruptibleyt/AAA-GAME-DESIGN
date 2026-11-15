@@ -583,5 +583,7 @@ class Clock extends Node:
 
 	func _process(delta: float) -> void:
 		var dt := minf(delta / maxf(Engine.time_scale, 0.05), 0.1)
+		if Game.away:
+			return   # the phone took the screen (shade, call, a system sheet): nobody races
 		if on_tick.is_valid():
 			on_tick.call(dt)

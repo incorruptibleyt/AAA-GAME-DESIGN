@@ -48,8 +48,11 @@ func _find_arrows() -> void:
 	if cam == null or Room.current == null:
 		return
 	var view := get_viewport_rect().size
-	var mid := view / 2.0
-	var inner := Rect2(Vector2(MARGIN, MARGIN), view - Vector2(MARGIN, MARGIN) * 2.0)
+	# Version 166 (Tweaks report #8): the arrows stay clear of a camera hole or rounded corners.
+	var s := Hud.safe_margins(get_viewport())   # left, top, right, bottom (0 off phones)
+	var inner := Rect2(Vector2(MARGIN + s.x, MARGIN + s.y),
+			view - Vector2(MARGIN * 2.0 + s.x + s.z, MARGIN * 2.0 + s.y + s.w))
+	var mid := inner.get_center()
 	for a: Actor in Actor.all:
 		if a.team == Actor.Team.UNDEAD and not a.dead:
 			_add_point(cam, a.global_position, view, mid, inner)
