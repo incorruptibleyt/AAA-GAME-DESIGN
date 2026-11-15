@@ -4072,13 +4072,17 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_box.visible = v
 	var locked := Game.first_run_pending()
 	var has_pass := Store.owned()
-	_title_shop_row.visible = not locked
-	_title_pass_row.visible = not locked and not has_pass
-	_title_modes_row.visible = not locked
-	_title_records.visible = not locked
-	_title_road.visible = not locked
 	# Version 166 (Tweaks report #10): the save is read once here, not five times.
 	var tcfg := Game._load_save()
+	# Version 170 (teaching review, change 4): one thing opens at a time after the tutorial.
+	var stage := Game.unlock_stage(tcfg)
+	if v:
+		print("[title] open stage %d, note '%s'" % [stage, Game.unlock_note(tcfg)])
+	_title_shop_row.visible = stage >= 1
+	_title_pass_row.visible = stage >= 4 and not has_pass
+	_title_modes_row.visible = stage >= 3
+	_title_records.visible = stage >= 3
+	_title_road.visible = stage >= 2
 	if v:
 		var cfg := tcfg
 		set_drops(0 if locked else Drops.waiting(cfg))
@@ -4101,7 +4105,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		_splash.visible = false
 		if not _end_box.visible:
 			_drops.visible = false
-	_title_free.visible = not has_pass and not locked   # not before the tutorial run is done
+	_title_free.visible = not has_pass and stage >= 4   # not before the Pass row shows (version 170)
 	refresh_event_banner()
 	if _title_event.visible:
 		_title_free.visible = false   # (the banner takes its line; the Pass screen still says it)
@@ -5008,7 +5012,7 @@ func refresh_event_banner() -> void:
 	var live := not e.is_empty()
 	if not live:
 		e = Events.coming()
-	if e.is_empty() or Game.first_run_pending():
+	if e.is_empty() or Game.unlock_stage() < 3:   # version 170: events from run 3
 		_title_event.visible = false
 		return
 	_title_event.visible = true

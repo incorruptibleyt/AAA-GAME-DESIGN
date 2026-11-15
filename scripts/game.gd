@@ -93,7 +93,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-15d"
+const BUILD := "2026-11-15e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -291,6 +291,135 @@ func first_run_pending() -> bool:
 	if int(cfg.get_value("stats", "tutorial_deaths", 0)) > 0:
 		return true   # died in the tutorial once: it starts again
 	return int(cfg.get_value("stats", "best_room", 0)) == 0 and int(cfg.get_value("stats", "wins", 0)) == 0
+
+
+## Version 170 (teaching review, change 1): a one-line tip the first time something happens
+## (the chain, the special move, a synergy card, each new skeleton). Each shows once ever,
+## kept in the save's [taught] section. Waits (returns false) while another tip is up.
+var _taught_cache: Dictionary = {}
+
+func taught(key: String) -> bool:
+	if _taught_cache.is_empty():
+		var cfg := _load_save()
+		_taught_cache["_"] = true
+		if cfg.has_section("taught"):
+			for k in cfg.get_section_keys("taught"):
+				_taught_cache[k] = true
+	return _taught_cache.has(key)
+
+
+func mark_taught(key: String) -> void:
+	if taught(key):
+		return
+	_taught_cache[key] = true
+	var cfg := _load_save()
+	cfg.set_value("taught", key, true)
+	write_save(cfg)
+
+
+func _teach(key: String, text: String, seconds := 3.5) -> bool:
+	if taught(key) or first_run or race or hud.tip_busy() or state != State.PLAYING:
+		return false
+	mark_taught(key)
+	hud.tip(text, seconds)
+	print("[teach] " + text)
+	return true
+
+
+## Version 170 (change 2): the first time each kind of skeleton shows up, one line on what it
+## does and what to do about it (the tutorial's minions, warriors and archers are already
+## taught there; bosses have their own title card).
+const MEET_LINES := {
+	"SkeletonArcher": "ARCHER: shoots arrows. Dash through them!",
+	"BoneSpitter": "BONE SPITTER: spits shards. Hide behind pillars!",
+	"SkeletonMage": "SKELETON MAGE: blows up circles. Keep moving!",
+	"BoneSpider": "BONE SPIDER: pounces along a red strip. Step aside!",
+	"SkeletonBomber": "BOMBER: runs in and explodes. Kill it first!",
+	"FrostWraith": "FROST WRAITH: fires an ice beam. Step off its line!",
+	"CinderSkeleton": "CINDER SKELETON: leaves fire. Don't stand in it!",
+	"DrownedSkeleton": "DROWNED SKELETON: bursts up in a circle. Step out!",
+	"Sporeling": "SPORELING: bursts into spores. Step back after the kill!",
+	"Rootbinder": "ROOTBINDER: roots crawl after you. Step aside!",
+	"Bloodbat": "BLOODBATS: swoop along a strip. Dash through!",
+	"MoonHowler": "MOON HOWLER: pounces along a strip. Step aside!",
+}
+var _meet_queue: Array[String] = []
+
+func _meet(e: Enemy) -> void:
+	if first_run or race or e.is_boss:
+		return
+	var n := str(e.get_script().get_global_name())
+	if MEET_LINES.has(n) and not taught("meet_" + n) and not _meet_queue.has(n):
+		_meet_queue.append(n)
+
+
+func _meet_tick() -> void:
+	if _meet_queue.is_empty() or state != State.PLAYING or hud.tip_busy():
+		return
+	var n: String = _meet_queue.pop_front()
+	if not taught("meet_" + n):
+		mark_taught("meet_" + n)
+		hud.tip(MEET_LINES[n], 3.5)
+		print("[teach] " + MEET_LINES[n])
+
+
+## Version 170 (change 3): the death screen names what hurt most and gives one tip for it.
+func death_tip() -> String:
+	if _rep.is_empty() or (_rep.damage as Dictionary).is_empty():
+		return ""
+	var top := ""
+	var most := 0.0
+	for k in _rep.damage:
+		if float(_rep.damage[k]) > most:
+			most = float(_rep.damage[k])
+			top = str(k)
+	var name := top.replace("Elite ", "")
+	var tip := "Keep moving, and dash when you see red."
+	if name == "Other" or name == "":
+		return tip
+	if "Archer" in name or "Lich" in name or "Shade" in name:
+		tip = "Dash through shots: you can't be hit mid-dash."
+	elif "Spitter" in name:
+		tip = "Hide behind pillars, or dash through the shards."
+	elif "Mage" in name:
+		tip = "Keep moving: its circles blow up where you stood."
+	elif "Bomber" in name:
+		tip = "Kill bombers first, or dash away when they stop."
+	elif "Spider" in name or "Howler" in name or "bat" in name:
+		tip = "Watch for the red strip and step off it."
+	elif "Spike" in name or "fire" in name or "Spore" in name:
+		tip = "Watch the floor: don't stand in traps or flames."
+	elif "King" in name or "Warrior" in name or "Minion" in name or "Skeleton" in name:
+		tip = "Red circle or strip? Step or dash out of it."
+	return "%s hurt you most.\n%s" % [name, tip]
+
+
+## Version 170 (change 4): after the tutorial the title opens one thing at a time, by how
+## many runs a player has started (the tutorial is run 1): Heroes and the Armory at once,
+## the Bone Road from run 2, Modes, Records and events from run 3, the Crypt Pass from run 4.
+## Saves from before the Records screen (records/since) and anyone with a floor boss beaten
+## twice see everything.
+func unlock_stage(cfg: ConfigFile = null) -> int:
+	if first_run_pending():
+		return 0
+	if cfg == null:
+		cfg = _load_save()
+	if str(cfg.get_value(RECORDS, "since", "")) != "" or int(cfg.get_value("stats", "wins", 0)) >= 2:
+		return 99
+	return maxi(1, roundi(record(cfg, "runs")))
+
+
+## A gold title line the first time a new part opens (version 170).
+func unlock_note(cfg: ConfigFile) -> String:
+	var stage := unlock_stage(cfg)
+	var seen := int(cfg.get_value("taught", "stage_seen", 1))
+	if stage >= 99 or stage <= seen:
+		return ""
+	if stage >= 3 and seen < 3:
+		return "NEW: MODES are open: try the Daily Crypt!"
+	if stage >= 2 and seen < 2:
+		return "NEW: the BONE ROAD: bones from every run earn rewards!"
+	return ""
 
 
 ## Which room of the first run this is (1-6), or 99 outside the first run.
@@ -665,6 +794,8 @@ static func _added_text(a: Dictionary, b: Dictionary) -> String:
 
 func _process(delta: float) -> void:
 	_state_time += delta
+	if not _meet_queue.is_empty():
+		_meet_tick()   # version 170: one new-skeleton line at a time
 	var now := Time.get_ticks_usec()
 	var frame_ms := (now - _frame_us) / 1000.0 if _frame_us > 0 else 0.0
 	_frame_us = now
@@ -1602,6 +1733,11 @@ func _start_run() -> void:
 	first_run = (first_run_pending() or _tutorial_requested) and not race
 	_tutorial_requested = false
 	_after_tutorial = false
+	var stage_now := unlock_stage()
+	if stage_now < 99 and stage_now > int(_load_save().get_value("taught", "stage_seen", 1)):
+		var scfg := _load_save()
+		scfg.set_value("taught", "stage_seen", mini(stage_now, 3))
+		write_save(scfg)
 	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run
 	_daily_requested = false
 	_daily_done = false
@@ -2735,6 +2871,7 @@ func boss_bar() -> float:
 func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 	var e := Enemy.create(kind, Room.current, pos)
 	alive_enemies += 1
+	_meet(e)
 	# Bloodbats come in flocks of three: two more beside the first.
 	if kind == "b" and not _flocking:
 		_flocking = true
@@ -2815,6 +2952,10 @@ func on_enemy_died(e: Enemy) -> void:
 	hud.show_chain(chain)
 	if hero:
 		hero.add_charge(0.3 if e.elite else 0.1)
+	if chain >= 1.5 and chain_unlocked():
+		_teach("chain", "CHAIN! Kill fast to hit harder.")
+	if hero and special_unlocked() and hero.special_ready():
+		_teach("special", "Star button ready: tap it for a special move!")
 	if before < chain_max() and chain >= chain_max():
 		Sfx.play("vo_combo", 0.8)
 	if not _rep.is_empty():
@@ -3035,6 +3176,11 @@ func _room_cleared() -> void:
 	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better, _pick_rng)
 	var lv_line := _mastery_callout
 	_mastery_callout = ""
+	# Version 170: the first gold card says what a synergy is.
+	if lv_line == "" and not first_run and not taught("synergy") and _choices.any(func(c): return str(c.get("rarity", "")) == "synergy"):
+		mark_taught("synergy")
+		lv_line = "GOLD CARD: two of your blessings join into a SYNERGY!"
+		print("[teach] " + lv_line)
 	if _choices.is_empty():
 		Pickup.grant_all()
 		_save_coins()
@@ -3384,7 +3530,11 @@ func on_hero_died() -> void:
 	var note := not Store.owned() and floor_num >= 3 and event == "" and not _pass_note_shown
 	if note:
 		_pass_note_shown = true
-	hud.show_end(true, false, "You fell in %s.\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, _format_time(_run_time), _kills, coin_line],
+	var why := death_tip()
+	print("[death tip] " + why.replace("\n", " / "))
+	if why != "":
+		why = "\n\n" + why
+	hud.show_end(true, false, "You fell in %s.%s\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, why, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again", not tutorial_again, score, best)
 	hud.show_mastery(mastery)
 	hud.show_end_title(true)
@@ -3635,7 +3785,7 @@ func start_event(kind: String, tier := 1) -> void:
 func _maybe_event_splash(force := false) -> void:
 	await get_tree().create_timer(0.9, true, false, true).timeout
 	var e := Events.current()
-	if e.is_empty() or first_run_pending() or state != State.TITLE or not hud.title_visible() or hud.covers_world():
+	if e.is_empty() or unlock_stage() < 3 or state != State.TITLE or not hud.title_visible() or hud.covers_world():
 		return
 	var cfg := _load_save()
 	var c := Events.chapter(e)
@@ -5617,6 +5767,9 @@ func title_goal() -> String:
 		return ""
 	var cfg := _load_save()
 	var lines := []
+	var fresh := unlock_note(cfg)
+	if fresh != "":
+		lines.append(fresh)
 	var days := Curses.streak(cfg)
 	var played := Curses.official_used(cfg)
 	if days >= 1 and not played:
