@@ -618,7 +618,9 @@ func _update_bones(dt: float) -> void:
 # ---------------------------------------------------------------- the clock
 
 func _process(delta: float) -> void:
-	_step(minf(delta, 1.0 / 30.0))   # a slow frame slows the intro instead of skipping part of it
+	# A slow frame slows the intro instead of skipping part of it, but only below 10 frames a
+	# second (version 167: it was below 30, and at 5 frames a second the opening took 40 s).
+	_step(minf(delta, 0.1))
 
 
 func _step(dt: float) -> void:

@@ -18,6 +18,8 @@ const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", 
 ## for a build, later launches warm only these too (the phone keeps the rest ready).
 const FIRST_FOES := ["m", "w", "a", "g", "x", "t", "s", "K"]
 
+const BUDGET_MS := 12000
+
 static var last_ms := 0
 static var last_core := false
 
@@ -218,6 +220,12 @@ static func run(core := false) -> void:
 	# Draw each batch for two frames. Frames, not frame_post_draw: that signal never comes
 	# without a screen (robot test runs).
 	for n in steps.size():
+		# Version 167: never more than 12 s. A phone this slow (or one of Google's test phones,
+		# drawing in software) would wait up to a minute; whatever is left is prepared the
+		# first time it is drawn instead, with a short pause then.
+		if Time.get_ticks_msec() - started > BUDGET_MS:
+			print("[warmup] stopped at step %d of %d (over %d ms)" % [n, steps.size(), BUDGET_MS])
+			break
 		Game.loading = "loading %d/%d" % [n + 1, steps.size()]
 		Game.note_spot()   # if a phone dies while loading, the report says at which step
 		steps[n].call()
