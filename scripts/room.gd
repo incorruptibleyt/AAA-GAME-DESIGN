@@ -41,6 +41,11 @@ static func build(parent: Node, layout: Array, label: String) -> Room:
 	return room
 
 
+## The layout cell (column, row) a point stands in: the reverse of cell_to_world.
+static func cell_of(p: Vector3) -> Vector2i:
+	return Vector2i(roundi(p.x / CELL + (Layouts.COLUMNS - 1) * 0.5), roundi(p.z / CELL + (Layouts.ROWS - 1) * 0.5))
+
+
 static func cell_to_world(col: int, row: int) -> Vector3:
 	return Vector3((col - (Layouts.COLUMNS - 1) * 0.5) * CELL, 0.0, (row - (Layouts.ROWS - 1) * 0.5) * CELL)
 

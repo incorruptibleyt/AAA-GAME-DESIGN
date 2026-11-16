@@ -36,6 +36,20 @@ var _telegraphs: Array[Telegraph] = []
 ## Seconds spent somewhere the hero's shots can't reach (past a wall or inside a pillar).
 var _out_time := 0.0
 
+## Version 171: the stuck watch. Players told Jesse that skeletons sometimes get stuck in
+## places. Every STUCK_WINDOW seconds a skeleton checks how far it got: one that spent most
+## of that time walking at the hero, is still out of reach of the hero, and moved less than
+## STUCK_MOVE metres (with no friends crowding it) is stuck. Each one goes on the run report
+## ("Stuck: ..."), and a skeleton stuck twice in a row climbs out nearer the hero, so the
+## player isn't left waiting.
+const STUCK_WINDOW := 4.0
+const STUCK_MOVE := 0.5
+var _stuck_win := 0.0
+var _stuck_chase := 0.0
+var _stuck_from := Vector3.ZERO
+var _stuck_count := 0
+var _chasing_now := false
+
 
 ## Bosses wear the cartoon outline, like the hero (character_visual.gd).
 func wants_outline() -> bool:
@@ -250,6 +264,7 @@ func _process(delta: float) -> void:
 	_separate()
 	_touch(hero, delta)
 	_check_reach(delta)
+	_stuck_watch(hero, delta)
 
 
 ## Bosses (version 119): the next move comes from a shuffled bag instead of a fixed loop,
@@ -347,10 +362,61 @@ func _check_reach(delta: float) -> void:
 		_out_time = 0.0
 		var spot: Vector3 = Game.rescue_spot(global_position)
 		print("[watchdog] %s moved from (%.2f, %.2f) back into the room" % [kind_name(), global_position.x, global_position.z])
+		Game.report_stuck(self, Game.hero, 0.0, true, "inside a wall or pillar 1 s, moved")
 		global_position = spot
 		knockback = Vector3.ZERO
 		_cancel_attacks()   # its warning would stay at the old spot
 		Fx.dust(spot, 10)
+
+
+func _stuck_watch(hero: Hero, delta: float) -> void:
+	var chased := _chasing_now
+	_chasing_now = false
+	if _stuck_win <= 0.0:
+		_stuck_from = global_position
+		_stuck_chase = 0.0
+	_stuck_win += delta
+	if chased:
+		_stuck_chase += delta
+	if _stuck_win < STUCK_WINDOW:
+		return
+	_stuck_win = 0.0
+	var moved := Vector2(global_position.x - _stuck_from.x, global_position.z - _stuck_from.z).length()
+	var gap := Vector2(hero.global_position.x - global_position.x, hero.global_position.z - global_position.z).length()
+	if _stuck_chase < STUCK_WINDOW * 0.75 or moved >= STUCK_MOVE or gap < radius + hero.radius + 1.0 or _crowded():
+		_stuck_count = 0
+		return
+	_stuck_count += 1
+	var freed := false
+	if _stuck_count >= 2 and not is_boss:
+		# Stuck for about 8 seconds: climb out a few steps nearer the hero.
+		var toward := global_position + (hero.global_position - global_position) * 0.5
+		var spot: Vector3 = Game.rescue_spot(toward)
+		if spot != Vector3.ZERO:
+			Fx.dust(global_position, 8)
+			global_position = spot
+			knockback = Vector3.ZERO
+			_cancel_attacks()
+			Fx.dust(spot, 10)
+			_stuck_count = 0
+			freed = true
+	Game.report_stuck(self, hero, moved, freed)
+
+
+## Two or more friends pressed up against it: it is waiting its turn, not stuck on the room.
+func _crowded() -> bool:
+	var n := 0
+	for a in Actor.all:
+		if a == self or a.team != team or a.dead:
+			continue
+		var d := a.global_position - global_position
+		d.y = 0.0
+		var m := radius + a.radius + 0.25
+		if d.length_squared() < m * m:
+			n += 1
+			if n >= 2:
+				return true
+	return false
 
 
 func _cancel_attacks() -> void:
@@ -440,6 +506,7 @@ func walk(dir: Vector3, delta: float, speed_scale := 1.0) -> void:
 			var at := hero.global_position - global_position
 			at.y = 0.0
 			if at.length_squared() > 0.01 and dir.dot(at.normalized()) > 0.6:
+				_chasing_now = true
 				var way: Vector3 = Room.current.route(global_position, hero.global_position, radius)
 				if not Room.current.last_clear:
 					dir = way

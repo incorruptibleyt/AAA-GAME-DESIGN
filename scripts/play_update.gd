@@ -55,7 +55,9 @@ func _ready() -> void:
 	_play.connect("update_checked", _on_checked)
 	_play.connect("update_finished", _on_finished)
 	if _play.has_signal("review_finished"):
-		_play.connect("review_finished", func(ok: int, detail: String): print("[review] rating card: %d %s" % [ok, detail]))
+		_play.connect("review_finished", func(ok: int, detail: String):
+			print("[review] rating card: %d %s" % [ok, detail])
+			Game.note_review(ok, detail))
 	_play.check()
 
 

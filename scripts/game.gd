@@ -39,6 +39,9 @@ var shake_scale := 1.0   # the Screen shake setting
 var vibration := true    # the Vibration setting
 var colorblind := false  # the Colour-blind setting (attack warnings, version 148)
 var _run: Array = []
+## Version 171: which layout each room of _run came from ("E3", "M12 +rows M4 +right M7",
+## "Boss"), for the stuck reports.
+var _run_ids: Array = []
 var _room_index := 0
 var _taken := {}
 var rerolls := 1
@@ -93,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-15e"
+const BUILD := "2026-11-16a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1589,9 +1592,11 @@ var _seen_rooms: Array = []
 
 func _build_run() -> void:
 	_run.clear()
+	_run_ids.clear()
 	if event == "hunt":
 		floor_num = int(Events.TIERS[event_tier - 1].floor)
 		_run.append(Layouts.BOSS)
+		_run_ids.append("Boss")
 		return
 	if floor_num <= 1:
 		_seen_rooms.clear()
@@ -1625,8 +1630,11 @@ func _build_run() -> void:
 			left.shuffle()
 		for i in mini(count, left.size()):
 			_seen_rooms.append("%d:%d" % [p, left[i]])
+			_twist_id = "EMH"[p] + str(left[i])
 			_run.append(_twist_room(all[left[i]], all, rng))
+			_run_ids.append(_twist_id)
 	_run.append(Layouts.BOSS)
+	_run_ids.append("Boss")
 
 
 ## Who rules this floor: the Ember Catacomb (floor 3, then every Ember floor) has the
@@ -1662,12 +1670,16 @@ func theme_enemy() -> String:
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
 ## from another room, and from floor 3 its far half may be joined to the near half of another
 ## room from the same pool.
+var _twist_id := ""
+
+
 func _twist_room(layout: Array, pool: Array, rng: RandomNumberGenerator) -> Array:
 	var roll := func() -> float: return rng.randf() if rng else randf()
 	var out := layout.duplicate()
 	if floor_num >= 3 and pool.size() > 1 and roll.call() < 0.35:
 		var other: Array = pool[(pool.find(layout) + 1 + int(roll.call() * (pool.size() - 1))) % pool.size()]
 		if other != layout:
+			_twist_id += " +rows " + _twist_id.left(1) + str(pool.find(other))
 			for row in range(7, Layouts.ROWS):
 				out[row] = other[row]
 	# Every room is drawn the same on both sides, so a plain mirror would change nothing:
@@ -1675,6 +1687,7 @@ func _twist_room(layout: Array, pool: Array, rng: RandomNumberGenerator) -> Arra
 	if floor_num >= 2 and pool.size() > 1 and roll.call() < 0.5:
 		var right: Array = pool[(pool.find(layout) + 1 + int(roll.call() * (pool.size() - 1))) % pool.size()]
 		if right != layout:
+			_twist_id += " +right " + _twist_id.left(1) + str(pool.find(right))
 			for row in out.size():
 				out[row] = (out[row] as String).substr(0, 5) + (right[row] as String).substr(5)
 	return out
@@ -1867,7 +1880,7 @@ static func _mult_text(m: float) -> String:
 func _reset_report() -> void:
 	_rep = {"damage": {}, "hits": 0, "healed": 0.0, "dash": 0, "ward": 0, "second_wind": 0,
 		"best_combo": 0, "best_chain": 1.0, "perfect": 0, "special": 0, "rooms": [], "room_start": 0.0, "killed_by": "",
-		"chains": [], "room_chain": 1.0}
+		"chains": [], "room_chain": 1.0, "stuck": [], "stuck_n": 0}
 	_fps_sum = 0.0
 	_fps_n = 0
 	_fps_low = 999.0
@@ -1885,6 +1898,27 @@ func report_damage(amount: float) -> void:
 	_rep.hits += 1
 	_rep.killed_by = src
 	_dash_nudge_check()
+
+
+## Version 171: the stuck watch (enemy.gd _stuck_watch, and the room watchdog) found a
+## skeleton that couldn't reach the hero. The run report keeps the first STUCK_KEEP of them
+## as "Stuck:" lines (floor, room, layout, who, where it stood, where the hero stood), so
+## the report sheet shows which rooms trap skeletons.
+const STUCK_KEEP := 6
+
+func report_stuck(e: Enemy, h: Hero, moved: float, freed: bool, how := "") -> void:
+	if _rep.is_empty() or not _rep.has("stuck"):
+		return
+	var room_id := str(_run_ids[_room_index]) if _room_index < _run_ids.size() else "?"
+	var cell := Room.cell_of(e.global_position)
+	var line := "F%d R%d %s | %s at (%.1f, %.1f) cell %d,%d | hero at (%.1f, %.1f) | %s" % [floor_num,
+		_room_index + 1, room_id, e.kind_name() + (" (boss)" if e.is_boss else ""), e.global_position.x, e.global_position.z,
+		cell.x, cell.y, h.global_position.x if h else 0.0, h.global_position.z if h else 0.0,
+		how if how != "" else ("moved %.1f m in %d s%s" % [moved, int(Enemy.STUCK_WINDOW), ", freed" if freed else ""])]
+	_rep.stuck_n += 1
+	print("[stuck] " + line)
+	if (_rep.stuck as Array).size() < STUCK_KEEP:
+		_rep.stuck.append(line)
 
 
 func report_event(what: String, amount := 1.0) -> void:
@@ -1958,11 +1992,20 @@ func run_report(result: String, was_first := false) -> String:
 			arm.append("%s %d" % [u.title, lv])
 	lines.append("Armory: " + (", ".join(arm) if arm else "none"))
 	lines.append("Rooms: " + ", ".join(_rep.get("rooms", [])))
+	if int(_rep.get("stuck_n", 0)) > 0:
+		var more := int(_rep.stuck_n) - (_rep.stuck as Array).size()
+		lines.append("Stuck: %d time%s%s" % [int(_rep.stuck_n), "" if int(_rep.stuck_n) == 1 else "s", " (first %d below)" % STUCK_KEEP if more > 0 else ""])
+		for l in _rep.stuck:
+			lines.append("Stuck: " + str(l))
 	lines.append("Graphics %s (3D %s) | FPS avg %d, lowest %d, 1%% low %d, steady %d%% | longest frame %d ms%s | warm-up %d ms" % [GRAPHICS_NAMES[graphics_level], _draw_size_text(),
 		roundi(_fps_sum / maxf(1.0, _fps_n)), roundi(_fps_low if _fps_low < 999.0 else 0.0), roundi(one_percent_low(_frame_hist)),
 		roundi(steady_share(_frame_hist) * 100.0), roundi(_longest_ms),
 		(" (%s%s)" % [_longest_at, "; added " + _longest_new if _longest_new != "" else ""]) if _longest_at != "" else "", Warmup.last_ms])
 	lines.append("Memory: most %d MB (graphics %d MB) | phone RAM %s" % [_mem_peak, _mem_peak_video, ram_text()])
+	if int(cfg.get_value("stats", "review_n", 0)) > 0:
+		lines.append("Rating card: asked %d time%s, last on build %s | Play said: %s" % [int(cfg.get_value("stats", "review_n", 0)),
+			"" if int(cfg.get_value("stats", "review_n", 0)) == 1 else "s", str(cfg.get_value("stats", "review_build", "before 2026-11-16")),
+			str(cfg.get_value("stats", "review_result", "nothing yet"))])
 	return "\n".join(lines)
 
 
@@ -2101,6 +2144,7 @@ func _restart() -> void:
 	var fell_room := _room_index
 	var fell_taken := _taken.duplicate()
 	var fell_run := _run.duplicate(true)
+	var fell_ids := _run_ids.duplicate()
 	await _fade(0.0, 1.0, 0.4)
 	hud.show_end(false)
 	if hero:
@@ -2133,6 +2177,7 @@ func _restart() -> void:
 	_build_run()
 	if again_at > 0:
 		_run = fell_run
+		_run_ids = fell_ids
 	_pick_curses()
 	hud.show_hud(true)
 	_load_room(0, false)
@@ -2211,6 +2256,7 @@ func bench_room(f: int) -> void:
 	floor_num = f
 	_build_run()
 	_run[0] = Layouts.MEDIUM[0]
+	_run_ids[0] = "M0"
 	_load_room(0, false)
 	_wave_total = 1
 	_waves_left = 0
@@ -3046,12 +3092,15 @@ func _room_watchdog(delta: float) -> void:
 		for a: Actor in Actor.all.duplicate():
 			if a is Enemy and not a.dead and not (a as Enemy).is_boss and not _reachable(a as Enemy):
 				print("[watchdog] %s out of reach for 20 s; moving it" % (a as Enemy).kind_name())
+				report_stuck(a as Enemy, hero, 0.0, true, "out of reach 20 s, moved")
 				a.global_position = rescue_spot(a.global_position)
 	elif _stall_time > 40.0 and _stall_step == 1:
 		_stall_step = 2
 		var n := 0
 		for a: Actor in Actor.all.duplicate():
 			if a is Enemy and not a.dead and not (a as Enemy).is_boss:
+				if n == 0:
+					report_stuck(a as Enemy, hero, 0.0, true, "nothing hit for 40 s, room crumbled")
 				(a as Enemy).crumble()
 				n += 1
 		print("[watchdog] nothing hit for 40 s; %d skeletons crumbled" % n)
@@ -4359,12 +4408,18 @@ func _ask_reports() -> void:
 		hud.show_reports_ask(true)
 
 
-## Google Play's rating card, asked once: a moment after the first boss a player beats
-## after the tutorial (a happy moment, never after a death). Not while the reports question
-## is still waiting, so the two never pile up; the next boss win asks instead.
+## Google Play's rating card: a moment after a boss win past the tutorial (a happy moment,
+## never after a death). Not while the reports question is still waiting, so the two never
+## pile up; the next boss win asks instead.
+## Version 171: asked up to REVIEW_MAX times, at least REVIEW_GAP_DAYS apart (it used to be
+## once ever, so everyone asked during open testing, when reviews stay private, would never
+## be asked again after the public launch). Google still decides whether the card shows.
+const REVIEW_MAX := 3
+const REVIEW_GAP_DAYS := 21
+
 func _ask_review(was_first: bool) -> void:
 	var cfg := _load_save()
-	if was_first or cfg.get_value("stats", "review_asked", false):
+	if was_first or not _review_due(cfg):
 		return
 	if Telemetry.configured() and not cfg.has_section_key("settings", "reports"):
 		return
@@ -4372,12 +4427,38 @@ func _ask_review(was_first: bool) -> void:
 	if state != State.VICTORY or (UpdateGate.instance and UpdateGate.instance.showing()):
 		return
 	if "autoplay" in OS.get_cmdline_user_args():
-		print("[review] would ask for a rating now (floor %d)" % floor_num)
+		print("[review] would ask for a rating now (floor %d, ask %d)" % [floor_num, int(cfg.get_value("stats", "review_n", 0)) + 1])
 		return
 	if UpdateGate.ask_review():
 		cfg = _load_save()
 		cfg.set_value("stats", "review_asked", true)
+		cfg.set_value("stats", "review_n", int(cfg.get_value("stats", "review_n", 0)) + 1)
+		cfg.set_value("stats", "review_at", int(Time.get_unix_time_from_system()))
+		cfg.set_value("stats", "review_build", BUILD)
 		write_save(cfg)
+
+
+## Whether a boss win now may bring up the rating card.
+static func _review_due(cfg: ConfigFile) -> bool:
+	var n := int(cfg.get_value("stats", "review_n", 0))
+	if n == 0 and bool(cfg.get_value("stats", "review_asked", false)):
+		# Asked once before version 171 (on a test build): count that ask from now, so the
+		# next one comes REVIEW_GAP_DAYS later.
+		n = 1
+		cfg.set_value("stats", "review_n", 1)
+		cfg.set_value("stats", "review_at", int(Time.get_unix_time_from_system()))
+		write_save(cfg)
+	if n >= REVIEW_MAX:
+		return false
+	return n == 0 or Time.get_unix_time_from_system() - float(cfg.get_value("stats", "review_at", 0)) >= REVIEW_GAP_DAYS * 86400.0
+
+
+## What Google Play said after the rating card was asked for (play_update.gd), for the
+## run report. Google never says whether the card showed or what was rated.
+func note_review(ok: int, detail: String) -> void:
+	var cfg := _load_save()
+	cfg.set_value("stats", "review_result", ("done" if ok == 1 else "failed: ") + ("" if ok == 1 else detail.left(80)))
+	write_save(cfg)
 
 
 ## Asked as soon as the opening scene hands over to the title, from the very first launch:
