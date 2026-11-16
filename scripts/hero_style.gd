@@ -718,6 +718,11 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 			var o := outfit
 			if str(mi.name).contains("Head") and id == "rogue":
 				o = {"a": outfit.get("a"), "b": null}
+				# Version 174: the hood keeps the outfit's pattern (it was left plain, and from
+				# above in a run the hood is most of what you see of the Rogue).
+				for k: String in ["pat", "gold"]:
+					if outfit.has(k):
+						o[k] = outfit[k]
 			if str(mi.name).contains("Head") and id == "barbarian":
 				o = {}
 			if not o.is_empty():
@@ -835,7 +840,11 @@ static func _crown(att: Node3D, id: String, y: float, hat: bool) -> void:
 		pm.position = Vector3(0, base + 0.36, 0) + dir * r * 1.12
 		pm.rotation = Vector3(0.22 * dir.z, 0, -0.22 * dir.x)   # leaning out a little
 		att.add_child(pm)
-		U.sphere(att, 0.065, gold, Vector3(0, base + 0.55, 0) + dir * r * 1.22)
+		# (version 174: jewels on the points, not gold balls, and a great diamond at the front)
+		U.sphere(att, 0.075, gems[(i + 1) % 2], Vector3(0, base + 0.55, 0) + dir * r * 1.22)
+		if i == 0:
+			var jewel := U.sphere(att, 0.1, U.mat(Color(0.75, 0.95, 1.0), 0.1, 2.2), Vector3(0, base + 0.12, 0) + dir * r * 1.1)
+			jewel.scale = Vector3(0.9, 1.25, 0.6)
 		var b := i / 5.0 * TAU + TAU / 10.0
 		U.sphere(att, 0.06, gems[i % 2], Vector3(0, base + 0.1, 0) + Vector3(sin(b), 0, cos(b)) * r * 1.07)
 
@@ -975,10 +984,10 @@ void fragment() {
 		vec3 gold = vec3(1.0, 0.8, 0.34);
 		if (pat == 21) {
 			// Crimson: velvet with a gold-thread lattice of diamonds.
-			vec2 uv = vec2(ang * 1.9, q.y * 4.6);
+			vec2 uv = vec2(ang * 1.27, q.y * 2.6);
 			float dia = abs(fract(uv.x + uv.y) - 0.5) + abs(fract(uv.x - uv.y) - 0.5);
-			float line = 1.0 - smoothstep(0.03, 0.1, abs(dia - 0.5));
-			float gem = 1.0 - smoothstep(0.0, 0.1, dia);
+			float line = 1.0 - smoothstep(0.02, 0.06, abs(dia - 0.5));
+			float gem = 1.0 - smoothstep(0.0, 0.07, dia);
 			al = mix(al, gold, line * 0.6 + gem * 0.8);
 			em = gold * (line * 0.22 * (0.7 + 0.3 * sin(TIME * 2.0 + q.y * 4.0)) + gem * 0.5 + edge * 0.25);
 		} else if (pat == 22) {
@@ -992,7 +1001,7 @@ void fragment() {
 			em = vec3(0.45, 1.0, 0.5) * edge * 0.32;
 		} else if (pat == 23) {
 			// Midnight: a night sky, stars coming and going.
-			float st = twinkle(q * 5.0, 0.18, 2.5) + twinkle(q * 9.0 + 2.3, 0.1, 4.0) * 0.7;
+			float st = twinkle(q * 5.0, 0.34, 2.5) + twinkle(q * 9.0 + 2.3, 0.22, 4.0) * 0.7;
 			al = mix(al, al * 0.7, 0.5);
 			em = vec3(0.88, 0.92, 1.0) * st * 2.6 + vec3(0.3, 0.45, 1.0) * edge * 0.65;
 		} else if (pat == 24) {
@@ -1006,7 +1015,7 @@ void fragment() {
 			// Shadow: smoke curling up the cloth, violet at the edges.
 			float n = fbm(q * 1.8 + vec3(0.0, -TIME * 0.4, 0.0));
 			al = mix(al, al * 0.45, n);
-			em = vec3(0.58, 0.26, 0.98) * (smoothstep(0.5, 0.78, n) * 0.55 + edge * 0.95);
+			em = vec3(0.58, 0.26, 0.98) * (smoothstep(0.44, 0.7, n) * 0.95 + edge * 0.95);
 		} else if (pat == 26) {
 			// Royal: gold pinstripes and a gleam running up them.
 			float stripe = 1.0 - smoothstep(0.05, 0.12, abs(fract(ang * 2.4) - 0.5));
@@ -1016,8 +1025,8 @@ void fragment() {
 		} else if (pat == 27) {
 			// Ember: banked coals glowing through the cloth.
 			float n = fbm(q * 2.2 + vec3(0.0, -TIME * 0.25, 0.0));
-			float hot = smoothstep(0.48, 0.78, n);
-			al = mix(al * 0.72, vec3(1.0, 0.78, 0.3), hot * 0.6);
+			float hot = smoothstep(0.42, 0.7, n);
+			al = mix(al * 0.6, vec3(1.0, 0.78, 0.3), hot * 0.6);
 			em = vec3(1.0, 0.4, 0.08) * (hot * 0.95 * (0.8 + 0.2 * sin(TIME * 5.0 + q.x * 6.0)) + edge * 0.5);
 		} else if (pat == 28) {
 			// Frost: hoarfrost creeping over the cloth, and glints.

@@ -126,7 +126,12 @@ static func run(core := false) -> void:
 			sh.position += at + Vector3(1.5, 0, 2.0)
 			var wv := LookFx.wave(Color.CYAN, Color.WHITE)
 			holder.add_child(wv)
-			wv.position = at + Vector3(-1.5, 0.03, 2.0))
+			wv.position = at + Vector3(-1.5, 0.03, 2.0)
+			# Version 174: every kind of column, the circling lights and the sunburst.
+			for kind in 4:
+				var fx := LookFx.aura_fx({"ink": Color.CYAN, "shine": true, "motif": ["wisps", "motes", "stars", "storm"][kind]})
+				holder.add_child(fx)
+				fx.position = at + Vector3(kind - 1.5, 0, 3.2))
 
 	# The Heroes/Style pedestal and the Bone Drop chest: each has its own little 3D world with
 	# its own lights, so their shaders differ from the room's (version 119: the first reveal

@@ -11,11 +11,16 @@ class_name LookFx
 
 const STYLES := {"flow": 0, "flame": 1, "frost": 2, "storm": 3, "stars": 4, "runes": 5}
 const FINISHES := {"": 0, "gold": 1, "frost": 2, "ember": 3, "void": 4}
+## The sparks a finished weapon throws when it fires (hero.gd).
+const FINISH_SPARK := {"gold": Color(1.0, 0.84, 0.4), "frost": Color(0.65, 0.92, 1.0), "ember": Color(1.0, 0.48, 0.12), "void": Color(0.72, 0.48, 1.0)}
 
 static var _ring_shader: Shader
 static var _shell_shader: Shader
 static var _weapon_shader: Shader
 static var _wave_shader: Shader
+static var _orb_shader: Shader
+static var _orb_mesh: SphereMesh
+static var _burst_shader: Shader
 static var _weapon_mats := {}
 static var _shell_mesh: CylinderMesh
 
@@ -98,6 +103,95 @@ static func wave(ink: Color, ink2: Color, power := 1.0, rings := 1, radius := 1.
 	return mi
 
 
+## How grand an aura is, 1 to 4 (version 174): what it adds to the column of light.
+##  1 = the column (Mastery 8 and 9, Bone Drops)       2 = + waves on the floor (Mastery 10, Feats)
+##  3 = + two lights circling the hero (Mastery 15, Bazaar, Race)
+##  4 = + a third light and a turning sunburst on the floor (Mastery 20, events, the Crypt King)
+static func grade(aura: Dictionary) -> int:
+	if aura.get("shine", false) or aura.get("sigil", false):
+		return 4
+	if aura.has("level"):
+		var lv := int(aura.level)
+		return 4 if lv >= 20 else (3 if lv >= 15 else (2 if lv >= 10 else 1))
+	if aura.has("bazaar") or aura.has("race"):
+		return 3
+	return 2 if aura.has("feat") else 1
+
+
+## Everything an aura adds round the hero, by its grade(): for a run (seen from far above,
+## kept low and thin so shots stay clear) or `stage` (the Style pedestal, seen from the side).
+static func aura_fx(aura: Dictionary, stage := false) -> Node3D:
+	var root := Node3D.new()
+	var ink: Color = aura.get("ink", Color.WHITE)
+	var ink2: Color = aura.get("ink2", aura.get("spark", ink))
+	var g := grade(aura)
+	var sh := shell_for(aura)
+	var k := 0.7 + 0.1 * g
+	if stage:
+		root.add_child(shell(ink, ink2, 0.46 * k, int(sh[1]), 0.9, 2.3 + 0.15 * g))
+	else:
+		root.add_child(shell(ink, ink2, 0.24 * k, int(sh[1]), 0.95, 1.9))
+	if g >= 2:
+		var w := wave(ink, ink2, 0.6 + 0.1 * g, 2 if g >= 4 else 1, 1.5, 0.6 if stage else 0.9)
+		w.position = Vector3(0, 0.03, 0)
+		root.add_child(w)
+	if g >= 3:
+		var n := 3 if g >= 4 else 2
+		for i in n:
+			root.add_child(orb(ink2 if i % 2 == 0 else ink, 0.82 if stage else 0.95, 0.55 if stage else 1.25, TAU * i / n, 2.1, 0.15 if stage else 0.26))
+	if g >= 4 and not aura.get("sigil", false):
+		var b := burst(ink, ink2, 0.5 if stage else 0.34, 1.45 if stage else 1.6, 0.62 if stage else 0.95)
+		b.position = Vector3(0, 0.028, 0)
+		root.add_child(b)
+	return root
+
+
+## A light circling the hero (grand auras): a soft ball of light with a tail, `r` metres
+## out at height `h`, starting `phase` round.
+static func orb(col: Color, r: float, h: float, phase: float, speed := 2.0, size := 0.2) -> MeshInstance3D:
+	if _orb_shader == null:
+		_orb_shader = Shader.new()
+		_orb_shader.code = ORB
+		_orb_mesh = SphereMesh.new()
+		_orb_mesh.radius = 0.5
+		_orb_mesh.height = 1.0
+		_orb_mesh.radial_segments = 10
+		_orb_mesh.rings = 5
+	var m := ShaderMaterial.new()
+	m.shader = _orb_shader
+	m.set_shader_parameter("col", col)
+	m.set_shader_parameter("orbit", Vector3(r, h, phase))
+	m.set_shader_parameter("speed", speed)
+	m.set_shader_parameter("size", size)
+	var mi := MeshInstance3D.new()
+	mi.mesh = _orb_mesh
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# (the shader moves it round the hero: it must not be culled by where the mesh "is")
+	mi.custom_aabb = AABB(Vector3(-r - 0.6, 0, -r - 0.6), Vector3(r * 2.0 + 1.2, h + 1.0, r * 2.0 + 1.2))
+	return mi
+
+
+## A slowly turning sunburst of rays on the floor (the grandest auras).
+static func burst(ink: Color, ink2: Color, power := 0.35, radius := 1.6, reach := 0.95) -> MeshInstance3D:
+	if _burst_shader == null:
+		_burst_shader = Shader.new()
+		_burst_shader.code = BURST
+	var m := ShaderMaterial.new()
+	m.shader = _burst_shader
+	m.set_shader_parameter("ink", ink)
+	m.set_shader_parameter("ink2", ink2)
+	m.set_shader_parameter("power", power)
+	m.set_shader_parameter("reach", reach)
+	var q := PlaneMesh.new()
+	q.size = Vector2(radius * 2.0, radius * 2.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
 ## How strong and which kind of column an aura gets: grander with the Mastery level it comes
 ## at; the Crypt King's, the event's and the top Race aura's are the strongest.
 static func shell_for(aura: Dictionary) -> Array:
@@ -105,7 +199,14 @@ static func shell_for(aura: Dictionary) -> Array:
 	var power := clampf(0.55 + (lv - 8) * 0.04, 0.55, 1.0)
 	if aura.get("shine", false) or aura.get("sigil", false):
 		power = 1.0
-	var kind := 1 if str(aura.get("motif", "")) in ["stars", "arcane", "regal", "snow", "motes", "souls"] else 0
+	var motif := str(aura.get("motif", ""))
+	var kind := 0
+	if motif in ["stars", "arcane", "comet", "fireflies"]:
+		kind = 2
+	elif motif in ["storm", "quick"]:
+		kind = 3
+	elif motif in ["motes", "regal", "snow", "souls", "bubbles", "sun"]:
+		kind = 1
 	return [power, kind]
 
 
@@ -251,6 +352,54 @@ void fragment() {
 }
 """
 
+const ORB := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0);
+uniform vec3 orbit = vec3(0.9, 1.0, 0.0);   // radius, height, phase
+uniform float speed = 2.0;
+uniform float size = 0.2;
+varying float tail;
+
+void vertex() {
+	float a = TIME * speed + orbit.z;
+	vec3 dir = vec3(cos(a), 0.0, sin(a));
+	vec3 back = vec3(sin(a), 0.0, -cos(a));   // where it came from
+	// The ball, drawn out behind into a tail.
+	float behind = max(0.0, dot(normalize(VERTEX + vec3(0.0001)), back));
+	tail = behind;
+	vec3 v = VERTEX * size + back * behind * behind * size * 2.2;
+	VERTEX = v + dir * orbit.x + vec3(0.0, orbit.y + sin(a * 1.7) * 0.16, 0.0);
+}
+
+void fragment() {
+	float f = pow(clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 1.6);
+	ALBEDO = mix(col.rgb, vec3(1.0), f * f * 0.7 * (1.0 - tail));
+	ALPHA = clamp(f * 1.25 * (1.0 - tail * 0.55), 0.0, 1.0);
+}
+"""
+
+const BURST := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 ink : source_color = vec4(1.0);
+uniform vec4 ink2 : source_color = vec4(1.0);
+uniform float power = 0.35;
+uniform float reach = 0.95;
+
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p) / reach;
+	float ang = atan(p.y, p.x);
+	float long_rays = pow(abs(sin(ang * 6.0 + TIME * 0.35)), 10.0);
+	float short_rays = pow(abs(sin(ang * 6.0 + 0.26 - TIME * 0.5)), 16.0) * step(r, 0.72);
+	float fall = smoothstep(1.0, 0.3, r) * smoothstep(0.2, 0.34, r);
+	float a = (long_rays + short_rays * 0.7) * fall * (0.8 + 0.2 * sin(TIME * 2.0));
+	ALBEDO = mix(ink2.rgb, ink.rgb, clamp(r, 0.0, 1.0));
+	ALPHA = clamp(a * power, 0.0, 1.0);
+}
+"""
+
 const SHELL := """
 shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
@@ -269,6 +418,27 @@ void fragment() {
 	if (kind == 0) {
 		float n = vnoise2(vec2(UV.x * 12.0, y * 3.2 - t * 1.5), 12.0) * 0.6 + vnoise2(vec2(UV.x * 24.0, y * 6.5 - t * 2.4), 24.0) * 0.4;
 		a = smoothstep(0.3, 0.75, n + (1.0 - y) * 0.42) * (1.0 - smoothstep(0.35, 1.0, y + (1.0 - n) * 0.45));
+	} else if (kind == 2) {
+		// Starlight: thin streaks of light climbing the column, each at its own pace.
+		float n = 18.0;
+		float id = floor(UV.x * n);
+		float across = pow(1.0 - abs(fract(UV.x * n) - 0.5) * 2.0, 2.0);
+		float sp = 0.35 + 0.5 * hash2(vec2(id, 5.0));
+		float s = fract(y * 1.1 - t * sp + hash2(vec2(id, 9.0)));
+		float on = step(0.22, hash2(vec2(id, 2.0)));
+		a = across * pow(s, 4.0) * on * 2.6 * (1.0 - smoothstep(0.55, 1.0, y));
+		a += vnoise2(vec2(UV.x * 12.0, y * 3.0 - t * 0.6), 12.0) * 0.3 * (1.0 - y);
+	} else if (kind == 3) {
+		// Storm: forks of lightning jumping up the column.
+		float tick = floor(t * 9.0);
+		for (int i = 0; i < 4; i++) {
+			float fi = float(i);
+			float live = step(0.55, hash2(vec2(fi * 3.7, floor(t * 3.0 + fi * 0.37))));
+			float xb = (fi + 0.5) / 4.0 + (vnoise2(vec2(y * 9.0 + fi * 13.0, tick), 64.0) - 0.5) * 0.11;
+			float dx = abs(fract(UV.x - xb + 0.5) - 0.5);
+			a += (smoothstep(0.012, 0.0, dx) + smoothstep(0.05, 0.0, dx) * 0.3) * live;
+		}
+		a = a * (1.0 - smoothstep(0.5, 1.0, y)) + vnoise2(vec2(UV.x * 12.0, y * 3.0 - t), 12.0) * 0.14 * (1.0 - y);
 	} else {
 		float band = pow(0.5 + 0.5 * sin((UV.x * 3.0 + y * 1.6) * 6.2831853 - t * 2.2), 5.0);
 		float n = vnoise2(vec2(UV.x * 16.0, y * 4.0 - t * 0.8), 16.0);

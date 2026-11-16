@@ -29,6 +29,8 @@ var siphon_left := 0.0
 var hero_id := "rogue"
 var bolt_size := 0.22
 var bolt_color := Color(0.55, 0.85, 1.0)
+var _finish_col = null   # a weapon finish's sparks when it fires (version 174)
+var _finish_ms := 0
 var bolt_push := 4.0
 var splash := 0.0
 var armor := 0.0
@@ -115,6 +117,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.bolt_speed = def.bolt_speed
 	h.bolt_size = def.bolt_size
 	h.bolt_color = def.bolt_color
+	h._finish_col = LookFx.FINISH_SPARK.get(str(def.get("style", {}).get("finish", "")))
 	h.bolt_push = def.get("push", 4.0)
 	h.pierce = def.get("pierce", 0)
 	h.armor = def.get("armor", 0.0)
@@ -545,6 +548,11 @@ func _shoot(fwd: Vector3) -> void:
 	Sfx.play(shot if Sfx.has(shot) else "shoot", 0.5)
 	var right := fwd.cross(Vector3.UP).normalized()
 	var origin := global_position + Vector3.UP * 1.1 + fwd * 0.6
+	# Version 174: a Frostforged, Emberforged, Gilded or Voidsteel weapon throws sparks of its
+	# own colour as it fires (at most four times a second).
+	if _finish_col != null and Time.get_ticks_msec() - _finish_ms > 250:
+		_finish_ms = Time.get_ticks_msec()
+		Fx.sparks(origin, _finish_col)
 	var col := Color(1.0, 0.55, 0.2) if burn_dps > 0.0 else bolt_color
 	var share := front_share()
 	for i in front_bolts:
@@ -746,17 +754,10 @@ func _build_motif() -> void:
 	var p := Fx.motif(str(_master_aura.get("motif", "wisps")), _master_aura.get("spark", Color.WHITE), 1.4)   # bigger: seen from far above
 	add_child(p)
 	_rings.append(p)
-	# Version 172: a column of light rising round the hero in the aura's colours.
-	var ink0: Color = _master_aura.get("ink", Color.WHITE)
-	var sh := LookFx.shell_for(_master_aura)
-	var shell := LookFx.shell(ink0, _master_aura.get("ink2", _master_aura.get("spark", ink0)), 0.22 * float(sh[0]), int(sh[1]), 0.95, 1.9)
-	add_child(shell)
-	_rings.append(shell)
-	# Version 173: waves of light running out across the floor (two at a time for the grand auras).
-	var wave := LookFx.wave(ink0, _master_aura.get("ink2", _master_aura.get("spark", ink0)), 0.55 + 0.35 * float(sh[0]), 2 if float(sh[0]) >= 0.85 else 1, 1.5, 0.9)
-	wave.position = Vector3(0, 0.03, 0)
-	add_child(wave)
-	_rings.append(wave)
+	# Versions 172-174: the aura's light round the hero, grander with its grade (LookFx.aura_fx).
+	var fx := LookFx.aura_fx(_master_aura)
+	add_child(fx)
+	_rings.append(fx)
 	# Its shape on the floor (not the Crypt King's, which has its own sigil).
 	if not _master_aura.get("sigil", false):
 		var ink: Color = _master_aura.get("ink", Color.WHITE)

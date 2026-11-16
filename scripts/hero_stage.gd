@@ -255,13 +255,7 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 		_visual.add_child(Fx.motif(str(def.aura.get("motif", "wisps")), def.aura.get("spark", Color.WHITE)))   # a Master aura's trail of light
 		if def.aura.get("sigil", false):
 			CryptSigil.make(_visual, 2.6, 1.2)   # the Crypt King's sigil on the pedestal
-		var ink: Color = def.aura.get("ink", Color.WHITE)
-		var sh := LookFx.shell_for(def.aura)
-		var ink2: Color = def.aura.get("ink2", def.aura.get("spark", ink))
-		_visual.add_child(LookFx.shell(ink, ink2, 0.55 * float(sh[0]), int(sh[1]), 0.9, 2.7))
-		var wave := LookFx.wave(ink, ink2, 0.55 + 0.3 * float(sh[0]), 2 if float(sh[0]) >= 0.85 else 1, 1.5, 0.6)
-		wave.position = Vector3(0, 0.025, 0)
-		_visual.add_child(wave)
+		_visual.add_child(LookFx.aura_fx(def.aura, true))
 	_visual.attack(def.id == "mage")
 	if _visual._anim:
 		_visual._anim.advance(0.0)   # pose them now, so they never flash up in a T-pose
