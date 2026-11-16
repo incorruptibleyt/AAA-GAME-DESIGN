@@ -15,6 +15,7 @@ const FINISHES := {"": 0, "gold": 1, "frost": 2, "ember": 3, "void": 4}
 static var _ring_shader: Shader
 static var _shell_shader: Shader
 static var _weapon_shader: Shader
+static var _wave_shader: Shader
 static var _weapon_mats := {}
 static var _shell_mesh: CylinderMesh
 
@@ -70,6 +71,29 @@ static func shell(ink: Color, ink2: Color, power := 1.0, kind := 0, radius := 0.
 	mi.material_override = m
 	mi.scale = Vector3(radius, height, radius)
 	mi.position = Vector3(0, height * 0.5 + 0.03, 0)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
+## An aura's waves of light running out across the floor from the hero's feet (version 173:
+## from far above, the floor is where an aura is seen). `rings` 1 or 2 at a time, out to
+## `reach` (0-1 of `radius`).
+static func wave(ink: Color, ink2: Color, power := 1.0, rings := 1, radius := 1.9, reach := 0.95) -> MeshInstance3D:
+	if _wave_shader == null:
+		_wave_shader = Shader.new()
+		_wave_shader.code = WAVE
+	var m := ShaderMaterial.new()
+	m.shader = _wave_shader
+	m.set_shader_parameter("ink", ink)
+	m.set_shader_parameter("ink2", ink2)
+	m.set_shader_parameter("power", power)
+	m.set_shader_parameter("rings", rings)
+	m.set_shader_parameter("reach", reach)
+	var q := PlaneMesh.new()
+	q.size = Vector2(radius * 2.0, radius * 2.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return mi
 
@@ -139,9 +163,8 @@ void fragment() {
 	float flow = pow(0.5 + 0.5 * sin(ang * 2.0 - t * 2.4), 3.0);
 	float core = smoothstep(0.05, 0.02, abs(r - r0));
 	float halo = exp(-abs(r - r0) * 10.0) * 0.5;
-	float fill = (1.0 - smoothstep(0.0, r0, r)) * 0.0 + smoothstep(r0, r0 * 0.35, r) * 0.0;
 	vec3 c = mix(col.rgb, col2.rgb, flow * 0.8);
-	float alpha = core * (0.82 + 0.18 * flow) + halo * (0.45 + 0.55 * flow) + fill;
+	float alpha = core * (0.82 + 0.18 * flow) + halo * (0.45 + 0.55 * flow);
 	float extra = 0.0;
 	vec3 ec = col2.rgb;
 	float d = r - r0;
@@ -164,7 +187,7 @@ void fragment() {
 		float w = 1.0 - abs(seg - 0.5) * 2.0;
 		float k = d / len;
 		extra = step(0.0, d) * step(k, w) * (0.7 + 0.3 * sin(t * 2.6 + id * 1.7));
-		ec = mix(vec3(1.0), col.rgb, clamp(k, 0.0, 1.0) * 0.8);
+		ec = mix(vec3(1.0), mix(col.rgb, col2.rgb, 0.5), clamp(k / max(w, 0.05), 0.0, 1.0) * 0.85);
 	} else if (style == 3) {
 		// Lightning: arcs jumping round the outside.
 		float tick = floor(t * 12.0);
@@ -189,10 +212,42 @@ void fragment() {
 		float mark = smoothstep(0.05, 0.03, abs(d - 0.16)) * step(seg, 0.3 + 0.4 * hash2(vec2(id, 1.0)));
 		extra = mark * (0.6 + 0.4 * sin(t * 2.0 + id)) + smoothstep(0.014, 0.0, abs(d - 0.27)) * 0.6;
 	}
-	alpha *= 1.0 - extra * 0.0;
 	float total = clamp(alpha + extra * 0.9, 0.0, 0.96);
 	ALBEDO = mix(c, ec, clamp(extra / max(alpha + extra, 0.001), 0.0, 1.0)) * 1.2;
 	ALPHA = total * power * smoothstep(1.0, 0.92, r);
+}
+"""
+
+const WAVE := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 ink : source_color = vec4(1.0);
+uniform vec4 ink2 : source_color = vec4(1.0);
+uniform float power = 1.0;
+uniform int rings = 1;
+uniform float reach = 0.95;
+
+float one(float r, float ph) {
+	float at = mix(0.16, reach, ph);
+	float d = r - at;
+	// a sharp leading edge and a soft tail behind it
+	float body = smoothstep(0.03, 0.0, d) * (0.35 * smoothstep(-0.3, 0.0, d) + 0.65 * smoothstep(-0.06, 0.0, d));
+	return body * pow(1.0 - ph, 0.8) * smoothstep(0.0, 0.1, ph);
+}
+
+void fragment() {
+	float r = length(UV * 2.0 - 1.0);
+	float ph = fract(TIME * 0.42);
+	float a = one(r, ph);
+	vec3 c = mix(ink2.rgb, ink.rgb, ph);
+	if (rings > 1) {
+		float ph2 = fract(TIME * 0.42 + 0.5);
+		float a2 = one(r, ph2);
+		c = mix(c, mix(ink2.rgb, ink.rgb, ph2), a2 / max(a + a2, 0.001));
+		a += a2;
+	}
+	ALBEDO = c;
+	ALPHA = clamp(a * power, 0.0, 1.0);
 }
 """
 
@@ -266,7 +321,7 @@ void fragment() {
 	float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 	// A gleam running along the weapon every couple of seconds.
 	float along = mpos.y + mpos.z * 0.6 + mpos.x * 0.3;
-	float sweep = pow(max(0.0, sin(along * 2.2 - TIME * 2.6)), 16.0);
+	float sweep = pow(max(0.0, sin(along * 2.2 - TIME * 2.6)), 36.0);
 	vec3 al = c;
 	vec3 em = vec3(0.0);
 	float ro = 0.5;
@@ -289,14 +344,17 @@ void fragment() {
 		em = vec3(0.35, 0.78, 1.0) * (0.22 + edge * 1.0 + line * 0.25) + vec3(1.0) * (twinkle(mpos * 9.0 + floor(TIME * 2.0) * 0.37, 0.09, 6.0) * 2.4 + sweep * 0.6);
 	} else if (finish == 3) {
 		// Emberforged: black iron split by cracks of molten light that breathe.
-		float n = vnoise(mpos * 5.5) * 0.65 + vnoise(mpos * 11.0) * 0.35;
-		float crack = 1.0 - smoothstep(0.015, 0.06, abs(n - 0.5));
-		float pulse = 0.75 + 0.25 * sin(TIME * 2.4 + along * 3.0);
-		al = mix(vec3(0.05, 0.04, 0.05), vec3(0.26, 0.2, 0.2), lum);
-		al = mix(al, vec3(1.0, 0.45, 0.1), crack * 0.85);
+		float n = vnoise(mpos * 4.2) * 0.65 + vnoise(mpos * 9.0 + 4.0) * 0.35;
+		float dn = abs(n - 0.5);
+		float crack = 1.0 - smoothstep(0.008, 0.035, dn);
+		float core = 1.0 - smoothstep(0.0, 0.012, dn);
+		float heat = 1.0 - smoothstep(0.03, 0.16, dn);
+		float pulse = 0.7 + 0.3 * sin(TIME * 2.4 + along * 3.0);
+		al = mix(vec3(0.06, 0.045, 0.05), vec3(0.3, 0.22, 0.2), lum);
+		al = mix(al, vec3(0.9, 0.22, 0.04), crack * 0.85);
 		me = 0.55;
 		ro = 0.38;
-		em = vec3(1.0, 0.36, 0.04) * (crack * 1.5 * pulse + edge * 0.55) + vec3(1.0, 0.85, 0.5) * sweep * 0.5;
+		em = vec3(1.0, 0.24, 0.03) * (crack * 1.3 * pulse + heat * 0.22 + edge * 0.5) + vec3(1.0, 0.8, 0.35) * (core * 1.2 * pulse + sweep * 0.5);
 	} else if (finish == 4) {
 		// Voidsteel: night-violet metal with stars inside it and a violet edge.
 		float n = vnoise(mpos * 2.4 + vec3(TIME * 0.08, 0.0, 0.0));

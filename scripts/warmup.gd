@@ -123,7 +123,10 @@ static func run(core := false) -> void:
 			# Version 172: an aura's column of light (LookFx.shell).
 			var sh := LookFx.shell(Color.CYAN, Color.WHITE)
 			holder.add_child(sh)
-			sh.position += at + Vector3(1.5, 0, 2.0))
+			sh.position += at + Vector3(1.5, 0, 2.0)
+			var wv := LookFx.wave(Color.CYAN, Color.WHITE)
+			holder.add_child(wv)
+			wv.position = at + Vector3(-1.5, 0.03, 2.0))
 
 	# The Heroes/Style pedestal and the Bone Drop chest: each has its own little 3D world with
 	# its own lights, so their shaders differ from the room's (version 119: the first reveal

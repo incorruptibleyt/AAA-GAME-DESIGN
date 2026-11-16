@@ -1042,11 +1042,12 @@ void fragment() {
 			em = vec3(0.3, 0.92, 0.9) * (foam * 0.3 + edge * 0.42);
 		} else if (pat == 31) {
 			// Gilded (Mastery 10): polished gold, a gleam running up it and glints.
-			float sweep = pow(max(0.0, sin(q.y * 2.5 + q.x - TIME * 2.2)), 14.0);
+			// (version 173: a narrow, softer gleam; the wide one washed the whole hero out to white)
+			float sweep = pow(max(0.0, sin(q.y * 2.5 + q.x - TIME * 2.2)), 48.0);
 			float sp = twinkle(q * 8.0 + floor(TIME * 2.5) * 0.27, 0.08, 7.0);
 			met = 1.0;
 			al = al * vec3(1.05, 0.95, 0.7);
-			em = vec3(1.0, 0.72, 0.25) * (0.14 + edge * 0.7) + vec3(1.0, 0.96, 0.8) * (sweep * 0.9 + sp * 2.2);
+			em = vec3(1.0, 0.72, 0.25) * (0.06 + edge * 0.5) + vec3(1.0, 0.96, 0.8) * (sweep * 0.45 + sp * 1.6);
 		} else if (pat == 32) {
 			// Bone: cracked plates with ribs across them.
 			float cracks = 1.0 - smoothstep(0.015, 0.05, abs(fbm(q * 2.6) - 0.5));

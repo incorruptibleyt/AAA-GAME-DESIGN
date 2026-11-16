@@ -752,6 +752,11 @@ func _build_motif() -> void:
 	var shell := LookFx.shell(ink0, _master_aura.get("ink2", _master_aura.get("spark", ink0)), 0.22 * float(sh[0]), int(sh[1]), 0.95, 1.9)
 	add_child(shell)
 	_rings.append(shell)
+	# Version 173: waves of light running out across the floor (two at a time for the grand auras).
+	var wave := LookFx.wave(ink0, _master_aura.get("ink2", _master_aura.get("spark", ink0)), 0.55 + 0.35 * float(sh[0]), 2 if float(sh[0]) >= 0.85 else 1, 1.5, 0.9)
+	wave.position = Vector3(0, 0.03, 0)
+	add_child(wave)
+	_rings.append(wave)
 	# Its shape on the floor (not the Crypt King's, which has its own sigil).
 	if not _master_aura.get("sigil", false):
 		var ink: Color = _master_aura.get("ink", Color.WHITE)

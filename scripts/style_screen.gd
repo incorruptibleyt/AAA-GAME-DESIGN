@@ -396,6 +396,7 @@ class Swatch extends Control:
 	var shine := false   # a Crypt King look: a glint runs across its picture
 	var pat := 0   # a Feat or drop outfit's pattern, drawn on its swatch
 	var finish := ""   # a weapon finish (gold, frost, ember, void)
+	var fx := ""   # a glow's ring shape (flame, frost, storm, stars, runes)
 	var a2 = null   # a Legend road glow's second colour (it shimmers between the two)
 	var _t := 0.0
 
@@ -429,6 +430,7 @@ class Swatch extends Control:
 				a = gl.get("ring", base.ring)
 				b = gl.get("bolt", a)
 				a2 = gl.get("ring2")
+				fx = str(gl.get("fx", ""))
 				shine = HeroStyle.is_pass(k)
 			"aura":
 				aura = HeroStyle.PASS_AURA if HeroStyle.is_pass(k) else HeroStyle.AURAS.get(id, {}).get(k, HeroStyle.extra(s, k))
@@ -476,6 +478,7 @@ class Swatch extends Control:
 				if b != a:
 					# Its shots' colour, when they differ from the ring.
 					draw_circle(c, r * 0.3, b)
+				_ring_marks(c, r)
 			"aura":
 				_aura(c, r)
 			"head":
@@ -484,6 +487,46 @@ class Swatch extends Control:
 				_hold(c, r)
 		if shine or shape == "crypt_crown" or aura.get("sigil", false):
 			_glint(c, r)
+
+	## A glow's ring shape in small (version 173), as LookFx.ring draws it at the hero's feet:
+	## flames, ice crystals, lightning, stars or runes round the ring.
+	func _ring_marks(c: Vector2, r: float) -> void:
+		var lit: Color = (a2 if a2 != null else a).lerp(Color.WHITE, 0.45)
+		var r0 := r * 0.86
+		match fx:
+			"flame":
+				for i in 8:
+					var t := TAU * i / 8.0
+					var out := Vector2(cos(t), sin(t))
+					var side := Vector2(-out.y, out.x)
+					var h := r * (0.2 + 0.1 * sin(_t * 5.0 + i * 2.3))
+					draw_colored_polygon(PackedVector2Array([c + out * r0 - side * r * 0.11, c + out * (r0 + h) + side * r * 0.05, c + out * r0 + side * r * 0.11]), Color(lit, 0.95))
+			"frost":
+				for i in 8:
+					var t := TAU * i / 8.0 + PI / 8.0
+					var out := Vector2(cos(t), sin(t))
+					var side := Vector2(-out.y, out.x)
+					var h := r * (0.26 if i % 2 == 0 else 0.15)
+					draw_colored_polygon(PackedVector2Array([c + out * r0 - side * r * 0.06, c + out * (r0 + h), c + out * r0 + side * r * 0.06]), Color(1, 1, 1, 0.75 + 0.25 * sin(_t * 2.6 + i * 1.7)))
+			"storm":
+				for i in 3:
+					var t0 := TAU * i / 3.0 + floorf(_t * 6.0) * 0.9
+					var pts := PackedVector2Array()
+					for j in 6:
+						var t := t0 + j * 0.16
+						pts.append(c + Vector2(cos(t), sin(t)) * (r0 + r * (0.16 if j % 2 == 0 else 0.04)))
+					draw_polyline(pts, lit, 2.0, true)
+			"stars":
+				for i in 6:
+					var t := TAU * i / 6.0 + _t * 0.4
+					var at := c + Vector2(cos(t), sin(t)) * (r0 + r * 0.1)
+					var k := r * 0.12 * (0.6 + 0.4 * sin(_t * 4.0 + i * 2.1))
+					draw_line(at - Vector2(k, 0), at + Vector2(k, 0), lit, 2.0, true)
+					draw_line(at - Vector2(0, k), at + Vector2(0, k), lit, 2.0, true)
+			"runes":
+				for i in 10:
+					var t := TAU * i / 10.0 - _t * 0.3
+					draw_arc(c, r0 + r * 0.12, t, t + (0.14 if i % 3 else 0.3), 4, Color(lit, 0.9), 2.5, true)
 
 	## A Feat or drop outfit's own pattern in small (version 116: they all showed the same
 	## glints, so the swatches looked alike): wisps, cracks, stars, facets, lightning,
