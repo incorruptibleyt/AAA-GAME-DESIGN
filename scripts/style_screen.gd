@@ -395,6 +395,7 @@ class Swatch extends Control:
 	var aura := {}
 	var shine := false   # a Crypt King look: a glint runs across its picture
 	var pat := 0   # a Feat or drop outfit's pattern, drawn on its swatch
+	var finish := ""   # a weapon finish (gold, frost, ember, void)
 	var a2 = null   # a Legend road glow's second colour (it shimmers between the two)
 	var _t := 0.0
 
@@ -437,6 +438,14 @@ class Swatch extends Control:
 				shape = k if k != "" else {"rogue": "hood", "knight": "helm", "barbarian": "bear", "mage": "wizard"}.get(id, "hood")
 			"hold":
 				shape = k if k != "" else {"rogue": "crossbow", "knight": "sword_shield", "barbarian": "axe", "mage": "staff"}.get(id, "")
+				# A weapon finish (version 172): the weapon it is worn on, in the finish's colours.
+				var h: Dictionary = HeroStyle.HOLDS.get(id, {}).get(k, HeroStyle.extra(s, k))
+				finish = str(h.get("finish", ""))
+				if finish != "":
+					var grand := {"rogue": "heavy", "knight": "greatsword", "barbarian": "great_axe", "mage": "staff"}
+					var by := {"frostforged": {"rogue": "heavy", "knight": "badge", "barbarian": "twin_axes", "mage": "staff"},
+						"emberforged": {"rogue": "twin_knives", "knight": "greatsword", "barbarian": "great_axe", "mage": "open_tome"}}
+					shape = str(by.get(k, grand).get(id, ""))
 		queue_redraw()
 
 	func _draw() -> void:
@@ -553,6 +562,36 @@ class Swatch extends Control:
 					var ang := _t * 0.8 + i * TAU / 6.0
 					draw_line(c + Vector2(cos(ang), sin(ang)) * r * 0.18, c + Vector2(cos(ang), sin(ang)) * r * 0.62, Color(1.0, 0.62, 0.2, 0.9), r * 0.1, true)
 				draw_circle(c, r * 0.2, Color(1.0, 0.86, 0.45))
+			21, 26:   # Crimson's gold lattice, Royal's gold pinstripes (version 172)
+				var gold := Color(1.0, 0.8, 0.34, 0.9)
+				for i in 3:
+					var x := c.x + (i - 1) * r * 0.42
+					if pat == 26:
+						draw_line(Vector2(x, c.y - r * 0.6), Vector2(x, c.y + r * 0.35), gold, r * 0.09, true)
+					else:
+						draw_line(Vector2(x - r * 0.3, c.y - r * 0.5), Vector2(x + r * 0.3, c.y + r * 0.2), gold, r * 0.06, true)
+						draw_line(Vector2(x + r * 0.3, c.y - r * 0.5), Vector2(x - r * 0.3, c.y + r * 0.2), gold, r * 0.06, true)
+			23, 28, 31:   # Midnight's stars, Frost's glints, Gilded's sparkles
+				for i in 4:
+					var p := c + Vector2(cos(i * 2.1 + 0.4) * 0.5, sin(i * 2.1 + 0.4) * 0.45 - 0.12) * r
+					var tw := 0.45 + 0.55 * sin(_t * 3.5 + i * 1.7)
+					draw_line(p - Vector2(r * 0.13, 0), p + Vector2(r * 0.13, 0), Color(1, 1, 1, tw), 2.0, true)
+					draw_line(p - Vector2(0, r * 0.13), p + Vector2(0, r * 0.13), Color(1, 1, 1, tw), 2.0, true)
+			22, 29, 32:   # Forest's leaf scales, Rose's petals, Bone's plates
+				for i in 5:
+					var p := c + Vector2((i % 3 - 1) * 0.42 + (0.21 if i > 2 else 0.0), -0.38 if i < 3 else 0.02) * r
+					draw_arc(p, r * 0.2, 0.0, PI, 10, Color(lit, 0.85), r * 0.07, true)
+			24, 30:   # Ivory's filigree bands, Sea's waves
+				for i in 2:
+					var y := c.y - r * 0.4 + i * r * 0.4
+					var pts := PackedVector2Array()
+					for k in 9:
+						pts.append(Vector2(c.x - r * 0.65 + k * r * 0.1625, y + sin(k * 1.6 + _t * 2.0 * float(pat == 30)) * r * 0.08))
+					draw_polyline(pts, Color(lit, 0.9), r * 0.08, true)
+			25, 27:   # Shadow's smoke, Ember's coals
+				for i in 3:
+					var p := c + Vector2((i - 1) * 0.4, -0.15 + 0.12 * sin(_t * 2.0 + i * 2.0)) * r
+					draw_circle(p, r * 0.16, Color(lit, 0.45 + 0.3 * pulse))
 
 	## A Crypt King look's picture: a white glint sweeps across it every two seconds.
 	func _glint(c: Vector2, r: float) -> void:
@@ -716,6 +755,19 @@ class Swatch extends Control:
 	func _hold(c: Vector2, r: float) -> void:
 		var steel := Color(0.78, 0.8, 0.86)
 		var wood := Color(0.6, 0.4, 0.25)
+		match finish:
+			"gold":
+				steel = Color(1.0, 0.84, 0.4)
+				wood = Color(0.75, 0.5, 0.14)
+			"frost":
+				steel = Color(0.78, 0.95, 1.0)
+				wood = Color(0.3, 0.6, 0.95)
+			"ember":
+				steel = Color(1.0, 0.55, 0.15)
+				wood = Color(0.2, 0.15, 0.16)
+			"void":
+				steel = Color(0.66, 0.42, 1.0)
+				wood = Color(0.2, 0.12, 0.38)
 		var parts := []
 		match shape:
 			"sword_shield":

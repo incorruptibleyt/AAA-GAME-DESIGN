@@ -103,7 +103,7 @@ static func run(core := false) -> void:
 	# reveal froze while its head was prepared). Two batches of a few heroes each.
 	var keys := {}
 	var most := 0
-	for slot: String in ["head", "outfit", "glow", "aura"]:
+	for slot: String in ["head", "outfit", "glow", "aura", "hold"]:
 		keys[slot] = HeroStyle.EXTRA[slot].keys()
 		most = maxi(most, keys[slot].size())
 	for half in (0 if core else 2):
@@ -119,7 +119,11 @@ static func run(core := false) -> void:
 				v.build(Heroes.look(HeroStyle.dressed(Heroes.LIST[i % Heroes.LIST.size()], picks)))
 			var g := Fx.aura_ground(Color.CYAN, Color.WHITE, 6)
 			holder.add_child(g)
-			g.position = at + Vector3(0, 0.04, 2.0))
+			g.position = at + Vector3(0, 0.04, 2.0)
+			# Version 172: an aura's column of light (LookFx.shell).
+			var sh := LookFx.shell(Color.CYAN, Color.WHITE)
+			holder.add_child(sh)
+			sh.position += at + Vector3(1.5, 0, 2.0))
 
 	# The Heroes/Style pedestal and the Bone Drop chest: each has its own little 3D world with
 	# its own lights, so their shaders differ from the room's (version 119: the first reveal

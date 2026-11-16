@@ -15,6 +15,7 @@ var _root: Node3D
 var _pivot: Node3D
 var _visual: CharacterVisual
 var _ring_mat: StandardMaterial3D
+var _glow_ring: MeshInstance3D
 var _gold_ring: MeshInstance3D
 var _glow_mat: StandardMaterial3D
 var _back_light: OmniLight3D
@@ -187,6 +188,11 @@ func _build_scene() -> void:
 	_glow_mat = U.unlit(Color.WHITE, U.soft_circle()).duplicate()
 	_glow_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	U.floor_quad(_root, Vector2(2.6, 2.6), _glow_mat, Vector3(0, 0.01, 0))
+	# Version 172: the Glow's ring of light on the pedestal's top, as it is at the hero's feet
+	# in a run (flames, ice, lightning, stars or runes: LookFx.ring).
+	_glow_ring = LookFx.ring(Color.WHITE, null, "flow", 1.5, 0.52)
+	_glow_ring.position = Vector3(0, 0.02, 0)
+	_root.add_child(_glow_ring)
 	_pivot = Node3D.new()
 	_pivot.rotation.y = FRONT
 	_root.add_child(_pivot)
@@ -237,7 +243,7 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 		_visual.queue_free()
 	var extras: Array = def.get("style", {}).get("extras", [])
 	var tall := false
-	for x in ["crown", "crypt_crown", "storm_halo", "flame_crown", "antlers", "phantom_horns", "bone_crown", "star_circlet"]:
+	for x in ["crown", "crypt_crown", "storm_halo", "flame_crown", "antlers", "phantom_horns", "bone_crown", "star_circlet", "moon_crown", "halo", "horns"]:
 		tall = tall or extras.has(x)
 	_frame_camera(tall)
 	_visual = CharacterVisual.new()
@@ -249,6 +255,9 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 		_visual.add_child(Fx.motif(str(def.aura.get("motif", "wisps")), def.aura.get("spark", Color.WHITE)))   # a Master aura's trail of light
 		if def.aura.get("sigil", false):
 			CryptSigil.make(_visual, 2.6, 1.2)   # the Crypt King's sigil on the pedestal
+		var ink: Color = def.aura.get("ink", Color.WHITE)
+		var sh := LookFx.shell_for(def.aura)
+		_visual.add_child(LookFx.shell(ink, def.aura.get("ink2", def.aura.get("spark", ink)), 0.42 * float(sh[0]), int(sh[1]), 0.9, 2.7))
 	_visual.attack(def.id == "mage")
 	if _visual._anim:
 		_visual._anim.advance(0.0)   # pose them now, so they never flash up in a T-pose
@@ -260,6 +269,7 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	_light(0.0, 0.0)
 	var col: Color = def.ring
 	_ring_mat.albedo_color = col
+	LookFx.set_ring(_glow_ring.material_override, col, def.get("ring2"), str(def.get("ring_fx", "flow")))
 	_glow_mat.albedo_color = Color(col, 0.45)
 	_back_light.light_color = col
 	if _portrait:

@@ -43,6 +43,8 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 		"phantom_horns": h._phantom_horns(id, y, hat)
 		"bone_crown": h._bone_mask(id, y, hat)
 		"moon_crown": h._moon_crown(id, y, hat)
+		"horns": h._horns(id, y, hat)
+		"halo": h._halo(y + (hat_h if hat else 0.24))
 	bake(h, key)
 	if h._spin:
 		bake(h._spin, key + " spin")
@@ -223,6 +225,64 @@ func _flame(base: Vector3, h: float, r: float, hot: Color, core: Color) -> void:
 	_mi(c, _flame_mat(hot, core), base + Vector3(0, h * 0.5, 0))
 
 
+# ---------------------------------------------------------------- Horns and Halo (Mastery)
+
+## Version 172: the Mastery horns were two straight pegs. Now a pair of bull's horns curving
+## out and up from gold rings, ivory darkening to the tips.
+func _horns(id: String, y: float, hat: bool) -> void:
+	var k := 1.0
+	if hat and id != "rogue":
+		y += 0.12
+	if hat and id == "mage":
+		k = 1.6   # clear of the wide brim from above
+		y += 0.14
+	var tip: StandardMaterial3D = _mats.get("horn tip")
+	if tip == null:
+		tip = StandardMaterial3D.new()
+		tip.albedo_color = Color(0.3, 0.2, 0.17)
+		tip.roughness = 0.45
+		tip.rim_enabled = true
+		tip.rim = 0.4
+		_mats["horn tip"] = tip
+	for sd in [-1.0, 1.0]:
+		var pts := [Vector3(sd * 0.34, y - 0.3, 0.0), Vector3(sd * 0.56, y - 0.24, -0.02), Vector3(sd * 0.72, y - 0.1, -0.04),
+			Vector3(sd * 0.78, y + 0.1, -0.07), Vector3(sd * 0.72, y + 0.28, -0.1), Vector3(sd * 0.62, y + 0.42, -0.12)]
+		for i in pts.size():
+			pts[i] = Vector3(pts[i].x * k, y + (pts[i].y - y) * k, pts[i].z * k)
+		for i in pts.size() - 1:
+			var r1 := (0.125 - i * 0.022) * k
+			var r2 := (0.103 - i * 0.022) * k if i < pts.size() - 2 else 0.0
+			var mat: Material = tip if i >= 3 else _bone
+			_rod(pts[i], pts[i + 1], r1, r2, mat, null, 10)
+			if i < pts.size() - 2:
+				_sphere(r2 * 0.98, tip if i >= 2 else _bone, pts[i + 1])
+		# a gold ring where the horn leaves the head
+		var t := _torus(0.11 * k, 0.155 * k, _gold, pts[0].lerp(pts[1], 0.35))
+		var up: Vector3 = (pts[1] - pts[0]).normalized()
+		var side := up.cross(Vector3.FORWARD).normalized()
+		t.basis = Basis(side, up, side.cross(up)).orthonormalized()
+
+
+## Version 172: the halo was a thin flat yellow hoop. Now a ring of gold light with a white
+## heart, a soft glow round it and eight small rays, slowly turning.
+func _halo(top: float) -> void:
+	_spin = Node3D.new()
+	_spin.position = Vector3(0, top, 0)
+	add_child(_spin)
+	_spin.rotation.x = 0.3   # tipped a little toward the eye, so it reads as a ring
+	var ring := _torus(0.38, 0.54, _glow_mat(Color(1.0, 0.74, 0.22)), Vector3.ZERO, _spin)
+	ring.scale = Vector3(1, 0.7, 1)
+	var heart := _torus(0.435, 0.485, _glow_mat(Color(1.0, 0.95, 0.7) * 1.25), Vector3(0, 0.035, 0), _spin)
+	heart.scale = Vector3(1, 0.9, 1)
+	var soft := _torus(0.3, 0.66, _add_mat(Color(1.0, 0.78, 0.3, 0.3)), Vector3.ZERO, _spin)
+	soft.scale = Vector3(1, 0.1, 1)
+	var ray := _glow_mat(Color(1.0, 0.86, 0.42) * 1.1)
+	for i in 8:
+		var ang := TAU * i / 8.0
+		var out := Vector3(sin(ang), 0, cos(ang))
+		_rod(out * 0.55, out * (0.76 if i % 2 == 0 else 0.68), 0.035, 0.0, ray, _spin, 5)
+
+
 # ---------------------------------------------------------------- Storm Halo
 
 ## A clean ring of storm light with three bolts standing off it (version 115's twenty-eight
@@ -389,7 +449,6 @@ func _antlers(id: String, y: float, hat: bool) -> void:
 		_horn_mat.rim = 0.3
 	var horn: StandardMaterial3D = _horn_mat
 	var tip := _glow_mat(Color(0.55, 1.0, 0.85) * 1.6)
-	var tip_glow := _add_mat(Color(0.4, 1.0, 0.8, 0.4))
 	var kk := Vector3(k, 1, k)
 	for sd in [-1.0, 1.0]:
 		# The main beam curves out, up and back; tines reach up and forward from it.
@@ -404,10 +463,9 @@ func _antlers(id: String, y: float, hat: bool) -> void:
 		for t: Array in tines:
 			var from: Vector3 = pts[t[0]]
 			_rod(from, t[1], 0.05, 0.02, horn)
-			_sphere(0.04, tip, t[1])
-			_sphere(0.09, tip_glow, t[1])
-		_sphere(0.04, tip, pts[4])
-		_sphere(0.09, tip_glow, pts[4])
+			# (version 172: a small bud of light; the wide soft ball round it read as a hoop)
+			_sphere(0.055, tip, t[1])
+		_sphere(0.055, tip, pts[4])
 
 
 # ---------------------------------------------------------------- Phantom Horns
@@ -538,6 +596,8 @@ func _process(delta: float) -> void:
 		"moon_crown":
 			_spin.rotation.y += delta * 0.9
 			_spin.position.y += sin(_t * 2.2) * 0.0007
+		"halo":
+			_spin.rotate_object_local(Vector3.UP, delta * 0.8)
 		"storm_halo":
 			_spin.rotation.y += delta * 0.8
 			_spin.position.y += sin(_t * 2.0) * 0.0006

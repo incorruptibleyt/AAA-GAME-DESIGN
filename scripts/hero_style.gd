@@ -32,21 +32,24 @@ const HEAD_TOP := {"rogue": 0.74, "knight": 0.86, "barbarian": 0.74, "mage": 0.7
 
 # ---------------------------------------------------------------- the looks
 
+## Version 172: every Mastery outfit has its own woven pattern too ("pat" 21-32: brocade,
+## leaf scales, stars, pearl, smoke, pinstripes, coals, hoarfrost, petals, waves, polished
+## gold, bone plates); they were plain recolours of the cloth before.
 ## Outfit colours: the cloth ("a"), the trim ("b": the Mage's cape lining and collar, the
 ## Barbarian's shirt), the Knight's armour and the Rogue's leather. null = as painted.
 const OUTFITS := {
-	"crimson": {"name": "Crimson", "a": Color(0.42, 0.05, 0.12), "b": Color(1.0, 0.78, 0.3), "leather": Color(0.24, 0.17, 0.14)},
-	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.28, 0.54, 0.26), "leather": Color(0.5, 0.33, 0.18)},
-	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.2, 0.26, 0.62)},
-	"ivory": {"name": "Ivory", "a": Color(0.94, 0.91, 0.83), "b": Color(0.35, 0.6, 0.95), "armor": Color(0.88, 0.88, 0.86), "leather": Color(0.62, 0.45, 0.3)},
-	"shadow": {"name": "Shadow", "a": Color(0.14, 0.12, 0.17), "b": Color(0.6, 0.25, 0.9), "armor": Color(0.2, 0.19, 0.23), "leather": Color(0.16, 0.14, 0.16)},
-	"royal": {"name": "Royal", "a": Color(0.44, 0.17, 0.7), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.55, 0.3, 0.85)},
-	"ember": {"name": "Ember", "a": Color(0.95, 0.45, 0.12), "b": Color(0.28, 0.16, 0.12), "armor": Color(0.88, 0.48, 0.22)},
-	"frost": {"name": "Frost", "a": Color(0.55, 0.85, 1.0), "b": Color(0.95, 0.97, 1.0), "armor": Color(0.6, 0.88, 1.0)},
-	"rose": {"name": "Rose", "a": Color(0.96, 0.68, 0.8), "b": Color(1.0, 0.9, 0.94), "leather": Color(0.55, 0.32, 0.36)},
-	"sea": {"name": "Sea", "a": Color(0.1, 0.55, 0.6), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.2, 0.66, 0.68)},
-	"gold": {"name": "Gilded", "a": Color(0.95, 0.75, 0.25), "b": Color(1.0, 0.97, 0.9), "armor": Color(0.95, 0.76, 0.3), "leather": Color(0.45, 0.3, 0.16)},
-	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "armor": Color(0.84, 0.8, 0.68), "leather": Color(0.2, 0.19, 0.2)},
+	"crimson": {"name": "Crimson", "a": Color(0.42, 0.05, 0.12), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.62, 0.1, 0.16), "leather": Color(0.24, 0.17, 0.14), "pat": 21},
+	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.28, 0.54, 0.26), "leather": Color(0.5, 0.33, 0.18), "pat": 22},
+	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.2, 0.26, 0.62), "pat": 23},
+	"ivory": {"name": "Ivory", "a": Color(0.94, 0.91, 0.83), "b": Color(0.35, 0.6, 0.95), "armor": Color(0.88, 0.88, 0.86), "leather": Color(0.62, 0.45, 0.3), "pat": 24},
+	"shadow": {"name": "Shadow", "a": Color(0.14, 0.12, 0.17), "b": Color(0.6, 0.25, 0.9), "armor": Color(0.2, 0.19, 0.23), "leather": Color(0.16, 0.14, 0.16), "pat": 25},
+	"royal": {"name": "Royal", "a": Color(0.44, 0.17, 0.7), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.55, 0.3, 0.85), "pat": 26},
+	"ember": {"name": "Ember", "a": Color(0.95, 0.45, 0.12), "b": Color(0.28, 0.16, 0.12), "armor": Color(0.88, 0.48, 0.22), "pat": 27},
+	"frost": {"name": "Frost", "a": Color(0.55, 0.85, 1.0), "b": Color(0.95, 0.97, 1.0), "armor": Color(0.6, 0.88, 1.0), "pat": 28},
+	"rose": {"name": "Rose", "a": Color(0.96, 0.68, 0.8), "b": Color(1.0, 0.9, 0.94), "armor": Color(0.96, 0.62, 0.76), "leather": Color(0.55, 0.32, 0.36), "pat": 29},
+	"sea": {"name": "Sea", "a": Color(0.1, 0.55, 0.6), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.2, 0.66, 0.68), "pat": 30},
+	"gold": {"name": "Gilded", "a": Color(0.95, 0.75, 0.25), "b": Color(1.0, 0.97, 0.9), "armor": Color(0.95, 0.76, 0.3), "leather": Color(0.45, 0.3, 0.16), "pat": 31},
+	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "armor": Color(0.84, 0.8, 0.68), "leather": Color(0.2, 0.19, 0.2), "pat": 32},
 	# Version 132, the Legend road (Mastery 12, 17 and 19): outfits with their own moving
 	# pattern, like Feat outfits ("pat", the outfit shader).
 	"diamond": {"name": "Diamond", "a": Color(0.82, 0.92, 1.0), "b": Color(0.45, 0.7, 1.0), "armor": Color(0.68, 0.83, 1.0), "leather": Color(0.36, 0.5, 0.7), "pat": 11},
@@ -79,6 +82,8 @@ const HOLDS := {
 		"heavy": {"name": "Heavy crossbow", "hide": ["1H_Crossbow"], "show": ["2H_Crossbow"]},
 		"knife": {"name": "Crossbow and knife", "show": ["Knife_Offhand"]},
 		"twin_knives": {"name": "Twin knives", "hide": ["1H_Crossbow"], "show": ["Knife", "Knife_Offhand"]},
+		"frostforged": {"name": "Frostforged crossbow", "hide": ["1H_Crossbow"], "show": ["2H_Crossbow"], "finish": "frost"},
+		"emberforged": {"name": "Emberforged knives", "hide": ["1H_Crossbow"], "show": ["Knife", "Knife_Offhand"], "finish": "ember"},
 	},
 	"knight": {
 		"badge": {"name": "Crest shield", "hide": ["Round_Shield"], "show": ["Badge_Shield"]},
@@ -86,36 +91,51 @@ const HOLDS := {
 		"tower": {"name": "Tower shield", "hide": ["Round_Shield"], "show": ["Rectangle_Shield"]},
 		"greatsword": {"name": "Greatsword", "hide": ["1H_Sword", "Round_Shield"], "show": ["2H_Sword"]},
 		"twin_swords": {"name": "Twin swords", "hide": ["Round_Shield"], "show": ["1H_Sword_Offhand"]},
+		"frostforged": {"name": "Frostforged sword and shield", "hide": ["Round_Shield"], "show": ["Badge_Shield"], "finish": "frost"},
+		"emberforged": {"name": "Emberforged greatsword", "hide": ["1H_Sword", "Round_Shield"], "show": ["2H_Sword"], "finish": "ember"},
 	},
 	"barbarian": {
 		"twin_axes": {"name": "Twin axes", "show": ["1H_Axe_Offhand"]},
 		"axe_shield": {"name": "Axe and shield", "show": ["Barbarian_Round_Shield"]},
 		"great_axe": {"name": "Great axe", "hide": ["1H_Axe"], "show": ["2H_Axe"]},
 		"tankard": {"name": "Axe and tankard", "show": ["Mug"]},
+		"frostforged": {"name": "Frostforged twin axes", "show": ["1H_Axe_Offhand"], "finish": "frost"},
+		"emberforged": {"name": "Emberforged great axe", "hide": ["1H_Axe"], "show": ["2H_Axe"], "finish": "ember"},
 	},
 	"mage": {
 		"wand": {"name": "Wand", "hide": ["2H_Staff"], "show": ["1H_Wand"]},
 		"tome": {"name": "Wand and tome", "hide": ["2H_Staff"], "show": ["1H_Wand", "Spellbook"]},
 		"open_tome": {"name": "Open spellbook", "hide": ["2H_Staff"], "show": ["1H_Wand", "Spellbook_open"]},
+		"frostforged": {"name": "Frostforged staff", "finish": "frost"},
+		"emberforged": {"name": "Emberforged wand and tome", "hide": ["2H_Staff"], "show": ["1H_Wand", "Spellbook_open"], "finish": "ember"},
 	},
+}
+
+## A weapon finish any hero can carry (EXTRA "hold", version 172): it is worn on the hero's
+## grandest weapon (the parts hidden and shown for it).
+const GRAND := {
+	"rogue": {"hide": ["1H_Crossbow"], "show": ["2H_Crossbow", "Knife_Offhand"]},
+	"knight": {"hide": ["1H_Sword", "Round_Shield"], "show": ["2H_Sword"]},
+	"barbarian": {"hide": ["1H_Axe"], "show": ["2H_Axe"]},
+	"mage": {},
 }
 
 ## Glow: the ring at the hero's feet, the glow on their edges and their shots. None is
 ## red-pink, which is what danger looks like (ShotLook.DANGER).
 const GLOWS := {
-	"emerald": {"name": "Emerald", "ring": Color(0.3, 1.0, 0.55), "bolt": Color(0.55, 1.0, 0.7)},
-	"azure": {"name": "Azure", "ring": Color(0.4, 0.68, 1.0), "bolt": Color(0.62, 0.84, 1.0)},
-	"ember": {"name": "Ember", "ring": Color(1.0, 0.52, 0.16), "bolt": Color(1.0, 0.68, 0.28)},
-	"frost": {"name": "Frost", "ring": Color(0.4, 0.94, 1.0), "bolt": Color(0.62, 1.0, 1.0)},
-	"gold": {"name": "Gold", "ring": Color(1.0, 0.82, 0.3), "bolt": Color(1.0, 0.9, 0.55)},
-	"violet": {"name": "Violet", "ring": Color(0.72, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
-	"silver": {"name": "Silver", "ring": Color(0.86, 0.9, 1.0), "bolt": Color(1.0, 1.0, 1.0)},
-	"lime": {"name": "Lime", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
+	"emerald": {"name": "Emerald", "fx": "flow", "ring": Color(0.3, 1.0, 0.55), "bolt": Color(0.55, 1.0, 0.7)},
+	"azure": {"name": "Azure", "fx": "flow", "ring": Color(0.4, 0.68, 1.0), "bolt": Color(0.62, 0.84, 1.0)},
+	"ember": {"name": "Ember", "fx": "flame", "ring": Color(1.0, 0.52, 0.16), "bolt": Color(1.0, 0.68, 0.28)},
+	"frost": {"name": "Frost", "fx": "frost", "ring": Color(0.4, 0.94, 1.0), "bolt": Color(0.62, 1.0, 1.0)},
+	"gold": {"name": "Gold", "fx": "stars", "ring": Color(1.0, 0.82, 0.3), "bolt": Color(1.0, 0.9, 0.55)},
+	"violet": {"name": "Violet", "fx": "runes", "ring": Color(0.72, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
+	"silver": {"name": "Silver", "fx": "stars", "ring": Color(0.86, 0.9, 1.0), "bolt": Color(1.0, 1.0, 1.0)},
+	"lime": {"name": "Lime", "fx": "storm", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
 	# Version 132, the Legend road (Mastery 11, 16 and 18): glows that shimmer between two
 	# colours on the hero's edges ("ring2"), bright like Feat glows.
-	"diamond": {"name": "Diamond", "ring": Color(0.8, 0.97, 1.0), "ring2": Color(0.4, 0.78, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
-	"mythic": {"name": "Mythic", "ring": Color(0.78, 0.42, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.88, 0.7, 1.0)},
-	"legend": {"name": "Legend", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
+	"diamond": {"name": "Diamond", "fx": "frost", "ring": Color(0.8, 0.97, 1.0), "ring2": Color(0.4, 0.78, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
+	"mythic": {"name": "Mythic", "fx": "runes", "ring": Color(0.78, 0.42, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.88, 0.7, 1.0)},
+	"legend": {"name": "Legend", "fx": "flame", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
 }
 
 ## Master auras: looks only one hero has, one at each of Mastery levels 8, 9 and 10. An aura
@@ -170,7 +190,7 @@ const PASS_OUTFIT := {"name": "Crypt Gold", "pass": true,
 	"gold": Color(1.0, 0.77, 0.26), "obsidian": Color(0.1, 0.075, 0.14),
 	"gold_on": {"rogue": "b", "knight": "a", "barbarian": "b", "mage": "b"}}
 const PASS_HEAD := {"name": "Crypt Crown", "hat": true, "extras": ["crypt_crown"], "pass": true}
-const PASS_GLOW := {"name": "Crypt Gold", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
+const PASS_GLOW := {"name": "Crypt Gold", "fx": "runes", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
 ## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
 ## turning gold sigil on the floor under the hero, the one thing seen from anywhere in a room.
 const PASS_AURA := {"name": "Crypt King", "pass": true, "ink": Color(1.0, 0.78, 0.22), "ink2": Color(1.0, 0.95, 0.72),
@@ -214,25 +234,31 @@ const EXTRA := {
 		"moon_crown": {"name": "Moon Crown", "hat": true, "extras": ["moon_crown"], "event": "blood_moon"},
 	},
 	"glow": {
-		"mirage": {"name": "Mirage", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
-		"inferno": {"name": "Inferno", "ring": Color(1.0, 0.42, 0.08), "bolt": Color(1.0, 0.95, 0.6), "feat": "linked"},
-		"glacier": {"name": "Glacier", "ring": Color(0.7, 0.85, 1.0), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
-		"aurora": {"name": "Aurora", "ring": Color(0.35, 1.0, 0.6), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
-		"eclipse": {"name": "Eclipse", "ring": Color(0.55, 0.25, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
-		"venom": {"name": "Venom", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
-		"abyss": {"name": "Abyss", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
+		"mirage": {"name": "Mirage", "fx": "storm", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
+		"inferno": {"name": "Inferno", "fx": "flame", "ring": Color(1.0, 0.42, 0.08), "bolt": Color(1.0, 0.95, 0.6), "feat": "linked"},
+		"glacier": {"name": "Glacier", "fx": "frost", "ring": Color(0.7, 0.85, 1.0), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
+		"aurora": {"name": "Aurora", "fx": "runes", "ring": Color(0.35, 1.0, 0.6), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
+		"eclipse": {"name": "Eclipse", "fx": "runes", "ring": Color(0.55, 0.25, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
+		"venom": {"name": "Venom", "fx": "flame", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
+		"abyss": {"name": "Abyss", "fx": "flow", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
-		"moonlight": {"name": "Moonlight", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
+		"moonlight": {"name": "Moonlight", "fx": "stars", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
 		# with a gold corona, blood-red shots.
-		"blood_eclipse": {"name": "Blood Eclipse", "ring": Color(0.55, 0.02, 0.08), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.3, 0.26), "event": "blood_moon", "hunt": true},
-		"candle": {"name": "Candlelight", "ring": Color(1.0, 0.86, 0.55), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
-		"sulfur": {"name": "Sulfur", "ring": Color(1.0, 0.95, 0.2), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
-		"spectral": {"name": "Spectral", "ring": Color(0.45, 1.0, 0.85), "ring2": Color(0.9, 1.0, 1.0), "bolt": Color(0.75, 1.0, 0.95), "bazaar": 600},
-		"sapphire": {"name": "Sapphire", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(0.6, 0.85, 1.0), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
+		"blood_eclipse": {"name": "Blood Eclipse", "fx": "flame", "ring": Color(0.55, 0.02, 0.08), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.3, 0.26), "event": "blood_moon", "hunt": true},
+		"candle": {"name": "Candlelight", "fx": "flame", "ring": Color(1.0, 0.86, 0.55), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
+		"sulfur": {"name": "Sulfur", "fx": "storm", "ring": Color(1.0, 0.95, 0.2), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
+		"spectral": {"name": "Spectral", "fx": "runes", "ring": Color(0.45, 1.0, 0.85), "ring2": Color(0.9, 1.0, 1.0), "bolt": Color(0.75, 1.0, 0.95), "bazaar": 600},
+		"sapphire": {"name": "Sapphire", "fx": "frost", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(0.6, 0.85, 1.0), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
 		# Crypt Race glows: Photon (electric white-cyan), Afterburn (flame orange to jet blue).
-		"photon": {"name": "Photon", "ring": Color(0.35, 0.95, 1.0), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.75, 1.0, 1.0), "race": 100},
-		"afterburn": {"name": "Afterburn", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
+		"photon": {"name": "Photon", "fx": "storm", "ring": Color(0.35, 0.95, 1.0), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.75, 1.0, 1.0), "race": 100},
+		"afterburn": {"name": "Afterburn", "fx": "flame", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
+	},
+	# Weapon finishes sold in the Bone Bazaar (version 172): the hero's grandest weapon in
+	# polished gold, or in night-violet steel with stars in it.
+	"hold": {
+		"gilded": {"name": "Gilded arms", "finish": "gold", "bazaar": 900},
+		"voidsteel": {"name": "Voidsteel arms", "finish": "void", "bazaar": 1300},
 	},
 	"aura": {
 		"quickstep": {"name": "Quickstep", "ink": Color(1.0, 0.9, 0.3), "spark": Color(1.0, 0.95, 0.6), "motif": "quick", "feat": "rusher"},
@@ -306,7 +332,7 @@ const PER_LEVEL := 3
 ## The Legend road (version 132): one look at each of these Mastery levels for every hero,
 ## besides each hero's own auras at 15 and 20 (AURAS). Levels 13 and 14 give a title, Bone
 ## Drops and Lucky Starts instead.
-const LEGEND := {11: ["glow", "diamond"], 12: ["outfit", "diamond"], 16: ["glow", "mythic"],
+const LEGEND := {11: ["glow", "diamond"], 12: ["outfit", "diamond"], 13: ["hold", "frostforged"], 14: ["hold", "emberforged"], 16: ["glow", "mythic"],
 	17: ["outfit", "mythic"], 18: ["glow", "legend"], 19: ["outfit", "legend"]}
 
 
@@ -494,6 +520,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	var glow: Dictionary = PASS_GLOW if is_pass(p.get("glow", "")) else GLOWS.get(p.get("glow", ""), extra("glow", p.get("glow", "")))
 	if not glow.is_empty():
 		d.ring = glow.ring
+		d.ring_fx = str(glow.get("fx", "flow"))
 		d.bolt_color = glow.bolt
 		# Feat, Bone Drop and Pass glows shine brighter and wider on the hero's edges, so the
 		# player can see what they won (version 119: the Eclipse reveal showed a faint rim).
@@ -542,9 +569,18 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	var wizard: bool = (id == "mage" and head.get("hat", true)) or p.get("head", "") == "wizard"
 	style.hat_h = 0.8 if wizard else 0.42
 	var hold: Dictionary = HOLDS.get(id, {}).get(p.get("hold", ""), {})
+	var xh := extra("hold", p.get("hold", ""))
+	if not xh.is_empty():
+		hold = GRAND.get(id, {}).duplicate()
+		hold.finish = xh.finish
 	if not hold.is_empty():
 		style.hide.append_array(hold.get("hide", []))
 		style.show = hold.get("show", [])
+	# The weapon's material (LookFx.weapon): its finish, and a worn Glow's colour running
+	# along it (version 172: a Glow was only a ring and a faint edge light).
+	style.finish = str(hold.get("finish", ""))
+	if not glow.is_empty():
+		style.enchant = glow.ring
 	d.style = style
 	var aura: Dictionary = PASS_AURA if is_pass(p.get("aura", "")) else AURAS.get(id, {}).get(p.get("aura", ""), extra("aura", p.get("aura", "")))
 	if not aura.is_empty():
@@ -583,24 +619,55 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 			n.visible = true
 	Art.hide_parts(model, style.get("hide", []))
 	for part: Array in style.get("borrow", []):
-		_borrow(skel, str(part[0]), str(part[1]), id)
+		_borrow(skel, str(part[0]), str(part[1]), id, style)
 	var outfit: Dictionary = style.get("outfit", {})
 	if not outfit.is_empty():
 		_recolour(skel, id, outfit)
+	if str(style.get("finish", "")) != "" or style.has("enchant"):
+		_arm(skel, str(style.get("finish", "")), style.get("enchant"))
 	for extra: String in style.get("extras", []):
 		_extra(skel, id, extra, bool(style.get("hat", false)), float(style.get("hat_h", 0.45)), style)
+
+
+## Everything in the hero's hands takes the weapon material (LookFx.weapon).
+static func _arm(skel: Skeleton3D, finish: String, glow: Variant) -> void:
+	for c in skel.get_children():
+		var att := c as BoneAttachment3D
+		if att == null or not str(att.bone_name).begins_with("handslot"):
+			continue
+		for w in att.get_children():
+			var mi := w as MeshInstance3D
+			if mi and mi.mesh:
+				var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
+				if src and src.albedo_texture:
+					mi.material_override = LookFx.weapon(src, finish, glow)
 
 
 ## A part (hat, cape, weapon) from another hero's model, worn on this skeleton on the same
 ## bone (in the models they hang from the head, chest and hand bones). A hat made for a
 ## smaller head grows to fit (the Knight's head is the biggest: his head would poke through).
-static func _borrow(skel: Skeleton3D, model_key: String, part: String, id := "") -> void:
+static func _borrow(skel: Skeleton3D, model_key: String, part: String, id := "", style := {}) -> void:
 	var p := _part(model_key, part)
 	if p.is_empty():
 		return
 	var mi := MeshInstance3D.new()
 	mi.mesh = p.mesh
 	mi.material_override = p.material
+	# Version 172: a borrowed wizard's hat is dyed to match its wearer (the outfit worn, or
+	# the hero's own colour), not left the Mage's purple.
+	if part == "Mage_Hat":
+		var src := (p.mesh as Mesh).surface_get_material(0) as BaseMaterial3D
+		var o: Dictionary = style.get("outfit", {})
+		var cloth = o.get("b" if id == "knight" else "a")
+		if o.get("gold", "") != "":
+			cloth = PASS_OUTFIT.obsidian
+		if cloth == null:
+			cloth = CLASSIC_OUTFIT.get(id, Color(0.45, 0.4, 0.7))
+		if src and src.albedo_texture:
+			var dye := {"a": cloth, "b": null}
+			if o.has("pat"):
+				dye.pat = o.pat
+			mi.material_override = _material("mage", dye, src)
 	mi.name = "Borrowed_" + part
 	mi.transform = p.transform
 	var grow := float(HEAD_TOP.get(id, 0.74)) / float(HEAD_TOP.get(model_key.to_lower(), 0.74))
@@ -695,6 +762,8 @@ static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> Sh
 		m.set_shader_parameter(k + "_gold", 1.0 if outfit.get("gold", "") == k else 0.0)
 		m.set_shader_parameter(k + "_dark", 1.0 if outfit.has("gold") and outfit.get("gold", "") != k else 0.0)
 	m.set_shader_parameter("pat", int(outfit.get("pat", 0)))
+	# The Knight's recoloured armour is metal, not painted plastic (version 172).
+	m.set_shader_parameter("b_metal", 0.55 if id == "knight" else 0.0)
 	_mats[key] = m
 	return m
 
@@ -710,7 +779,7 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			_crown(att, id, y, hat)
 		"crypt_crown":
 			att.add_child(CryptCrown.make(id, y, hat))
-		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown", "moon_crown":
+		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown", "moon_crown", "horns", "halo":
 			att.add_child(FeatHeads.make(kind, id, y, hat, style))
 		"mage_hood":
 			var o: Dictionary = style.get("outfit", {})
@@ -720,29 +789,6 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 				cloth = PASS_OUTFIT.obsidian
 				trim = PASS_OUTFIT.gold
 			att.add_child(MageHood.make(cloth, trim, style.get("eye", Color(0.6, 0.8, 1.0))))
-		"horns":
-			var bone := U.mat(Color(0.9, 0.86, 0.76), 0.6)
-			var k := 1.0   # size
-			if hat and id != "rogue":
-				y += 0.12   # on a helmet or hat
-			if hat and id == "mage":
-				k = 1.7   # bigger and higher, so they clear the wide brim when seen from above
-				y += 0.14
-			for side in [-1, 1]:
-				var horn := U.capsule(att, 0.07 * k, 0.5 * k, bone, Vector3(side * 0.42 * k, y - 0.3 * k, 0))
-				horn.rotation.z = side * -0.9
-				var tip := U.capsule(att, 0.05 * k, 0.3 * k, bone, Vector3(side * 0.62 * k, y - 0.06 * k, 0))
-				tip.rotation.z = side * -0.25
-		"halo":
-			var torus := TorusMesh.new()
-			torus.inner_radius = 0.42
-			torus.outer_radius = 0.5
-			var ring := MeshInstance3D.new()
-			ring.mesh = torus
-			ring.material_override = U.unlit(Color(1.0, 0.85, 0.4) * 1.6)
-			ring.position = Vector3(0, y + (hat_h if hat else 0.2), 0)
-			ring.scale = Vector3(1, 0.5, 1)
-			att.add_child(ring)
 
 
 ## The Master's crown (level 10), like the one on the app icon: a flared gold band set with
@@ -812,6 +858,7 @@ uniform float a_dark = 0.0;
 uniform float b_dark = 0.0;
 // A Feat or Bone Drop outfit's animated pattern (EXTRA "pat"; 0 = none).
 uniform int pat = 0;
+uniform float b_metal = 0.0;
 varying vec3 wpos;
 varying vec3 opos;
 varying vec3 mpos;
@@ -887,8 +934,12 @@ void fragment() {
 	vec3 o = swap(c, hsv, a_src, a_ref, a_dst, ma);
 	o = swap(o, hsv, b_src, b_ref, b_dst, mb);
 	ALBEDO = o;
-	ROUGHNESS = rough;
-	METALLIC = metal;
+	ROUGHNESS = mix(rough, 0.34, mb * b_metal);
+	METALLIC = mix(metal, 1.0, mb * b_metal * 0.9);
+	// Version 172: a soft sheen at the edges of dyed cloth and armour, so an outfit has some
+	// depth to it instead of one flat colour.
+	float sheen = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+	EMISSION = o * sheen * 0.45 * clamp(ma + mb, 0.0, 1.0);
 	// <fancy>
 	float g = ma * a_gold + mb * b_gold;
 	float k = ma * a_dark + mb * b_dark;
@@ -907,7 +958,7 @@ void fragment() {
 		ROUGHNESS = mix(ROUGHNESS, 0.28, g + k * 0.6);
 		METALLIC = mix(METALLIC, 0.7, g);
 		ALBEDO = mix(ALBEDO, vec3(1.0, 0.72, 0.22), k * vein * 0.8);
-		EMISSION = vec3(1.0, 0.72, 0.24) * g * (0.22 + edge * 0.85)
+		EMISSION += vec3(1.0, 0.72, 0.24) * g * (0.22 + edge * 0.85)
 			+ vec3(1.0, 0.94, 0.75) * band * (g * 1.5 + k * 0.6)
 			+ vec3(1.0, 0.62, 0.16) * k * vein * 1.1
 			+ vec3(0.55, 0.35, 0.9) * k * edge * 0.45;
@@ -919,7 +970,90 @@ void fragment() {
 		vec3 q = mpos * 0.62;
 		vec3 em = vec3(0.0);
 		vec3 al = ALBEDO;
-		if (pat == 1) {
+		float met = 0.0;
+		float ang = atan(mpos.x, mpos.z);
+		vec3 gold = vec3(1.0, 0.8, 0.34);
+		if (pat == 21) {
+			// Crimson: velvet with a gold-thread lattice of diamonds.
+			vec2 uv = vec2(ang * 1.9, q.y * 4.6);
+			float dia = abs(fract(uv.x + uv.y) - 0.5) + abs(fract(uv.x - uv.y) - 0.5);
+			float line = 1.0 - smoothstep(0.03, 0.1, abs(dia - 0.5));
+			float gem = 1.0 - smoothstep(0.0, 0.1, dia);
+			al = mix(al, gold, line * 0.6 + gem * 0.8);
+			em = gold * (line * 0.22 * (0.7 + 0.3 * sin(TIME * 2.0 + q.y * 4.0)) + gem * 0.5 + edge * 0.25);
+		} else if (pat == 22) {
+			// Forest: overlapping leaf scales, lighter at each tip.
+			vec2 uv = vec2(ang * 2.9, q.y * 6.5);
+			uv.x += 0.5 * floor(uv.y);
+			vec2 f = fract(uv) - vec2(0.5, 1.0);
+			float d = length(f);
+			float rimline = 1.0 - smoothstep(0.0, 0.07, abs(d - 0.52));
+			al = mix(al * (0.72 + 0.5 * (1.0 - fract(uv.y))), al * 0.4, rimline * 0.8);
+			em = vec3(0.45, 1.0, 0.5) * edge * 0.32;
+		} else if (pat == 23) {
+			// Midnight: a night sky, stars coming and going.
+			float st = twinkle(q * 5.0, 0.18, 2.5) + twinkle(q * 9.0 + 2.3, 0.1, 4.0) * 0.7;
+			al = mix(al, al * 0.7, 0.5);
+			em = vec3(0.88, 0.92, 1.0) * st * 2.6 + vec3(0.3, 0.45, 1.0) * edge * 0.65;
+		} else if (pat == 24) {
+			// Ivory: mother-of-pearl, with bands of gold filigree.
+			vec3 iri = hsv2rgb(vec3(fract(edge * 0.9 + q.y * 0.35 + TIME * 0.05), 0.3, 1.0));
+			float d = abs(fract(q.y * 2.3 + 0.06 * sin(ang * 8.0)) - 0.5);
+			float band = 1.0 - smoothstep(0.02, 0.06, d);
+			al = mix(al * mix(vec3(1.0), iri, 0.55), gold, band * 0.8);
+			em = iri * edge * 0.3 + gold * band * 0.18;
+		} else if (pat == 25) {
+			// Shadow: smoke curling up the cloth, violet at the edges.
+			float n = fbm(q * 1.8 + vec3(0.0, -TIME * 0.4, 0.0));
+			al = mix(al, al * 0.45, n);
+			em = vec3(0.58, 0.26, 0.98) * (smoothstep(0.5, 0.78, n) * 0.55 + edge * 0.95);
+		} else if (pat == 26) {
+			// Royal: gold pinstripes and a gleam running up them.
+			float stripe = 1.0 - smoothstep(0.05, 0.12, abs(fract(ang * 2.4) - 0.5));
+			float sweep = pow(max(0.0, sin(q.y * 2.4 - TIME * 2.0)), 10.0);
+			al = mix(al, gold, stripe * 0.8);
+			em = gold * (stripe * (0.16 + sweep * 0.9) + edge * 0.3);
+		} else if (pat == 27) {
+			// Ember: banked coals glowing through the cloth.
+			float n = fbm(q * 2.2 + vec3(0.0, -TIME * 0.25, 0.0));
+			float hot = smoothstep(0.48, 0.78, n);
+			al = mix(al * 0.72, vec3(1.0, 0.78, 0.3), hot * 0.6);
+			em = vec3(1.0, 0.4, 0.08) * (hot * 0.95 * (0.8 + 0.2 * sin(TIME * 5.0 + q.x * 6.0)) + edge * 0.5);
+		} else if (pat == 28) {
+			// Frost: hoarfrost creeping over the cloth, and glints.
+			float n = vnoise(q * 6.0) * 0.6 + vnoise(q * 13.0) * 0.4;
+			float sp = twinkle(q * 7.0 + floor(TIME * 1.5) * 0.3, 0.1, 5.0);
+			al = mix(al, vec3(1.0), smoothstep(0.52, 0.75, n) * 0.7);
+			em = vec3(0.6, 0.9, 1.0) * edge * 0.6 + vec3(1.0) * sp * 2.2;
+		} else if (pat == 29) {
+			// Rose: pale petals scattered over it.
+			vec2 uv = vec2(ang * 2.4, q.y * 5.2);
+			uv.x += 0.5 * floor(uv.y);
+			vec2 f = fract(uv) - 0.5;
+			float petal = 1.0 - smoothstep(0.16, 0.24, length(f * vec2(1.0, 1.5) + vec2(0.0, 0.1 * sin(f.x * 6.0))));
+			al = mix(al, vec3(1.0, 0.96, 0.98), petal * 0.75);
+			em = vec3(1.0, 0.75, 0.86) * edge * 0.38;
+		} else if (pat == 30) {
+			// Sea: waves rolling round the cloth with lines of foam.
+			float wv = sin(q.y * 9.0 + sin(ang * 3.0 + TIME * 1.2) * 1.2 - TIME * 0.8);
+			float foam = smoothstep(0.82, 1.0, wv);
+			al = mix(al, al * 0.6, smoothstep(0.2, -1.0, wv) * 0.5);
+			al = mix(al, vec3(0.86, 1.0, 1.0), foam * 0.75);
+			em = vec3(0.3, 0.92, 0.9) * (foam * 0.3 + edge * 0.42);
+		} else if (pat == 31) {
+			// Gilded (Mastery 10): polished gold, a gleam running up it and glints.
+			float sweep = pow(max(0.0, sin(q.y * 2.5 + q.x - TIME * 2.2)), 14.0);
+			float sp = twinkle(q * 8.0 + floor(TIME * 2.5) * 0.27, 0.08, 7.0);
+			met = 1.0;
+			al = al * vec3(1.05, 0.95, 0.7);
+			em = vec3(1.0, 0.72, 0.25) * (0.14 + edge * 0.7) + vec3(1.0, 0.96, 0.8) * (sweep * 0.9 + sp * 2.2);
+		} else if (pat == 32) {
+			// Bone: cracked plates with ribs across them.
+			float cracks = 1.0 - smoothstep(0.015, 0.05, abs(fbm(q * 2.6) - 0.5));
+			float ribs = 1.0 - smoothstep(0.05, 0.1, abs(fract(q.y * 3.0) - 0.5));
+			al = mix(al, vec3(0.2, 0.17, 0.15), max(cracks * 0.8, ribs * 0.4));
+			em = vec3(1.0, 0.95, 0.85) * edge * 0.22;
+		} else if (pat == 1) {
 			// Ghostwalk: pale and see-through-looking, cold light at the edges and wisps rising.
 			float n = fbm(q * 1.6 + vec3(0.0, -TIME * 0.7, 0.0));
 			float wisp = smoothstep(0.46, 0.72, n);
@@ -1012,7 +1146,6 @@ void fragment() {
 			// Mythic (Mastery 17): deep violet cloth, thin rings of light rising round the hero
 			// with runes glowing between them, violet turning to cyan. (The first try's wide
 			// bright bands and blocks read as a checked shirt.)
-			float ang = atan(mpos.x, mpos.z);
 			float y = q.y * 2.2 - TIME * 0.45;
 			float d = abs(fract(y) - 0.5);
 			float ring = 1.0 - smoothstep(0.015, 0.045, d);
@@ -1025,7 +1158,6 @@ void fragment() {
 		} else if (pat == 13) {
 			// Legend (Mastery 19): a sun's rays turning round the hero in red-gold, embers
 			// rising through them.
-			float ang = atan(mpos.x, mpos.z);
 			float rays = pow(0.5 + 0.5 * sin(ang * 6.0 + TIME * 1.2), 6.0) * (0.6 + 0.4 * sin(q.y * 3.0 - TIME * 2.0));
 			float up = twinkle(q * 5.0 + vec3(0.0, -TIME * 1.2, 0.0), 0.1, 3.0);
 			al = mix(al, vec3(0.55, 0.1, 0.05), 0.35);   // deep crimson under the gold light
@@ -1050,7 +1182,6 @@ void fragment() {
 			// orange speed streaks shooting back round the hero, and a chevron stripe down the
 			// middle. Crystal Sprint: the same streaks in ice blue over deep navy, with crystal
 			// glints riding them.
-			float ang = atan(mpos.x, mpos.z);
 			vec3 hot = pat == 15 ? vec3(1.0, 0.48, 0.08) : vec3(0.35, 0.92, 1.0);
 			vec3 tip = pat == 15 ? vec3(1.0, 0.9, 0.55) : vec3(0.9, 1.0, 1.0);
 			float lane = floor(q.y * 6.0);
@@ -1067,6 +1198,8 @@ void fragment() {
 		}
 		ALBEDO = mix(ALBEDO, al, w);
 		EMISSION += em * w;
+		METALLIC = mix(METALLIC, 0.78, met * w);
+		ROUGHNESS = mix(ROUGHNESS, 0.24, met * w);
 	}
 	// </fancy>
 }

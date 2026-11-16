@@ -123,7 +123,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	parent.add_child(h)
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
-	h._build_feet_marker(def.ring)
+	h._build_feet_marker(def.ring, def.get("ring2"), str(def.get("ring_fx", "flow")))
 	if HeroMastery.has_frame(cfg, def.id):
 		h._build_gold_ring(HeroMastery.frame_color(HeroMastery.level(cfg, def.id)))   # Hero Mastery level 10 (+ tiers)
 		h._master = true
@@ -704,21 +704,13 @@ func _build_aura() -> void:
 
 ## A dark disc with a ring in the hero's own colour at their feet, so you can always find
 ## your hero from above, even in a crowd of skeletons on a bright floor.
-func _build_feet_marker(col: Color) -> void:
+func _build_feet_marker(col: Color, col2: Variant = null, fx := "flow") -> void:
 	var disc := U.cylinder(self, 0.6, 0.01, U.unlit(Color(0, 0, 0, 0.4)), Vector3(0, 0.02, 0))
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_rings.append(disc)
-	var torus := TorusMesh.new()
-	torus.inner_radius = 0.5
-	torus.outer_radius = 0.6
-	torus.rings = 32
-	torus.ring_segments = 4
-	var ring := MeshInstance3D.new()
-	ring.mesh = torus
-	ring.material_override = U.unlit(Color(col, 0.95))
-	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Version 172: a ring of light with its Glow's own shape (LookFx.ring), not a flat hoop.
+	var ring := LookFx.ring(col, col2, fx)
 	ring.position = Vector3(0, 0.04, 0)
-	ring.scale = Vector3(1, 0.12, 1)
 	add_child(ring)
 	_rings.append(ring)
 
@@ -754,6 +746,12 @@ func _build_motif() -> void:
 	var p := Fx.motif(str(_master_aura.get("motif", "wisps")), _master_aura.get("spark", Color.WHITE), 1.4)   # bigger: seen from far above
 	add_child(p)
 	_rings.append(p)
+	# Version 172: a column of light rising round the hero in the aura's colours.
+	var ink0: Color = _master_aura.get("ink", Color.WHITE)
+	var sh := LookFx.shell_for(_master_aura)
+	var shell := LookFx.shell(ink0, _master_aura.get("ink2", _master_aura.get("spark", ink0)), 0.22 * float(sh[0]), int(sh[1]), 0.95, 1.9)
+	add_child(shell)
+	_rings.append(shell)
 	# Its shape on the floor (not the Crypt King's, which has its own sigil).
 	if not _master_aura.get("sigil", false):
 		var ink: Color = _master_aura.get("ink", Color.WHITE)
