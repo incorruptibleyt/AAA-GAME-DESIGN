@@ -244,7 +244,7 @@ const EXTRA := {
 		"venom": {"name": "Venom", "fx": "beads", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
 		"abyss": {"name": "Abyss", "fx": "wave", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
-		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
+		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.84, 0.5), "ring2": Color(1.0, 0.52, 0.14), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
 		# with a gold corona, blood-red shots.
 		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
@@ -273,7 +273,7 @@ const EXTRA := {
 		"fireflies": {"name": "Fireflies", "ink": Color(0.85, 1.0, 0.3), "spark": Color(0.95, 1.0, 0.45), "motif": "fireflies", "drop": 3},
 		# The set's crown jewel: a blood-red outline pulsing to gold, a swarm of little bats
 		# circling the hero, and a blood moon on the floor under them.
-		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.36, 0.08), "ink2": Color(1.0, 0.72, 0.3), "spark": Color(1.0, 0.46, 0.14), "motif": "bats", "shine": true, "event": "blood_moon"},
+		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.58, 0.12), "ink2": Color(1.0, 0.8, 0.36), "spark": Color(1.0, 0.66, 0.2), "motif": "bats", "shine": true, "event": "blood_moon"},
 		"wisp": {"name": "Will-o'-Wisp", "ink": Color(0.35, 0.75, 1.0), "ink2": Color(0.6, 1.0, 0.95), "spark": Color(0.6, 0.9, 1.0), "motif": "fireflies", "bazaar": 1500},
 		"golden_souls": {"name": "Golden Souls", "ink": Color(1.0, 0.66, 0.2), "ink2": Color(0.55, 0.9, 1.0), "spark": Color(1.0, 0.86, 0.5), "motif": "souls", "bazaar": 1500},
 		# Crypt Race auras: a comet's tail of teal glints streaming behind the hero, and the Bone

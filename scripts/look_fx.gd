@@ -180,14 +180,16 @@ static func aura_fx(aura: Dictionary, stage := false) -> Node3D:
 	if stage:
 		root.add_child(shell(ink, ink2, 0.46 * k, int(sh[1]), 0.9, 2.3 + 0.15 * g))
 	else:
-		root.add_child(shell(ink, ink2, 0.15 * k, int(sh[1]), 0.95, 1.9))
+		root.add_child(shell(ink, ink2, 0.09 * k, int(sh[1]), 0.95, 1.9))   # (v197: 0.15; the shared egg-shaped shell was the loudest part of every aura)
 	if not aura.get("sigil", false):
 		# (Version 182: smaller and fainter in a run. Its rings and stars on the floor round
 		# the hero's feet looked like an enemy's attack warning.)
-		var mk := mark(aura, (0.75 + 0.05 * g) if stage else (0.42 + 0.03 * g), 1.0 if stage else 0.85, g >= 3 and stage)
+		var mk := mark(aura, (0.75 + 0.05 * g) if stage else (0.3 + 0.02 * g), 1.0 if stage else 0.85, g >= 3 and stage)
 		mk.position = Vector3(0, 0.034, 0)
 		root.add_child(mk)
-	if g >= 2:
+	# (Version 197: no spreading wave in a run. A ring growing on the floor round the hero is
+	# what an enemy's attack warning looks like.)
+	if g >= 2 and stage:
 		var w := wave(ink, ink2, (0.6 + 0.1 * g) * (1.0 if stage else 0.35), 2 if g >= 4 else 1, 1.5 if stage else 1.0, 0.6 if stage else 0.9)
 		w.position = Vector3(0, 0.03, 0)
 		root.add_child(w)
