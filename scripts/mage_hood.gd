@@ -8,6 +8,8 @@ extends Node3D
 const SEGS := 40
 
 static var _shader: Shader
+static var _cowl_mesh: ArrayMesh   # built once (v202): the shape never depends on colour
+static var _mantle_mesh: ArrayMesh
 
 
 ## The hood in `cloth` with `trim` round the opening and `eyes` glowing inside.
@@ -34,15 +36,20 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 	m.set_shader_parameter("cloth", cloth)
 	m.set_shader_parameter("trim", trim)
 	var mi := MeshInstance3D.new()
-	mi.mesh = _cowl()
+	if _cowl_mesh == null:
+		_cowl_mesh = _cowl()
+	mi.mesh = _cowl_mesh
 	mi.material_override = m
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
-	# Version 201: a mantle over the shoulders, cut into eight long points edged in the trim.
+	# Version 201: a mantle over the shoulders, cut into points edged in the trim (v202: six
+	# broad rounded points, longest at the back; eight thin ones read as a spiked mine).
 	# From the run's camera (above and behind) the hood was one round ball whatever was
 	# painted on it; the points make a star round the head no other hat has.
 	var mm := MeshInstance3D.new()
-	mm.mesh = _mantle()
+	if _mantle_mesh == null:
+		_mantle_mesh = _mantle()
+	mm.mesh = _mantle_mesh
 	mm.material_override = m
 	mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mm)
@@ -155,7 +162,7 @@ func _cowl() -> ArrayMesh:
 ## points that hang a little lower than the hem between them. UV.x is kept past the face
 ## opening (nothing cut), UV.y runs down to the hem (the shader's trim band), UV2.x past the
 ## seam.
-const POINTS := 8
+const POINTS := 6
 const MANTLE_ROWS := 6
 
 func _mantle() -> ArrayMesh:
@@ -166,11 +173,14 @@ func _mantle() -> ArrayMesh:
 		var v := float(i) / MANTLE_ROWS
 		for j in segs + 1:
 			var lon := float(j) / segs * TAU
-			# 0 between two points, 1 at a point's tip (sharp, not a wave)
+			# 0 between two points, 1 at a point's tip (broad, rounded at the tip). (v202: six
+			# points, not eight, the back one longest and the front ones short, so the shape
+			# shows which way the hero faces; eight even points read as a spiked mine.)
 			var tip := 1.0 - absf(fmod(float(j) / 8.0, 1.0) * 2.0 - 1.0)
-			tip = pow(tip, 1.6)
-			var r := lerpf(0.66, 1.02 + 0.4 * tip, v)
-			var y := lerpf(-0.24, -0.5 - 0.2 * tip, v) - 0.1 * v * v
+			tip = smoothstep(0.0, 1.0, tip)
+			var reach := 0.35 + 0.65 * (0.5 - 0.5 * cos(lon - PI) * -1.0)   # 1 at the back, 0.35 at the front
+			var r := lerpf(0.66, 0.98 + 0.42 * tip * reach, v)
+			var y := lerpf(-0.24, -0.42 - 0.16 * tip * reach, v) - 0.06 * v * v
 			var pos := Vector3(sin(lon) * r, y, cos(lon) * r * 1.05 - 0.04)
 			st.set_uv(Vector2(10.0, lerpf(0.72, 1.0, v)))
 			st.set_uv2(Vector2(1.0, 0.0))

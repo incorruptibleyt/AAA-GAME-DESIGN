@@ -725,13 +725,14 @@ void fragment() {
 		float fire = vnoise(vec3(mpos.x * 5.0, along * 3.0 - TIME * 2.2, mpos.z * 5.0));
 		// (v201: the fire only licks the edges; the body is opaque obsidian. Teal all over
 		// read as ice or glass.)
-		float tongue = smoothstep(0.42, 0.7, fire) * smoothstep(0.08, 0.45, edge);
-		al = mix(vec3(0.07, 0.05, 0.1), vec3(0.24, 0.17, 0.3), lum);
+		// (v202: a teal band just inside the gold rim, so it never lands on the gold and muddies it.)
+		float tongue = smoothstep(0.42, 0.7, fire) * smoothstep(0.15, 0.35, edge) * (1.0 - smoothstep(0.4, 0.6, edge));
+		al = mix(vec3(0.08, 0.08, 0.12), vec3(0.26, 0.24, 0.32), lum);
 		al = mix(al, vec3(1.0, 0.8, 0.3), smoothstep(0.25, 0.6, edge));
-		al = mix(al, vec3(0.1, 0.75, 0.6), tongue * 0.7);
+		al = mix(al, vec3(0.1, 0.75, 0.6), tongue * 0.45);
 		me = 0.6;
 		ro = 0.25;
-		em = vec3(1.0, 0.74, 0.24) * smoothstep(0.2, 0.7, edge) * 0.9 + vec3(0.1, 1.0, 0.78) * tongue * 1.3 + vec3(0.8, 1.0, 0.95) * sweep * 0.7;
+		em = vec3(1.0, 0.74, 0.24) * smoothstep(0.2, 0.7, edge) * 0.9 + vec3(0.1, 1.0, 0.78) * tongue * 0.8 + vec3(0.8, 1.0, 0.95) * sweep * 0.7;
 	}
 	if (book.a > 0.5 && finish == 0) {
 		// The Mage's spellbook: a leather cover in the outfit's colour (it was always pink),
