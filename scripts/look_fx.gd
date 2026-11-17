@@ -23,6 +23,18 @@ static var _wave_shader: Shader
 static var _orb_shader: Shader
 static var _orb_mesh: SphereMesh
 static var _burst_shader: Shader
+static var _mark_shader: Shader
+## Each aura's own mark on the floor (version 179), by its name: [shape, how many].
+## Shapes: 0 polygon, 1 star, 2 spiral, 3 rays, 4 crescents, 5 dots, 6 zigzag ring.
+const MARKS := {
+	"Nightshade": [4, 2], "Venom": [2, 3], "Shadow King": [1, 5], "Duskblade": [3, 4], "Nightlord": [4, 3],
+	"Sunguard": [3, 8], "Stormplate": [0, 6], "Paladin": [0, 4], "Dawnshield": [1, 4], "Lionheart": [6, 12],
+	"Wildfire": [6, 7], "Thunder": [0, 3], "Warlord": [5, 5], "Stormrage": [2, 2], "Worldbreaker": [3, 6],
+	"Starfire": [1, 6], "Arcane Frost": [1, 8], "Archmage": [0, 5], "Voidweave": [2, 4], "Starsage": [5, 8],
+	"Quickstep": [3, 3], "Arcane": [0, 8], "Stormcaller": [6, 5], "Phantom": [4, 4], "Sunflare": [3, 12],
+	"Snowfall": [5, 6], "Bubbles": [5, 3], "Fireflies": [5, 4], "Blood Moon": [4, 1], "Will-o'-Wisp": [2, 1],
+	"Golden Souls": [6, 9], "Comet": [2, 5], "Bone King Comet": [1, 3],
+}
 static var _weapon_mats := {}
 static var _shell_mesh: CylinderMesh
 
@@ -111,6 +123,33 @@ static func wave(ink: Color, ink2: Color, power := 1.0, rings := 1, radius := 1.
 	return mi
 
 
+## An aura's own mark on the floor round the hero (version 179): a thin turning shape of
+## light, a different one for every aura (MARKS). From the camera above every aura used to
+## be the same ring and haze in another colour. `grand` adds a second, smaller one inside
+## turning the other way.
+static func mark(aura: Dictionary, power := 1.0, radius := 1.3, grand := false) -> MeshInstance3D:
+	if _mark_shader == null:
+		_mark_shader = Shader.new()
+		_mark_shader.code = MARK
+	var name := str(aura.get("name", ""))
+	var shape: Array = MARKS.get(name, [name.hash() % 7, 3 + (name.hash() / 7) % 6])
+	var m := ShaderMaterial.new()
+	m.shader = _mark_shader
+	m.set_shader_parameter("ink", aura.get("ink", Color.WHITE))
+	m.set_shader_parameter("ink2", aura.get("ink2", aura.get("spark", aura.get("ink", Color.WHITE))))
+	m.set_shader_parameter("power", power)
+	m.set_shader_parameter("kind", int(shape[0]))
+	m.set_shader_parameter("n", float(shape[1]))
+	m.set_shader_parameter("grand", 1.0 if grand else 0.0)
+	var q := PlaneMesh.new()
+	q.size = Vector2(radius * 2.0, radius * 2.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+
 ## How grand an aura is, 1 to 4 (version 174): what it adds to the column of light.
 ##  1 = the column (Mastery 8 and 9, Bone Drops)       2 = + waves on the floor (Mastery 10, Feats)
 ##  3 = + two lights circling the hero (Mastery 15, Bazaar, Race)
@@ -135,20 +174,27 @@ static func aura_fx(aura: Dictionary, stage := false) -> Node3D:
 	var g := grade(aura)
 	var sh := shell_for(aura)
 	var k := (0.7 + 0.1 * g) * float(aura.get("soft", 1.0))
+	# (Version 179: in a run the column, waves and circling lights are fainter and the floor
+	# sunburst is gone. They read as the same haze for every aura and fogged the floor,
+	# where the enemies' warnings are. The aura's own mark() is what tells it apart.)
 	if stage:
 		root.add_child(shell(ink, ink2, 0.46 * k, int(sh[1]), 0.9, 2.3 + 0.15 * g))
 	else:
-		root.add_child(shell(ink, ink2, 0.24 * k, int(sh[1]), 0.95, 1.9))
+		root.add_child(shell(ink, ink2, 0.15 * k, int(sh[1]), 0.95, 1.9))
+	if not aura.get("sigil", false):
+		var mk := mark(aura, (0.75 if stage else 0.9) + 0.05 * g, 1.0 if stage else 1.3, g >= 3)
+		mk.position = Vector3(0, 0.034, 0)
+		root.add_child(mk)
 	if g >= 2:
-		var w := wave(ink, ink2, 0.6 + 0.1 * g, 2 if g >= 4 else 1, 1.5, 0.6 if stage else 0.9)
+		var w := wave(ink, ink2, (0.6 + 0.1 * g) * (1.0 if stage else 0.55), 2 if g >= 4 else 1, 1.5, 0.6 if stage else 0.9)
 		w.position = Vector3(0, 0.03, 0)
 		root.add_child(w)
 	if g >= 3:
 		var n := 3 if g >= 4 else 2
 		for i in n:
-			root.add_child(orb(ink2 if i % 2 == 0 else ink, 0.82 if stage else 0.95, 0.55 if stage else 1.25, TAU * i / n, 2.1, 0.15 if stage else 0.26))
-	if g >= 4 and not aura.get("sigil", false):
-		var b := burst(ink, ink2, 0.5 if stage else 0.34, 1.45 if stage else 1.6, 0.62 if stage else 0.95)
+			root.add_child(orb(ink2 if i % 2 == 0 else ink, 0.82 if stage else 0.95, 0.55 if stage else 1.25, TAU * i / n, 2.1, 0.15 if stage else 0.19))
+	if g >= 4 and stage and not aura.get("sigil", false):
+		var b := burst(ink, ink2, 0.5, 1.45, 0.62)
 		b.position = Vector3(0, 0.028, 0)
 		root.add_child(b)
 	return root
@@ -386,6 +432,61 @@ void fragment() {
 	ALPHA = total * power * smoothstep(1.0, 0.92, r);
 }
 """
+
+const MARK := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 ink : source_color = vec4(1.0);
+uniform vec4 ink2 : source_color = vec4(1.0);
+uniform float power = 1.0;
+uniform int kind = 0;
+uniform float n = 5.0;
+uniform float grand = 0.0;
+
+float ln(float d, float w) {
+	return smoothstep(w, w * 0.35, abs(d));
+}
+
+float shape(vec2 p, float rad) {
+	float r = length(p);
+	float a = atan(p.y, p.x);
+	float seg = 6.28318 / n;
+	float cell = fract(a / seg);
+	float aa = (cell - 0.5) * seg;
+	if (kind == 0) {   // polygon
+		return ln(r * cos(aa) - rad * cos(seg * 0.5), 0.045);
+	} else if (kind == 1) {   // star
+		return ln(r - rad * mix(0.45, 1.0, abs(cell - 0.5) * 2.0), 0.05);
+	} else if (kind == 2) {   // spiral arms
+		float v = abs(fract(a / seg + r / rad * 1.3) - 0.5);
+		return smoothstep(0.16, 0.05, v) * smoothstep(0.22 * rad, 0.4 * rad, r) * smoothstep(rad * 1.05, rad * 0.8, r);
+	} else if (kind == 3) {   // rays
+		return smoothstep(0.05, 0.018, r * abs(sin(aa))) * smoothstep(0.5 * rad, 0.62 * rad, r) * smoothstep(rad * 1.08, rad * 0.98, r);
+	} else if (kind == 4) {   // crescents
+		return ln(r - rad, 0.012 + 0.1 * sin(3.14159 * cell));
+	} else if (kind == 5) {   // dots
+		vec2 q = vec2(r * cos(aa) - rad * 0.92, r * sin(aa));
+		return smoothstep(0.13, 0.06, length(q));
+	}
+	return ln(r - rad * (0.84 + 0.16 * (abs(cell - 0.5) * 4.0 - 1.0)), 0.045);   // zigzag ring
+}
+
+vec2 turn(vec2 p, float t) {
+	return vec2(p.x * cos(t) - p.y * sin(t), p.x * sin(t) + p.y * cos(t));
+}
+
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float s = shape(turn(p, TIME * 0.35), 0.84);
+	if (grand > 0.5) {
+		s += 0.7 * shape(turn(p, -TIME * 0.6), 0.5);
+	}
+	s *= 0.82 + 0.18 * sin(TIME * 2.4);
+	ALBEDO = mix(ink2.rgb, ink.rgb, clamp(length(p), 0.0, 1.0));
+	ALPHA = clamp(s * power, 0.0, 1.0);
+}
+"""
+
 
 const WAVE := """
 shader_type spatial;

@@ -38,7 +38,7 @@ const HEAD_TOP := {"rogue": 0.74, "knight": 0.86, "barbarian": 0.74, "mage": 0.7
 ## Outfit colours: the cloth ("a"), the trim ("b": the Mage's cape lining and collar, the
 ## Barbarian's shirt), the Knight's armour and the Rogue's leather. null = as painted.
 const OUTFITS := {
-	"crimson": {"name": "Crimson", "a": Color(0.46, 0.08, 0.03), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.64, 0.15, 0.06), "leather": Color(0.24, 0.17, 0.14), "pat": 21},
+	"crimson": {"name": "Crimson", "a": Color(0.5, 0.17, 0.03), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.66, 0.24, 0.05), "leather": Color(0.24, 0.17, 0.14), "pat": 21},
 	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.28, 0.54, 0.26), "leather": Color(0.5, 0.33, 0.18), "pat": 22},
 	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.2, 0.26, 0.62), "pat": 23},
 	"ivory": {"name": "Ivory", "a": Color(0.94, 0.91, 0.83), "b": Color(0.35, 0.6, 0.95), "armor": Color(0.88, 0.88, 0.86), "leather": Color(0.62, 0.45, 0.3), "pat": 24},
@@ -46,7 +46,7 @@ const OUTFITS := {
 	"royal": {"name": "Royal", "a": Color(0.44, 0.17, 0.7), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.55, 0.3, 0.85), "pat": 26},
 	"ember": {"name": "Ember", "a": Color(0.95, 0.45, 0.12), "b": Color(0.28, 0.16, 0.12), "armor": Color(0.88, 0.48, 0.22), "pat": 27},
 	"frost": {"name": "Frost", "a": Color(0.55, 0.85, 1.0), "b": Color(0.95, 0.97, 1.0), "armor": Color(0.6, 0.88, 1.0), "pat": 28},
-	"rose": {"name": "Rose", "a": Color(0.98, 0.72, 0.6), "b": Color(1.0, 0.93, 0.88), "armor": Color(0.97, 0.66, 0.54), "leather": Color(0.55, 0.34, 0.28), "pat": 29},
+	"rose": {"name": "Rose", "a": Color(1.0, 0.78, 0.5), "b": Color(1.0, 0.93, 0.88), "armor": Color(1.0, 0.74, 0.46), "leather": Color(0.55, 0.34, 0.28), "pat": 29},
 	"sea": {"name": "Sea", "a": Color(0.1, 0.55, 0.6), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.2, 0.66, 0.68), "pat": 30},
 	"gold": {"name": "Gilded", "a": Color(0.95, 0.75, 0.25), "b": Color(1.0, 0.97, 0.9), "armor": Color(0.95, 0.76, 0.3), "leather": Color(0.45, 0.3, 0.16), "pat": 31},
 	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "armor": Color(0.84, 0.8, 0.68), "leather": Color(0.2, 0.19, 0.2), "pat": 32},
@@ -207,20 +207,20 @@ const EXTRA := {
 		"bonecarved": {"name": "Bonecarved", "a": Color(0.88, 0.85, 0.76), "b": Color(0.2, 0.19, 0.22), "pat": 6, "feat": "centurion"},
 		"frostbite": {"name": "Frostbite", "a": Color(0.3, 0.6, 0.95), "b": Color(0.95, 0.98, 1.0), "pat": 4, "feat": "halfway"},
 		"magma": {"name": "Cinder Ice", "a": Color(0.12, 0.15, 0.22), "b": Color(0.62, 0.84, 1.0), "pat": 2, "feat": "laststand"},
-		"ghostwalk": {"name": "Ghostwalk", "a": Color(0.16, 0.36, 0.46), "b": Color(0.75, 0.98, 1.0), "pat": 1, "feat": "cleankill"},
+		"ghostwalk": {"name": "Ghostwalk", "a": Color(0.27, 0.3, 0.33), "b": Color(0.82, 1.0, 0.95), "pat": 1, "feat": "cleankill"},
 		"thunder": {"name": "Thunder", "a": Color(0.22, 0.24, 0.36), "b": Color(1.0, 0.86, 0.3), "pat": 5, "feat": "highscore"},
-		"shadowflame": {"name": "Shadowflame", "a": Color(0.13, 0.08, 0.2), "b": Color(0.52, 0.28, 0.88), "pat": 7, "feat": "faithful"},
-		"starweave": {"name": "Starweave", "a": Color(0.07, 0.08, 0.22), "b": Color(0.95, 0.8, 0.35), "pat": 3, "feat": "flawless"},
+		"shadowflame": {"name": "Shadowflame", "a": Color(0.06, 0.07, 0.13), "b": Color(0.25, 0.58, 1.0), "pat": 7, "feat": "faithful"},
+		"starweave": {"name": "Starweave", "a": Color(0.34, 0.38, 0.8), "b": Color(0.95, 0.8, 0.35), "pat": 3, "feat": "flawless"},
 		"toxic": {"name": "Toxic", "a": Color(0.28, 0.66, 0.16), "b": Color(0.24, 0.08, 0.34), "pat": 8, "drop": 3},
 		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.36, 0.3, 0.62), "pat": 9, "drop": 3},
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
 		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
 		"blood_moon": {"name": "Blood Moon", "a": Color(0.3, 0.03, 0.06), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
-		"tidecaller": {"name": "Tidecaller", "a": Color(0.05, 0.3, 0.36), "b": Color(0.55, 1.0, 0.85), "pat": 1, "bazaar": 900},
-		"sunforged": {"name": "Sunforged", "a": Color(0.95, 0.62, 0.18), "b": Color(1.0, 0.95, 0.75), "pat": 5, "bazaar": 900},
-		"plaguebone": {"name": "Plaguebone", "a": Color(0.22, 0.24, 0.14), "b": Color(0.75, 0.95, 0.3), "pat": 8, "bazaar": 900},
-		"nightbloom": {"name": "Nightbloom", "a": Color(0.18, 0.06, 0.24), "b": Color(1.0, 0.55, 0.85), "pat": 3, "bazaar": 900},
+		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 1, "own": true, "bazaar": 900},
+		"sunforged": {"name": "Sunforged", "a": Color(0.42, 0.2, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 5, "own": true, "bazaar": 900},
+		"plaguebone": {"name": "Plaguebone", "a": Color(0.2, 0.2, 0.12), "b": Color(0.85, 0.95, 0.25), "pat": 8, "own": true, "bazaar": 900},
+		"nightbloom": {"name": "Nightbloom", "a": Color(0.02, 0.36, 0.2), "b": Color(0.72, 0.42, 1.0), "pat": 3, "own": true, "bazaar": 900},
 		# The Crypt Race (race.gd, version 153): "race" is the Race Road step's trophies.
 		"pacesetter": {"name": "Pacesetter", "a": Color(0.1, 0.1, 0.13), "b": Color(1.0, 0.5, 0.1), "pat": 15, "race": 275},
 		"crystal_sprint": {"name": "Crystal Sprint", "a": Color(0.05, 0.12, 0.26), "b": Color(0.45, 0.95, 1.0), "pat": 16, "race": 900},
@@ -563,6 +563,10 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		style.outfit = {"a": xo.b, "b": xo.a, "pat": int(xo.pat)} if id == "knight" else {"a": xo.a, "b": xo.b, "pat": int(xo.pat)}
 		if id == "barbarian":
 			style.outfit.b = _tunic(xo.a.lightened(0.2), xo.b)
+		if xo.get("own", false):
+			style.outfit.own = true
+			style.outfit.own_a = xo.a
+			style.outfit.own_b = xo.b
 	elif is_pass(p.get("outfit", "")):
 		var on: String = PASS_OUTFIT.gold_on.get(id, "a")
 		style.outfit = {"a": PASS_OUTFIT.gold if on == "a" else PASS_OUTFIT.obsidian,
@@ -903,7 +907,7 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 				o = {"a": outfit.get("a"), "b": null}
 				# Version 174: the hood keeps the outfit's pattern (it was left plain, and from
 				# above in a run the hood is most of what you see of the Rogue).
-				for k: String in ["pat", "gold"]:
+				for k: String in ["pat", "gold", "own", "own_a", "own_b"]:
 					if outfit.has(k):
 						o[k] = outfit[k]
 			if str(mi.name).contains("Head") and id == "barbarian":
@@ -918,7 +922,7 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> ShaderMaterial:
 	# Capes are single sheets drawn from both sides: the copy must be too, or they vanish.
 	var both := src.cull_mode == BaseMaterial3D.CULL_DISABLED
-	var key := "%s %s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", ""), outfit.get("pat", 0)]
+	var key := "%s %s %s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", ""), outfit.get("pat", 0), outfit.get("own_b", "")]
 	if _mats.has(key):
 		return _mats[key]
 	# A plain recolour gets a short copy of the shader without the gold and pattern code:
@@ -952,6 +956,12 @@ static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> Sh
 		m.set_shader_parameter(k + "_gold", 1.0 if outfit.get("gold", "") == k else 0.0)
 		m.set_shader_parameter(k + "_dark", 1.0 if outfit.has("gold") and outfit.get("gold", "") != k else 0.0)
 	m.set_shader_parameter("pat", int(outfit.get("pat", 0)))
+	if outfit.get("own", false):
+		var oa: Color = outfit.get("own_a", Color.GRAY)
+		var ob: Color = outfit.get("own_b", Color.WHITE)
+		m.set_shader_parameter("own", 1.0)
+		m.set_shader_parameter("own_a", Vector3(oa.r, oa.g, oa.b))
+		m.set_shader_parameter("own_b", Vector3(ob.r, ob.g, ob.b))
 	# The Knight's recoloured armour is metal, not painted plastic (version 172).
 	m.set_shader_parameter("b_metal", 0.55 if id == "knight" else 0.0)
 	_mats[key] = m
@@ -1053,6 +1063,9 @@ uniform float a_dark = 0.0;
 uniform float b_dark = 0.0;
 // A Feat or Bone Drop outfit's animated pattern (EXTRA "pat"; 0 = none).
 uniform int pat = 0;
+uniform float own = 0.0;   // 1 = a special pattern takes this outfit's own colours
+uniform vec3 own_a = vec3(0.5);
+uniform vec3 own_b = vec3(1.0);
 uniform float b_metal = 0.0;
 varying vec3 wpos;
 varying vec3 opos;
@@ -1253,8 +1266,8 @@ void fragment() {
 			// Ghostwalk: pale and see-through-looking, cold light at the edges and wisps rising.
 			float n = fbm(q * 1.6 + vec3(0.0, -TIME * 0.7, 0.0));
 			float wisp = smoothstep(0.46, 0.72, n);
-			al = mix(al, vec3(0.1, 0.32, 0.42), 0.6);   // a dark core, so the cold edges stand out
-			em = vec3(0.45, 0.95, 1.0) * (edge * 2.4 + wisp * 1.3 + 0.08) * (0.88 + 0.12 * sin(TIME * 9.0));
+			al = mix(al, mix(vec3(0.1, 0.32, 0.42), own_a * 0.75, own), 0.6);   // a dark core, so the cold edges stand out
+			em = mix(vec3(0.45, 0.95, 1.0), own_b, own) * (edge * 2.4 + wisp * 1.3 + 0.08) * (0.88 + 0.12 * sin(TIME * 9.0));
 		} else if (pat == 2) {
 			// Cinder Ice (was Magma, too close to the Crypt King's molten veins): dark slate
 			// split by cracks of blue-white frost light that breathe.
@@ -1267,10 +1280,10 @@ void fragment() {
 		} else if (pat == 3) {
 			// Starweave: the night sky woven in: drifting nebula and twinkling stars.
 			float n = fbm(q * 1.2 + vec3(TIME * 0.04, 0.0, 0.0));
-			vec3 neb = mix(vec3(0.25, 0.1, 0.55), vec3(0.1, 0.45, 0.8), n);
+			vec3 neb = mix(mix(vec3(0.25, 0.1, 0.55), own_a * 1.5, own), mix(vec3(0.1, 0.45, 0.8), own_b * 0.8, own), n);
 			float st = twinkle(q * 4.0, 0.22, 3.0) + twinkle(q * 7.0 + 3.1, 0.14, 4.5) * 0.7;
-			al = mix(al, vec3(0.06, 0.05, 0.16) + neb * 0.4, 0.9);
-			em = neb * 0.45 + vec3(1.0, 0.95, 0.85) * st * 3.0 + vec3(0.6, 0.5, 1.0) * edge * 0.8;
+			al = mix(al, mix(vec3(0.06, 0.05, 0.16), own_a * 0.55, own) + neb * 0.4, 0.9);
+			em = neb * 0.45 + vec3(1.0, 0.95, 0.85) * st * 3.0 + mix(vec3(0.6, 0.5, 1.0), own_b, own) * edge * 0.8;
 		} else if (pat == 4) {
 			// Frostbite: ice crystal facets with sparkles that come and go.
 			vec3 r = q * 4.0;
@@ -1285,7 +1298,7 @@ void fragment() {
 			float bolt = 1.0 - smoothstep(0.0, 0.035, abs(n - 0.5));
 			float flash = pow(max(0.0, sin(TIME * 3.3 + q.y * 1.5)), 10.0);
 			al = mix(al, al * 0.85, 0.5);
-			em = vec3(0.55, 0.8, 1.0) * bolt * (0.5 + 2.5 * flash) + vec3(0.4, 0.55, 1.0) * edge * (0.4 + flash);
+			em = mix(vec3(0.55, 0.8, 1.0), own_b, own) * bolt * (0.5 + 2.5 * flash) + mix(vec3(0.4, 0.55, 1.0), own_b, own) * edge * (0.4 + flash);
 		} else if (pat == 6) {
 			// Bonecarved: ivory carved with runes, soul light pulsing in the grooves.
 			// Clean runes: carved bands round the body, each with short upright strokes.
@@ -1311,8 +1324,8 @@ void fragment() {
 			float d = length(fract(r) - 0.5);
 			float bub = (1.0 - smoothstep(0.0, 0.05, abs(d - (0.08 + 0.28 * ph)))) * (1.0 - ph) * step(0.45, h);
 			float slime = smoothstep(0.45, 0.7, fbm(q * 1.5 + vec3(0.0, TIME * 0.2, 0.0)));
-			al = mix(al, vec3(0.5, 1.0, 0.25), slime * 0.35);
-			em = vec3(0.45, 1.0, 0.2) * (bub * 1.8 + slime * 0.25 + edge * 0.45) * 0.6;   // 60%: it glared
+			al = mix(al, mix(vec3(0.5, 1.0, 0.25), own_b, own), slime * 0.35);
+			em = mix(vec3(0.45, 1.0, 0.2), own_b, own) * (bub * 1.8 + slime * 0.25 + edge * 0.45) * 0.6;   // 60%: it glared
 		} else if (pat == 9) {
 			// Prism: bands of colour running over pearly cloth (never red-pink: that's danger).
 			float t = 0.5 + 0.5 * sin(q.y * 2.4 + q.x * 1.2 - TIME * 1.6);
