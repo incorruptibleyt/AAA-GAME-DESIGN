@@ -33,7 +33,14 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 	h.name = "FeatHead_" + what
 	var eye: Color = style.get("eye", Color(0.6, 0.8, 1.0))
 	var hat_h: float = style.get("hat_h", 0.45)
-	var key := "%s %s %s %s" % [what, id, hat, eye.to_html()]
+	# Version 188: the flame horns' stalks and the moon crown's band take the outfit's main
+	# colour (the mix critics: their fixed brown and black clashed with every outfit).
+	var o: Dictionary = style.get("outfit", {})
+	var main = o.get("b" if id == "knight" else "a")
+	if o.get("gold", "") != "":
+		main = Color(0.1, 0.08, 0.14)
+	h._tint = main if main is Color else null
+	var key := "%s %s %s %s %s" % [what, id, hat, eye.to_html(), (main as Color).to_html() if main is Color else ""]
 	match what:
 		"storm_halo": h._storm_halo(y + (hat_h if hat else 0.22))
 		"star_circlet": h._star_circlet(id, y, hat)
@@ -168,6 +175,25 @@ func _add_mat(c: Color) -> StandardMaterial3D:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_mats[k] = m
+	return _mats[k]
+
+
+var _tint = null   # the outfit's main colour, or null (the hero's own clothes)
+
+
+## The metal of a head that follows the outfit: `base` when the hero wears their own clothes.
+func _dyed(base: StandardMaterial3D) -> StandardMaterial3D:
+	if not (_tint is Color):
+		return base
+	var c: Color = _tint
+	var k := "dyed %s %s" % [c.to_html(), base.metallic]
+	if not _mats.has(k):
+		var m := base.duplicate() as StandardMaterial3D
+		m.albedo_color = Color.from_hsv(c.h, minf(c.s, 0.75), clampf(c.v * 0.8, 0.14, 0.7))
+		m.emission_enabled = true
+		m.emission = c.lightened(0.2)
+		m.emission_energy_multiplier = 0.18
 		_mats[k] = m
 	return _mats[k]
 
@@ -382,7 +408,7 @@ func _flame_horns(id: String, y: float, hat: bool) -> void:
 		for i in pts.size():
 			pts[i] = Vector3(pts[i].x * k, y + (pts[i].y - y) * k, pts[i].z * k)
 		for i in pts.size() - 1:
-			_rod(pts[i], pts[i + 1], (0.12 - i * 0.025) * k, (0.095 - i * 0.024) * k, _iron, null, 10)
+			_rod(pts[i], pts[i + 1], (0.12 - i * 0.025) * k, (0.095 - i * 0.024) * k, _dyed(_iron), null, 10)
 			# a glowing ring at each joint
 			var t := _torus((0.1 - i * 0.024) * k, (0.125 - i * 0.024) * k, seam, pts[i + 1])
 			var up: Vector3 = (pts[i + 1] - pts[i]).normalized()
@@ -556,15 +582,16 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	var f := _fit(id, y, hat)
 	var base := f.x
 	var r := f.y
-	var iron := StandardMaterial3D.new()
-	iron.albedo_color = Color(0.08, 0.08, 0.13)
-	iron.metallic = 0.7
-	iron.roughness = 0.3
-	iron.rim_enabled = true
-	iron.rim = 0.6
-	iron.emission_enabled = true
-	iron.emission = Color(1.0, 0.7, 0.3)
-	iron.emission_energy_multiplier = 0.25
+	var iron0 := StandardMaterial3D.new()
+	iron0.albedo_color = Color(0.08, 0.08, 0.13)
+	iron0.metallic = 0.7
+	iron0.roughness = 0.3
+	iron0.rim_enabled = true
+	iron0.rim = 0.6
+	iron0.emission_enabled = true
+	iron0.emission = Color(1.0, 0.7, 0.3)
+	iron0.emission_energy_multiplier = 0.25
+	var iron := _dyed(iron0)
 	var blood := _glow_mat(Color(1.0, 0.72, 0.28) * 1.9)   # (v182: gold, not red-orange)
 	var moon := _glow_mat(Color(1.0, 0.88, 0.62) * 1.7)
 	var band := CylinderMesh.new()

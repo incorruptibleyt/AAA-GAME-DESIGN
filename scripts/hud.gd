@@ -3898,10 +3898,7 @@ func refresh_looks_badge() -> void:
 	var cfg := Game._load_save()
 	if HeroStyle.migrate_seen(cfg):
 		Game.write_save(cfg)
-	var n := 0
-	for h: Dictionary in Heroes.LIST:
-		if Heroes.unlocked(cfg, h.id):
-			n += HeroStyle.unseen(cfg, h.id)
+	var n := HeroStyle.new_count_all(cfg)
 	for pill: Label in [_title_heroes_badge, _end_heroes_badge]:
 		pill.text = "%d NEW LOOKS" % n if n > 1 else "NEW LOOK"
 	_title_heroes_badge.visible = n > 0

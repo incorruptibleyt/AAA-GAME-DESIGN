@@ -38,15 +38,15 @@ const HEAD_TOP := {"rogue": 0.74, "knight": 0.86, "barbarian": 0.74, "mage": 0.7
 ## Outfit colours: the cloth ("a"), the trim ("b": the Mage's cape lining and collar, the
 ## Barbarian's shirt), the Knight's armour and the Rogue's leather. null = as painted.
 const OUTFITS := {
-	"crimson": {"name": "Crimson", "a": Color(0.52, 0.26, 0.04), "b": Color(1.0, 0.8, 0.32), "armor": Color(0.7, 0.36, 0.08), "leather": Color(0.24, 0.17, 0.14), "pat": 21},
+	"crimson": {"name": "Velvet", "a": Color(0.3, 0.13, 0.09), "b": Color(1.0, 0.8, 0.32), "armor": Color(0.38, 0.17, 0.11), "leather": Color(0.24, 0.17, 0.14), "pat": 21},
 	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.28, 0.54, 0.26), "leather": Color(0.5, 0.33, 0.18), "pat": 22},
 	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.2, 0.26, 0.62), "pat": 23},
 	"ivory": {"name": "Ivory", "a": Color(0.94, 0.91, 0.83), "b": Color(0.35, 0.6, 0.95), "armor": Color(0.88, 0.88, 0.86), "leather": Color(0.62, 0.45, 0.3), "pat": 24},
 	"shadow": {"name": "Shadow", "a": Color(0.14, 0.12, 0.17), "b": Color(0.6, 0.25, 0.9), "armor": Color(0.2, 0.19, 0.23), "leather": Color(0.16, 0.14, 0.16), "pat": 25},
 	"royal": {"name": "Royal", "a": Color(0.44, 0.17, 0.7), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.55, 0.3, 0.85), "pat": 26},
-	"ember": {"name": "Ember", "a": Color(0.95, 0.45, 0.12), "b": Color(0.28, 0.16, 0.12), "armor": Color(0.88, 0.48, 0.22), "pat": 27},
+	"ember": {"name": "Ember", "a": Color(0.17, 0.14, 0.15), "b": Color(1.0, 0.5, 0.12), "armor": Color(0.22, 0.19, 0.2), "pat": 27},
 	"frost": {"name": "Frost", "a": Color(0.55, 0.85, 1.0), "b": Color(0.95, 0.97, 1.0), "armor": Color(0.6, 0.88, 1.0), "pat": 28},
-	"rose": {"name": "Rose", "a": Color(1.0, 0.78, 0.5), "b": Color(1.0, 0.93, 0.88), "armor": Color(1.0, 0.74, 0.46), "leather": Color(0.55, 0.34, 0.28), "pat": 29},
+	"rose": {"name": "Lilac", "a": Color(0.74, 0.66, 1.0), "b": Color(1.0, 0.95, 1.0), "armor": Color(0.7, 0.64, 0.98), "leather": Color(0.55, 0.34, 0.28), "pat": 29},
 	"sea": {"name": "Sea", "a": Color(0.1, 0.55, 0.6), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.2, 0.66, 0.68), "pat": 30},
 	"gold": {"name": "Gilded", "a": Color(0.95, 0.75, 0.25), "b": Color(1.0, 0.97, 0.9), "armor": Color(0.95, 0.76, 0.3), "leather": Color(0.45, 0.3, 0.16), "pat": 31},
 	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "armor": Color(0.84, 0.8, 0.68), "leather": Color(0.2, 0.19, 0.2), "pat": 32},
@@ -218,8 +218,8 @@ const EXTRA := {
 		"blood_moon": {"name": "Blood Moon", "a": Color(0.14, 0.08, 0.3), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
 		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 33, "own": true, "bazaar": 900},
-		"sunforged": {"name": "Sunforged", "a": Color(0.56, 0.3, 0.12), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
-		"plaguebone": {"name": "Plaguebone", "a": Color(0.3, 0.3, 0.17), "b": Color(0.85, 0.95, 0.25), "pat": 35, "own": true, "bazaar": 900},
+		"sunforged": {"name": "Sunforged", "a": Color(0.24, 0.15, 0.1), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
+		"plaguebone": {"name": "Plaguebone", "a": Color(0.07, 0.15, 0.09), "b": Color(0.85, 0.95, 0.25), "pat": 35, "own": true, "bazaar": 900},
 		"nightbloom": {"name": "Nightbloom", "a": Color(0.02, 0.36, 0.2), "b": Color(0.72, 0.42, 1.0), "pat": 36, "own": true, "bazaar": 900},
 		# The Crypt Race (race.gd, version 153): "race" is the Race Road step's trophies.
 		"pacesetter": {"name": "Pacesetter", "a": Color(0.1, 0.1, 0.13), "b": Color(1.0, 0.5, 0.1), "pat": 15, "race": 275},
@@ -559,6 +559,21 @@ static func new_looks(cfg: ConfigFile, id: String) -> Array:
 	return out
 
 
+## How many different new looks the unlocked heroes have between them. A look every hero
+## can wear counts once (it was counted once per hero: one Bone Drop look read "4 NEW LOOKS").
+static func new_count_all(cfg: ConfigFile) -> int:
+	var seen := _seen(cfg)
+	var fresh := {}
+	for h: Dictionary in Heroes.LIST:
+		if not Heroes.unlocked(cfg, h.id):
+			continue
+		for it: Dictionary in items(h.id):
+			var k := _seen_id(h.id, it)
+			if it.key != "" and not seen.has(k) and not fresh.has(k) and has_look(cfg, h.id, it.slot, it.key):
+				fresh[k] = true
+	return fresh.size()
+
+
 ## How many new looks hero `id` has (the STYLE button, the NEW LOOKS tags).
 static func unseen(cfg: ConfigFile, id: String) -> int:
 	return new_looks(cfg, id).size()
@@ -664,6 +679,10 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 			if oc is Color:
 				pale = maxf(pale, oc.v * (1.0 - oc.s * 0.8) * (1.0 if ch == ("b" if id == "knight" else "a") else 0.6))
 		d.rim_soft = lerpf(1.0, 0.55, smoothstep(0.55, 0.9, pale))
+		# (Version 188: the Crypt King outfit is obsidian veined with gold. Under the full
+		# rim light and aura it bleached to a yellow-white blob in a run and hid itself.)
+		if style.outfit.get("gold", "") != "":
+			d.rim_soft = 0.45
 	if not glow.is_empty():
 		style.enchant = glow.ring
 	d.style = style
@@ -1275,9 +1294,10 @@ void fragment() {
 		} else if (pat == 27) {
 			// Ember: banked coals glowing through the cloth.
 			float n = fbm(q * 2.2 + vec3(0.0, -TIME * 0.25, 0.0));
-			float hot = smoothstep(0.42, 0.7, n);
-			al = mix(al * 0.6, vec3(1.0, 0.78, 0.3), hot * 0.6);
-			em = vec3(1.0, 0.4, 0.08) * (hot * 0.95 * (0.8 + 0.2 * sin(TIME * 5.0 + q.x * 6.0)) + edge * 0.5);
+			float hot = smoothstep(0.52, 0.72, n);
+			// (Version 188: charcoal cloth, so the coals are the colour; it was all orange.)
+			al = mix(al, vec3(1.0, 0.7, 0.25), hot * 0.6);
+			em = vec3(1.0, 0.45, 0.08) * (hot * 1.15 * (0.8 + 0.2 * sin(TIME * 5.0 + q.x * 6.0)) + edge * 0.5);
 		} else if (pat == 28) {
 			// Frost: hoarfrost creeping over the cloth, and glints.
 			float n = vnoise(q * 6.0) * 0.6 + vnoise(q * 13.0) * 0.4;
@@ -1291,7 +1311,7 @@ void fragment() {
 			vec2 f = fract(uv) - 0.5;
 			float petal = 1.0 - smoothstep(0.16, 0.24, length(f * vec2(1.0, 1.5) + vec2(0.0, 0.1 * sin(f.x * 6.0))));
 			al = mix(al, vec3(1.0, 0.97, 0.94), petal * 0.75);
-			em = vec3(1.0, 0.8, 0.7) * edge * 0.38;
+			em = vec3(0.8, 0.7, 1.0) * edge * 0.38;
 		} else if (pat == 30) {
 			// Sea: waves rolling round the cloth with lines of foam.
 			float wv = sin(q.y * 9.0 + sin(ang * 3.0 + TIME * 1.2) * 1.2 - TIME * 0.8);
@@ -1465,13 +1485,14 @@ void fragment() {
 			float disc = 1.0 - smoothstep(0.15, 0.18, d);
 			float rays = pow(abs(sin(atan(f.y, f.x) * 6.0 + TIME * 1.2)), 6.0) * smoothstep(0.15, 0.18, d) * (1.0 - smoothstep(0.28, 0.4, d));
 			float pulse = 0.75 + 0.25 * sin(TIME * 2.0 + uv.y * 3.0);
-			al = mix(own_a, gold, clamp(disc + rays * 0.6, 0.0, 1.0));
-			em = gold * (disc * 1.5 * pulse + rays * 1.3 + 0.1) + own_b * edge * 0.6;
+			// (Version 188: dark bronze with white-hot suns, so it is not one more orange.)
+			al = mix(own_a, vec3(1.0, 0.92, 0.6), clamp(disc + rays * 0.6, 0.0, 1.0));
+			em = vec3(1.0, 0.9, 0.5) * (disc * 2.0 * pulse + rays * 1.6) + own_b * edge * 0.6;
 			met = clamp(disc + rays, 0.0, 1.0) * 0.9 + 0.2;
 		} else if (pat == 35) {
 			// Plaguebone: dark rotten cloth over pale ribs, lime slime dripping down it and
 			// bubbles swelling and popping.
-			float rib = (1.0 - smoothstep(0.1, 0.16, abs(fract(q.y * 3.0) - 0.5))) * (1.0 - smoothstep(0.1, 0.16, abs(mpos.x))) * step(0.0, mpos.z);
+			float rib = (1.0 - smoothstep(0.1, 0.16, abs(fract(q.y * 3.0) - 0.5))) * smoothstep(0.04, 0.08, abs(mpos.x));   // bone-white ribs all the way round, split by the spine
 			float col = ang * 2.2;
 			float h = hash3(vec3(floor(col * 1.6), 2.3, 5.1));
 			float drop = fract(q.y * 1.2 + TIME * (0.25 + 0.35 * h) + h * 5.0);
@@ -1481,8 +1502,8 @@ void fragment() {
 			float hb = hash3(floor(r));
 			float ph = fract(TIME * 0.45 + hb);
 			float bub = (1.0 - smoothstep(0.0, 0.05, abs(length(fract(r) - 0.5) - (0.08 + 0.28 * ph)))) * (1.0 - ph) * step(0.5, hb);
-			al = mix(mix(mix(own_a, own_b * 0.5, slime * 0.5), vec3(0.82, 0.8, 0.66), rib * 0.85), own_b, drip * 0.7);
-			em = own_b * (drip * (1.2 + 0.5 * sin(TIME * 2.0 + h * 9.0)) + bub * 1.8 + slime * 0.45 + edge * 0.5) * 0.8;
+			al = mix(mix(mix(own_a, own_b * 0.35, slime * 0.35), vec3(0.95, 0.93, 0.8), rib * 0.95), own_b, drip * 0.5 * (1.0 - rib));
+			em = vec3(0.9, 0.9, 0.75) * rib * 0.35 + own_b * (drip * 0.8 * (1.0 - rib) + bub * 1.6 + edge * 0.5) * 0.8;
 		} else if (pat == 36) {
 			// Nightbloom: deep green cloth on which violet flowers open and glow, a gold
 			// light in each heart.

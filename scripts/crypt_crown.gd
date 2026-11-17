@@ -168,6 +168,7 @@ func _build(r: float) -> void:
 	fl.height = 0.62
 	fl.radial_segments = 8
 	fl.rings = 4
+	fl.cap_bottom = false   # (an extra see-through disc from the camera above)
 	_mesh(fl, FeatHeads._flame_mat(Color(0.2, 1.0, 0.8), Color(0.9, 1.0, 0.95)), Vector3(0, apex + 0.16 + 0.31, 0))
 	var fl2 := CylinderMesh.new()
 	fl2.top_radius = 0.0
@@ -175,6 +176,7 @@ func _build(r: float) -> void:
 	fl2.height = 0.42
 	fl2.radial_segments = 8
 	fl2.rings = 4
+	fl2.cap_bottom = false
 	_mesh(fl2, FeatHeads._flame_mat(Color(0.1, 0.75, 0.7), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.1 + 0.21, 0))
 	# A soft gold glow round its base, like a halo it stands on.
 	var ring := TorusMesh.new()
