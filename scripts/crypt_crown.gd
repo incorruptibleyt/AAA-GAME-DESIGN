@@ -40,6 +40,7 @@ static func make(id: String, y: float, hat: bool) -> CryptCrown:
 	c._base_y = y + lift
 	c.position = Vector3(0, c._base_y, 0)
 	c._build(r)
+	c.scale = Vector3.ONE * 1.18   # (version 198) the free Moon Crown was the bigger crown in a run
 	return c
 
 
@@ -64,14 +65,16 @@ static func _materials() -> void:
 	# Version 189: the cap is royal purple velvet. Gold (v116) made the set one gold blob from
 	# the camera above and obsidian (v181) looked like a hole in the hero's head.
 	_velvet = StandardMaterial3D.new()
-	_velvet.albedo_color = Color(0.36, 0.16, 0.62)
-	_velvet.roughness = 0.9
+	# Version 198: the cap is a pool of teal soul light. From the run camera the purple was a
+	# dull dot under a white flame; now the crown is a gold ring full of teal fire.
+	_velvet.albedo_color = Color(0.04, 0.5, 0.42)
+	_velvet.roughness = 0.6
 	_velvet.emission_enabled = true
-	_velvet.emission = Color(0.2, 0.08, 0.4)
-	_velvet.emission_energy_multiplier = 0.6
+	_velvet.emission = Color(0.05, 0.85, 0.66)
+	_velvet.emission_energy_multiplier = 0.9
 	_gem = StandardMaterial3D.new()
 	_gem.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	_gem.albedo_color = Color(0.45, 1.0, 0.85) * 1.5
+	_gem.albedo_color = Color(0.25, 1.0, 0.8) * 1.15
 	_glow = U.unlit(Color(1.0, 0.82, 0.35, 0.55)).duplicate()
 	_glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 
@@ -165,7 +168,7 @@ func _build(r: float) -> void:
 	aura.height = 0.48
 	aura.radial_segments = 10
 	aura.rings = 5
-	var soul := U.unlit(Color(0.45, 1.0, 0.85, 0.35)).duplicate() as StandardMaterial3D
+	var soul := U.unlit(Color(0.2, 1.0, 0.8, 0.2)).duplicate() as StandardMaterial3D
 	soul.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	late.append(_mesh(aura, soul, Vector3(0, apex + 0.1, 0)))
 	for mi in late:
@@ -192,7 +195,7 @@ func _build(r: float) -> void:
 	fl.radial_segments = 8
 	fl.rings = 4
 	fl.cap_bottom = false   # (an extra see-through disc from the camera above)
-	var f1 := _mesh(fl, FeatHeads._flame_mat(Color(0.2, 1.0, 0.8), Color(0.9, 1.0, 0.95)), Vector3(0, apex + 0.16 + 0.31, 0))
+	var f1 := _mesh(fl, FeatHeads._flame_mat(Color(0.1, 0.95, 0.72), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.16 + 0.31, 0))
 	var fl2 := CylinderMesh.new()
 	fl2.top_radius = 0.0
 	fl2.bottom_radius = 0.27
@@ -200,7 +203,7 @@ func _build(r: float) -> void:
 	fl2.radial_segments = 8
 	fl2.rings = 4
 	fl2.cap_bottom = false
-	var f2 := _mesh(fl2, FeatHeads._flame_mat(Color(0.1, 0.75, 0.7), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.1 + 0.21, 0))
+	var f2 := _mesh(fl2, FeatHeads._flame_mat(Color(0.04, 0.6, 0.55), Color(0.15, 0.95, 0.75)), Vector3(0, apex + 0.1 + 0.21, 0))
 	late.append(f1)
 	late.append(f2)
 	for mi in late:

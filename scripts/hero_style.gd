@@ -193,6 +193,9 @@ const PASS_OUTFIT := {"name": "Crypt Gold", "pass": true,
 	"gold_on": {"rogue": "b", "knight": "none", "barbarian": "none", "mage": "b"}}
 const PASS_HEAD := {"name": "Crypt Crown", "hat": false, "extras": ["crypt_crown"], "pass": true}
 const PASS_GLOW := {"name": "Crypt Gold", "fx": "crown", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
+## The set's weapon (version 198): the hero's grandest weapon in obsidian, edged in gold,
+## with teal soul fire burning along it. Until then the paid set carried a plain grey weapon.
+const PASS_HOLD := {"name": "Crypt King's arms", "finish": "crypt", "pass": true}
 ## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
 ## turning gold sigil on the floor under the hero, the one thing seen from anywhere in a room.
 const PASS_AURA := {"name": "Crypt King", "pass": true, "ink": Color(1.0, 0.78, 0.22), "ink2": Color(1.0, 0.95, 0.72),
@@ -406,7 +409,7 @@ static func glow_tier(glow: Dictionary) -> int:
 
 
 ## The slots the Crypt King set fills, and each look's key ("crypt", "crypt_crown"...).
-const PASS_SLOTS := ["outfit", "head", "glow", "aura"]
+const PASS_SLOTS := ["outfit", "head", "hold", "glow", "aura"]
 
 static func pass_key(slot: String) -> String:
 	return "crypt_crown" if slot == "head" else ("crypt_king" if slot == "aura" else PASS_KEY)
@@ -446,7 +449,7 @@ static func item_name(id: String, slot: String, key: String) -> String:
 	if key == "":
 		return "No aura" if slot == "aura" else "Classic"
 	if is_pass(key):
-		return str({"outfit": PASS_OUTFIT, "head": PASS_HEAD, "glow": PASS_GLOW, "aura": PASS_AURA}.get(slot, {}).get("name", key))
+		return str({"outfit": PASS_OUTFIT, "head": PASS_HEAD, "hold": PASS_HOLD, "glow": PASS_GLOW, "aura": PASS_AURA}.get(slot, {}).get("name", key))
 	if not extra(slot, key).is_empty():
 		return extra(slot, key).name
 	match slot:
@@ -661,6 +664,8 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	style.hat_h = 0.8 if wizard else 0.42
 	var hold: Dictionary = HOLDS.get(id, {}).get(p.get("hold", ""), {})
 	var xh := extra("hold", p.get("hold", ""))
+	if is_pass(p.get("hold", "")):
+		xh = PASS_HOLD
 	if not xh.is_empty():
 		hold = GRAND.get(id, {}).duplicate()
 		hold.finish = xh.finish
@@ -1262,8 +1267,15 @@ void fragment() {
 		float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
 		vec3 lp = wpos - opos;
 		float h = lp.y + 0.35 * (lp.x + lp.z);
-		float vn = sin(lp.x * 11.0 + lp.y * 7.0 + sin(lp.z * 9.0) * 1.6) * sin(lp.z * 10.0 - lp.y * 6.0 + sin(lp.x * 8.0) * 1.4);
-		float vein = (1.0 - smoothstep(0.035, 0.11, abs(vn))) * (0.7 + 0.3 * sin(TIME * 1.7 + lp.y * 3.0));
+		// (Version 198: fewer, thicker veins. The thin ones read as a fishnet in a run.)
+		float vn = sin(lp.x * 6.0 + lp.y * 4.0 + sin(lp.z * 5.0) * 1.6) * sin(lp.z * 5.5 - lp.y * 3.5 + sin(lp.x * 4.5) * 1.4);
+		float vein = (1.0 - smoothstep(0.07, 0.2, abs(vn))) * (0.7 + 0.3 * sin(TIME * 1.7 + lp.y * 3.0));
+		// A mantle of polished gold over the shoulders, and teal soul fire burning up from
+		// the hem: from the run camera the obsidian body was one black lump with no colour.
+		float mantle = k * smoothstep(0.72, 0.84, wpos.y) * (1.0 - smoothstep(1.12, 1.22, wpos.y));
+		float hemf = k * (1.0 - smoothstep(0.1, 0.62, wpos.y + 0.07 * sin(lp.x * 13.0 + TIME * 3.1) * sin(lp.z * 11.0 - TIME * 2.3)));
+		k -= mantle;
+		g += mantle;
 		float ph = fract(TIME * 0.45 - h * 0.32);
 		float band = smoothstep(0.0, 0.03, ph) * (1.0 - smoothstep(0.03, 0.09, ph));
 		ALBEDO = mix(ALBEDO, ALBEDO * vec3(1.08, 1.0, 0.86), g);
@@ -1273,7 +1285,9 @@ void fragment() {
 		EMISSION += vec3(1.0, 0.72, 0.24) * g * (0.22 + edge * 0.85)
 			+ vec3(1.0, 0.94, 0.75) * band * (g * 1.5 + k * 0.6)
 			+ vec3(1.0, 0.62, 0.16) * k * vein * 1.1
-			+ vec3(0.55, 0.35, 0.9) * k * edge * 0.45;
+			+ vec3(0.55, 0.35, 0.9) * k * edge * 0.45
+			+ vec3(0.08, 0.95, 0.72) * hemf * (0.85 + 0.25 * sin(TIME * 2.6 + lp.x * 5.0));
+		ALBEDO = mix(ALBEDO, vec3(0.05, 0.5, 0.42), hemf * 0.7);
 	}
 	float w = clamp(ma + mb, 0.0, 1.0);
 	if (pat > 0 && w > 0.001) {

@@ -12,9 +12,9 @@ class_name LookFx
 ## (Version 176: five more shapes, so glows of one colour family no longer look alike:
 ## sun rays, a chain of beads, a rippling wave, a turning crescent, and the Crypt King's crown.)
 const STYLES := {"flow": 0, "flame": 1, "frost": 2, "storm": 3, "stars": 4, "runes": 5, "rays": 6, "beads": 7, "wave": 8, "eclipse": 9, "crown": 10}
-const FINISHES := {"": 0, "gold": 1, "frost": 2, "ember": 3, "void": 4}
+const FINISHES := {"": 0, "gold": 1, "frost": 2, "ember": 3, "void": 4, "crypt": 5}
 ## The sparks a finished weapon throws when it fires (hero.gd).
-const FINISH_SPARK := {"gold": Color(1.0, 0.84, 0.4), "frost": Color(0.65, 0.92, 1.0), "ember": Color(1.0, 0.48, 0.12), "void": Color(0.72, 0.48, 1.0)}
+const FINISH_SPARK := {"gold": Color(1.0, 0.84, 0.4), "frost": Color(0.65, 0.92, 1.0), "ember": Color(1.0, 0.48, 0.12), "void": Color(0.72, 0.48, 1.0), "crypt": Color(0.3, 1.0, 0.8)}
 
 static var _ring_shader: Shader
 static var _shell_shader: Shader
@@ -718,6 +718,18 @@ void fragment() {
 		me = 0.5;
 		ro = 0.26;
 		em = neb * 0.3 + vec3(0.62, 0.34, 1.0) * edge * 1.1 + vec3(1.0, 0.95, 0.9) * st * 2.6 + vec3(0.8, 0.6, 1.0) * sweep * 0.6;
+	}
+	else if (finish == 5) {
+		// The Crypt King's arms: obsidian with a broad gold edge, and teal soul fire that
+		// climbs the weapon in tongues.
+		float fire = vnoise(vec3(mpos.x * 5.0, along * 3.0 - TIME * 2.2, mpos.z * 5.0));
+		float tongue = smoothstep(0.42, 0.7, fire);
+		al = mix(vec3(0.07, 0.05, 0.1), vec3(0.24, 0.17, 0.3), lum);
+		al = mix(al, vec3(1.0, 0.8, 0.3), smoothstep(0.25, 0.6, edge));
+		al = mix(al, vec3(0.1, 0.75, 0.6), tongue * 0.7);
+		me = 0.6;
+		ro = 0.25;
+		em = vec3(1.0, 0.74, 0.24) * smoothstep(0.2, 0.7, edge) * 0.9 + vec3(0.1, 1.0, 0.78) * (tongue * 1.3 + 0.12) + vec3(0.8, 1.0, 0.95) * sweep * 0.7;
 	}
 	if (book.a > 0.5 && finish == 0) {
 		// The Mage's spellbook: a leather cover in the outfit's colour (it was always pink),

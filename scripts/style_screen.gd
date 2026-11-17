@@ -527,6 +527,9 @@ class Swatch extends Control:
 				shape = k if k != "" else {"rogue": "crossbow", "knight": "sword_shield", "barbarian": "axe", "mage": "staff"}.get(id, "")
 				# A weapon finish (version 172): the weapon it is worn on, in the finish's colours.
 				var h: Dictionary = HeroStyle.HOLDS.get(id, {}).get(k, HeroStyle.extra(s, k))
+				if HeroStyle.is_pass(k):
+					h = HeroStyle.PASS_HOLD
+					shine = true
 				finish = str(h.get("finish", ""))
 				if finish != "":
 					var grand := {"rogue": "heavy", "knight": "greatsword", "barbarian": "great_axe", "mage": "staff"}
@@ -942,6 +945,9 @@ class Swatch extends Control:
 			"void":
 				steel = Color(0.66, 0.42, 1.0)
 				wood = Color(0.2, 0.12, 0.38)
+			"crypt":
+				steel = Color(0.25, 0.95, 0.78)
+				wood = Color(1.0, 0.8, 0.3)
 		var parts := []
 		match shape:
 			"sword_shield":
