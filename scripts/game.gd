@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-17e"
+const BUILD := "2026-11-17f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3052,10 +3052,12 @@ func note_progress() -> void:
 
 ## Where a skeleton that ended up out of reach climbs back in: the free wave spot nearest
 ## to where it was (still well away from the hero).
-func rescue_spot(from: Vector3) -> Vector3:
+func rescue_spot(from: Vector3, in_sight := false) -> Vector3:
 	var best := Vector3.ZERO
 	var best_d := INF
 	for p in _wave_spots(40):
+		if in_sight and hero and not Room.current.clear_shot(hero.global_position, p):
+			continue   # version 180: a skeleton moved out of cover must be one the hero can shoot
 		var d: float = from.distance_squared_to(p)
 		if d < best_d:
 			best_d = d

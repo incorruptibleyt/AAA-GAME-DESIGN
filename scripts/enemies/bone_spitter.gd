@@ -26,6 +26,11 @@ func _setup() -> void:
 func _think(hero: Hero, delta: float) -> void:
 	var to := hero.global_position - global_position
 	to.y = 0.0
+	# Version 180: a Spitter behind a pillar or crate steps round it until it can see the
+	# hero (it stood there for good, out of the hero's reach, and the room never ended).
+	if hidden_from_hero() and _charging <= 0.0:
+		walk(to, delta, 0.8)
+		return
 	stand(delta)
 	face(to, 6.0, delta)
 	if _charging > 0.0:

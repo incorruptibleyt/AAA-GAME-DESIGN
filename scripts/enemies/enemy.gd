@@ -49,6 +49,13 @@ var _stuck_chase := 0.0
 var _stuck_from := Vector3.ZERO
 var _stuck_count := 0
 var _chasing_now := false
+## Version 180: seconds the hero has had no line of fire to this skeleton. Jesse saw one
+## stand behind a pillar in a corner of floor 4 that the hero could never shoot. Bone
+## Spitters never walk and Archers back away, so the stuck watch (which only looks at
+## skeletons walking at the hero) never saw it. After HIDE_LIMIT seconds it steps out.
+const HIDE_LIMIT := 7.0
+var _cover_time := 0.0
+var _cover_check := 0.0
 
 
 ## Bosses wear the cartoon outline, like the hero (character_visual.gd).
@@ -265,6 +272,7 @@ func _process(delta: float) -> void:
 	_touch(hero, delta)
 	_check_reach(delta)
 	_stuck_watch(hero, delta)
+	_hide_watch(hero, delta)
 
 
 ## Bosses (version 119): the next move comes from a shuffled bag instead of a fixed loop,
@@ -367,6 +375,39 @@ func _check_reach(delta: float) -> void:
 		knockback = Vector3.ZERO
 		_cancel_attacks()   # its warning would stay at the old spot
 		Fx.dust(spot, 10)
+
+
+## True while the hero's shots can't reach it (a pillar, crate or wall in between).
+func hidden_from_hero() -> bool:
+	return _cover_time >= 1.0
+
+
+func _hide_watch(hero: Hero, delta: float) -> void:
+	var room := Room.current
+	if room == null or is_boss or not can_be_hit():
+		_cover_time = 0.0
+		return
+	_cover_check -= delta
+	if _cover_check > 0.0:
+		_cover_time += delta if _cover_time > 0.0 else 0.0
+	else:
+		_cover_check = 0.5
+		if room.clear_shot(hero.global_position, global_position):
+			_cover_time = 0.0
+		else:
+			_cover_time += delta if _cover_time > 0.0 else 0.001
+	if _cover_time < HIDE_LIMIT:
+		return
+	_cover_time = 0.0
+	var spot: Vector3 = Game.rescue_spot(global_position.lerp(hero.global_position, 0.4), true)
+	if spot == Vector3.ZERO:
+		return
+	Game.report_stuck(self, hero, 0.0, true, "behind cover %d s, moved" % int(HIDE_LIMIT))
+	Fx.dust(global_position, 8)
+	global_position = spot
+	knockback = Vector3.ZERO
+	_cancel_attacks()
+	Fx.dust(spot, 10)
 
 
 func _stuck_watch(hero: Hero, delta: float) -> void:
