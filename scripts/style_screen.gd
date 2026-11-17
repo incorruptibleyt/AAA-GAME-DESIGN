@@ -170,8 +170,11 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	refresh_feats_button()
 	if not again:
 		_new = {}
-		for it: Dictionary in HeroStyle.new_looks(cfg, id):
-			_new["%s/%s" % [it.slot, it.key]] = true
+	# (Version 186: also when the screen opens again while showing, so a look won with it
+	# open, such as the Crypt King set bought from here, gets its NEW tag too.)
+	for it: Dictionary in HeroStyle.new_looks(cfg, id):
+		_new["%s/%s" % [it.slot, it.key]] = true
+	if not again:
 		_slot = "new" if not _new.is_empty() else "outfit"
 	_new_tab.visible = not _new.is_empty()
 	_new_tab.text = "NEW\n%d" % _new.size()
@@ -182,7 +185,7 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 			if nk.begins_with(k + "/"):
 				n += 1
 		var tb: Button = _tabs[k]
-		tb.add_theme_font_size_override("font_size", 14 if _new_tab.visible else 17)
+		tb.add_theme_font_size_override("font_size", 15 if _new_tab.visible else 19)
 		tb.set_meta("fresh", n > 0 or k == "new")
 	visible = true
 	_stage.set_active(true)
@@ -301,10 +304,10 @@ func _show_tab(slot: String, to_top := false) -> void:
 	for k: String in _tabs:
 		var b: Button = _tabs[k]
 		Hud.paint(b, "gold" if k == slot else "slate")
-		if k != slot and b.get_meta("fresh", false):
-			b.add_theme_color_override("font_color", Hud.GOLD)
-		else:
-			b.remove_theme_color_override("font_color")
+		# A tab holding new looks has a gold name (every state's colour: Hud.button sets them all).
+		var ink := Hud.GOLD if k != slot and b.get_meta("fresh", false) else Color.WHITE
+		for c in ["font_color", "font_pressed_color", "font_hover_color", "font_hover_pressed_color", "font_focus_color"]:
+			b.add_theme_color_override(c, ink)
 	var keep := _scroll.scroll_vertical
 	for c in _grid.get_children():
 		_grid.remove_child(c)

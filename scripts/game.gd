@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-17k"
+const BUILD := "2026-11-17l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -4766,7 +4766,7 @@ func _hero_rows() -> Array:
 			"trial": state == State.TITLE and not unlocked and not bool(cfg.get_value(TRIAL_SECTION, h.id, false)),
 			"trying": h.id == _trial_hero, "def": HeroStyle.styled(cfg, h), "points": HeroMastery.points(cfg, h.id),
 			"frame": HeroMastery.has_frame(cfg, h.id), "frame_color": HeroMastery.frame_color(HeroMastery.level(cfg, h.id)),
-			"new_looks": HeroStyle.unseen(cfg, h.id)})
+			"new_looks": HeroStyle.unseen(cfg, h.id) if unlocked else 0})   # a locked hero's tab doesn't count looks
 	return rows
 
 
