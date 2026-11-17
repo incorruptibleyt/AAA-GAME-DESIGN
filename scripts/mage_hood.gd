@@ -225,7 +225,7 @@ void fragment() {
 	// A little darker towards the bottom, so the drape reads as folded cloth.
 	c *= mix(1.18, 0.74, UV.y);
 	// (v195) Folds down the drape, deeper towards the hem: from the side it was a flat slab.
-	c *= 1.0 - 0.2 * smoothstep(0.3, 0.9, UV.y) * (0.5 + 0.5 * sin(atan(around.x, around.y) * 11.0));
+	c *= 1.0 - 0.2 * smoothstep(0.3, 0.9, UV.y) * (0.5 + 0.5 * sin(atan(around.x, around.y + 1e-4) * 11.0));
 	// Outside: the cloth. Inside: deep shadow, so the opening looks deep.
 	ALBEDO = FRONT_FACING ? c : c * 0.1;
 	if (!FRONT_FACING) {

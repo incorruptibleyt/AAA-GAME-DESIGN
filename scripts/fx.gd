@@ -354,7 +354,9 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.emission_ring_radius = 0.8
 			p.emission_ring_inner_radius = 0.5
 			p.position = Vector3(0, 0.1, 0)
-			p.add_child(bats(Color(color, 1.0), 6, 1.05 * size, 1.1, 0.26 * size, 1.5))
+			# (Version 200: night-indigo bats edged in the aura's gold, flying close round the
+			# hero. Lemon-yellow bats a hero-width out read as coins or shots in a run.)
+			p.add_child(bats(Color(0.2, 0.12, 0.42), 5, 0.85 * size, 0.6, 0.3 * size, 1.7, Color(color, 1.0)))
 		"stars":
 			p.amount = 10
 			p.lifetime = 1.4
@@ -613,7 +615,7 @@ static func wisps(parent: Node3D, color: Color, count: int, half_w: float, half_
 static var _bat_shader: Shader
 
 
-static func bats(color: Color, count: int, radius: float, height: float, size: float, speed := 1.2) -> MultiMeshInstance3D:
+static func bats(color: Color, count: int, radius: float, height: float, size: float, speed := 1.2, edge := Color(0, 0, 0, 0)) -> MultiMeshInstance3D:
 	if _bat_shader == null:
 		_bat_shader = Shader.new()
 		_bat_shader.code = BAT_CODE
@@ -621,6 +623,7 @@ static func bats(color: Color, count: int, radius: float, height: float, size: f
 	m.shader = _bat_shader
 	m.set_shader_parameter("tint", color)
 	m.set_shader_parameter("size", size)
+	m.set_shader_parameter("edge", edge)
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
 	mm.use_custom_data = true
@@ -646,6 +649,7 @@ shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 uniform vec4 tint : source_color = vec4(1.0, 0.2, 0.15, 1.0);
 uniform float size = 0.3;
+uniform vec4 edge : source_color = vec4(0.0);   // an outline colour (alpha 0: none)
 varying float flap;
 void vertex() {
 	vec4 c = INSTANCE_CUSTOM;
@@ -658,8 +662,7 @@ void vertex() {
 	vec3 w = at + (INV_VIEW_MATRIX[0].xyz * v.x + INV_VIEW_MATRIX[1].xyz * v.y) * size;
 	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
 }
-void fragment() {
-	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+float bat(vec2 p) {
 	float ax = abs(p.x);
 	float body = 1.0 - smoothstep(0.42, 0.5, length(vec2(p.x * 3.0, p.y * 1.6 + 0.1)));
 	float head = 1.0 - smoothstep(0.12, 0.16, length(vec2(p.x * 1.1, p.y - 0.36)));
@@ -667,9 +670,19 @@ void fragment() {
 	float top = 0.35 - 0.55 * (ax - 0.1) + 0.15 * sin(ax * 3.14);
 	float bottom = -0.25 + 0.3 * ax + 0.12 * abs(sin(ax * 9.42));
 	float wing = step(0.08, ax) * step(ax, 0.97) * smoothstep(bottom, bottom + 0.04, p.y) * (1.0 - smoothstep(top - 0.04, top, p.y));
-	float m = clamp(body + head + ear + wing, 0.0, 1.0);
+	return clamp(body + head + ear + wing, 0.0, 1.0);
+}
+void fragment() {
+	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	float m = bat(p);
 	if (m < 0.05) { discard; }
-	ALBEDO = tint.rgb * (1.3 + 0.5 * abs(flap));
+	if (edge.a > 0.5) {
+		// A dark bat with a bright edge: the inside is the same bat drawn a little smaller.
+		float inner = bat(p * vec2(1.16, 1.3) + vec2(0.0, 0.02));
+		ALBEDO = mix(edge.rgb * (1.1 + 0.3 * abs(flap)), tint.rgb, inner);
+	} else {
+		ALBEDO = tint.rgb * (1.3 + 0.5 * abs(flap));
+	}
 	ALPHA = m * tint.a;
 }
 """

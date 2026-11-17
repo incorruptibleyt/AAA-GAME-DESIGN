@@ -179,7 +179,7 @@ const AURAS := {
 ## Each hero's own trail of light for their auras (Fx.motif).
 const MOTIFS := {"rogue": "wisps", "knight": "motes", "barbarian": "embers", "mage": "stars"}
 
-## The Crypt King set: four looks every hero gets with the Crypt Pass, one for each of the
+## The Crypt King set: five looks every hero gets with the Crypt Pass, one for each of the
 ## outfit, head, glow and aura slots, the grandest in the game. Free players can try them on
 ## (the Style screen shows them first, on every tab). Their keys start with "crypt".
 ## The outfit is obsidian black veined with glowing molten gold, trimmed in polished gold,
@@ -1079,8 +1079,12 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 		var pick = oc.get("b" if id == "knight" else "a")
 		if pick is Color:
 			col = pick
+		var velvet := false
 		if oc.get("gold", "") != "":
-			col = PASS_OUTFIT.obsidian
+			# (Version 200: royal violet velvet under the Crypt Crown. Glossy obsidian with the
+			# crown's dark band on it read as a peaked police cap.)
+			col = Color(0.26, 0.12, 0.4)
+			velvet = true
 		var cap := SphereMesh.new()
 		cap.radius = CAP_R
 		cap.height = CAP_R
@@ -1091,6 +1095,9 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 		cm.albedo_color = col
 		cm.roughness = 0.45 if id == "knight" else 0.95
 		cm.metallic = 0.35 if id == "knight" else 0.0
+		if velvet:
+			cm.roughness = 1.0
+			cm.metallic = 0.0
 		var mi := MeshInstance3D.new()
 		mi.mesh = cap
 		mi.material_override = cm
@@ -1172,6 +1179,10 @@ uniform float a_dark = 0.0;
 uniform float b_dark = 0.0;
 // A Feat or Bone Drop outfit's animated pattern (EXTRA "pat"; 0 = none).
 uniform int pat = 0;
+// 1 while the hero lies dead or knocked down (character_visual.gd): the bands measured by
+// height above the floor (Crypt mantle and hem fire, Blood Moon hem) are off, or a lying
+// hero would be all hem.
+uniform float calm = 0.0;
 uniform float own = 0.0;   // 1 = a special pattern takes this outfit's own colours
 uniform vec3 own_a = vec3(0.5);
 uniform vec3 own_b = vec3(1.0);
@@ -1272,8 +1283,8 @@ void fragment() {
 		float vein = (1.0 - smoothstep(0.07, 0.2, abs(vn))) * (0.7 + 0.3 * sin(TIME * 1.7 + lp.y * 3.0));
 		// A mantle of polished gold over the shoulders, and teal soul fire burning up from
 		// the hem: from the run camera the obsidian body was one black lump with no colour.
-		float mantle = k * smoothstep(0.72, 0.84, wpos.y) * (1.0 - smoothstep(1.12, 1.22, wpos.y));
-		float hemf = k * (1.0 - smoothstep(0.1, 0.62, wpos.y + 0.07 * sin(lp.x * 13.0 + TIME * 3.1) * sin(lp.z * 11.0 - TIME * 2.3)));
+		float mantle = k * (1.0 - calm) * smoothstep(0.72, 0.84, wpos.y) * (1.0 - smoothstep(1.12, 1.22, wpos.y));
+		float hemf = k * (1.0 - calm) * (1.0 - smoothstep(0.1, 0.62, wpos.y + 0.07 * sin(lp.x * 13.0 + TIME * 3.1) * sin(lp.z * 11.0 - TIME * 2.3)));
 		k -= mantle;
 		g += mantle;
 		float ph = fract(TIME * 0.45 - h * 0.32);
@@ -1514,7 +1525,7 @@ void fragment() {
 			// is the colour of danger in this game.)
 			// (Version 192: indigo, not near-black, with bigger moons, and the hem burns
 			// blood-orange like a moonrise. The outfit was a dark lump with a speck on it.)
-			float hem = 1.0 - smoothstep(0.16, 0.9, wpos.y);   // (v196) height above the floor: a cape or hat has its own origin, and was all hem
+			float hem = (1.0 - calm) * (1.0 - smoothstep(0.16, 0.9, wpos.y));   // (v196) height above the floor: a cape or hat has its own origin, and was all hem
 			al = mix(al, vec3(0.15, 0.09, 0.32), 0.75);
 			al = mix(al, vec3(0.85, 0.3, 0.06), hem * 0.75);
 			em = vec3(1.0, 0.58, 0.14) * vein * (0.3 + 1.0 * hb) + vec3(1.0, 0.62, 0.2) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.9

@@ -256,6 +256,7 @@ func die() -> void:
 		return
 	_dead = true
 	_set_flash(false)
+	_calm(true)
 	if _anim and _anim_names.has("death"):
 		_play("death", true)
 		var tw := create_tween()
@@ -268,6 +269,27 @@ func die() -> void:
 		tw.tween_property(_model, "position:y", -1.5, 0.8)
 
 
+## Lying down (dead or knocked down): outfit bands measured by height above the floor are
+## turned off (hero_style.gd "calm"), on this hero's own copies of its outfit materials (the
+## materials are shared between heroes dressed alike). Version 200.
+var _calm_mats := {}
+
+func _calm(on: bool) -> void:
+	if _model == null:
+		return
+	for mi in _model.find_children("*", "MeshInstance3D", true, false):
+		var m := (mi as MeshInstance3D).material_override
+		if on and m is ShaderMaterial and (m as ShaderMaterial).shader and (m as ShaderMaterial).shader.code.contains("uniform float calm"):
+			_calm_mats[mi] = m
+			var c := (m as ShaderMaterial).duplicate() as ShaderMaterial
+			c.set_shader_parameter("calm", 1.0)
+			(mi as MeshInstance3D).material_override = c
+		elif not on and _calm_mats.has(mi):
+			(mi as MeshInstance3D).material_override = _calm_mats[mi]
+	if not on:
+		_calm_mats.clear()
+
+
 ## Crypt Race (version 153): knocked down, lying still until stand_up(). Held on the death
 ## animation's last pose, so it looks like a fall, not a death (the model doesn't sink).
 var _held := false
@@ -278,6 +300,7 @@ func knock_down() -> void:
 	_queue.clear()
 	_held = true
 	_set_flash(false)
+	_calm(true)
 	if _anim and _anim.has_animation("Death_A"):
 		_anim.play("Death_A", 0.1)
 		_anim.seek(0.0, true)
@@ -290,6 +313,7 @@ func stand_up() -> void:
 	if not _held:
 		return
 	_held = false
+	_calm(false)
 	if _anim and _anim.has_animation("Lie_StandUp"):
 		_anim.play("Lie_StandUp", 0.15)
 		_anim.seek(0.0, true)

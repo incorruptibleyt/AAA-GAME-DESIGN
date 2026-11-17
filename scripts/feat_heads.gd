@@ -666,14 +666,14 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	var top := Vector3(0, base + 0.5, -0.04)
 	_disc(r * 0.98, night, top, Vector3(1, 0.1, 1))
 	_disc(r * 0.93, fire, top + Vector3(0, 0.025, 0), Vector3(1, 0.1, 1))
-	_disc(r * 0.6, night, top + Vector3(0, 0.05, r * 0.44), Vector3(1, 0.1, 1))
+	_disc(r * 0.74, night, top + Vector3(0, 0.05, r * 0.36), Vector3(1, 0.1, 1))   # (v200: a thinner crescent, less a ring)
 
 	# The blood ring, turning (kept apart from the bake so it can spin).
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, base + 0.62, 0)
 	add_child(_spin)
-	_torus(r * 0.8, r * 0.9, _glow_mat(Color(1.0, 0.8, 0.45) * 1.5), Vector3.ZERO, _spin).scale = Vector3(1, 0.5, 1)
-	_torus(r * 0.62, r * 1.1, _add_mat(Color(1.0, 0.78, 0.4, 0.2)), Vector3.ZERO, _spin).scale = Vector3(1, 0.08, 1)
+	# (Version 200: one thin ring. The thick bright ring round the lid made it read as a pot.)
+	_torus(r * 0.9, r * 0.95, _glow_mat(Color(1.0, 0.8, 0.45) * 1.2), Vector3.ZERO, _spin).scale = Vector3(1, 0.5, 1)
 
 
 func _disc(radius: float, mat: Material, pos: Vector3, scale_by: Vector3) -> void:

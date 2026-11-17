@@ -40,7 +40,7 @@ static func make(id: String, y: float, hat: bool) -> CryptCrown:
 	c._base_y = y + lift
 	c.position = Vector3(0, c._base_y, 0)
 	c._build(r)
-	c.scale = Vector3.ONE * 1.18   # (version 198) the free Moon Crown was the bigger crown in a run
+	c.scale = Vector3.ONE * 1.05   # (v198 made it 1.18: then the crown was all you saw of the hero)
 	return c
 
 
@@ -71,7 +71,7 @@ static func _materials() -> void:
 	_velvet.roughness = 0.6
 	_velvet.emission_enabled = true
 	_velvet.emission = Color(0.05, 0.85, 0.66)
-	_velvet.emission_energy_multiplier = 0.9
+	_velvet.emission_energy_multiplier = 0.55
 	_gem = StandardMaterial3D.new()
 	_gem.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_gem.albedo_color = Color(0.25, 1.0, 0.8) * 1.15
@@ -184,26 +184,29 @@ func _build(r: float) -> void:
 	ring.ring_segments = 4
 	var rm := _mesh(ring, _glow, Vector3(0, -0.02, 0))
 	rm.scale = Vector3(1, 0.1, 1)
-	FeatHeads.bake(self, "crypt_crown5 %.2f" % r)
+	# (Version 200: from the side this glow was a brim, and the crown a peaked cap. Gone.)
+	remove_child(rm)
+	rm.free()
+	FeatHeads.bake(self, "crypt_crown6 %.2f" % r)
 	# (Version 189: the great gem, its soul light and the flames are kept out of the bake and marked "fx", so the hero's rim
 	# light and gold aura are not drawn over them. On a thin cone the rim covered all of it
 	# and the teal flame went white in the full set.)
 	var fl := CylinderMesh.new()
 	fl.top_radius = 0.0
 	fl.bottom_radius = 0.17
-	fl.height = 0.62
+	fl.height = 0.38
 	fl.radial_segments = 8
 	fl.rings = 4
 	fl.cap_bottom = false   # (an extra see-through disc from the camera above)
-	var f1 := _mesh(fl, FeatHeads._flame_mat(Color(0.1, 0.95, 0.72), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.16 + 0.31, 0))
+	var f1 := _mesh(fl, FeatHeads._flame_mat(Color(0.1, 0.95, 0.72), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.16 + 0.19, 0))
 	var fl2 := CylinderMesh.new()
 	fl2.top_radius = 0.0
-	fl2.bottom_radius = 0.27
-	fl2.height = 0.42
+	fl2.bottom_radius = 0.2
+	fl2.height = 0.26
 	fl2.radial_segments = 8
 	fl2.rings = 4
 	fl2.cap_bottom = false
-	var f2 := _mesh(fl2, FeatHeads._flame_mat(Color(0.04, 0.6, 0.55), Color(0.15, 0.95, 0.75)), Vector3(0, apex + 0.1 + 0.21, 0))
+	var f2 := _mesh(fl2, FeatHeads._flame_mat(Color(0.04, 0.6, 0.55), Color(0.15, 0.95, 0.75)), Vector3(0, apex + 0.1 + 0.13, 0))
 	late.append(f1)
 	late.append(f2)
 	for mi in late:
