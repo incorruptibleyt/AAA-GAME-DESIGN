@@ -72,16 +72,26 @@ static func dress(mi: MeshInstance3D, on: bool) -> void:
 			_gem(root, top + Vector3(0, 0.16, 0), 0.17)
 			_gem(root, Vector3(0, -0.86, 0), 0.04)   # (small: two big orbs read as a dumbbell)
 		"2H_Crossbow":
-			# One great crown point at each limb tip, a gold crown standing over the bow and a
-			# big soul gem loaded as the bolt. (v201's small points along the stock made it a
-			# thin striped stick from above.)
+			# (v203: the Rogue holds the crossbow pointing at the floor, so v202's points at the
+			# limb tips sank into the ground. Now the crown stands on the stock right by the
+			# hand, the limbs carry points that rise up out of the floor, and the soul gem sits
+			# at the grip where it is always seen.)
+			for i in 5:
+				var x := (i - 2) * 0.09
+				_point(root, Vector3(x, 0.24, 0.22 + absf(x) * 0.3), Vector3(x * 1.2, 1, 0), 0.06, 0.36 if i == 2 else (0.27 if i % 2 == 1 else 0.2))
 			for s in [-1.0, 1.0]:
-				_point(root, Vector3(s * 0.56, 0.0, 0.95), Vector3(s, 0, 0.5), 0.11, 0.42)
-			for i in 3:
-				_point(root, Vector3((i - 1) * 0.16, 0.12, 0.9), Vector3((i - 1) * 0.3, 1, 0), 0.08, 0.34 if i == 1 else 0.24)
-			_gem(root, Vector3(0, 0.08, 1.2), 0.2)
+				_point(root, Vector3(s * 0.5, 0.1, 0.8), Vector3(s * 0.6, 1, -0.5), 0.1, 0.4)
+			_gem(root, Vector3(0, 0.3, 0.12), 0.09)
+			_gem(root, Vector3(0, 0.14, 0.45), 0.08)
 		"Knife_Offhand":
-			_gem(root, Vector3(0, -0.18, 0), 0.07)
+			# The off-hand knife is held blade up, the most visible thing the Rogue carries:
+			# a crown dagger with a winged gold guard, gold points up the blade and a gem.
+			for s in [-1.0, 1.0]:
+				_point(root, Vector3(s * 0.05, 0.02, 0), Vector3(s, 0.6, 0), 0.06, 0.26)
+				for i in 2:
+					_point(root, Vector3(s * 0.06, 0.25 + i * 0.22, 0), Vector3(s, 0.9, 0), 0.04, 0.15 - i * 0.03)
+			_gem(root, Vector3(0, 0.04, 0), 0.07)
+			_gem(root, Vector3(0, -0.2, 0), 0.05)
 	# (v202: one draw for the gold, one for the gems, instead of a node per point.)
 	FeatHeads.bake(gold, "crypt_arms gold " + str(mi.name))
 	FeatHeads.bake(soul, "crypt_arms soul " + str(mi.name))
