@@ -1500,7 +1500,7 @@ void fragment() {
 			// is the colour of danger in this game.)
 			// (Version 192: indigo, not near-black, with bigger moons, and the hem burns
 			// blood-orange like a moonrise. The outfit was a dark lump with a speck on it.)
-			float hem = 1.0 - smoothstep(0.1, 0.55, q.y);
+			float hem = 1.0 - smoothstep(0.16, 0.9, wpos.y);   // (v196) height above the floor: a cape or hat has its own origin, and was all hem
 			al = mix(al, vec3(0.15, 0.09, 0.32), 0.75);
 			al = mix(al, vec3(0.85, 0.3, 0.06), hem * 0.75);
 			em = vec3(1.0, 0.58, 0.14) * vein * (0.3 + 1.0 * hb) + vec3(1.0, 0.62, 0.2) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.9

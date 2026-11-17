@@ -13,6 +13,7 @@ extends Node3D
 var kind := ""
 var _t := 0.0
 var _moon: Node3D        # the Moon Crown's glowing moon (baked apart, marked "fx")
+var _spin_y := 0.0        # the turning ring's resting height
 var _spin: Node3D        # turned slowly (halo, circlet's stars)
 var _stars: Array = []
 var _orbit_r := 0.7
@@ -63,6 +64,7 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 		h.scale = Vector3.ONE * 0.78
 	if h._spin:
 		bake(h._spin, key + " spin")
+		h._spin_y = h._spin.position.y
 	if h._moon:
 		bake(h._moon, key + " moon")
 		for c in h._moon.get_children():
@@ -654,21 +656,18 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	rim_t.rings = 24
 	rim_t.ring_segments = 6
 	_mi(rim_t, blood, c + Vector3(0, 0.02, -0.07), _moon).rotation.x = PI * 0.5
-	var lid := SphereMesh.new()
-	lid.radius = r * 0.98
-	lid.height = r * 1.96
-	lid.radial_segments = 24
-	lid.rings = 8
+	# Version 196: smooth crescents cut by an overlapping disc (the beads read as teeth), and
+	# the lid is night sky with a burning crescent whose horns point the way the hero faces
+	# (the full orange lid read as a fried egg, the same from every side).
+	var night := _glow_mat(Color(0.24, 0.15, 0.55))
+	var fc := c + Vector3(0, 0.02, -0.07)
+	_disc(0.25, moon, fc + Vector3(0, -0.03, 0.03), Vector3(1, 1, 0.1))
+	_disc(0.235, fire, fc + Vector3(0, 0.075, 0.05), Vector3(1, 1, 0.1))
 	var top := Vector3(0, base + 0.5, -0.04)
-	_mi(lid, fire, top, _moon).scale = Vector3(1, 0.12, 1)
-	for k in 15:
-		var t := -1.0 + k * 2.0 / 14.0
-		var ang := t * 1.95
-		var th := 0.025 + 0.07 * cos(t * PI * 0.5)
-		_sphere(th, moon, c + Vector3(sin(ang) * 0.24, -cos(ang) * 0.24, 0), Vector3(1, 1, 0.6), _moon)
-		# the lying crescent: its back to the hero's back, horns to the front
-		var th2 := 0.03 + 0.09 * cos(t * PI * 0.5)
-		_sphere(th2, moon, top + Vector3(sin(ang) * r * 0.6, 0.06, -cos(ang) * r * 0.6), Vector3(1, 0.4, 1), _moon)
+	_disc(r * 0.98, night, top, Vector3(1, 0.1, 1))
+	_disc(r * 0.93, fire, top + Vector3(0, 0.025, 0), Vector3(1, 0.1, 1))
+	_disc(r * 0.6, night, top + Vector3(0, 0.05, r * 0.44), Vector3(1, 0.1, 1))
+
 	# The blood ring, turning (kept apart from the bake so it can spin).
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, base + 0.62, 0)
@@ -677,17 +676,26 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	_torus(r * 0.62, r * 1.1, _add_mat(Color(1.0, 0.78, 0.4, 0.2)), Vector3.ZERO, _spin).scale = Vector3(1, 0.08, 1)
 
 
+func _disc(radius: float, mat: Material, pos: Vector3, scale_by: Vector3) -> void:
+	var m := SphereMesh.new()
+	m.radius = radius
+	m.height = radius * 2.0
+	m.radial_segments = 24
+	m.rings = 8
+	_mi(m, mat, pos, _moon).scale = scale_by
+
+
 func _process(delta: float) -> void:
 	_t += delta
 	match kind:
 		"moon_crown":
 			_spin.rotation.y += delta * 0.9
-			_spin.position.y += sin(_t * 2.2) * 0.0007
+			_spin.position.y = _spin_y + sin(_t * 2.2) * 0.02   # (v196) set, not added: it drifted in slow motion
 		"halo":
 			_spin.rotate_object_local(Vector3.UP, delta * 0.8)
 		"storm_halo":
 			_spin.rotation.y += delta * 0.8
-			_spin.position.y += sin(_t * 2.0) * 0.0006
+			_spin.position.y = _spin_y + sin(_t * 2.0) * 0.018
 		"star_circlet":
 			_spin.rotation.y += delta * 1.1
 			for st: Node3D in _stars:
