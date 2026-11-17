@@ -630,6 +630,23 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 		var th := 0.025 + 0.07 * cos(t * PI * 0.5)
 		_sphere(th, moon, c + Vector3(sin(ang) * 0.24, -cos(ang) * 0.24, 0), Vector3(1, 1, 0.6))
 	_rod(Vector3(0, base + 0.16, r * 1.05), c + Vector3(0, -0.2, 0), 0.05, 0.03, iron, null, 6)
+	# Version 192, second pass: the blood moon itself stands on the front of the crown, a
+	# big burning disc behind the pale crescent with a gold rim. From the front the crown
+	# was only a thin crescent on dark iron, the same as before the redraw.
+	var full := SphereMesh.new()
+	full.radius = 0.33
+	full.height = 0.66
+	full.radial_segments = 24
+	full.rings = 8
+	var fm := _mi(full, _glow_mat(Color(1.0, 0.36, 0.07) * 1.35), c + Vector3(0, 0.02, -0.07))
+	fm.scale = Vector3(1, 1, 0.14)
+	var rim_t := TorusMesh.new()
+	rim_t.inner_radius = 0.325
+	rim_t.outer_radius = 0.37
+	rim_t.rings = 24
+	rim_t.ring_segments = 6
+	var rt := _mi(rim_t, blood, c + Vector3(0, 0.02, -0.07))
+	rt.rotation.x = PI * 0.5
 	# Version 192: a moon lying in the crown, for the camera above. A glowing blood-orange
 	# disc with a dark one over most of it leaves a bright crescent, horns to the front, so
 	# from above the crown is a moon in a ring (it was a dark pot with a ring on it).
