@@ -185,7 +185,7 @@ func _find_anim(n: Node) -> AnimationPlayer:
 
 
 func _collect_meshes(n: Node) -> void:
-	if n is GeometryInstance3D:
+	if n is GeometryInstance3D and not n.has_meta("fx"):   # not glow quads: the hit flash made them white squares
 		_meshes.append(n)
 	for c in n.get_children():
 		_collect_meshes(c)
@@ -379,8 +379,10 @@ func _set_flash(on: bool) -> void:
 func _pick_outline_meshes() -> void:
 	var sized: Array = []
 	for m in _meshes:
-		if is_instance_valid(m) and m is MeshInstance3D and (m as MeshInstance3D).mesh:
+		if is_instance_valid(m) and m is MeshInstance3D and (m as MeshInstance3D).mesh and (m as MeshInstance3D).visible:
 			var size := (m as MeshInstance3D).mesh.get_aabb().size * _scale_in_model(m)
+			if m.has_meta("big"):   # weapons are drawn bigger in a run: rank them at their own size
+				size /= maxf((m as MeshInstance3D).scale.x, 1.0)
 			sized.append([size.x * size.y + size.y * size.z + size.x * size.z, m])
 	sized.sort_custom(func(a, b): return a[0] > b[0])
 	for i in mini(OUTLINE_PARTS, sized.size()):

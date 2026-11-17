@@ -559,9 +559,9 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	iron.rim_enabled = true
 	iron.rim = 0.6
 	iron.emission_enabled = true
-	iron.emission = Color(1.0, 0.3, 0.08)
+	iron.emission = Color(1.0, 0.48, 0.1)
 	iron.emission_energy_multiplier = 0.25
-	var blood := _glow_mat(Color(1.0, 0.34, 0.08) * 1.9)
+	var blood := _glow_mat(Color(1.0, 0.52, 0.1) * 1.9)
 	var moon := _glow_mat(Color(1.0, 0.88, 0.62) * 1.7)
 	var band := CylinderMesh.new()
 	band.top_radius = r * 1.1
@@ -593,7 +593,7 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	_spin.position = Vector3(0, base + 0.62, 0)
 	add_child(_spin)
 	_torus(r * 0.8, r * 0.9, _glow_mat(Color(1.0, 0.2, 0.15) * 1.5), Vector3.ZERO, _spin).scale = Vector3(1, 0.5, 1)
-	_torus(r * 0.62, r * 1.1, _add_mat(Color(1.0, 0.15, 0.1, 0.25)), Vector3.ZERO, _spin).scale = Vector3(1, 0.08, 1)
+	_torus(r * 0.62, r * 1.1, _add_mat(Color(1.0, 0.5, 0.12, 0.25)), Vector3.ZERO, _spin).scale = Vector3(1, 0.08, 1)
 
 
 func _process(delta: float) -> void:

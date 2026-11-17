@@ -247,7 +247,7 @@ const EXTRA := {
 		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
 		# with a gold corona, blood-red shots.
-		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.62, 0.13, 0.02), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
+		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
 		"candle": {"name": "Candlelight", "fx": "stars", "ring": Color(1.0, 0.86, 0.55), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
 		"sulfur": {"name": "Sulfur", "fx": "storm", "ring": Color(1.0, 0.95, 0.2), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
 		"spectral": {"name": "Spectral", "fx": "runes", "ring": Color(0.45, 1.0, 0.85), "ring2": Color(0.9, 1.0, 1.0), "bolt": Color(0.75, 1.0, 0.95), "bazaar": 600},
@@ -805,6 +805,7 @@ static func _wand_star(wand: MeshInstance3D, col: Color) -> void:
 	q.material_override = halo
 	q.position = tip
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	q.set_meta("fx", true)
 	wand.add_child(q)
 
 
