@@ -221,7 +221,7 @@ static func open(cfg: ConfigFile, rng: RandomNumberGenerator = null) -> Dictiona
 		out.look = look
 		out.preview = HeroStyle.dressed(Heroes.get_hero(id), picks)
 		out.hero = id
-		out.text = "NEW LOOK: %s\nOnly found in Bone Drops.\nEvery hero can wear it." % HeroStyle.item_label(id, look[0], look[1])
+		out.text = "NEW LOOK: %s\nOnly found in Bone Drops.\nWear it in HEROES > STYLE > NEW." % HeroStyle.item_label(id, look[0], look[1])
 		cfg.set_value(SECTION, "waiting", waiting(cfg) - 1)
 		cfg.set_value(SECTION, "opened", int(cfg.get_value(SECTION, "opened", 0)) + 1)
 		cfg.set_value(SECTION, "dry", 0)

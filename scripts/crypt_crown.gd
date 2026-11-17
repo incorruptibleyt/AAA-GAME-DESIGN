@@ -159,6 +159,23 @@ func _build(r: float) -> void:
 	var soul := U.unlit(Color(0.45, 1.0, 0.85, 0.35)).duplicate() as StandardMaterial3D
 	soul.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	_mesh(aura, soul, Vector3(0, apex + 0.1, 0))
+	# Version 187: a tall soul flame burns over the great gem. From the camera above, the
+	# free Crown is a gold ring with gems; this is a gold ring with a teal fire in it, so the
+	# paid crown is told apart at a glance in a run.
+	var fl := CylinderMesh.new()
+	fl.top_radius = 0.0
+	fl.bottom_radius = 0.17
+	fl.height = 0.62
+	fl.radial_segments = 8
+	fl.rings = 4
+	_mesh(fl, FeatHeads._flame_mat(Color(0.2, 1.0, 0.8), Color(0.9, 1.0, 0.95)), Vector3(0, apex + 0.16 + 0.31, 0))
+	var fl2 := CylinderMesh.new()
+	fl2.top_radius = 0.0
+	fl2.bottom_radius = 0.27
+	fl2.height = 0.42
+	fl2.radial_segments = 8
+	fl2.rings = 4
+	_mesh(fl2, FeatHeads._flame_mat(Color(0.1, 0.75, 0.7), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.1 + 0.21, 0))
 	# A soft gold glow round its base, like a halo it stands on.
 	var ring := TorusMesh.new()
 	ring.inner_radius = r * 0.95
@@ -167,7 +184,7 @@ func _build(r: float) -> void:
 	ring.ring_segments = 4
 	var rm := _mesh(ring, _glow, Vector3(0, -0.02, 0))
 	rm.scale = Vector3(1, 0.1, 1)
-	FeatHeads.bake(self, "crypt_crown3 %.2f" % r)
+	FeatHeads.bake(self, "crypt_crown4 %.2f" % r)
 
 
 func _mesh(m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:

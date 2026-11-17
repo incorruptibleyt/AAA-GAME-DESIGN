@@ -120,8 +120,9 @@ static func _materials() -> void:
 	_iron.emission_energy_multiplier = 0.3
 	_iron.rim_enabled = true
 	_iron.rim = 0.5
-	_flame_shader = Shader.new()
-	_flame_shader.code = FLAME
+	if _flame_shader == null:
+		_flame_shader = Shader.new()
+		_flame_shader.code = FLAME
 	_ghost_shader = Shader.new()
 	_ghost_shader.code = GHOST
 
@@ -171,8 +172,11 @@ func _add_mat(c: Color) -> StandardMaterial3D:
 	return _mats[k]
 
 
-func _flame_mat(hot: Color, core: Color) -> ShaderMaterial:
+static func _flame_mat(hot: Color, core: Color) -> ShaderMaterial:
 	var k := "flame %s %s" % [hot, core]
+	if _flame_shader == null:   # (the Crypt Crown asks before any Feat head was made)
+		_flame_shader = Shader.new()
+		_flame_shader.code = FLAME
 	if not _mats.has(k):
 		var m := ShaderMaterial.new()
 		m.shader = _flame_shader

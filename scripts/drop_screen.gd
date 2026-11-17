@@ -337,7 +337,7 @@ func _next_feat() -> void:
 	_pity.text = ""
 	_rarity.text = str(f.name).to_upper()
 	_rarity.label_settings.font_color = Hud.GOLD
-	_prize.text = "NEW LOOK: %s\nEarned, never sold. Every hero can wear it." % str(f.label)
+	_prize.text = "NEW LOOK: %s\nEarned, never sold. Wear it in HEROES > STYLE > NEW." % str(f.label)
 	_prize.label_settings.font_color = Color(0.75, 0.97, 1.0)
 	_prize.label_settings.font_size = 22
 	_show_look(true)

@@ -452,7 +452,7 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 				out.look = look
 				out.preview = HeroStyle.dressed(Heroes.get_hero(id), picks)
 				out.hero = id
-				out.text = "NEW LOOK: %s\nThe Blood Moon set, early!\nEvery hero can wear it." % HeroStyle.item_label(id, look[0], look[1])
+				out.text = "NEW LOOK: %s\nThe Blood Moon set, early!\nWear it in HEROES > STYLE > NEW." % HeroStyle.item_label(id, look[0], look[1])
 	return out
 
 
