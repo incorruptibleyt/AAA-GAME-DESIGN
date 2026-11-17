@@ -12,6 +12,7 @@ extends Node3D
 
 var kind := ""
 var _t := 0.0
+var _moon: Node3D        # the Moon Crown's glowing moon (baked apart, marked "fx")
 var _spin: Node3D        # turned slowly (halo, circlet's stars)
 var _stars: Array = []
 var _orbit_r := 0.7
@@ -62,6 +63,13 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 		h.scale = Vector3.ONE * 0.78
 	if h._spin:
 		bake(h._spin, key + " spin")
+	if h._moon:
+		bake(h._moon, key + " moon")
+		for c in h._moon.get_children():
+			c.set_meta("fx", true)
+		if what == "moon_crown":
+			for c in h._spin.get_children():
+				c.set_meta("fx", true)
 	for i in h._stars.size():
 		bake(h._stars[i], key + " star")
 	return h
@@ -622,51 +630,45 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 		_sphere(0.05, blood, tip + Vector3(0, 0.02, 0))
 		var g := a + 0.136
 		_sphere(0.045, blood, Vector3(0, base + 0.085, 0) + Vector3(sin(g), 0, cos(g)) * r * 1.06)
-	# The crescent: horns up, thick in the middle, of glowing moon-gold beads.
+	# Version 195: two moons, both baked apart from the iron and marked "fx" (no rim light over
+	# them, no white hit flash). One stands on the front for the menu, a burning disc with a
+	# gold rim behind the pale crescent. One lies over the crown like a lid for the run's high
+	# camera, which sees the hero from above and behind: a full burning disc with its own pale
+	# crescent. (The lying one used to sit low in the ring with a dark bite out of it, and read
+	# as a pot with a hole.)
 	var c := Vector3(0, base + 0.5, r * 1.02)
-	for k in 15:
-		var t := -1.0 + k * 2.0 / 14.0
-		var ang := t * 1.95
-		var th := 0.025 + 0.07 * cos(t * PI * 0.5)
-		_sphere(th, moon, c + Vector3(sin(ang) * 0.24, -cos(ang) * 0.24, 0), Vector3(1, 1, 0.6))
 	_rod(Vector3(0, base + 0.16, r * 1.05), c + Vector3(0, -0.2, 0), 0.05, 0.03, iron, null, 6)
-	# Version 192, second pass: the blood moon itself stands on the front of the crown, a
-	# big burning disc behind the pale crescent with a gold rim. From the front the crown
-	# was only a thin crescent on dark iron, the same as before the redraw.
+	_moon = Node3D.new()
+	_moon.name = "Moon"
+	add_child(_moon)
+	var fire := _glow_mat(Color(1.0, 0.36, 0.07) * 1.35)
 	var full := SphereMesh.new()
 	full.radius = 0.33
 	full.height = 0.66
 	full.radial_segments = 24
 	full.rings = 8
-	var fm := _mi(full, _glow_mat(Color(1.0, 0.36, 0.07) * 1.35), c + Vector3(0, 0.02, -0.07))
-	fm.scale = Vector3(1, 1, 0.14)
+	_mi(full, fire, c + Vector3(0, 0.02, -0.07), _moon).scale = Vector3(1, 1, 0.14)
 	var rim_t := TorusMesh.new()
 	rim_t.inner_radius = 0.325
 	rim_t.outer_radius = 0.37
 	rim_t.rings = 24
 	rim_t.ring_segments = 6
-	var rt := _mi(rim_t, blood, c + Vector3(0, 0.02, -0.07))
-	rt.rotation.x = PI * 0.5
-	# Version 192: a moon lying in the crown, for the camera above. A glowing blood-orange
-	# disc with a dark one over most of it leaves a bright crescent, horns to the front, so
-	# from above the crown is a moon in a ring (it was a dark pot with a ring on it).
-	var disc := SphereMesh.new()
-	disc.radius = r * 0.74
-	disc.height = r * 1.48
-	disc.radial_segments = 20
-	disc.rings = 6
-	var dm := _mi(disc, _glow_mat(Color(1.0, 0.45, 0.12) * 1.25), Vector3(0, base + 0.6, 0))
-	dm.scale = Vector3(1, 0.1, 1)
-	var night := StandardMaterial3D.new()
-	night.albedo_color = Color(0.1, 0.06, 0.2)
-	night.roughness = 0.6
-	var shade := SphereMesh.new()
-	shade.radius = r * 0.46
-	shade.height = r * 0.92
-	shade.radial_segments = 20
-	shade.rings = 6
-	var sm := _mi(shade, night, Vector3(0, base + 0.62, -r * 0.36))
-	sm.scale = Vector3(1, 0.1, 1)
+	_mi(rim_t, blood, c + Vector3(0, 0.02, -0.07), _moon).rotation.x = PI * 0.5
+	var lid := SphereMesh.new()
+	lid.radius = r * 0.98
+	lid.height = r * 1.96
+	lid.radial_segments = 24
+	lid.rings = 8
+	var top := Vector3(0, base + 0.5, -0.04)
+	_mi(lid, fire, top, _moon).scale = Vector3(1, 0.12, 1)
+	for k in 15:
+		var t := -1.0 + k * 2.0 / 14.0
+		var ang := t * 1.95
+		var th := 0.025 + 0.07 * cos(t * PI * 0.5)
+		_sphere(th, moon, c + Vector3(sin(ang) * 0.24, -cos(ang) * 0.24, 0), Vector3(1, 1, 0.6), _moon)
+		# the lying crescent: its back to the hero's back, horns to the front
+		var th2 := 0.03 + 0.09 * cos(t * PI * 0.5)
+		_sphere(th2, moon, top + Vector3(sin(ang) * r * 0.6, 0.06, -cos(ang) * r * 0.6), Vector3(1, 0.4, 1), _moon)
 	# The blood ring, turning (kept apart from the bake so it can spin).
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, base + 0.62, 0)
