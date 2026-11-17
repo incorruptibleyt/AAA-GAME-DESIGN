@@ -28,8 +28,12 @@ func _think(hero: Hero, delta: float) -> void:
 	to.y = 0.0
 	# Version 180: a Spitter behind a pillar or crate steps round it until it can see the
 	# hero (it stood there for good, out of the hero's reach, and the room never ended).
+	# (Version 182: it walks at a real pace for this. Its move_speed is 0, so before it only
+	# ran on the spot until the 7 s rescue moved it.)
 	if hidden_from_hero() and _charging <= 0.0:
-		walk(to, delta, 0.8)
+		move_speed = 1.3
+		walk(to, delta, 1.0)
+		move_speed = 0.0
 		return
 	stand(delta)
 	face(to, 6.0, delta)

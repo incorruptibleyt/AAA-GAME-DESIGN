@@ -38,7 +38,7 @@ const HEAD_TOP := {"rogue": 0.74, "knight": 0.86, "barbarian": 0.74, "mage": 0.7
 ## Outfit colours: the cloth ("a"), the trim ("b": the Mage's cape lining and collar, the
 ## Barbarian's shirt), the Knight's armour and the Rogue's leather. null = as painted.
 const OUTFITS := {
-	"crimson": {"name": "Crimson", "a": Color(0.5, 0.17, 0.03), "b": Color(1.0, 0.78, 0.3), "armor": Color(0.66, 0.24, 0.05), "leather": Color(0.24, 0.17, 0.14), "pat": 21},
+	"crimson": {"name": "Crimson", "a": Color(0.52, 0.26, 0.04), "b": Color(1.0, 0.8, 0.32), "armor": Color(0.7, 0.36, 0.08), "leather": Color(0.24, 0.17, 0.14), "pat": 21},
 	"forest": {"name": "Forest", "a": Color(0.16, 0.46, 0.2), "b": Color(0.85, 0.7, 0.3), "armor": Color(0.28, 0.54, 0.26), "leather": Color(0.5, 0.33, 0.18), "pat": 22},
 	"midnight": {"name": "Midnight", "a": Color(0.11, 0.13, 0.32), "b": Color(0.82, 0.86, 0.95), "armor": Color(0.2, 0.26, 0.62), "pat": 23},
 	"ivory": {"name": "Ivory", "a": Color(0.94, 0.91, 0.83), "b": Color(0.35, 0.6, 0.95), "armor": Color(0.88, 0.88, 0.86), "leather": Color(0.62, 0.45, 0.3), "pat": 24},
@@ -65,7 +65,7 @@ const CLASSIC_TRIM := {"rogue": Color(0.6, 0.38, 0.25), "knight": Color(0.7, 0.7
 ## extras: a crown, horns or a halo.
 const HEADS := {
 	"bare": {"name": "Bare head", "hat": false},
-	"crown": {"name": "Crown", "hat": true, "extras": ["crown"]},
+	"crown": {"name": "Crown", "hat": false, "extras": ["crown"]},
 	"halo": {"name": "Halo", "hat": true, "extras": ["halo"]},
 	"horns": {"name": "Horns", "hat": false, "extras": ["horns"]},
 	"horned_hat": {"name": "Horned hat", "hat": true, "extras": ["horns"]},
@@ -191,7 +191,7 @@ const PASS_KEY := "crypt"
 const PASS_OUTFIT := {"name": "Crypt Gold", "pass": true,
 	"gold": Color(1.0, 0.77, 0.26), "obsidian": Color(0.1, 0.075, 0.14),
 	"gold_on": {"rogue": "b", "knight": "none", "barbarian": "none", "mage": "b"}}
-const PASS_HEAD := {"name": "Crypt Crown", "hat": true, "extras": ["crypt_crown"], "pass": true}
+const PASS_HEAD := {"name": "Crypt Crown", "hat": false, "extras": ["crypt_crown"], "pass": true}
 const PASS_GLOW := {"name": "Crypt Gold", "fx": "crown", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
 ## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
 ## turning gold sigil on the floor under the hero, the one thing seen from anywhere in a room.
@@ -215,7 +215,7 @@ const EXTRA := {
 		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.36, 0.3, 0.62), "pat": 9, "drop": 3},
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
 		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
-		"blood_moon": {"name": "Blood Moon", "a": Color(0.3, 0.03, 0.06), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
+		"blood_moon": {"name": "Blood Moon", "a": Color(0.14, 0.08, 0.3), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
 		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 1, "own": true, "bazaar": 900},
 		"sunforged": {"name": "Sunforged", "a": Color(0.42, 0.2, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 5, "own": true, "bazaar": 900},
@@ -227,13 +227,13 @@ const EXTRA := {
 	},
 	"head": {
 		"storm_halo": {"name": "Storm Halo", "hat": true, "extras": ["storm_halo"], "feat": "bossbreaker"},
-		"star_circlet": {"name": "Star Circlet", "hat": true, "extras": ["star_circlet"], "feat": "fourheroes"},
-		"flame_crown": {"name": "Flame Horns", "hat": true, "extras": ["flame_crown"], "feat": "conqueror"},
+		"star_circlet": {"name": "Star Circlet", "hat": false, "extras": ["star_circlet"], "feat": "fourheroes"},
+		"flame_crown": {"name": "Flame Horns", "hat": false, "extras": ["flame_crown"], "feat": "conqueror"},
 		"skull_helm": {"name": "Skull Helm", "hat": false, "hide_head": true, "extras": ["skull_helm"], "feat": "legend"},
 		"antlers": {"name": "Antlers", "hat": false, "extras": ["antlers"], "drop": 4},
-		"phantom_horns": {"name": "Phantom Horns", "hat": true, "extras": ["phantom_horns"], "drop": 4},
-		"bone_crown": {"name": "Bone Mask", "hat": true, "extras": ["bone_crown"], "drop": 4},
-		"moon_crown": {"name": "Moon Crown", "hat": true, "extras": ["moon_crown"], "event": "blood_moon"},
+		"phantom_horns": {"name": "Phantom Horns", "hat": false, "extras": ["phantom_horns"], "drop": 4},
+		"bone_crown": {"name": "Bone Mask", "hat": false, "extras": ["bone_crown"], "drop": 4},
+		"moon_crown": {"name": "Moon Crown", "hat": false, "extras": ["moon_crown"], "event": "blood_moon"},
 	},
 	"glow": {
 		"mirage": {"name": "Mirage", "fx": "storm", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
@@ -390,6 +390,11 @@ static func is_special(it: Dictionary) -> bool:
 ## The Barbarian's tunic is the big block of his chest. Given an outfit's trim colour it
 ## became a yellow bib on every gold-trimmed outfit, so it takes a brighter shade of the
 ## main colour with only a touch of the trim.
+## Red or pink (the colour of danger in this game, kept off the heroes' looks).
+static func _reddish(c: Color) -> bool:
+	return c.s > 0.45 and c.v > 0.25 and (c.h < 0.045 or c.h > 0.9)
+
+
 static func _tunic(main: Color, trim: Color) -> Color:
 	return main.lerp(trim, 0.22)
 
@@ -701,7 +706,7 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 					mi.set_meta("big", true)
 					mi.scale *= big * (float(WEAPON_RUN_PART.get(str(mi.name), 1.0)) if big > WEAPON_SIZE else 1.0)
 					if str(mi.name) == "Badge_Shield":
-						_crest(mi, book if book is Color else Color(0.75, 0.16, 0.1))
+						_crest(mi, book if book is Color and not _reddish(book) else Color(0.18, 0.36, 0.8))
 					elif str(mi.name) == "Mug":
 						_tankard(mi, skel)
 
@@ -836,6 +841,10 @@ static func _borrow(skel: Skeleton3D, model_key: String, part: String, id := "",
 			cloth = PASS_OUTFIT.obsidian
 		if cloth == null:
 			cloth = CLASSIC_OUTFIT.get(id, Color(0.45, 0.4, 0.7))
+		# (Version 182: never a red hat. The Knight's classic colour is red, and red is the
+		# colour of danger in this game: a red cone on his head read as a warning.)
+		if cloth is Color and _reddish(cloth):
+			cloth = Color(0.2, 0.3, 0.7)
 		if src and src.albedo_texture:
 			var dye := {"a": cloth, "b": null}
 			if o.has("pat"):
@@ -1394,8 +1403,10 @@ void fragment() {
 			float h = hash3(floor(r));
 			float moon = (1.0 - smoothstep(0.16, 0.2, length(f))) * smoothstep(0.13, 0.18, length(f - vec2(0.08, 0.07)));
 			moon *= step(0.68, h) * (0.6 + 0.4 * sin(TIME * 2.0 + h * 30.0));
-			al = mix(al, vec3(0.16, 0.02, 0.04), 0.7);
-			em = vec3(1.0, 0.3, 0.06) * vein * (0.45 + 1.5 * hb) + vec3(1.0, 0.36, 0.1) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.6;
+			// (Version 182: night-purple cloth and amber veins, not black-crimson and red. Red
+			// is the colour of danger in this game.)
+			al = mix(al, vec3(0.08, 0.04, 0.15), 0.7);
+			em = vec3(1.0, 0.58, 0.14) * vein * (0.3 + 1.0 * hb) + vec3(1.0, 0.62, 0.2) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.6;
 		} else if (pat == 15 || pat == 16) {
 			// The Crypt Race outfits (version 153). Pacesetter: black racing cloth with hot
 			// orange speed streaks shooting back round the hero, and a chevron stripe down the

@@ -126,7 +126,9 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	parent.add_child(h)
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
-	h._build_feet_marker(def.ring, def.get("ring2"), str(def.get("ring_fx", "flow")), int(def.get("ring_tier", 0)))
+	# (Version 182: with an aura on, the glow's ring is fainter, so the two don't stack into
+	# one sparkling blob round the feet.)
+	h._build_feet_marker(def.ring, def.get("ring2"), str(def.get("ring_fx", "flow")), int(def.get("ring_tier", 0)), 0.5 if def.has("aura") else 1.0)
 	if HeroMastery.has_frame(cfg, def.id):
 		h._build_gold_ring(HeroMastery.frame_color(HeroMastery.level(cfg, def.id)))   # Hero Mastery level 10 (+ tiers)
 		h._master = true
@@ -134,7 +136,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	if not h._master_aura.is_empty():
 		h._build_motif()   # a Master aura's own trail of light, instead of the gold sparkles
 		if h._master_aura.get("sigil", false):
-			h._rings.append(CryptSigil.make(h, 1.7, 0.8))   # the Crypt King's turning gold sigil (2.4 m before v142: it hid the hero's feet and nearby shots)
+			h._rings.append(CryptSigil.make(h, 1.5, 0.45))   # the Crypt King's turning gold sigil (2.4 m before v142: it hid the hero's feet and nearby shots)
 	elif h._master or HeroStyle.worn(cfg, def.id, "glow") in ["gold", HeroStyle.PASS_KEY]:
 		h._build_sparkles()   # Masters (and the Gold glow) leave a trail of gold sparkles
 	h._build_dash_ring()
@@ -717,12 +719,12 @@ func _build_aura() -> void:
 
 ## A dark disc with a ring in the hero's own colour at their feet, so you can always find
 ## your hero from above, even in a crowd of skeletons on a bright floor.
-func _build_feet_marker(col: Color, col2: Variant = null, fx := "flow", tier := 0) -> void:
+func _build_feet_marker(col: Color, col2: Variant = null, fx := "flow", tier := 0, power := 1.0) -> void:
 	var disc := U.cylinder(self, 0.6, 0.01, U.unlit(Color(0, 0, 0, 0.4)), Vector3(0, 0.02, 0))
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_rings.append(disc)
 	# Version 172: a ring of light with its Glow's own shape (LookFx.ring), not a flat hoop.
-	var ring := LookFx.ring(col, col2, fx, 1.15, 0.48, 1.0, tier)
+	var ring := LookFx.ring(col, col2, fx, 1.15, 0.48, power, tier)
 	ring.position = Vector3(0, 0.04, 0)
 	add_child(ring)
 	_rings.append(ring)
@@ -764,13 +766,8 @@ func _build_motif() -> void:
 	add_child(fx)
 	_rings.append(fx)
 	_aura_fx = fx
-	# Its shape on the floor (not the Crypt King's, which has its own sigil).
-	if not _master_aura.get("sigil", false):
-		var ink: Color = _master_aura.get("ink", Color.WHITE)
-		var marks := {"quick": 8, "storm": 3, "souls": 5, "sun": 12, "arcane": 6, "snow": 6, "bubbles": 9, "fireflies": 7, "bats": 5}
-		var g := Fx.aura_ground(ink, _master_aura.get("ink2", ink.lightened(0.4)), int(marks.get(str(_master_aura.get("motif", "")), 4)))
-		add_child(g)
-		_rings.append(g)
+	# (Version 182: no second floor shape here. LookFx.aura_fx's mark() is the aura's shape;
+	# both drawn on the same spot cost twice the drawing and flickered.)
 
 
 ## The dash trail: the aura's colour (as its outline is drawing it right now), gold for a

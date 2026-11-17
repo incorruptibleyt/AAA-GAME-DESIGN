@@ -182,11 +182,13 @@ static func aura_fx(aura: Dictionary, stage := false) -> Node3D:
 	else:
 		root.add_child(shell(ink, ink2, 0.15 * k, int(sh[1]), 0.95, 1.9))
 	if not aura.get("sigil", false):
-		var mk := mark(aura, (0.75 if stage else 0.9) + 0.05 * g, 1.0 if stage else 1.3, g >= 3)
+		# (Version 182: smaller and fainter in a run. Its rings and stars on the floor round
+		# the hero's feet looked like an enemy's attack warning.)
+		var mk := mark(aura, (0.75 + 0.05 * g) if stage else (0.42 + 0.03 * g), 1.0 if stage else 0.85, g >= 3 and stage)
 		mk.position = Vector3(0, 0.034, 0)
 		root.add_child(mk)
 	if g >= 2:
-		var w := wave(ink, ink2, (0.6 + 0.1 * g) * (1.0 if stage else 0.55), 2 if g >= 4 else 1, 1.5, 0.6 if stage else 0.9)
+		var w := wave(ink, ink2, (0.6 + 0.1 * g) * (1.0 if stage else 0.35), 2 if g >= 4 else 1, 1.5 if stage else 1.0, 0.6 if stage else 0.9)
 		w.position = Vector3(0, 0.03, 0)
 		root.add_child(w)
 	if g >= 3:
@@ -701,10 +703,10 @@ void fragment() {
 		float heat = 1.0 - smoothstep(0.03, 0.16, dn);
 		float pulse = 0.7 + 0.3 * sin(TIME * 2.4 + along * 3.0);
 		al = mix(vec3(0.06, 0.045, 0.05), vec3(0.3, 0.22, 0.2), lum);
-		al = mix(al, vec3(0.9, 0.22, 0.04), crack * 0.85);
+		al = mix(al, vec3(0.95, 0.42, 0.06), crack * 0.85);
 		me = 0.55;
 		ro = 0.38;
-		em = vec3(1.0, 0.24, 0.03) * (crack * 1.3 * pulse + heat * 0.22 + edge * 0.5) + vec3(1.0, 0.8, 0.35) * (core * 1.2 * pulse + sweep * 0.5);
+		em = vec3(1.0, 0.45, 0.06) * (crack * 1.3 * pulse + heat * 0.22 + edge * 0.5) + vec3(1.0, 0.8, 0.35) * (core * 1.2 * pulse + sweep * 0.5);
 	} else if (finish == 4) {
 		// Voidsteel: night-violet metal with stars inside it and a violet edge.
 		float n = vnoise(mpos * 2.4 + vec3(TIME * 0.08, 0.0, 0.0));

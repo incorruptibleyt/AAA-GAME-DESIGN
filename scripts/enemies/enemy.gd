@@ -55,7 +55,7 @@ var _chasing_now := false
 ## skeletons walking at the hero) never saw it. After HIDE_LIMIT seconds it steps out.
 const HIDE_LIMIT := 7.0
 var _cover_time := 0.0
-var _cover_check := 0.0
+var _cover_check := randf() * 0.5   # spread out, so a whole wave doesn't check in the same frame
 
 
 ## Bosses wear the cartoon outline, like the hero (character_visual.gd).

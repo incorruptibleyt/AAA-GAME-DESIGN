@@ -553,15 +553,15 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	var base := f.x
 	var r := f.y
 	var iron := StandardMaterial3D.new()
-	iron.albedo_color = Color(0.12, 0.06, 0.08)
+	iron.albedo_color = Color(0.08, 0.08, 0.13)
 	iron.metallic = 0.7
 	iron.roughness = 0.3
 	iron.rim_enabled = true
 	iron.rim = 0.6
 	iron.emission_enabled = true
-	iron.emission = Color(1.0, 0.48, 0.1)
+	iron.emission = Color(1.0, 0.7, 0.3)
 	iron.emission_energy_multiplier = 0.25
-	var blood := _glow_mat(Color(1.0, 0.52, 0.1) * 1.9)
+	var blood := _glow_mat(Color(1.0, 0.72, 0.28) * 1.9)   # (v182: gold, not red-orange)
 	var moon := _glow_mat(Color(1.0, 0.88, 0.62) * 1.7)
 	var band := CylinderMesh.new()
 	band.top_radius = r * 1.1
@@ -592,8 +592,8 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, base + 0.62, 0)
 	add_child(_spin)
-	_torus(r * 0.8, r * 0.9, _glow_mat(Color(1.0, 0.2, 0.15) * 1.5), Vector3.ZERO, _spin).scale = Vector3(1, 0.5, 1)
-	_torus(r * 0.62, r * 1.1, _add_mat(Color(1.0, 0.5, 0.12, 0.25)), Vector3.ZERO, _spin).scale = Vector3(1, 0.08, 1)
+	_torus(r * 0.8, r * 0.9, _glow_mat(Color(1.0, 0.8, 0.45) * 1.5), Vector3.ZERO, _spin).scale = Vector3(1, 0.5, 1)
+	_torus(r * 0.62, r * 1.1, _add_mat(Color(1.0, 0.78, 0.4, 0.2)), Vector3.ZERO, _spin).scale = Vector3(1, 0.08, 1)
 
 
 func _process(delta: float) -> void:
