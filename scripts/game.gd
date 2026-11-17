@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-16d"
+const BUILD := "2026-11-17a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -5623,6 +5623,12 @@ func _bazaar_preview(slot: String, key: String) -> void:
 	var picks := HeroStyle.picks(cfg, id)
 	for s: String in HeroStyle.PASS_SLOTS:
 		if picks.get(s, "") == HeroStyle.pass_key(s):
+			picks[s] = ""
+	# Version 175: the look for sale is the star. The hero's own Glow and Aura are taken off
+	# for the picture (they flooded the hero with light, and the weapon or hat for sale
+	# could hardly be seen).
+	for s: String in ["glow", "aura"]:
+		if s != slot:
 			picks[s] = ""
 	picks[slot] = key
 	var price := Bazaar.price(slot, key)

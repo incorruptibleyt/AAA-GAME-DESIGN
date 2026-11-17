@@ -144,7 +144,7 @@ static func run(core := false) -> void:
 		made.append(layer)
 		var stage := HeroStage.new(Vector2(240, 300))
 		layer.add_child(stage)
-		var picks := {"head": "flame_crown", "outfit": "starweave", "glow": "aurora", "aura": "phantom"}
+		var picks := {"head": "flame_crown", "outfit": "starweave", "glow": "aurora", "aura": "nightlord"}   # (a grade 4 aura: its lights and sunburst too)
 		stage.show_hero(HeroStyle.dressed(Heroes.LIST[0], picks))
 		stage.set_active(true)
 		stage.reveal("glow", true)   # its sparks (version 131)

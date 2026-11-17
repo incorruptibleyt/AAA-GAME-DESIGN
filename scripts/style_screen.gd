@@ -248,7 +248,9 @@ func _show_preview() -> void:
 	var mastery := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool: return HeroStyle.is_mastery(it))
 	var got := mastery.filter(func(it: Dictionary) -> bool: return it.level <= _level).size()
 	var all := mastery.size()
-	_note.text = "Mastery level %d  ·  %d of %d looks unlocked" % [_level, got, all]
+	# ("Mastery looks": Feat, Bone Drop, Bazaar and Pass looks are not in this count, and
+	# "40 of 40 looks unlocked" stood over locked cards.)
+	_note.text = "Mastery level %d  ·  %d of %d Mastery looks" % [_level, got, all]
 	_note.label_settings.font_color = Hud.GOLD
 
 
@@ -329,9 +331,10 @@ func _card(it: Dictionary) -> Button:
 	var sw := Swatch.new()
 	sw.custom_minimum_size = Vector2(0, 58)
 	sw.setup(_id, it.slot, it.key, _base)
-	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.6 if HeroStyle.is_special(it) else 0.45)
+	# (Special looks stay bright when locked: they are what the player is working toward.)
+	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.9 if HeroStyle.is_special(it) else 0.5)
 	v.add_child(sw)
-	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got else DIM))
+	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got or HeroStyle.is_special(it) else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
 	if it.get("only", false):
@@ -347,7 +350,8 @@ func _card(it: Dictionary) -> Button:
 	elif it.has("drop"):
 		v.add_child(Hud.label("BONE DROP", 14, Drops.TIERS[int(it.drop)].color.lightened(0.2)))
 	elif it.has("bazaar"):
-		v.add_child(Hud.label("BAZAAR", 14, BAZAAR))
+		# With its price (version 175), so the player knows what to save for.
+		v.add_child(Hud.label("BAZAAR" if got else "BAZAAR  ·  %d" % int(it.bazaar), 14, BAZAAR))
 	elif it.has("race"):
 		v.add_child(Hud.label("CRYPT RACE", 14, RACE))
 	var state := "WEARING" if worn else ("TAP TO WEAR" if got else ("TAP TO TRY ON" if paid or special else "LEVEL %d" % it.level))
@@ -642,9 +646,11 @@ class Swatch extends Control:
 		if f > 1.0:
 			return
 		var x := c.x + f * r * 1.2
-		var pts := PackedVector2Array([Vector2(x - r * 0.12, c.y - r), Vector2(x + r * 0.12, c.y - r),
-			Vector2(x - r * 0.18, c.y + r), Vector2(x - r * 0.42, c.y + r)])
-		draw_colored_polygon(pts, Color(1, 1, 1, 0.45 * (1.0 - absf(f))))
+		# (Version 175: a thin warm glint. The wide white one looked like a grey scratch
+		# across the picture.)
+		var pts := PackedVector2Array([Vector2(x - r * 0.05, c.y - r), Vector2(x + r * 0.05, c.y - r),
+			Vector2(x - r * 0.25, c.y + r), Vector2(x - r * 0.35, c.y + r)])
+		draw_colored_polygon(pts, Color(1.0, 0.95, 0.75, 0.3 * (1.0 - absf(f))))
 
 	func _process(delta: float) -> void:
 		if not (aura.get("cycle", false) or aura.has("ink2") or shine or a2 != null or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown"]):

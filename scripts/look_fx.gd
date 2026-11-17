@@ -93,9 +93,11 @@ static func wave(ink: Color, ink2: Color, power := 1.0, rings := 1, radius := 1.
 	m.set_shader_parameter("ink2", ink2)
 	m.set_shader_parameter("power", power)
 	m.set_shader_parameter("rings", rings)
-	m.set_shader_parameter("reach", reach)
+	# (Version 175: the square is only as big as the waves reach. It was drawn to the full
+	# radius, shading empty floor.)
+	m.set_shader_parameter("reach", 0.96)
 	var q := PlaneMesh.new()
-	q.size = Vector2(radius * 2.0, radius * 2.0)
+	q.size = Vector2(radius * reach / 0.96 * 2.0, radius * reach / 0.96 * 2.0)
 	var mi := MeshInstance3D.new()
 	mi.mesh = q
 	mi.material_override = m
@@ -126,7 +128,7 @@ static func aura_fx(aura: Dictionary, stage := false) -> Node3D:
 	var ink2: Color = aura.get("ink2", aura.get("spark", ink))
 	var g := grade(aura)
 	var sh := shell_for(aura)
-	var k := 0.7 + 0.1 * g
+	var k := (0.7 + 0.1 * g) * float(aura.get("soft", 1.0))
 	if stage:
 		root.add_child(shell(ink, ink2, 0.46 * k, int(sh[1]), 0.9, 2.3 + 0.15 * g))
 	else:
@@ -182,9 +184,9 @@ static func burst(ink: Color, ink2: Color, power := 0.35, radius := 1.6, reach :
 	m.set_shader_parameter("ink", ink)
 	m.set_shader_parameter("ink2", ink2)
 	m.set_shader_parameter("power", power)
-	m.set_shader_parameter("reach", reach)
+	m.set_shader_parameter("reach", 1.0)
 	var q := PlaneMesh.new()
-	q.size = Vector2(radius * 2.0, radius * 2.0)
+	q.size = Vector2(radius * reach * 2.0, radius * reach * 2.0)
 	var mi := MeshInstance3D.new()
 	mi.mesh = q
 	mi.material_override = m
@@ -192,13 +194,8 @@ static func burst(ink: Color, ink2: Color, power := 0.35, radius := 1.6, reach :
 	return mi
 
 
-## How strong and which kind of column an aura gets: grander with the Mastery level it comes
-## at; the Crypt King's, the event's and the top Race aura's are the strongest.
+## Which kind of column an aura gets, by its motif: [unused, kind].
 static func shell_for(aura: Dictionary) -> Array:
-	var lv := int(aura.get("level", 12))
-	var power := clampf(0.55 + (lv - 8) * 0.04, 0.55, 1.0)
-	if aura.get("shine", false) or aura.get("sigil", false):
-		power = 1.0
 	var motif := str(aura.get("motif", ""))
 	var kind := 0
 	if motif in ["stars", "arcane", "comet", "fireflies"]:
@@ -207,7 +204,7 @@ static func shell_for(aura: Dictionary) -> Array:
 		kind = 3
 	elif motif in ["motes", "regal", "snow", "souls", "bubbles", "sun"]:
 		kind = 1
-	return [power, kind]
+	return [1.0, kind]
 
 
 ## A weapon's material, from its own (`src`): `finish` ("" = as painted) and, when a Glow
@@ -223,6 +220,9 @@ static func weapon(src: BaseMaterial3D, finish: String, glow: Variant) -> Shader
 	m.shader = _weapon_shader
 	m.set_shader_parameter("tex", src.albedo_texture)
 	m.set_shader_parameter("finish", int(FINISHES.get(finish, 0)))
+	# A plain weapon keeps how shiny its own material is (a Glow turned steel matte before).
+	m.set_shader_parameter("rough", src.roughness)
+	m.set_shader_parameter("metal", src.metallic)
 	var g: Color = glow if glow is Color else Color.BLACK
 	m.set_shader_parameter("glow", Color(g.r, g.g, g.b, 1.0 if glow is Color else 0.0))
 	_weapon_mats[key] = m
@@ -257,7 +257,7 @@ uniform float power = 1.0;
 void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
 	float r = length(p);
-	float ang = atan(p.y, p.x);
+	float ang = atan(p.y, p.x + 1e-5);
 	float a = ang / 6.2831853 + 0.5;
 	float t = TIME;
 	// The ring, a soft halo either side of it, and two arcs of brighter light running round.
@@ -390,7 +390,7 @@ uniform float reach = 0.95;
 void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
 	float r = length(p) / reach;
-	float ang = atan(p.y, p.x);
+	float ang = atan(p.y, p.x + 1e-5);
 	float long_rays = pow(abs(sin(ang * 6.0 + TIME * 0.35)), 10.0);
 	float short_rays = pow(abs(sin(ang * 6.0 + 0.26 - TIME * 0.5)), 16.0) * step(r, 0.72);
 	float fall = smoothstep(1.0, 0.3, r) * smoothstep(0.2, 0.34, r);
@@ -411,7 +411,7 @@ uniform int kind = 0;
 void fragment() {
 	// Bright where the column turns away from the eye (its edges), faint where it faces it,
 	// so the hero inside is never covered.
-	float fres = pow(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 1.5);
+	float fres = pow(clamp(1.0 - abs(dot(normalize(NORMAL), normalize(VIEW))), 0.0, 1.0), 1.5);
 	float y = clamp(1.0 - UV.y * 2.0, 0.0, 1.0);   // 0 at the floor, 1 at the top
 	float t = TIME;
 	float a = 0.0;
@@ -458,6 +458,8 @@ shader_type spatial;
 uniform sampler2D tex : source_color, filter_linear_mipmap;
 uniform int finish = 0;
 uniform vec4 glow : source_color = vec4(0.0);
+uniform float rough = 0.5;
+uniform float metal = 0.0;
 varying vec3 mpos;
 
 void vertex() {
@@ -494,8 +496,8 @@ void fragment() {
 	float sweep = pow(max(0.0, sin(along * 2.2 - TIME * 2.6)), 36.0);
 	vec3 al = c;
 	vec3 em = vec3(0.0);
-	float ro = 0.5;
-	float me = 0.0;
+	float ro = rough;
+	float me = metal;
 	if (finish == 1) {
 		// Gilded: polished gold, a warm edge and a white gleam.
 		al = mix(vec3(0.6, 0.36, 0.08), vec3(1.0, 0.84, 0.4), smoothstep(0.1, 0.75, lum));
@@ -507,11 +509,11 @@ void fragment() {
 		vec3 r = mpos * 5.0;
 		float facet = abs(fract(r.x + r.y * 0.57) - 0.5) + abs(fract(r.y - r.z * 0.57) - 0.5);
 		float line = 1.0 - smoothstep(0.03, 0.1, abs(facet - 0.5));
-		al = mix(vec3(0.2, 0.48, 0.85), vec3(0.88, 0.97, 1.0), smoothstep(0.1, 0.75, lum));
-		al = mix(al, vec3(1.0), line * 0.45);
+		al = mix(vec3(0.1, 0.32, 0.72), vec3(0.5, 0.8, 0.98), smoothstep(0.1, 0.75, lum));
+		al = mix(al, vec3(0.9, 0.98, 1.0), line * 0.5);
 		me = 0.25;
 		ro = 0.14;
-		em = vec3(0.35, 0.78, 1.0) * (0.22 + edge * 1.0 + line * 0.25) + vec3(1.0) * (twinkle(mpos * 9.0 + floor(TIME * 2.0) * 0.37, 0.09, 6.0) * 2.4 + sweep * 0.6);
+		em = vec3(0.2, 0.6, 1.0) * (0.08 + edge * 0.55 + line * 0.3) + vec3(1.0) * (twinkle(mpos * 9.0 + floor(TIME * 2.0) * 0.37, 0.09, 6.0) * 2.0 + sweep * 0.5);
 	} else if (finish == 3) {
 		// Emberforged: black iron split by cracks of molten light that breathe.
 		float n = vnoise(mpos * 4.2) * 0.65 + vnoise(mpos * 9.0 + 4.0) * 0.35;
@@ -535,10 +537,19 @@ void fragment() {
 		ro = 0.26;
 		em = neb * 0.3 + vec3(0.62, 0.34, 1.0) * edge * 1.1 + vec3(1.0, 0.95, 0.9) * st * 2.6 + vec3(0.8, 0.6, 1.0) * sweep * 0.6;
 	}
+	if (finish == 0) {
+		// A plain weapon: its own colour lit at the edges, so it stands out from the floor.
+		em += c * (0.1 + edge * 0.55) + vec3(1.0, 0.97, 0.9) * sweep * 0.25;
+	}
 	if (glow.a > 0.5) {
 		// The Glow worn: its colour at the weapon's edges and in the gleam.
-		float k = finish == 0 ? 1.0 : 0.35;
-		em += glow.rgb * (0.07 + edge * 0.95 + sweep * 0.9) * k;
+		// (A forged or gilded weapon keeps its own colours: the Glow is only a thin line
+		// at its very edge. Version 175: it turned frost weapons white and void ones green.)
+		if (finish == 0) {
+			em += glow.rgb * (0.07 + edge * 0.95 + sweep * 0.9);
+		} else {
+			em += glow.rgb * edge * edge * 0.3;
+		}
 	}
 	ALBEDO = al;
 	ROUGHNESS = ro;

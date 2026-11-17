@@ -42,7 +42,7 @@ const LIST := [
 		"emote": ["2H_Melee_Attack_Spin", "Cheer"]},
 	{"id": "mage", "difficulty": 3, "title": "Mage", "text": "Fragile, but magic orbs explode and hit whole groups.", "cost": 300,
 		"key": "Mage", "hide": ["Spellbook", "Spellbook_open", "1H_Wand"], "attack_anim": "Spellcast_Shoot",
-		"body": Color(0.45, 0.3, 0.75), "hat": true, "ring": Color(0.8, 0.5, 1.0),
+		"body": Color(0.45, 0.3, 0.75), "hat": true, "ring": Color(0.68, 0.5, 1.0),
 		"health": 80.0, "move_speed": 5.4, "damage": 11.0, "rate": 1.7, "bolt_speed": 14.0, "bolt_size": 0.3,
 		"bolt_color": Color(0.8, 0.45, 1.0), "splash": 1.8,
 		"special": "Meteor", "special_text": "Burning rocks crash onto the five nearest skeletons.",
@@ -72,16 +72,24 @@ const SAVE_SECTION := "heroes"
 static func look(def: Dictionary, stage := false) -> Dictionary:
 	var l := {"key": def.key, "height": 2.1, "body": def.body, "accent": Color(0.85, 0.75, 0.5), "eyes": Color(0.6, 0.9, 1.0),
 		"hide": def.hide, "attack_anim": def.attack_anim, "rim": Color(def.ring, 0.9)}
+	# Version 175 (critics: glows repainted the hero): every glow is a thin line of light at
+	# the hero's outline now. The wide rims tinted skin green or yellow and bleached pale
+	# outfits to white, so a mixed look turned into a blob. Special glows are a brighter
+	# line, not a wider one, and a pale outfit gets a softer line ("rim_soft").
+	var soft := float(def.get("rim_soft", 1.0))
 	if def.get("rim_strong", false):
 		if stage:
-			l.rim = Color(def.ring.r * 1.6, def.ring.g * 1.6, def.ring.b * 1.6, 1.0)
-			l.rim_power = 1.4
+			l.rim = Color(def.ring.r * 1.15, def.ring.g * 1.15, def.ring.b * 1.15, 0.95 * soft)
+			l.rim_power = 3.4
 		else:
-			l.rim = Color(def.ring, 0.4)
-			l.rim_power = 3.0
+			l.rim = Color(def.ring, 0.45 * soft)
+			l.rim_power = 3.4
 	elif def.get("rim_legend", false):
-		l.rim = Color(def.ring.r * 1.2, def.ring.g * 1.2, def.ring.b * 1.2, 1.0) if stage else Color(def.ring, 0.9)
-		l.rim_power = 2.2 if stage else 2.4
+		l.rim = Color(def.ring, (0.95 if stage else 0.8) * soft)
+		l.rim_power = 3.2
+	else:
+		l.rim = Color(def.ring, 0.8 * soft)
+		l.rim_power = 3.0
 	if def.has("ring2"):
 		var k: float = l.rim.r / maxf(0.001, def.ring.r) if def.ring.r > 0.01 else 1.0
 		l.rim2 = Color(def.ring2.r * k, def.ring2.g * k, def.ring2.b * k, l.rim.a)

@@ -241,6 +241,9 @@ var _hurt_ms := -100000
 var _safe_left := 0.0
 ## The dark disc and coloured ring at the hero's feet (hidden when they die).
 var _rings: Array[Node3D] = []
+## The aura's circling lights and sunburst: kept from turning with the hero (a dash turns
+## the hero's node, and they jumped round with it).
+var _aura_fx: Node3D
 
 
 func _check_perfect(window: float) -> void:
@@ -438,6 +441,8 @@ func _process(delta: float) -> void:
 		return
 	_update_ward_bubble()
 	_update_dash_ring()
+	if is_instance_valid(_aura_fx):
+		_aura_fx.rotation.y = -rotation.y
 	_dash_cooldown -= delta
 	if _dash_wanted_t > 0.0:
 		_dash_wanted_t -= delta
@@ -758,6 +763,7 @@ func _build_motif() -> void:
 	var fx := LookFx.aura_fx(_master_aura)
 	add_child(fx)
 	_rings.append(fx)
+	_aura_fx = fx
 	# Its shape on the floor (not the Crypt King's, which has its own sigil).
 	if not _master_aura.get("sigil", false):
 		var ink: Color = _master_aura.get("ink", Color.WHITE)

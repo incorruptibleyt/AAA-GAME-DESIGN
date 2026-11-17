@@ -34,8 +34,8 @@ static func make(id: String, y: float, hat: bool) -> CryptCrown:
 				r = 0.5
 				lift = 0.14
 			"mage":
-				r = 0.36
-				lift = 0.58   # over the point of the wizard's hat
+				r = 0.44
+				lift = 0.6   # over the point of the wizard's hat
 	c._base_y = y + lift
 	c.position = Vector3(0, c._base_y, 0)
 	c._build(r)

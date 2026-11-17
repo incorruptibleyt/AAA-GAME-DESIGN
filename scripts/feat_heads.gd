@@ -46,6 +46,10 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 		"horns": h._horns(id, y, hat)
 		"halo": h._halo(y + (hat_h if hat else 0.24))
 	bake(h, key)
+	if what == "skull_helm":
+		# Version 175: a quarter smaller. It was far bigger than the head it replaces, and
+		# from above the hero was one white ball, like a skeleton.
+		h.scale = Vector3.ONE * 0.78
 	if h._spin:
 		bake(h._spin, key + " spin")
 	for i in h._stars.size():
@@ -553,9 +557,9 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	iron.rim_enabled = true
 	iron.rim = 0.6
 	iron.emission_enabled = true
-	iron.emission = Color(1.0, 0.15, 0.1)
+	iron.emission = Color(1.0, 0.3, 0.08)
 	iron.emission_energy_multiplier = 0.25
-	var blood := _glow_mat(Color(1.0, 0.16, 0.12) * 1.9)
+	var blood := _glow_mat(Color(1.0, 0.34, 0.08) * 1.9)
 	var moon := _glow_mat(Color(1.0, 0.88, 0.62) * 1.7)
 	var band := CylinderMesh.new()
 	band.top_radius = r * 1.1
