@@ -190,7 +190,7 @@ const MOTIFS := {"rogue": "wisps", "knight": "motes", "barbarian": "embers", "ma
 const PASS_KEY := "crypt"
 const PASS_OUTFIT := {"name": "Crypt Gold", "pass": true,
 	"gold": Color(1.0, 0.77, 0.26), "obsidian": Color(0.1, 0.075, 0.14),
-	"gold_on": {"rogue": "b", "knight": "a", "barbarian": "none", "mage": "b"}}
+	"gold_on": {"rogue": "b", "knight": "none", "barbarian": "none", "mage": "b"}}
 const PASS_HEAD := {"name": "Crypt Crown", "hat": true, "extras": ["crypt_crown"], "pass": true}
 const PASS_GLOW := {"name": "Crypt Gold", "fx": "crown", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
 ## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
@@ -648,6 +648,9 @@ const WEAPON_SIZE := 1.25
 ## (In a run, by hero: the Rogue's crossbow and the Mage's wand and books are small things,
 ## the Knight's greatsword is already long.)
 const WEAPON_SIZE_RUN := {"rogue": 2.1, "knight": 1.5, "barbarian": 1.6, "mage": 2.0}
+## Version 181: in a run some weapons need more again (the crossbows sit tight against the
+## Rogue and the wand under the Mage's hat brim) and the long knives less.
+const WEAPON_RUN_PART := {"1H_Crossbow": 1.7, "2H_Crossbow": 1.5, "1H_Wand": 1.5, "Knife": 0.8, "Knife_Offhand": 0.8}
 
 static var _shaders := {}
 static var _mats := {}
@@ -696,7 +699,7 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 					_wand_star(mi, glow if glow is Color else Color(0.6, 0.85, 1.0))
 				if not mi.has_meta("big"):
 					mi.set_meta("big", true)
-					mi.scale *= big
+					mi.scale *= big * (float(WEAPON_RUN_PART.get(str(mi.name), 1.0)) if big > WEAPON_SIZE else 1.0)
 					if str(mi.name) == "Badge_Shield":
 						_crest(mi, book if book is Color else Color(0.75, 0.16, 0.1))
 					elif str(mi.name) == "Mug":

@@ -120,7 +120,9 @@ func _build(r: float) -> void:
 	cap.radial_segments = 20
 	cap.rings = 8
 	cap.is_hemisphere = true
-	var cm := _mesh(cap, _gold, Vector3(0, 0.1, 0))
+	# (Version 181: the cap is obsidian. From the game camera above, a gold cap under gold
+	# arches made the whole set read as one gold blob; now it is a black dome crossed by gold.)
+	var cm := _mesh(cap, _dark, Vector3(0, 0.1, 0))
 	cm.scale = Vector3(1, 0.5, 1)
 	var top := SphereMesh.new()
 	top.radius = 0.09
@@ -165,7 +167,7 @@ func _build(r: float) -> void:
 	ring.ring_segments = 4
 	var rm := _mesh(ring, _glow, Vector3(0, -0.02, 0))
 	rm.scale = Vector3(1, 0.1, 1)
-	FeatHeads.bake(self, "crypt_crown2 %.2f" % r)
+	FeatHeads.bake(self, "crypt_crown3 %.2f" % r)
 
 
 func _mesh(m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:
