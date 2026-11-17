@@ -96,6 +96,11 @@ static func look(def: Dictionary, stage := false) -> Dictionary:
 	for extra in ["hood", "helmet", "hat", "horns", "style", "aura"]:
 		if def.has(extra):
 			l[extra] = def[extra]
+	if l.has("style") and not stage:
+		# Version 177: in a run the weapons are drawn much bigger than on the pedestal. From
+		# the camera far above they were hidden under the hero's own head and hat.
+		l.style = (l.style as Dictionary).duplicate()
+		l.style.weapon_size = float(HeroStyle.WEAPON_SIZE_RUN.get(str(def.id), 1.6))
 	return l
 
 

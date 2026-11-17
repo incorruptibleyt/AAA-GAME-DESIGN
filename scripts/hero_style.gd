@@ -190,7 +190,7 @@ const MOTIFS := {"rogue": "wisps", "knight": "motes", "barbarian": "embers", "ma
 const PASS_KEY := "crypt"
 const PASS_OUTFIT := {"name": "Crypt Gold", "pass": true,
 	"gold": Color(1.0, 0.77, 0.26), "obsidian": Color(0.1, 0.075, 0.14),
-	"gold_on": {"rogue": "b", "knight": "a", "barbarian": "b", "mage": "b"}}
+	"gold_on": {"rogue": "b", "knight": "a", "barbarian": "none", "mage": "b"}}
 const PASS_HEAD := {"name": "Crypt Crown", "hat": true, "extras": ["crypt_crown"], "pass": true}
 const PASS_GLOW := {"name": "Crypt Gold", "fx": "crown", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
 ## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
@@ -387,6 +387,13 @@ static func is_special(it: Dictionary) -> bool:
 
 ## How much there is to a glow's ring (LookFx.set_ring): 0 a Mastery glow, 1 a Feat, Bone
 ## Drop or Bazaar glow, 2 a Legend road, Crypt Race, event or Crypt King glow.
+## The Barbarian's tunic is the big block of his chest. Given an outfit's trim colour it
+## became a yellow bib on every gold-trimmed outfit, so it takes a brighter shade of the
+## main colour with only a touch of the trim.
+static func _tunic(main: Color, trim: Color) -> Color:
+	return main.lerp(trim, 0.22)
+
+
 static func glow_tier(glow: Dictionary) -> int:
 	if glow.get("pass", false) or glow.has("race") or glow.has("event") or (glow.has("ring2") and not is_special(glow)):
 		return 2
@@ -554,6 +561,8 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	if not xo.is_empty():
 		# The Knight is mostly armour (his "b"): it takes the main colour, his cloth the trim.
 		style.outfit = {"a": xo.b, "b": xo.a, "pat": int(xo.pat)} if id == "knight" else {"a": xo.a, "b": xo.b, "pat": int(xo.pat)}
+		if id == "barbarian":
+			style.outfit.b = _tunic(xo.a.lightened(0.2), xo.b)
 	elif is_pass(p.get("outfit", "")):
 		var on: String = PASS_OUTFIT.gold_on.get(id, "a")
 		style.outfit = {"a": PASS_OUTFIT.gold if on == "a" else PASS_OUTFIT.obsidian,
@@ -564,6 +573,8 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 			b = outfit.get("armor")
 		elif id == "rogue":
 			b = outfit.get("leather")
+		elif id == "barbarian":
+			b = _tunic(outfit.get("armor", outfit.a.lightened(0.2)), outfit.b)
 		style.outfit = {"a": outfit.a, "b": b}
 		if outfit.has("pat"):
 			style.outfit.pat = int(outfit.pat)
@@ -630,6 +641,9 @@ static func aura_ink(aura: Dictionary, t := 0.0) -> Color:
 
 ## How much bigger than the model's own a hero's weapons are drawn (version 175).
 const WEAPON_SIZE := 1.25
+## (In a run, by hero: the Rogue's crossbow and the Mage's wand and books are small things,
+## the Knight's greatsword is already long.)
+const WEAPON_SIZE_RUN := {"rogue": 2.1, "knight": 1.5, "barbarian": 1.6, "mage": 2.0}
 
 static var _shaders := {}
 static var _mats := {}
@@ -657,13 +671,13 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 	# it a lit edge, and weapons are a quarter bigger: from the camera above they could not
 	# be seen at all.)
 	var cover = outfit.get("a") if outfit.get("a") is Color else CLASSIC_OUTFIT.get(id, Color(0.3, 0.22, 0.55))
-	_arm(skel, str(style.get("finish", "")), style.get("enchant"), cover)
+	_arm(skel, str(style.get("finish", "")), style.get("enchant"), cover, float(style.get("weapon_size", WEAPON_SIZE)))
 	for extra: String in style.get("extras", []):
 		_extra(skel, id, extra, bool(style.get("hat", false)), float(style.get("hat_h", 0.45)), style)
 
 
 ## Everything in the hero's hands takes the weapon material (LookFx.weapon).
-static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant = null) -> void:
+static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant = null, big := WEAPON_SIZE) -> void:
 	for c in skel.get_children():
 		var att := c as BoneAttachment3D
 		if att == null or not str(att.bone_name).begins_with("handslot"):
@@ -678,7 +692,85 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 					_wand_star(mi, glow if glow is Color else Color(0.6, 0.85, 1.0))
 				if not mi.has_meta("big"):
 					mi.set_meta("big", true)
-					mi.scale *= WEAPON_SIZE
+					mi.scale *= big
+					if str(mi.name) == "Badge_Shield":
+						_crest(mi, book if book is Color else Color(0.75, 0.16, 0.1))
+					elif str(mi.name) == "Mug":
+						_tankard(mi, skel)
+
+
+## The Knight's crest shield (version 177) was a blank cream slab: it gets a crest on its
+## face, a diamond in the outfit's colour with a gold boss at its heart.
+static func _crest(shield: MeshInstance3D, col: Color) -> void:
+	var box := shield.mesh.get_aabb()
+	var face := Vector3(box.get_center().x, box.get_center().y + 0.04, box.end.z)
+	var paint := StandardMaterial3D.new()
+	paint.albedo_color = col
+	paint.roughness = 0.5
+	paint.emission_enabled = true
+	paint.emission = col
+	paint.emission_energy_multiplier = 0.25
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(1.0, 0.8, 0.32)
+	gold.metallic = 0.7
+	gold.roughness = 0.25
+	gold.emission_enabled = true
+	gold.emission = Color(1.0, 0.7, 0.22)
+	gold.emission_energy_multiplier = 0.4
+	for side: float in [1.0, -1.0]:   # both faces: the pedestal shows one, the run camera the other
+		var at := Vector3(face.x, face.y, box.end.z if side > 0.0 else box.position.z)
+		var d := MeshInstance3D.new()
+		var dm := BoxMesh.new()
+		dm.size = Vector3(0.4, 0.4, 0.04)
+		d.mesh = dm
+		d.material_override = paint
+		d.position = at
+		d.rotation.z = PI * 0.25
+		d.scale = Vector3(1.0, 1.25, 1.0)
+		shield.add_child(d)
+		var b := MeshInstance3D.new()
+		var bm := SphereMesh.new()
+		bm.radius = 0.1
+		bm.height = 0.2
+		bm.radial_segments = 10
+		bm.rings = 5
+		b.mesh = bm
+		b.material_override = gold
+		b.position = at + Vector3(0, 0, 0.02 * side)
+		b.scale = Vector3(1, 1, 0.6)
+		shield.add_child(b)
+		for n: MeshInstance3D in [d, b]:
+			n.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## The Barbarian's tankard (version 177) sat in his axe hand, inside the axe, where nobody
+## saw it. It moves to his free hand, grows, and gets a head of foam.
+static func _tankard(mug: MeshInstance3D, skel: Skeleton3D) -> void:
+	for c in skel.get_children():
+		var att := c as BoneAttachment3D
+		if att and str(att.bone_name) == "handslot.l" and mug.get_parent() != att:
+			mug.get_parent().remove_child(mug)
+			att.add_child(mug)
+			mug.position = Vector3(0, 0.02, 0.05)
+			break
+	var box := mug.mesh.get_aabb()
+	var foam := MeshInstance3D.new()
+	var fm := SphereMesh.new()
+	fm.radius = 0.16
+	fm.height = 0.2
+	fm.radial_segments = 10
+	fm.rings = 5
+	foam.mesh = fm
+	var white := StandardMaterial3D.new()
+	white.albedo_color = Color(1.0, 0.97, 0.88)
+	white.roughness = 0.9
+	white.emission_enabled = true
+	white.emission = Color(1.0, 0.95, 0.8)
+	white.emission_energy_multiplier = 0.3
+	foam.material_override = white
+	foam.position = Vector3(0, box.end.y - 0.02, 0)
+	foam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mug.add_child(foam)
 
 
 ## The Mage's wand (version 176): a star of light at its tip in the Glow's colour. The bare

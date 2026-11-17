@@ -497,10 +497,13 @@ void fragment() {
 		a = across * pow(s, 4.0) * on * 2.6 * (1.0 - smoothstep(0.55, 1.0, y));
 		a += vnoise2(vec2(UV.x * 12.0, y * 3.0 - t * 0.6), 12.0) * 0.3 * (1.0 - y);
 	} else if (kind == 4) {
-		// Hoops: rings of light climbing the column one after another (version 176).
-		float h = pow(0.5 + 0.5 * sin((y * 2.6 - t * 0.8) * 6.2831853), 4.0);
+		// Chevrons: arrowheads of light climbing the column one after another.
+		// (Version 177: arrowheads of light, one above another. Flat hoops showed as short
+		// bars either side of the hero.)
+		float zig = abs(fract(UV.x * 6.0) - 0.5) * 0.5;
+		float h = pow(0.5 + 0.5 * sin((y * 2.2 - zig - t * 0.7) * 6.2831853), 5.0);
 		float n = vnoise2(vec2(UV.x * 12.0, y * 3.0 - t * 0.5), 12.0);
-		a = (h * 0.85 + n * 0.2) * (1.0 - smoothstep(0.5, 1.0, y));
+		a = (h * 1.0 + n * 0.18) * (1.0 - smoothstep(0.5, 1.0, y));
 	} else if (kind == 3) {
 		// Storm: forks of lightning jumping up the column.
 		float tick = floor(t * 9.0);

@@ -128,6 +128,35 @@ func _build(r: float) -> void:
 	top.radial_segments = 10
 	top.rings = 5
 	_mesh(top, _gem, Vector3(0, 0.1 + r * 0.5 + 0.04, 0))
+	# Version 177: an emperor's crown. Four beaded gold arches rise from the rim and meet
+	# over the middle, holding up a great soul gem in a glow of its own. No free crown, horn
+	# or helm in the game has this shape, on the pedestal or from the camera above.
+	var apex := 0.22 + 0.5
+	for q in 4:
+		var qa := q / 4.0 * TAU + TAU / 12.0
+		var qd := Vector3(sin(qa), 0, cos(qa))
+		for j in 7:
+			var u := (j + 0.5) / 7.0 * PI * 0.5
+			var bead := SphereMesh.new()
+			bead.radius = 0.05 - 0.012 * (j / 6.0)
+			bead.height = bead.radius * 2.0
+			bead.radial_segments = 6
+			bead.rings = 3
+			_mesh(bead, _gold, qd * (r * 1.1 * cos(u)) + Vector3(0, 0.22 + (apex - 0.22) * sin(u), 0))
+	var great := SphereMesh.new()
+	great.radius = 0.13
+	great.height = 0.3
+	great.radial_segments = 10
+	great.rings = 5
+	_mesh(great, _gem, Vector3(0, apex + 0.1, 0))
+	var aura := SphereMesh.new()
+	aura.radius = 0.24
+	aura.height = 0.48
+	aura.radial_segments = 10
+	aura.rings = 5
+	var soul := U.unlit(Color(0.45, 1.0, 0.85, 0.35)).duplicate() as StandardMaterial3D
+	soul.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	_mesh(aura, soul, Vector3(0, apex + 0.1, 0))
 	# A soft gold glow round its base, like a halo it stands on.
 	var ring := TorusMesh.new()
 	ring.inner_radius = r * 0.95
@@ -136,7 +165,7 @@ func _build(r: float) -> void:
 	ring.ring_segments = 4
 	var rm := _mesh(ring, _glow, Vector3(0, -0.02, 0))
 	rm.scale = Vector3(1, 0.1, 1)
-	FeatHeads.bake(self, "crypt_crown %.2f" % r)
+	FeatHeads.bake(self, "crypt_crown2 %.2f" % r)
 
 
 func _mesh(m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:
