@@ -126,7 +126,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	parent.add_child(h)
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
-	h._build_feet_marker(def.ring, def.get("ring2"), str(def.get("ring_fx", "flow")))
+	h._build_feet_marker(def.ring, def.get("ring2"), str(def.get("ring_fx", "flow")), int(def.get("ring_tier", 0)))
 	if HeroMastery.has_frame(cfg, def.id):
 		h._build_gold_ring(HeroMastery.frame_color(HeroMastery.level(cfg, def.id)))   # Hero Mastery level 10 (+ tiers)
 		h._master = true
@@ -717,12 +717,12 @@ func _build_aura() -> void:
 
 ## A dark disc with a ring in the hero's own colour at their feet, so you can always find
 ## your hero from above, even in a crowd of skeletons on a bright floor.
-func _build_feet_marker(col: Color, col2: Variant = null, fx := "flow") -> void:
+func _build_feet_marker(col: Color, col2: Variant = null, fx := "flow", tier := 0) -> void:
 	var disc := U.cylinder(self, 0.6, 0.01, U.unlit(Color(0, 0, 0, 0.4)), Vector3(0, 0.02, 0))
 	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_rings.append(disc)
 	# Version 172: a ring of light with its Glow's own shape (LookFx.ring), not a flat hoop.
-	var ring := LookFx.ring(col, col2, fx)
+	var ring := LookFx.ring(col, col2, fx, 1.15, 0.48, 1.0, tier)
 	ring.position = Vector3(0, 0.04, 0)
 	add_child(ring)
 	_rings.append(ring)

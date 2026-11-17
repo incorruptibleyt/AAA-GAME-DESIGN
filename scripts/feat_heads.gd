@@ -335,8 +335,10 @@ func _star_circlet(id: String, y: float, hat: bool) -> void:
 		band_r = 0.56
 		orbit_y = y + 0.12
 	# A thin gold band (version 116: no glowing gem at the front, which flared over the face).
-	var band := _torus(band_r - 0.025, band_r + 0.03, _gold, Vector3(0, band_y, 0))
-	band.scale = Vector3(1, 0.7, 1)
+	# (Version 176: a band twice as thick, with a star jewel at the front. It could not be seen.)
+	var band := _torus(band_r - 0.05, band_r + 0.055, _gold, Vector3(0, band_y, 0))
+	band.scale = Vector3(1, 1.1, 1)
+	_sphere(0.09, _glow_mat(Color(1.0, 0.95, 0.75) * 1.8), Vector3(0, band_y, band_r + 0.03), Vector3(1.0, 1.3, 0.6))
 	# Three stars orbiting, each with a soft glow.
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, orbit_y, 0)
@@ -349,7 +351,7 @@ func _star_circlet(id: String, y: float, hat: bool) -> void:
 		st.position = Vector3(sin(ang), 0.08 * sin(ang * 2.0), cos(ang)) * _orbit_r
 		_spin.add_child(st)
 		for d: Vector3 in [Vector3.UP, Vector3.DOWN, Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]:
-			var long := 0.23 if absf(d.y) > 0.5 else 0.16
+			var long := 0.32 if absf(d.y) > 0.5 else 0.22
 			_rod(d * 0.02, d * long, 0.065, 0.0, star, st, 4)
 		_sphere(0.06, star, Vector3.ZERO, Vector3.ONE, st)
 		_sphere(0.11, glow, Vector3.ZERO, Vector3.ONE, st)

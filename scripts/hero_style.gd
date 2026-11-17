@@ -54,7 +54,7 @@ const OUTFITS := {
 	# pattern, like Feat outfits ("pat", the outfit shader).
 	"diamond": {"name": "Diamond", "a": Color(0.82, 0.92, 1.0), "b": Color(0.45, 0.7, 1.0), "armor": Color(0.68, 0.83, 1.0), "leather": Color(0.36, 0.5, 0.7), "pat": 11},
 	"mythic": {"name": "Mythic", "a": Color(0.2, 0.1, 0.36), "b": Color(0.4, 0.9, 1.0), "armor": Color(0.32, 0.18, 0.55), "leather": Color(0.16, 0.1, 0.24), "pat": 12},
-	"legend": {"name": "Legend", "a": Color(0.6, 0.14, 0.06), "b": Color(1.0, 0.8, 0.35), "armor": Color(0.95, 0.72, 0.3), "leather": Color(0.3, 0.12, 0.08), "pat": 13},
+	"legend": {"name": "Legend", "a": Color(0.22, 0.08, 0.05), "b": Color(1.0, 0.8, 0.35), "armor": Color(0.3, 0.12, 0.07), "leather": Color(0.3, 0.12, 0.08), "pat": 13},
 }
 
 ## Each hero's own colours, for the Classic outfit's swatch on the Style screen.
@@ -126,18 +126,18 @@ const GRAND := {
 ## red-pink, which is what danger looks like (ShotLook.DANGER).
 const GLOWS := {
 	"emerald": {"name": "Emerald", "fx": "flow", "ring": Color(0.3, 1.0, 0.55), "bolt": Color(0.55, 1.0, 0.7)},
-	"azure": {"name": "Azure", "fx": "flow", "ring": Color(0.4, 0.68, 1.0), "bolt": Color(0.62, 0.84, 1.0)},
+	"azure": {"name": "Azure", "fx": "wave", "ring": Color(0.4, 0.68, 1.0), "bolt": Color(0.62, 0.84, 1.0)},
 	"ember": {"name": "Ember", "fx": "flame", "ring": Color(1.0, 0.52, 0.16), "bolt": Color(1.0, 0.68, 0.28)},
 	"frost": {"name": "Frost", "fx": "frost", "ring": Color(0.4, 0.94, 1.0), "bolt": Color(0.62, 1.0, 1.0)},
 	"gold": {"name": "Gold", "fx": "stars", "ring": Color(1.0, 0.82, 0.3), "bolt": Color(1.0, 0.9, 0.55)},
 	"violet": {"name": "Violet", "fx": "runes", "ring": Color(0.72, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
-	"silver": {"name": "Silver", "fx": "stars", "ring": Color(0.86, 0.9, 1.0), "bolt": Color(1.0, 1.0, 1.0)},
+	"silver": {"name": "Silver", "fx": "beads", "ring": Color(0.86, 0.9, 1.0), "bolt": Color(1.0, 1.0, 1.0)},
 	"lime": {"name": "Lime", "fx": "storm", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
 	# Version 132, the Legend road (Mastery 11, 16 and 18): glows that shimmer between two
 	# colours on the hero's edges ("ring2"), bright like Feat glows.
 	"diamond": {"name": "Diamond", "fx": "frost", "ring": Color(0.8, 0.97, 1.0), "ring2": Color(0.4, 0.78, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
 	"mythic": {"name": "Mythic", "fx": "runes", "ring": Color(0.78, 0.42, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.88, 0.7, 1.0)},
-	"legend": {"name": "Legend", "fx": "flame", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
+	"legend": {"name": "Legend", "fx": "rays", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
 }
 
 ## Master auras: looks only one hero has, one at each of Mastery levels 8, 9 and 10. An aura
@@ -148,32 +148,32 @@ const GLOWS := {
 ## camera, where hats and outfits are small.
 const AURAS := {
 	"rogue": {
-		"nightshade": {"name": "Nightshade", "level": 8, "ink": Color(0.66, 0.32, 1.0), "spark": Color(0.78, 0.52, 1.0)},
-		"venom": {"name": "Venom", "level": 9, "ink": Color(0.42, 1.0, 0.22), "spark": Color(0.66, 1.0, 0.36)},
-		"shadow_king": {"name": "Shadow King", "level": 10, "ink": Color(1.0, 0.76, 0.22), "ink2": Color(0.58, 0.24, 1.0), "spark": Color(1.0, 0.84, 0.4)},
-		"duskblade": {"name": "Duskblade", "level": 15, "ink": Color(0.7, 0.3, 1.0), "ink2": Color(0.3, 0.95, 1.0), "spark": Color(0.75, 0.6, 1.0)},
-		"nightlord": {"name": "Nightlord", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"nightshade": {"name": "Nightshade", "level": 8, "shell": 0, "ink": Color(0.66, 0.32, 1.0), "spark": Color(0.78, 0.52, 1.0)},
+		"venom": {"name": "Venom", "level": 9, "shell": 4, "ink": Color(0.42, 1.0, 0.22), "spark": Color(0.66, 1.0, 0.36)},
+		"shadow_king": {"name": "Shadow King", "level": 10, "shell": 1, "ink": Color(1.0, 0.76, 0.22), "ink2": Color(0.58, 0.24, 1.0), "spark": Color(1.0, 0.84, 0.4)},
+		"duskblade": {"name": "Duskblade", "level": 15, "shell": 2, "ink": Color(0.7, 0.3, 1.0), "ink2": Color(0.3, 0.95, 1.0), "spark": Color(0.75, 0.6, 1.0)},
+		"nightlord": {"name": "Nightlord", "level": 20, "shell": 0, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 	"knight": {
-		"sunguard": {"name": "Sunguard", "level": 8, "ink": Color(1.0, 0.64, 0.16), "spark": Color(1.0, 0.8, 0.4)},
-		"stormplate": {"name": "Stormplate", "level": 9, "ink": Color(0.3, 0.64, 1.0), "spark": Color(0.72, 0.88, 1.0)},
-		"paladin": {"name": "Paladin", "level": 10, "ink": Color(1.0, 0.97, 0.86), "ink2": Color(1.0, 0.72, 0.2), "spark": Color(1.0, 0.86, 0.45)},
-		"dawnshield": {"name": "Dawnshield", "level": 15, "ink": Color(0.85, 0.97, 1.0), "ink2": Color(0.4, 0.75, 1.0), "spark": Color(0.85, 0.95, 1.0)},
-		"lionheart": {"name": "Lionheart", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"sunguard": {"name": "Sunguard", "level": 8, "shell": 1, "ink": Color(1.0, 0.64, 0.16), "spark": Color(1.0, 0.8, 0.4)},
+		"stormplate": {"name": "Stormplate", "level": 9, "shell": 3, "ink": Color(0.3, 0.64, 1.0), "spark": Color(0.72, 0.88, 1.0)},
+		"paladin": {"name": "Paladin", "level": 10, "shell": 4, "ink": Color(1.0, 0.97, 0.86), "ink2": Color(1.0, 0.72, 0.2), "spark": Color(1.0, 0.86, 0.45)},
+		"dawnshield": {"name": "Dawnshield", "level": 15, "shell": 2, "ink": Color(0.85, 0.97, 1.0), "ink2": Color(0.4, 0.75, 1.0), "spark": Color(0.85, 0.95, 1.0)},
+		"lionheart": {"name": "Lionheart", "level": 20, "shell": 1, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 	"barbarian": {
-		"wildfire": {"name": "Wildfire", "level": 8, "ink": Color(1.0, 0.46, 0.08), "spark": Color(1.0, 0.62, 0.22)},
-		"thunder": {"name": "Thunder", "level": 9, "ink": Color(1.0, 0.94, 0.25), "spark": Color(1.0, 1.0, 0.62)},
-		"warlord": {"name": "Warlord", "level": 10, "ink": Color(1.0, 0.42, 0.06), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(1.0, 0.72, 0.3)},
-		"stormrage": {"name": "Stormrage", "level": 15, "ink": Color(0.35, 0.6, 1.0), "ink2": Color(0.95, 0.95, 1.0), "spark": Color(0.7, 0.85, 1.0)},
-		"worldbreaker": {"name": "Worldbreaker", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"wildfire": {"name": "Wildfire", "level": 8, "shell": 0, "ink": Color(1.0, 0.46, 0.08), "spark": Color(1.0, 0.62, 0.22)},
+		"thunder": {"name": "Thunder", "level": 9, "shell": 4, "ink": Color(1.0, 0.94, 0.25), "spark": Color(1.0, 1.0, 0.62)},
+		"warlord": {"name": "Warlord", "level": 10, "shell": 1, "ink": Color(1.0, 0.42, 0.06), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(1.0, 0.72, 0.3)},
+		"stormrage": {"name": "Stormrage", "level": 15, "shell": 3, "ink": Color(0.35, 0.6, 1.0), "ink2": Color(0.95, 0.95, 1.0), "spark": Color(0.7, 0.85, 1.0)},
+		"worldbreaker": {"name": "Worldbreaker", "level": 20, "shell": 0, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 	"mage": {
-		"starfire": {"name": "Starfire", "level": 8, "ink": Color(0.48, 0.5, 1.0), "spark": Color(0.72, 0.76, 1.0)},
-		"arcane_frost": {"name": "Arcane Frost", "level": 9, "ink": Color(0.4, 0.95, 1.0), "spark": Color(0.82, 1.0, 1.0)},
-		"archmage": {"name": "Archmage", "level": 10, "ink": Color(0.7, 0.45, 1.0), "cycle": true, "spark": Color(0.82, 0.7, 1.0)},
-		"voidweave": {"name": "Voidweave", "level": 15, "ink": Color(0.25, 0.3, 1.0), "ink2": Color(0.85, 0.45, 1.0), "spark": Color(0.6, 0.6, 1.0)},
-		"starsage": {"name": "Starsage", "level": 20, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"starfire": {"name": "Starfire", "level": 8, "shell": 2, "ink": Color(0.48, 0.5, 1.0), "spark": Color(0.72, 0.76, 1.0)},
+		"arcane_frost": {"name": "Arcane Frost", "level": 9, "shell": 4, "ink": Color(0.4, 0.95, 1.0), "spark": Color(0.82, 1.0, 1.0)},
+		"archmage": {"name": "Archmage", "level": 10, "shell": 1, "ink": Color(0.7, 0.45, 1.0), "cycle": true, "spark": Color(0.82, 0.7, 1.0)},
+		"voidweave": {"name": "Voidweave", "level": 15, "shell": 0, "ink": Color(0.25, 0.3, 1.0), "ink2": Color(0.85, 0.45, 1.0), "spark": Color(0.6, 0.6, 1.0)},
+		"starsage": {"name": "Starsage", "level": 20, "shell": 2, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
 }
 ## Each hero's own trail of light for their auras (Fx.motif).
@@ -192,7 +192,7 @@ const PASS_OUTFIT := {"name": "Crypt Gold", "pass": true,
 	"gold": Color(1.0, 0.77, 0.26), "obsidian": Color(0.1, 0.075, 0.14),
 	"gold_on": {"rogue": "b", "knight": "a", "barbarian": "b", "mage": "b"}}
 const PASS_HEAD := {"name": "Crypt Crown", "hat": true, "extras": ["crypt_crown"], "pass": true}
-const PASS_GLOW := {"name": "Crypt Gold", "fx": "runes", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
+const PASS_GLOW := {"name": "Crypt Gold", "fx": "crown", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
 ## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
 ## turning gold sigil on the floor under the hero, the one thing seen from anywhere in a room.
 const PASS_AURA := {"name": "Crypt King", "pass": true, "ink": Color(1.0, 0.78, 0.22), "ink2": Color(1.0, 0.95, 0.72),
@@ -238,23 +238,23 @@ const EXTRA := {
 	"glow": {
 		"mirage": {"name": "Mirage", "fx": "storm", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
 		"inferno": {"name": "Inferno", "fx": "flame", "ring": Color(1.0, 0.42, 0.08), "bolt": Color(1.0, 0.95, 0.6), "feat": "linked"},
-		"glacier": {"name": "Glacier", "fx": "frost", "ring": Color(0.7, 0.85, 1.0), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
-		"aurora": {"name": "Aurora", "fx": "runes", "ring": Color(0.35, 1.0, 0.6), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
-		"eclipse": {"name": "Eclipse", "fx": "runes", "ring": Color(0.55, 0.25, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
-		"venom": {"name": "Venom", "fx": "flame", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
-		"abyss": {"name": "Abyss", "fx": "flow", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
+		"glacier": {"name": "Glacier", "fx": "rays", "ring": Color(0.7, 0.85, 1.0), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
+		"aurora": {"name": "Aurora", "fx": "wave", "ring": Color(0.35, 1.0, 0.6), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
+		"eclipse": {"name": "Eclipse", "fx": "eclipse", "ring": Color(0.55, 0.25, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
+		"venom": {"name": "Venom", "fx": "beads", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
+		"abyss": {"name": "Abyss", "fx": "wave", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
-		"moonlight": {"name": "Moonlight", "fx": "stars", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
+		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.9, 0.78), "ring2": Color(1.0, 0.42, 0.22), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
 		# with a gold corona, blood-red shots.
-		"blood_eclipse": {"name": "Blood Eclipse", "fx": "flame", "ring": Color(0.62, 0.13, 0.02), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
-		"candle": {"name": "Candlelight", "fx": "flame", "ring": Color(1.0, 0.86, 0.55), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
+		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.62, 0.13, 0.02), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
+		"candle": {"name": "Candlelight", "fx": "stars", "ring": Color(1.0, 0.86, 0.55), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
 		"sulfur": {"name": "Sulfur", "fx": "storm", "ring": Color(1.0, 0.95, 0.2), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
 		"spectral": {"name": "Spectral", "fx": "runes", "ring": Color(0.45, 1.0, 0.85), "ring2": Color(0.9, 1.0, 1.0), "bolt": Color(0.75, 1.0, 0.95), "bazaar": 600},
-		"sapphire": {"name": "Sapphire", "fx": "frost", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(0.6, 0.85, 1.0), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
+		"sapphire": {"name": "Sapphire", "fx": "beads", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(0.6, 0.85, 1.0), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
 		# Crypt Race glows: Photon (electric white-cyan), Afterburn (flame orange to jet blue).
 		"photon": {"name": "Photon", "fx": "storm", "ring": Color(0.35, 0.95, 1.0), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.75, 1.0, 1.0), "race": 100},
-		"afterburn": {"name": "Afterburn", "fx": "flame", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
+		"afterburn": {"name": "Afterburn", "fx": "wave", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
 	},
 	# Weapon finishes sold in the Bone Bazaar (version 172): the hero's grandest weapon in
 	# polished gold, or in night-violet steel with stars in it.
@@ -383,6 +383,14 @@ static func is_mastery(it: Dictionary) -> bool:
 ## A Feat, Bone Drop, event or Bone Bazaar look: won or bought, not a Mastery level.
 static func is_special(it: Dictionary) -> bool:
 	return it.has("feat") or it.has("drop") or it.has("event") or it.has("bazaar") or it.has("race")
+
+
+## How much there is to a glow's ring (LookFx.set_ring): 0 a Mastery glow, 1 a Feat, Bone
+## Drop or Bazaar glow, 2 a Legend road, Crypt Race, event or Crypt King glow.
+static func glow_tier(glow: Dictionary) -> int:
+	if glow.get("pass", false) or glow.has("race") or glow.has("event") or (glow.has("ring2") and not is_special(glow)):
+		return 2
+	return 1 if is_special(glow) else 0
 
 
 ## The slots the Crypt King set fills, and each look's key ("crypt", "crypt_crown"...).
@@ -529,6 +537,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	if not glow.is_empty():
 		d.ring = glow.ring
 		d.ring_fx = str(glow.get("fx", "flow"))
+		d.ring_tier = glow_tier(glow)
 		d.bolt_color = glow.bolt
 		# Feat, Bone Drop and Pass glows shine brighter and wider on the hero's edges, so the
 		# player can see what they won (version 119: the Eclipse reveal showed a faint rim).
@@ -647,13 +656,14 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 	# (Version 175: every weapon, with or without a finish or Glow. The weapon material gives
 	# it a lit edge, and weapons are a quarter bigger: from the camera above they could not
 	# be seen at all.)
-	_arm(skel, str(style.get("finish", "")), style.get("enchant"))
+	var cover = outfit.get("a") if outfit.get("a") is Color else CLASSIC_OUTFIT.get(id, Color(0.3, 0.22, 0.55))
+	_arm(skel, str(style.get("finish", "")), style.get("enchant"), cover)
 	for extra: String in style.get("extras", []):
 		_extra(skel, id, extra, bool(style.get("hat", false)), float(style.get("hat_h", 0.45)), style)
 
 
 ## Everything in the hero's hands takes the weapon material (LookFx.weapon).
-static func _arm(skel: Skeleton3D, finish: String, glow: Variant) -> void:
+static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant = null) -> void:
 	for c in skel.get_children():
 		var att := c as BoneAttachment3D
 		if att == null or not str(att.bone_name).begins_with("handslot"):
@@ -663,10 +673,47 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant) -> void:
 			if mi and mi.mesh:
 				var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
 				if src and src.albedo_texture:
-					mi.material_override = LookFx.weapon(src, finish, glow)
+					mi.material_override = LookFx.weapon(src, finish, glow, book if str(mi.name).begins_with("Spellbook") else null)
+				if str(mi.name) == "1H_Wand" and not mi.has_meta("big"):
+					_wand_star(mi, glow if glow is Color else Color(0.6, 0.85, 1.0))
 				if not mi.has_meta("big"):
 					mi.set_meta("big", true)
 					mi.scale *= WEAPON_SIZE
+
+
+## The Mage's wand (version 176): a star of light at its tip in the Glow's colour. The bare
+## stick was the weakest thing a hero could hold.
+static func _wand_star(wand: MeshInstance3D, col: Color) -> void:
+	var box := wand.mesh.get_aabb()
+	var axis := box.get_longest_axis_index()
+	var lo := box.position[axis]
+	var hi := box.end[axis]
+	var tip := box.get_center()
+	tip[axis] = hi if absf(hi) > absf(lo) else lo   # the end away from the hand
+	var core := U.unlit(Color(col.lightened(0.5), 1.0))
+	var halo := U.unlit(Color(col, 0.5), U.soft_circle()).duplicate() as StandardMaterial3D
+	halo.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	halo.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	halo.billboard_keep_scale = true
+	var s := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = 0.07
+	sm.height = 0.14
+	sm.radial_segments = 10
+	sm.rings = 5
+	s.mesh = sm
+	s.material_override = core
+	s.position = tip
+	s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	wand.add_child(s)
+	var q := MeshInstance3D.new()
+	var qm := QuadMesh.new()
+	qm.size = Vector2(0.5, 0.5)
+	q.mesh = qm
+	q.material_override = halo
+	q.position = tip
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	wand.add_child(q)
 
 
 ## A part (hat, cape, weapon) from another hero's model, worn on this skeleton on the same
@@ -694,6 +741,19 @@ static func _borrow(skel: Skeleton3D, model_key: String, part: String, id := "",
 			if o.has("pat"):
 				dye.pat = o.pat
 			mi.material_override = _material("mage", dye, src)
+	# Version 176: a borrowed bear hat or knight's helm takes the outfit's colour too (they
+	# stayed brown and grey over any outfit). With the Classic outfit they stay as made.
+	if part in ["Barbarian_Hat", "Knight_Helmet"]:
+		var src2 := (p.mesh as Mesh).surface_get_material(0) as BaseMaterial3D
+		var o2: Dictionary = style.get("outfit", {})
+		var c2 = o2.get("b" if id == "knight" else "a")
+		if o2.get("gold", "") != "":
+			c2 = PASS_OUTFIT.obsidian
+		if c2 is Color and src2 and src2.albedo_texture:
+			var dye2 := {"a": c2, "b": null} if part == "Barbarian_Hat" else {"a": null, "b": c2}
+			if o2.has("pat"):
+				dye2.pat = o2.pat
+			mi.material_override = _material("barbarian" if part == "Barbarian_Hat" else "knight", dye2, src2)
 	mi.name = "Borrowed_" + part
 	mi.transform = p.transform
 	var grow := float(HEAD_TOP.get(id, 0.74)) / float(HEAD_TOP.get(model_key.to_lower(), 0.74))
@@ -1183,8 +1243,9 @@ void fragment() {
 			float sweep = pow(max(0.0, sin(q.y * 1.5 + q.x * 0.8 - TIME * 2.0)), 12.0);
 			vec3 fire = hsv2rgb(vec3(fract(facet * 1.7 + TIME * 0.15), 0.45, 1.0));
 			float sp = twinkle(q * 8.0 + floor(TIME * 3.0) * 0.21, 0.07, 7.0);
-			al = mix(al, vec3(0.7, 0.85, 1.0), 0.3);
-			em = fire * (line * 0.3 + edge * 0.35) + vec3(0.8, 0.92, 1.0) * sweep * 0.9 + vec3(1.0) * sp * 2.5;
+			al = mix(al, vec3(0.5, 0.74, 1.0), 0.4);   // (bluer in version 176: it was plain white from above)
+			al = mix(al, vec3(1.0), line * 0.6);
+			em = fire * (line * 0.5 + edge * 0.35) + vec3(0.8, 0.92, 1.0) * sweep * 0.9 + vec3(1.0) * sp * 2.5;
 		} else if (pat == 12) {
 			// Mythic (Mastery 17): deep violet cloth, thin rings of light rising round the hero
 			// with runes glowing between them, violet turning to cyan. (The first try's wide
@@ -1201,10 +1262,16 @@ void fragment() {
 		} else if (pat == 13) {
 			// Legend (Mastery 19): a sun's rays turning round the hero in red-gold, embers
 			// rising through them.
+			// (Version 176: it was a plain red outfit with faint rays, weaker than the level 2
+			// Crimson. Now black cloth with living flames climbing it from the hem, orange at
+			// the root and gold at the tips, the last outfit on the Mastery road.)
 			float rays = pow(0.5 + 0.5 * sin(ang * 6.0 + TIME * 1.2), 6.0) * (0.6 + 0.4 * sin(q.y * 3.0 - TIME * 2.0));
 			float up = twinkle(q * 5.0 + vec3(0.0, -TIME * 1.2, 0.0), 0.1, 3.0);
-			al = mix(al, vec3(0.55, 0.1, 0.05), 0.35);   // deep crimson under the gold light
-			em = vec3(1.0, 0.55, 0.15) * rays * 0.7 + vec3(1.0, 0.85, 0.5) * edge * 0.4 + vec3(1.0, 0.55, 0.15) * up * 2.0;
+			float tong = fbm(vec3(ang * 2.2, q.y * 2.4 - TIME * 1.1, TIME * 0.2));
+			float fl = smoothstep(0.52, 0.68, tong) * (1.0 - 0.45 * fract(q.y * 0.9));
+			vec3 fire = mix(vec3(1.0, 0.3, 0.04), vec3(1.0, 0.86, 0.4), smoothstep(0.3, 1.0, fl));
+			al = mix(al, fire, fl * 0.8);
+			em = fire * fl * 0.55 + vec3(1.0, 0.55, 0.15) * rays * 0.35 + vec3(1.0, 0.8, 0.4) * edge * 0.55 + vec3(1.0, 0.7, 0.25) * up * 2.2;
 		} else if (pat == 14) {
 			// Blood Moon (the event set): black-crimson cloth, veins of blood light throbbing
 			// with a heartbeat (two beats, then a rest), and little gold crescent moons

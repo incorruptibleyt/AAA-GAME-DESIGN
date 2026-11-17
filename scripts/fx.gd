@@ -161,7 +161,7 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 	# the Knight's motes and the Mage's stars.
 	var shape := "dot" if kind in ["wisps", "embers", "souls", "snow", "fireflies"] else ("soft" if kind == "bubbles" else "glint")
 	p.mesh = _shaped(shape)
-	p.color = Color(color, 0.85 if kind in ["wisps", "snow"] else (0.6 if kind in ["souls", "bubbles"] else 1.0))
+	p.color = Color(color, 0.85 if kind in ["wisps", "snow"] else (0.6 if kind == "souls" else (0.8 if kind == "bubbles" else 1.0)))
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
 	match kind:
 		"wisps":
@@ -310,27 +310,27 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.position = Vector3(0, 1.7, 0)
 		"bubbles":
 			# Bubbles: soft green bubbles wobbling up.
-			p.amount = 14
+			p.amount = 20
 			p.lifetime = 1.4
 			p.spread = 20.0
 			p.initial_velocity_min = 0.4
 			p.initial_velocity_max = 0.7
 			p.gravity = Vector3(0, 0.3, 0)
-			p.scale_amount_min = 0.25
-			p.scale_amount_max = 0.45
+			p.scale_amount_min = 0.3
+			p.scale_amount_max = 0.55
 			p.emission_ring_radius = 0.7
 			p.emission_ring_inner_radius = 0.3
 			p.position = Vector3(0, 0.1, 0)
 		"fireflies":
 			# Fireflies: little lights wandering round the hero, blinking.
-			p.amount = 12
+			p.amount = 18
 			p.lifetime = 2.2
 			p.spread = 180.0
 			p.initial_velocity_min = 0.15
 			p.initial_velocity_max = 0.35
 			p.gravity = Vector3.ZERO
-			p.scale_amount_min = 0.2
-			p.scale_amount_max = 0.32
+			p.scale_amount_min = 0.3   # (0.2 to 0.32 before version 176: they could hardly be seen)
+			p.scale_amount_max = 0.46
 			p.emission_ring_radius = 1.1
 			p.emission_ring_inner_radius = 0.6
 			p.position = Vector3(0, 0.6, 0)

@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-17a"
+const BUILD := "2026-11-17b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -4820,9 +4820,16 @@ func _open_style(id: String) -> void:
 ## A look picked on the Style screen: worn from now on, and on the hero on the title too.
 func _wear_look(id: String, slot: String, key: String) -> void:
 	var cfg := _load_save()
-	if not HeroStyle.has_look(cfg, id, slot, key):
-		return
-	HeroStyle.wear(cfg, id, slot, key)
+	if slot == "set":
+		# WEAR THE FULL CRYPT KING SET (the Style screen, Pass owners).
+		if not Store.owned(cfg):
+			return
+		for s: String in HeroStyle.PASS_SLOTS:
+			HeroStyle.wear(cfg, id, s, HeroStyle.pass_key(s))
+	else:
+		if not HeroStyle.has_look(cfg, id, slot, key):
+			return
+		HeroStyle.wear(cfg, id, slot, key)
 	write_save(cfg)
 	hud.open_style(cfg, id)
 	if state != State.TITLE:

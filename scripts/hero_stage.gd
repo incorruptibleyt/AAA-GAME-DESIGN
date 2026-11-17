@@ -267,7 +267,7 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	_light(0.0, 0.0)
 	var col: Color = def.ring
 	_ring_mat.albedo_color = col
-	LookFx.set_ring(_glow_ring.material_override, col, def.get("ring2"), str(def.get("ring_fx", "flow")))
+	LookFx.set_ring(_glow_ring.material_override, col, def.get("ring2"), str(def.get("ring_fx", "flow")), int(def.get("ring_tier", 0)))
 	_glow_mat.albedo_color = Color(col, 0.45)
 	_back_light.light_color = col
 	if _portrait:

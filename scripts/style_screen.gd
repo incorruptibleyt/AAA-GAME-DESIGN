@@ -29,6 +29,7 @@ var _owned := false   # the Crypt Pass, which gives the Crypt King set
 var _cfg: ConfigFile   # for Feat and Bone Drop looks (HeroStyle.has_look)
 var _feats_btn: Button
 var _pass_btn: Button
+var _set_offer := false   # the button reads WEAR THE FULL CRYPT KING SET (a Pass owner wearing part of it)
 var _slot := "outfit"
 var _title: Label
 var _stage: HeroStage
@@ -74,7 +75,10 @@ func _init() -> void:
 	_pass_btn.custom_minimum_size = Vector2(340, 60)
 	_pass_btn.pressed.connect(func():
 		Sfx.play("click")
-		get_pass.emit())
+		if _set_offer:
+			wear.emit(_id, "set", HeroStyle.PASS_KEY)   # the whole Crypt King set at once
+		else:
+			get_pass.emit())
 	_pass_btn.visible = false
 	var pbox := CenterContainer.new()
 	pbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -211,6 +215,15 @@ func _fit() -> void:
 func _show_preview() -> void:
 	_stage.show_hero(HeroStyle.dressed(_base, _preview), _frame, HeroMastery.frame_color(_level))
 	_pass_btn.visible = false
+	# Version 176: a Pass owner wearing some of the Crypt King set, but not all of it, gets
+	# one button that puts on the rest.
+	var worn_set := 0
+	for slot: String in HeroStyle.PASS_SLOTS:
+		if _picks.get(slot, "") == HeroStyle.pass_key(slot):
+			worn_set += 1
+	_set_offer = _owned and worn_set > 0 and worn_set < HeroStyle.PASS_SLOTS.size()
+	_pass_btn.text = "WEAR THE FULL CRYPT KING SET" if _set_offer else "GET THE CRYPT PASS"
+	_pass_btn.visible = _set_offer
 	for slot: String in HeroStyle.SLOTS:
 		var key: String = _preview.get(slot, "")
 		if key != _picks.get(slot, ""):
@@ -400,6 +413,7 @@ class Swatch extends Control:
 	var shine := false   # a Crypt King look: a glint runs across its picture
 	var pat := 0   # a Feat or drop outfit's pattern, drawn on its swatch
 	var finish := ""   # a weapon finish (gold, frost, ember, void)
+	var tier := 0   # how grand a glow's ring is (HeroStyle.glow_tier)
 	var fx := ""   # a glow's ring shape (flame, frost, storm, stars, runes)
 	var a2 = null   # a Legend road glow's second colour (it shimmers between the two)
 	var _t := 0.0
@@ -435,6 +449,7 @@ class Swatch extends Control:
 				b = gl.get("bolt", a)
 				a2 = gl.get("ring2")
 				fx = str(gl.get("fx", ""))
+				tier = HeroStyle.glow_tier(gl)
 				shine = HeroStyle.is_pass(k)
 			"aura":
 				aura = HeroStyle.PASS_AURA if HeroStyle.is_pass(k) else HeroStyle.AURAS.get(id, {}).get(k, HeroStyle.extra(s, k))
@@ -497,7 +512,39 @@ class Swatch extends Control:
 	func _ring_marks(c: Vector2, r: float) -> void:
 		var lit: Color = (a2 if a2 != null else a).lerp(Color.WHITE, 0.45)
 		var r0 := r * 0.86
+		if tier >= 1:
+			draw_circle(c, r * 0.5, Color(lit, 0.8), false, 1.5, true)
+		if tier >= 2:
+			for i in 4:
+				var t := TAU * i / 4.0 + _t * 0.5
+				draw_arc(c, r * 1.12, t, t + 0.8, 6, Color(lit, 0.9), 2.0, true)
 		match fx:
+			"rays", "crown":
+				var n := 12 if fx == "rays" else 8
+				for i in n:
+					var t := TAU * i / n + _t * 0.15
+					var out := Vector2(cos(t), sin(t))
+					var side := Vector2(-out.y, out.x)
+					var h := r * (0.2 if fx == "rays" else 0.3)
+					draw_colored_polygon(PackedVector2Array([c + out * r0 - side * r * 0.08, c + out * (r0 + h), c + out * r0 + side * r * 0.08]), Color(lit, 0.95))
+					if fx == "crown":
+						draw_circle(c + out * (r0 + h), r * 0.05, Color.WHITE)
+			"beads":
+				for i in 10:
+					var t := TAU * i / 10.0 + _t * 0.5
+					draw_circle(c + Vector2(cos(t), sin(t)) * (r0 + r * 0.12), r * 0.06 * (0.7 + 0.3 * sin(_t * 3.0 - i * 1.26)), lit)
+			"wave":
+				var pts := PackedVector2Array()
+				for i in 49:
+					var t := TAU * i / 48.0
+					pts.append(c + Vector2(cos(t), sin(t)) * (r0 + r * (0.12 + 0.06 * sin(t * 8.0 + _t * 3.0))))
+				draw_polyline(pts, lit, 2.0, true)
+			"eclipse":
+				var t0 := _t * 0.8
+				for i in 12:
+					var t := t0 - 1.1 + 2.2 * i / 11.0
+					var k := cos((t - t0) * 0.7)
+					draw_circle(c + Vector2(cos(t), sin(t)) * (r0 + r * 0.08 * k), r * 0.1 * k * k, lit)
 			"flame":
 				for i in 8:
 					var t := TAU * i / 8.0

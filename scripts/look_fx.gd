@@ -9,7 +9,9 @@ class_name LookFx
 ##    frost, ember, void: hero_style.gd "finish").
 ## Each is one small mesh and one shader, so a look costs a phone one or two draws.
 
-const STYLES := {"flow": 0, "flame": 1, "frost": 2, "storm": 3, "stars": 4, "runes": 5}
+## (Version 176: five more shapes, so glows of one colour family no longer look alike:
+## sun rays, a chain of beads, a rippling wave, a turning crescent, and the Crypt King's crown.)
+const STYLES := {"flow": 0, "flame": 1, "frost": 2, "storm": 3, "stars": 4, "runes": 5, "rays": 6, "beads": 7, "wave": 8, "eclipse": 9, "crown": 10}
 const FINISHES := {"": 0, "gold": 1, "frost": 2, "ember": 3, "void": 4}
 ## The sparks a finished weapon throws when it fires (hero.gd).
 const FINISH_SPARK := {"gold": Color(1.0, 0.84, 0.4), "frost": Color(0.65, 0.92, 1.0), "ember": Color(1.0, 0.48, 0.12), "void": Color(0.72, 0.48, 1.0)}
@@ -27,13 +29,13 @@ static var _shell_mesh: CylinderMesh
 
 ## A glow's ring on the floor: `col` (and `col2`, which the light running round it turns
 ## to), drawn `radius` metres wide with the ring itself at `at` (0-1 of that).
-static func ring(col: Color, col2: Variant, style: String, radius := 1.15, at := 0.48, power := 1.0) -> MeshInstance3D:
+static func ring(col: Color, col2: Variant, style: String, radius := 1.15, at := 0.48, power := 1.0, tier := 0) -> MeshInstance3D:
 	if _ring_shader == null:
 		_ring_shader = Shader.new()
 		_ring_shader.code = RING
 	var m := ShaderMaterial.new()
 	m.shader = _ring_shader
-	set_ring(m, col, col2, style)
+	set_ring(m, col, col2, style, tier)
 	m.set_shader_parameter("r0", at)
 	m.set_shader_parameter("power", power)
 	var q := PlaneMesh.new()
@@ -45,11 +47,15 @@ static func ring(col: Color, col2: Variant, style: String, radius := 1.15, at :=
 	return mi
 
 
-static func set_ring(m: ShaderMaterial, col: Color, col2: Variant, style: String) -> void:
+## `tier` (version 176): 0 a plain glow, 1 a second ring inside (Feat, Bone Drop and Bazaar
+## glows), 2 also four arcs of light turning round the outside (the Legend road, Race, event
+## and Crypt King glows): the rarer the glow, the more there is to its ring.
+static func set_ring(m: ShaderMaterial, col: Color, col2: Variant, style: String, tier := 0) -> void:
 	var c2: Color = col2 if col2 is Color else col.lightened(0.45)
 	m.set_shader_parameter("col", col)
 	m.set_shader_parameter("col2", c2)
 	m.set_shader_parameter("style", int(STYLES.get(style, 0)))
+	m.set_shader_parameter("tier", tier)
 
 
 ## An aura's column of light: `kind` 0 = flames of light rising, 1 = bands winding up.
@@ -198,6 +204,10 @@ static func burst(ink: Color, ink2: Color, power := 0.35, radius := 1.6, reach :
 static func shell_for(aura: Dictionary) -> Array:
 	var motif := str(aura.get("motif", ""))
 	var kind := 0
+	if aura.has("shell"):
+		# (Version 176: each Master aura names its own column, so a hero's level 8, 9 and 10
+		# auras are three different effects and not one effect in three colours.)
+		return [1.0, int(aura.shell)]
 	if motif in ["stars", "arcane", "comet", "fireflies"]:
 		kind = 2
 	elif motif in ["storm", "quick"]:
@@ -209,8 +219,8 @@ static func shell_for(aura: Dictionary) -> Array:
 
 ## A weapon's material, from its own (`src`): `finish` ("" = as painted) and, when a Glow
 ## is worn, its colour running along the weapon.
-static func weapon(src: BaseMaterial3D, finish: String, glow: Variant) -> ShaderMaterial:
-	var key := "%s %s %s" % [src.get_instance_id(), finish, glow]
+static func weapon(src: BaseMaterial3D, finish: String, glow: Variant, book: Variant = null) -> ShaderMaterial:
+	var key := "%s %s %s %s" % [src.get_instance_id(), finish, glow, book]
 	if _weapon_mats.has(key):
 		return _weapon_mats[key]
 	if _weapon_shader == null:
@@ -225,6 +235,10 @@ static func weapon(src: BaseMaterial3D, finish: String, glow: Variant) -> Shader
 	m.set_shader_parameter("metal", src.metallic)
 	var g: Color = glow if glow is Color else Color.BLACK
 	m.set_shader_parameter("glow", Color(g.r, g.g, g.b, 1.0 if glow is Color else 0.0))
+	# A spellbook (version 176): its cover in `book`'s colour, and pages that glow with
+	# lines of writing running across them.
+	var bk: Color = book if book is Color else Color.BLACK
+	m.set_shader_parameter("book", Color(bk.r, bk.g, bk.b, 1.0 if book is Color else 0.0))
 	_weapon_mats[key] = m
 	return m
 
@@ -251,6 +265,7 @@ render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabl
 uniform vec4 col : source_color = vec4(1.0);
 uniform vec4 col2 : source_color = vec4(1.0);
 uniform int style = 0;
+uniform int tier = 0;
 uniform float r0 = 0.48;
 uniform float power = 1.0;
 """ + NOISE + """
@@ -306,6 +321,46 @@ void fragment() {
 		float g = exp(-abs(x) * 60.0) * exp(-abs(y) * 14.0) + exp(-abs(y) * 60.0) * exp(-abs(x) * 14.0);
 		extra = clamp(g * 1.6, 0.0, 1.0) * (0.55 + 0.45 * sin(t * 4.0 + id * 2.1));
 		ec = mix(col2.rgb, vec3(1.0), 0.5);
+	} else if (style == 6) {
+		// Sun rays: twelve even points standing out of the ring, slowly turning.
+		float seg = fract(a * 12.0 + t * 0.03);
+		float w = 1.0 - abs(seg - 0.5) * 2.0;
+		float k = d / 0.2;
+		extra = step(0.0, d) * step(k, w) * (0.8 + 0.2 * sin(t * 3.0));
+		ec = mix(col2.rgb * 1.1, col.rgb, clamp(k, 0.0, 1.0));
+	} else if (style == 7) {
+		// Beads: a chain of ten round lights circling the ring, pulsing one after another.
+		float s = fract(a * 10.0 - t * 0.12);
+		float id = floor(a * 10.0 - t * 0.12);
+		float x = (s - 0.5) * 6.2831853 / 10.0 * r;
+		float dist = length(vec2(x, d - 0.15));
+		extra = smoothstep(0.06, 0.035, dist) * (0.6 + 0.4 * sin(t * 3.0 - id * 1.26));
+		ec = mix(col2.rgb, vec3(1.0), 0.35);
+	} else if (style == 8) {
+		// Wave: two rippling lines woven round the outside.
+		float w1 = d - 0.15 - 0.055 * sin(ang * 8.0 + t * 3.0);
+		float w2 = d - 0.15 + 0.055 * sin(ang * 8.0 + t * 3.0);
+		extra = smoothstep(0.024, 0.0, abs(w1)) + smoothstep(0.02, 0.0, abs(w2)) * 0.55;
+		ec = mix(col2.rgb, vec3(1.0), 0.3);
+	} else if (style == 9) {
+		// Eclipse: a crescent of light, thick on one side and gone on the other, turning.
+		float arc = pow(0.5 + 0.5 * cos(ang - t * 0.8), 2.0);
+		float th = 0.015 + 0.24 * arc;
+		extra = step(0.0, d) * (1.0 - smoothstep(th * 0.6, th, d)) * smoothstep(0.02, 0.2, arc);
+		ec = mix(col2.rgb * 1.15, col.rgb, clamp(d / th, 0.0, 1.0));
+	} else if (style == 10) {
+		// The Crypt King's crown: eight tall curved points with a jewel on each tip, and a
+		// ring of marks turning the other way inside. Nothing else in the game has it.
+		float seg = fract(a * 8.0 + t * 0.04);
+		float w = 1.0 - abs(seg - 0.5) * 2.0;
+		float k = d / 0.25;
+		float tooth = step(0.0, d) * step(k, w * w);
+		float x = (seg - 0.5) * 6.2831853 / 8.0 * r;
+		float jewel = smoothstep(0.045, 0.025, length(vec2(x, d - 0.3)));
+		float s2 = fract(a * 16.0 - t * 0.08);
+		float marks = smoothstep(0.02, 0.008, abs(d + 0.13)) * step(s2, 0.6);
+		extra = max(tooth * (0.75 + 0.25 * sin(t * 2.4 + floor(a * 8.0 + t * 0.04))), max(jewel, marks * 0.8));
+		ec = mix(mix(col2.rgb * 1.1, col.rgb, clamp(k, 0.0, 1.0)), vec3(1.0, 0.98, 0.9), jewel);
 	} else {
 		// Runes: a ring of marks turning the other way inside a thin outer line.
 		float seg = fract(a * 14.0 + t * 0.05);
@@ -313,8 +368,21 @@ void fragment() {
 		float mark = smoothstep(0.05, 0.03, abs(d - 0.16)) * step(seg, 0.3 + 0.4 * hash2(vec2(id, 1.0)));
 		extra = mark * (0.6 + 0.4 * sin(t * 2.0 + id)) + smoothstep(0.014, 0.0, abs(d - 0.27)) * 0.6;
 	}
+	vec3 ecol = ec;
+	if (tier >= 1) {
+		// a second, thinner ring inside
+		float in2 = smoothstep(0.02, 0.006, abs(d + 0.085)) * 0.85;
+		ecol = mix(ecol, col2.rgb, in2 / max(extra + in2, 0.001));
+		extra = max(extra, in2);
+	}
+	if (tier >= 2) {
+		// four arcs of light turning round the outside
+		float arcs = smoothstep(0.022, 0.006, abs(d - 0.36)) * step(fract(a * 4.0 - t * 0.09), 0.55);
+		ecol = mix(ecol, mix(col2.rgb, vec3(1.0), 0.4), arcs / max(extra + arcs, 0.001));
+		extra = max(extra, arcs);
+	}
 	float total = clamp(alpha + extra * 0.9, 0.0, 0.96);
-	ALBEDO = mix(c, ec, clamp(extra / max(alpha + extra, 0.001), 0.0, 1.0)) * 1.2;
+	ALBEDO = mix(c, ecol, clamp(extra / max(alpha + extra, 0.001), 0.0, 1.0)) * 1.2;
 	ALPHA = total * power * smoothstep(1.0, 0.92, r);
 }
 """
@@ -428,6 +496,11 @@ void fragment() {
 		float on = step(0.22, hash2(vec2(id, 2.0)));
 		a = across * pow(s, 4.0) * on * 2.6 * (1.0 - smoothstep(0.55, 1.0, y));
 		a += vnoise2(vec2(UV.x * 12.0, y * 3.0 - t * 0.6), 12.0) * 0.3 * (1.0 - y);
+	} else if (kind == 4) {
+		// Hoops: rings of light climbing the column one after another (version 176).
+		float h = pow(0.5 + 0.5 * sin((y * 2.6 - t * 0.8) * 6.2831853), 4.0);
+		float n = vnoise2(vec2(UV.x * 12.0, y * 3.0 - t * 0.5), 12.0);
+		a = (h * 0.85 + n * 0.2) * (1.0 - smoothstep(0.5, 1.0, y));
 	} else if (kind == 3) {
 		// Storm: forks of lightning jumping up the column.
 		float tick = floor(t * 9.0);
@@ -458,6 +531,7 @@ shader_type spatial;
 uniform sampler2D tex : source_color, filter_linear_mipmap;
 uniform int finish = 0;
 uniform vec4 glow : source_color = vec4(0.0);
+uniform vec4 book : source_color = vec4(0.0);
 uniform float rough = 0.5;
 uniform float metal = 0.0;
 varying vec3 mpos;
@@ -536,6 +610,16 @@ void fragment() {
 		me = 0.5;
 		ro = 0.26;
 		em = neb * 0.3 + vec3(0.62, 0.34, 1.0) * edge * 1.1 + vec3(1.0, 0.95, 0.9) * st * 2.6 + vec3(0.8, 0.6, 1.0) * sweep * 0.6;
+	}
+	if (book.a > 0.5 && finish == 0) {
+		// The Mage's spellbook: a leather cover in the outfit's colour (it was always pink),
+		// and bright pages with lines of glowing writing moving across them.
+		float pink = step(c.g * 1.35, c.r) * step(c.g * 1.05, c.b);
+		al = mix(al, book.rgb * (0.45 + lum * 0.9), pink);
+		float page = smoothstep(0.72, 0.86, lum) * (1.0 - pink);
+		float lines = step(0.55, fract(mpos.y * 22.0 + mpos.x * 3.0)) * step(0.25, fract(mpos.x * 9.0 + mpos.z * 9.0 - TIME * 0.35));
+		vec3 ink = glow.a > 0.5 ? glow.rgb : vec3(0.55, 0.8, 1.0);
+		em += page * (ink * (0.35 + 0.25 * sin(TIME * 2.0)) + ink * lines * 0.9);
 	}
 	if (finish == 0) {
 		// A plain weapon: its own colour lit at the edges, so it stands out from the floor.
