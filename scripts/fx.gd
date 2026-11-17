@@ -161,7 +161,7 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 	# the Knight's motes and the Mage's stars.
 	var shape := "dot" if kind in ["wisps", "embers", "souls", "snow", "fireflies"] else ("soft" if kind == "bubbles" else "glint")
 	p.mesh = _shaped(shape)
-	p.color = Color(color, 0.85 if kind in ["wisps", "snow"] else (0.6 if kind == "souls" else (0.8 if kind == "bubbles" else 1.0)))
+	p.color = Color(color, 0.85 if kind in ["wisps", "snow"] else (0.45 if kind == "souls" else (0.8 if kind == "bubbles" else 1.0)))
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
 	match kind:
 		"wisps":
@@ -262,8 +262,10 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.initial_velocity_min = 0.3
 			p.initial_velocity_max = 0.5
 			p.gravity = Vector3(0, 0.2, 0)
-			p.scale_amount_min = 0.5
-			p.scale_amount_max = 0.8
+			# (Version 183: smaller and fainter. Big souls made a fog over the hero from above:
+			# Golden Souls a yellow haze, Phantom a white one.)
+			p.scale_amount_min = 0.26
+			p.scale_amount_max = 0.42
 			p.emission_ring_radius = 0.8
 			p.emission_ring_inner_radius = 0.5
 			p.position = Vector3(0, 0.1, 0)

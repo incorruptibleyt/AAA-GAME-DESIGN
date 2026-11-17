@@ -217,10 +217,10 @@ const EXTRA := {
 		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
 		"blood_moon": {"name": "Blood Moon", "a": Color(0.14, 0.08, 0.3), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
-		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 1, "own": true, "bazaar": 900},
-		"sunforged": {"name": "Sunforged", "a": Color(0.42, 0.2, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 5, "own": true, "bazaar": 900},
-		"plaguebone": {"name": "Plaguebone", "a": Color(0.2, 0.2, 0.12), "b": Color(0.85, 0.95, 0.25), "pat": 8, "own": true, "bazaar": 900},
-		"nightbloom": {"name": "Nightbloom", "a": Color(0.02, 0.36, 0.2), "b": Color(0.72, 0.42, 1.0), "pat": 3, "own": true, "bazaar": 900},
+		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 33, "own": true, "bazaar": 900},
+		"sunforged": {"name": "Sunforged", "a": Color(0.42, 0.2, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
+		"plaguebone": {"name": "Plaguebone", "a": Color(0.2, 0.2, 0.12), "b": Color(0.85, 0.95, 0.25), "pat": 35, "own": true, "bazaar": 900},
+		"nightbloom": {"name": "Nightbloom", "a": Color(0.02, 0.36, 0.2), "b": Color(0.72, 0.42, 1.0), "pat": 36, "own": true, "bazaar": 900},
 		# The Crypt Race (race.gd, version 153): "race" is the Race Road step's trophies.
 		"pacesetter": {"name": "Pacesetter", "a": Color(0.1, 0.1, 0.13), "b": Color(1.0, 0.5, 0.1), "pat": 15, "race": 275},
 		"crystal_sprint": {"name": "Crystal Sprint", "a": Color(0.05, 0.12, 0.26), "b": Color(0.45, 0.95, 1.0), "pat": 16, "race": 900},
@@ -275,7 +275,7 @@ const EXTRA := {
 		# circling the hero, and a blood moon on the floor under them.
 		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.36, 0.08), "ink2": Color(1.0, 0.72, 0.3), "spark": Color(1.0, 0.46, 0.14), "motif": "bats", "shine": true, "event": "blood_moon"},
 		"wisp": {"name": "Will-o'-Wisp", "ink": Color(0.35, 0.75, 1.0), "ink2": Color(0.6, 1.0, 0.95), "spark": Color(0.6, 0.9, 1.0), "motif": "fireflies", "bazaar": 1500},
-		"golden_souls": {"name": "Golden Souls", "ink": Color(1.0, 0.82, 0.35), "spark": Color(1.0, 0.9, 0.55), "motif": "souls", "bazaar": 1500},
+		"golden_souls": {"name": "Golden Souls", "ink": Color(1.0, 0.66, 0.2), "ink2": Color(0.55, 0.9, 1.0), "spark": Color(1.0, 0.86, 0.5), "motif": "souls", "bazaar": 1500},
 		# Crypt Race auras: a comet's tail of teal glints streaming behind the hero, and the Bone
 		# King league's own, violet and gold, with the shine.
 		"comet": {"name": "Comet", "ink": Color(0.3, 0.9, 1.0), "ink2": Color(0.9, 1.0, 1.0), "spark": Color(0.55, 0.95, 1.0), "motif": "comet", "race": 500},
@@ -934,7 +934,7 @@ static func _recolour(n: Node, id: String, outfit: Dictionary) -> void:
 static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> ShaderMaterial:
 	# Capes are single sheets drawn from both sides: the copy must be too, or they vanish.
 	var both := src.cull_mode == BaseMaterial3D.CULL_DISABLED
-	var key := "%s %s %s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", ""), outfit.get("pat", 0), outfit.get("own_b", "")]
+	var key := "%s %s %s %s %s %s %s %s" % [id, outfit.get("a", null), outfit.get("b", null), both, outfit.get("gold", ""), outfit.get("pat", 0), outfit.get("own_a", ""), outfit.get("own_b", "")]
 	if _mats.has(key):
 		return _mats[key]
 	# A plain recolour gets a short copy of the shader without the gold and pattern code:
@@ -1407,6 +1407,58 @@ void fragment() {
 			// is the colour of danger in this game.)
 			al = mix(al, vec3(0.08, 0.04, 0.15), 0.7);
 			em = vec3(1.0, 0.58, 0.14) * vein * (0.3 + 1.0 * hb) + vec3(1.0, 0.62, 0.2) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.6;
+		} else if (pat == 33) {
+			// Tidecaller (Bone Bazaar, version 183): sand-gold cloth with teal waves rolling
+			// round the hero, a line of white foam riding each crest.
+			float wv = q.y * 4.0 + sin(ang * 3.0 + TIME * 1.4) * 0.35 + sin(ang * 7.0 - TIME * 0.9) * 0.12;
+			float f = fract(wv);
+			float sea = smoothstep(0.3, 0.5, f);
+			float crest = 1.0 - smoothstep(0.0, 0.07, abs(f - 0.5));
+			al = mix(own_a * 0.95, own_b * 0.75, sea * 0.9);
+			em = own_b * sea * 0.3 + vec3(0.85, 1.0, 1.0) * crest * (1.0 + 0.6 * sin(TIME * 3.0 + ang * 4.0)) + own_b * edge * 0.7;
+			met = (1.0 - sea) * 0.5;
+		} else if (pat == 34) {
+			// Sunforged: bronze cloth set with gold sun medallions whose rays turn.
+			vec2 uv = vec2(ang * 0.95, q.y * 1.7);
+			uv.x += 0.5 * floor(uv.y);
+			vec2 f = fract(uv) - 0.5;
+			float d = length(f);
+			float disc = 1.0 - smoothstep(0.15, 0.18, d);
+			float rays = pow(abs(sin(atan(f.y, f.x) * 6.0 + TIME * 1.2)), 6.0) * smoothstep(0.15, 0.18, d) * (1.0 - smoothstep(0.28, 0.4, d));
+			float pulse = 0.75 + 0.25 * sin(TIME * 2.0 + uv.y * 3.0);
+			al = mix(own_a, gold, clamp(disc + rays * 0.6, 0.0, 1.0));
+			em = gold * (disc * 1.3 * pulse + rays * 1.1 + 0.06) + own_b * edge * 0.6;
+			met = clamp(disc + rays, 0.0, 1.0) * 0.9 + 0.2;
+		} else if (pat == 35) {
+			// Plaguebone: dark rotten cloth over pale ribs, lime slime dripping down it and
+			// bubbles swelling and popping.
+			float rib = (1.0 - smoothstep(0.1, 0.16, abs(fract(q.y * 3.0) - 0.5))) * (1.0 - smoothstep(0.1, 0.16, abs(mpos.x))) * step(0.0, mpos.z);
+			float col = ang * 2.2;
+			float h = hash3(vec3(floor(col * 3.0), 2.3, 5.1));
+			float drop = fract(q.y * 1.2 + TIME * (0.25 + 0.35 * h) + h * 5.0);
+			float drip = (1.0 - smoothstep(0.1, 0.22, abs(fract(col * 3.0) - 0.5))) * smoothstep(0.35, 0.95, drop) * step(0.3, h);
+			float slime = smoothstep(0.5, 0.7, fbm(q * 1.5 + vec3(0.0, TIME * 0.2, 0.0)));
+			vec3 r = q * 3.2 + vec3(0.0, -TIME * 0.6, 0.0);
+			float hb = hash3(floor(r));
+			float ph = fract(TIME * 0.45 + hb);
+			float bub = (1.0 - smoothstep(0.0, 0.05, abs(length(fract(r) - 0.5) - (0.08 + 0.28 * ph)))) * (1.0 - ph) * step(0.5, hb);
+			al = mix(mix(mix(own_a, own_b * 0.5, slime * 0.5), vec3(0.82, 0.8, 0.66), rib * 0.85), own_b, drip * 0.7);
+			em = own_b * (drip * 1.4 + bub * 1.6 + slime * 0.25 + edge * 0.45) * 0.75;
+		} else if (pat == 36) {
+			// Nightbloom: deep green cloth on which violet flowers open and glow, a gold
+			// light in each heart.
+			vec2 uv = vec2(ang * 1.3, q.y * 2.6);
+			uv.x += 0.5 * floor(uv.y);
+			vec2 f = fract(uv) - 0.5;
+			float h = hash3(vec3(floor(uv), 1.3));
+			float pa = atan(f.y, f.x);
+			float rr = length(f);
+			float petal = 0.3 * (0.55 + 0.45 * cos(pa * 5.0 + h * 6.0));
+			float bloom = (1.0 - smoothstep(petal - 0.03, petal + 0.02, rr)) * step(0.15, h);
+			float heart = (1.0 - smoothstep(0.04, 0.07, rr)) * step(0.15, h);
+			float vine = (1.0 - smoothstep(0.02, 0.05, abs(f.x + 0.12 * sin(uv.y * 6.28)))) * (1.0 - bloom);
+			al = mix(mix(own_a, own_a * 1.8, vine * 0.6), own_b * 0.85, bloom * 0.85);
+			em = own_b * bloom * (0.8 + 0.5 * sin(TIME * 2.0 + h * 20.0)) + vec3(1.0, 0.85, 0.45) * heart * 1.6 + own_b * edge * 0.55;
 		} else if (pat == 15 || pat == 16) {
 			// The Crypt Race outfits (version 153). Pacesetter: black racing cloth with hot
 			// orange speed streaks shooting back round the hero, and a chevron stripe down the
