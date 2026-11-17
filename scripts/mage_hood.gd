@@ -14,7 +14,14 @@ static var _shader: Shader
 static func make(cloth: Color, trim: Color, eyes: Color) -> MageHood:
 	var h := MageHood.new()
 	h.name = "MageHood"
+	# Version 191 (Jesse: "Shadow hood looks like trash"): it was a near-black blob bigger
+	# than the Mage's body. Now it is smaller, in the outfit's real colour with a lighter
+	# crown, a smaller face opening, a trim seam over the top, and never a red-pink trim.
+	if HeroStyle._reddish(trim):
+		trim = Color(1.0, 0.78, 0.32)
 	h._build(cloth, trim, eyes)
+	h.scale = Vector3.ONE * 0.86
+	h.position = Vector3(0, 0.03, 0)
 	return h
 
 
@@ -34,10 +41,11 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 	# The shadow where the face would be: a dark egg that fills the opening.
 	var void_mat := StandardMaterial3D.new()
 	void_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	void_mat.albedo_color = Color(0.025, 0.02, 0.04)
+	void_mat.albedo_color = (cloth * 0.16).lerp(Color(0.05, 0.04, 0.12), 0.6)
+	void_mat.albedo_color.a = 1.0
 	var face := SphereMesh.new()
-	face.radius = 0.5
-	face.height = 1.0
+	face.radius = 0.46
+	face.height = 0.92
 	face.radial_segments = 16
 	face.rings = 8
 	var fm := MeshInstance3D.new()
@@ -55,14 +63,14 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 	halo.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	for side in [-1.0, 1.0]:
 		var e := SphereMesh.new()
-		e.radius = 0.065
-		e.height = 0.09
+		e.radius = 0.085
+		e.height = 0.12
 		e.radial_segments = 10
 		e.rings = 5
 		var em := MeshInstance3D.new()
 		em.mesh = e
 		em.material_override = eye_mat
-		em.position = Vector3(side * 0.16, 0.24, 0.5)
+		em.position = Vector3(side * 0.15, 0.22, 0.47)
 		em.scale = Vector3(1.35, 0.6, 0.8)   # narrow and slanted: watchful, not cute
 		em.rotation.z = side * -0.32
 		em.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -116,8 +124,9 @@ func _cowl() -> ArrayMesh:
 			var pos := Vector3(sin(lon) * r, y, cos(lon) * r * DEEP + rows[i][2])
 			# The face opening: an oval on the front, from the chin to the brow.
 			var l := wrapf(lon, -PI, PI)
-			var o := pow(l / 0.9, 2.0) + pow((y - 0.2) / 0.44, 2.0)
+			var o := pow(l / 0.74, 2.0) + pow((y - 0.2) / 0.37, 2.0)
 			st.set_uv(Vector2(o, float(i) / (rows.size() - 1)))
+			st.set_uv2(Vector2(absf(sin(lon)) * r, 0.0))   # distance from the middle seam
 			st.add_vertex(pos)
 	for i in rows.size() - 1:
 		for j in SEGS:
@@ -144,11 +153,14 @@ void fragment() {
 	if (UV.x < 1.0) {
 		discard;
 	}
-	float edge = 1.0 - smoothstep(1.32, 1.4, UV.x);
+	float edge = 1.0 - smoothstep(1.42, 1.52, UV.x);
+	// A seam of trim over the top and down the back, and a hem round the bottom.
+	float seam = (1.0 - smoothstep(0.03, 0.05, UV2.x)) * step(1.6, UV.x);
+	edge = max(edge, max(seam, smoothstep(0.955, 0.965, UV.y)));
 	// Cloth soaks up light (the game's lights are bright); the trim shines a little.
-	vec3 c = mix(cloth.rgb * 0.62, trim.rgb, edge);
+	vec3 c = mix(cloth.rgb * 0.95, trim.rgb, edge);
 	// A little darker towards the bottom, so the drape reads as folded cloth.
-	c *= mix(1.0, 0.72, UV.y);
+	c *= mix(1.18, 0.74, UV.y);
 	// Outside: the cloth. Inside: deep shadow, so the opening looks deep.
 	ALBEDO = FRONT_FACING ? c : c * 0.1;
 	if (!FRONT_FACING) {

@@ -365,8 +365,9 @@ func _star_circlet(id: String, y: float, hat: bool) -> void:
 		_orbit_r = 0.75
 		orbit_y = y + 0.62
 	elif not hat:
-		band_y = y - 0.3
-		band_r = 0.56
+		# (Version 191: higher. At y - 0.3 the band crossed the Mage's eyes like goggles.)
+		band_y = y - 0.13
+		band_r = 0.5
 		orbit_y = y + 0.12
 	# A thin gold band (version 116: no glowing gem at the front, which flared over the face).
 	# (Version 176: a band twice as thick, with a star jewel at the front. It could not be seen.)

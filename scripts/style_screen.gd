@@ -852,12 +852,24 @@ class Swatch extends Control:
 				for s in [-1.0, 1.0]:
 					draw_circle(c + Vector2(s * r * 0.17, r * 0.05), r * 0.08, Color(0.6, 0.85, 1.0))
 			"storm_halo":
-				draw_circle(c + Vector2(0, r * 0.4), r * 0.55, skin)
-				draw_arc(c + Vector2(0, -r * 0.45), r * 0.75, 0, TAU, 32, Color(0.75, 0.9, 1.0), r * 0.18, true)
+				# (Version 191: drawn inside the card. The ring and its bolts stood above the top
+				# edge and pushed the card's name down a line.)
+				draw_circle(c + Vector2(0, r * 0.5), r * 0.45, skin)
+				draw_arc(c + Vector2(0, -r * 0.2), r * 0.52, 0, TAU, 32, Color(0.75, 0.9, 1.0), r * 0.15, true)
 				for i in 3:
 					var ang := _t * 2.0 + i * 2.1
-					var p := c + Vector2(cos(ang) * r * 0.8, -r * 0.45 + sin(ang) * r * 0.2)
-					draw_polyline(PackedVector2Array([p, p + Vector2(r * 0.15, -r * 0.2), p + Vector2(0, -r * 0.3), p + Vector2(r * 0.18, -r * 0.5)]), Color(0.85, 0.95, 1.0), 2.0, true)
+					var p := c + Vector2(cos(ang) * r * 0.55, -r * 0.2 + sin(ang) * r * 0.15)
+					draw_polyline(PackedVector2Array([p, p + Vector2(r * 0.1, -r * 0.12), p + Vector2(0, -r * 0.18), p + Vector2(r * 0.12, -r * 0.3)]), Color(0.85, 0.95, 1.0), 2.0, true)
+			"moon_crown":
+				# (Version 191: this card had no picture at all.) A dark band with spikes, a white
+				# crescent moon lying over it.
+				var iron := Color(0.3, 0.3, 0.42)
+				draw_rect(Rect2(c + Vector2(-r * 0.8, r * 0.3), Vector2(r * 1.6, r * 0.28)), iron)
+				for sx in [-1.0, 1.0]:
+					draw_colored_polygon(PackedVector2Array([c + Vector2(sx * r * 0.8, r * 0.3), c + Vector2(sx * r * 0.55, r * 0.3), c + Vector2(sx * r * 0.85, -r * 0.35)]), iron)
+					draw_circle(c + Vector2(sx * r * 0.85, -r * 0.42), r * 0.09, gold)
+				draw_circle(c + Vector2(0, -r * 0.05), r * 0.5, Color(0.97, 0.97, 1.0))
+				draw_circle(c + Vector2(0, -r * 0.3), r * 0.46, Color(0.13, 0.1, 0.17))
 			"star_circlet":
 				draw_circle(c + Vector2(0, r * 0.2), r * 0.6, skin)
 				draw_arc(c + Vector2(0, -r * 0.05), r * 0.62, PI * 0.95, PI * 2.05, 20, gold, r * 0.1, true)

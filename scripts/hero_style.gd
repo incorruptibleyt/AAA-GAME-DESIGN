@@ -1038,6 +1038,10 @@ static func _material(id: String, outfit: Dictionary, src: BaseMaterial3D) -> Sh
 	return m
 
 
+const CAP_R := 0.6
+const CAP_Y := -0.2
+const CAP_Z := -0.06
+
 ## A crown, horns or a halo on the hero's head.
 static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h := 0.45, style := {}) -> void:
 	if skel.find_bone("head") < 0:
@@ -1059,6 +1063,34 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 				cloth = PASS_OUTFIT.obsidian
 				trim = PASS_OUTFIT.gold
 			att.add_child(MageHood.make(cloth, trim, style.get("eye", Color(0.6, 0.8, 1.0))))
+	# Version 191: under a crown or horns the Knight wears a mail coif and the Barbarian a fur
+	# cap, in the outfit's colours. Without their helmet and bear hood these two were a bare
+	# head, which from the camera above was a big peach ball that took over the whole look.
+	if not hat and id in ["knight", "barbarian"] and not kind in ["skull_helm", "mage_hood"]:
+		var oc: Dictionary = style.get("outfit", {})
+		var col := Color(0.6, 0.63, 0.7) if id == "knight" else Color(0.4, 0.28, 0.19)
+		var pick = oc.get("b" if id == "knight" else "a")
+		if pick is Color:
+			col = pick
+		if oc.get("gold", "") != "":
+			col = PASS_OUTFIT.obsidian
+		var cap := SphereMesh.new()
+		cap.radius = CAP_R
+		cap.height = CAP_R
+		cap.is_hemisphere = true
+		cap.radial_segments = 16
+		cap.rings = 8
+		var cm := StandardMaterial3D.new()
+		cm.albedo_color = col
+		cm.roughness = 0.45 if id == "knight" else 0.95
+		cm.metallic = 0.35 if id == "knight" else 0.0
+		var mi := MeshInstance3D.new()
+		mi.mesh = cap
+		mi.material_override = cm
+		mi.position = Vector3(0, y + CAP_Y, CAP_Z)
+		mi.scale = Vector3(1.0, 0.9, 1.06)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		att.add_child(mi)
 
 
 ## The Master's crown (level 10), like the one on the app icon: a flared gold band set with
