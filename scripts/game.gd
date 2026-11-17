@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-17j"
+const BUILD := "2026-11-17k"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -551,6 +551,13 @@ func _ready() -> void:
 		_open_style(id)
 		hud.style_show_new(lv))
 	hud.style_wear.connect(_wear_look)
+	hud.style_closed.connect(func(id: String):
+		var cfg := _load_save()
+		HeroStyle.mark_seen(cfg, id)
+		write_save(cfg)
+		hud.refresh_looks_badge()
+		if hud._heroes_box.visible:
+			hud.show_heroes(true, _hero_rows(), coins))
 	hud.found_wear.connect(_wear_found)
 	hud.copy_report_pressed.connect(func():
 		DisplayServer.clipboard_set(_last_report)
@@ -4811,9 +4818,9 @@ func _open_feats(for_hero := "") -> void:
 
 ## The Style screen for hero `id` (from the Heroes or Mastery screen).
 func _open_style(id: String) -> void:
+	# (Version 185: the new looks stay NEW while the Style screen shows them, on their own
+	# NEW tab and with a NEW tag on each card; they are marked seen when it closes.)
 	var cfg := _load_save()
-	HeroStyle.mark_seen(cfg, id)
-	write_save(cfg)
 	hud.open_style(cfg, id)
 	if hud._heroes_box.visible:
 		hud.show_heroes(true, _hero_rows(), coins)

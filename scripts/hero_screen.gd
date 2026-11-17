@@ -373,7 +373,11 @@ func _refresh() -> void:
 		var on := i == _index
 		Hud.paint(t, "gold" if on else "slate")
 		var owned: bool = _rows[i].unlocked
-		t.add_theme_color_override("font_color", Color.WHITE if on else (Color(1, 0.93, 0.8) if owned else DIM))
+		# (Version 185: a hero with new looks waiting says so on their tab.)
+		var nl := int(_rows[i].get("new_looks", 0))
+		t.text = "%s\n%d NEW" % [Heroes.LIST[i].title, nl] if nl > 0 else str(Heroes.LIST[i].title)
+		t.add_theme_font_size_override("font_size", 15 if nl > 0 else 17)
+		t.add_theme_color_override("font_color", Color.WHITE if on else (Hud.GOLD if nl > 0 else (Color(1, 0.93, 0.8) if owned else DIM)))
 	MenuBackdrop.of(self).set_key(_light(ring), not visible)
 	_name.text = Heroes.hero_name(def).to_upper()
 	_name.label_settings.font_color = ring.lightened(0.25)

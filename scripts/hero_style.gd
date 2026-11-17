@@ -509,28 +509,67 @@ static func wear(cfg: ConfigFile, id: String, slot: String, key: String) -> void
 	cfg.set_value(SECTION, "%s_%s" % [id, slot], key)
 
 
-## How many looks hero `id` has unlocked since the Style screen was last opened for them.
+## Version 185: which looks are NEW is kept look by look ("seen_keys" in the save), for
+## every way a look is won (Mastery, Feats, Bone Drops, the Bazaar, the Crypt Race, events
+## and the Crypt Pass). Before, only Mastery looks counted, and the count was wiped the
+## moment the Style screen opened, with nothing on the cards to say which looks were new.
+## A look every hero can wear is kept once ("head/antlers"); a Mastery look per hero
+## ("rogue/outfit/crimson").
+static func _seen_id(id: String, it: Dictionary) -> String:
+	if is_special(it) or it.get("pass", false):
+		return "%s/%s" % [it.slot, it.key]
+	return "%s/%s/%s" % [id, it.slot, it.key]
+
+
+## The looks seen so far. A save from before version 185 starts with every look it owns as
+## seen, but for the Mastery looks the old count still called new.
+static func _seen(cfg: ConfigFile) -> Dictionary:
+	var out := {}
+	if cfg.has_section_key(SECTION, "seen_keys"):
+		for k in cfg.get_value(SECTION, "seen_keys", []):
+			out[str(k)] = true
+		return out
+	for h: Dictionary in Heroes.LIST:
+		var id: String = h.id
+		var seen_lv := int(cfg.get_value(SECTION, id + "_seen", 1))
+		for it: Dictionary in items(id):
+			if it.key == "" or not has_look(cfg, id, it.slot, it.key):
+				continue
+			if is_mastery(it) and int(it.level) > seen_lv:
+				continue
+			out[_seen_id(id, it)] = true
+	return out
+
+
+## Writes the first "seen_keys" into an older save. True when `cfg` changed (save it).
+static func migrate_seen(cfg: ConfigFile) -> bool:
+	if cfg.has_section_key(SECTION, "seen_keys"):
+		return false
+	cfg.set_value(SECTION, "seen_keys", _seen(cfg).keys())
+	return true
+
+
+## The looks hero `id` owns and hasn't been shown on the Style screen yet.
+static func new_looks(cfg: ConfigFile, id: String) -> Array:
+	var seen := _seen(cfg)
+	var out := []
+	for it: Dictionary in items(id):
+		if it.key != "" and not seen.has(_seen_id(id, it)) and has_look(cfg, id, it.slot, it.key):
+			out.append(it)
+	return out
+
+
+## How many new looks hero `id` has (the STYLE button, the NEW LOOKS tags).
 static func unseen(cfg: ConfigFile, id: String) -> int:
-	var seen := int(cfg.get_value(SECTION, id + "_seen", 1))
-	var lv := HeroMastery.level(cfg, id)
-	var n := 0
-	for l in range(seen + 1, lv + 1):
-		n += level_items(id, l).size()
-	# Auras came in version 102: a hero whose Style screen was last opened at level 8 or
-	# more has auras at levels they had already seen.
-	if not bool(cfg.get_value(SECTION, id + "_auras_seen", false)):
-		for a: Dictionary in AURAS.get(id, {}).values():
-			if int(a.level) <= mini(seen, lv):
-				n += 1
-	# The forged weapons came to levels 13 and 14 in version 172, the same way.
-	if not bool(cfg.get_value(SECTION, id + "_holds_seen", false)):
-		for l: int in LEGEND:
-			if LEGEND[l][0] == "hold" and l <= mini(seen, lv):
-				n += 1
-	return n
+	return new_looks(cfg, id).size()
 
 
+## Hero `id`'s Style screen has shown its new looks: they are new no longer.
 static func mark_seen(cfg: ConfigFile, id: String) -> void:
+	var seen := _seen(cfg)
+	for it: Dictionary in new_looks(cfg, id):
+		seen[_seen_id(id, it)] = true
+	cfg.set_value(SECTION, "seen_keys", seen.keys())
 	cfg.set_value(SECTION, id + "_seen", HeroMastery.level(cfg, id))
 	cfg.set_value(SECTION, id + "_auras_seen", true)
 	cfg.set_value(SECTION, id + "_holds_seen", true)

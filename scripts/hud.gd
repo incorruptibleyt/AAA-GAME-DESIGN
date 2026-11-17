@@ -34,6 +34,7 @@ signal found_wear(id: String, slot: String, key: String)
 signal feats_hero_pressed(id: String)
 signal see_looks(id: String, level: int)
 signal style_wear(id: String, slot: String, key: String)
+signal style_closed(id: String)   # the Style screen shut: its new looks have been seen
 signal hero_pick(id: String)
 signal copy_report_pressed
 signal resume_pressed
@@ -446,7 +447,8 @@ func _ready() -> void:
 	_style.closed.connect(func():
 		# The Heroes screen's pedestal draws again once the Style screen is gone.
 		if _heroes_box.visible:
-			_heroes_box._stage.set_active(true))
+			_heroes_box._stage.set_active(true)
+		style_closed.emit(_style.hero_id()))
 	_build_daily()
 	_leaders = LeaderScreen.new()
 	add_child(_leaders)
@@ -3894,6 +3896,8 @@ func _badge_pill(text: String) -> Label:
 ## The title's NEW LOOKS tag: shown while any hero has looks the Style screen hasn't shown.
 func refresh_looks_badge() -> void:
 	var cfg := Game._load_save()
+	if HeroStyle.migrate_seen(cfg):
+		Game.write_save(cfg)
 	var n := 0
 	for h: Dictionary in Heroes.LIST:
 		n += HeroStyle.unseen(cfg, h.id)

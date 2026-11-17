@@ -31,6 +31,8 @@ var _feats_btn: Button
 var _pass_btn: Button
 var _set_offer := false   # the button reads WEAR THE FULL CRYPT KING SET (a Pass owner wearing part of it)
 var _slot := "outfit"
+var _new := {}   # "slot/key" of the looks won since this hero's Style screen was last open
+var _new_tab: Button
 var _title: Label
 var _stage: HeroStage
 var _stage_box: Control
@@ -88,6 +90,17 @@ func _init() -> void:
 	tabs.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	tabs.add_theme_constant_override("separation", 6)
 	col.add_child(tabs)
+	# Version 185: a NEW tab, first in the row, while the hero has looks not yet seen. It
+	# lists them all, whatever slot they are for.
+	_new_tab = Hud.button("NEW", 17)
+	_new_tab.custom_minimum_size = Vector2(0, 64)
+	_new_tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_new_tab.pressed.connect(func():
+		Sfx.play("click")
+		_show_tab("new", true))
+	_new_tab.visible = false
+	tabs.add_child(_new_tab)
+	_tabs["new"] = _new_tab
 	for t: Array in TABS:
 		var b := Hud.button(t[1], 17)
 		b.custom_minimum_size = Vector2(0, 64)
@@ -156,7 +169,21 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 	_cfg = cfg
 	refresh_feats_button()
 	if not again:
-		_slot = "outfit"
+		_new = {}
+		for it: Dictionary in HeroStyle.new_looks(cfg, id):
+			_new["%s/%s" % [it.slot, it.key]] = true
+		_slot = "new" if not _new.is_empty() else "outfit"
+	_new_tab.visible = not _new.is_empty()
+	_new_tab.text = "NEW\n%d" % _new.size()
+	# Six tabs fit the row at a smaller size; a slot with new looks has a gold name.
+	for k: String in _tabs:
+		var n := 0
+		for nk: String in _new:
+			if nk.begins_with(k + "/"):
+				n += 1
+		var tb: Button = _tabs[k]
+		tb.add_theme_font_size_override("font_size", 14 if _new_tab.visible else 17)
+		tb.set_meta("fresh", n > 0 or k == "new")
 	visible = true
 	_stage.set_active(true)
 	var def := HeroStyle.dressed(_base, _picks)
@@ -188,7 +215,7 @@ func show_new(lv: int) -> void:
 	_stage.reveal(best.slot)
 	_note.text = "NEW at level %d: %s  ·  tap a card to wear it" % [lv, ", ".join(news.map(func(it): return it.name))]
 	_note.label_settings.font_color = Hud.GOLD
-	_show_tab(best.slot, true)
+	_show_tab("new" if not _new.is_empty() else best.slot, true)
 
 
 func set_note(text: String) -> void:
@@ -264,6 +291,8 @@ func _show_preview() -> void:
 	# ("Mastery looks": Feat, Bone Drop, Bazaar and Pass looks are not in this count, and
 	# "40 of 40 looks unlocked" stood over locked cards.)
 	_note.text = "Mastery level %d  ·  %d of %d Mastery looks" % [_level, got, all]
+	if not _new.is_empty():
+		_note.text = "%d NEW %s!  Tap one to wear it" % [_new.size(), "LOOK" if _new.size() == 1 else "LOOKS"]
 	_note.label_settings.font_color = Hud.GOLD
 
 
@@ -272,6 +301,10 @@ func _show_tab(slot: String, to_top := false) -> void:
 	for k: String in _tabs:
 		var b: Button = _tabs[k]
 		Hud.paint(b, "gold" if k == slot else "slate")
+		if k != slot and b.get_meta("fresh", false):
+			b.add_theme_color_override("font_color", Hud.GOLD)
+		else:
+			b.remove_theme_color_override("font_color")
 	var keep := _scroll.scroll_vertical
 	for c in _grid.get_children():
 		_grid.remove_child(c)
@@ -282,12 +315,16 @@ func _show_tab(slot: String, to_top := false) -> void:
 	# Blood Moon looks show while the event is on (or coming), and for good once won.
 	var event_on := Events.active() or not Events.coming().is_empty()
 	var list := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool:
+		if slot == "new":
+			return _is_new(it)
 		return it.slot == slot and (not it.has("event") or event_on or _got(it)))
 	var order := {}
 	for i in list.size():
 		var it: Dictionary = list[i]
 		var rank := 3
-		if _got(it):
+		if _is_new(it):
+			rank = -1   # new looks first on their own slot's tab too
+		elif _got(it):
 			rank = 0
 		elif it.get("pass", false):
 			rank = 1
@@ -309,6 +346,10 @@ func _keep_scroll(to: int) -> void:
 	await get_tree().process_frame
 	if is_instance_valid(_scroll):
 		_scroll.scroll_vertical = to
+
+
+func _is_new(it: Dictionary) -> bool:
+	return it.key != "" and _new.has("%s/%s" % [it.slot, it.key])
 
 
 func _got(it: Dictionary) -> bool:
@@ -341,6 +382,24 @@ func _card(it: Dictionary) -> Button:
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 2)
 	b.add_child(v)
+	var fresh := _is_new(it)
+	if fresh:
+		# A gold NEW tag on the corner, and which slot it is for (the NEW tab mixes them).
+		var tag := Hud.label("NEW", 14, Color(0.1, 0.06, 0.02))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Hud.GOLD
+		sb.set_corner_radius_all(8)
+		sb.content_margin_left = 8
+		sb.content_margin_right = 8
+		sb.content_margin_top = 1
+		sb.content_margin_bottom = 1
+		tag.add_theme_stylebox_override("normal", sb)
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		tag.position = Vector2(6, 6)
+		tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(tag)
+		if not worn and not trying:
+			(b.get_theme_stylebox("normal") as StyleBoxFlat).border_color = Hud.GOLD
 	var sw := Swatch.new()
 	sw.custom_minimum_size = Vector2(0, 58)
 	sw.setup(_id, it.slot, it.key, _base)
@@ -350,6 +409,10 @@ func _card(it: Dictionary) -> Button:
 	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got or HeroStyle.is_special(it) else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
+	if _slot == "new":
+		for t: Array in TABS:
+			if t[0] == it.slot:
+				v.add_child(Hud.label(str(t[1]), 13, DIM))
 	if it.get("only", false):
 		# A Master aura: only this hero has it.
 		v.add_child(Hud.label("%s ONLY" % str(_base.title).to_upper(), 14, Color(_base.ring).lightened(0.3) if got else DIM))
