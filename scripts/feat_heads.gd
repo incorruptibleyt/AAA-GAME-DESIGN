@@ -630,6 +630,26 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 		var th := 0.025 + 0.07 * cos(t * PI * 0.5)
 		_sphere(th, moon, c + Vector3(sin(ang) * 0.24, -cos(ang) * 0.24, 0), Vector3(1, 1, 0.6))
 	_rod(Vector3(0, base + 0.16, r * 1.05), c + Vector3(0, -0.2, 0), 0.05, 0.03, iron, null, 6)
+	# Version 192: a moon lying in the crown, for the camera above. A glowing blood-orange
+	# disc with a dark one over most of it leaves a bright crescent, horns to the front, so
+	# from above the crown is a moon in a ring (it was a dark pot with a ring on it).
+	var disc := SphereMesh.new()
+	disc.radius = r * 0.74
+	disc.height = r * 1.48
+	disc.radial_segments = 20
+	disc.rings = 6
+	var dm := _mi(disc, _glow_mat(Color(1.0, 0.45, 0.12) * 1.25), Vector3(0, base + 0.6, 0))
+	dm.scale = Vector3(1, 0.1, 1)
+	var night := StandardMaterial3D.new()
+	night.albedo_color = Color(0.1, 0.06, 0.2)
+	night.roughness = 0.6
+	var shade := SphereMesh.new()
+	shade.radius = r * 0.46
+	shade.height = r * 0.92
+	shade.radial_segments = 20
+	shade.rings = 6
+	var sm := _mi(shade, night, Vector3(0, base + 0.62, -r * 0.36))
+	sm.scale = Vector3(1, 0.1, 1)
 	# The blood ring, turning (kept apart from the bake so it can spin).
 	_spin = Node3D.new()
 	_spin.position = Vector3(0, base + 0.62, 0)

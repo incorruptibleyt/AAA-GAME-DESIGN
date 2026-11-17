@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-17q"
+const BUILD := "2026-11-17r"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -672,7 +672,7 @@ func _ready() -> void:
 	Telemetry.instance.daily_open()
 	hud.set_coins(coins)
 
-	Floors.lobby = Events.active() and not first_run_pending()
+	Floors.lobby = Events.active() and not first_run_pending() and unlock_stage() >= 3
 	_build_run()
 	_load_room(0, false)
 	hero.place_at(Vector3(0, 0, 2))
@@ -2343,7 +2343,7 @@ func _back_to_title(keep_run := false) -> void:
 		hero.queue_free()
 		hero = null
 	floor_num = 1
-	Floors.lobby = Events.active() and not first_run_pending()
+	Floors.lobby = Events.active() and not first_run_pending() and unlock_stage() >= 3
 	_build_run()
 	_load_room(0, false)
 	hero.place_at(Vector3(0, 0, 2))
@@ -3904,6 +3904,7 @@ func _claim_event_road(i: int) -> void:
 	if s.kind == "look":
 		Sfx.play("sting", 0.9)
 		hud.callout("BLOOD MOON SET: %s!" % Events.step_text(s), Color(1.0, 0.45, 0.35))
+		hud.refresh_looks_badge()   # (Version 192: the new look shows on the Style button)
 	else:
 		Sfx.play("coin", 0.6, 1.2)
 	print("[event road] claimed %d: %s" % [i, Events.step_text(s)])
@@ -3933,6 +3934,7 @@ func _open_one_casket() -> Dictionary:
 		record_add("coins", r.coins)
 	hud.set_coins(coins)
 	print("[casket] %s %s" % [r.name, str(r.text).replace("\n", " ")])
+	hud.refresh_looks_badge.call_deferred()
 	return r
 
 

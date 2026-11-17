@@ -457,7 +457,13 @@ func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) 
 	var name_text := str(tier.name) + ("  ·  BEATEN" if beaten else "")
 	texts.add_child(Hud.label(name_text, 22, (Color(1.0, 0.6, 0.3) if eclipse else Color(1.0, 0.82, 0.78)) if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	var shards := int(tier.shards)
-	var line := "Queen health x%s  ·  %d blessings  ·  %d shards" % [str(tier.hp), int(tier.gifts), shards]
+	# (Version 192: "Queen health x0.6" on the hardest tier read as the easiest. The number
+	# is a factor on health that already grows with the floor. Say how hard it is instead,
+	# and name the Eclipse tier's own prize, which nothing on this screen mentioned.)
+	var line := "Like floor %d  ·  %d blessings  ·  %d shards" % [int(tier.floor), int(tier.gifts), shards]
+	if eclipse:
+		var gk: Array = Events.ECLIPSE_LOOK
+		line += "\nPrize: Blood Eclipse glow" + ("  ·  OWNED" if Events.has_look(cfg, str(gk[0]), str(gk[1])) else "")
 	texts.add_child(Hud.label(line, 14, TEXT if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	var note := ""
 	if open:

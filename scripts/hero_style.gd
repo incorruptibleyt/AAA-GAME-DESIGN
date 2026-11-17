@@ -215,7 +215,7 @@ const EXTRA := {
 		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.36, 0.3, 0.62), "pat": 9, "drop": 3},
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
 		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
-		"blood_moon": {"name": "Blood Moon", "a": Color(0.14, 0.08, 0.3), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
+		"blood_moon": {"name": "Blood Moon", "a": Color(0.2, 0.12, 0.42), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
 		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 33, "own": true, "bazaar": 900},
 		"sunforged": {"name": "Sunforged", "a": Color(0.8, 0.42, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
@@ -683,6 +683,8 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		# rim light and aura it bleached to a yellow-white blob in a run and hid itself.)
 		if style.outfit.get("gold", "") != "":
 			d.rim_soft = 0.45
+		if int(style.outfit.get("pat", 0)) == 14:
+			d.rim_soft = 0.5   # (v192) the Blood Moon outfit: its own aura washed it to brown
 	if not glow.is_empty():
 		style.enchant = glow.ring
 	d.style = style
@@ -1489,15 +1491,20 @@ void fragment() {
 			float hb = exp(-t * 10.0) + 0.6 * exp(-max(t - 0.2, 0.0) * 10.0) * step(0.2, t);
 			float n = fbm(q * 2.0);
 			float vein = 1.0 - smoothstep(0.015, 0.06, abs(n - 0.5));
-			vec3 r = q * 3.5 + vec3(0.0, -TIME * 0.35, 0.0);
+			vec3 r = q * 2.3 + vec3(0.0, -TIME * 0.3, 0.0);
 			vec2 f = fract(r.xy + r.z * 0.5) - 0.5;
 			float h = hash3(floor(r));
 			float moon = (1.0 - smoothstep(0.16, 0.2, length(f))) * smoothstep(0.13, 0.18, length(f - vec2(0.08, 0.07)));
-			moon *= step(0.68, h) * (0.6 + 0.4 * sin(TIME * 2.0 + h * 30.0));
+			moon *= step(0.5, h) * (0.6 + 0.4 * sin(TIME * 2.0 + h * 30.0));
 			// (Version 182: night-purple cloth and amber veins, not black-crimson and red. Red
 			// is the colour of danger in this game.)
-			al = mix(al, vec3(0.08, 0.04, 0.15), 0.7);
-			em = vec3(1.0, 0.58, 0.14) * vein * (0.3 + 1.0 * hb) + vec3(1.0, 0.62, 0.2) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.6;
+			// (Version 192: indigo, not near-black, with bigger moons, and the hem burns
+			// blood-orange like a moonrise. The outfit was a dark lump with a speck on it.)
+			float hem = 1.0 - smoothstep(0.1, 0.55, q.y);
+			al = mix(al, vec3(0.15, 0.09, 0.32), 0.75);
+			al = mix(al, vec3(0.85, 0.3, 0.06), hem * 0.75);
+			em = vec3(1.0, 0.58, 0.14) * vein * (0.3 + 1.0 * hb) + vec3(1.0, 0.62, 0.2) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.9
+				+ vec3(1.0, 0.4, 0.08) * hem * (0.35 + 0.25 * hb);
 		} else if (pat == 33) {
 			// Tidecaller (Bone Bazaar, version 183): sand-gold cloth with teal waves rolling
 			// round the hero, a line of white foam riding each crest.
