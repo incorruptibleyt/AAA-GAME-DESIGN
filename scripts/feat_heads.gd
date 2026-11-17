@@ -39,8 +39,11 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 	var main = o.get("b" if id == "knight" else "a")
 	if o.get("gold", "") != "":
 		main = Color(0.1, 0.08, 0.14)
+	if main is Color and (main as Color).get_luminance() < 0.25:
+		main = (main as Color).lerp(Color(0.6, 0.62, 0.78), 0.75)   # (v189: on a black outfit the crown vanished)
+	var dyed := what in ["flame_crown", "moon_crown"]   # only these use the colour: the rest share one bake
 	h._tint = main if main is Color else null
-	var key := "%s %s %s %s %s" % [what, id, hat, eye.to_html(), (main as Color).to_html() if main is Color else ""]
+	var key := "%s %s %s %s %s" % [what, id, hat, eye.to_html(), (main as Color).to_html() if main is Color and dyed else ""]
 	match what:
 		"storm_halo": h._storm_halo(y + (hat_h if hat else 0.22))
 		"star_circlet": h._star_circlet(id, y, hat)
@@ -187,13 +190,14 @@ func _dyed(base: StandardMaterial3D) -> StandardMaterial3D:
 	if not (_tint is Color):
 		return base
 	var c: Color = _tint
-	var k := "dyed %s %s" % [c.to_html(), base.metallic]
+	var k := "dyed %s %s %s" % [c.to_html(), base.metallic, base.albedo_color.to_html()]
 	if not _mats.has(k):
 		var m := base.duplicate() as StandardMaterial3D
 		m.albedo_color = Color.from_hsv(c.h, minf(c.s, 0.75), clampf(c.v * 0.8, 0.14, 0.7))
 		m.emission_enabled = true
 		m.emission = c.lightened(0.2)
-		m.emission_energy_multiplier = 0.18
+		m.emission_energy_multiplier = 0.3
+		m.metallic = minf(base.metallic, 0.3)   # (v189: strongly metallic, any colour drew as black)
 		_mats[k] = m
 	return _mats[k]
 

@@ -13,6 +13,7 @@ var _base_y := 0.0
 
 static var _gold: StandardMaterial3D
 static var _dark: StandardMaterial3D
+static var _velvet: StandardMaterial3D
 static var _gem: StandardMaterial3D
 static var _glow: StandardMaterial3D
 
@@ -60,6 +61,14 @@ static func _materials() -> void:
 	_dark.albedo_color = Color(0.08, 0.06, 0.12)
 	_dark.metallic = 0.4
 	_dark.roughness = 0.25
+	# Version 189: the cap is royal purple velvet. Gold (v116) made the set one gold blob from
+	# the camera above and obsidian (v181) looked like a hole in the hero's head.
+	_velvet = StandardMaterial3D.new()
+	_velvet.albedo_color = Color(0.36, 0.16, 0.62)
+	_velvet.roughness = 0.9
+	_velvet.emission_enabled = true
+	_velvet.emission = Color(0.2, 0.08, 0.4)
+	_velvet.emission_energy_multiplier = 0.6
 	_gem = StandardMaterial3D.new()
 	_gem.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_gem.albedo_color = Color(0.45, 1.0, 0.85) * 1.5
@@ -122,7 +131,7 @@ func _build(r: float) -> void:
 	cap.is_hemisphere = true
 	# (Version 181: the cap is obsidian. From the game camera above, a gold cap under gold
 	# arches made the whole set read as one gold blob; now it is a black dome crossed by gold.)
-	var cm := _mesh(cap, _dark, Vector3(0, 0.1, 0))
+	var cm := _mesh(cap, _velvet, Vector3(0, 0.1, 0))
 	cm.scale = Vector3(1, 0.5, 1)
 	var top := SphereMesh.new()
 	top.radius = 0.09
@@ -150,7 +159,7 @@ func _build(r: float) -> void:
 	great.height = 0.3
 	great.radial_segments = 10
 	great.rings = 5
-	_mesh(great, _gem, Vector3(0, apex + 0.1, 0))
+	var late: Array[MeshInstance3D] = [_mesh(great, _gem, Vector3(0, apex + 0.1, 0))]   # kept out of the bake (see below)
 	var aura := SphereMesh.new()
 	aura.radius = 0.24
 	aura.height = 0.48
@@ -158,26 +167,12 @@ func _build(r: float) -> void:
 	aura.rings = 5
 	var soul := U.unlit(Color(0.45, 1.0, 0.85, 0.35)).duplicate() as StandardMaterial3D
 	soul.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	_mesh(aura, soul, Vector3(0, apex + 0.1, 0))
+	late.append(_mesh(aura, soul, Vector3(0, apex + 0.1, 0)))
+	for mi in late:
+		remove_child(mi)
 	# Version 187: a tall soul flame burns over the great gem. From the camera above, the
 	# free Crown is a gold ring with gems; this is a gold ring with a teal fire in it, so the
 	# paid crown is told apart at a glance in a run.
-	var fl := CylinderMesh.new()
-	fl.top_radius = 0.0
-	fl.bottom_radius = 0.17
-	fl.height = 0.62
-	fl.radial_segments = 8
-	fl.rings = 4
-	fl.cap_bottom = false   # (an extra see-through disc from the camera above)
-	_mesh(fl, FeatHeads._flame_mat(Color(0.2, 1.0, 0.8), Color(0.9, 1.0, 0.95)), Vector3(0, apex + 0.16 + 0.31, 0))
-	var fl2 := CylinderMesh.new()
-	fl2.top_radius = 0.0
-	fl2.bottom_radius = 0.27
-	fl2.height = 0.42
-	fl2.radial_segments = 8
-	fl2.rings = 4
-	fl2.cap_bottom = false
-	_mesh(fl2, FeatHeads._flame_mat(Color(0.1, 0.75, 0.7), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.1 + 0.21, 0))
 	# A soft gold glow round its base, like a halo it stands on.
 	var ring := TorusMesh.new()
 	ring.inner_radius = r * 0.95
@@ -186,7 +181,32 @@ func _build(r: float) -> void:
 	ring.ring_segments = 4
 	var rm := _mesh(ring, _glow, Vector3(0, -0.02, 0))
 	rm.scale = Vector3(1, 0.1, 1)
-	FeatHeads.bake(self, "crypt_crown4 %.2f" % r)
+	FeatHeads.bake(self, "crypt_crown5 %.2f" % r)
+	# (Version 189: the great gem, its soul light and the flames are kept out of the bake and marked "fx", so the hero's rim
+	# light and gold aura are not drawn over them. On a thin cone the rim covered all of it
+	# and the teal flame went white in the full set.)
+	var fl := CylinderMesh.new()
+	fl.top_radius = 0.0
+	fl.bottom_radius = 0.17
+	fl.height = 0.62
+	fl.radial_segments = 8
+	fl.rings = 4
+	fl.cap_bottom = false   # (an extra see-through disc from the camera above)
+	var f1 := _mesh(fl, FeatHeads._flame_mat(Color(0.2, 1.0, 0.8), Color(0.9, 1.0, 0.95)), Vector3(0, apex + 0.16 + 0.31, 0))
+	var fl2 := CylinderMesh.new()
+	fl2.top_radius = 0.0
+	fl2.bottom_radius = 0.27
+	fl2.height = 0.42
+	fl2.radial_segments = 8
+	fl2.rings = 4
+	fl2.cap_bottom = false
+	var f2 := _mesh(fl2, FeatHeads._flame_mat(Color(0.1, 0.75, 0.7), Color(0.45, 1.0, 0.85)), Vector3(0, apex + 0.1 + 0.21, 0))
+	late.append(f1)
+	late.append(f2)
+	for mi in late:
+		if mi.get_parent() == null:
+			add_child(mi)
+		mi.set_meta("fx", true)
 
 
 func _mesh(m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:
