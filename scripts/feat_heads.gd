@@ -448,7 +448,13 @@ func _skull_helm(eye: Color) -> void:
 	# A crest of three bone spikes, and a crack over one eye.
 	for i in 3:
 		var z := -0.3 + i * 0.22
-		_rod(Vector3(0, 0.74 - absf(z + 0.08) * 0.25, z), Vector3(0, 0.98 - i * 0.05, z - 0.12), 0.07, 0.0, _bone)
+		_rod(Vector3(0, 0.74 - absf(z + 0.08) * 0.25, z), Vector3(0, 1.04 - i * 0.05, z - 0.14), 0.1, 0.0, _dark)
+	# Version 190: the crest is dark iron on a dark ridge with a light at its front. From the
+	# camera above the helm was a plain white ball: no crest to see and no way to tell its front.
+	var ridge := BoxMesh.new()
+	ridge.size = Vector3(0.1, 0.06, 0.95)
+	_mi(ridge, _dark, Vector3(0, 0.79, -0.08))
+	_sphere(0.05, _glow_mat(eye.lightened(0.3) * 1.7), Vector3(0, 0.74, 0.42))
 	var crack := BoxMesh.new()
 	crack.size = Vector3(0.025, 0.2, 0.02)
 	var cm := _mi(crack, _dark, Vector3(0.12, 0.45, 0.5))

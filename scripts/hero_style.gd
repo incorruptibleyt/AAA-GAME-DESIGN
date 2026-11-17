@@ -130,13 +130,13 @@ const GLOWS := {
 	"ember": {"name": "Ember", "fx": "flame", "ring": Color(1.0, 0.52, 0.16), "bolt": Color(1.0, 0.68, 0.28)},
 	"frost": {"name": "Frost", "fx": "frost", "ring": Color(0.4, 0.94, 1.0), "bolt": Color(0.62, 1.0, 1.0)},
 	"gold": {"name": "Gold", "fx": "stars", "ring": Color(1.0, 0.82, 0.3), "bolt": Color(1.0, 0.9, 0.55)},
-	"violet": {"name": "Violet", "fx": "runes", "ring": Color(0.72, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
+	"violet": {"name": "Violet", "fx": "runes", "ring": Color(0.58, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
 	"silver": {"name": "Silver", "fx": "beads", "ring": Color(0.86, 0.9, 1.0), "bolt": Color(1.0, 1.0, 1.0)},
 	"lime": {"name": "Lime", "fx": "storm", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
 	# Version 132, the Legend road (Mastery 11, 16 and 18): glows that shimmer between two
 	# colours on the hero's edges ("ring2"), bright like Feat glows.
 	"diamond": {"name": "Diamond", "fx": "frost", "ring": Color(0.8, 0.97, 1.0), "ring2": Color(0.4, 0.78, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
-	"mythic": {"name": "Mythic", "fx": "runes", "ring": Color(0.78, 0.42, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.88, 0.7, 1.0)},
+	"mythic": {"name": "Mythic", "fx": "runes", "ring": Color(0.6, 0.42, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.88, 0.7, 1.0)},
 	"legend": {"name": "Legend", "fx": "rays", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
 }
 
@@ -148,7 +148,7 @@ const GLOWS := {
 ## camera, where hats and outfits are small.
 const AURAS := {
 	"rogue": {
-		"nightshade": {"name": "Nightshade", "level": 8, "shell": 0, "ink": Color(0.66, 0.32, 1.0), "spark": Color(0.78, 0.52, 1.0)},
+		"nightshade": {"name": "Nightshade", "level": 8, "shell": 0, "ink": Color(0.52, 0.34, 1.0), "spark": Color(0.68, 0.56, 1.0)},
 		"venom": {"name": "Venom", "level": 9, "shell": 4, "ink": Color(0.42, 1.0, 0.22), "spark": Color(0.66, 1.0, 0.36)},
 		"shadow_king": {"name": "Shadow King", "level": 10, "shell": 1, "ink": Color(1.0, 0.76, 0.22), "ink2": Color(0.58, 0.24, 1.0), "spark": Color(1.0, 0.84, 0.4)},
 		"duskblade": {"name": "Duskblade", "level": 15, "shell": 2, "ink": Color(0.7, 0.3, 1.0), "ink2": Color(0.3, 0.95, 1.0), "spark": Color(0.75, 0.6, 1.0)},
@@ -171,7 +171,7 @@ const AURAS := {
 	"mage": {
 		"starfire": {"name": "Starfire", "level": 8, "shell": 2, "ink": Color(0.48, 0.5, 1.0), "spark": Color(0.72, 0.76, 1.0)},
 		"arcane_frost": {"name": "Arcane Frost", "level": 9, "shell": 4, "ink": Color(0.4, 0.95, 1.0), "spark": Color(0.82, 1.0, 1.0)},
-		"archmage": {"name": "Archmage", "level": 10, "shell": 1, "ink": Color(0.7, 0.45, 1.0), "cycle": true, "spark": Color(0.82, 0.7, 1.0)},
+		"archmage": {"name": "Archmage", "level": 10, "shell": 1, "ink": Color(0.58, 0.46, 1.0), "cycle": true, "spark": Color(0.76, 0.7, 1.0)},
 		"voidweave": {"name": "Voidweave", "level": 15, "shell": 0, "ink": Color(0.25, 0.3, 1.0), "ink2": Color(0.85, 0.45, 1.0), "spark": Color(0.6, 0.6, 1.0)},
 		"starsage": {"name": "Starsage", "level": 20, "shell": 2, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
 	},
@@ -218,7 +218,7 @@ const EXTRA := {
 		"blood_moon": {"name": "Blood Moon", "a": Color(0.14, 0.08, 0.3), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
 		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 33, "own": true, "bazaar": 900},
-		"sunforged": {"name": "Sunforged", "a": Color(0.24, 0.15, 0.1), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
+		"sunforged": {"name": "Sunforged", "a": Color(0.8, 0.42, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
 		"plaguebone": {"name": "Plaguebone", "a": Color(0.07, 0.15, 0.09), "b": Color(0.85, 0.95, 0.25), "pat": 35, "own": true, "bazaar": 900},
 		"nightbloom": {"name": "Nightbloom", "a": Color(0.02, 0.36, 0.2), "b": Color(0.72, 0.42, 1.0), "pat": 36, "own": true, "bazaar": 900},
 		# The Crypt Race (race.gd, version 153): "race" is the Race Road step's trophies.
@@ -240,7 +240,7 @@ const EXTRA := {
 		"inferno": {"name": "Inferno", "fx": "flame", "ring": Color(1.0, 0.42, 0.08), "bolt": Color(1.0, 0.95, 0.6), "feat": "linked"},
 		"glacier": {"name": "Glacier", "fx": "rays", "ring": Color(0.7, 0.85, 1.0), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
 		"aurora": {"name": "Aurora", "fx": "wave", "ring": Color(0.35, 1.0, 0.6), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
-		"eclipse": {"name": "Eclipse", "fx": "eclipse", "ring": Color(0.55, 0.25, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
+		"eclipse": {"name": "Eclipse", "fx": "eclipse", "ring": Color(0.45, 0.28, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
 		"venom": {"name": "Venom", "fx": "beads", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
 		"abyss": {"name": "Abyss", "fx": "wave", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
@@ -264,7 +264,7 @@ const EXTRA := {
 	},
 	"aura": {
 		"quickstep": {"name": "Quickstep", "ink": Color(1.0, 0.9, 0.3), "spark": Color(1.0, 0.95, 0.6), "motif": "quick", "feat": "rusher"},
-		"arcane": {"name": "Arcane", "ink": Color(0.6, 0.4, 1.0), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(0.75, 0.6, 1.0), "motif": "arcane", "feat": "specialist"},
+		"arcane": {"name": "Arcane", "ink": Color(0.52, 0.42, 1.0), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(0.7, 0.62, 1.0), "motif": "arcane", "feat": "specialist"},
 		"stormcaller": {"name": "Stormcaller", "ink": Color(0.45, 0.75, 1.0), "ink2": Color(1.0, 1.0, 1.0), "spark": Color(0.75, 0.9, 1.0), "motif": "storm", "feat": "chainlord"},
 		"phantom": {"name": "Phantom", "ink": Color(0.75, 1.0, 0.95), "spark": Color(0.8, 1.0, 0.95), "motif": "souls", "feat": "perfectionist"},
 		"sunflare": {"name": "Sunflare", "ink": Color(1.0, 0.66, 0.15), "ink2": Color(1.0, 0.92, 0.5), "spark": Color(1.0, 0.8, 0.35), "motif": "sun", "feat": "dailywin"},
