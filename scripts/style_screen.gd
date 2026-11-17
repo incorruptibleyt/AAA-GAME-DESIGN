@@ -946,7 +946,7 @@ class Swatch extends Control:
 				steel = Color(0.66, 0.42, 1.0)
 				wood = Color(0.2, 0.12, 0.38)
 			"crypt":
-				steel = Color(0.25, 0.95, 0.78)
+				steel = Color(0.16, 0.13, 0.22)   # obsidian
 				wood = Color(1.0, 0.8, 0.3)
 		var parts := []
 		match shape:
@@ -1033,3 +1033,12 @@ class Swatch extends Control:
 					var o := c + Vector2(r * 0.45 if p == "knife" else -r * 0.45, 0)
 					draw_line(o + Vector2(0, r * 0.6), o + Vector2(0, -r * 0.5), steel, r * 0.14)
 					draw_line(o + Vector2(-r * 0.18, r * 0.25), o + Vector2(r * 0.18, r * 0.25), wood, r * 0.1)
+		if finish == "crypt":
+			# The Crypt King's arms (v201): gold crown points up both sides and a soul gem.
+			var gold := Color(1.0, 0.8, 0.3)
+			for i in 4:
+				var y := -r * 0.75 + i * r * 0.32
+				for s: float in [-1.0, 1.0]:
+					var b := c + Vector2(s * r * 0.1, y)
+					draw_colored_polygon(PackedVector2Array([b + Vector2(0, -r * 0.1), b + Vector2(0, r * 0.1), b + Vector2(s * r * 0.3, -r * 0.14)]), gold)
+			draw_circle(c + Vector2(0, r * 0.5), r * 0.17, Color(0.3, 1.0, 0.8))

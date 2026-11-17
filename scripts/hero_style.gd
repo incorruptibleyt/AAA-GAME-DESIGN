@@ -765,6 +765,7 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 				var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
 				if src and src.albedo_texture:
 					mi.material_override = LookFx.weapon(src, finish, glow, book if str(mi.name).begins_with("Spellbook") else null)
+				CryptArms.dress(mi, finish == "crypt")
 				if str(mi.name) == "1H_Wand" and not mi.has_meta("big"):
 					_wand_star(mi, glow if glow is Color else Color(0.6, 0.85, 1.0))
 				if not mi.has_meta("big"):
