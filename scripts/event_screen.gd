@@ -379,7 +379,7 @@ func refresh(cfg: ConfigFile) -> void:
 		bonus.append("double shards today")
 	if Store.owned():
 		bonus.append("+50% shards with the Crypt Pass")
-	_run_sub.text = "About 200 shards a run" + ("  ·  " + ", ".join(bonus) if not bonus.is_empty() else "")
+	_run_sub.text = "About 300 shards a full run" + ("  ·  " + ", ".join(bonus) if not bonus.is_empty() else "")
 	_run_btn.disabled = not live
 	_run_btn.text = "PLAY THE BLOOD MOON" if live else "OPENS IN %s" % Events.time_text(Events.seconds_left(e)).to_upper()
 	# Tiers.
