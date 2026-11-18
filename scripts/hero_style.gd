@@ -1086,6 +1086,10 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 		var pick = oc.get("b" if id == "knight" else "a")
 		if pick is Color:
 			col = pick
+		if kind == "moon_crown" and col.s > 0.35 and col.h > 0.07 and col.h < 0.18:
+			# (Version 208: a gold cap (Tidecaller) under the gold Moon Crown made the head
+			# one gold ball that read as a coin; the cap goes deep bronze.)
+			col = col.darkened(0.55)
 		var velvet := false
 		if oc.get("gold", "") != "":
 			# (Version 200: royal violet velvet under the Crypt Crown. Glossy obsidian with the

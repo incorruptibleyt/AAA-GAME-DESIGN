@@ -647,7 +647,7 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	dome.rings = 6
 	var velvet := StandardMaterial3D.new()
 	var vc: Color = _tint if _tint is Color else Color(0.42, 0.3, 0.62)
-	velvet.albedo_color = Color.from_hsv(vc.h, minf(vc.s, 0.6), clampf(vc.v, 0.3, 0.5))
+	velvet.albedo_color = Color.from_hsv(vc.h, minf(vc.s, 0.6), clampf(vc.v, 0.22, 0.38))
 	velvet.roughness = 1.0
 	velvet.emission_enabled = true
 	velvet.emission = velvet.albedo_color
@@ -678,32 +678,57 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	_disc(0.13, moon, c + Vector3(0, -0.02, 0.02), Vector3(1, 1, 0.1))
 	_disc(0.12, fire, c + Vector3(0, 0.04, 0.035), Vector3(1, 1, 0.1))
 	# The great crescent floating over the head, gently bobbing (kept apart so it can move).
-	# It is built as a chain of tapered rods round an arc open at the front, thickest at the
-	# back, tipped a little toward the run camera behind the hero. (Tipped forward for the
+	# It is a tapered tube round an arc open at the front, thickest at the back, tipped a little toward the run camera behind the hero. (Tipped forward for the
 	# menu, the gap hid behind the head and it read as a halo; a dark edge read as a horseshoe.)
 	_spin = Node3D.new()
 	# (v206: pale silver moonlight, not gold, so it stands apart from the gold crown, glow
 	# and floor; head-width, not wider; tipped 22 degrees down at the front so the title
 	# camera sees its face instead of an edge-on yellow bar, while the run camera above and
 	# behind still sees it open.)
-	_spin.position = Vector3(0, base + 0.78, 0.0)
-	_spin.rotation.x = deg_to_rad(22.0)
+	# (v208: lifted clear of the dome and tipped only 12 degrees: lying low and tipped 22
+	# degrees, from above it read as a white headband across the head.)
+	_spin.position = Vector3(0, base + 0.86, 0.0)
+	_spin.rotation.x = deg_to_rad(12.0)
 	add_child(_spin)
 	var big := r * 1.12
 	var thick := 0.13
-	var n := 16
-	var lit := _glow_mat(Color(0.72, 0.84, 1.0) * 1.3)
-	var pts: Array[Vector3] = []
-	var rads: Array[float] = []
+	var lit := _glow_mat(Color(0.72, 0.84, 1.0) * 1.15)
+	# (v208) One smooth tube, and a thin dark navy outline round it (the same tube a little
+	# fatter, inside out), so the pale moon never melts into a white helmet or a gold aura
+	# and never reads as a white slash or shot. (Built from rods, the outline showed dark
+	# rings at every joint, like a ram's horn.)
+	var line := StandardMaterial3D.new()
+	line.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	line.albedo_color = Color(0.07, 0.08, 0.2)
+	line.cull_mode = BaseMaterial3D.CULL_FRONT
+	_mi(_arc_tube(big, thick, 0.0, 68.0, 292.0), lit, Vector3.ZERO, _spin)
+	_mi(_arc_tube(big, thick, 0.03, 64.0, 296.0), line, Vector3.ZERO, _spin)
+
+
+## A crescent tube round the Y axis: radius `big`, from angle a0 to a1 (degrees, 0 = the
+## front), thickest (`thick`) in the middle and pointed at both ends, plus `extra` all over.
+func _arc_tube(big: float, thick: float, extra: float, a0: float, a1: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 40
+	var seg := 10
 	for i in n + 1:
 		var k := float(i) / float(n)
-		var ang := deg_to_rad(68.0 + 224.0 * k)   # (v206: wider gap, a C, not a halo)
-		pts.append(Vector3(sin(ang), 0, cos(ang)) * big)
-		rads.append(maxf(thick * sin(PI * k), 0.012))
+		var ang := deg_to_rad(lerpf(a0, a1, k))
+		var out := Vector3(sin(ang), 0, cos(ang))
+		var rad := thick * sin(PI * k) + extra
+		for j in seg + 1:
+			var phi := float(j) / seg * TAU
+			var dir := out * cos(phi) + Vector3.UP * sin(phi)
+			st.set_normal(dir)
+			st.add_vertex(out * big + dir * rad)
 	for i in n:
-		_rod(pts[i], pts[i + 1], rads[i], rads[i + 1], lit, _spin, 8)
-	for i in range(1, n):
-		_sphere(rads[i], lit, pts[i], Vector3.ONE, _spin)
+		for j in seg:
+			var a := i * (seg + 1) + j
+			var b := a + seg + 1
+			for k in [a, a + 1, b, a + 1, b + 1, b]:
+				st.add_index(k)
+	return st.commit()
 
 
 func _disc(radius: float, mat: Material, pos: Vector3, scale_by: Vector3) -> void:
