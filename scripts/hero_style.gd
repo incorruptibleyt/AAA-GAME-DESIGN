@@ -717,10 +717,16 @@ static func aura_ink(aura: Dictionary, t := 0.0) -> Color:
 const WEAPON_SIZE := 1.25
 ## (In a run, by hero: the Rogue's crossbow and the Mage's wand and books are small things,
 ## the Knight's greatsword is already long.)
-const WEAPON_SIZE_RUN := {"rogue": 2.1, "knight": 1.5, "barbarian": 1.6, "mage": 2.0}
+## (Version 204: the Rogue's 2.1, times the crossbow's own 1.5-1.7 below, drew the crossbow
+## about three times its size in a run: wider than the Rogue, right in front of him, hiding
+## the skeletons and arrows coming at him. Found in real run pictures; the Style screen and
+## the grey test stage use the smaller pedestal size, so they never showed it. Now 2x like
+## the Mage: it shows ahead of the Rogue when he shoots and tucks in at rest.)
+const WEAPON_SIZE_RUN := {"rogue": 2.0, "knight": 1.5, "barbarian": 1.6, "mage": 2.0}
 ## Version 181: in a run some weapons need more again (the crossbows sit tight against the
-## Rogue and the wand under the Mage's hat brim) and the long knives less.
-const WEAPON_RUN_PART := {"1H_Crossbow": 1.7, "2H_Crossbow": 1.5, "1H_Wand": 1.5, "Knife": 0.8, "Knife_Offhand": 0.8}
+## Rogue and the wand under the Mage's hat brim) and the long knives less. (Version 204: the
+## crossbows no longer get more; see WEAPON_SIZE_RUN.)
+const WEAPON_RUN_PART := {"1H_Crossbow": 1.0, "2H_Crossbow": 1.0, "1H_Wand": 1.5, "Knife": 0.8, "Knife_Offhand": 0.8}
 
 static var _shaders := {}
 static var _mats := {}
