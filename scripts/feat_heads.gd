@@ -687,10 +687,13 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	# behind still sees it open.)
 	# (v208: lifted clear of the dome and tipped only 12 degrees: lying low and tipped 22
 	# degrees, from above it read as a white headband across the head.)
-	_spin.position = Vector3(0, base + 0.86, 0.0)
-	_spin.rotation.x = deg_to_rad(12.0)
+	# (v210: at 0.86 it floated free above the crown on the title screen, into the logo, and
+	# stuck out past the head like a slash when the hero turned: it now rests on the points;
+	# 0.72 still floated.)
+	_spin.position = Vector3(0, base + 0.6, 0.0)
+	_spin.rotation.x = deg_to_rad(10.0)
 	add_child(_spin)
-	var big := r * 1.12
+	var big := r * 1.06
 	var thick := 0.13
 	var lit := _glow_mat(Color(0.72, 0.84, 1.0) * 1.15)
 	# (v208) One smooth tube, and a thin dark navy outline round it (the same tube a little

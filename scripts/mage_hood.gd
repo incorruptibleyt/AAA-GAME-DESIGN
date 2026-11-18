@@ -128,17 +128,30 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 	# (Version 209) A small gem glowing at the tail's point in the eyes' colour: one spark
 	# that marks the hood as a reward and makes the point read as meant.
 	var gs := SphereMesh.new()
-	gs.radius = 0.1
-	gs.height = 0.2
+	gs.radius = 0.13
+	gs.height = 0.26
 	gs.radial_segments = 10
 	gs.rings = 5
 	var gem := MeshInstance3D.new()
 	gem.mesh = gs
-	gem.material_override = eye_mat
+	# (v210: in the eyes' real colour, not the eyes' whitened core: it read as a white dot.)
+	gem.material_override = U.unlit(eyes * 1.5)
 	gem.position = Vector3(0, 0.97, -1.6)
 	gem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	gem.set_meta("fx", true)
 	add_child(gem)
+	var gg := SphereMesh.new()
+	gg.radius = 0.24
+	gg.height = 0.48
+	gg.radial_segments = 10
+	gg.rings = 5
+	var glow_m := MeshInstance3D.new()
+	glow_m.mesh = gg
+	glow_m.material_override = halo
+	glow_m.position = gem.position
+	glow_m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	glow_m.set_meta("fx", true)
+	add_child(glow_m)
 	# (Versions 196 to 200 had a long tail down the back with a tassel: from the run's camera
 	# it was a thin stripe, and turned to the side it was a nightcap. Version 201 replaced it
 	# with the pointed mantle.)
