@@ -43,6 +43,11 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 	m.shader = _shader
 	m.set_shader_parameter("cloth", cloth)
 	m.set_shader_parameter("trim", trim)
+	# (Version 209: from straight above, the light tail sticking back over the dark cape made
+	# the hood a light teardrop, "a beak". Its last third now fades into shadow, so the hood
+	# reads round with its point lying back on the cape. Bending the tail aside was tried: the
+	# dark inside of the hood showed as a black streak.)
+	m.set_shader_parameter("tipdark", 0.6)
 	var mi := MeshInstance3D.new()
 	if _cowl_mesh == null:
 		_cowl_mesh = _cowl()
@@ -120,6 +125,20 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 		add_child(gm)
 		em.set_meta("fx", true)   # (v195) no rim light or white hit flash on the glowing parts
 		gm.set_meta("fx", true)
+	# (Version 209) A small gem glowing at the tail's point in the eyes' colour: one spark
+	# that marks the hood as a reward and makes the point read as meant.
+	var gs := SphereMesh.new()
+	gs.radius = 0.1
+	gs.height = 0.2
+	gs.radial_segments = 10
+	gs.rings = 5
+	var gem := MeshInstance3D.new()
+	gem.mesh = gs
+	gem.material_override = eye_mat
+	gem.position = Vector3(0, 0.97, -1.6)
+	gem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	gem.set_meta("fx", true)
+	add_child(gem)
 	# (Versions 196 to 200 had a long tail down the back with a tassel: from the run's camera
 	# it was a thin stripe, and turned to the side it was a nightcap. Version 201 replaced it
 	# with the pointed mantle.)
@@ -132,7 +151,7 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 ## (Version 205: a stiff peak leaning back, so from the run camera behind and above the
 ## hood is a teardrop pointing at the player, not a dome. Version 206: the peak is a long
 ## tail lying back past the mantle, because critics still saw a plain dome from above.)
-const PROFILE := [[0.98, 0.0, -1.78], [0.97, 0.07, -1.42], [0.9, 0.17, -1.0], [0.78, 0.33, -0.55], [0.62, 0.52, -0.2],
+const PROFILE := [[0.98, 0.0, -1.6], [0.97, 0.07, -1.3], [0.9, 0.17, -1.0], [0.78, 0.33, -0.55], [0.62, 0.52, -0.2],
 	[0.46, 0.64, -0.08], [0.3, 0.68, -0.05], [0.08, 0.64, -0.03], [-0.12, 0.6, -0.02],
 	[-0.26, 0.63, -0.02], [-0.37, 0.72, -0.03], [-0.46, 0.8, -0.05]]
 const DEEP := 1.12   # front to back, the hood is deeper than it is wide
@@ -227,6 +246,7 @@ render_mode cull_disabled;
 uniform vec4 cloth : source_color;
 uniform vec4 trim : source_color;
 uniform float glow = 0.0;   // (v205) the mantle's trim glows
+uniform float tipdark = 0.0;   // (v209) the cowl's tail fades into shadow
 varying vec2 around;
 void vertex() {
 	around = VERTEX.xz;   // (v196) the angle is taken per pixel: per vertex it wrapped into stripes at the back seam
@@ -243,6 +263,7 @@ void fragment() {
 	vec3 c = mix(cloth.rgb * 0.95, trim.rgb, edge);
 	// A little darker towards the bottom, so the drape reads as folded cloth.
 	c *= mix(1.18, 0.74, UV.y);
+	c *= mix(1.0 - tipdark, 1.0, smoothstep(0.0, 0.3, UV.y));
 	// (v195) Folds down the drape, deeper towards the hem: from the side it was a flat slab.
 	c *= 1.0 - 0.2 * smoothstep(0.3, 0.9, UV.y) * (0.5 + 0.5 * sin(atan(around.x, around.y + 1e-4) * 11.0));
 	// Outside: the cloth. Inside: deep shadow, so the opening looks deep.
