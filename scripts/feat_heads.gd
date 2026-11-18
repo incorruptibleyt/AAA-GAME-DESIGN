@@ -617,7 +617,17 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	iron0.emission = Color(1.0, 0.7, 0.3)
 	iron0.emission_energy_multiplier = 0.25
 	var iron := _dyed(iron0)
-	var gold := _glow_mat(Color(1.0, 0.72, 0.28) * 1.9)   # (v182: gold, not red-orange)
+	# (v206: lit metal gold, not a flat glow: four critics read glowing gold crown + gold
+	# crescent + gold aura + gold floor lines as one yellow blob, "headphones".)
+	var gold := StandardMaterial3D.new()
+	gold.albedo_color = Color(0.95, 0.66, 0.2)
+	gold.metallic = 0.55
+	gold.roughness = 0.32
+	gold.rim_enabled = true
+	gold.rim = 0.5
+	gold.emission_enabled = true
+	gold.emission = Color(0.85, 0.5, 0.12)
+	gold.emission_energy_multiplier = 0.35
 	var moon := _glow_mat(Color(1.0, 0.88, 0.62) * 1.7)
 	# A short band (a tall one read as a can).
 	var band := CylinderMesh.new()
@@ -627,6 +637,22 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	band.radial_segments = 20
 	band.rings = 1
 	_mi(band, iron, Vector3(0, base + 0.06, 0))
+	# (v206) A soft dome filling the band in the outfit's colour, lifted: from above, the dark
+	# hair or hat tip inside the gold ring read as one of the black enemy spawn holes.
+	var dome := SphereMesh.new()
+	dome.radius = r * 0.98
+	dome.height = r * 0.98
+	dome.is_hemisphere = true
+	dome.radial_segments = 18
+	dome.rings = 6
+	var velvet := StandardMaterial3D.new()
+	var vc: Color = _tint if _tint is Color else Color(0.42, 0.3, 0.62)
+	velvet.albedo_color = Color.from_hsv(vc.h, minf(vc.s, 0.6), clampf(vc.v, 0.3, 0.5))
+	velvet.roughness = 1.0
+	velvet.emission_enabled = true
+	velvet.emission = velvet.albedo_color
+	velvet.emission_energy_multiplier = 0.15
+	_mi(dome, velvet, Vector3(0, base + 0.08, 0)).scale = Vector3(1, 0.62, 1)
 	_torus(r * 1.07, r * 1.14, gold, Vector3(0, base + 0.12, 0))   # a gold rim on the band
 	# Five big gold points flaring outward, none at the very front (the moon is there) and
 	# one straight at the back, for the run camera.
@@ -634,8 +660,8 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 		var ang := PI * (0.2 + i * 0.4)
 		var dir := Vector3(sin(ang), 0, cos(ang))
 		var foot := Vector3(0, base + 0.1, 0) + dir * r * 1.08
-		var tip := foot + Vector3(0, 0.34, 0) + dir * 0.13
-		_rod(foot, tip, 0.1, 0.0, gold, null, 6)
+		var tip := foot + Vector3(0, 0.46, 0) + dir * 0.17   # (v206: 1.35x taller, read as ears)
+		_rod(foot, tip, 0.115, 0.0, gold, null, 6)
 	# A small burning moon standing on the front of the band (the menu's view).
 	var c := Vector3(0, base + 0.3, r * 1.12)
 	_moon = Node3D.new()
@@ -656,18 +682,22 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	# back, tipped a little toward the run camera behind the hero. (Tipped forward for the
 	# menu, the gap hid behind the head and it read as a halo; a dark edge read as a horseshoe.)
 	_spin = Node3D.new()
-	_spin.position = Vector3(0, base + 0.64, -0.02)
-	_spin.rotation.x = deg_to_rad(-10.0)
+	# (v206: pale silver moonlight, not gold, so it stands apart from the gold crown, glow
+	# and floor; head-width, not wider; tipped 22 degrees down at the front so the title
+	# camera sees its face instead of an edge-on yellow bar, while the run camera above and
+	# behind still sees it open.)
+	_spin.position = Vector3(0, base + 0.78, 0.0)
+	_spin.rotation.x = deg_to_rad(22.0)
 	add_child(_spin)
-	var big := r * 1.4
-	var thick := 0.11
+	var big := r * 1.12
+	var thick := 0.13
 	var n := 16
-	var lit := _glow_mat(Color(1.0, 0.74, 0.26) * 1.8)
+	var lit := _glow_mat(Color(0.72, 0.84, 1.0) * 1.3)
 	var pts: Array[Vector3] = []
 	var rads: Array[float] = []
 	for i in n + 1:
 		var k := float(i) / float(n)
-		var ang := deg_to_rad(50.0 + 260.0 * k)
+		var ang := deg_to_rad(68.0 + 224.0 * k)   # (v206: wider gap, a C, not a halo)
 		pts.append(Vector3(sin(ang), 0, cos(ang)) * big)
 		rads.append(maxf(thick * sin(PI * k), 0.012))
 	for i in n:
