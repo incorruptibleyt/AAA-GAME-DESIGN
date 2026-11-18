@@ -596,9 +596,13 @@ func _bone_mask(id: String, y: float, hat: bool) -> void:
 
 # ---------------------------------------------------------------- Moon Crown
 
-## The Blood Moon event set's head (events.gd, version 134): a black iron crown with blood
-## gems on its spikes, a glowing crescent moon rising at the front, and a ring of blood
-## light turning above it.
+## The Blood Moon event set's head (events.gd, version 134): an open crown of five gold
+## points on a band in the outfit's colour, a small burning moon on its front, and a great
+## glowing crescent moon floating over the head, horns forward.
+## (Version 205: the critics, judging real run pictures, read the old crown as "a paint
+## bucket with a purple lid": the run camera sees the hero from above and BEHIND, so the
+## standing front moon showed edge-on as an ear flap and the lid was the biggest shape. Now
+## the crescent is what the run camera sees, and the crown stays open.)
 func _moon_crown(id: String, y: float, hat: bool) -> void:
 	var f := _fit(id, y, hat)
 	var base := f.x
@@ -613,67 +617,63 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	iron0.emission = Color(1.0, 0.7, 0.3)
 	iron0.emission_energy_multiplier = 0.25
 	var iron := _dyed(iron0)
-	var blood := _glow_mat(Color(1.0, 0.72, 0.28) * 1.9)   # (v182: gold, not red-orange)
+	var gold := _glow_mat(Color(1.0, 0.72, 0.28) * 1.9)   # (v182: gold, not red-orange)
 	var moon := _glow_mat(Color(1.0, 0.88, 0.62) * 1.7)
+	# A short band (a tall one read as a can).
 	var band := CylinderMesh.new()
 	band.top_radius = r * 1.1
 	band.bottom_radius = r
-	band.height = 0.17
+	band.height = 0.12
 	band.radial_segments = 20
 	band.rings = 1
-	_mi(band, iron, Vector3(0, base + 0.085, 0))
-	# Six spikes round the back and sides (the moon stands at the front, +z), blood-tipped.
-	for i in 6:
-		var a := PI * (0.32 + i * 0.272)
-		var dir := Vector3(sin(a), 0, cos(a))
-		var foot := Vector3(0, base + 0.15, 0) + dir * r * 1.08
-		var tip := foot + Vector3(0, 0.3 + 0.06 * float(i % 2), 0) + dir * 0.09
-		_rod(foot, tip, 0.07, 0.0, iron, null, 6)
-		_sphere(0.05, blood, tip + Vector3(0, 0.02, 0))
-		var g := a + 0.136
-		_sphere(0.045, blood, Vector3(0, base + 0.085, 0) + Vector3(sin(g), 0, cos(g)) * r * 1.06)
-	# Version 195: two moons, both baked apart from the iron and marked "fx" (no rim light over
-	# them, no white hit flash). One stands on the front for the menu, a burning disc with a
-	# gold rim behind the pale crescent. One lies over the crown like a lid for the run's high
-	# camera, which sees the hero from above and behind: a full burning disc with its own pale
-	# crescent. (The lying one used to sit low in the ring with a dark bite out of it, and read
-	# as a pot with a hole.)
-	var c := Vector3(0, base + 0.5, r * 1.02)
-	_rod(Vector3(0, base + 0.16, r * 1.05), c + Vector3(0, -0.2, 0), 0.05, 0.03, iron, null, 6)
+	_mi(band, iron, Vector3(0, base + 0.06, 0))
+	_torus(r * 1.07, r * 1.14, gold, Vector3(0, base + 0.12, 0))   # a gold rim on the band
+	# Five big gold points flaring outward, none at the very front (the moon is there) and
+	# one straight at the back, for the run camera.
+	for i in 5:
+		var ang := PI * (0.2 + i * 0.4)
+		var dir := Vector3(sin(ang), 0, cos(ang))
+		var foot := Vector3(0, base + 0.1, 0) + dir * r * 1.08
+		var tip := foot + Vector3(0, 0.34, 0) + dir * 0.13
+		_rod(foot, tip, 0.1, 0.0, gold, null, 6)
+	# A small burning moon standing on the front of the band (the menu's view).
+	var c := Vector3(0, base + 0.3, r * 1.12)
 	_moon = Node3D.new()
 	_moon.name = "Moon"
 	add_child(_moon)
 	var fire := _glow_mat(Color(1.0, 0.36, 0.07) * 1.35)
-	var full := SphereMesh.new()
-	full.radius = 0.33
-	full.height = 0.66
-	full.radial_segments = 24
-	full.rings = 8
-	_mi(full, fire, c + Vector3(0, 0.02, -0.07), _moon).scale = Vector3(1, 1, 0.14)
+	_disc(0.17, fire, c, Vector3(1, 1, 0.14))
 	var rim_t := TorusMesh.new()
-	rim_t.inner_radius = 0.325
-	rim_t.outer_radius = 0.37
+	rim_t.inner_radius = 0.165
+	rim_t.outer_radius = 0.195
 	rim_t.rings = 24
 	rim_t.ring_segments = 6
-	_mi(rim_t, blood, c + Vector3(0, 0.02, -0.07), _moon).rotation.x = PI * 0.5
-	# Version 196: smooth crescents cut by an overlapping disc (the beads read as teeth), and
-	# the lid is night sky with a burning crescent whose horns point the way the hero faces
-	# (the full orange lid read as a fried egg, the same from every side).
-	var night := _glow_mat(Color(0.24, 0.15, 0.55))
-	var fc := c + Vector3(0, 0.02, -0.07)
-	_disc(0.25, moon, fc + Vector3(0, -0.03, 0.03), Vector3(1, 1, 0.1))
-	_disc(0.235, fire, fc + Vector3(0, 0.075, 0.05), Vector3(1, 1, 0.1))
-	var top := Vector3(0, base + 0.5, -0.04)
-	_disc(r * 0.98, night, top, Vector3(1, 0.1, 1))
-	_disc(r * 0.93, fire, top + Vector3(0, 0.025, 0), Vector3(1, 0.1, 1))
-	_disc(r * 0.74, night, top + Vector3(0, 0.05, r * 0.36), Vector3(1, 0.1, 1))   # (v200: a thinner crescent, less a ring)
-
-	# The blood ring, turning (kept apart from the bake so it can spin).
+	_mi(rim_t, gold, c, _moon).rotation.x = PI * 0.5
+	_disc(0.13, moon, c + Vector3(0, -0.02, 0.02), Vector3(1, 1, 0.1))
+	_disc(0.12, fire, c + Vector3(0, 0.04, 0.035), Vector3(1, 1, 0.1))
+	# The great crescent floating over the head, gently bobbing (kept apart so it can move).
+	# It is built as a chain of tapered rods round an arc open at the front, thickest at the
+	# back, tipped a little toward the run camera behind the hero. (Tipped forward for the
+	# menu, the gap hid behind the head and it read as a halo; a dark edge read as a horseshoe.)
 	_spin = Node3D.new()
-	_spin.position = Vector3(0, base + 0.62, 0)
+	_spin.position = Vector3(0, base + 0.64, -0.02)
+	_spin.rotation.x = deg_to_rad(-10.0)
 	add_child(_spin)
-	# (Version 200: one thin ring. The thick bright ring round the lid made it read as a pot.)
-	_torus(r * 0.9, r * 0.95, _glow_mat(Color(1.0, 0.8, 0.45) * 1.2), Vector3.ZERO, _spin).scale = Vector3(1, 0.5, 1)
+	var big := r * 1.4
+	var thick := 0.11
+	var n := 16
+	var lit := _glow_mat(Color(1.0, 0.74, 0.26) * 1.8)
+	var pts: Array[Vector3] = []
+	var rads: Array[float] = []
+	for i in n + 1:
+		var k := float(i) / float(n)
+		var ang := deg_to_rad(50.0 + 260.0 * k)
+		pts.append(Vector3(sin(ang), 0, cos(ang)) * big)
+		rads.append(maxf(thick * sin(PI * k), 0.012))
+	for i in n:
+		_rod(pts[i], pts[i + 1], rads[i], rads[i + 1], lit, _spin, 8)
+	for i in range(1, n):
+		_sphere(rads[i], lit, pts[i], Vector3.ONE, _spin)
 
 
 func _disc(radius: float, mat: Material, pos: Vector3, scale_by: Vector3) -> void:
@@ -689,8 +689,8 @@ func _process(delta: float) -> void:
 	_t += delta
 	match kind:
 		"moon_crown":
-			_spin.rotation.y += delta * 0.9
-			_spin.position.y = _spin_y + sin(_t * 2.2) * 0.02   # (v196) set, not added: it drifted in slow motion
+			# (v205: the crescent only bobs; its horns keep pointing where the hero faces)
+			_spin.position.y = _spin_y + sin(_t * 2.2) * 0.025   # (v196) set, not added: it drifted in slow motion
 		"halo":
 			_spin.rotate_object_local(Vector3.UP, delta * 0.8)
 		"storm_halo":

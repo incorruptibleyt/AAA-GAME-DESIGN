@@ -21,6 +21,10 @@ static func make(cloth: Color, trim: Color, eyes: Color) -> MageHood:
 	# crown, a smaller face opening, a trim seam over the top, and never a red-pink trim.
 	if HeroStyle._reddish(trim):
 		trim = Color(1.0, 0.78, 0.32)
+	# Version 205: the cowl is always the light shape and the mantle the dark one (light
+	# teardrop on a dark star): on a near-black outfit the cowl is lifted toward lilac.
+	if cloth.get_luminance() < 0.3:
+		cloth = cloth.lerp(Color(0.62, 0.56, 0.82), 0.55)
 	h._build(cloth, trim, eyes)
 	h.scale = Vector3.ONE * 0.86
 	h.position = Vector3(0, 0.03, 0)
@@ -46,11 +50,20 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 	# broad rounded points, longest at the back; eight thin ones read as a spiked mine).
 	# From the run's camera (above and behind) the hood was one round ball whatever was
 	# painted on it; the points make a star round the head no other hat has.
+	# Version 205 (critics on real run pictures: "a purple jellyfish / onion dome"): the
+	# mantle is near-black indigo on every outfit with a glowing trim round its edge, cut into
+	# five deep sharp points (the back one longest), so from above and behind it reads as a
+	# dark star with a light hood on it.
 	var mm := MeshInstance3D.new()
 	if _mantle_mesh == null:
 		_mantle_mesh = _mantle()
 	mm.mesh = _mantle_mesh
-	mm.material_override = m
+	var dark := ShaderMaterial.new()
+	dark.shader = _shader
+	dark.set_shader_parameter("cloth", Color(0.13, 0.09, 0.22).lerp(cloth, 0.12))
+	dark.set_shader_parameter("trim", trim)
+	dark.set_shader_parameter("glow", 1.4)
+	mm.material_override = dark
 	mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mm)
 	# The shadow where the face would be: a dark egg that fills the opening.
@@ -112,7 +125,9 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 ## back like a real hood's, it narrows at the neck and spreads over the shoulders), with the
 ## face opening cut by the shader, so its edge and trim are smooth at any size.
 ## Profile rows: [height, radius, how far back].
-const PROFILE := [[0.84, 0.0, -0.95], [0.86, 0.13, -0.7], [0.82, 0.32, -0.38], [0.7, 0.5, -0.17],
+## (Version 205: a stiff peak leaning back, so from the run camera behind and above the
+## hood is a teardrop pointing at the player, not a dome.)
+const PROFILE := [[1.12, 0.0, -1.32], [1.02, 0.09, -1.0], [0.9, 0.22, -0.62], [0.74, 0.44, -0.24],
 	[0.52, 0.64, -0.08], [0.3, 0.68, -0.05], [0.08, 0.64, -0.03], [-0.12, 0.6, -0.02],
 	[-0.26, 0.63, -0.02], [-0.37, 0.72, -0.03], [-0.46, 0.8, -0.05]]
 const DEEP := 1.12   # front to back, the hood is deeper than it is wide
@@ -162,7 +177,7 @@ func _cowl() -> ArrayMesh:
 ## points that hang a little lower than the hem between them. UV.x is kept past the face
 ## opening (nothing cut), UV.y runs down to the hem (the shader's trim band), UV2.x past the
 ## seam.
-const POINTS := 6
+const POINTS := 5
 const MANTLE_ROWS := 6
 
 func _mantle() -> ArrayMesh:
@@ -176,11 +191,12 @@ func _mantle() -> ArrayMesh:
 			# 0 between two points, 1 at a point's tip (broad, rounded at the tip). (v202: six
 			# points, not eight, the back one longest and the front ones short, so the shape
 			# shows which way the hero faces; eight even points read as a spiked mine.)
+			# (v205: five points with straight sides and sharp tips, cut deep, one straight at
+			# the back and that one longest.)
 			var tip := 1.0 - absf(fmod(float(j) / 8.0, 1.0) * 2.0 - 1.0)
-			tip = smoothstep(0.0, 1.0, tip)
-			var reach := 0.35 + 0.65 * (0.5 - 0.5 * cos(lon - PI) * -1.0)   # 1 at the back, 0.35 at the front
-			var r := lerpf(0.66, 0.98 + 0.42 * tip * reach, v)
-			var y := lerpf(-0.24, -0.42 - 0.16 * tip * reach, v) - 0.06 * v * v
+			var reach := 0.72 + 0.28 * (0.5 + 0.5 * cos(lon - PI))   # 1 at the back
+			var r := lerpf(0.66, 0.9 + 0.62 * tip * reach, v)
+			var y := lerpf(-0.24, -0.4 - 0.12 * tip * reach, v) - 0.05 * v * v
 			var pos := Vector3(sin(lon) * r, y, cos(lon) * r * 1.05 - 0.04)
 			st.set_uv(Vector2(10.0, lerpf(0.72, 1.0, v)))
 			st.set_uv2(Vector2(1.0, 0.0))
@@ -205,6 +221,7 @@ shader_type spatial;
 render_mode cull_disabled;
 uniform vec4 cloth : source_color;
 uniform vec4 trim : source_color;
+uniform float glow = 0.0;   // (v205) the mantle's trim glows
 varying vec2 around;
 void vertex() {
 	around = VERTEX.xz;   // (v196) the angle is taken per pixel: per vertex it wrapped into stripes at the back seam
@@ -229,6 +246,7 @@ void fragment() {
 	if (!FRONT_FACING) {
 		NORMAL = -NORMAL;
 	}
+	EMISSION = FRONT_FACING ? trim.rgb * edge * glow : vec3(0.0);
 	ROUGHNESS = 0.85;
 	METALLIC = edge * 0.3;
 	RIM = 0.12;
