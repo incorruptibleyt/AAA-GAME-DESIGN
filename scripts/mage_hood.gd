@@ -25,6 +25,10 @@ static func make(cloth: Color, trim: Color, eyes: Color) -> MageHood:
 	# teardrop on a dark star): on a near-black outfit the cowl is lifted toward lilac.
 	if cloth.get_luminance() < 0.3:
 		cloth = cloth.lerp(Color(0.62, 0.56, 0.82), 0.55)
+	elif cloth.get_luminance() > 0.5:
+		# (v206: on light outfits such as Prism or Frostbite the hood was a white egg on a
+		# white body; it stays a shadowy lilac.)
+		cloth = cloth.lerp(Color(0.5, 0.42, 0.74), 0.8)
 	h._build(cloth, trim, eyes)
 	h.scale = Vector3.ONE * 0.86
 	h.position = Vector3(0, 0.03, 0)
@@ -60,9 +64,9 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 	mm.mesh = _mantle_mesh
 	var dark := ShaderMaterial.new()
 	dark.shader = _shader
-	dark.set_shader_parameter("cloth", Color(0.13, 0.09, 0.22).lerp(cloth, 0.12))
+	dark.set_shader_parameter("cloth", Color(0.2, 0.15, 0.36).lerp(cloth, 0.12))   # (v206: mid indigo, near-black sank into dark floors)
 	dark.set_shader_parameter("trim", trim)
-	dark.set_shader_parameter("glow", 1.4)
+	dark.set_shader_parameter("glow", 1.8)
 	mm.material_override = dark
 	mm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mm)
@@ -126,9 +130,10 @@ func _build(cloth: Color, trim: Color, eyes: Color) -> void:
 ## face opening cut by the shader, so its edge and trim are smooth at any size.
 ## Profile rows: [height, radius, how far back].
 ## (Version 205: a stiff peak leaning back, so from the run camera behind and above the
-## hood is a teardrop pointing at the player, not a dome.)
-const PROFILE := [[1.12, 0.0, -1.32], [1.02, 0.09, -1.0], [0.9, 0.22, -0.62], [0.74, 0.44, -0.24],
-	[0.52, 0.64, -0.08], [0.3, 0.68, -0.05], [0.08, 0.64, -0.03], [-0.12, 0.6, -0.02],
+## hood is a teardrop pointing at the player, not a dome. Version 206: the peak is a long
+## tail lying back past the mantle, because critics still saw a plain dome from above.)
+const PROFILE := [[0.98, 0.0, -1.78], [0.97, 0.07, -1.42], [0.9, 0.17, -1.0], [0.78, 0.33, -0.55], [0.62, 0.52, -0.2],
+	[0.46, 0.64, -0.08], [0.3, 0.68, -0.05], [0.08, 0.64, -0.03], [-0.12, 0.6, -0.02],
 	[-0.26, 0.63, -0.02], [-0.37, 0.72, -0.03], [-0.46, 0.8, -0.05]]
 const DEEP := 1.12   # front to back, the hood is deeper than it is wide
 
@@ -232,9 +237,8 @@ void fragment() {
 		discard;
 	}
 	float edge = 1.0 - smoothstep(1.62, 1.72, UV.x);
-	// A seam of trim over the top and down the back, and a hem round the bottom.
-	float seam = (1.0 - smoothstep(0.05, 0.075, UV2.x)) * step(1.6, UV.x);
-	edge = max(edge, max(seam, smoothstep(0.955, 0.965, UV.y)));
+	// A hem of trim round the bottom.
+	edge = max(edge, smoothstep(0.955, 0.965, UV.y));   // (v206: no seam over the top, it drew an onion)
 	// Cloth soaks up light (the game's lights are bright); the trim shines a little.
 	vec3 c = mix(cloth.rgb * 0.95, trim.rgb, edge);
 	// A little darker towards the bottom, so the drape reads as folded cloth.
