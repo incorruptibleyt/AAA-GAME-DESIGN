@@ -4942,12 +4942,17 @@ func _reveal_feats_soon() -> void:
 		return
 	var ids := _feats_run.duplicate()
 	_feats_run.clear()
-	# Version 216 (review 2 fix #3): at the end of the free game the Feat screen waits so the
-	# Crypt Pass offer is read first.
-	await get_tree().create_timer(4.5 if _free_end else 1.1, true, false, true).timeout
-	while hud.drops_visible() and state in [State.DEAD, State.VICTORY]:
+	# Version 218 (review 4): at the end of the free game the Feat screen never covers the
+	# Crypt Pass offer (v216 waited 4.5 s, then covered it). It waits until the offer is
+	# gone: shown on the title, or over the loop choice once the Pass is bought.
+	var from_offer := _free_end
+	if from_offer:
+		while (_free_end and state == State.VICTORY) or state == State.TRANSITION:
+			await get_tree().create_timer(0.3, true, false, true).timeout
+	await get_tree().create_timer(1.1, true, false, true).timeout
+	while hud.drops_visible() and state in [State.DEAD, State.VICTORY, State.TITLE]:
 		await get_tree().create_timer(0.3, true, false, true).timeout   # a drop opening now: after it
-	if state not in [State.DEAD, State.VICTORY]:
+	if state not in [State.DEAD, State.VICTORY] and not (from_offer and state == State.TITLE):
 		return
 	var cfg := _load_save()
 	var id := hero.hero_id if hero else str(cfg.get_value("heroes", "selected", "rogue"))
