@@ -414,6 +414,9 @@ func _ready() -> void:
 	_splash.later.connect(func():
 		Sfx.play("click")
 		_splash.visible = false)
+	_splash.hunt.connect(func():
+		_splash.visible = false
+		event_hunt.emit(maxi(1, Events.tiers_open(Game._load_save()))))
 	_drops = DropScreen.new()
 	add_child(_drops)
 	_drops.closed.connect(func(): drops_closed.emit())

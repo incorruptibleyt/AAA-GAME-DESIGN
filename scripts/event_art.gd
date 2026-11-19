@@ -265,6 +265,7 @@ class Banner extends Button:
 class Splash extends ColorRect:
 	signal enter
 	signal later
+	signal hunt   # v218: straight into the Queen Hunt
 
 	var _rays: Rays
 	var _moon: Moon
@@ -336,6 +337,13 @@ class Splash extends ColorRect:
 		_go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_go.pressed.connect(func(): enter.emit())
 		_col.add_child(_go)
+		# Version 218 (review 4): the quick fight right here, not two screens in.
+		var hunt_btn := Hud.button("HUNT THE QUEEN  ·  ~1 MIN", 22)
+		Hud.paint(hunt_btn, "gold")
+		hunt_btn.custom_minimum_size = Vector2(340, 70)
+		hunt_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		hunt_btn.pressed.connect(func(): hunt.emit())
+		_col.add_child(hunt_btn)
 		_skip = Hud.button("LATER", 20)
 		Hud.paint(_skip, "slate")
 		_skip.custom_minimum_size = Vector2(200, 64)
