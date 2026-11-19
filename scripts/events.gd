@@ -73,33 +73,33 @@ const HUNT_NO_GIFT := ["greed", "magnet", "harvest", "links", "marrow", "shardhu
 ## look (an event look: [slot, key] in HeroStyle.EXTRA).
 const ROAD := [
 	{"at": 40, "kind": "casket", "n": 1},
-	{"at": 85, "kind": "coins", "n": 75},
+	{"at": 85, "kind": "coins", "n": 40},
 	{"at": 130, "kind": "casket", "n": 1},
 	{"at": 180, "kind": "drop", "n": 1},
 	{"at": 230, "kind": "casket", "n": 1},
-	{"at": 285, "kind": "coins", "n": 100},
+	{"at": 285, "kind": "coins", "n": 50},
 	{"at": 340, "kind": "lucky", "n": 1},
 	{"at": 400, "kind": "casket", "n": 1},
-	{"at": 460, "kind": "coins", "n": 125},
+	{"at": 460, "kind": "coins", "n": 60},
 	{"at": 525, "kind": "look", "look": ["outfit", "blood_moon"]},
 	{"at": 595, "kind": "casket", "n": 1},
 	{"at": 665, "kind": "drop", "n": 2},
-	{"at": 740, "kind": "coins", "n": 150},
+	{"at": 740, "kind": "coins", "n": 75},
 	{"at": 815, "kind": "casket", "n": 2},
 	{"at": 895, "kind": "lucky", "n": 1},
-	{"at": 975, "kind": "coins", "n": 200},
+	{"at": 975, "kind": "coins", "n": 100},
 	{"at": 1060, "kind": "casket", "n": 1},
 	{"at": 1145, "kind": "look", "look": ["head", "moon_crown"]},
 	{"at": 1235, "kind": "drop", "n": 2},
 	{"at": 1325, "kind": "casket", "n": 2},
-	{"at": 1420, "kind": "coins", "n": 225},
+	{"at": 1420, "kind": "coins", "n": 110},
 	{"at": 1520, "kind": "lucky", "n": 2},
 	{"at": 1620, "kind": "casket", "n": 1},
 	{"at": 1725, "kind": "look", "look": ["glow", "moonlight"]},
-	{"at": 1830, "kind": "coins", "n": 250},
+	{"at": 1830, "kind": "coins", "n": 125},
 	{"at": 1940, "kind": "drop", "n": 3},
 	{"at": 2050, "kind": "casket", "n": 2},
-	{"at": 2165, "kind": "coins", "n": 300},
+	{"at": 2165, "kind": "coins", "n": 150},
 	{"at": 2280, "kind": "casket", "n": 3},
 	{"at": 2400, "kind": "look", "look": ["aura", "blood_moon"]},
 ]
@@ -377,7 +377,7 @@ static func settle(cfg: ConfigFile) -> Dictionary:
 					coins += int(st.n)
 		var n := caskets(cfg, e)
 		cfg.set_value(section(e), "caskets", 0)
-		coins += n * 50
+		coins += n * 20   # v218: was 50, with the casket coins halved
 		if prizes + n > 0:
 			return {"name": e.name, "coins": coins, "prizes": prizes, "caskets": n}
 	return {}
@@ -428,30 +428,32 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 	cfg.set_value(section(e), "opened", int(cfg.get_value(section(e), "opened", 0)) + 1)
 	# Version 213 (hardest review fix #16): casket coins halved. The event paid ~5,450 coins,
 	# more than the whole Armory and Vault (5,275), in two weeks.
+	# Version 218 (review 4): halved again, with the road's coin steps (1,425 -> 710): a
+	# typical player still got about 6,900 coins' worth, more than every power upgrade.
 	match str(t.id):
 		"rare":
-			out.coins = 30
+			out.coins = 15
 			add_shards(cfg, 15, e)
-			out.text = "+30 COINS\n+15 MOON SHARDS"
+			out.text = "+15 COINS\n+15 MOON SHARDS"
 		"super":
 			if rng.randi_range(0, 1) == 0:
 				Drops.add(cfg, 1)
-				out.coins = 30
-				out.text = "BONE DROP\n+30 COINS"
+				out.coins = 15
+				out.text = "BONE DROP\n+15 COINS"
 			else:
-				out.coins = 80
+				out.coins = 40
 				add_shards(cfg, 25, e)
-				out.text = "+80 COINS\n+25 MOON SHARDS"
+				out.text = "+40 COINS\n+25 MOON SHARDS"
 		"epic":
 			Drops.add(cfg, 1)
-			out.coins = 110
+			out.coins = 55
 			add_shards(cfg, 40, e)
-			out.text = "BONE DROP\n+110 COINS\n+40 MOON SHARDS"
+			out.text = "BONE DROP\n+55 COINS\n+40 MOON SHARDS"
 		"mythic":
 			Drops.add(cfg, 2)
 			cfg.set_value(Drops.SECTION, "lucky", Drops.lucky(cfg) + 1)
-			out.coins = 180
-			out.text = "2 BONE DROPS\nLUCKY START\n+180 COINS"
+			out.coins = 90
+			out.text = "2 BONE DROPS\nLUCKY START\n+90 COINS"
 		"legendary":
 			# The next piece of the event set, early; once all are found, a fortune.
 			var miss := missing_looks(cfg)
@@ -478,8 +480,8 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 
 ## What a casket can hold, for the "?" on the casket screen: [[name, chance, prize]].
 static func casket_odds() -> Array:
-	var prizes := ["30 coins and 15 shards", "A Bone Drop, or 80 coins", "A Bone Drop and 110 coins",
-		"2 Bone Drops, a Lucky Start and 180 coins", "A Blood Moon look, early"]
+	var prizes := ["15 coins and 15 shards", "A Bone Drop, or 40 coins", "A Bone Drop and 55 coins",
+		"2 Bone Drops, a Lucky Start and 90 coins", "A Blood Moon look, early"]
 	var out := []
 	for i in CASKETS.size():
 		out.append([CASKETS[i].name, int(CASKETS[i].weight), prizes[i]])
