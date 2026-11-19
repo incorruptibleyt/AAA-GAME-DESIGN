@@ -694,9 +694,10 @@ func _ready() -> void:
 	# one for a new player (and on launches after this build's full one), see warmup.gd.
 	var wcfg := _load_save()
 	var short_warm := Warmup.core_only(wcfg)
-	await Warmup.run(short_warm)
+	var warmed: bool = await Warmup.run(short_warm)
 	if not short_warm:
-		Warmup.mark_full(wcfg)
+		wcfg = _load_save()
+		Warmup.mark_full(wcfg, warmed)   # v218: only a finished one (or the 3rd try)
 		write_save(wcfg)
 	hud.show_title(true, _best_text(), coins)
 	Telemetry.step("title")   # (version 157: loading finished on a new install)
@@ -2379,9 +2380,9 @@ func _back_to_title(keep_run := false) -> void:
 	# Version 165: after the tutorial, while the screen is black, the rest of the warm-up
 	# that a new player's first launch left out (every floor, skeleton and look).
 	if not Warmup.core_only(_load_save()):
-		await Warmup.run(false)
+		var warmed: bool = await Warmup.run(false)
 		var wcfg := _load_save()
-		Warmup.mark_full(wcfg)
+		Warmup.mark_full(wcfg, warmed)
 		write_save(wcfg)
 	_title_hero_line(hero.hero_id)
 	hud.show_hud(false)

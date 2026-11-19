@@ -30,15 +30,25 @@ static func core_only(cfg: ConfigFile) -> bool:
 
 
 ## Notes that this build's whole set has been drawn (see core_only).
-static func mark_full(cfg: ConfigFile) -> void:
-	cfg.set_value("stats", "warmed_build", Game.BUILD)
+## Version 218: only once the whole set was drawn, or after 3 tries that ran out of time
+## (a slow phone must not wait 12 s on every launch). It was marked after any try, and the
+## robot's full warm-ups mostly stopped at step 3-5, before the heroes.
+static func mark_full(cfg: ConfigFile, finished := true) -> void:
+	var tries := int(cfg.get_value("stats", "warm_tries", 0)) + 1
+	if finished or tries >= 3:
+		cfg.set_value("stats", "warmed_build", Game.BUILD)
+		cfg.set_value("stats", "warm_tries", 0)
+	else:
+		cfg.set_value("stats", "warm_tries", tries)
 
 
-static func run(core := false) -> void:
+## Returns true when every step was drawn (false when it ran out of time).
+static func run(core := false) -> bool:
 	var room := Room.current
 	var hero: Hero = Game.hero
 	if room == null or hero == null or Game.world == null:
-		return
+		return false
+	var finished := true
 	var started := Time.get_ticks_msec()
 	var bus := AudioServer.get_bus_index("Master")
 	var muted := AudioServer.is_bus_mute(bus)
@@ -77,7 +87,8 @@ static func run(core := false) -> void:
 				DamageNumber.hit(e, 1234567890.0, kinds[i] == "K")
 				foes.append(e))
 	var heroes: Array[CharacterVisual] = []
-	steps.append(func():
+	# Version 218: the heroes first (their hit flash is the first thing a run needs).
+	steps.push_front(func():
 		for i in Heroes.LIST.size():
 			if core and Heroes.LIST[i].id != hero.hero_id:
 				continue   # (the short warm-up: only the hero being played)
@@ -237,6 +248,7 @@ static func run(core := false) -> void:
 		# first time it is drawn instead, with a short pause then.
 		if Time.get_ticks_msec() - started > BUDGET_MS:
 			print("[warmup] stopped at step %d of %d (over %d ms)" % [n, steps.size(), BUDGET_MS])
+			finished = false
 			break
 		Game.loading = "loading %d/%d" % [n + 1, steps.size()]
 		Game.note_spot()   # if a phone dies while loading, the report says at which step
@@ -280,6 +292,7 @@ static func run(core := false) -> void:
 	last_ms = Time.get_ticks_msec() - started
 	last_core = core
 	print("[warmup] %d ms%s" % [last_ms, " (first floor only)" if core else ""])
+	return finished
 
 
 ## A thin bone-white bar low on the black launch screen. It stays hidden on a quick launch
