@@ -130,8 +130,8 @@ func _build_main() -> void:
 	col.add_child(_road_bar)
 	_road_sub = Hud.label("", 16, DIM)
 	col.add_child(_road_sub)
-	_build_set_card(col)
-	# The Blood Moon run.
+	# The Blood Moon run (version 212, critic fix #6: above the set card, so PLAY shows
+	# without scrolling; it was hidden behind BACK on the first view).
 	var run := _card(col, "BLOOD MOON RUN", "Three floors of the Blood Moon Crypt. Moon Surges make every skeleton faster and worth a shard. Bloodbats, Moon Howlers, and the Queen at the end.")
 	_run_sub = Hud.label("", 16, GOLD)
 	run.add_child(_run_sub)
@@ -141,6 +141,7 @@ func _build_main() -> void:
 	_run_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_run_btn.pressed.connect(func(): _confirm(_run_btn, run_pressed.emit))
 	run.add_child(_run_btn)
+	_build_set_card(col)
 	# The Queen Hunt.
 	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Every tier pays again each day, and the day's first win holds a Moon Casket.")
 	_tiers = VBoxContainer.new()
@@ -366,7 +367,10 @@ func refresh(cfg: ConfigFile) -> void:
 	_shard_count.text = "%s Moon Shards" % Hud.thousands(s)
 	var ni := Events.next_index(cfg, e)
 	var ready := Events.ready_count(cfg, e)
-	_road_bar.set_road(s, int(Events.ROAD[ni].at) if ni < Events.ROAD.size() else 0, Events.progress(cfg, e), ready)
+	# version 212 (critic fix #6): the whole road on the bar ("0 / 2,400", the set at the end),
+	# not the next step ("0 / 40" read like a 40-step road). The line under it names the next prize.
+	var road_end := int(Events.ROAD[Events.ROAD.size() - 1].at)
+	_road_bar.set_road(s, road_end if ni < Events.ROAD.size() else 0, clampf(float(s) / float(road_end), 0.0, 1.0), ready)
 	if ready > 0:
 		_road_sub.text = "%d prize%s ready to claim. Tap the road!" % [ready, "" if ready == 1 else "s"]
 	elif ni < Events.ROAD.size():
@@ -379,6 +383,9 @@ func refresh(cfg: ConfigFile) -> void:
 		bonus.append("double shards today")
 	if Store.owned():
 		bonus.append("+50% shards with the Crypt Pass")
+	else:
+		# version 212 (critic fix #3): free players see it too; it's the Pass's best reason now
+		bonus.append("Crypt Pass: +50% shards")
 	_run_sub.text = "About 300 shards a full run" + ("  ·  " + ", ".join(bonus) if not bonus.is_empty() else "")
 	_run_btn.disabled = not live
 	_run_btn.text = "PLAY THE BLOOD MOON" if live else "OPENS IN %s" % Events.time_text(Events.seconds_left(e)).to_upper()

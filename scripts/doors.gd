@@ -19,10 +19,12 @@ const PATHS := {"bolt": "Hunter's Path", "flame": "Burning Path", "frost": "Froz
 ## offered for a family with at least 2 cards the hero can still get, so its promise ("2 of 3
 ## are ... blessings") is kept. The Daily Crypt passes its own `rng`, so everyone gets the
 ## same doors.
-static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool, taken := {}) -> Array:
+## `full_health`: the hero has 90% health or more, so a Healing Spring would be wasted
+## (version 212, critic fix #5). The Daily Crypt passes false: everyone gets the same doors.
+static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool, taken := {}, full_health := false) -> Array:
 	var families: Array = PATHS.keys().filter(func(f): return Upgrades.family_left(taken, f) >= 2)
 	var kinds := KINDS.filter(func(k): return not (k in ["champion", "treasure"] and boss_next) and not (k == "shrine" and not can_reroll) \
-		and not (k == "path" and families.is_empty()))
+		and not (k == "path" and families.is_empty()) and not (k == "spring" and full_health))
 	var out := []
 	while out.size() < 2 and not kinds.is_empty():
 		var kind: String = kinds[rng.randi() % kinds.size()]
@@ -32,7 +34,8 @@ static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool,
 
 
 ## Title, text, colour and icon for a door.
-static func describe(door: Dictionary) -> Dictionary:
+## `rerolls`: how many the player has now, for the Shrine's text (-1 leaves it out).
+static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 	match str(door.get("kind", "")):
 		"path":
 			var fam: Dictionary = Upgrades.FAMILIES[door.family]
@@ -45,7 +48,9 @@ static func describe(door: Dictionary) -> Dictionary:
 			return {"title": "Treasure Room", "text": "+%d%% coins in\nthe next room" % roundi(TREASURE_COINS * 100),
 				"color": Color(1.0, 0.82, 0.3), "icon": "greed", "family": "bone"}
 		"shrine":
-			return {"title": "Shrine", "text": "+1 reroll\nfor the blessings", "color": Color(0.6, 0.75, 1.0),
+			# version 212 (critic fix #5): says how many you have
+			var text := "+1 reroll\nfor the blessings" if rerolls < 0 else "+1 blessing reroll\n(you have %d)" % rerolls
+			return {"title": "Shrine", "text": text, "color": Color(0.6, 0.75, 1.0),
 				"icon": "door_shrine", "family": "bolt"}
 		"champion":
 			return {"title": "Champion's Door", "text": "A purple elite waits.\nNext pick: rare or better",

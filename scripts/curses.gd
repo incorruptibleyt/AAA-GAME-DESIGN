@@ -182,13 +182,20 @@ const SUNDAY_HEROES := ["knight", "barbarian", "mage"]
 
 
 ## Seconds since 1970, shifted so the daily day starts at 07:00 UTC.
+## Version 212 (critic fix #9): by TrustClock (Google's time when the phone is online).
 static func _day_clock() -> int:
-	return int(Time.get_unix_time_from_system()) - DAY_START_HOURS * 3600
+	return TrustClock.now() - DAY_START_HOURS * 3600
 
 
-## The daily's date ("2026-10-25"). `offset` -1 is yesterday's.
+## The start of today on _day_clock (a whole number of days).
+static func day_start_now() -> int:
+	return floori(_day_clock() / 86400.0) * 86400
+
+
+## The daily's date ("2026-10-25"). `offset` -1 is yesterday's. Never before the latest day
+## this phone has seen, unless Google's clock says so (TrustClock).
 static func today(offset := 0) -> String:
-	return Time.get_date_string_from_unix_time(_day_clock() + offset * 86400)
+	return Time.get_date_string_from_unix_time(TrustClock.guard_day(day_start_now()) + offset * 86400)
 
 
 static func _unix(date: String) -> int:

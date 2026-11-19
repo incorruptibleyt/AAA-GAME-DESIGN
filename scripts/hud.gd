@@ -5018,7 +5018,9 @@ func refresh_event_banner() -> void:
 	var live := not e.is_empty()
 	if not live:
 		e = Events.coming()
-	if e.is_empty() or Game.unlock_stage() < 3:   # version 170: events from run 3
+	# version 212 (critic fix #2): events from the end of the tutorial (was run 3), so a
+	# player who installs because of an event finds it
+	if e.is_empty() or Game.unlock_stage() < 1:
 		_title_event.visible = false
 		return
 	_title_event.visible = true

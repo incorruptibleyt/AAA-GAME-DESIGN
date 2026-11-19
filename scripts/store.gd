@@ -36,6 +36,13 @@ const PENDING := 2
 static var instance: Store
 ## Set by the test robot (`-- autoplay pass`) to play as if the Pass were owned.
 static var test_owned := false
+static var _owned_cache := -1   # -1 = not read yet, 0 = no, 1 = owned
+## Version 212 (critic fix #1): Google Play can answer "no purchases" by mistake (two
+## accounts on one phone, a Play cache that hasn't caught up). The Pass is only taken away
+## after MISS_CHECKS such answers spread over at least MISS_HOURS, with no "owned" answer
+## in between, which is what a refund looks like.
+const MISS_CHECKS := 3
+const MISS_HOURS := 72
 
 ## The price in the player's own currency ("$4.99"), once Google Play has sent it.
 var price := ""
@@ -54,9 +61,18 @@ var _wait_token := 0
 static func owned(cfg: ConfigFile = null) -> bool:
 	if test_owned:
 		return true
-	if cfg == null:
-		cfg = Game._load_save()
-	return bool(cfg.get_value(SAVE_SECTION, "owned", false))
+	if cfg != null:
+		return bool(cfg.get_value(SAVE_SECTION, "owned", false))
+	# Version 212 (critic fix #7): remembered, so a kill during an event doesn't read the
+	# save file from the phone's storage. Game.write_save keeps it up to date.
+	if _owned_cache < 0:
+		_owned_cache = 1 if bool(Game._load_save().get_value(SAVE_SECTION, "owned", false)) else 0
+	return _owned_cache == 1
+
+
+## Called by Game.write_save after every save, so owned() never goes stale.
+static func note_saved(cfg: ConfigFile) -> void:
+	_owned_cache = 1 if bool(cfg.get_value(SAVE_SECTION, "owned", false)) else 0
 
 
 ## True when this copy of the game can buy things (installed from Google Play).
@@ -207,9 +223,10 @@ func _on_owned_list(r: Dictionary) -> void:
 	_restoring = false
 	var was_pending := status == PENDING_TEXT
 	var has_it := _handle(r.get("purchases", []))
-	if not has_it and owned() and not test_owned:
-		_save_owned(false)
-		changed.emit()
+	if has_it:
+		_clear_misses()
+	elif owned() and not test_owned:
+		_note_miss()
 	if status == CHECKING:
 		_set_status("" if has_it else "No Crypt Pass found on this Google account.")
 	elif was_pending and status == PENDING_TEXT and not _has_pending(r.get("purchases", [])):
@@ -266,6 +283,40 @@ func _grant() -> void:
 	status = ""
 	Sfx.play("victory", 0.8)
 	changed.emit()
+
+
+## One "owned" answer clears any earlier "not found" answers.
+func _clear_misses() -> void:
+	var cfg := Game._load_save()
+	if not cfg.has_section_key(SAVE_SECTION, "miss_count"):
+		return
+	cfg.erase_section_key(SAVE_SECTION, "miss_count")
+	if cfg.has_section_key(SAVE_SECTION, "miss_since"):
+		cfg.erase_section_key(SAVE_SECTION, "miss_since")
+	Game.write_save(cfg)
+
+
+## Google Play said this account doesn't own the Pass. Count it; only a run of such answers
+## over MISS_HOURS takes the Pass away.
+func _note_miss() -> void:
+	var cfg := Game._load_save()
+	var now := int(Time.get_unix_time_from_system())
+	var since := int(cfg.get_value(SAVE_SECTION, "miss_since", now))
+	if since > now:
+		since = now   # the clock went back
+	var n := int(cfg.get_value(SAVE_SECTION, "miss_count", 0)) + 1
+	print("[store] Pass not found on this account (%d of %d, first %d h ago)" % [n, MISS_CHECKS, (now - since) / 3600])
+	if n >= MISS_CHECKS and now - since >= MISS_HOURS * 3600:
+		cfg.erase_section_key(SAVE_SECTION, "miss_count")
+		cfg.erase_section_key(SAVE_SECTION, "miss_since")
+		cfg.set_value(SAVE_SECTION, "owned", false)
+		Game.write_save(cfg)
+		print("[store] Pass taken away (refunded)")
+		changed.emit()
+		return
+	cfg.set_value(SAVE_SECTION, "miss_count", n)
+	cfg.set_value(SAVE_SECTION, "miss_since", since)
+	Game.write_save(cfg)
 
 
 func _save_owned(v: bool) -> void:

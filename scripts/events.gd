@@ -159,7 +159,7 @@ static func coming() -> Dictionary:
 static func seconds_left(e: Dictionary) -> int:
 	var d := day(e)
 	# Seconds since today's event day started (07:00 UTC).
-	var into := int(Time.get_unix_time_from_system()) - (_unix(Curses.today()) + Curses.DAY_START_HOURS * 3600)
+	var into := clampi(TrustClock.now() - (_unix(Curses.today()) + Curses.DAY_START_HOURS * 3600), 0, 86400)
 	if d <= 0:
 		return (1 - d) * 86400 - into
 	return (int(e.days) - d + 1) * 86400 - into
@@ -347,6 +347,10 @@ static func claim(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> Dictio
 static func settle(cfg: ConfigFile) -> Dictionary:
 	for e: Dictionary in LIST:
 		if day(e) <= int(e.days) or not cfg.has_section(section(e)) or bool(cfg.get_value(section(e), "settled", false)):
+			continue
+		# version 212 (critic fix #9): only on Google's clock, or well after the end, so a
+		# phone clock moved past the end doesn't close the event for good
+		if not TrustClock.confirmed and day(e) <= int(e.days) + TrustClock.SETTLE_OFFLINE_DAYS:
 			continue
 		cfg.set_value(section(e), "settled", true)
 		var coins := 0

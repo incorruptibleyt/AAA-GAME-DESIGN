@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-19a"
+const BUILD := "2026-11-19b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -493,6 +493,11 @@ func _ready() -> void:
 	add_child(Sfx.new())
 	add_child(Music.new())
 	add_child(Ambience.new())
+	var clock := TrustClock.new()   # version 212: Google's time for the event days
+	add_child(clock)
+	clock.synced.connect(func():
+		if hud:
+			hud.refresh_event_banner())
 	add_child(Telemetry.new())
 	add_child(Leaders.new())   # version 137: Google Play Games leaderboards
 	add_child(UpdateGate.new())   # asks Google Play for a newer version straight away
@@ -2877,10 +2882,11 @@ func on_swipe_warning() -> void:
 	if dash_unlocked():
 		if _swipe_tips < 2:
 			_swipe_tips = 2
-			hud.tip("Red circle? DASH out!", 3.0)
+			# version 212 (critic fix #4): a Warrior's red strip often shows at the same time
+			hud.tip("Red circle or strip? DASH out!", 3.0)
 	elif _swipe_tips < 1:
 		_swipe_tips = 1
-		hud.tip("Red circle? Step out!", 3.0)
+		hud.tip("Red circle or strip? Step out!", 3.0)
 
 
 ## The one new thing each first-run room teaches.
@@ -3299,7 +3305,7 @@ func _on_card_picked(i: int) -> void:
 	# Then two doors to the next room (still paused), except in the first run.
 	_doors = _door_offer()
 	if not _doors.is_empty():
-		hud.show_doors(_doors.map(func(d): return Doors.describe(d)), _room_index + 2 >= _run.size())
+		hud.show_doors(_doors.map(func(d): return Doors.describe(d, rerolls)), _room_index + 2 >= _run.size())
 		return
 	_leave_room()
 
@@ -3313,7 +3319,8 @@ func _door_offer() -> Array:
 		rng = Curses.daily_rng(300 + floor_num * 10 + _room_index, _daily_date)
 	else:
 		rng.randomize()
-	return Doors.offer(rng, _room_index + 2 >= _run.size(), not curses.has("narrow"), _taken)
+	var full := not (daily or race) and hero != null and hero.health >= hero.max_health * 0.9
+	return Doors.offer(rng, _room_index + 2 >= _run.size(), not curses.has("narrow"), _taken, full)
 
 
 func _on_door_picked(i: int) -> void:
@@ -3690,6 +3697,7 @@ static func write_save(cfg: ConfigFile) -> void:
 		cfg.erase_section("saved")
 	cfg.set_value("saved", "complete", true)
 	_merge_records(cfg)
+	TrustClock.note(cfg, Curses.day_start_now())
 	var tmp := SAVE_PATH + ".tmp"
 	if cfg.save(tmp) != OK:
 		push_error("couldn't write " + tmp)
@@ -3699,6 +3707,7 @@ static func write_save(cfg: ConfigFile) -> void:
 	if FileAccess.file_exists(SAVE_PATH):
 		DirAccess.rename_absolute(SAVE_PATH, SAVE_BACKUP)
 	DirAccess.rename_absolute(tmp, SAVE_PATH)
+	Store.note_saved(cfg)
 
 
 # ---------------------------------------------------------------- records
@@ -3856,7 +3865,7 @@ func start_event(kind: String, tier := 1) -> void:
 func _maybe_event_splash(force := false) -> void:
 	await get_tree().create_timer(0.9, true, false, true).timeout
 	var e := Events.current()
-	if e.is_empty() or unlock_stage() < 3 or state != State.TITLE or not hud.title_visible() or hud.covers_world():
+	if e.is_empty() or unlock_stage() < 1 or state != State.TITLE or not hud.title_visible() or hud.covers_world():
 		return
 	var cfg := _load_save()
 	var c := Events.chapter(e)
