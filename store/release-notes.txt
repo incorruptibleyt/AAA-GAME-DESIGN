@@ -1,6 +1,7 @@
-Version 218: ready for the Blood Moon
-- The Blood Moon runs Nov 20 to Dec 3: hunt the Queen, walk the shard road, win the Blood Moon set.
-- Fairer rewards: a lost Queen Hunt pays no Bone Drop, repeat Hunt wins pay a third.
-- Feat messages no longer cover the victory screen, the Crypt Pass or the Bone Drop reveal.
-- The Eclipse no longer stays dark after you die in it.
-- The event screen fits small phones, and the bonus casket line says when the next one comes.
+Version 219: a bigger Crypt Pass and fairer fights
+- Crypt Pass: new Moonlit, Aurora and Ashen crypts, and a Silver Moon row on the event road.
+- New Cursed Door, deep cards with real choices, and a stronger Bone Chain.
+- Four new Vault cards to spend your coins on.
+- The camera keeps your hero in view, and bosses wear real crowns.
+- New settings: Flashes, Left hand, Button size, Darkness.
+- Calmer screens: fewer words in fights, one clear TRY AGAIN.
