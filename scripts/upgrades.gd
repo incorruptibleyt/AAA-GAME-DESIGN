@@ -71,6 +71,12 @@ const LIST := [
 	{"id": "flashfire", "vault": true, "family": "flame", "rarity": "rare", "title": "Flashfire", "text": "Critical hits set skeletons on fire", "max": 1},
 	{"id": "splinters", "vault": true, "family": "bone", "rarity": "epic", "title": "Bone Splinters", "text": "Kills burst into 3 bone shards", "max": 1},
 	{"id": "overcharge", "vault": true, "family": "bolt", "rarity": "epic", "title": "Overcharge", "text": "Shots hit 25% harder at Chain x2 or more", "max": 1},
+	# Version 219 (review 4 fix 29): more Vault cards that change how a run plays, so coins
+	# have something worth saving for.
+	{"id": "opening_volley", "vault": true, "family": "bolt", "rarity": "rare", "title": "Opening Volley", "text": "Every room starts with your special ready", "max": 1},
+	{"id": "last_stand", "vault": true, "family": "bone", "rarity": "rare", "title": "Last Stand", "text": "+40% damage while under 30% health", "max": 1},
+	{"id": "blood_rush", "vault": true, "family": "bone", "rarity": "rare", "title": "Blood Rush", "text": "Kills at the chain's cap heal 1% of your health", "max": 1},
+	{"id": "chain_echo", "vault": true, "family": "bolt", "rarity": "epic", "title": "Chain Echo", "text": "When the chain fades, half of it stays", "max": 1},
 ]
 
 const SYNERGIES := [

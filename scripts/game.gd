@@ -170,6 +170,8 @@ func chain_time() -> float:
 ## was a quarter, x1.5, and the chain felt like a score meter more than a weapon).
 func chain_damage() -> float:
 	var d := 1.0 + (chain - 1.0) * 0.35
+	if hero and hero.perks.has("last_stand") and hero.health < hero.max_health * 0.3:
+		d *= 1.4   # Last Stand (a Vault card, v219)
 	if chain >= 2.0 and hero and hero.perks.has("overcharge"):
 		d *= 1.25   # Overcharge
 	if surge > 0.5 and hero and hero.perks.has("eclipse_heart"):
@@ -478,6 +480,12 @@ func _break_chain() -> void:
 	var was := chain
 	_combo = 0
 	chain = 1.0
+	if hero and hero.perks.has("chain_echo") and was >= 1.5:
+		# Chain Echo (a Vault card, v219): half of it stays, and starts its timer again.
+		chain = 1.0 + (was - 1.0) * 0.5
+		_combo_left = chain_time()
+		hud.show_chain(chain)
+		return
 	if was > 1.01:
 		hud.chain_broken(was)
 		if was >= 2.0:
@@ -2597,6 +2605,8 @@ func _go_to_room(index: int) -> void:
 func _load_room(index: int, spawn_enemies: bool) -> void:
 	_room_index = index
 	_room_serial += 1
+	if spawn_enemies and hero and hero.perks.has("opening_volley"):
+		hero.special_charge = 1.0   # Opening Volley (a Vault card, v219)
 	if daily or race:
 		_room_rng = Curses.daily_rng(700 + floor_num * 10 + index, _daily_date)
 	else:
@@ -3084,6 +3094,8 @@ func on_enemy_died(e: Enemy) -> void:
 	_combo += 1
 	record_max("best_combo", _combo)
 	_combo_left = chain_time()
+	if hero and not hero.dead and hero.perks.has("blood_rush") and chain >= chain_max() - 0.01:
+		hero.heal(hero.max_health * 0.01)   # Blood Rush (a Vault card, v219)
 	var before := chain
 	# Grave Pact: only kills right after a dash grow the chain (others still keep it alive).
 	if chain_unlocked() and (not curses.has("gravepact") or (hero and hero.dashed_recently())):

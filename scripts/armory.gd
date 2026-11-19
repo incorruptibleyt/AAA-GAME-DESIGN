@@ -27,6 +27,10 @@ const VAULT := [
 	{"id": "flashfire", "cost": 450},
 	{"id": "splinters", "cost": 600},
 	{"id": "overcharge", "cost": 650},
+	{"id": "opening_volley", "cost": 500},   # v219 (review 4 fix 29)
+	{"id": "last_stand", "cost": 550},
+	{"id": "blood_rush", "cost": 600},
+	{"id": "chain_echo", "cost": 800},
 ]
 const VAULT_SECTION := "vault"
 
