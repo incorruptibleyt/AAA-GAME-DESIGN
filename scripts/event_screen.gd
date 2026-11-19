@@ -364,6 +364,9 @@ func refresh(cfg: ConfigFile) -> void:
 	_double.visible = live and Events.double_today(e)
 	# Version 214 (hardest review fix #20): the whole event in one plain line after the story.
 	_story.text = str(e.story) + "\n\nEarn Moon Shards in event runs and the Queen Hunt. Shards move you along the road below, which ends in the Blood Moon set."
+	# Version 218: on a short 16:9 screen the story pushed PLAY THE BLOOD MOON under BACK.
+	# The road and the cards below say the same, so the story goes there.
+	_story.visible = get_viewport().get_visible_rect().size.y >= 1100.0
 	var s := Events.shards(cfg, e)
 	_shard_count.text = "%s Moon Shards" % Hud.thousands(s)
 	var ni := Events.next_index(cfg, e)
