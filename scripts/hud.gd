@@ -4178,8 +4178,10 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	if v:
 		print("[title] open stage %d, note '%s'" % [stage, Game.unlock_note(tcfg)])
 	_title_shop_row.visible = stage >= 1
-	_title_pass_row.visible = stage >= 4 and not has_pass
-	_title_modes_row.visible = stage >= 3
+	# Version 218 (review 4): the Pass shows from the second run (it hid until the fourth),
+	# and a Pass owner always reaches the Daily Crypt and Curses they bought (MODES).
+	_title_pass_row.visible = stage >= 2 and not has_pass
+	_title_modes_row.visible = stage >= 3 or has_pass
 	_title_records.visible = stage >= 3
 	_title_road.visible = stage >= 2
 	if v:
