@@ -3468,8 +3468,11 @@ func _win() -> void:
 	# the Hunt casket) pays a Bone Drop; it paid one per 1-2 minute fight with no cap.
 	if event != "hunt" or bool(hunt.get("casket", false)):
 		_earn_drop(cfg)   # every boss beaten, the tutorial's too (saved just below)
-	_add_bones(BoneRoad.BOSS_BONES)
-	_add_mastery(HeroMastery.BOSS_POINTS)
+	# Version 218: a repeat Hunt win (no casket) pays a third of the bones and Mastery too;
+	# both ladders pay Bone Drops, so full pay kept the drop farm open.
+	var repeat_hunt := event == "hunt" and not bool(hunt.get("casket", false))
+	_add_bones(roundi(BoneRoad.BOSS_BONES / 3.0) if repeat_hunt else BoneRoad.BOSS_BONES)
+	_add_mastery(roundi(HeroMastery.BOSS_POINTS / 3.0) if repeat_hunt else HeroMastery.BOSS_POINTS)
 	var bones := _bank_bones(cfg)
 	var mastery := _bank_mastery(cfg)
 	var best := _save_score(cfg)
