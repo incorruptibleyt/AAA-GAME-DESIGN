@@ -300,7 +300,7 @@ func _clear_misses() -> void:
 ## over MISS_HOURS takes the Pass away.
 func _note_miss() -> void:
 	var cfg := Game._load_save()
-	var now := int(Time.get_unix_time_from_system())
+	var now := TrustClock.now()   # v218: Google's time when known (a moved clock skipped the wait)
 	var since := int(cfg.get_value(SAVE_SECTION, "miss_since", now))
 	if since > now:
 		since = now   # the clock went back
