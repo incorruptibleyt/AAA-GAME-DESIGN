@@ -319,7 +319,11 @@ func use_special() -> void:
 		health = maxf(1.0, health - max_health * 0.25)
 		Game.hud.flash(Color(0.9, 0.1, 0.1), 0.3)
 	Game.hud.tip("", 0.0)
-	Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.3))
+	# Version 218 (review 4): the special's name only for the first 3 casts of a run (the
+	# button already shows it; every cast put big words over the fight), and nearly white
+	# so it reads on any floor (2.7:1 before).
+	if int(Game._rep.get("special", 0)) <= 3:
+		Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.7))
 	Game.shake(0.25)
 	Game.calm_glow(2.2)
 	match hero_id:
