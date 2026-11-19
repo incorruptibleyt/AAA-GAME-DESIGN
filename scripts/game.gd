@@ -5164,7 +5164,7 @@ func _race_tick(dt: float) -> void:
 	if _race_live:
 		_race.t += dt
 		_race_room_t += dt
-		match r.tick(dt):
+		match r.tick(dt * _race.pull()):   # v218: kept close until the boss
 			"down":
 				if state == State.PLAYING:
 					hud.banner("%s FELL!" % r.name.to_upper(), RaceScreen.TEAL)

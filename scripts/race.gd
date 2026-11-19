@@ -488,6 +488,19 @@ class Match extends RefCounted:
 	func gap() -> float:
 		return rival.time_at(me()) - rival.clock
 
+	## Version 218 (review 4): the race stays close until the boss. More than 10 s apart,
+	## the rival's clock runs faster (player far ahead, up to x1.5) or slower (rival far
+	## ahead, down to x0.6). In the boss leg it runs true, so the finish is earned.
+	func pull() -> float:
+		if me() >= LEGS - 1 or rival.progress() >= LEGS - 1:
+			return 1.0
+		var g := gap()
+		if g > 10.0:
+			return 1.0 + minf((g - 10.0) / 20.0, 0.5)
+		if g < -10.0:
+			return maxf(1.0 - (-g - 10.0) / 30.0, 0.6)
+		return 1.0
+
 
 ## A bot rival: its run is planned at the start (when each leg ends, and where it falls),
 ## then played out on its own clock, which a surge from the player stops for a moment.
