@@ -15,7 +15,7 @@ Dash through danger. Chain your kills. Break the crypt.
 Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb to fire, and fight down through a crypt full of skeletons one room at a time. Every run is different, and every floor is harder than the last.
 
 ★ WHY YOU'LL KEEP PLAYING
-• 5-minute floors and a 1-minute Queen Hunt that fit any break
+• Short floors and a quick Queen Hunt that fit any break
 • A new build every run from dozens of blessings
 • Perfect dodges that slow time and fire back for you
 • Progress you never lose: gold, upgrades, Mastery and 60+ looks
@@ -57,7 +57,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 ★ A CRYPT THAT FIGHTS BACK
 • Skeleton warriors, archers, mages, bombers, spitters, bone spiders and purple elites.
 • Giant bosses that change at half health: the Skeleton King, the Lich and the Cinder Colossus.
-• Four crypts to descend: the Bone Crypt, the Frozen Ossuary, the Ember Catacomb and the Glowcap Grotto.
+• Crypts to descend: the Bone Crypt, the Frozen Ossuary, the Ember Catacomb and the Glowcap Grotto, plus the Blood Moon Crypt during the event.
 • Each crypt has its own skeletons, like Frost Wraiths that fire ice beams and Cinder Skeletons that leave fire behind them.
 
 ★ GET STRONGER BETWEEN RUNS
@@ -69,7 +69,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 • Share how deep you went.
 
 ★ BLOOD MOON EVENT (NOV 20 - DEC 3)
-• A 14-day event with its own red crypt and the Blood Moon Queen to hunt on five tiers.
+• A 14-day event with its own red crypt and the Blood Moon Queen to hunt on five tiers that open over the 14 days.
 • Collect Moon Shards to walk the Blood Moon road and win the Blood Moon set and Moon Crown.
 • Double shards on the weekend of Nov 28-29.
 

@@ -1,5 +1,6 @@
-Version 217: the Blood Moon is here
-- The Blood Moon event runs Nov 20 to Dec 3: hunt the Blood Moon Queen, walk the shard road, win the Blood Moon set.
-- Event days now stay fair even if the phone's clock is wrong.
-- Your progress can now be restored from your Google backup on a new phone.
-- Clearer shard numbers, a darker frost floor, a clearer hit flash, and many small fixes.
+Version 218: ready for the Blood Moon
+- The Blood Moon runs Nov 20 to Dec 3: hunt the Queen, walk the shard road, win the Blood Moon set.
+- Fairer rewards: a lost Queen Hunt pays no Bone Drop, repeat Hunt wins pay a third.
+- Feat messages no longer cover the victory screen, the Crypt Pass or the Bone Drop reveal.
+- The Eclipse no longer stays dark after you die in it.
+- The event screen fits small phones, and the bonus casket line says when the next one comes.
