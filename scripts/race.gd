@@ -163,7 +163,7 @@ static func win_trophies(cfg: ConfigFile) -> int:
 
 
 static func first_win_ready(cfg: ConfigFile) -> bool:
-	return str(cfg.get_value(SECTION, "won_day", "")) != Curses.today()
+	return Curses.today() > str(cfg.get_value(SECTION, "won_day", ""))   # v216: a past date never pays again
 
 
 ## A race is marked as running from the countdown to the result, so one left by closing the

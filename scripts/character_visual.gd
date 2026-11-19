@@ -30,7 +30,7 @@ static var _soft_flash_mat: StandardMaterial3D
 var soft_flash := false
 ## Version 213: the hero's hit flash is a red glow (HERO_FLASH), not white.
 var hero_flash := false
-static var _hero_flash_mat: StandardMaterial3D
+static var _hero_flash_mat: ShaderMaterial
 var _tint_mat: Material
 static var _rim_shader: Shader
 ## A dark cartoon outline (High graphics) around the hero and the bosses, so they stand
@@ -395,9 +395,14 @@ func _set_flash(on: bool) -> void:
 		_soft_flash_mat.albedo_color = Color(0.24, 0.22, 0.19)
 		_soft_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	if _hero_flash_mat == null:
-		_hero_flash_mat = _flash_mat.duplicate()
-		_hero_flash_mat.albedo_color = Color(0.55, 0.06, 0.04)
-		_hero_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		# Version 216 (review 2 fix #4): a red edge round the hero, painted over (not added
+		# to) the outfit, so a blue hero doesn't turn purple like an elite skeleton.
+		var sh := Shader.new()
+		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, cull_back, depth_draw_never;\n" \
+			+ "void fragment() {\n\tfloat rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);\n" \
+			+ "\tALBEDO = vec3(1.0, 0.16, 0.1);\n\tALPHA = clamp(pow(rim, 1.6) * 1.3 + 0.12, 0.0, 0.9);\n}\n"
+		_hero_flash_mat = ShaderMaterial.new()
+		_hero_flash_mat.shader = sh
 	var hit_mat: Material = _hero_flash_mat if hero_flash else (_soft_flash_mat if soft_flash else _flash_mat)
 	var mat: Material = hit_mat if on else _tint_mat
 	var lined: Material = _with_outline(mat) if outline_me and outlines and not _dead else mat

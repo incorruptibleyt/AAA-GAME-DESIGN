@@ -1019,8 +1019,10 @@ func _build_hud() -> void:
 	_hint.offset_right = 210
 	# (Version 211, Tweaks report #3: 48 px lower. At -128 it covered the hero where each
 	# run starts, and the special button's name.)
-	_hint.offset_top = -80
-	_hint.offset_bottom = -40
+	# (Version 216: DASH and the special sit at y ~1066-1156 and the hero just above them, so
+	# the tip goes above the hero.)
+	_hint.offset_top = -446
+	_hint.offset_bottom = -406
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN   # two lines grow up, never off the bottom
 	_hint.label_settings.outline_size = 7
 	_hint.add_theme_stylebox_override("normal", _text_panel())
@@ -2593,7 +2595,7 @@ func _build_pass() -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(_centered(grid))
 	# The Crypt King set first: the one thing you can see on your hero, everywhere.
-	for tile in [["looks", "Crypt King set"], ["floors", "The Drowned Vault"], ["daily", "Daily practice"], ["curses", "All 10 Curses"]]:
+	for tile in [["looks", "Crypt King set"], ["floors", "The Drowned Vault"], ["daily", "Daily practice"], ["curses", "All %d Curses" % Curses.LIST.size()]]:
 		grid.add_child(_pass_tile(tile[0], tile[1]))
 	_pass_more = label("", 16, Color(0.88, 0.85, 0.78))
 	col.add_child(_pass_more)
@@ -3329,8 +3331,9 @@ func _process(delta: float) -> void:
 	_update_tally(delta)
 	# Version 213 (hardest review fix #9): one word at a time over the action. A callout that
 	# came while another word, the room banner or the phase card was up waits its turn.
-	if _callout_time <= 0.0 and not _callout_queue.is_empty() and _banner_time <= 0.5 \
-			and not _phase_showing():
+	# (v216: only during play, and only once the banner is fully gone.)
+	if _callout_time <= 0.0 and not _callout_queue.is_empty() and _banner_time <= 0.0 \
+			and not _phase_showing() and Game.state == Game.State.PLAYING:
 		var q: Array = _callout_queue.pop_front()
 		_show_callout(q[0], q[1])
 	if _callout_time > 0.0:
@@ -3547,7 +3550,7 @@ static func thousands(n: int) -> String:
 
 ## A short punchy word over the action, like "PERFECT!".
 func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
-	if Game.state == Game.State.PLAYING and (_callout_time > 0.35 or _banner_time > 0.5 or _phase_showing()):
+	if Game.state == Game.State.PLAYING and (_callout_time > 0.35 or _banner_time > 0.0 or _phase_showing()):
 		for q in _callout_queue:
 			if q[0] == text:
 				return
@@ -4160,6 +4163,8 @@ func refresh_rewards() -> void:
 
 
 func show_title(v: bool, best := "", coins := 0) -> void:
+	if v:
+		_callout_queue.clear()   # v216: old words never show over the next screen
 	_title_box.visible = v
 	var locked := Game.first_run_pending()
 	var has_pass := Store.owned()
@@ -4583,6 +4588,8 @@ func show_hint(text: String) -> void:
 ## `score` counts up from zero on the end screen; `best` is the best score before this run.
 ## `offer` swaps the tap line for the Crypt Pass offer (after the last free floor).
 func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again", buttons := false, score := -1, best := 0, offer := false) -> void:
+	if v:
+		_callout_queue.clear()   # v216: old words never show over the next screen
 	# The run's top bar would show through the end screen: hide it while it's up.
 	if v and not _end_box.visible:
 		_hud_before_end = _safe.visible
@@ -4632,7 +4639,13 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 		_end_best.visible = score > 0
 		if score <= 0:
 			_end_count = -1.0
-	_start_tally(stats, score >= 0 and victory)
+	# Version 216 (review 2 fix #3): at the end of the free game the score is shown whole and
+	# the text (which opens with what the Crypt Pass gives) comes at once, not after a count-up.
+	if offer and score >= 0:
+		_end_count = -1.0
+		_end_score.text = "SCORE  " + thousands(score)
+		_end_best.text = "Best  " + thousands(maxi(best, score))
+	_start_tally(stats, score >= 0 and victory and not offer)
 	_end_goal.visible = false
 	_end_mastery.visible = false
 	_end_looks.visible = false
@@ -4769,6 +4782,13 @@ func _next_toast() -> void:
 	# saved then anyway), so it never covers the boss or the hero mid-dodge.
 	while Game.state in [Game.State.PLAYING, Game.State.PAUSED] and Game.alive_enemies > 0:
 		await get_tree().create_timer(0.3, false).timeout
+	# Version 216 (review fix #12): never over the big Feat or Bone Drop reveal, which shows
+	# the same Feat already.
+	while _drops.visible:
+		await get_tree().create_timer(0.3, false).timeout
+	if _toast_queue.is_empty():
+		_toast_busy = false
+		return
 	var item: Array = _toast_queue.pop_front()
 	_show_toast(str(item[0]), str(item[1]))
 	Sfx.play("victory", 0.6, 1.2)
@@ -5069,6 +5089,8 @@ func end_offer_done(tap_text: String) -> void:
 
 
 func show_pause(v: bool, settings_only := false) -> void:
+	if v:
+		_callout_queue.clear()   # v216: old words never show over the next screen
 	if v:
 		_hide_phase()
 	_settings_only = v and settings_only

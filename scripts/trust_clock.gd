@@ -74,12 +74,10 @@ func _ready() -> void:
 func ask() -> void:
 	if _http == null:
 		return
-	# Until Google answers, the phone's clock (with the last offset and the latest-day guard)
-	# is used, because the stopwatch may have stopped while the phone slept.
-	if confirmed:
-		offset = now() - int(Time.get_unix_time_from_system())
-		if absi(offset) < 120:
-			offset = 0
+	# Until Google answers, the phone's clock (with Google's last offset and the latest-day
+	# guard) is used, because the stopwatch may have stopped while the phone slept.
+	# (Version 216, review 2 fix #2: the offset is no longer re-measured from the stopwatch here;
+	# after a long sleep that put the game hours behind.)
 	confirmed = false
 	_http.cancel_request()
 	if _http.request(URL, [], HTTPClient.METHOD_HEAD) != OK:

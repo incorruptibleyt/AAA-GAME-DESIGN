@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-19e"
+const BUILD := "2026-11-19f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -338,7 +338,7 @@ const MEET_LINES := {
 	"SkeletonArcher": "ARCHER: shoots arrows. Dash through them!",
 	"BoneSpitter": "BONE SPITTER: spits shards. Hide behind pillars!",
 	"SkeletonMage": "SKELETON MAGE: blows up circles. Keep moving!",
-	"BoneSpider": "BONE SPIDER: pounces along a red strip. Step aside!",
+	"BoneSpider": "BONE SPIDER: pounces along a glowing strip. Step aside!",
 	"SkeletonBomber": "BOMBER: runs in and explodes. Kill it first!",
 	"FrostWraith": "FROST WRAITH: fires an ice beam. Step off its line!",
 	"CinderSkeleton": "CINDER SKELETON: leaves fire. Don't stand in it!",
@@ -379,7 +379,7 @@ func death_tip() -> String:
 			most = float(_rep.damage[k])
 			top = str(k)
 	var name := top.replace("Elite ", "")
-	var tip := "Keep moving, and dash when you see red."
+	var tip := "Keep moving, and dash when glowing marks appear."
 	if name == "Other" or name == "":
 		return tip
 	if "Archer" in name or "Lich" in name or "Shade" in name:
@@ -391,11 +391,11 @@ func death_tip() -> String:
 	elif "Bomber" in name:
 		tip = "Kill bombers first, or dash away when they stop."
 	elif "Spider" in name or "Howler" in name or "bat" in name:
-		tip = "Watch for the red strip and step off it."
+		tip = "Watch for the glowing strip and step off it."
 	elif "Spike" in name or "fire" in name or "Spore" in name:
 		tip = "Watch the floor: don't stand in traps or flames."
 	elif "King" in name or "Warrior" in name or "Minion" in name or "Skeleton" in name:
-		tip = "Red circle or strip? Step or dash out of it."
+		tip = "Glowing circle or strip? Step or dash out of it."
 	return "%s hurt you most.\n%s" % [name, tip]
 
 
@@ -2893,10 +2893,10 @@ func on_swipe_warning() -> void:
 		if _swipe_tips < 2:
 			_swipe_tips = 2
 			# version 212 (critic fix #4): a Warrior's red strip often shows at the same time
-			hud.tip("Red circle or strip? DASH out!", 3.0)
+			hud.tip("Glowing circle or strip? DASH out!", 3.0)
 	elif _swipe_tips < 1:
 		_swipe_tips = 1
-		hud.tip("Red circle or strip? Step out!", 3.0)
+		hud.tip("Glowing circle or strip? Step out!", 3.0)
 
 
 ## The one new thing each first-run room teaches.
@@ -3449,8 +3449,8 @@ func _win() -> void:
 				_caskets_run += 1
 		elif _event_done:
 			_add_shards(Events.QUEEN_SHARDS)
-			Events.add_caskets(cfg, 1)
-			_caskets_run += 1
+			if Events.claim_run_casket(cfg):   # version 216: once a day
+				_caskets_run += 1
 		else:
 			_add_shards(Events.BOSS_SHARDS)
 	var shards := _bank_shards(cfg)
@@ -3501,11 +3501,11 @@ func _win() -> void:
 	elif _daily_done:
 		extra += "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
 	elif event == "hunt":
-		extra += "\n\nQueen Hunt %s won!%s" % [str(Events.TIERS[event_tier - 1].name), "  +1 Moon Casket (the day's first win)" if hunt.get("casket", false) else ""]
+		extra += "\n\nQueen Hunt %s won!%s" % [str(Events.TIERS[event_tier - 1].name), "  +1 Moon Casket (today's Hunt casket)" if hunt.get("casket", false) else ""]
 		if hunt.get("eclipse_look", false):
 			extra += "\nNew glow: Blood Eclipse! Wear it in Style."
 	elif _event_done:
-		extra += "\n\nThe Blood Moon Queen has fallen!  +1 Moon Casket"
+		extra += "\n\nThe Blood Moon Queen has fallen!" + ("  +1 Moon Casket (today's)" if _caskets_run > 0 else "")
 	elif _loop_choice:
 		extra += "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
@@ -4912,7 +4912,9 @@ func _reveal_feats_soon() -> void:
 		return
 	var ids := _feats_run.duplicate()
 	_feats_run.clear()
-	await get_tree().create_timer(1.1, true, false, true).timeout
+	# Version 216 (review 2 fix #3): at the end of the free game the Feat screen waits so the
+	# Crypt Pass offer is read first.
+	await get_tree().create_timer(4.5 if _free_end else 1.1, true, false, true).timeout
 	while hud.drops_visible() and state in [State.DEAD, State.VICTORY]:
 		await get_tree().create_timer(0.3, true, false, true).timeout   # a drop opening now: after it
 	if state not in [State.DEAD, State.VICTORY]:

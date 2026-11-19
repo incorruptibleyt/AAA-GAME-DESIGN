@@ -500,10 +500,30 @@ static func record_hunt(cfg: ConfigFile, t: int, e: Dictionary = BLOOD_MOON) -> 
 	cfg.set_value(section(e), "best_tier", maxi(best_tier(cfg, e), t))
 	cfg.set_value(section(e), "hunts", int(cfg.get_value(section(e), "hunts", 0)) + 1)
 	var n := int(TIERS[t - 1].shards)
+	var casket := false
 	if first:
 		n = roundi(n * 1.5)
-		add_caskets(cfg, 1, e)
-	return {"shards": n, "casket": first}
+		# Version 216 (review 2 fix #1): one Hunt casket a day on any tier (it was one per tier
+		# per day: about 50 caskets over the event, more coins than the whole Armory and Vault).
+		if casket_ready(cfg, "hunt", e):
+			casket = true
+			cfg.set_value(section(e), "hunt_casket_day", Curses.today())
+			add_caskets(cfg, 1, e)
+	return {"shards": n, "casket": casket}
+
+
+## Version 216: true while today's Moon Casket of `kind` ("hunt" or "run") is still to be had.
+static func casket_ready(cfg: ConfigFile, kind: String, e: Dictionary = BLOOD_MOON) -> bool:
+	return Curses.today() > str(cfg.get_value(section(e), kind + "_casket_day", ""))
+
+
+## Version 216: the event run's casket, once a day. Returns true if it was given.
+static func claim_run_casket(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> bool:
+	if not casket_ready(cfg, "run", e):
+		return false
+	cfg.set_value(section(e), "run_casket_day", Curses.today())
+	add_caskets(cfg, 1, e)
+	return true
 
 
 ## Event runs played and the Queen's defeats, for the event screen.

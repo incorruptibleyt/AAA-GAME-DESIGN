@@ -110,13 +110,13 @@ static func armory_full(cfg: ConfigFile) -> bool:
 static func buys_left(cfg: ConfigFile, today: String) -> int:
 	if not armory_full(cfg):
 		return 0
-	if str(cfg.get_value(SECTION, "buy_day", "")) != today:
+	if today > str(cfg.get_value(SECTION, "buy_day", "")):   # v216: a past date never refills
 		return BUY_PER_DAY
 	return maxi(0, BUY_PER_DAY - int(cfg.get_value(SECTION, "bought", 0)))
 
 
 static func buy(cfg: ConfigFile, today: String) -> void:
-	if str(cfg.get_value(SECTION, "buy_day", "")) != today:
+	if today > str(cfg.get_value(SECTION, "buy_day", "")):
 		cfg.set_value(SECTION, "buy_day", today)
 		cfg.set_value(SECTION, "bought", 0)
 	cfg.set_value(SECTION, "bought", int(cfg.get_value(SECTION, "bought", 0)) + 1)

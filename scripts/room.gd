@@ -52,7 +52,7 @@ static func cell_to_world(col: int, row: int) -> Vector3:
 
 func player_start() -> Vector3:
 	# A little up from the near wall, so the camera can keep the hero above the thumb.
-	return Vector3(0, 0, HALF_L - 3.0)
+	return Vector3(0, 0, HALF_L - 4.5)   # (v216: further in, so the hero is not under DASH)
 
 
 # ---------------------------------------------------------------- building
@@ -330,16 +330,19 @@ void fragment() {
 		bones = max(bones, (1.0 - smoothstep(-soft, soft, d)) * step(0.5, h(bc + float(k) * 9.0)) * (k == 0 ? 0.45 : 0.25));
 	}
 	c = mix(c, vec3(0.42, 0.52, 0.6), bones);
+	// Version 216 (review fix #11): the theme's colours now reach this floor (it used fixed
+	// colours, so the v213 darker slate never showed).
+	c *= tint.rgb;
 	// Pale cracks between the plates, with a little white shatter beside each.
 	float crk = 1.0 - smoothstep(0.012, 0.026 + fwidth(pe), pe);
 	float shat = (1.0 - smoothstep(0.0, 0.16, pe)) * 0.22;
 	// Version 159: softer cracks (were 0.85 and 0.22), so the bright web stops fighting the
 	// white frost bolts and warnings for attention.
 	shat *= 0.55;
-	c = mix(c, vec3(0.55, 0.65, 0.76), max(crk * 0.5, shat));
+	c = mix(c, vec3(0.55, 0.65, 0.76) * tint.rgb, max(crk * 0.25, shat));
 	// Frost drifts in from the walls and lies in patches.
 	float g = clamp(smoothstep(0.55, 0.85, big2 * 0.85 + (1.0 - smoothstep(0.0, 2.2, wall)) * 0.45) * grime_amount * 1.8, 0.0, 1.0);
-	c = mix(c, vec3(0.52, 0.58, 0.66) * (0.85 + 0.3 * fine), g);
+	c = mix(c, grime.rgb * (0.85 + 0.3 * fine), g);
 	rough = mix(mix(0.07, 0.85, g), 0.6, crk);
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.82);
 	n = normalize(vec3((r - 0.5) * 0.08, 1.0, (h(id + 3.0) - 0.5) * 0.08));

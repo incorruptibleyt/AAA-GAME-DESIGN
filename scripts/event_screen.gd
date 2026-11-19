@@ -143,7 +143,7 @@ func _build_main() -> void:
 	run.add_child(_run_btn)
 	_build_set_card(col)
 	# The Queen Hunt.
-	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Every tier pays again each day, and the day's first win holds a Moon Casket.")
+	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Every tier pays again each day. Your first Hunt win each day holds a Moon Casket.")
 	_tiers = VBoxContainer.new()
 	_tiers.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tiers.add_theme_constant_override("separation", 6)
@@ -476,7 +476,7 @@ func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) 
 	texts.add_child(Hud.label(line, 14, TEXT if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	var note := ""
 	if open:
-		note = ("Won today  ·  pays %d shards again" % shards) if won else "First win today: +50% and a Moon Casket"
+		note = ("Won today  ·  pays %d shards again" % shards) if won else ("First win today: +50%" + (" and a Moon Casket" if Events.casket_ready(cfg, "hunt", e) else " shards"))
 	elif not live:
 		note = "Opens with the event"
 	else:

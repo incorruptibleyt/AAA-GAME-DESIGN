@@ -266,6 +266,7 @@ func reveal_feats(list: Array) -> void:
 	_feat_queue = list.duplicate()
 	_feat_mode = true
 	visible = true
+	_set_purse(Game.coins)   # v216: the real coins, not the last screen's number
 	_next_feat()
 
 
