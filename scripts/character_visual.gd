@@ -252,6 +252,10 @@ func hit() -> void:
 	_last_flash_ms = now
 	_flash = FLASH_TIME
 	_set_flash(true)
+	# Version 218 (review 4): the hero's hit starts white for 0.04 s, so it isn't told by
+	# red alone (red bats, red Shades and red bars all around in the Blood Moon).
+	if hero_flash and _hero_flash_mat:
+		_hero_flash_mat.set_shader_parameter("white", 1.0)
 
 
 func die() -> void:
@@ -345,6 +349,8 @@ func _play(action: String, restart := false) -> void:
 func _process(delta: float) -> void:
 	if _flash > 0.0:
 		_flash -= delta / maxf(Engine.time_scale, 0.01)   # real seconds, even in slow motion
+		if hero_flash and _hero_flash_mat and _flash < FLASH_TIME - 0.04:
+			_hero_flash_mat.set_shader_parameter("white", 0.0)   # v218: white, then red
 		if _flash <= 0.0:
 			_set_flash(false)
 
@@ -399,8 +405,9 @@ func _set_flash(on: bool) -> void:
 		# to) the outfit, so a blue hero doesn't turn purple like an elite skeleton.
 		var sh := Shader.new()
 		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, cull_back, depth_draw_never;\n" \
+			+ "uniform float white = 0.0;\n" \
 			+ "void fragment() {\n\tfloat rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);\n" \
-			+ "\tALBEDO = vec3(1.0, 0.16, 0.1);\n\tALPHA = clamp(pow(rim, 1.6) * 1.3 + 0.12, 0.0, 0.9);\n}\n"
+			+ "\tALBEDO = mix(vec3(1.0, 0.16, 0.1), vec3(1.0), white);\n\tALPHA = clamp(pow(rim, 1.6) * 1.3 + 0.12 + white * 0.25, 0.0, 0.9);\n}\n"
 		_hero_flash_mat = ShaderMaterial.new()
 		_hero_flash_mat.shader = sh
 	var hit_mat: Material = _hero_flash_mat if hero_flash else (_soft_flash_mat if soft_flash else _flash_mat)
