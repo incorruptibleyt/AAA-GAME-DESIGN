@@ -121,6 +121,7 @@ func refresh() -> void:
 func buy() -> void:
 	if owned():
 		return
+	Telemetry.step("pass_buy_tap")   # v218: how many who tap BUY go on to own it
 	if _play == null:
 		if OS.has_feature("template"):
 			_set_status("Install Bone Chain from Google Play to get the Crypt Pass.")
@@ -240,6 +241,7 @@ func _on_purchase_updated(r: Dictionary) -> void:
 		OK:
 			_handle(r.get("purchases", []))
 		USER_CANCELED:
+			Telemetry.step("pass_cancel")
 			_set_status("")
 		ITEM_ALREADY_OWNED:
 			restore()
@@ -279,6 +281,8 @@ func _on_acknowledged(r: Dictionary) -> void:
 
 
 func _grant() -> void:
+	if not owned():
+		Telemetry.step("pass_bought")
 	_save_owned(true)
 	status = ""
 	Sfx.play("victory", 0.8)
