@@ -161,14 +161,7 @@ func _dress_model(look: Dictionary) -> void:
 		var att := BoneAttachment3D.new()
 		skel.add_child(att)
 		att.bone_name = "head"
-		var gold := U.mat(Color(1.0, 0.78, 0.25), 0.3, 0.8)
-		var s := 0.6
-		var y := 1.25
-		U.cylinder(att, s * 0.5, s * 0.18, gold, Vector3(0, y, 0))
-		for i in 6:
-			var a := i / 6.0 * TAU
-			var spike := U.box(att, Vector3(0.12, 0.3, 0.12) * s / 0.6, gold, Vector3(cos(a) * s * 0.44, y + s * 0.3, sin(a) * s * 0.44))
-			spike.rotation.y = -a
+		_boss_crown(att, 0.6, 1.25)
 	if look.get("bomb", false) and skel.find_bone("chest") >= 0:
 		var att := BoneAttachment3D.new()
 		skel.add_child(att)
@@ -588,3 +581,25 @@ func _placeholder(look: Dictionary) -> Node3D:
 			var a := i / 5.0 * TAU
 			U.box(root, Vector3.ONE * h * 0.06, gold, Vector3(cos(a) * h * 0.13, h * 0.97, sin(a) * h * 0.13))
 	return root
+
+
+## Version 219 (review 4 fix 31): the bosses' crown, made like the one on the game's icon
+## (store/icon-512.png): a gold band that flares out a little, five tall points each with a
+## gold ball on top, a red jewel in front and blue ones at the sides, over a dark red cap.
+## (It was a flat cylinder with six gold blocks.) `s` is its radius, `y` its height.
+static func _boss_crown(att: Node3D, s: float, y: float) -> void:
+	var gold := U.mat(Color(1.0, 0.76, 0.22), 0.25, 0.5)
+	var velvet := U.mat(Color(0.45, 0.04, 0.06), 0.9)
+	U.sphere(att, s * 0.42, velvet, Vector3(0, y + s * 0.12, 0)).scale = Vector3(1, 0.55, 1)
+	U.cone(att, s * 0.5, s * 0.26, gold, Vector3(0, y, 0), s * 0.56)
+	for i in 5:
+		var a := (i / 5.0) * TAU + PI * 0.5
+		var at := Vector3(cos(a) * s * 0.47, y + s * 0.2, sin(a) * s * 0.47)
+		var tall := 0.62 if i == 0 else 0.46
+		U.cone(att, s * 0.15, s * tall, gold, at)
+		U.sphere(att, s * 0.075, gold, at + Vector3.UP * s * (tall + 0.03))
+	var red := U.mat(Color(1.0, 0.1, 0.12), 0.2, 0.6)
+	var blue := U.mat(Color(0.25, 0.7, 1.0), 0.2, 0.6)
+	U.sphere(att, s * 0.09, red, Vector3(0, y + s * 0.13, s * 0.55))
+	for side in [-1.0, 1.0]:
+		U.sphere(att, s * 0.06, blue, Vector3(side * s * 0.44, y + s * 0.13, s * 0.33))

@@ -95,6 +95,18 @@ static func box(parent: Node3D, size: Vector3, material: Material, pos := Vector
 	return _place(parent, m, material, pos)
 
 
+## A cone (or a cut cone, `top` > 0) standing at `base` (version 219: the crowns' points).
+static func cone(parent: Node3D, radius: float, height: float, material: Material, base := Vector3.ZERO, top := 0.0) -> MeshInstance3D:
+	var m := _cached("cone%.3f/%.3f/%.3f" % [radius, height, top], func():
+		var c := CylinderMesh.new()
+		c.top_radius = top
+		c.bottom_radius = radius
+		c.height = height
+		c.radial_segments = 12
+		return c)
+	return _place(parent, m, material, base + Vector3.UP * height * 0.5)
+
+
 ## A cylinder standing on the ground at `base`.
 static func cylinder(parent: Node3D, radius: float, height: float, material: Material, base := Vector3.ZERO) -> MeshInstance3D:
 	var m := _cached("cyl%.3f/%.3f" % [radius, height], func():
