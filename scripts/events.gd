@@ -258,6 +258,17 @@ static func to_next_bonus(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
 	return BONUS_EVERY - over % BONUS_EVERY
 
 
+## Version 218: the bonus casket line, true to the one-a-day cap ("in N shards" counted to
+## a casket that could not come until tomorrow).
+static func bonus_line(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> String:
+	var due := bonus_earned(cfg, e) - int(cfg.get_value(section(e), "bonus_given", 0))
+	if str(cfg.get_value(section(e), "bonus_day", "")) >= Curses.today():
+		return "next bonus Moon Casket tomorrow"
+	if due > 0:
+		return "a bonus Moon Casket waits: win any shards"
+	return "next bonus Moon Casket in %d shards" % to_next_bonus(cfg, e)
+
+
 static func caskets(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
 	return int(cfg.get_value(section(e), "caskets", 0))
 

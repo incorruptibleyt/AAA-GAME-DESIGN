@@ -377,7 +377,8 @@ func refresh(cfg: ConfigFile) -> void:
 	elif ni < Events.ROAD.size():
 		_road_sub.text = "Next: %s  ·  the road ends in the Blood Moon set" % Events.step_text(Events.ROAD[ni])
 	else:
-		_road_sub.text = "Road walked! Next bonus Moon Casket in %d shards" % Events.to_next_bonus(cfg)
+		var bl := Events.bonus_line(cfg)
+		_road_sub.text = "Road walked! " + bl.left(1).to_upper() + bl.substr(1)
 	_fill_set(cfg)
 	var bonus := []
 	if Events.double_today(e) and live:
@@ -535,7 +536,7 @@ func _fill_road(cfg: ConfigFile) -> void:
 	elif ni < Events.ROAD.size():
 		_road_note.text = "Shards come from event runs and the Queen Hunt.\nAfter the road, a bonus Moon Casket every %d shards (one a day)." % Events.BONUS_EVERY
 	else:
-		_road_note.text = "The whole event road walked!\nBonus Moon Casket every %d shards (one a day): next in %d." % [Events.BONUS_EVERY, Events.to_next_bonus(cfg)]
+		_road_note.text = "The whole event road walked!\nBonus Moon Casket every %d shards (one a day): %s." % [Events.BONUS_EVERY, Events.bonus_line(cfg)]
 	var focus: Control = null
 	for i in Events.ROAD.size():
 		var row := _road_row(cfg, i, s)

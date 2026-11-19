@@ -3874,7 +3874,8 @@ func _event_goal() -> String:
 	if Events.ready_count(cfg) > 0:
 		return "Event road: %d prize%s to claim!" % [Events.ready_count(cfg), "" if Events.ready_count(cfg) == 1 else "s"]
 	if i >= Events.ROAD.size():
-		return "Event road complete! Bonus Moon Casket in %d shards" % Events.to_next_bonus(cfg)
+		var bl := Events.bonus_line(cfg)   # v218: says "tomorrow" once today's is paid
+		return "Event road complete! " + bl.left(1).to_upper() + bl.substr(1)
 	return "Event road: %d more shards to %s" % [int(Events.ROAD[i].at) - Events.shards(cfg), Events.step_text(Events.ROAD[i])]
 
 
