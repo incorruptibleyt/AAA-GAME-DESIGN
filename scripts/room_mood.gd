@@ -67,7 +67,8 @@ static func apply(room: Room, mood: String, layout: Array) -> void:
 			for l in room._torch_lights:
 				l.light_color = torch.lerp(GOLD, 0.5)
 		"champion":
-			_pool(room, Vector3.ZERO, Vector2(6.0, 6.0), Color(RED, 0.8), true)
+			# v218 (review 4): a soft gold ring; a bright red one read as a warning.
+			_pool(room, Vector3.ZERO, Vector2(6.0, 6.0), Color(GOLD, 0.25), true)
 			_pool(room, Vector3.ZERO, Vector2(4.2, 4.2), Color(0.75, 0.2, 1.0, 0.2), false)
 			_light(room, Vector3(0, 2.4, 0), Color(1.0, 0.35, 0.45), 1.1, 7.5)
 			var banner := Art.get_model("banner_patternC_red")

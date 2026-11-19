@@ -35,12 +35,12 @@ func _setup() -> void:
 
 func _dress() -> void:
 	var robe := StandardMaterial3D.new()
-	robe.albedo_color = Color(0.1, 0.2, 0.36)
+	robe.albedo_color = Color(0.8, 0.92, 1.0)   # v218: ice white (navy read as the hero)
 	robe.roughness = 0.7
 	robe.emission_enabled = true
 	robe.emission = Color(0.1, 0.25, 0.45)
 	robe.cull_mode = BaseMaterial3D.CULL_DISABLED
-	var frost := CharacterVisual.rim_material(Color(0.3, 0.65, 0.95))
+	var frost := CharacterVisual.rim_material(Color(0.6, 0.4, 1.0))   # v218: violet rim
 	frost.set_shader_parameter("power", 3.5)
 	var cloak := MeshInstance3D.new()
 	cloak.mesh = _cloak()

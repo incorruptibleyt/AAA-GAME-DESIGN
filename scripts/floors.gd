@@ -133,7 +133,7 @@ static func _deeper(t: Dictionary, loop: int) -> Dictionary:
 			c = Color(c.r * dark, c.g * dark, c.b * dark)
 		d[key] = c
 	d["banner"] = (t.banner as Color).lerp(Color(1, 0.3, 0.25), red)
-	d["blood"] = [0.0, 0.35, 0.45, 0.5][steps]   # stains on the floor (room.gd)
+	d["blood"] = [0.0, 0.0, 0.35, 0.5][steps]   # stains on the floor (room.gd); v218: none on the 2nd step
 	return d
 
 

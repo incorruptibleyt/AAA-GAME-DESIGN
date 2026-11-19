@@ -420,8 +420,8 @@ void fragment() {
 	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g * 0.6);
 	rough = mix(rough, 0.8, g);
 	float aa = fwidth(ded);
-	float inlay = 1.0 - smoothstep(0.03 - aa, 0.03 + aa, ded);
-	const vec3 GOLD = vec3(0.78, 0.58, 0.24);
+	float inlay = 1.0 - smoothstep(0.015 - aa, 0.015 + aa, ded);   // v218: half as wide
+	const vec3 GOLD = vec3(0.45, 0.33, 0.12);   // v218: darker (the grid was 6.5% bright yellow)
 	c = mix(c, GOLD, inlay);
 	rough = mix(rough, 0.35, inlay);
 	float bt = fract(TIME * 0.9);
