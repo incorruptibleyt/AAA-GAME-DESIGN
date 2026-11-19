@@ -4190,13 +4190,16 @@ func add_coins(n: int) -> void:
 func _feat_check() -> void:
 	if first_run or _rep.is_empty():
 		return
-	if int(_rep.perfect) >= 15 and floor_num >= 3:
+	# Version 218: the floor Feats need a real floor. The Queen Hunt sets floor_num to its
+	# tier's floor (2-6), so Quick Feet and Chain Lord came from one Hunt fight.
+	var fl := floor_num if event == "" else 0
+	if int(_rep.perfect) >= 15 and fl >= 3:
 		_feat("dodger")
 	if int(_rep.perfect) >= 40:
 		_feat("perfectionist")
 	if _kills >= 150:
 		_feat("centurion")
-	if floor_num >= 4:
+	if fl >= 4:
 		_best_chain4 = maxf(_best_chain4, chain)
 		if chain >= 2.999:
 			_feat("chainlord")
@@ -4245,11 +4248,12 @@ func _boss_feats() -> void:
 ## best counts towards the counted Feats, for the Feats screen. Into `cfg` (saved by the caller).
 func _feat_bests(cfg: ConfigFile) -> void:
 	if not _rep.is_empty() and not first_run:
+		var fl := floor_num if event == "" else 0   # v218: see _feat_check
 		Feats.note_best(cfg, "perfect", int(_rep.perfect))
-		if floor_num >= 3:
+		if fl >= 3:
 			Feats.note_best(cfg, "perfect3", int(_rep.perfect))
 		Feats.note_best(cfg, "chain_hold", int(_best_chain_hold))
-		if floor_num >= 4:
+		if fl >= 4:
 			Feats.note_best(cfg, "chain4", roundi(_best_chain4 * 10.0))
 		Feats.note_best(cfg, "special", int(_rep.special))
 		Feats.note_best(cfg, "kills", _kills)
