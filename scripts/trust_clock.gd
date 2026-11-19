@@ -104,9 +104,29 @@ func _on_done(result: int, _code: int, headers: PackedStringArray, _body: Packed
 	# Google's word replaces whatever latest day a moved clock left behind.
 	latest_day = Curses.day_start_now()
 	var cfg := Game._load_save()
+	_clamp_day_keys(cfg)
 	Game.write_save(cfg)
 	print("[clock] Google's time: phone is %d s off (was %d)" % [offset, was])
 	synced.emit()
+
+
+## Version 218 (review 4): a clock moved forward offline wrote future days ("won today"
+## on a day still to come), which then locked an honest player out of those prizes until
+## that day. Once Google's time is known, any saved day later than today becomes today.
+static func _clamp_day_keys(cfg: ConfigFile) -> void:
+	var today := Curses.today()
+	var re := RegEx.create_from_string("^\\d{4}-\\d{2}-\\d{2}$")
+	var n := 0
+	for sec in cfg.get_sections():
+		for key in cfg.get_section_keys(sec):
+			if not (key.ends_with("_day") or key.begins_with("won_")):
+				continue
+			var v = cfg.get_value(sec, key)
+			if v is String and re.search(v) != null and v > today:
+				cfg.set_value(sec, key, today)
+				n += 1
+	if n > 0:
+		print("[clock] %d future day%s set back to today" % [n, "" if n == 1 else "s"])
 
 
 ## "Thu, 19 Nov 2026 06:10:00 GMT" -> unix seconds, or -1.
