@@ -2057,6 +2057,7 @@ func run_report(result: String, was_first := false) -> String:
 
 func _reset_run_stats() -> void:
 	_reset_report()
+	Upgrades.resting.clear()
 	# Version 218: dying in the Queen's Eclipse left its dark veil up on TRY AGAIN (her move
 	# stops when the hero dies, before it turns the Eclipse off).
 	if _eclipse_tw:
@@ -3323,6 +3324,8 @@ func _on_reroll() -> void:
 	if state != State.UPGRADE or rerolls <= 0 or ftue_room() < 3:
 		return
 	rerolls -= 1
+	if _pick_rng == null:
+		Upgrades.note_reroll(_choices)
 	_choices = Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, false, _pick_family, _pick_better, _pick_rng)
 	Sfx.play("click")
 	hud.show_cards(_choices, rerolls, true, null, _taken)
@@ -3332,6 +3335,7 @@ func _on_card_picked(i: int) -> void:
 	if state != State.UPGRADE or i >= _choices.size():
 		return
 	var u: Dictionary = _choices[i]
+	Upgrades.note_pick(_choices, u)   # v219 (review 4 fix 33): passed-over commons rest
 	_taken[u.id] = _taken.get(u.id, 0) + 1
 	Upgrades.apply(u.id, hero)
 	_feat_check()

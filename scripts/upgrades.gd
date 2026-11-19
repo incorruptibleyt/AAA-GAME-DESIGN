@@ -223,6 +223,36 @@ static func apply(id: String, h: Hero) -> void:
 ## `family` (a door's path) makes all but one card that family when it can, and
 ## `better` (the Champion's Door) leaves out common cards. `rng` (the Daily Crypt's, seeded)
 ## gives everyone with the same blessings the same cards; without it they're random.
+## Version 219 (review 4 fix 33): commons the player just passed over rest for two picks
+## (id -> picks left; game.gd fills it), and Vitality isn't offered at full health. Only in
+## free play: Daily Crypt and Crypt Race offers (`rng` given) stay the same for everyone.
+static var resting := {}
+
+
+## Notes a pick: the commons on offer that weren't taken rest for the next two picks.
+static func note_pick(offered: Array, chosen: Dictionary) -> void:
+	for id in resting.keys():
+		resting[id] = int(resting[id]) - 1
+		if int(resting[id]) <= 0:
+			resting.erase(id)
+	for u: Dictionary in offered:
+		if u.get("rarity", "") == "common" and u.get("id", "") != chosen.get("id", ""):
+			resting[u.id] = 2
+
+
+## A reroll: the cards just swapped away (any rarity) aren't dealt straight back.
+static func note_reroll(offered: Array) -> void:
+	for u: Dictionary in offered:
+		if u.has("id"):
+			resting[u.id] = maxi(int(resting.get(u.id, 0)), 1)
+
+
+static func _fresh(pool: Array, count: int) -> Array:
+	var full: bool = Game.hero != null and is_instance_valid(Game.hero) and Game.hero.health >= Game.hero.max_health - 0.5
+	var kept := pool.filter(func(u: Dictionary) -> bool: return not resting.has(u.id) and not (full and u.id == "vitality"))
+	return kept if kept.size() >= count else pool
+
+
 static func roll(taken: Dictionary, count := 3, finish_synergy := false, family := "", better := false, rng: RandomNumberGenerator = null) -> Array:
 	var out := []
 	for s in SYNERGIES:
@@ -237,6 +267,8 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 		var rarer := pool.filter(func(u): return u.rarity != "common")
 		if not rarer.is_empty():
 			pool = rarer
+	if rng == null:
+		pool = _fresh(pool, count)
 	if finish_synergy and out.is_empty():
 		# Wildfire first: room 1 offered half of it (roll_commons), and it's the one you see.
 		var order := SYNERGIES.duplicate()
