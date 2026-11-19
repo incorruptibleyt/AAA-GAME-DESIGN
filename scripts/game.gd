@@ -3589,8 +3589,9 @@ func on_hero_died() -> void:
 	await get_tree().create_timer(0.9, true, false, true).timeout   # (1.4 s before version 164)
 	var cfg := _load_save()
 	# A Bone Drop for getting somewhere: room 3 or further, or any deeper floor. Not in the
-	# tutorial (its win gives the first one).
-	if not first_run and (_room_index >= 2 or floor_num > 1):
+	# tutorial (its win gives the first one). Never for losing a Queen Hunt (version 218: the
+	# Hunt sets floor_num to its tier's floor, so every quick loss paid a drop).
+	if not first_run and event != "hunt" and (_room_index >= 2 or floor_num > 1):
 		_earn_drop(cfg)
 	var bones := _bank_bones(cfg)
 	var shards := _bank_shards(cfg)
