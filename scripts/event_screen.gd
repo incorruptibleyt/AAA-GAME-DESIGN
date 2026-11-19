@@ -132,7 +132,7 @@ func _build_main() -> void:
 	col.add_child(_road_sub)
 	# The Blood Moon run (version 212, critic fix #6: above the set card, so PLAY shows
 	# without scrolling; it was hidden behind BACK on the first view).
-	var run := _card(col, "BLOOD MOON RUN", "Three floors of the Blood Moon Crypt. Moon Surges make every skeleton faster and worth a shard. Bloodbats, Moon Howlers, and the Queen at the end. Your first win each day holds a Moon Casket.")
+	var run := _card(col, "BLOOD MOON RUN", "Three floors of the Blood Moon Crypt. Moon Surges make every skeleton faster and worth a shard. Bloodbats, Moon Howlers, and the Queen at the end. Beat the Queen each day for a Moon Casket.")
 	_run_sub = Hud.label("", 16, GOLD)
 	run.add_child(_run_sub)
 	_run_btn = Hud.button("PLAY THE BLOOD MOON", 24, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
