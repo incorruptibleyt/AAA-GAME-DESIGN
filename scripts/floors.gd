@@ -19,10 +19,12 @@ const THEMES := [
 		"moon": Color(0.55, 0.6, 0.9), "torch": Color(1.0, 0.62, 0.3), "torch_energy": 1.4,
 		"motes": [Color(1.0, 0.55, 0.2, 0.9), Color(0.7, 0.6, 1.0, 0.35)], "motes_fall": false, "banner": Color(1, 0.7, 0.4),
 		"floor_style": 1, "props": "bone", "pillar": "pillar_decorated", "light": [1.1, 2.0, 0.85, 1.0]},
-	{"name": "Frozen Ossuary", "wisp": Color(0.8, 0.62, 1.0), "floor": Color(0.8, 0.88, 0.97),
+	# Version 213 (hardest review fix #15): dark slate stone with the frost in the patches, so a
+	# blue hero and blue shots stand out (the pale blue floor hid them).
+	{"name": "Frozen Ossuary", "wisp": Color(0.8, 0.62, 1.0), "floor": Color(0.5, 0.53, 0.58),
 		# Frost creeping in from the walls; patches of dark, glassy ice.
-		"grout": Color(0.08, 0.1, 0.14), "grime": Color(0.64, 0.7, 0.78), "grime_amount": 0.4,
-		"patch_tint": Color(0.72, 0.83, 0.95), "patch_rough": 0.1,
+		"grout": Color(0.06, 0.07, 0.1), "grime": Color(0.4, 0.43, 0.48), "grime_amount": 0.4,
+		"patch_tint": Color(0.66, 0.76, 0.88), "patch_rough": 0.1,
 		"wall": Color(0.12, 0.16, 0.23), "trim": Color(0.3, 0.38, 0.48),
 		"ambient": Color(0.27, 0.31, 0.4), "fog": Color(0.05, 0.08, 0.13), "background": Color(0.02, 0.035, 0.06),
 		"moon": Color(0.72, 0.83, 0.95), "torch": Color(0.72, 0.87, 1.0), "torch_energy": 1.5,

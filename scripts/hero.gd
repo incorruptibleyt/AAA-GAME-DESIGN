@@ -428,7 +428,8 @@ func on_kill() -> void:
 	var amount := minf(minf(heal_on_kill, kill_heal_left), missing)
 	kill_heal_left -= amount
 	if Game.chain >= 2.0 and harvest_left > 0.0:
-		var h := minf(minf(harvest_heal, harvest_left), missing - amount)
+		# Version 213: 1% of max health per kill per pick (a flat 2 was nothing deep down).
+		var h := minf(minf(max_health * 0.005 * harvest_heal, harvest_left), missing - amount)
 		harvest_left -= h
 		amount += h
 	if amount > 0.0:

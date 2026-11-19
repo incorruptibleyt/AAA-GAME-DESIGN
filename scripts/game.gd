@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-19c"
+const BUILD := "2026-11-19d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -359,7 +359,7 @@ func _meet(e: Enemy) -> void:
 
 
 func _meet_tick() -> void:
-	if _meet_queue.is_empty() or state != State.PLAYING or hud.tip_busy():
+	if _meet_queue.is_empty() or state != State.PLAYING or hud.tip_busy() or hud.banner_busy():
 		return
 	var n: String = _meet_queue.pop_front()
 	if not taught("meet_" + n):
@@ -582,6 +582,9 @@ func _ready() -> void:
 	hud.graphics_toggled.connect(_set_graphics)
 	hud.speed_test_pressed.connect(start_speed_test)
 	hud.shake_changed.connect(_set_shake)
+	hud.pass_lost_restore.connect(func():
+		Store.instance.restore()
+		_open_pass())
 	hud.vibration_toggled.connect(_set_vibration)
 	hud.colorblind_toggled.connect(_set_colorblind)
 	hud.reports_toggled.connect(_set_reports)
@@ -698,6 +701,7 @@ func _ready() -> void:
 	hud.show_title(true, _best_text(), coins)
 	Telemetry.step("title")   # (version 157: loading finished on a new install)
 	_settle_events()
+	_check_pass_lost()
 	note_spot()
 	_title_hero_line(hero.hero_id)
 	_fade(1.0, 0.0, 0.6)
@@ -1421,7 +1425,7 @@ func finisher(pos: Vector3, time_scale: float, seconds: float, col := Color(1, 0
 	_zoom_point = pos
 	_zoom_hold = seconds + 0.25
 	Fx.shockwave(pos, col)
-	hud.flash(Color(1, 0.95, 0.85), flash)
+	hud.flash(Color(1, 0.85, 0.6), flash * 0.5)   # version 213: half as strong, warm (it hid the hero)
 	Sfx.play("slam", 0.8)
 	shake(0.35)
 
@@ -2380,6 +2384,7 @@ func _back_to_title(keep_run := false) -> void:
 		hud.tip(mastery_note, 4.5, 0.5)
 	Music.play(title_track())
 	_set_state(State.TITLE)
+	_check_pass_lost()
 	_settle_events()
 	await _fade(1.0, 0.0, 0.4)
 	_maybe_event_splash()
@@ -3501,8 +3506,6 @@ func _win() -> void:
 			extra += "\nNew glow: Blood Eclipse! Wear it in Style."
 	elif _event_done:
 		extra += "\n\nThe Blood Moon Queen has fallen!  +1 Moon Casket"
-	elif _free_end:
-		extra += "\n\n" + _free_end_text()
 	elif _loop_choice:
 		extra += "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
@@ -3517,6 +3520,10 @@ func _win() -> void:
 	if shards > 0:
 		extra = "\nMoon Shards  +%d" % shards + extra
 	var fallen := "%s has fallen." % boss_name if event == "hunt" else "%s of floor %d has fallen." % [boss_name, floor_num]
+	# Version 213 (hardest review fix #18): at the end of the free game, what the Pass opens
+	# comes first (it was the last line, ~3.6 s after the counts).
+	if _free_end:
+		fallen = _free_end_text() + "\n\n" + fallen
 	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, _heroic_tag(), bones, extra],
 		tap, false, score, best, _free_end)
 	# The hero and the rings at their feet would show between the end screen's buttons
@@ -3526,7 +3533,11 @@ func _win() -> void:
 	hud.show_mastery(mastery)
 	# Version 122: once, after the first boss win past the tutorial, the Pass card shows the
 	# hero in the Crypt King set (a win is when the set means most).
-	if not Store.owned() and not was_first and not daily and event == "" and not _free_end:
+	# Version 213 (hardest review fix #18): the end of the free game always shows the card (it
+	# was hidden exactly there).
+	if _free_end:
+		hud.show_pass_card(true, pass_hero_def())
+	elif not Store.owned() and not was_first and not daily and event == "":
 		var pcfg := _load_save()
 		if not bool(pcfg.get_value("shown", "pass_card_win", false)):
 			pcfg.set_value("shown", "pass_card_win", true)
@@ -5595,6 +5606,7 @@ func _share_caption() -> String:
 
 ## The Pass was bought, restored or refunded, or Google Play sent the price.
 func _on_store_changed() -> void:
+	_check_pass_lost()
 	if hud.pass_visible():
 		hud.show_pass(true, Store.owned(), Store.instance.price, Store.instance.status)
 	if hud.title_visible():
@@ -5801,6 +5813,18 @@ func _best_boss(cfg: ConfigFile) -> int:
 	if int(cfg.get_value("stats", "wins", 0)) <= 0:
 		return 0
 	return maxi(0, int(cfg.get_value("stats", "best_floor", 1)) - 1)
+
+
+## Version 213 (hardest review fix #14): on the title, once, after the Pass was taken away.
+func _check_pass_lost() -> void:
+	if not hud.title_visible() or hud.pass_lost_visible():
+		return
+	var cfg := _load_save()
+	if Store.owned(cfg) or not bool(cfg.get_value("pass", "removed_note", false)):
+		return
+	cfg.erase_section_key("pass", "removed_note")
+	write_save(cfg)
+	hud.show_pass_lost(true)
 
 
 ## True while today's first-run coin bonus (DAY_BONUS) is still to be had.

@@ -28,6 +28,9 @@ static var _flash_mat: StandardMaterial3D
 static var _soft_flash_mat: StandardMaterial3D
 ## Bosses take many hits a second, so theirs is a soft glow, less often (see hit()).
 var soft_flash := false
+## Version 213: the hero's hit flash is a red glow (HERO_FLASH), not white.
+var hero_flash := false
+static var _hero_flash_mat: StandardMaterial3D
 var _tint_mat: Material
 static var _rim_shader: Shader
 ## A dark cartoon outline (High graphics) around the hero and the bosses, so they stand
@@ -391,7 +394,12 @@ func _set_flash(on: bool) -> void:
 		_soft_flash_mat = _flash_mat.duplicate()
 		_soft_flash_mat.albedo_color = Color(0.24, 0.22, 0.19)
 		_soft_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	var mat: Material = (_soft_flash_mat if soft_flash else _flash_mat) if on else _tint_mat
+	if _hero_flash_mat == null:
+		_hero_flash_mat = _flash_mat.duplicate()
+		_hero_flash_mat.albedo_color = Color(0.55, 0.06, 0.04)
+		_hero_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	var hit_mat: Material = _hero_flash_mat if hero_flash else (_soft_flash_mat if soft_flash else _flash_mat)
+	var mat: Material = hit_mat if on else _tint_mat
 	var lined: Material = _with_outline(mat) if outline_me and outlines and not _dead else mat
 	if _outline_set.is_empty():
 		_pick_outline_meshes()

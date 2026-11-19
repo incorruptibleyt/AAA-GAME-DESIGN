@@ -81,8 +81,8 @@ func _draw() -> void:
 	_c = c
 	_k = 0.72 if synergy else 1.0
 	match id:
-		"damage": _damage()
-		"speed": _speed()
+		"damage", "deep_power": _damage()
+		"speed", "deep_haste": _speed()
 		"crit": _eye()
 		"multishot": _twin()
 		"rear": _u_turn()
@@ -94,7 +94,7 @@ func _draw() -> void:
 		"frost": _snowflake()
 		"frostbite": _icicles()
 		"deepfreeze": _ice_block()
-		"vitality": _heart()
+		"vitality", "deep_vigor": _heart()
 		"boots": _boot()
 		"magnet": _magnet()
 		"greed": _coins()

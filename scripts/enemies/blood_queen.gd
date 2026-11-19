@@ -315,11 +315,14 @@ class Beams extends Node3D:
 		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-		m.albedo_color = Color(1.0, 0.25, 0.18, 0.85)
+		# Version 213 (hardest review fix #17): the beams take the warning colours (Telegraph),
+		# so Colour-blind and the red Blood Moon floor turn them too (red on red vanished).
+		var warn := Telegraph._area(0.85)
+		m.albedo_color = Color(warn.r, warn.g, warn.b, 0.85)
 		m.albedo_texture = U.soft_circle()
 		var core := StandardMaterial3D.new()
 		core.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		core.albedo_color = Color(1.0, 0.85, 0.7)
+		core.albedo_color = Telegraph._core(1.0).lerp(Color.WHITE, 0.55)
 		for i in count:
 			var arm := Node3D.new()
 			add_child(arm)

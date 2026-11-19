@@ -310,6 +310,8 @@ func _note_miss() -> void:
 		cfg.erase_section_key(SAVE_SECTION, "miss_count")
 		cfg.erase_section_key(SAVE_SECTION, "miss_since")
 		cfg.set_value(SAVE_SECTION, "owned", false)
+		# Version 213 (hardest review fix #14): the title says so once, with RESTORE.
+		cfg.set_value(SAVE_SECTION, "removed_note", true)
 		Game.write_save(cfg)
 		print("[store] Pass taken away (refunded)")
 		changed.emit()

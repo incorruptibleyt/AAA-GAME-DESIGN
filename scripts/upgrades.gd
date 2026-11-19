@@ -42,10 +42,10 @@ const LIST := [
 	{"id": "boots", "family": "bone", "rarity": "common", "title": "Swift Boots", "text": "+12% move speed", "max": 3},
 	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Hearts heal 30% more, and fly to you from twice as far", "max": 1},
 	{"id": "greed", "family": "bone", "rarity": "common", "title": "Golden Touch", "text": "+30% coins from skeletons", "max": 2},
-	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 2 per kill at chain x2+, up to 4% of your health each room", "max": 3},
+	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 1% of your health per kill at chain x2+, up to 4% each room", "max": 3},
 	{"id": "ward", "family": "bone", "rarity": "rare", "title": "Bone Ward", "text": "Block the first hit in every room", "max": 2},
 	{"id": "links", "family": "bone", "rarity": "rare", "title": "Long Links", "text": "Bone Chain lasts 1 second longer", "max": 1},
-	{"id": "marrow", "family": "bone", "rarity": "epic", "title": "Marrow", "text": "Bone Chain can climb to x4", "max": 1},
+	{"id": "marrow", "family": "bone", "rarity": "epic", "title": "Marrow", "text": "Bone Chain can climb to x4, and shots pierce 1 more enemy", "max": 1},
 	# Hero blessings: only the named hero is offered these.
 	{"id": "nimble", "hero": "rogue", "family": "bone", "rarity": "rare", "title": "Nimble", "text": "Dash recharges 40% faster", "max": 1},
 	{"id": "backstab", "hero": "rogue", "family": "bolt", "rarity": "rare", "title": "Backstab", "text": "Critical hits deal triple damage", "max": 1},
@@ -97,8 +97,28 @@ static func completes(u: Dictionary, taken: Dictionary) -> Dictionary:
 	return {}
 
 
+## Version 213 (hardest review fix #11): cards that never run out. Long runs used up every
+## blessing around floor 14, then the pick screen had fewer than 3 cards or none. These only
+## fill empty slots, so they never crowd out a real blessing.
+const ENDLESS := [
+	{"id": "deep_power", "family": "bolt", "rarity": "common", "title": "Deep Power", "text": "+8% damage", "max": 999, "endless": true},
+	{"id": "deep_vigor", "family": "bone", "rarity": "common", "title": "Deep Vigor", "text": "+8% max health and heal it", "max": 999, "endless": true},
+	{"id": "deep_haste", "family": "bolt", "rarity": "common", "title": "Deep Haste", "text": "+6% attack speed", "max": 999, "endless": true},
+]
+
+
+## How many rare-or-better blessings the hero could still be offered (the Champion's Door
+## promises one, so it is only offered while some are left).
+static func rares_left(taken: Dictionary) -> int:
+	var n := 0
+	for u in LIST:
+		if u.rarity != "common" and taken.get(u.id, 0) < u.max and (not u.has("needs") or taken.has(u.needs)) and fits_hero(u) and unlocked(u):
+			n += 1
+	return n
+
+
 static func get_def(id: String) -> Dictionary:
-	for u in LIST + SYNERGIES:
+	for u in LIST + SYNERGIES + ENDLESS:
 		if u.id == id:
 			return u
 	return {}
@@ -151,7 +171,14 @@ static func apply(id: String, h: Hero) -> void:
 			var v := vitality_amount()
 			h.max_health += v
 			h.heal(v)
-		"harvest": h.harvest_heal += 2.0
+		"harvest": h.harvest_heal += 2.0   # version 213: per kill it heals 1% of max health a pick
+		"marrow": h.pierce += 1   # version 213: the chain to x4 alone was weaker than a common card
+		"deep_power": h.damage *= 1.08
+		"deep_vigor":
+			var add := roundf(h.max_health * 0.08)
+			h.max_health += add
+			h.heal(add)
+		"deep_haste": h.shots_per_second *= 1.06
 		"boots": h.move_speed *= 1.12
 		"frost": h.frost = true
 		"frostbite": h.frost_time *= 2.0
@@ -233,6 +260,10 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 		var u := _weighted(from, rng)
 		out.append(u)
 		pool.erase(u)
+	for e in ENDLESS:
+		if out.size() >= count:
+			break
+		out.append(e)
 	return out
 
 

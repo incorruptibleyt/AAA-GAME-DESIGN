@@ -38,15 +38,20 @@ static var _live := {}
 static var _spare: Array = []
 const SPARE_CAP := 16
 var _key := ""
+## Version 213: where the number sits from its target (the hero's sit higher, off to the side).
+var _off := OFFSET
+const HERO_OFFSET := Vector3(1.15, 1.5, 0)
 
 
 ## Damage taken by `who`. Hits on the hero are red; crits turn the number gold and bigger.
 static func hit(who: Actor, amount: float, crit: bool) -> void:
-	_add(who, "hit", amount, Color(1, 0.35, 0.35) if who.team == Actor.Team.HERO else Color.WHITE, "", crit)
+	# Version 213 (hardest review fix #10/#17): the hero's own hits are white on a dark red
+	# edge (red on the red and orange floors could not be read), on the hero's far side.
+	_add(who, "hit", amount, Color(1, 0.96, 0.9) if who.team == Actor.Team.HERO else Color.WHITE, "", crit)
 
 
 static func healed(who: Actor, amount: float) -> void:
-	_add(who, "heal", amount, Color(0.4, 1, 0.5), "+", false)
+	_add(who, "heal", amount, Color(0.45, 0.95, 1.0), "+", false)   # cyan (was green: red/green pair)
 
 
 static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: String, crit: bool) -> void:
@@ -83,7 +88,7 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 			Game.world.add_child(n)
 			n.tree_exiting.connect(n._gone)
 		n.modulate = col
-		n.outline_modulate = Hud.INK
+		n.outline_modulate = Color(0.45, 0.02, 0.04) if who.team == Actor.Team.HERO and kind == "hit" else Hud.INK
 		n._age = 0.0
 		n._shown = 0.0
 		n._size = 1.0
@@ -96,8 +101,9 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n._prefix = prefix
 		n._total = amount
 		n._base = who.center()
-		n._lift = _free_lift(n._base + OFFSET)
-		n.position = n._base + OFFSET + Vector3(0, n._lift, 0)
+		n._off = HERO_OFFSET if who.team == Actor.Team.HERO else OFFSET
+		n._lift = _free_lift(n._base + n._off)
+		n.position = n._base + n._off + Vector3(0, n._lift, 0)
 		n._key = key
 		_live[key] = n
 	if crit:
@@ -167,7 +173,7 @@ func _process(delta: float) -> void:
 	if is_instance_valid(_follow):
 		_base = _follow.center()
 	_rise = minf(_rise + delta * 1.4, 0.9)
-	position = _base + OFFSET + Vector3(0, _rise + _lift, 0)
+	position = _base + _off + Vector3(0, _rise + _lift, 0)
 	_keep_below_hud()
 	# Pops in big, dips a little under its size and settles: a punchy bounce.
 	var pop := 1.0

@@ -66,6 +66,7 @@ signal omen_picked(id: String)
 signal reports_answered(on: bool)
 ## Version 143: phone reminders, asked once and switched in Settings.
 signal reminders_answered(on: bool)
+signal pass_lost_restore   # version 213: RESTORE on the "Crypt Pass not found" note
 signal reminders_toggled(on: bool)
 ## The Blood Moon event (events.gd, version 134).
 signal event_pressed
@@ -361,6 +362,7 @@ var _loop_bank_button: Button
 var _omen_box: Control
 var _ask_box: Control
 var _rem_box: Control
+var _lost_box: Control   # version 213: "Crypt Pass not found"
 var _rem_text: Label
 var _reminders_button: Button
 var _reminders_on := false
@@ -455,6 +457,7 @@ func _ready() -> void:
 	_build_omens()
 	_build_reports_ask()
 	_build_reminders_ask()
+	_build_pass_lost()
 	_build_pass()
 	_build_boss_card()
 	_build_phase_banner()
@@ -2939,6 +2942,45 @@ func _build_reminders_ask() -> void:
 	_rem_box.visible = false
 
 
+## Version 213 (hardest review fix #14): the Pass was taken away after Google Play stopped
+## showing it for 3 days (a refund, or a different Google account). It used to vanish
+## without a word.
+func _build_pass_lost() -> void:
+	_lost_box = overlay(Color(0.02, 0.01, 0.03, 0.94))
+	add_child(_lost_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 30
+	col.offset_right = -30
+	col.alignment = BoxContainer.ALIGNMENT_CENTER
+	col.add_theme_constant_override("separation", 18)
+	_lost_box.add_child(col)
+	col.add_child(label("CRYPT PASS NOT FOUND", 36, GOLD))
+	var t := label("Google Play no longer shows the Crypt Pass on this phone's Google account, so it has been turned off.\n\nIf you bought it, open the Play Store, switch to the account you used, then tap RESTORE.", 21, Color(0.92, 0.9, 0.86))
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	col.add_child(t)
+	var yes := button("RESTORE", 26, Color(0.2, 0.32, 0.18, 0.97), Color(0.6, 0.95, 0.55))
+	yes.custom_minimum_size = Vector2(360, 80)
+	yes.pressed.connect(func():
+		_lost_box.visible = false
+		pass_lost_restore.emit())
+	col.add_child(_centered(yes))
+	var ok := button("OK", 24)
+	ok.custom_minimum_size = Vector2(360, 70)
+	ok.pressed.connect(func(): _lost_box.visible = false)
+	col.add_child(_centered(ok))
+	_lost_box.visible = false
+
+
+func show_pass_lost(v: bool) -> void:
+	_lost_box.visible = v
+
+
+func pass_lost_visible() -> bool:
+	return _lost_box != null and _lost_box.visible
+
+
 ## `event_name`: an event on now or coming soon, named in the question.
 func show_reminders_ask(v: bool, event_name := "") -> void:
 	if v:
@@ -3124,12 +3166,14 @@ func _input(event: InputEvent) -> void:
 				_button_touches[t.index] = true
 				race_surge_pressed.emit()
 				return
-			if _safe.visible and _special.visible and not _overlay_open() \
+			# Version 213 (hardest review fix #12): a button faded for the hero under it lets the
+			# touch through to the stick, so steering there never fires a dash or the special.
+			if _safe.visible and _special.visible and not _overlay_open() and not _special.get_meta("hero_under", false) \
 					and _special.get_global_rect().grow(4.0).has_point(t.position):
 				_button_touches[t.index] = true
 				special_pressed.emit()
 				return
-			if _safe.visible and _dash_button.visible and not _overlay_open() \
+			if _safe.visible and _dash_button.visible and not _overlay_open() and not _dash_button.get_meta("hero_under", false) \
 					and _dash_button.get_global_rect().grow(4.0).has_point(t.position):
 				_button_touches[t.index] = true
 				dash_pressed.emit()
@@ -3156,8 +3200,8 @@ func _input(event: InputEvent) -> void:
 		# 3-2-1, a room fade) takes the stick as soon as it moves, instead of having to lift.
 		if _stick_touch == -1 and not _overlay_open() and Game.state == Game.State.PLAYING and _safe.visible \
 				and not _button_touches.has(d.index) \
-				and not (_special.visible and _special.get_global_rect().grow(4.0).has_point(d.position)) \
-				and not (_dash_button.visible and _dash_button.get_global_rect().grow(4.0).has_point(d.position)) \
+				and not (_special.visible and not _special.get_meta("hero_under", false) and _special.get_global_rect().grow(4.0).has_point(d.position)) \
+				and not (_dash_button.visible and not _dash_button.get_meta("hero_under", false) and _dash_button.get_global_rect().grow(4.0).has_point(d.position)) \
 				and not (race_surge.visible and race_surge.get_global_rect().grow(6.0).has_point(d.position)) \
 				and not _pause_button.get_global_rect().grow(12.0).has_point(d.position):
 			_stick_touch = d.index
@@ -3283,6 +3327,12 @@ func _process(delta: float) -> void:
 			_tip.visible = false
 	_update_end_count(delta)
 	_update_tally(delta)
+	# Version 213 (hardest review fix #9): one word at a time over the action. A callout that
+	# came while another word, the room banner or the phase card was up waits its turn.
+	if _callout_time <= 0.0 and not _callout_queue.is_empty() and _banner_time <= 0.5 \
+			and not _phase_showing():
+		var q: Array = _callout_queue.pop_front()
+		_show_callout(q[0], q[1])
 	if _callout_time > 0.0:
 		_callout_time -= delta
 		_callout.modulate.a = clampf(_callout_time / 0.3, 0.0, 1.0)
@@ -3371,6 +3421,9 @@ func _see_through(delta: float) -> void:
 					if r.has_point(q):
 						want = 0.35
 						break
+		# Version 213: only the hero under a button lets its touches through (a skeleton or a
+		# shot passing over it fades it too, but DASH must still work then).
+		c.set_meta("hero_under", want == 0.3)
 		c.modulate.a = move_toward(c.modulate.a, want, delta * (6.0 if want < c.modulate.a else 3.0))
 
 
@@ -3494,6 +3547,29 @@ static func thousands(n: int) -> String:
 
 ## A short punchy word over the action, like "PERFECT!".
 func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
+	if Game.state == Game.State.PLAYING and (_callout_time > 0.35 or _banner_time > 0.5 or _phase_showing()):
+		for q in _callout_queue:
+			if q[0] == text:
+				return
+		if _callout_queue.size() < 2:
+			_callout_queue.append([text, col])
+		return
+	_show_callout(text, col)
+
+
+var _callout_queue: Array = []
+
+## Version 213: true while the boss's half-health card is up.
+func _phase_showing() -> bool:
+	return _phase_box != null and _phase_box.visible and _phase_box.modulate.a > 0.05
+
+
+## True while the room banner is up (a teaching line waits for it).
+func banner_busy() -> bool:
+	return _banner_time > 0.0
+
+
+func _show_callout(text: String, col: Color) -> void:
 	_callout.text = text
 	_callout.label_settings.font_color = col
 	_callout.label_settings.font_size = 46 if text.length() <= 10 else 34
@@ -3570,12 +3646,16 @@ func _place_perfect(rise: float) -> void:
 		return
 	var at := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.3)
 	_perfect_lbl.position = at - Vector2(_perfect_lbl.size.x * 0.5, _perfect_lbl.size.y + rise)
+	# Version 213: kept inside the screen ("PERFE" was cut off by the edge).
+	var w := get_viewport().get_visible_rect().size.x
+	_perfect_lbl.position.x = clampf(_perfect_lbl.position.x, 8.0, maxf(8.0, w - _perfect_lbl.size.x - 8.0))
 
 
 ## A quick white (or coloured) flash over the whole screen.
 ## Flashes are softer with Screen shake reduced or off, for anyone who finds them too much.
 func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
-	_flash.color = Color(col.r, col.g, col.b, strength * lerpf(0.3, 1.0, Game.shake_scale))
+	# Version 213: with Screen shake off, flashes are almost gone (30% stayed before).
+	_flash.color = Color(col.r, col.g, col.b, strength * lerpf(0.08, 1.0, Game.shake_scale))
 
 
 func show_boss_card(title: String, subtitle: String) -> void:
@@ -4545,7 +4625,14 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	set_glow(_end_box, "victory" if victory else "death")
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
-	_start_tally(stats, score >= 0)
+	# Version 213 (hardest review fix #13): after a fall, what hurt most shows at once (a fast
+	# TRY AGAIN never saw it after the score's count-up), and a score of 0 isn't shown.
+	if not victory:
+		_end_score.visible = score > 0
+		_end_best.visible = score > 0
+		if score <= 0:
+			_end_count = -1.0
+	_start_tally(stats, score >= 0 and victory)
 	_end_goal.visible = false
 	_end_mastery.visible = false
 	_end_looks.visible = false

@@ -23,7 +23,11 @@ const PATHS := {"bolt": "Hunter's Path", "flame": "Burning Path", "frost": "Froz
 ## (version 212, critic fix #5). The Daily Crypt passes false: everyone gets the same doors.
 static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool, taken := {}, full_health := false) -> Array:
 	var families: Array = PATHS.keys().filter(func(f): return Upgrades.family_left(taken, f) >= 2)
+	# Version 213 (hardest review fix #11): no Champion's Door once no rare cards are left
+	# (it promises "rare or better"; with none left it handed out commons).
+	var no_rares := not taken.is_empty() and Upgrades.rares_left(taken) == 0
 	var kinds := KINDS.filter(func(k): return not (k in ["champion", "treasure"] and boss_next) and not (k == "shrine" and not can_reroll) \
+		and not (k == "champion" and no_rares) \
 		and not (k == "path" and families.is_empty()) and not (k == "spring" and full_health))
 	var out := []
 	while out.size() < 2 and not kinds.is_empty():

@@ -73,33 +73,33 @@ const HUNT_NO_GIFT := ["greed", "magnet", "harvest", "links", "marrow", "shardhu
 ## look (an event look: [slot, key] in HeroStyle.EXTRA).
 const ROAD := [
 	{"at": 40, "kind": "casket", "n": 1},
-	{"at": 85, "kind": "coins", "n": 100},
+	{"at": 85, "kind": "coins", "n": 75},
 	{"at": 130, "kind": "casket", "n": 1},
 	{"at": 180, "kind": "drop", "n": 1},
 	{"at": 230, "kind": "casket", "n": 1},
-	{"at": 285, "kind": "coins", "n": 150},
+	{"at": 285, "kind": "coins", "n": 100},
 	{"at": 340, "kind": "lucky", "n": 1},
 	{"at": 400, "kind": "casket", "n": 1},
-	{"at": 460, "kind": "coins", "n": 200},
+	{"at": 460, "kind": "coins", "n": 125},
 	{"at": 525, "kind": "look", "look": ["outfit", "blood_moon"]},
 	{"at": 595, "kind": "casket", "n": 1},
 	{"at": 665, "kind": "drop", "n": 2},
-	{"at": 740, "kind": "coins", "n": 250},
+	{"at": 740, "kind": "coins", "n": 150},
 	{"at": 815, "kind": "casket", "n": 2},
 	{"at": 895, "kind": "lucky", "n": 1},
-	{"at": 975, "kind": "coins", "n": 300},
+	{"at": 975, "kind": "coins", "n": 200},
 	{"at": 1060, "kind": "casket", "n": 1},
 	{"at": 1145, "kind": "look", "look": ["head", "moon_crown"]},
 	{"at": 1235, "kind": "drop", "n": 2},
 	{"at": 1325, "kind": "casket", "n": 2},
-	{"at": 1420, "kind": "coins", "n": 350},
+	{"at": 1420, "kind": "coins", "n": 225},
 	{"at": 1520, "kind": "lucky", "n": 2},
 	{"at": 1620, "kind": "casket", "n": 1},
 	{"at": 1725, "kind": "look", "look": ["glow", "moonlight"]},
-	{"at": 1830, "kind": "coins", "n": 400},
+	{"at": 1830, "kind": "coins", "n": 250},
 	{"at": 1940, "kind": "drop", "n": 3},
 	{"at": 2050, "kind": "casket", "n": 2},
-	{"at": 2165, "kind": "coins", "n": 500},
+	{"at": 2165, "kind": "coins", "n": 300},
 	{"at": 2280, "kind": "casket", "n": 3},
 	{"at": 2400, "kind": "look", "look": ["aura", "blood_moon"]},
 ]
@@ -310,7 +310,7 @@ static func step_text(s: Dictionary) -> String:
 
 ## Version 145 (round 2 review): a Legendary Moon Casket can hand out a set look before
 ## the road gets to it. That road step then pays this many coins instead of nothing.
-const EARLY_LOOK_COINS := 500
+const EARLY_LOOK_COINS := 250   # version 213: halved with the other event coins
 
 
 ## What road step `i` pays: the step itself, or coins in place of a look already found.
@@ -341,7 +341,7 @@ static func claim(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> Dictio
 
 
 ## Version 135: an event that has ended pays out, once, what was left on it: every road
-## prize reached but not claimed, and the Moon Caskets not opened (100 coins each, as the
+## prize reached but not claimed, and the Moon Caskets not opened (50 coins each, as the
 ## casket screen is gone with the event). Writes into `cfg` (the caller adds the coins, which
 ## it holds, and saves). Returns {name, coins, prizes, caskets}, or {} if nothing was left.
 static func settle(cfg: ConfigFile) -> Dictionary:
@@ -363,7 +363,7 @@ static func settle(cfg: ConfigFile) -> Dictionary:
 					coins += int(st.n)
 		var n := caskets(cfg, e)
 		cfg.set_value(section(e), "caskets", 0)
-		coins += n * 100
+		coins += n * 50
 		if prizes + n > 0:
 			return {"name": e.name, "coins": coins, "prizes": prizes, "caskets": n}
 	return {}
@@ -412,37 +412,39 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 	var out := {"tier": [1, 2, 3, 4, 4][i], "name": t.name, "color": t.color, "coins": 0, "kind": "coins", "text": "", "casket": true}
 	cfg.set_value(section(e), "caskets", caskets(cfg, e) - 1)
 	cfg.set_value(section(e), "opened", int(cfg.get_value(section(e), "opened", 0)) + 1)
+	# Version 213 (hardest review fix #16): casket coins halved. The event paid ~5,450 coins,
+	# more than the whole Armory and Vault (5,275), in two weeks.
 	match str(t.id):
 		"rare":
-			out.coins = 60
+			out.coins = 30
 			add_shards(cfg, 15, e)
-			out.text = "+60 COINS\n+15 MOON SHARDS"
+			out.text = "+30 COINS\n+15 MOON SHARDS"
 		"super":
 			if rng.randi_range(0, 1) == 0:
 				Drops.add(cfg, 1)
-				out.coins = 60
-				out.text = "BONE DROP\n+60 COINS"
+				out.coins = 30
+				out.text = "BONE DROP\n+30 COINS"
 			else:
-				out.coins = 150
+				out.coins = 80
 				add_shards(cfg, 25, e)
-				out.text = "+150 COINS\n+25 MOON SHARDS"
+				out.text = "+80 COINS\n+25 MOON SHARDS"
 		"epic":
 			Drops.add(cfg, 1)
-			out.coins = 220
+			out.coins = 110
 			add_shards(cfg, 40, e)
-			out.text = "BONE DROP\n+220 COINS\n+40 MOON SHARDS"
+			out.text = "BONE DROP\n+110 COINS\n+40 MOON SHARDS"
 		"mythic":
 			Drops.add(cfg, 2)
 			cfg.set_value(Drops.SECTION, "lucky", Drops.lucky(cfg) + 1)
-			out.coins = 350
-			out.text = "2 BONE DROPS\nLUCKY START\n+350 COINS"
+			out.coins = 180
+			out.text = "2 BONE DROPS\nLUCKY START\n+180 COINS"
 		"legendary":
 			# The next piece of the event set, early; once all are found, a fortune.
 			var miss := missing_looks(cfg)
 			if miss.is_empty():
-				out.coins = 800
+				out.coins = 400
 				add_shards(cfg, 100, e)
-				out.text = "+800 COINS\n+100 MOON SHARDS"
+				out.text = "+400 COINS\n+100 MOON SHARDS"
 			else:
 				var look: Array = miss[0]
 				give_look(cfg, look[0], look[1])
@@ -462,8 +464,8 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 
 ## What a casket can hold, for the "?" on the casket screen: [[name, chance, prize]].
 static func casket_odds() -> Array:
-	var prizes := ["60 coins and 15 shards", "A Bone Drop, or 150 coins", "A Bone Drop and 220 coins",
-		"2 Bone Drops, a Lucky Start and 350 coins", "A Blood Moon look, early"]
+	var prizes := ["30 coins and 15 shards", "A Bone Drop, or 80 coins", "A Bone Drop and 110 coins",
+		"2 Bone Drops, a Lucky Start and 180 coins", "A Blood Moon look, early"]
 	var out := []
 	for i in CASKETS.size():
 		out.append([CASKETS[i].name, int(CASKETS[i].weight), prizes[i]])
