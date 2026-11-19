@@ -28,7 +28,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 
 ★ MASTER THE CHAIN
 • Kills close together build your Bone Chain.
-• The higher it climbs, the more gold you earn, and up to half as much damage again.
+• The higher it climbs, the more gold you earn and the harder you hit (up to 70% more). A full chain gives back half your special.
 • Keep moving from fight to fight to keep the chain alive.
 
 ★ A NEW BUILD EVERY RUN

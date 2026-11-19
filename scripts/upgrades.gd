@@ -104,6 +104,13 @@ const ENDLESS := [
 	{"id": "deep_power", "family": "bolt", "rarity": "common", "title": "Deep Power", "text": "+8% damage", "max": 999, "endless": true},
 	{"id": "deep_vigor", "family": "bone", "rarity": "common", "title": "Deep Vigor", "text": "+8% max health and heal it", "max": 999, "endless": true},
 	{"id": "deep_haste", "family": "bolt", "rarity": "common", "title": "Deep Haste", "text": "+6% attack speed", "max": 999, "endless": true},
+	# Version 219 (review 4 fix 30): deep cards with a choice in them. Three of these are
+	# dealt at random once the blessings run out (they were the same three every time).
+	{"id": "deep_glass", "family": "bolt", "rarity": "common", "title": "Glass Edge", "text": "+15% damage, but -6% max health", "max": 999, "endless": true},
+	{"id": "deep_pierce", "family": "bolt", "rarity": "common", "title": "Deep Pierce", "text": "Shots pierce one more skeleton", "max": 3, "endless": true},
+	{"id": "deep_ward", "family": "bone", "rarity": "common", "title": "Deep Ward", "text": "+1 Bone Ward: blocks a hit, comes back each room", "max": 3, "endless": true},
+	{"id": "deep_steady", "family": "bone", "rarity": "common", "title": "Steady Chain", "text": "The chain fades 10% slower", "max": 5, "endless": true},
+	{"id": "deep_stride", "family": "bone", "rarity": "common", "title": "Deep Stride", "text": "+8% move speed, but -4% damage", "max": 4, "endless": true},
 ]
 
 
@@ -173,12 +180,25 @@ static func apply(id: String, h: Hero) -> void:
 			h.heal(v)
 		"harvest": h.harvest_heal += 2.0   # version 213: per kill it heals 1% of max health a pick
 		"marrow": h.pierce += 1   # version 213: the chain to x4 alone was weaker than a common card
-		"deep_power": h.damage *= 1.08
+		# Version 219 (review 4 fix 30): +8% of the damage the hero had at the first deep
+		# card, added (x1.08 compounded, and the endless floors got easier the deeper you went).
+		"deep_power": h.damage += _deep_base(h, "damage") * 0.08
 		"deep_vigor":
 			var add := roundf(h.max_health * 0.08)
 			h.max_health += add
 			h.heal(add)
-		"deep_haste": h.shots_per_second *= 1.06
+		"deep_haste": h.shots_per_second += _deep_base(h, "shots_per_second") * 0.06
+		"deep_glass":
+			h.damage *= 1.15
+			h.max_health = maxf(20.0, roundf(h.max_health * 0.94))
+			h.health = minf(h.health, h.max_health)
+		"deep_pierce": h.pierce += 1
+		"deep_ward":
+			h.ward_max += 1
+			h.ward += 1
+		"deep_stride":
+			h.move_speed *= 1.08
+			h.damage *= 0.96
 		"boots": h.move_speed *= 1.12
 		"frost": h.frost = true
 		"frostbite": h.frost_time *= 2.0
@@ -292,11 +312,20 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 		var u := _weighted(from, rng)
 		out.append(u)
 		pool.erase(u)
-	for e in ENDLESS:
-		if out.size() >= count:
-			break
+	var deep := ENDLESS.filter(func(e: Dictionary) -> bool: return taken.get(e.id, 0) < int(e.max) and not out.has(e))
+	while out.size() < count and not deep.is_empty():
+		var e: Dictionary = deep[(rng.randi() if rng else randi()) % deep.size()]
 		out.append(e)
+		deep.erase(e)
 	return out
+
+
+## A stat as it was when the hero took their first deep card (deep cards add a share of it).
+static func _deep_base(h: Hero, stat: String) -> float:
+	var key := "deep_base_" + stat
+	if not h.has_meta(key):
+		h.set_meta(key, float(h.get(stat)))
+	return float(h.get_meta(key))
 
 
 ## How many blessings of `family` the hero could still be offered (a door's path promises

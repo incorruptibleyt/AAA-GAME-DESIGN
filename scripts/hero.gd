@@ -312,7 +312,12 @@ func add_charge(amount: float) -> void:
 func use_special() -> void:
 	if dead or down_left > 0.0 or not special_ready() or Game.state != Game.State.PLAYING or not Game.special_unlocked():
 		return
-	special_charge = 0.0
+	# Version 219 (review 4 fix 30): a full chain feeds the special. Cast at the chain's cap
+	# and half the charge comes straight back.
+	var full_chain := Game.chain >= Game.chain_max() - 0.01
+	special_charge = 0.5 if full_chain else 0.0
+	if full_chain:
+		Fx.magic(center(), Color(1.0, 0.9, 0.5), 18)
 	Game.report_event("special")
 	if Game.curses.has("blood"):
 		# Blood Price: the special costs a quarter of max health, but never kills.

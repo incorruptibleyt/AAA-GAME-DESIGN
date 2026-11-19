@@ -5,7 +5,12 @@ class_name Doors
 ## (a purple elite waits, and the blessing after it is rare or better).
 ## A door is saved as {"kind", "family"}; everything else comes from `describe`.
 
-const KINDS := ["path", "spring", "treasure", "shrine", "champion"]
+const KINDS := ["path", "spring", "treasure", "shrine", "champion", "cursed"]
+## Version 219 (review 4 fix 30): the Cursed Door, a real risk for a reward. One Omen
+## (loops.gd) holds until the floor's boss is beaten, and every coin on the floor is worth
+## 60% more.
+const CURSED_COINS := 0.6
+const CURSE_OMENS := ["haste", "bones", "blades", "horde", "night"]
 ## Healing Spring: share of max health healed. Treasure Room: extra coins in the next room.
 const SPRING_HEAL := 0.3
 const TREASURE_COINS := 0.6
@@ -33,7 +38,10 @@ static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool,
 	while out.size() < 2 and not kinds.is_empty():
 		var kind: String = kinds[rng.randi() % kinds.size()]
 		kinds.erase(kind)
-		out.append({"kind": kind, "family": families[rng.randi() % families.size()] if kind == "path" else ""})
+		var d := {"kind": kind, "family": families[rng.randi() % families.size()] if kind == "path" else ""}
+		if kind == "cursed":
+			d.omen = CURSE_OMENS[rng.randi() % CURSE_OMENS.size()]
+		out.append(d)
 	return out
 
 
@@ -59,7 +67,17 @@ static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 		"champion":
 			return {"title": "Champion's Door", "text": "A purple elite waits.\nNext pick: rare or better",
 				"color": Color(1.0, 0.55, 0.3), "icon": "door_champion", "family": "bolt"}
+		"cursed":
+			return {"title": "Cursed Door", "text": "%s until the boss.\n+%d%% coins on this floor" % [omen_title(str(door.get("omen", "blades"))), roundi(CURSED_COINS * 100)],
+				"color": Color(0.85, 0.5, 1.0), "icon": "greed", "family": "bolt"}
 	return {}
+
+
+static func omen_title(id: String) -> String:
+	for o: Dictionary in Loops.OMENS:
+		if o.id == id:
+			return str(o.title)
+	return id
 
 
 ## A line shown as the door's room starts ("" when its promise was kept at once).
@@ -71,4 +89,10 @@ static func room_tip(door: Dictionary) -> String:
 			return "Treasure Room: +%d%% coins here" % roundi(TREASURE_COINS * 100)
 		"champion":
 			return "Champion's Door: a purple elite waits"
+		"cursed":
+			var o: Dictionary = {}
+			for x: Dictionary in Loops.OMENS:
+				if x.id == str(door.get("omen", "")):
+					o = x
+			return "Cursed: %s. +%d%% coins" % [str(o.get("text", "")), roundi(CURSED_COINS * 100)]
 	return ""

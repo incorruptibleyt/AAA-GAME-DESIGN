@@ -161,12 +161,15 @@ func chain_time() -> float:
 		t *= 0.5
 	if _hourglass_out:
 		t *= 0.4
+	if hero:
+		t *= pow(1.1, int(hero.perks.get("deep_steady", 0)))   # v219: Steady Chain
 	return t * pow(0.75, _omen("night"))
 
 
-## Damage gets a quarter of the chain's bonus (x1.5 at the cap) so a long chain doesn't trivialise rooms.
+## Damage gets a share of the chain's bonus: x1.7 at the cap (version 219, review 4 fix 30:
+## was a quarter, x1.5, and the chain felt like a score meter more than a weapon).
 func chain_damage() -> float:
-	var d := 1.0 + (chain - 1.0) * 0.25
+	var d := 1.0 + (chain - 1.0) * 0.35
 	if chain >= 2.0 and hero and hero.perks.has("overcharge"):
 		d *= 1.25   # Overcharge
 	if surge > 0.5 and hero and hero.perks.has("eclipse_heart"):
@@ -287,7 +290,11 @@ var _clock: TrustClock
 
 ## How many times Omen `id` has been taken this run.
 func _omen(id: String) -> int:
-	return int(omens.get(id, 0))
+	return int(omens.get(id, 0)) + (1 if _curse_omen == id else 0)
+
+
+## Version 219 (review 4 fix 30): a Cursed Door's Omen, until the floor ends ("" for none).
+var _curse_omen := ""
 
 
 ## True until the first run has ended. Older saves that already got somewhere count as done.
@@ -1120,7 +1127,8 @@ const SHARE_FLOORS := 3
 ## stops growing around floor 13; at 45% a floor forever, floor 20 skeletons took 13 s each.)
 func health_scale() -> float:
 	return heroic_mult() * pow(1.55, mini(floor_num, 4) - 1) * pow(1.6, clampi(floor_num - 4, 0, 1)) \
-		* pow(1.45, clampi(floor_num - 5, 0, 5)) * pow(1.25, maxi(floor_num - 10, 0)) * pow(1.25, _omen("bones"))
+		* pow(1.45, clampi(floor_num - 5, 0, 5)) * pow(1.25, clampi(floor_num - 10, 0, 5)) \
+		* pow(1.35, maxi(floor_num - 15, 0)) * pow(1.25, _omen("bones"))   # v219 (fix 30): steeper past floor 15
 
 
 ## Skeletons hit 35% harder per floor, and 50% per floor below floor 5 (the endless loops).
@@ -1252,7 +1260,8 @@ func speed_scale() -> float:
 ## Daily Crypt rules and Omens that change coins and hearts.
 func coin_mult() -> float:
 	var treasure := 1.0 + Doors.TREASURE_COINS if _door.get("kind", "") == "treasure" else 1.0
-	return (1.5 if curses.has("rich") else 1.0) * (HEROIC_COINS if curses.has("heroic") else 1.0) * pow(1.5, _omen("gold")) * treasure
+	return (1.5 if curses.has("rich") else 1.0) * (HEROIC_COINS if curses.has("heroic") else 1.0) * pow(1.5, _omen("gold")) * treasure \
+		* (1.0 + Doors.CURSED_COINS if _curse_omen != "" else 1.0)
 
 
 ## Hearts heal 20% more per floor, so they keep up with skeletons that hit harder deeper
@@ -2119,6 +2128,7 @@ func _reset_run_stats() -> void:
 	_taken.clear()
 	rerolls = 1
 	omens.clear()
+	_curse_omen = ""
 	_loop_choice = false
 	_omen_choices = []
 	_doors = []
@@ -2441,6 +2451,7 @@ func _descend() -> void:
 	await _fade(0.0, 1.0, 0.5)
 	hud.show_end(false)
 	floor_num += 1
+	_curse_omen = ""   # a Cursed Door lasts its own floor
 	if _door.get("kind", "") != "path":
 		_door = {}   # a treasure door before the boss paid out in the boss room
 	var new_loop := Loops.loop_end(floor_num - 1)
@@ -2787,6 +2798,7 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 			"dash": int(_rep.dash), "healed": float(_rep.healed)},
 		"rooms": [] if next_floor or loop_end else _run.duplicate(true),   # this floor's rooms, to come back to
 		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {},
+		"curse": "" if next_floor or loop_end else _curse_omen,
 		"event": event, "event_id": str(Events.current().get("id", "")) if event != "" else "",
 		# version 211: the softer floor 2 after the tutorial, and its gifts' banner, survive CONTINUE
 		"after_tutorial": _after_tutorial, "gifts": _gift_names.duplicate()})
@@ -2878,6 +2890,7 @@ func _continue_run() -> void:
 	_run_hero_id = str(s.run_hero)
 	omens = (s.get("omens", {}) as Dictionary).duplicate()
 	_door = (s.get("door", {}) as Dictionary).duplicate()
+	_curse_omen = str(s.get("curse", ""))
 	vault = Armory.vault_owned(_load_save())
 	_update_score_mult()
 	heart_bonus = float(s.get("heart_bonus", Armory.heart_bonus(_load_save())))
@@ -3388,6 +3401,8 @@ func _on_door_picked(i: int) -> void:
 			hero.heal(hero.max_health * Doors.SPRING_HEAL)
 		"shrine":
 			rerolls += 1
+		"cursed":
+			_curse_omen = str(_door.get("omen", "blades"))
 	print("[run] door: %s" % Doors.describe(_door).title)
 	_leave_room()
 
