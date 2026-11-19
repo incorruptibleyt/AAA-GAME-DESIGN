@@ -3502,6 +3502,8 @@ func _win() -> void:
 	Music.play("dungeon")
 	_daily_done = daily and floor_num >= Curses.DAILY_FLOORS
 	_free_end = not daily and event == "" and floor_num >= Store.FREE_FLOORS and not Store.owned()
+	if _free_end:
+		Telemetry.step("free_end_seen")   # v219 (review 4 fix 22): how many reach the Pass offer
 	_loop_choice = not daily and event == "" and not _free_end and Loops.loop_end(floor_num)
 	if _daily_done or _event_done:
 		RunSave.clear()
@@ -5040,6 +5042,8 @@ func _open_pass() -> void:
 		return
 	Sfx.play("click")
 	Store.instance.refresh()
+	if not Store.owned():
+		Telemetry.step("pass_open")   # v219 (review 4 fix 22): opened the Crypt Pass card
 	hud.show_pass(true, Store.owned(), Store.instance.price, Store.instance.status)
 
 
