@@ -960,24 +960,27 @@ func _build_hud() -> void:
 	_special.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	_special.offset_left = -124
 	_special.offset_right = -24
-	_special.offset_top = -260
-	_special.offset_bottom = -160
+	# Version 213 (hardest review fix #7): the buttons sit in the dark strip under the room's
+	# near wall, so the hero is never fighting under them (they were at y 820-1040, where the
+	# hero stands near the bottom of a room).
+	_special.offset_top = -144
+	_special.offset_bottom = -44
 	root.add_child(_special)
 	race_surge = SurgeButton.new()
 	race_surge.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	race_surge.offset_left = -228
-	race_surge.offset_right = -144
-	race_surge.offset_top = -246
-	race_surge.offset_bottom = -162
+	race_surge.offset_left = -318
+	race_surge.offset_right = -234
+	race_surge.offset_top = -136
+	race_surge.offset_bottom = -52
 	race_surge.visible = false
 	root.add_child(race_surge)
 
 	_dash_button = DashButton.new()
 	_dash_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	_dash_button.offset_left = -114
-	_dash_button.offset_right = -34
-	_dash_button.offset_top = -380
-	_dash_button.offset_bottom = -300
+	_dash_button.offset_left = -224
+	_dash_button.offset_right = -144
+	_dash_button.offset_top = -134
+	_dash_button.offset_bottom = -54
 	root.add_child(_dash_button)
 
 	_pause_button = Button.new()
@@ -1084,11 +1087,12 @@ func _build_hud() -> void:
 	_chain_label.size = Vector2(100, 46)
 	_chain_label.pivot_offset = Vector2(34, 23)
 	_chain_box.add_child(_chain_label)
-	_score_label = label("", 15, Color(0.85, 0.82, 0.75))
+	# Version 213 (hardest review fix #7): 20 px (was 15, about 7 dp tall on a phone).
+	_score_label = label("", 20, Color(0.9, 0.87, 0.8))
 	chunky(_score_label.label_settings)
-	_score_label.label_settings.outline_size = 4
-	_score_label.position = Vector2(0, 40)
-	_score_label.size = Vector2(300, 20)
+	_score_label.label_settings.outline_size = 5
+	_score_label.position = Vector2(0, 38)
+	_score_label.size = Vector2(300, 26)
 	_chain_box.add_child(_score_label)
 	_broken_label = label("", 24, Color(1, 0.35, 0.3))
 	_broken_label.position = Vector2(-40, 0)
@@ -3247,7 +3251,8 @@ func _process(delta: float) -> void:
 	# Hidden behind the pause menu, where it would cross "Paused".
 	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.UPGRADE]
 	# With no chain going it stays faint (it sits over the far end of the room).
-	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.35) if meter else 0.0
+	# Version 213: never fainter than 0.7, so the score can be read (0.35 was too faint).
+	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.7) if meter else 0.0
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)

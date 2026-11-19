@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-19b"
+const BUILD := "2026-11-19c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -279,6 +279,8 @@ var _race_lead_t := 0.0    # race time of the last lead callout
 ## Version 166 (Tweaks report #3): true while the phone has taken the screen (the notification
 ## shade, a call, the Play purchase sheet). The race clock stops; RESUME or focus back clears it.
 var away := false
+## Version 213: the clock node, asked again for Google's time each time the game comes back.
+var _clock: TrustClock
 
 
 ## How many times Omen `id` has been taken this run.
@@ -494,6 +496,7 @@ func _ready() -> void:
 	add_child(Music.new())
 	add_child(Ambience.new())
 	var clock := TrustClock.new()   # version 212: Google's time for the event days
+	_clock = clock
 	add_child(clock)
 	clock.synced.connect(func():
 		if hud:
@@ -942,6 +945,8 @@ func _notification(what: int) -> void:
 			Telemetry.instance.set_away(false)
 		if Store.instance:
 			Store.instance.recheck()
+		if what == NOTIFICATION_APPLICATION_RESUMED and _clock:
+			_clock.ask()   # version 213: Google's time again after the phone slept
 		_check_new_day()
 		_check_reminders_allowed()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
@@ -5799,8 +5804,10 @@ func _best_boss(cfg: ConfigFile) -> int:
 
 
 ## True while today's first-run coin bonus (DAY_BONUS) is still to be had.
+## Version 213 (hardest review fix #1): only a day later than the last one paid counts, so
+## moving the date back and forth can't pay it twice.
 func day_bonus_ready() -> bool:
-	return str(_load_save().get_value("stats", "bonus_day", "")) != Curses.today()
+	return Curses.today() > str(_load_save().get_value("stats", "bonus_day", ""))
 
 
 ## Pays today's first-run bonus on the coins this run picked up, once per Daily day. The

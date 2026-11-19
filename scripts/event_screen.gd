@@ -386,7 +386,8 @@ func refresh(cfg: ConfigFile) -> void:
 	else:
 		# version 212 (critic fix #3): free players see it too; it's the Pass's best reason now
 		bonus.append("Crypt Pass: +50% shards")
-	_run_sub.text = "About 300 shards a full run" + ("  ·  " + ", ".join(bonus) if not bonus.is_empty() else "")
+	# version 213 (hardest review fix #3): the measured full run is ~200, ~300 with the Pass
+	_run_sub.text = ("About 300 shards a full run" if Store.owned() else "About 200 shards a full run") + ("  ·  " + ", ".join(bonus) if not bonus.is_empty() else "")
 	_run_btn.disabled = not live
 	_run_btn.text = "PLAY THE BLOOD MOON" if live else "OPENS IN %s" % Events.time_text(Events.seconds_left(e)).to_upper()
 	# Tiers.

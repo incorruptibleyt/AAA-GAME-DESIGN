@@ -1,6 +1,6 @@
 # Bone Chain privacy policy
 
-_Last updated: November 14, 2026_
+_Last updated: November 19, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
@@ -36,7 +36,8 @@ The game saves your progress (coins, unlocked heroes, Armory upgrades, best floo
 
 ## Permissions
 
-- **Internet:** only to send the anonymous game reports described above (if you've turned them on), the first-week progress notes, feedback you choose to send, and leaderboard scores if you sign in to Google Play Games.
+- **Internet:** only to send the anonymous game reports described above (if you've turned them on), the first-week progress notes, feedback you choose to send, leaderboard scores if you sign in to Google Play Games, and the time check below.
+- **Time check:** when you open or return to the game, it asks www.google.com for the current time (an empty request that sends nothing about you or your game; Google sees only what any web visit shows, such as your internet address). This keeps daily and event days fair when a phone's clock is wrong. Google's privacy policy covers that request.
 - **Vibrate:** the phone buzzes briefly when your hero is hit (switch it off under Pause, Vibration).
 - **Google Play billing:** only to buy the Crypt Pass through Google Play.
 - **Google Play Games (leaderboards):** if you sign in to Play Games, your scores, your Play Games name and picture are shared with Google Play Games to show the leaderboards, including to your Play Games friends if you choose to share them. Google's privacy policy covers Play Games. Without signing in, nothing is sent.
@@ -54,7 +55,7 @@ Bone Chain is not made for children under 13 and does not knowingly collect info
 
 ## Changes
 
-Version 157 (November 2026) added the first-week progress notes. If a future version collects anything else (for example ads), this policy will be updated first and the Google Play data safety section will say so.
+Version 157 (November 2026) added the first-week progress notes. Version 212 (November 2026) added the time check. If a future version collects anything else (for example ads), this policy will be updated first and the Google Play data safety section will say so.
 
 ## Contact
 

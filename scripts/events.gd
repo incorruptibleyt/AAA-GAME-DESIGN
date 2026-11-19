@@ -485,14 +485,16 @@ static func best_tier(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
 
 
 ## Whether tier `t` (1-5) was beaten today: the day's first win pays a casket too.
+## Version 213: a win saved on a later date (a clock moved forward, then back) counts too.
 static func won_today(cfg: ConfigFile, t: int, e: Dictionary = BLOOD_MOON) -> bool:
-	return str(cfg.get_value(section(e), "won_%d" % t, "")) == Curses.today()
+	return str(cfg.get_value(section(e), "won_%d" % t, "")) >= Curses.today()
 
 
 ## A hunt won on tier `t`: saves it and returns {shards, casket} (shards before boosts).
 static func record_hunt(cfg: ConfigFile, t: int, e: Dictionary = BLOOD_MOON) -> Dictionary:
 	var first := not won_today(cfg, t, e)
-	cfg.set_value(section(e), "won_%d" % t, Curses.today())
+	if first:
+		cfg.set_value(section(e), "won_%d" % t, Curses.today())
 	cfg.set_value(section(e), "best_tier", maxi(best_tier(cfg, e), t))
 	cfg.set_value(section(e), "hunts", int(cfg.get_value(section(e), "hunts", 0)) + 1)
 	var n := int(TIERS[t - 1].shards)

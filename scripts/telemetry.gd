@@ -108,7 +108,9 @@ static func step(what: String) -> void:
 	var line := "step | build %s | install %s\n%s | %d s" % [Game.BUILD, install_id(cfg), what, secs]
 	# Version 167: the launch steps say which phone and how long the warm-up took, so a slow
 	# start can be told apart from Google's test phones (step lines had no phone before).
-	if what in ["title", "intro_end"]:
+	# Version 213 (hardest review fix #2): only once they've said yes to reports, as the
+	# privacy policy promises (progress notes carry no phone details).
+	if what in ["title", "intro_end"] and bool(cfg.get_value("settings", "reports", false)):
 		line += " | %s | %s | warm-up %d ms%s | FPS %d" % [OS.get_model_name(), RenderingServer.get_video_adapter_name(),
 			Warmup.last_ms, " (first floor only)" if Warmup.last_core else "", Engine.get_frames_per_second()]
 	if not t.active():

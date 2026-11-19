@@ -45,7 +45,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 
 ★ MASTER YOUR HEROES
 • Every room and boss gives your hero Mastery that is never lost.
-• Ten Mastery levels per hero bring coins, Bone Drops and titles (Adept, Veteran, Master).
+• Twenty Mastery levels per hero bring coins, Bone Drops and titles (Adept, Veteran, Master).
 • Unlock 30 Mastery looks per hero: outfits, hats, weapons, glows and auras.
 • Reach Master for a golden crown and a trail of gold sparkles.
 
@@ -57,7 +57,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 ★ A CRYPT THAT FIGHTS BACK
 • Skeleton warriors, archers, mages, bombers, spitters, bone spiders and purple elites.
 • Giant bosses that change at half health: the Skeleton King, the Lich and the Cinder Colossus.
-• Three crypts to descend: the Bone Crypt, the Frozen Ossuary and the Ember Catacomb.
+• Four crypts to descend: the Bone Crypt, the Frozen Ossuary, the Ember Catacomb and the Glowcap Grotto.
 • Each crypt has its own skeletons, like Frost Wraiths that fire ice beams and Cinder Skeletons that leave fire behind them.
 
 ★ GET STRONGER BETWEEN RUNS
@@ -68,20 +68,25 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 • Everyone gets one Daily Crypt run a day: the same three floors for every player.
 • Share how deep you went.
 
+★ BLOOD MOON EVENT (NOV 20 - DEC 3)
+• A 14-day event with its own red crypt and the Blood Queen to hunt on five tiers.
+• Collect Moon Shards to walk the Blood Moon road and win the Blood Moon set and Moon Crown.
+• Double shards on the weekend of Nov 28-29.
+
 ★ FREE TO TRY, ONE OPTIONAL PASS
 The first five floors of this dungeon roguelite are free, with no ads. The one-time Crypt Pass opens the rest:
 • The Crypt King set for every hero: obsidian armour veined with molten gold, a floating Crypt Crown, and a turning gold sigil under your feet. Try it on for free in the Style screen.
 • The Drowned Vault: a flooded floor where Drowned Skeletons swim under the water, ruled by the Tidecaller.
 • Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
 • Daily Crypt practice: replay the day's floors as often as you like after your official run.
-• Nine more Curses (ten in all) that stack into a Curse Level for bigger scores, with hero rewards to earn.
+• All 11 Curses (two are free) that stack into a Curse Level for bigger scores, with hero rewards to earn.
 • Every hero, ready to play.
 
 ★ MADE FOR PHONES
 • One thumb, portrait mode.
 • Close any time and CONTINUE where the room started.
 • No account needed.
-• High and Low graphics settings for older phones.
+• High, Medium and Low graphics settings for older phones.
 
 Love roguelike action and bullet dodging? Bone Chain is the dungeon roguelite for you.
 
@@ -91,7 +96,7 @@ How deep can you go?
 
 - Product ID: `crypt_pass` (must be exactly this; the game asks Google Play for it)
 - Name: Crypt Pass
-- Description: The Drowned Vault, endless floors, Daily Crypt practice runs, all 10 Curses with hero rewards, and every hero. One-time purchase.
+- Description: The Drowned Vault, endless floors, Daily Crypt practice runs, all 11 Curses with hero rewards, and every hero. One-time purchase.
 - Price: $4.99 (US), let Play convert it for other countries
 
 ## Category and tags

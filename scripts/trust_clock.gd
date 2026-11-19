@@ -9,6 +9,10 @@ extends Node
 ##   date forward and back can't pay an event's daily prizes twice.
 ## - An event is only wrapped up (its prizes paid out, Events.settle) on Google's word, or a
 ##   good while after its end, so moving the clock past the end doesn't close it early.
+## - Version 213 (hardest review fix #1): once Google answered, time is counted from Google's
+##   answer on the game's own stopwatch (which the phone's date setting can't move), the day
+##   never goes back past the latest one seen, and the check runs again on every return to
+##   the game (the stopwatch can stop while the phone sleeps).
 
 const SECTION := "clock"
 const URL := "https://www.google.com/generate_204"
@@ -17,8 +21,11 @@ const SETTLE_OFFLINE_DAYS := 14
 
 ## Seconds to add to the phone's clock (Google's time minus the phone's).
 static var offset := 0
-## True once Google answered in this session.
+## True once Google answered since the game last came back to the front.
 static var confirmed := false
+## Google's time (unix seconds) and the stopwatch (Time.get_ticks_msec) when it answered.
+static var _sync_unix := 0
+static var _sync_ticks := 0
 ## The latest event day (unix seconds of its start) seen on this phone.
 static var latest_day := 0
 
@@ -29,14 +36,14 @@ var _http: HTTPRequest
 
 ## The time to count days by: the phone's clock, put right by Google's when known.
 static func now() -> int:
+	if confirmed:
+		return _sync_unix + int((Time.get_ticks_msec() - _sync_ticks) / 1000)
 	return int(Time.get_unix_time_from_system()) + offset
 
 
-## A day's start (unix seconds) as Curses works it out, never before the latest one seen
-## unless Google says so.
+## A day's start (unix seconds) as Curses works it out, never before the latest one seen.
+## (Google's answer resets the latest day to the true one, see _on_done.)
 static func guard_day(day_start: int) -> int:
-	if confirmed:
-		return day_start
 	return maxi(day_start, latest_day)
 
 
@@ -60,6 +67,21 @@ func _ready() -> void:
 	_http.timeout = 8.0
 	add_child(_http)
 	_http.request_completed.connect(_on_done)
+	ask()
+
+
+## Asks Google for the time again. Called on launch and each time the game comes back.
+func ask() -> void:
+	if _http == null:
+		return
+	# Until Google answers, the phone's clock (with the last offset and the latest-day guard)
+	# is used, because the stopwatch may have stopped while the phone slept.
+	if confirmed:
+		offset = now() - int(Time.get_unix_time_from_system())
+		if absi(offset) < 120:
+			offset = 0
+	confirmed = false
+	_http.cancel_request()
 	if _http.request(URL, [], HTTPClient.METHOD_HEAD) != OK:
 		print("[clock] couldn't ask for the time")
 
@@ -78,6 +100,8 @@ func _on_done(result: int, _code: int, headers: PackedStringArray, _body: Packed
 	offset = t - int(Time.get_unix_time_from_system())
 	if absi(offset) < 120:
 		offset = 0   # a phone a minute out is fine; only a moved clock counts
+	_sync_unix = t
+	_sync_ticks = Time.get_ticks_msec()
 	confirmed = true
 	# Google's word replaces whatever latest day a moved clock left behind.
 	latest_day = Curses.day_start_now()
