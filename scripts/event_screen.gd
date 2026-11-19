@@ -403,8 +403,12 @@ func refresh(cfg: ConfigFile) -> void:
 	for t in Events.TIERS.size():
 		_tiers.add_child(_tier_row(cfg, e, t, open_n, live))
 	var n := Events.caskets(cfg, e)
-	_caskets.text = ("OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n) if n > 0 else "MOON CASKETS: none yet"
+	# Version 219 (review 4 fix 18): with none to open the button goes grey and says how to
+	# get one, so it never looks like a gold button that does nothing.
+	_caskets.text = ("OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n) if n > 0 else "NO CASKET YET\nFirst Hunt win each day holds one"
+	_caskets.add_theme_font_size_override("font_size", 26 if n > 0 else 18)
 	_caskets.disabled = n <= 0
+	_caskets.modulate = Color.WHITE if n > 0 else Color(0.78, 0.78, 0.84)
 	# Chapters.
 	for c in _chapters.get_children():
 		_chapters.remove_child(c)

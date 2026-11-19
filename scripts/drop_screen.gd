@@ -38,6 +38,7 @@ var _head: Label
 var _count: Label
 var _rarity: Label
 var _prize: Label
+var _prize_extra := ""   # a casket's other prize lines, kept under the coin count-up
 var _action: Button
 var _later: Button
 var _pity: Label
@@ -528,6 +529,13 @@ func _finish() -> void:
 	_rarity.text = str(_result.get("name", ""))
 	_rarity.label_settings.font_color = c
 	_prize.text = str(_result.get("text", ""))
+	# Version 219: the coin count-up rewrote the whole prize text, so a casket's other prize
+	# ("BONE DROP", "+25 MOON SHARDS") vanished the moment coins started to fly. It now stays
+	# under the counting coins.
+	_prize_extra = ""
+	for ln in _prize.text.split("\n"):
+		if not ln.contains("COINS"):
+			_prize_extra += "\n" + ln
 	_prize.label_settings.font_color = Hud.GOLD if _result.get("kind", "") == "coins" else c.lightened(0.35)
 	_prize.label_settings.font_size = 34 if _result.get("kind", "") == "coins" else 22
 	_chest.open_up(c, _shown_tier)
@@ -607,7 +615,7 @@ func _coin_shower(amount: int) -> void:
 				"amt": share, "r": randf_range(17.0, 23.0), "spin": randf_range(-9.0, 9.0)})
 	_ticks = 0
 	_counting = {"from": 0, "to": amount, "t": -0.3, "dur": 0.3 + n * 0.045 + 0.75}
-	_prize.text = "+0 COINS"
+	_prize.text = "+0 COINS" + _prize_extra
 	_fx.queue_redraw()
 
 
@@ -615,7 +623,7 @@ func _fly(delta: float) -> void:
 	if not _counting.is_empty():
 		_counting.t += delta
 		var f := clampf(float(_counting.t) / float(_counting.dur), 0.0, 1.0)
-		_prize.text = "+%s COINS" % Hud.thousands(roundi(lerpf(_counting.from, _counting.to, ease(f, 0.6))))
+		_prize.text = "+%s COINS" % Hud.thousands(roundi(lerpf(_counting.from, _counting.to, ease(f, 0.6)))) + _prize_extra
 		if f >= 1.0:
 			_counting = {}
 			_prize.scale = Vector2(1.25, 1.25)
@@ -651,7 +659,7 @@ func _land(amt: int) -> void:
 func _land_all() -> void:
 	_flying.clear()
 	if not _counting.is_empty():
-		_prize.text = "+%s COINS" % Hud.thousands(int(_counting.to))
+		_prize.text = "+%s COINS" % Hud.thousands(int(_counting.to)) + _prize_extra
 		_counting = {}
 	if _purse_to != _purse_shown:
 		_set_purse(_purse_to)
