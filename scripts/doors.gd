@@ -33,6 +33,7 @@ static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool,
 	var no_rares := not taken.is_empty() and Upgrades.rares_left(taken) == 0
 	var kinds := KINDS.filter(func(k): return not (k in ["champion", "treasure"] and boss_next) and not (k == "shrine" and not can_reroll) \
 		and not (k == "champion" and no_rares) \
+		and not (k == "cursed" and (Game.event != "" or Game.daily or Game.race)) \
 		and not (k == "path" and families.is_empty()) and not (k == "spring" and full_health))
 	var out := []
 	while out.size() < 2 and not kinds.is_empty():
