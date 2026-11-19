@@ -100,7 +100,7 @@ func _process(delta: float) -> void:
 	super._process(delta)
 	if _halo:
 		_halo.global_position = global_position + Vector3(0, 3.5, -0.9)
-		_halo.visible = not dead
+		_halo.visible = not dead and not _eclipse   # v218: the moon goes black, so does hers
 
 
 func _think(hero: Hero, delta: float) -> void:
@@ -461,10 +461,16 @@ func _eclipse_move() -> void:
 			spot = Room.current.resolve_move(spot, Vector3.ZERO, 0.6)
 		Fx.shockwave(spot, RED, 1.6)
 		shades.append(Game.spawn_enemy("q", spot))
+	# Version 218 (review 4): she vanished with no word on how to bring her back. The boss
+	# bar now counts her Shades down.
+	var queen_name: String = Game.hud._boss_name.text
 	var left := 14.0
 	while left > 0.0 and _alive() and shades.any(func(s): return is_instance_valid(s) and not s.dead):
+		var down := shades.filter(func(s): return not is_instance_valid(s) or s.dead).size()
+		Game.hud.set_boss_name("KILL HER SHADES  %d / %d" % [down, shades.size()])
 		await _wait(0.2)
 		left -= 0.2
+	Game.hud.set_boss_name(queen_name)
 	for s in shades:
 		if is_instance_valid(s) and not s.dead:
 			s.crumble()
