@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-19f"
+const BUILD := "2026-11-19g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1083,7 +1083,7 @@ func _step_room() -> String:
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
 ## menu, the reports question and the Crypt Pass screen.
-const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/664cf769269f522419d6a2e32ff1f834107114a8/PRIVACY.md"
+const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/7a69444d5a04a314fbcd167cf492febddeb9645a/PRIVACY.md"
 
 
 ## The game's Google Play page, for the share text.
@@ -1506,9 +1506,10 @@ func _update_dash_lesson(real_delta: float) -> void:
 			_lesson_left = 1.8
 			Engine.time_scale = 0.12
 			hud.callout("DASH THROUGH IT!", Color(0.6, 0.9, 1.0))
-			# One message at a time: the room tip goes so the lesson isn't buried in text.
-			hud.tip("", 0.0)
-			hud.show_hint("Flick your thumb\nor tap DASH!")
+			# Version 217 (review 3 fix #9): the how-to line in the tip slot at the top. The
+			# bottom hint box (moved up in v216) sat on the hero mid-room, over the very dodge
+			# it teaches.
+			hud.tip("Flick your thumb or tap DASH!", 2.5)
 			return
 
 
@@ -3455,7 +3456,10 @@ func _win() -> void:
 			_add_shards(Events.BOSS_SHARDS)
 	var shards := _bank_shards(cfg)
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
-	_earn_drop(cfg)   # every boss beaten, the tutorial's too (saved just below)
+	# Version 217 (review 3 fix #2): in the Queen Hunt only the day's first win (the one with
+	# the Hunt casket) pays a Bone Drop; it paid one per 1-2 minute fight with no cap.
+	if event != "hunt" or bool(hunt.get("casket", false)):
+		_earn_drop(cfg)   # every boss beaten, the tutorial's too (saved just below)
 	_add_bones(BoneRoad.BOSS_BONES)
 	_add_mastery(HeroMastery.BOSS_POINTS)
 	var bones := _bank_bones(cfg)
@@ -4019,6 +4023,7 @@ func _end_surge() -> void:
 
 
 ## The Blood Moon Queen's Eclipse: the moon goes dark (the room's light dims) and comes back.
+const ECLIPSE_AMBIENT := 0.35
 var _eclipse_k := 0.0
 var _eclipse_tw: Tween
 
@@ -4026,13 +4031,15 @@ var _eclipse_tw: Tween
 func set_eclipse(on: bool) -> void:
 	if _eclipse_tw:
 		_eclipse_tw.kill()
-	var amb := _env.ambient_light_energy / maxf(1.0 - 0.55 * _eclipse_k, 0.01)
+	# Version 217 (review 3 fix #7): a lighter Eclipse (ambient -35%, moon -70%; it was -55%
+	# and -85% under a 0.35 black veil, and the room went nearly black in every Queen fight).
+	var amb := _env.ambient_light_energy / maxf(1.0 - ECLIPSE_AMBIENT * _eclipse_k, 0.01)
 	_eclipse_tw = create_tween()
 	_eclipse_tw.tween_method(func(k: float):
 		_eclipse_k = k
 		if _moon:
-			_moon.light_energy = _moon_energy * (1.0 - 0.85 * k)
-		_env.ambient_light_energy = amb * (1.0 - 0.55 * k)
+			_moon.light_energy = _moon_energy * (1.0 - 0.7 * k)
+		_env.ambient_light_energy = amb * (1.0 - ECLIPSE_AMBIENT * k)
 		hud.set_surge(k * 0.7, false, true), _eclipse_k, 1.0 if on else 0.0, 0.6)
 
 
@@ -4207,7 +4214,10 @@ func _boss_feats() -> void:
 		return
 	var cfg := _load_save()
 	var no_hit := int(_rep.hits) == _room_hits
-	if floor_num >= 3 and _run_time - float(_rep.room_start) < 30.0:
+	# Version 217 (review 3 fix #3): the floor Feats need a normal run. The Queen Hunt sets
+	# floor_num to its tier's floor, so one Hunt fight gave "Beat the boss of floor 5".
+	var normal := event == ""
+	if normal and floor_num >= 3 and _run_time - float(_rep.room_start) < 30.0:
 		_feat("bossbreaker", cfg)
 	var specials := int(_rep.special) - _room_special
 	Feats.note_best(cfg, "boss_special", specials)
@@ -4215,13 +4225,13 @@ func _boss_feats() -> void:
 		_feat("specialist", cfg)
 	if no_hit:
 		_feat("cleankill", cfg)
-	if floor_num != _continued_floor and int(_rep.hits) == _floor_hits:
+	if normal and floor_num != _continued_floor and int(_rep.hits) == _floor_hits:
 		_feat("flawless", cfg)
 	if hero.health <= hero.max_health * 0.15:
 		_feat("laststand", cfg)
-	if floor_num >= 3 and not daily:
+	if normal and floor_num >= 3 and not daily:
 		_feat("halfway", cfg)
-	if floor_num >= 5 and not daily:
+	if normal and floor_num >= 5 and not daily:
 		_feat("conqueror", cfg)
 	if daily and not _daily_practice and floor_num >= Curses.DAILY_FLOORS:
 		_feat("dailywin", cfg)
@@ -4468,7 +4478,9 @@ const REVIEW_GAP_DAYS := 21
 
 func _ask_review(was_first: bool) -> void:
 	var cfg := _load_save()
-	if was_first or not _review_due(cfg):
+	# Version 217 (review 3 fix #5): never at the end of the free floors, where the Crypt
+	# Pass offer is (a star rating asked at the paywall invites angry reviews).
+	if was_first or _free_end or not _review_due(cfg):
 		return
 	if Telemetry.configured() and not cfg.has_section_key("settings", "reports"):
 		return

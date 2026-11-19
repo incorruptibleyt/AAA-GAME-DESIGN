@@ -262,6 +262,9 @@ static func run(core := false) -> void:
 			e._bar._fill.scale = Vector3(0.5, 1, 1)
 	for i in heroes.size():
 		heroes[i].soft_flash = i == 1   # so a boss's softer flash is ready too
+		# Version 217 (review 3 fix #6): and the hero's red rim flash (v216), on the last one
+		# (the only one in the short warm-up), so the first hit in a run never stutters.
+		heroes[i].hero_flash = i == heroes.size() - 1 and i != 1
 		heroes[i].hit()
 	made += _new(Game.world, old_world).filter(func(c): return not made.has(c))
 	for i in 3:

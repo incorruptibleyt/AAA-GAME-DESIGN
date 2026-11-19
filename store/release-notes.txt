@@ -1,5 +1,5 @@
-Version 216: the Blood Moon is here
-- The Blood Moon event runs Nov 20 to Dec 3: hunt the Blood Queen, walk the shard road, win the Blood Moon set.
+Version 217: the Blood Moon is here
+- The Blood Moon event runs Nov 20 to Dec 3: hunt the Blood Moon Queen, walk the shard road, win the Blood Moon set.
 - Event days now stay fair even if the phone's clock is wrong.
 - Your progress can now be restored from your Google backup on a new phone.
 - Clearer shard numbers, a darker frost floor, a clearer hit flash, and many small fixes.

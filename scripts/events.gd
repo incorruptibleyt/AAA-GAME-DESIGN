@@ -226,16 +226,19 @@ static func add_shards(cfg: ConfigFile, n: int, e: Dictionary = BLOOD_MOON) -> v
 	if n > 0:
 		cfg.set_value(section(e), "shards", shards(cfg, e) + n)
 		# Past the road's end, a bonus Moon Casket for every BONUS_EVERY shards more.
+		# Version 217 (review 3 fix #2): at most one bonus casket a day. Any more wait for a
+		# later day (the event paid more coins than the whole Armory and Vault).
 		var due := bonus_earned(cfg, e) - int(cfg.get_value(section(e), "bonus_given", 0))
-		if due > 0:
-			add_caskets(cfg, due, e)
-			cfg.set_value(section(e), "bonus_given", bonus_earned(cfg, e))
+		if due > 0 and Curses.today() > str(cfg.get_value(section(e), "bonus_day", "")):
+			add_caskets(cfg, 1, e)
+			cfg.set_value(section(e), "bonus_given", int(cfg.get_value(section(e), "bonus_given", 0)) + 1)
+			cfg.set_value(section(e), "bonus_day", Curses.today())
 
 
 ## Version 135: the road ends at 2,400 shards, which a keen player reaches in the first
-## week. After it, every 150 shards more is a bonus Moon Casket (given as they come), so
-## the second week still pays.
-const BONUS_EVERY := 150
+## week. After it, every BONUS_EVERY shards more is a bonus Moon Casket, so the second week
+## still pays. Version 217: 400 (was 150), at most one a day (add_shards).
+const BONUS_EVERY := 400
 
 
 static func road_end() -> int:
@@ -501,6 +504,8 @@ static func record_hunt(cfg: ConfigFile, t: int, e: Dictionary = BLOOD_MOON) -> 
 	cfg.set_value(section(e), "hunts", int(cfg.get_value(section(e), "hunts", 0)) + 1)
 	var n := int(TIERS[t - 1].shards)
 	var casket := false
+	if not first:
+		n = roundi(n / 3.0)   # version 217: a repeat win on a tier the same day pays a third
 	if first:
 		n = roundi(n * 1.5)
 		# Version 216 (review 2 fix #1): one Hunt casket a day on any tier (it was one per tier

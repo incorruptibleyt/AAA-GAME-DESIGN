@@ -4718,7 +4718,26 @@ func mastery_trained(cfg: ConfigFile, id: String, before: int, coins: int, level
 ## The Feats screen (feats_screen.gd), over the Style screen.
 ## The big reveal for Feats won this run (drop_screen.gd reveal_feats).
 func reveal_feats(list: Array) -> void:
+	# Version 217 (review 3 fix #4): the big reveal shows these Feats, so their toasts go,
+	# and a toast already on screen is put away (it stayed on top of the reveal).
+	var names := []
+	for it: Dictionary in list:
+		names.append(str(it.get("name", "")))
+	var keep := []
+	for q: Array in _toast_queue:
+		if not str(q[0]) in names:
+			keep.append(q)
+	if _toast != null and _toast.visible:
+		if _toast_tween:
+			_toast_tween.kill()
+		_toast.visible = false
+		if not _toast_name.text in names:
+			keep.push_front([_toast_name.text, _toast_look.text.trim_prefix("New look: ")])
+		_toast_busy = false
+	_toast_queue = keep
 	_drops.reveal_feats(list)
+	if not _toast_busy and not _toast_queue.is_empty():
+		_next_toast()
 
 
 ## The Bone Bazaar's preview of a look (drop_screen.gd show_offer), and after buying it.
@@ -4784,7 +4803,9 @@ func _next_toast() -> void:
 		await get_tree().create_timer(0.3, false).timeout
 	# Version 216 (review fix #12): never over the big Feat or Bone Drop reveal, which shows
 	# the same Feat already.
-	while _drops.visible:
+	# Version 217 (review 3 fix #4): nor over an end screen (the Crypt Pass pitch, or the
+	# Feat reveal coming next) or the Pass screen; a toast still waiting plays on the title.
+	while _drops.visible or (_end_box != null and _end_box.visible) or (_pass_box != null and _pass_box.visible):
 		await get_tree().create_timer(0.3, false).timeout
 	if _toast_queue.is_empty():
 		_toast_busy = false
@@ -5215,7 +5236,7 @@ func set_shards(n: int) -> void:
 ## `eclipse` the Queen's Eclipse darkening the screen instead.
 func set_surge(k: float, warn: bool, eclipse := false) -> void:
 	if eclipse:
-		_eclipse_dim.color.a = 0.5 * k
+		_eclipse_dim.color.a = 0.3 * k   # v217: was 0.5 (with k up to 0.7)
 		return
 	_surge_warn = warn
 	_surge_edge.set_meta("k", k)

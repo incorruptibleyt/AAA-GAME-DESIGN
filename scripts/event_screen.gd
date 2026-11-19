@@ -132,7 +132,7 @@ func _build_main() -> void:
 	col.add_child(_road_sub)
 	# The Blood Moon run (version 212, critic fix #6: above the set card, so PLAY shows
 	# without scrolling; it was hidden behind BACK on the first view).
-	var run := _card(col, "BLOOD MOON RUN", "Three floors of the Blood Moon Crypt. Moon Surges make every skeleton faster and worth a shard. Bloodbats, Moon Howlers, and the Queen at the end.")
+	var run := _card(col, "BLOOD MOON RUN", "Three floors of the Blood Moon Crypt. Moon Surges make every skeleton faster and worth a shard. Bloodbats, Moon Howlers, and the Queen at the end. Your first win each day holds a Moon Casket.")
 	_run_sub = Hud.label("", 16, GOLD)
 	run.add_child(_run_sub)
 	_run_btn = Hud.button("PLAY THE BLOOD MOON", 24, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
@@ -143,7 +143,7 @@ func _build_main() -> void:
 	run.add_child(_run_btn)
 	_build_set_card(col)
 	# The Queen Hunt.
-	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Every tier pays again each day. Your first Hunt win each day holds a Moon Casket.")
+	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Each tier pays in full once a day. Your first Hunt win each day holds a Moon Casket.")
 	_tiers = VBoxContainer.new()
 	_tiers.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tiers.add_theme_constant_override("separation", 6)
@@ -399,7 +399,7 @@ func refresh(cfg: ConfigFile) -> void:
 	for t in Events.TIERS.size():
 		_tiers.add_child(_tier_row(cfg, e, t, open_n, live))
 	var n := Events.caskets(cfg, e)
-	_caskets.text = ("OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n) if n > 0 else "MOON CASKETS: win in Hunts"
+	_caskets.text = ("OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n) if n > 0 else "MOON CASKETS: none yet"
 	_caskets.disabled = n <= 0
 	# Chapters.
 	for c in _chapters.get_children():
@@ -476,7 +476,7 @@ func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) 
 	texts.add_child(Hud.label(line, 14, TEXT if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	var note := ""
 	if open:
-		note = ("Won today  ·  pays %d shards again" % shards) if won else ("First win today: +50%" + (" and a Moon Casket" if Events.casket_ready(cfg, "hunt", e) else " shards"))
+		note = ("Won today  ·  pays %d shards again" % roundi(shards / 3.0)) if won else ("First win today: +50% shards" + (" and a Moon Casket" if Events.casket_ready(cfg, "hunt", e) else ""))
 	elif not live:
 		note = "Opens with the event"
 	else:
@@ -533,9 +533,9 @@ func _fill_road(cfg: ConfigFile) -> void:
 	if ready > 0:
 		_road_note.text = "%d prize%s ready to claim!" % [ready, "" if ready == 1 else "s"]
 	elif ni < Events.ROAD.size():
-		_road_note.text = "Shards come from event runs and the Queen Hunt.\nAfter the road, a bonus Moon Casket every %d shards." % Events.BONUS_EVERY
+		_road_note.text = "Shards come from event runs and the Queen Hunt.\nAfter the road, a bonus Moon Casket every %d shards (one a day)." % Events.BONUS_EVERY
 	else:
-		_road_note.text = "The whole event road walked!\nBonus Moon Casket every %d shards: next in %d." % [Events.BONUS_EVERY, Events.to_next_bonus(cfg)]
+		_road_note.text = "The whole event road walked!\nBonus Moon Casket every %d shards (one a day): next in %d." % [Events.BONUS_EVERY, Events.to_next_bonus(cfg)]
 	var focus: Control = null
 	for i in Events.ROAD.size():
 		var row := _road_row(cfg, i, s)

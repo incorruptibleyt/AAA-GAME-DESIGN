@@ -15,7 +15,7 @@ Dash through danger. Chain your kills. Break the crypt.
 Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb to fire, and fight down through a crypt full of skeletons one room at a time. Every run is different, and every floor is harder than the last.
 
 ★ WHY YOU'LL KEEP PLAYING
-• Quick runs of a few minutes that fit any break
+• 5-minute floors and a 1-minute Queen Hunt that fit any break
 • A new build every run from dozens of blessings
 • Perfect dodges that slow time and fire back for you
 • Progress you never lose: gold, upgrades, Mastery and 60+ looks
@@ -69,7 +69,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 • Share how deep you went.
 
 ★ BLOOD MOON EVENT (NOV 20 - DEC 3)
-• A 14-day event with its own red crypt and the Blood Queen to hunt on five tiers.
+• A 14-day event with its own red crypt and the Blood Moon Queen to hunt on five tiers.
 • Collect Moon Shards to walk the Blood Moon road and win the Blood Moon set and Moon Crown.
 • Double shards on the weekend of Nov 28-29.
 
@@ -106,7 +106,7 @@ How deep can you go?
 
 ## Privacy policy link
 
-https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/664cf769269f522419d6a2e32ff1f834107114a8/PRIVACY.md
+https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/7a69444d5a04a314fbcd167cf492febddeb9645a/PRIVACY.md
 
 This link is pinned to one saved version of the policy, so it keeps working even after this branch is merged or deleted. When the policy changes, this link is updated too.
 
