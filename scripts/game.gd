@@ -338,7 +338,7 @@ const MEET_LINES := {
 	"SkeletonArcher": "ARCHER: shoots arrows. Dash through them!",
 	"BoneSpitter": "BONE SPITTER: spits shards. Hide behind pillars!",
 	"SkeletonMage": "SKELETON MAGE: blows up circles. Keep moving!",
-	"BoneSpider": "BONE SPIDER: pounces along a glowing strip. Step aside!",
+	"BoneSpider": "BONE SPIDER: pounces when its strip FILLS IN. Step aside!",
 	"SkeletonBomber": "BOMBER: runs in and explodes. Kill it first!",
 	"FrostWraith": "FROST WRAITH: fires an ice beam. Step off its line!",
 	"CinderSkeleton": "CINDER SKELETON: leaves fire. Don't stand in it!",
@@ -379,7 +379,7 @@ func death_tip() -> String:
 			most = float(_rep.damage[k])
 			top = str(k)
 	var name := top.replace("Elite ", "")
-	var tip := "Keep moving, and dash when glowing marks appear."
+	var tip := "Keep moving. A mark on the floor hits when it FILLS IN: dash out."
 	if name == "Other" or name == "":
 		return tip
 	if "Archer" in name or "Lich" in name or "Shade" in name:
@@ -391,11 +391,11 @@ func death_tip() -> String:
 	elif "Bomber" in name:
 		tip = "Kill bombers first, or dash away when they stop."
 	elif "Spider" in name or "Howler" in name or "bat" in name:
-		tip = "Watch for the glowing strip and step off it."
+		tip = "Step off a strip before it FILLS IN."
 	elif "Spike" in name or "fire" in name or "Spore" in name:
 		tip = "Watch the floor: don't stand in traps or flames."
 	elif "King" in name or "Warrior" in name or "Minion" in name or "Skeleton" in name:
-		tip = "Glowing circle or strip? Step or dash out of it."
+		tip = "A circle or strip hits when it FILLS IN. Step or dash out."
 	return "%s hurt you most.\n%s" % [name, tip]
 
 
@@ -2904,10 +2904,10 @@ func on_swipe_warning() -> void:
 		if _swipe_tips < 2:
 			_swipe_tips = 2
 			# version 212 (critic fix #4): a Warrior's red strip often shows at the same time
-			hud.tip("Glowing circle or strip? DASH out!", 3.0)
+			hud.tip("Mark filling in? DASH out!", 3.0)
 	elif _swipe_tips < 1:
 		_swipe_tips = 1
-		hud.tip("Glowing circle or strip? Step out!", 3.0)
+		hud.tip("Mark filling in? Step out!", 3.0)
 
 
 ## The one new thing each first-run room teaches.

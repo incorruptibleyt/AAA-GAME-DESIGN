@@ -5105,7 +5105,7 @@ func _update_tally(delta: float) -> void:
 func share_done(opened: bool) -> void:
 	_share_button.disabled = false
 	_share_button.text = "Shared! The words are copied too" if opened else "Copied! Paste it anywhere"
-	_share_button.add_theme_font_size_override("font_size", 15 if opened else 16)
+	_share_button.add_theme_font_size_override("font_size", 16)
 
 
 func show_share(v: bool, rows := [], caption := "") -> void:
