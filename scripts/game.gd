@@ -96,7 +96,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-18j"
+const BUILD := "2026-11-19a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1029,6 +1029,9 @@ func _notification(what: int) -> void:
 				_pause_wanted = true
 			State.PAUSED:
 				_resume()
+			State.UPGRADE:
+				# Version 211 (Tweaks report #4): Back on the blessing cards or the doors did nothing.
+				hud.tip("Pick a card to go on", 1.5)
 			State.DEAD, State.VICTORY:
 				_end_to_title()
 			State.TITLE:
@@ -1753,6 +1756,7 @@ func _start_run() -> void:
 	first_run = (first_run_pending() or _tutorial_requested) and not race
 	_tutorial_requested = false
 	_after_tutorial = false
+	_gift_names = []
 	var stage_now := unlock_stage()
 	if stage_now < 99 and stage_now > int(_load_save().get_value("taught", "stage_seen", 1)):
 		var scfg := _load_save()
@@ -2145,6 +2149,7 @@ func _apply_armory() -> void:
 
 func _restart() -> void:
 	_after_tutorial = false
+	_gift_names = []
 	_set_state(State.TRANSITION)
 	# Version 164: a tutorial retry starts in the room the player fell in, with the same rooms
 	# and the blessings they had, instead of from room 1 again.
@@ -2396,7 +2401,7 @@ func _descend() -> void:
 			rerolls += 1
 	_build_run()
 	_load_room(0, true)
-	_tutorial_gifts()
+	_show_gifts()
 	var loop := Loops.loop_of(floor_num)
 	hud.banner(("Loop %d · " % loop if loop > 1 else "") + "Floor %d: %s" % [floor_num, Floors.current().name], Floors.current().banner)
 	if new_loop and not omens.is_empty():
@@ -2407,9 +2412,13 @@ func _descend() -> void:
 ## Version 169: the 3-room tutorial gives 2 blessings where the old 5 rooms gave 5. Going
 ## on to floor 2 straight after it adds the 3 missing ones, so floor 2 isn't harder than before.
 const TUTORIAL_GIFTS := 3
+## The gifts' names, for floor 2's banner (saved with the run, so CONTINUE shows it too).
+var _gift_names: Array = []
 
+## Given on the tutorial's win screen (version 211; it was on the way down to floor 2, so a
+## player who went to the title first never got them).
 func _tutorial_gifts() -> void:
-	if not _after_tutorial or floor_num != 2 or hero == null:
+	if not _after_tutorial or hero == null:
 		return
 	var names: Array[String] = []
 	for i in TUTORIAL_GIFTS:
@@ -2423,10 +2432,19 @@ func _tutorial_gifts() -> void:
 		Upgrades.apply(u.id, hero)
 		names.append(str(u.title))
 	hero.heal(hero.max_health)   # and a full heal: the old tutorial's 5 rooms dropped more hearts
+	_gift_names = names.duplicate()
 	if not names.is_empty():
-		var line := "Gifts for the road: " + ", ".join(names)
-		print("[run] " + line)
-		get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner(line, Color(1.0, 0.82, 0.3)))
+		print("[run] Gifts for the road: " + ", ".join(names))
+
+
+## The gifts' banner as floor 2 starts (straight down, or by CONTINUE).
+func _show_gifts() -> void:
+	if floor_num != 2 or _gift_names.is_empty():
+		_gift_names = []
+		return
+	var line := "Gifts for the road: " + ", ".join(_gift_names)
+	_gift_names = []
+	get_tree().create_timer(1.6, false).timeout.connect(func(): hud.banner(line, Color(1.0, 0.82, 0.3)))
 
 
 ## The coins BANK AND LEAVE pays on top of the run's own.
@@ -2560,8 +2578,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if not _in_boss_room() and not (race and index == 0):   # (a race's first room has its 3-2-1)
 		hud.banner("Room %d" % (index + 1))
 	# A new run (not the tutorial): the hero says something as they step in (version 129).
-	if index == 0 and _run_time < 1.0 and not first_run:
-		_hello_soon()
+	# (Version 211, Tweaks report #3: no "hello" line in room 1 any more. Its speech card sat
+	# right over the first wave; the hero still speaks on the title.)
 	if Doors.room_tip(_door) != "":
 		hud.tip(Doors.room_tip(_door), 3.5, 1.4)
 	if first_run:
@@ -2713,7 +2731,9 @@ func _checkpoint(next_floor := false, loop_end := false) -> void:
 			"dash": int(_rep.dash), "healed": float(_rep.healed)},
 		"rooms": [] if next_floor or loop_end else _run.duplicate(true),   # this floor's rooms, to come back to
 		"door": _door.duplicate() if not (next_floor or loop_end) or _door.get("kind", "") == "path" else {},
-		"event": event, "event_id": str(Events.current().get("id", "")) if event != "" else ""})
+		"event": event, "event_id": str(Events.current().get("id", "")) if event != "" else "",
+		# version 211: the softer floor 2 after the tutorial, and its gifts' banner, survive CONTINUE
+		"after_tutorial": _after_tutorial, "gifts": _gift_names.duplicate()})
 
 
 ## "Floor 3 · Room 2" for the CONTINUE button, or "" when there's no saved run.
@@ -2828,6 +2848,8 @@ func _continue_run() -> void:
 		_rep.dash = int(fc.get("dash", 0))
 		_rep.healed = float(fc.get("healed", 0.0))
 	_continued_floor = floor_num
+	_after_tutorial = bool(s.get("after_tutorial", false))
+	_gift_names = (s.get("gifts", []) as Array).duplicate()
 	# The same rooms as before the game was closed. Building new ones would change the rest
 	# of the floor (and of a Daily Crypt) and use up five more rooms each time.
 	var rooms: Array = s.get("rooms", [])
@@ -2839,6 +2861,7 @@ func _continue_run() -> void:
 		_resume_loop_end()
 	else:
 		_go_to_room(int(s.room))
+		_show_gifts()
 		hud.tip(("Blood Moon run continued: floor %d" if event != "" else "Run continued: floor %d") % floor_num, 3.0, 1.2)
 	print("[run] continued floor %d room %d hp %d/%d score %d omens %s door %s" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score, Loops.names(omens), Doors.describe(_door).get("title", "none")])
 
@@ -3339,19 +3362,6 @@ func _clear_enemy_attacks() -> void:
 			(n as Telegraph).cancel()
 
 
-## The run-start line, once the room is under way (the floor's banner can hold the start
-## back a moment), and only while still in that first room.
-func _hello_soon() -> void:
-	var floor_at := floor_num
-	for i in 14:
-		await get_tree().create_timer(0.3, false).timeout
-		if floor_num != floor_at or _room_index != 0:
-			return
-		if state == State.PLAYING and _state_time > 0.6:
-			hud.hero_says("hello")
-			return
-
-
 ## After the slow-motion finish on a boss: the camera moves in on the hero, who celebrates in
 ## their own way (their emote, a burst in their colour) and says one of their "win" lines
 ## (version 129; from version 122 to 128 everyone did the same cheer, mostly hidden by the
@@ -3450,6 +3460,9 @@ func _win() -> void:
 	if was_first:
 		Telemetry.step("won")
 		_after_tutorial = true
+		# Version 211 (Tweaks report #1): the gifts are given here, before _checkpoint(true)
+		# saves the run, so a player who goes to the title and presses CONTINUE keeps them too.
+		_tutorial_gifts()
 	_finish_first_run()
 	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
 	Music.play("dungeon")

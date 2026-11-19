@@ -63,3 +63,10 @@ func _blow_up() -> void:
 	drop_chance = 0.0
 	_exploded = true
 	take_damage(Actor.KILL, Vector3.ZERO, 0.0)
+
+
+## Version 211 (Tweaks report #2): a rescue cancels the blast circle and its callback, so a
+## lit bomber would stand still for good. It walks again and can light up anew.
+func _cancel_attacks() -> void:
+	super._cancel_attacks()
+	_lit = false

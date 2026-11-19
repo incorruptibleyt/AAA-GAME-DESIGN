@@ -69,3 +69,12 @@ func _others_aiming() -> int:
 		if a != self and a is SkeletonArcher and not a.dead and (a as SkeletonArcher)._aiming:
 			n += 1
 	return n
+
+
+## Version 211 (Tweaks report #2): a rescue (out of a wall, out of cover, unstuck) cancels
+## the aim line, and with it the callback that fires the arrow and ends the aim. Without
+## this the archer stood aiming for the rest of the room and never shot again.
+func _cancel_attacks() -> void:
+	super._cancel_attacks()
+	_aiming = false
+	_shot_timer = randf_range(1.0, 1.6)

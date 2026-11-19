@@ -1011,8 +1011,10 @@ func _build_hud() -> void:
 	_hint.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_hint.offset_left = -210
 	_hint.offset_right = 210
-	_hint.offset_top = -128
-	_hint.offset_bottom = -88
+	# (Version 211, Tweaks report #3: 48 px lower. At -128 it covered the hero where each
+	# run starts, and the special button's name.)
+	_hint.offset_top = -80
+	_hint.offset_bottom = -40
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN   # two lines grow up, never off the bottom
 	_hint.label_settings.outline_size = 7
 	_hint.add_theme_stylebox_override("normal", _text_panel())
