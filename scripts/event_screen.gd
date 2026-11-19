@@ -111,11 +111,6 @@ func _build_main() -> void:
 	col.add_child(_double)
 	_story = Hud.label("", 16, Color(0.85, 0.76, 0.8))
 	col.add_child(_story)
-	# Version 213 (hardest review fix #20): the whole event in one plain line, before the
-	# shards, caskets and tiers.
-	var how := Hud.label("Play event runs and hunt the Queen to earn Moon Shards.\nShards walk the road below; its prizes end in the Blood Moon set.", 16, TEXT)
-	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(how)
 	# Shards and the event road.
 	var shards_row := HBoxContainer.new()
 	shards_row.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -367,7 +362,8 @@ func refresh(cfg: ConfigFile) -> void:
 	else:
 		_clock.text = "Begins in %s" % Events.time_text(Events.seconds_left(e))
 	_double.visible = live and Events.double_today(e)
-	_story.text = str(e.story)
+	# Version 214 (hardest review fix #20): the whole event in one plain line after the story.
+	_story.text = str(e.story) + "\n\nEarn Moon Shards in event runs and the Queen Hunt. Shards move you along the road below, which ends in the Blood Moon set."
 	var s := Events.shards(cfg, e)
 	_shard_count.text = "%s Moon Shards" % Hud.thousands(s)
 	var ni := Events.next_index(cfg, e)
@@ -403,7 +399,7 @@ func refresh(cfg: ConfigFile) -> void:
 	for t in Events.TIERS.size():
 		_tiers.add_child(_tier_row(cfg, e, t, open_n, live))
 	var n := Events.caskets(cfg, e)
-	_caskets.text = ("OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n) if n > 0 else "MOON CASKETS: win one in the Hunt or on the road"
+	_caskets.text = ("OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n) if n > 0 else "MOON CASKETS: win in Hunts"
 	_caskets.disabled = n <= 0
 	# Chapters.
 	for c in _chapters.get_children():
