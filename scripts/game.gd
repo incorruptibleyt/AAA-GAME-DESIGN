@@ -1322,7 +1322,7 @@ func keyboard_move() -> Vector2:
 const VIEW_HALF_WIDTH := 4.4
 ## The hero sits this far above the middle of the screen, away from the thumb.
 const HERO_ABOVE_CENTRE := 0.9
-const NEAR_EXTRA := 1.5
+const NEAR_EXTRA := 2.3   # v219 (review 4 fix 20): was 1.5; feet by the near wall stay clear
 ## The title screen's lobby camera looks down at this angle (the fight camera is steeper),
 ## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
 const LOBBY_PITCH := 24.0
@@ -1359,6 +1359,19 @@ func _focus_goal() -> Vector3:
 	var goal := _room_focus()
 	if _zoom_hold > 0.0:
 		goal = goal.lerp(Vector3(_zoom_point.x * 0.6, 0, _zoom_point.z), 0.7)
+		goal = _keep_hero(goal, 1.0 - 0.32 * maxf(_zoom, shake_scale))
+	return goal
+
+
+## Version 219 (review 4 fix 20): moves the camera's aim `goal` sideways just enough that the
+## hero stays 12% of the screen inside each edge. The width seen at the hero's own screen row
+## counts (rows nearer the camera see less), and `near` is the close-up's distance factor.
+func _keep_hero(goal: Vector3, near := 1.0) -> Vector3:
+	var p := deg_to_rad(CAMERA_PITCH)
+	var d := _cam_distance() * near
+	var depth := d + (goal.z - hero.global_position.z) * cos(p)
+	var room := maxf(0.0, VIEW_HALF_WIDTH * near * depth / d * 0.76)
+	goal.x = clampf(goal.x, hero.global_position.x - room, hero.global_position.x + room)
 	return goal
 
 
@@ -1375,7 +1388,10 @@ func _room_focus() -> Vector3:
 	var lo := -Room.HALF_L - 2.5 - top
 	var z := (lo + hi) * 0.5 if lo > hi else clampf(hero.global_position.z + HERO_ABOVE_CENTRE, lo, hi)
 	var x_room := maxf(0.0, Room.HALF_W + 0.6 - VIEW_HALF_WIDTH)
-	return Vector3(clampf(hero.global_position.x, -x_room, x_room), 0, z)
+	# Version 219 (review 4 fix 20): the wall clamp used the width seen at the middle of the
+	# screen, but rows nearer the camera see less, so a hero in a near corner sat half off the
+	# edge. Keeping the hero in view now wins over hiding the wall.
+	return _keep_hero(Vector3(clampf(hero.global_position.x, -x_room, x_room), 0, z))
 
 
 func _place_camera() -> void:
