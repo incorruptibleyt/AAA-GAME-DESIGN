@@ -1876,6 +1876,7 @@ func set_drops(n: int) -> void:
 func open_drops(n: int, opener: Callable) -> void:
 	_drops.opener = opener
 	_drops.open_screen(n)
+	_park_toast()   # v218
 
 
 ## The Bone Road screen (road_screen.gd), filled from `cfg`.
@@ -2713,6 +2714,8 @@ func _pass_tile(pic: String, title: String) -> Control:
 ## `price` is Google Play's price text ("" until it arrives), `status` a line under the button.
 func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_box.visible = v
+	if v:
+		_park_toast()   # v218
 	if not v:
 		if Store.instance:
 			Store.instance.cancel_wait()
@@ -4590,6 +4593,7 @@ func show_hint(text: String) -> void:
 func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try again", buttons := false, score := -1, best := 0, offer := false) -> void:
 	if v:
 		_callout_queue.clear()   # v216: old words never show over the next screen
+		_park_toast()   # v218: a toast that started just before never stays on top
 	# The run's top bar would show through the end screen: hide it while it's up.
 	if v and not _end_box.visible:
 		_hud_before_end = _safe.visible
@@ -4727,14 +4731,8 @@ func reveal_feats(list: Array) -> void:
 	for q: Array in _toast_queue:
 		if not str(q[0]) in names:
 			keep.append(q)
-	if _toast != null and _toast.visible:
-		if _toast_tween:
-			_toast_tween.kill()
-		_toast.visible = false
-		if not _toast_name.text in names:
-			keep.push_front([_toast_name.text, _toast_look.text.trim_prefix("New look: ")])
-		_toast_busy = false
 	_toast_queue = keep
+	_park_toast(names)
 	_drops.reveal_feats(list)
 	if not _toast_busy and not _toast_queue.is_empty():
 		_next_toast()
@@ -4792,20 +4790,46 @@ func feat_toast(feat_name: String, look: String) -> void:
 		_next_toast()
 
 
+## Version 218: a Feat toast never covers the action or a screen that asks for a choice:
+## a fight with enemies left, a card pick, a room change, the win celebration, a victory,
+## an end or Pass screen, the Bone Drop / Feat reveal or the event splash. It waits.
+func _toast_held() -> bool:
+	if Game.state in [Game.State.PLAYING, Game.State.PAUSED] \
+			and (Game.alive_enemies > 0 or Game._cleared_serial != Game._room_serial):
+		return true   # the whole fight, waves and all, until the room is cleared
+	if Game.state in [Game.State.VICTORY, Game.State.UPGRADE, Game.State.TRANSITION] or Game._celebrating:
+		return true
+	return _drops.visible or (_end_box != null and _end_box.visible) \
+		or (_pass_box != null and _pass_box.visible) or (_splash != null and _splash.visible)
+
+
+## Version 218: puts away a toast already on screen (it started a moment before a screen
+## opened) and keeps its Feat at the front of the queue for later, unless it is in `skip`.
+func _park_toast(skip := []) -> void:
+	if _toast == null or not _toast.visible:
+		return
+	if _toast_tween:
+		_toast_tween.kill()
+	_toast.visible = false
+	if not _toast_name.text in skip:
+		_toast_queue.push_front([_toast_name.text, _toast_look.text.trim_prefix("New look: ")])
+	_toast_busy = false
+	_resume_toasts.call_deferred()   # after the screen is up, so it waits for it
+
+
+func _resume_toasts() -> void:
+	if not _toast_busy and not _toast_queue.is_empty():
+		_next_toast()
+
+
 func _next_toast() -> void:
 	if _toast_queue.is_empty():
 		_toast_busy = false
 		return
 	_toast_busy = true
-	# Version 121: in a fight the toast waits for the room to be cleared (the Feat is only
-	# saved then anyway), so it never covers the boss or the hero mid-dodge.
-	while Game.state in [Game.State.PLAYING, Game.State.PAUSED] and Game.alive_enemies > 0:
-		await get_tree().create_timer(0.3, false).timeout
-	# Version 216 (review fix #12): never over the big Feat or Bone Drop reveal, which shows
-	# the same Feat already.
-	# Version 217 (review 3 fix #4): nor over an end screen (the Crypt Pass pitch, or the
-	# Feat reveal coming next) or the Pass screen; a toast still waiting plays on the title.
-	while _drops.visible or (_end_box != null and _end_box.visible) or (_pass_box != null and _pass_box.visible):
+	# Version 218: one rule, checked again after every wait (the old two loops ran one after
+	# the other, so a toast held by the end screen could drop into the next fight).
+	while _toast_held():
 		await get_tree().create_timer(0.3, false).timeout
 	if _toast_queue.is_empty():
 		_toast_busy = false
