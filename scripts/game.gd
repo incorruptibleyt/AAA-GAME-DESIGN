@@ -3965,7 +3965,9 @@ func _open_event() -> void:
 ## Claims event road step `i` (events.gd), like the Bone Road's.
 func _claim_event_road(i: int) -> void:
 	var cfg := _load_save()
-	var s := Events.claim(cfg, i)
+	# v219 (review 4 fix 26): the road's Crypt Pass row (EventScreen.PASS_INDEX + step)
+	var on_pass := i >= EventScreen.PASS_INDEX
+	var s := Events.claim_pass(cfg, i - EventScreen.PASS_INDEX) if on_pass else Events.claim(cfg, i)
 	if s.is_empty():
 		return
 	if s.kind == "coins":
@@ -3978,7 +3980,7 @@ func _claim_event_road(i: int) -> void:
 	Sfx.play("upgrade")
 	if s.kind == "look":
 		Sfx.play("sting", 0.9)
-		hud.callout("BLOOD MOON SET: %s!" % Events.step_text(s), Color(1.0, 0.45, 0.35))
+		hud.callout(("SILVER MOON SET: %s!" if on_pass else "BLOOD MOON SET: %s!") % Events.step_text(s), Color(0.8, 0.88, 1.0) if on_pass else Color(1.0, 0.45, 0.35))
 		hud.refresh_looks_badge()   # (Version 192: the new look shows on the Style button)
 	else:
 		Sfx.play("coin", 0.6, 1.2)

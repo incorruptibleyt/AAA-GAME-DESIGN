@@ -269,7 +269,8 @@ func _show_preview() -> void:
 				return
 			if x.has("event"):
 				_note.text = ("Trying on: %s  ·  Blood Moon: beat the Queen Hunt's ECLIPSE tier" if x.get("hunt", false)
-						else "Trying on: %s  ·  Blood Moon set: win it on the event road") % HeroStyle.item_label(_id, slot, key)
+						else ("Trying on: %s  ·  Silver Moon set: the event road's Crypt Pass row" if x.get("passroad", false)
+						else "Trying on: %s  ·  Blood Moon set: win it on the event road")) % HeroStyle.item_label(_id, slot, key)
 				_note.label_settings.font_color = Color(1.0, 0.45, 0.4)
 				return
 			if x.has("race"):
@@ -423,7 +424,10 @@ func _card(it: Dictionary) -> Button:
 		v.add_child(Hud.label("CRYPT PASS", 14, Hud.GOLD))
 	var special: bool = HeroStyle.is_special(it)
 	if it.has("event"):
-		v.add_child(Hud.label("BLOOD MOON", 14, Color(1.0, 0.42, 0.38)))
+		if HeroStyle.extra(it.slot, it.key).get("passroad", false):
+			v.add_child(Hud.label("PASS · EVENT", 14, Color(0.8, 0.88, 1.0)))
+		else:
+			v.add_child(Hud.label("BLOOD MOON", 14, Color(1.0, 0.42, 0.38)))
 	elif it.has("feat"):
 		v.add_child(Hud.label("FEAT", 14, Color(0.5, 0.95, 1.0)))
 	elif it.has("drop"):

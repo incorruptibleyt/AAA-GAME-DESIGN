@@ -404,6 +404,7 @@ func _ready() -> void:
 	_event.run_pressed.connect(func(): event_run.emit())
 	_event.hunt_pressed.connect(func(t: int): event_hunt.emit(t))
 	_event.claim.connect(func(i: int): event_claim.emit(i))
+	_event.pass_pressed.connect(func(): pass_pressed.emit())
 	_event.caskets_pressed.connect(func(): event_caskets.emit())
 	_event.closed.connect(func(): event_closed.emit())
 	_splash = EventArt.Splash.new()

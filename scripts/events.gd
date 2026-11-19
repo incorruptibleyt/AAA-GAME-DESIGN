@@ -104,6 +104,41 @@ const ROAD := [
 	{"at": 2400, "kind": "look", "look": ["aura", "blood_moon"]},
 ]
 
+## Version 219 (review 4 fix 26): the road's Crypt Pass row. Looks only (no coins, caskets
+## or drops, so the event's economy is the same with or without it): the Silver Moon set,
+## claimed with the Crypt Pass once the shards reach each step. A Pass bought late still
+## claims every step already reached.
+const PASS_ROAD := [
+	{"at": 525, "kind": "look", "look": ["outfit", "silver_moon"]},
+	{"at": 1725, "kind": "look", "look": ["glow", "silver_moon"]},
+	{"at": 2400, "kind": "look", "look": ["aura", "silver_moon"]},
+]
+
+
+static func pass_claimed(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> bool:
+	return bool(cfg.get_value(section(e), "pass_%d" % i, false)) or has_look(cfg, PASS_ROAD[i].look[0], PASS_ROAD[i].look[1])
+
+
+## Pass row steps reached and not claimed (none without the Crypt Pass).
+static func pass_ready(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+	if not Store.owned():
+		return 0
+	var n := 0
+	for i in PASS_ROAD.size():
+		if shards(cfg, e) >= int(PASS_ROAD[i].at) and not pass_claimed(cfg, i, e):
+			n += 1
+	return n
+
+
+static func claim_pass(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> Dictionary:
+	if i < 0 or i >= PASS_ROAD.size() or not Store.owned() or pass_claimed(cfg, i, e) or shards(cfg, e) < int(PASS_ROAD[i].at):
+		return {}
+	var s: Dictionary = PASS_ROAD[i]
+	cfg.set_value(section(e), "pass_%d" % i, true)
+	give_look(cfg, s.look[0], s.look[1])
+	return s
+
+
 ## Moon Caskets: weight out of 100, by rarity (drop_screen.gd shows them in the colours of
 ## the blessing cards, and Mythic in the event's own crimson).
 const CASKETS := [
@@ -289,7 +324,7 @@ static func ready_count(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
 	for i in ROAD.size():
 		if s >= int(ROAD[i].at) and not claimed(cfg, i, e):
 			n += 1
-	return n
+	return n + pass_ready(cfg, e)
 
 
 ## The first step not reached yet (ROAD.size() when the road is done).
@@ -375,6 +410,9 @@ static func settle(cfg: ConfigFile) -> Dictionary:
 				prizes += 1
 				if st.kind == "coins":
 					coins += int(st.n)
+		for i in PASS_ROAD.size():
+			if not claim_pass(cfg, i, e).is_empty():
+				prizes += 1
 		var n := caskets(cfg, e)
 		cfg.set_value(section(e), "caskets", 0)
 		coins += n * 20   # v218: was 50, with the casket coins halved

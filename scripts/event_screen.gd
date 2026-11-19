@@ -9,6 +9,7 @@ signal run_pressed
 signal hunt_pressed(tier: int)
 signal claim(index: int)
 signal caskets_pressed
+signal pass_pressed   # v219: the Crypt Pass card, from the run card or the road's Pass row
 signal closed
 
 const CRIMSON := Color(1.0, 0.3, 0.26)
@@ -30,6 +31,7 @@ var _road_bar: EventArt.RoadBar
 var _road_sub: Label
 var _run_btn: Button
 var _run_sub: Label
+var _pass_btn: Button
 var _tiers: VBoxContainer
 var _caskets: Button
 var _chapters: VBoxContainer
@@ -141,6 +143,15 @@ func _build_main() -> void:
 	_run_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_run_btn.pressed.connect(func(): _confirm(_run_btn, run_pressed.emit))
 	run.add_child(_run_btn)
+	# Version 219 (review 4 fix 26): the Pass's event perk was grey text; now a button that
+	# opens the Pass (free players only).
+	_pass_btn = Hud.button("CRYPT PASS: +50% SHARDS", 18, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
+	_pass_btn.custom_minimum_size = Vector2(340, 58)
+	_pass_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_pass_btn.pressed.connect(func():
+		Sfx.play("click")
+		pass_pressed.emit())
+	run.add_child(_pass_btn)
 	_build_set_card(col)
 	# The Queen Hunt.
 	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Each tier pays in full once a day. Your first Hunt win each day holds a Moon Casket.")
@@ -388,9 +399,7 @@ func refresh(cfg: ConfigFile) -> void:
 		bonus.append("double shards today")
 	if Store.owned():
 		bonus.append("+50% shards with the Crypt Pass")
-	else:
-		# version 212 (critic fix #3): free players see it too; it's the Pass's best reason now
-		bonus.append("Crypt Pass: +50% shards")
+	_pass_btn.visible = not Store.owned()   # (v219: was the line "Crypt Pass: +50% shards")
 	# version 213 (hardest review fix #3): the measured full run is ~200, ~300 with the Pass
 	_run_sub.text = ("About 300 shards a full run" if Store.owned() else "About 200 shards a full run") + ("  ·  " + ", ".join(bonus) if not bonus.is_empty() else "")
 	_run_btn.disabled = not live
@@ -550,6 +559,12 @@ func _fill_road(cfg: ConfigFile) -> void:
 		_road_list.add_child(row)
 		if focus == null and (i == ni or (s >= int(Events.ROAD[i].at) and not Events.claimed(cfg, i))):
 			focus = row
+		for j in Events.PASS_ROAD.size():
+			if int(Events.PASS_ROAD[j].at) == int(Events.ROAD[i].at):
+				var pr := _pass_row(cfg, j, s)
+				_road_list.add_child(pr)
+				if focus == null and Store.owned() and s >= int(Events.PASS_ROAD[j].at) and not Events.pass_claimed(cfg, j):
+					focus = pr
 	if focus:
 		_scroll_to(focus)
 
@@ -623,6 +638,69 @@ func _road_row(cfg: ConfigFile, i: int, s: int) -> Control:
 		var tag := Hud.label("DONE" if got else "", 16, DONE)
 		tag.custom_minimum_size = Vector2(118, 0)
 		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		h.add_child(tag)
+	return panel
+
+
+## Version 219 (review 4 fix 26): a Crypt Pass step under its road step: a Silver Moon look,
+## claimed with the Pass (CLAIM), or a button that opens the Pass for everyone else.
+## Its CLAIM sends index PASS_INDEX + j through the same claim signal.
+const PASS_INDEX := 1000
+const SILVER := Color(0.8, 0.88, 1.0)
+
+func _pass_row(cfg: ConfigFile, j: int, s: int) -> Control:
+	var st: Dictionary = Events.PASS_ROAD[j]
+	var owned := Store.owned()
+	var reached := s >= int(st.at)
+	var got := Events.pass_claimed(cfg, j)
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.08, 0.1, 0.22, 0.97) if owned and reached and not got else Color(0.06, 0.07, 0.15, 0.95)
+	sb.border_color = Hud.GOLD if owned and reached and not got else (DONE.darkened(0.3) if got else SILVER.darkened(0.35))
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 24
+	sb.content_margin_right = 12
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 12)
+	panel.add_child(h)
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.add_theme_constant_override("separation", 0)
+	h.add_child(texts)
+	texts.add_child(Hud.label("CRYPT PASS: " + Events.step_text(st), 20, SILVER if owned or reached else SILVER.darkened(0.25), HORIZONTAL_ALIGNMENT_LEFT))
+	var need := ("Claimed" if got else ("Ready!" if owned else "Reached: claim it with the Crypt Pass")) if reached else "%d shards to go" % (int(st.at) - s)
+	if not got:
+		need += "  ·  Silver Moon set, every hero"
+	texts.add_child(Hud.label(need, 16, Hud.GOLD if owned and reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	if got:
+		var tag := Hud.label("DONE", 16, DONE)
+		tag.custom_minimum_size = Vector2(118, 0)
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		h.add_child(tag)
+	elif owned and reached:
+		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
+		c.custom_minimum_size = Vector2(118, 64)
+		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		c.pressed.connect(func(): claim.emit(PASS_INDEX + j))
+		h.add_child(c)
+	elif not owned:
+		var p := Hud.button("PASS", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
+		p.custom_minimum_size = Vector2(118, 64)
+		p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		p.pressed.connect(func():
+			Sfx.play("click")
+			pass_pressed.emit())
+		h.add_child(p)
+	else:
+		var tag := Hud.label("", 16, DIM)
+		tag.custom_minimum_size = Vector2(118, 0)
 		h.add_child(tag)
 	return panel
 

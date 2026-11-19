@@ -219,6 +219,9 @@ const EXTRA := {
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
 		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
 		"blood_moon": {"name": "Blood Moon", "a": Color(0.2, 0.12, 0.42), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
+		# Version 219 (review 4 fix 26): the Silver Moon set, the event road's Crypt Pass row
+		# ("passroad"). Night blue and moon silver, so it never reads as a red danger mark.
+		"silver_moon": {"name": "Silver Moon", "a": Color(0.06, 0.16, 0.4), "b": Color(0.84, 0.9, 1.0), "pat": 14, "event": "blood_moon", "passroad": true},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
 		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 33, "own": true, "bazaar": 900},
 		"sunforged": {"name": "Sunforged", "a": Color(0.8, 0.42, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
@@ -248,6 +251,7 @@ const EXTRA := {
 		"abyss": {"name": "Abyss", "fx": "wave", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
 		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.84, 0.5), "ring2": Color(1.0, 0.52, 0.14), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
+		"silver_moon": {"name": "Silver Moon", "fx": "beads", "ring": Color(0.78, 0.86, 1.0), "ring2": Color(0.42, 0.56, 1.0), "bolt": Color(0.9, 0.95, 1.0), "event": "blood_moon", "passroad": true},
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
 		# with a gold corona, blood-red shots.
 		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
@@ -277,6 +281,7 @@ const EXTRA := {
 		# The set's crown jewel: a blood-red outline pulsing to gold, a swarm of little bats
 		# circling the hero, and a blood moon on the floor under them.
 		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.58, 0.12), "ink2": Color(1.0, 0.8, 0.36), "spark": Color(1.0, 0.66, 0.2), "motif": "bats", "shine": true, "event": "blood_moon"},
+		"silver_moon": {"name": "Silver Moon", "ink": Color(0.72, 0.82, 1.0), "ink2": Color(0.95, 0.97, 1.0), "spark": Color(0.85, 0.92, 1.0), "motif": "bats", "shine": true, "event": "blood_moon", "passroad": true},
 		"wisp": {"name": "Will-o'-Wisp", "ink": Color(0.35, 0.75, 1.0), "ink2": Color(0.6, 1.0, 0.95), "spark": Color(0.6, 0.9, 1.0), "motif": "fireflies", "bazaar": 1500},
 		"golden_souls": {"name": "Golden Souls", "ink": Color(1.0, 0.66, 0.2), "ink2": Color(0.55, 0.9, 1.0), "spark": Color(1.0, 0.86, 0.5), "motif": "souls", "bazaar": 1500},
 		# Crypt Race auras: a comet's tail of teal glints streaming behind the hero, and the Bone
