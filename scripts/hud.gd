@@ -325,6 +325,8 @@ var _mode_curses_line: Label
 var _modes_tutorial: Button
 var _heroes_box: HeroScreen
 var _end_offer: Control
+var _end_get_pass: Button   # v218: shows the price
+var _pass_card_btn: Control
 var _pass_more: Label
 var _pass_box: Control
 var _pass_buy: Button
@@ -2255,6 +2257,7 @@ func _build_end() -> void:
 	col.add_child(offer)
 	var get_pass := button("GET THE CRYPT PASS", 28, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	get_pass.custom_minimum_size = Vector2(340, 86)
+	_end_get_pass = get_pass
 	get_pass.pressed.connect(func(): pass_pressed.emit())
 	offer.add_child(_centered(get_pass))
 	var to_title := button("BACK TO TITLE  (RUN SAVED)", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
@@ -2657,7 +2660,8 @@ func _build_pass_card(col: Control) -> void:
 	var b := button("SEE THE PASS", 22, Color(0.45, 0.3, 0.08, 0.98), GOLD)
 	b.custom_minimum_size = Vector2(240, 64)
 	b.pressed.connect(func(): pass_pressed.emit())
-	v.add_child(_centered(b))
+	_pass_card_btn = _centered(b)
+	v.add_child(_pass_card_btn)
 	_pass_card = _centered(panel)
 	_pass_card.visible = false
 	col.add_child(_pass_card)
@@ -2666,6 +2670,8 @@ func _build_pass_card(col: Control) -> void:
 ## Shows the card with `def` (the hero dressed in the set), or hides it.
 func show_pass_card(v: bool, def := {}) -> void:
 	_pass_card.visible = v and not def.is_empty()
+	# v218: on the free-end offer the big priced button below is the only way to the Pass.
+	_pass_card_btn.visible = not _end_offer.visible
 	_pass_card_stage.set_active(_pass_card.visible)
 	if _pass_card.visible:
 		_pass_card_stage.show_hero(def)
@@ -4607,6 +4613,11 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 		_hide_phase()
 		refresh_looks_badge()   # NEW LOOKS and UPGRADE, with this run's coins counted
 	_end_offer.visible = v and offer
+	if offer and Store.instance:
+		# v218 (review 4): one priced button ("GET THE CRYPT PASS" had no price).
+		# Play's own price in the player's currency; the US price only on the test build.
+		var pr := Store.instance.price if Store.instance.price != "" else ("" if Store.can_buy() else Store.FALLBACK_PRICE)
+		_end_get_pass.text = ("UNLOCK FLOOR 6+  " + pr).strip_edges()
 	_end_loop.visible = false
 	if not v:
 		_drops.visible = false   # (never left over a run that's starting)
@@ -4954,6 +4965,12 @@ func _fit_end_soon() -> void:
 func _fit_end() -> void:
 	if not _end_box.visible:
 		return
+	# Version 218 (review 4): the free-end offer is one choice. The looks, drops and share
+	# buttons (and the card's own Pass button) wait for the title, so nothing is shrunk.
+	if _end_offer.visible:
+		for c: Control in [_end_drop, _end_looks, _share_button, _share_card, _pass_card_btn]:
+			if c != null:
+				c.visible = false
 	# Fill the box again first. Moving the column (below) fixes its size at whatever it was
 	# then, so after one tall end screen the next ones stayed stretched past the bottom and
 	# their buttons were centred off the screen.
@@ -5130,6 +5147,10 @@ func set_end_stats(text: String) -> void:
 ## The Pass was bought on the end screen: carry on deeper instead.
 func end_offer_done(tap_text: String) -> void:
 	_end_offer.visible = false
+	# v218: the looks and drops buttons held back during the offer come back.
+	_end_looks.visible = not _end_looks_for.is_empty()
+	set_drops(Drops.waiting(Game._load_save()))
+	_pass_card_btn.visible = true
 	_set_end_tap(tap_text)
 	_end_tap.visible = true
 	_fit_end_soon()
