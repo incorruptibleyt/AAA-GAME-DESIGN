@@ -3311,6 +3311,10 @@ func _process(delta: float) -> void:
 	# With no chain going it stays faint (it sits over the far end of the room).
 	# Version 213: never fainter than 0.7, so the score can be read (0.35 was too faint).
 	var want := (1.0 if Game.chain > 1.01 or _broken_time > 0.0 else 0.7) if meter else 0.0
+	# Version 219 (review 4 fix 19): a boss at the top of the room (the Queen's throne end)
+	# stood under the chain and score. Then they go see-through so she can be read.
+	if want > 0.0 and _boss_near_top():
+		want = 0.4
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)
@@ -3398,6 +3402,20 @@ func _process(delta: float) -> void:
 ## Version 143: this used to be two functions (this one and _fade_buttons_over_hero) pulling
 ## the same alpha in opposite directions, so a hero half under DASH kept it solid.
 var _see_pts := PackedVector2Array()
+
+
+## True when the boss's body is on screen under the chain meter and score (top centre).
+func _boss_near_top() -> bool:
+	var cam := get_viewport().get_camera_3d()
+	var b = Game.boss
+	if cam == null or b == null or not is_instance_valid(b) or b.dead:
+		return false
+	var box := _chain_box.get_global_rect().grow(30.0)
+	for h in [0.0, 1.2, 2.4]:
+		var at: Vector3 = b.global_position + Vector3.UP * h
+		if not cam.is_position_behind(at) and box.has_point(cam.unproject_position(at)):
+			return true
+	return false
 
 
 func _see_through(delta: float) -> void:
@@ -4661,6 +4679,9 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_share_card.visible = false
 	_end_spacer.custom_minimum_size.y = 100.0 if not buttons else 24.0
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
+	# Version 219 (review 4 fix 19): after a fall TRY AGAIN is the one bright button; the
+	# Bone Drop button goes quiet (slate) so the two don't fight. After a win it stays gold.
+	paint(_end_drop, "gold" if victory else "slate")
 	set_glow(_end_box, "victory" if victory else "death")
 	_end_title.label_settings.font_color = Color(1, 0.85, 0.4) if victory else Color(0.9, 0.2, 0.2)
 	# Version 213 (hardest review fix #13): after a fall, what hurt most shows at once (a fast
@@ -4985,6 +5006,9 @@ func _fit_end() -> void:
 		for c: Control in [_end_drop, _end_looks, _share_button, _share_card, _pass_card_btn]:
 			if c != null:
 				c.visible = false
+	# Version 219 (review 4 fix 19): the empty SHARE/COPY row took a gap of its own between
+	# the Bone Drop button and TRY AGAIN; it now only takes room when it shows something.
+	(_share_button.get_parent() as Control).visible = _share_button.visible or _copy_button.visible
 	# Fill the box again first. Moving the column (below) fixes its size at whatever it was
 	# then, so after one tall end screen the next ones stayed stretched past the bottom and
 	# their buttons were centred off the screen.
