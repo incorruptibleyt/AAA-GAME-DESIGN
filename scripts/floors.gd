@@ -116,7 +116,28 @@ static func index(floor_num: int) -> int:
 static func theme(floor_num: int) -> Dictionary:
 	var t: Dictionary = THEMES[index(floor_num)]
 	var loop := Loops.loop_of(floor_num)
+	if remixed(floor_num):
+		t = t.duplicate()
+		t.merge(PASS_REMIX[index(floor_num)], true)
 	return t if loop <= 1 else _deeper(t, loop)
+
+
+## Version 219 (review 4 fix 28): the Crypt Pass's own takes on the three free crypts it
+## brings back, so its floors aren't reruns: a new name, light and air, and guest skeletons
+## from the other crypts (Game.theme_enemy). The floor and its props stay, so they read.
+const PASS_REMIX := {
+	0: {"name": "Moonlit Crypt", "ambient": Color(0.18, 0.2, 0.34), "moon": Color(0.6, 0.75, 1.0), "torch": Color(0.55, 0.75, 1.0),
+		"motes": [Color(0.7, 0.85, 1.0, 0.7), Color(0.85, 0.75, 1.0, 0.3)], "banner": Color(0.65, 0.8, 1.0), "guests": "dr"},
+	1: {"name": "Aurora Ossuary", "ambient": Color(0.2, 0.33, 0.33), "moon": Color(0.6, 1.0, 0.85), "torch": Color(0.5, 1.0, 0.8),
+		"motes": [Color(0.6, 1.0, 0.85, 0.7), Color(0.7, 0.6, 1.0, 0.35)], "banner": Color(0.55, 1.0, 0.8), "guests": "fe"},
+	2: {"name": "Ashen Catacomb", "ambient": Color(0.22, 0.21, 0.24), "moon": Color(0.78, 0.8, 0.9), "torch": Color(0.95, 0.75, 0.55),
+		"motes": [Color(0.85, 0.85, 0.9, 0.45), Color(0.6, 0.6, 0.68, 0.2)], "banner": Color(0.85, 0.85, 0.95), "guests": "ep"},
+}
+
+
+## True on a Crypt Pass floor that brings back one of the free crypts (see PASS_REMIX).
+static func remixed(floor_num: int) -> bool:
+	return Game.event == "" and not lobby and floor_num > Store.FREE_FLOORS and PASS_REMIX.has(index(floor_num))
 
 
 ## Every endless loop is a little darker and redder than the one before (down to loop 4).
@@ -149,7 +170,7 @@ static func hot() -> bool:
 
 ## The Ember Catacomb (the Cinder Colossus's floor).
 static func ember() -> bool:
-	return current().name == "Ember Catacomb"
+	return index(Game.floor_num) == 2 and Game.event == "" and not lobby   # (v219: by place, the Pass's Ashen Catacomb too)
 
 
 ## The Blood Moon crypt (the event).

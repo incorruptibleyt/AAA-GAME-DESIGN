@@ -66,8 +66,8 @@ static func _area(alpha: float) -> Color:
 ## Ossuary and Drowned Vault floors. The Ember and Blood Moon floors already use amber and
 ## ice white, which every kind of colour blindness can tell from the floor.
 static func _cb_color() -> Color:
-	var n := str(Floors.current().get("name", ""))
-	if n == "Frozen Ossuary" or n == "Drowned Vault":
+	var i := Floors.index(Game.floor_num)
+	if i == 1 or i == Floors.DROWNED:   # the Frozen Ossuary (and the Pass's Aurora Ossuary) and the Drowned Vault
 		return Color(1.0, 0.68, 0.08)
 	return Color(0.15, 0.55, 1.0)
 

@@ -1738,6 +1738,8 @@ func boss_kind() -> String:
 func theme_enemy() -> String:
 	if first_run:
 		return ""
+	if Floors.remixed(floor_num):
+		return str(Floors.PASS_REMIX[Floors.index(floor_num)].guests)   # v219: the Pass's own mix
 	return ["", "f", "e", "d", "pr", "bh"][Floors.index(floor_num)]
 
 
