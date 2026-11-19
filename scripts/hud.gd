@@ -3347,7 +3347,10 @@ func _process(delta: float) -> void:
 	if _callout_time <= 0.0 and not _callout_queue.is_empty() and _banner_time <= 0.0 \
 			and not _phase_showing() and Game.state == Game.State.PLAYING:
 		var q: Array = _callout_queue.pop_front()
-		_show_callout(q[0], q[1])
+		_show_callout(q[0], q[1], q[2])
+	if _callout_fight and _callout_time > 0.25 and Game.state != Game.State.PLAYING \
+			and Game.state != Game.State.PAUSED:
+		_callout_time = 0.25
 	if _callout_time > 0.0:
 		_callout_time -= delta
 		_callout.modulate.a = clampf(_callout_time / 0.3, 0.0, 1.0)
@@ -3561,13 +3564,18 @@ static func thousands(n: int) -> String:
 
 
 ## A short punchy word over the action, like "PERFECT!".
-func callout(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
+## fight = true: a word about the fight itself (a cast, CHILLED, WARD). It is never shown
+## outside play, and it fades the moment play stops (version 219, review 4 fix 15: the
+## SHADOW VOLLEY! word leaked onto the victory screen).
+func callout(text: String, col := Color(0.6, 0.95, 1.0), fight := false) -> void:
+	if fight and Game.state != Game.State.PLAYING:
+		return
 	if Game.state == Game.State.PLAYING and (_callout_time > 0.35 or _banner_time > 0.0 or _phase_showing()):
 		for q in _callout_queue:
 			if q[0] == text:
 				return
 		if _callout_queue.size() < 2:
-			_callout_queue.append([text, col])
+			_callout_queue.append([text, col, fight])
 		return
 	_show_callout(text, col)
 
@@ -3584,7 +3592,10 @@ func banner_busy() -> bool:
 	return _banner_time > 0.0
 
 
-func _show_callout(text: String, col: Color) -> void:
+var _callout_fight := false
+
+func _show_callout(text: String, col: Color, fight := false) -> void:
+	_callout_fight = fight
 	_callout.text = text
 	_callout.label_settings.font_color = col
 	_callout.label_settings.font_size = 46 if text.length() <= 10 else 34

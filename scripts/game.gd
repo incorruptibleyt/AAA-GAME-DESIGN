@@ -1506,7 +1506,8 @@ func _update_dash_lesson(real_delta: float) -> void:
 			_lessons_this_run += 1
 			_lesson_left = 1.8
 			Engine.time_scale = 0.12
-			hud.callout("DASH THROUGH IT!", Color(0.6, 0.9, 1.0))
+			# Version 219 (review 4 fix 15): no "DASH THROUGH IT!" callout any more. With the
+			# NEW: DASH card and this tip it made three messages at once.
 			# Version 217 (review 3 fix #9): the how-to line in the tip slot at the top. The
 			# bottom hint box (moved up in v216) sat on the hero mid-room, over the very dodge
 			# it teaches.
@@ -3050,7 +3051,7 @@ func on_enemy_died(e: Enemy) -> void:
 	if before < 2.0 and chain >= 2.0 and hero and hero.perks.has("ossuary") and hero.ward < hero.ward_max:
 		hero.ward += 1
 		Fx.magic(hero.center(), Color(0.8, 0.9, 1.0), 20)
-		hud.callout("WARD!", Color(0.85, 0.92, 1.0))
+		hud.callout("WARD!", Color(0.85, 0.92, 1.0), true)
 	hud.show_chain(chain)
 	if hero:
 		hero.add_charge(0.3 if e.elite else 0.1)
@@ -3072,7 +3073,7 @@ func on_enemy_died(e: Enemy) -> void:
 			# Twin Wardens: one down, one to go.
 			boss = _bosses[0]
 			hud.set_boss_name(boss.display_name())
-			hud.callout("ONE DOWN!", Color(1, 0.6, 0.4))
+			hud.callout("ONE DOWN!", Color(1, 0.6, 0.4), true)
 			print("[run] one boss down, %d to go" % _bosses.size())
 			return
 		# Any minions left crumble with their master, even ones still climbing out of the floor

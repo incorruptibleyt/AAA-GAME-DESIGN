@@ -323,7 +323,7 @@ func use_special() -> void:
 	# button already shows it; every cast put big words over the fight), and nearly white
 	# so it reads on any floor (2.7:1 before).
 	if int(Game._rep.get("special", 0)) <= 3:
-		Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.7))
+		Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.7), true)
 	Game.shake(0.25)
 	Game.calm_glow(2.2)
 	match hero_id:
@@ -827,7 +827,7 @@ func _update_dash_ring() -> void:
 func chill(seconds: float) -> void:
 	if chill_left <= 0.0:
 		Fx.magic(center(), Color(0.6, 0.9, 1.0), 16)
-		Game.hud.callout("CHILLED!", Color(0.6, 0.9, 1.0))
+		Game.hud.callout("CHILLED!", Color(0.6, 0.9, 1.0), true)
 	chill_left = maxf(chill_left, seconds)
 
 
@@ -836,7 +836,7 @@ func snare(seconds: float) -> void:
 	if not can_be_snared():
 		return
 	if snare_left <= 0.0:
-		Game.hud.callout("ROOTED! DASH FREE!", RootCrawl.LIME)
+		Game.hud.callout("ROOTED! DASH FREE!", RootCrawl.LIME, true)
 	snare_left = maxf(snare_left, seconds)
 	Game.buzz(30)
 
