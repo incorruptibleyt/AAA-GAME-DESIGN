@@ -45,6 +45,11 @@ signal sounds_toggled(on: bool)
 signal graphics_toggled(level: int)
 signal speed_test_pressed
 signal shake_changed(level: int)
+# Version 219 (review 4 fix 32): more comfort settings.
+signal flashes_changed(level: int)
+signal left_hand_toggled(on: bool)
+signal button_size_changed(level: int)
+signal darkness_toggled(light: bool)
 signal vibration_toggled(on: bool)
 signal colorblind_toggled(on: bool)
 signal reports_toggled(on: bool)
@@ -223,6 +228,14 @@ var _graphics_level := 3
 var _speed_button: Button
 var _shake_button: Button
 var _shake_level := 2
+var _flashes_button: Button
+var _flashes_level := 2
+var _left_button: Button
+var _left_on := false
+var _size_button: Button
+var _size_level := 0
+var _dark_button: Button
+var _dark_light := false
 var _vibration_button: Button
 var _vibration_on := true
 var _colorblind_button: Button
@@ -2323,20 +2336,31 @@ func _build_pause() -> void:
 	_pause_head = label("SETTINGS", 16, Color(1, 0.85, 0.55, 0.75))
 	sc.add_child(_pause_head)
 	col.add_child(_centered(card))
-	_music_button = button("Music: On", 26)
+	# Version 219: Music and Sounds share a row, to make room for the comfort settings.
+	_music_button = button("Music: On", 18)
+	_music_button.custom_minimum_size = Vector2(212, 66)
 	_music_button.pressed.connect(func(): music_toggled.emit(not _music_on))
-	sc.add_child(_centered(_music_button))
-	_sounds_button = button("Sounds: On", 26)
+	_sounds_button = button("Sounds: On", 18)
+	_sounds_button.custom_minimum_size = Vector2(212, 66)
 	_sounds_button.pressed.connect(func(): sounds_toggled.emit(not _sounds_on))
-	sc.add_child(_centered(_sounds_button))
+	var mpair := _pair(_music_button, _sounds_button)
+	mpair.add_theme_constant_override("separation", 12)
+	sc.add_child(mpair)
 	_graphics_button = button("Graphics: High", 26)
 	# High, Medium, Low, Low at a steady 30, then back to High.
 	_graphics_button.pressed.connect(func(): graphics_toggled.emit((_graphics_level + 3) % 4))
 	sc.add_child(_centered(_graphics_button))
 	# Full, Reduced, Off, then back to Full.
-	_shake_button = button("Screen shake: Full", 22)
+	_shake_button = button("Shake: Full", 18)
+	_shake_button.custom_minimum_size = Vector2(212, 66)
 	_shake_button.pressed.connect(func(): shake_changed.emit((_shake_level + 2) % 3))
-	sc.add_child(_centered(_shake_button))
+	# Version 219 (review 4 fix 32): screen flashes on their own setting (they followed shake).
+	_flashes_button = button("Flashes: Full", 18)
+	_flashes_button.custom_minimum_size = Vector2(212, 66)
+	_flashes_button.pressed.connect(func(): flashes_changed.emit((_flashes_level + 2) % 3))
+	var spair := _pair(_shake_button, _flashes_button)
+	spair.add_theme_constant_override("separation", 12)
+	sc.add_child(spair)
 	# Vibration and Colour-blind share a row (version 148), so the menu still fits a 16:9 phone.
 	_vibration_button = button("Vibration: On", 18)
 	_vibration_button.custom_minimum_size = Vector2(212, 66)
@@ -2349,6 +2373,24 @@ func _build_pause() -> void:
 	var vpair := _pair(_vibration_button, _colorblind_button)
 	vpair.add_theme_constant_override("separation", 12)
 	sc.add_child(vpair)
+	# Version 219 (review 4 fix 32): DASH and the special on the left, bigger fight buttons,
+	# and a lighter Eclipse.
+	_left_button = button("Left hand: Off", 16)
+	_left_button.custom_minimum_size = Vector2(140, 66)
+	_left_button.pressed.connect(func(): left_hand_toggled.emit(not _left_on))
+	_size_button = button("Buttons: Normal", 16)
+	_size_button.custom_minimum_size = Vector2(140, 66)
+	_size_button.pressed.connect(func(): button_size_changed.emit((_size_level + 1) % 3))
+	_dark_button = button("Darkness: Full", 16)
+	_dark_button.custom_minimum_size = Vector2(140, 66)
+	_dark_button.pressed.connect(func(): darkness_toggled.emit(not _dark_light))
+	var trio := HBoxContainer.new()
+	trio.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	trio.alignment = BoxContainer.ALIGNMENT_CENTER
+	trio.add_theme_constant_override("separation", 8)
+	for b: Button in [_left_button, _size_button, _dark_button]:
+		trio.add_child(b)
+	sc.add_child(trio)
 	# Reports and reminders share a row (version 143), so the menu still fits a 16:9 phone.
 	_reports_button = button("Send reports: Off", 18)
 	_reports_button.custom_minimum_size = Vector2(212, 66)
@@ -2384,6 +2426,9 @@ func _build_pause() -> void:
 	col.add_child(_centered(_quit_button))
 	_toggle_look(_graphics_button, true)
 	_toggle_look(_shake_button, true)
+	_toggle_look(_flashes_button, true)
+	_toggle_look(_size_button, true)
+	_toggle_look(_dark_button, true)
 	# SPEED TEST, in the same place on the title's Settings (where there's no run to quit).
 	_speed_button = button("Speed test", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_speed_button.pressed.connect(func():
@@ -3700,7 +3745,7 @@ func _place_perfect(rise: float) -> void:
 ## Flashes are softer with Screen shake reduced or off, for anyone who finds them too much.
 func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
 	# Version 213: with Screen shake off, flashes are almost gone (30% stayed before).
-	_flash.color = Color(col.r, col.g, col.b, strength * lerpf(0.08, 1.0, Game.shake_scale))
+	_flash.color = Color(col.r, col.g, col.b, strength * Game.flash_scale)   # v219: its own setting
 
 
 func show_boss_card(title: String, subtitle: String) -> void:
@@ -4373,7 +4418,49 @@ func set_graphics_label(level: int) -> void:
 ## Screen shake level: 2 full, 1 reduced, 0 off.
 func set_shake_label(level: int) -> void:
 	_shake_level = level
-	_shake_button.text = "Screen shake: " + ["Off", "Reduced", "Full"][clampi(level, 0, 2)]
+	_shake_button.text = "Shake: " + ["Off", "Reduced", "Full"][clampi(level, 0, 2)]
+
+
+func set_flashes_label(level: int) -> void:
+	_flashes_level = level
+	_flashes_button.text = "Flashes: " + ["Off", "Reduced", "Full"][clampi(level, 0, 2)]
+
+
+func set_left_hand(on: bool) -> void:
+	_left_on = on
+	_left_button.text = "Left hand: On" if on else "Left hand: Off"
+	_toggle_look(_left_button, on)
+	_place_fight_buttons()
+
+
+func set_button_size(level: int) -> void:
+	_size_level = level
+	_size_button.text = "Buttons: " + ["Normal", "Big", "Huge"][clampi(level, 0, 2)]
+	_place_fight_buttons()
+
+
+func set_darkness_label(light: bool) -> void:
+	_dark_light = light
+	_dark_button.text = "Darkness: Light" if light else "Darkness: Full"
+
+
+## DASH, the special and the Race's Surge in the bottom corner: right (or left, mirrored,
+## for the left hand), at 100, 115 or 130% (version 219, review 4 fix 32).
+func _place_fight_buttons() -> void:
+	var k: float = [1.0, 1.15, 1.3][clampi(_size_level, 0, 2)]
+	for spec: Array in [[_special, -124.0, -24.0], [race_surge, -318.0, -234.0], [_dash_button, -224.0, -144.0]]:
+		var c: Control = spec[0]
+		if c == null:
+			continue
+		c.set_anchors_preset(Control.PRESET_BOTTOM_LEFT if _left_on else Control.PRESET_BOTTOM_RIGHT, true)
+		var l: float = spec[1]
+		var r: float = spec[2]
+		c.offset_left = -r if _left_on else l
+		c.offset_right = -l if _left_on else r
+		# Bigger buttons grow from the screen corner, so they push inward, not off screen.
+		var w := r - l
+		c.pivot_offset = Vector2(0.0 if _left_on else w, c.offset_bottom - c.offset_top)
+		c.scale = Vector2(k, k)
 
 
 func set_colorblind_label(on: bool) -> void:

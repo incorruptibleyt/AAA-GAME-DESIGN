@@ -36,6 +36,8 @@ var _lobby := 0.0
 var _lobby_light: SpotLight3D
 var _shake := 0.0
 var shake_scale := 1.0   # the Screen shake setting
+var flash_scale := 1.0   # v219: the Flashes setting (full, reduced to 0.3, off)
+var light_dark := false  # v219: Darkness: Light (the Eclipse dims a third as much)
 var vibration := true    # the Vibration setting
 var colorblind := false  # the Colour-blind setting (attack warnings, version 148)
 var _run: Array = []
@@ -582,6 +584,10 @@ func _ready() -> void:
 	hud.graphics_toggled.connect(_set_graphics)
 	hud.speed_test_pressed.connect(start_speed_test)
 	hud.shake_changed.connect(_set_shake)
+	hud.flashes_changed.connect(_set_flashes)
+	hud.left_hand_toggled.connect(_set_left_hand)
+	hud.button_size_changed.connect(_set_button_size)
+	hud.darkness_toggled.connect(_set_darkness)
 	hud.pass_lost_restore.connect(func():
 		Store.instance.restore()
 		_open_pass())
@@ -669,6 +675,11 @@ func _ready() -> void:
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(_saved_graphics(cfg), false)
 	_set_shake(int(cfg.get_value("settings", "shake", 2)), false)
+	# Flashes followed shake before v219: a player who turned shake down keeps fewer flashes.
+	_set_flashes(int(cfg.get_value("settings", "flashes", 2 if int(cfg.get_value("settings", "shake", 2)) == 2 else 1)), false)
+	_set_left_hand(bool(cfg.get_value("settings", "left_hand", false)), false)
+	_set_button_size(int(cfg.get_value("settings", "button_size", 0)), false)
+	_set_darkness(bool(cfg.get_value("settings", "darkness_light", false)), false)
 	_set_vibration(bool(cfg.get_value("settings", "vibration", true)), false)
 	_set_colorblind(bool(cfg.get_value("settings", "colorblind", false)), false)
 	_auto_graphics = (bool(cfg.get_value("settings", "graphics_auto", false)) or not (cfg.has_section_key("settings", "graphics")
@@ -1594,6 +1605,7 @@ func _light_room(look: Dictionary) -> void:
 	if _eclipse_tw:
 		_eclipse_tw.kill()   # v218: a half-done Eclipse never re-dims the new room
 	_eclipse_k = 0.0
+	_eclipse_eff = 0.0
 
 
 ## Specials fill the screen with bright bolts and shockwaves; for a moment the bloom is
@@ -2063,6 +2075,7 @@ func _reset_run_stats() -> void:
 	if _eclipse_tw:
 		_eclipse_tw.kill()
 	_eclipse_k = 0.0
+	_eclipse_eff = 0.0
 	hud.set_surge(0.0, false, true)
 	_shards_shown = 0
 	_caskets_run = 0
@@ -4064,6 +4077,7 @@ func _end_surge() -> void:
 ## The Blood Moon Queen's Eclipse: the moon goes dark (the room's light dims) and comes back.
 const ECLIPSE_AMBIENT := 0.35
 var _eclipse_k := 0.0
+var _eclipse_eff := 0.0   # v219: how dark it really is (Darkness: Light dims a third as much)
 var _eclipse_tw: Tween
 
 
@@ -4072,10 +4086,13 @@ func set_eclipse(on: bool) -> void:
 		_eclipse_tw.kill()
 	# Version 217 (review 3 fix #7): a lighter Eclipse (ambient -35%, moon -70%; it was -55%
 	# and -85% under a 0.35 black veil, and the room went nearly black in every Queen fight).
-	var amb := _env.ambient_light_energy / maxf(1.0 - ECLIPSE_AMBIENT * _eclipse_k, 0.01)
+	var amb := _env.ambient_light_energy / maxf(1.0 - ECLIPSE_AMBIENT * _eclipse_eff, 0.01)
 	_eclipse_tw = create_tween()
+	var dim := 0.33 if light_dark else 1.0   # v219: Darkness: Light
 	_eclipse_tw.tween_method(func(k: float):
 		_eclipse_k = k
+		k *= dim
+		_eclipse_eff = k
 		if _moon:
 			_moon.light_energy = _moon_energy * (1.0 - 0.7 * k)
 		_env.ambient_light_energy = amb * (1.0 - ECLIPSE_AMBIENT * k)
@@ -4403,6 +4420,39 @@ func _set_shake(level: int, save := true) -> void:
 	if save:
 		var cfg := _load_save()
 		cfg.set_value("settings", "shake", level)
+		write_save(cfg)
+
+
+## Version 219 (review 4 fix 32): the comfort settings.
+func _set_flashes(level: int, save := true) -> void:
+	level = clampi(level, 0, 2)
+	flash_scale = [0.0, 0.3, 1.0][level]
+	hud.set_flashes_label(level)
+	_save_setting("flashes", level, save)
+
+
+func _set_left_hand(on: bool, save := true) -> void:
+	hud.set_left_hand(on)
+	_save_setting("left_hand", on, save)
+
+
+func _set_button_size(level: int, save := true) -> void:
+	level = clampi(level, 0, 2)
+	hud.set_button_size(level)
+	_save_setting("button_size", level, save)
+
+
+func _set_darkness(light: bool, save := true) -> void:
+	light_dark = light
+	hud.set_darkness_label(light)
+	_save_setting("darkness_light", light, save)
+
+
+func _save_setting(key: String, value: Variant, save: bool) -> void:
+	if save:
+		Sfx.play("click")
+		var cfg := _load_save()
+		cfg.set_value("settings", key, value)
 		write_save(cfg)
 
 
