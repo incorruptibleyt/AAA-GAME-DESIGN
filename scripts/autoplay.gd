@@ -104,6 +104,9 @@ var _card_frames: Array = []
 ## `event=hunt tier=N` starts it, `eventmenu` takes pictures of the event screens and
 ## `shards=N caskets=N` fill the event save first.
 var _event_menu := false
+## Version 218 (review 4): `days=N` moves the game's clock N days on (to test the
+## once-a-day prizes on the next day), and `fastboss` drops a boss to 1 health 3 s in.
+var _fast_boss := false
 var _event_lobby := false
 ## The Crypt Race (race.gd): `race` races (with `runs=N`, N races in a row), `trophies=N` sets
 ## the trophies first, `racemenu` takes pictures of the lobby, search, VS card, the race,
@@ -219,6 +222,11 @@ func _ready() -> void:
 			_end_back = true
 		elif a == "icons":
 			_icons = true
+		elif a.begins_with("days="):
+			TrustClock.offset += int(a.substr(5)) * 86400
+			print("[autoplay] clock moved %s days: today is %s" % [a.substr(5), Curses.today()])
+		elif a == "fastboss":
+			_fast_boss = true
 		elif a.begins_with("eday="):
 			Events.forced_day = int(a.substr(5))
 			_skip_first_run()
@@ -731,6 +739,9 @@ func _process(delta: float) -> void:
 		Game.State.PLAYING when Game.race and _race_lose:
 			pass   # stands still: the rival wins
 		Game.State.PLAYING:
+			if _fast_boss and is_instance_valid(Game.boss) and not Game.boss.dead and Game._state_time > 3.0 \
+					and Game.boss.health > 1.0:
+				Game.boss.health = 1.0
 			if _race_down and Game.race and Game._room_index == 0 and Game._state_time > 3.0:
 				_race_down = false
 				Game.hero.take_damage(1e9, Vector3.ZERO, 0.0)
