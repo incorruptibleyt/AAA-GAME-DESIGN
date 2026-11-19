@@ -1573,6 +1573,8 @@ func _light_room(look: Dictionary) -> void:
 	_moon.light_color = (look.moon as Color).lerp(SUN_WARM, light[2])
 	_moon.light_energy = light[1]
 	_moon_energy = light[1]
+	if _eclipse_tw:
+		_eclipse_tw.kill()   # v218: a half-done Eclipse never re-dims the new room
 	_eclipse_k = 0.0
 
 
@@ -2037,6 +2039,12 @@ func run_report(result: String, was_first := false) -> String:
 
 func _reset_run_stats() -> void:
 	_reset_report()
+	# Version 218: dying in the Queen's Eclipse left its dark veil up on TRY AGAIN (her move
+	# stops when the hero dies, before it turns the Eclipse off).
+	if _eclipse_tw:
+		_eclipse_tw.kill()
+	_eclipse_k = 0.0
+	hud.set_surge(0.0, false, true)
 	_shards_shown = 0
 	_caskets_run = 0
 	_surge_t = 0.0
