@@ -1111,7 +1111,7 @@ func _step_room() -> String:
 
 ## The privacy policy (the same pinned page as the Play listing), opened from the pause
 ## menu, the reports question and the Crypt Pass screen.
-const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/67d75a0dd586e3c942d086f07676ce0799285dda/PRIVACY.md"
+const PRIVACY_URL := "https://github.com/incorruptibleyt/AAA-GAME-DESIGN/blob/7cdb36b0a00628e55a4e0840fb0c3ec21900221b/PRIVACY.md"
 
 
 ## The game's Google Play page, for the share text.
