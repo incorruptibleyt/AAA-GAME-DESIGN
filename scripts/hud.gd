@@ -2786,7 +2786,7 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_tiles[1].text = "The Drowned Vault, 3 remixed\ncrypts, then endless loops"
 	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
 	if not Events.current().is_empty():
-		_pass_tiles[2].text = "Event: +50% Moon Shards\nand the Silver Moon row"
+		_pass_tiles[0].text = "Grand looks for every hero,\nSilver Moon set, +50% shards"
 	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
 	_pass_more.text = "Plus all 4 heroes now (no need to spend %d coins)." % coins_of_heroes
 	_pass_buy.disabled = owned
