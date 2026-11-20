@@ -550,6 +550,11 @@ class Swatch extends Control:
 						shape = str({"frost": "ice_staff", "gold": "sun_staff", "void": "scythe", "ember": "fire_tome"}.get(finish, shape))
 					else:
 						forged = finish in ["frost", "ember", "gold", "void"]   # (ForgedArms, v229)
+					# v230: the Knight's and Barbarian's grand looks are whole new weapons.
+					if shape == "greatsword":
+						shape = str({"ember": "magma_cleaver", "gold": "sun_hammer", "void": "rift_blade"}.get(finish, shape))
+					elif shape == "great_axe":
+						shape = str({"ember": "magma_maul", "gold": "ram_mace", "void": "moon_axe"}.get(finish, shape))
 		queue_redraw()
 
 	func _draw() -> void:
@@ -958,25 +963,6 @@ class Swatch extends Control:
 				for i in 10:
 					var d := Vector2.from_angle(TAU * i / 10.0)
 					_shard(sh + d * r * 0.48, d, r * (0.32 if i % 2 == 0 else 0.2), r * 0.08, ice)
-			"greatsword":
-				if finish == "ember":
-					for i in 3:
-						var y := r * (0.3 - i * 0.42)
-						_flame_icon(c + Vector2(-r * 0.16, y + r * 0.1), r * 0.38)
-						_flame_icon(c + Vector2(r * 0.16, y), r * 0.44)
-				elif finish == "gold":
-					for sd: float in [-1.0, 1.0]:
-						for k in 3:
-							var d := Vector2(sd, 0).rotated(sd * deg_to_rad(18.0 + k * 26.0))
-							_leaf(c + Vector2(sd * r * 0.4, r * 0.5), d, r * (0.58 - k * 0.1), r * 0.12, gold)
-					_ring(c + Vector2(0, -r * 0.4), r * 0.42, r * 0.14, gold)
-					draw_circle(c + Vector2(0, r * 0.5), r * 0.11, Color(1.0, 0.97, 0.85))
-				elif finish == "void":
-					for sd: float in [-1.0, 1.0]:
-						draw_line(c + Vector2(sd * r * 0.13, r * 0.4), c + Vector2(sd * r * 0.13, -r * 0.85), rim, 2.0)
-						for k in 2:
-							_shard(c + Vector2(sd * r * 0.45, r * (0.25 - k * 0.6) + sd * r * 0.1), Vector2(0.3 * sd, -1.0), r * 0.28, r * 0.08, violet)
-					_orb_icon(c + Vector2(0, -r * 0.98), r * 0.14)
 			"heavy":
 				var tips := [c + Vector2(-r * 0.89, -r * 0.55), c + Vector2(r * 0.89, -r * 0.55)]
 				if finish == "frost":
@@ -1005,36 +991,97 @@ class Swatch extends Control:
 					for y: float in [-0.8, -0.5, -0.2]:
 						_shard(o + Vector2(w, r * y), Vector2(1.0, (y + 0.5) * 0.9), r * 0.3, r * 0.07, ice)
 					_shard(o + Vector2(0, -r * 0.8), Vector2.UP, r * 0.3, r * 0.07, ice)
-			"great_axe":
-				if finish == "ember":
-					for f: Array in [[-0.42, 0.42], [0.0, 0.55], [0.42, 0.42]]:
-						_flame_icon(c + Vector2(r * f[0], -r * 0.85), r * f[1])
-				elif finish == "gold":
-					for sd: float in [-1.0, 1.0]:
-						var pts := PackedVector2Array()
-						for i in 17:
-							var t := i / 16.0
-							var th := t * PI * 1.55
-							var rr := r * 0.4 * (1.0 - 0.55 * t)
-							pts.append(c + Vector2(sd * (r * 0.47 - rr * cos(th)), -r * 0.55 - rr * sin(th)))
-						draw_polyline(pts, gold, r * 0.13, true)
-					draw_circle(c + Vector2(0, -r * 0.5), r * 0.12, Color(1.0, 0.97, 0.85))
-				elif finish == "void":
-					for sd: float in [-1.0, 1.0]:
-						var o := c + Vector2(sd * r * 0.2, -r * 0.5)
-						var a0 := 0.0 if sd > 0 else PI
-						var outer := PackedVector2Array()
-						var inner := PackedVector2Array()
-						for i in 13:
-							var t := i / 12.0
-							var d := Vector2.from_angle(a0 + lerpf(-1.05, 1.05, t))
-							outer.append(o + d * r * 0.72)
-							inner.append(o + d * r * 0.72 * (0.96 - 0.38 * sin(PI * t)))
-						draw_polyline(outer, rim, 2.0)
-						inner.reverse()
-						outer.append_array(inner)
-						draw_colored_polygon(outer, violet)
-					_orb_icon(c + Vector2(0, -r * 0.5), r * 0.14)
+
+	## v230: the Knight's and Barbarian's grand looks, each a whole weapon of its own.
+	func _whole(p: String, c: Vector2, r: float) -> void:
+		var iron := Color(0.22, 0.19, 0.2)
+		var magma := Color(1.0, 0.5, 0.12)
+		var gold := Color(1.0, 0.84, 0.4)
+		var violet := Color(0.68, 0.45, 1.0)
+		var rim := Color(0.9, 0.75, 1.0)
+		var wood := Color(0.45, 0.28, 0.16)
+		match p:
+			"magma_cleaver":
+				draw_line(c + Vector2(0, r), c + Vector2(0, r * 0.45), iron, r * 0.13)
+				draw_circle(c + Vector2(0, r), r * 0.1, magma)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.42, r * 0.5), c + Vector2(-r * 0.5, r * 0.3),
+					c + Vector2(r * 0.5, r * 0.3), c + Vector2(r * 0.42, r * 0.5)]), iron)
+				var blade := PackedVector2Array([c + Vector2(-r * 0.15, r * 0.32), c + Vector2(-r * 0.2, -r * 0.88),
+					c + Vector2(r * 0.18, -r * 0.98), c + Vector2(r * 0.5, -r * 0.96), c + Vector2(r * 0.42, -r * 0.4),
+					c + Vector2(r * 0.15, r * 0.32)])
+				draw_colored_polygon(blade, iron)
+				draw_polyline(PackedVector2Array([blade[5], blade[4], blade[3]]), magma, r * 0.07, true)
+				draw_polyline(PackedVector2Array([c + Vector2(0, r * 0.2), c + Vector2(r * 0.1, -r * 0.2),
+					c + Vector2(-r * 0.02, -r * 0.5), c + Vector2(r * 0.12, -r * 0.8)]), magma, r * 0.04, true)
+				_flame_icon(c + Vector2(r * 0.3, -r * 0.95), r * 0.42)
+			"sun_hammer":
+				draw_line(c + Vector2(0, r), c + Vector2(0, -r * 0.45), wood, r * 0.12)
+				for y: float in [0.8, 0.2]:
+					draw_line(c + Vector2(-r * 0.09, r * y), c + Vector2(r * 0.09, r * y), gold, r * 0.1)
+				draw_rect(Rect2(c + Vector2(-r * 0.56, -r * 0.98), Vector2(r * 1.12, r * 0.52)), gold)
+				draw_rect(Rect2(c + Vector2(-r * 0.66, -r * 1.0), Vector2(r * 0.14, r * 0.56)), Color(0.85, 0.6, 0.2))
+				draw_rect(Rect2(c + Vector2(r * 0.52, -r * 1.0), Vector2(r * 0.14, r * 0.56)), Color(0.85, 0.6, 0.2))
+				draw_circle(c + Vector2(0, -r * 0.72), r * 0.15, Color(1.0, 0.97, 0.85))
+				_ring(c + Vector2(0, -r * 0.72), r * 0.85, r * 0.2, Color(1.0, 0.92, 0.6))
+			"rift_blade":
+				draw_line(c + Vector2(0, r), c + Vector2(0, r * 0.55), iron, r * 0.13)
+				draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.42, r * 0.55), c + Vector2(0, r * 0.42),
+					c + Vector2(r * 0.42, r * 0.55), c + Vector2(0, r * 0.66)]), violet)
+				for k in 4:
+					var y0 := r * (0.35 - k * 0.36)
+					var dx := r * (0.06 if k % 2 == 0 else -0.06)
+					var piece := PackedVector2Array([c + Vector2(dx - r * 0.16, y0), c + Vector2(dx + r * 0.16, y0),
+						c + Vector2(dx + r * 0.13, y0 - r * 0.26), c + Vector2(dx - r * 0.13, y0 - r * 0.26)])
+					if k == 3:
+						piece = PackedVector2Array([c + Vector2(dx - r * 0.16, y0), c + Vector2(dx + r * 0.16, y0), c + Vector2(dx, y0 - r * 0.42)])
+					draw_colored_polygon(piece, Color(0.3, 0.16, 0.5))
+					piece.append(piece[0])
+					draw_polyline(piece, rim, 1.5, true)
+				_orb_icon(c + Vector2(0, -r * 1.0), r * 0.1)
+			"magma_maul":
+				draw_line(c + Vector2(0, r), c + Vector2(0, -r * 0.3), iron, r * 0.13)
+				var h := c + Vector2(0, -r * 0.55)
+				for b: Array in [[-0.28, 0.08, 0.26], [0.26, 0.04, 0.27], [0.0, -0.26, 0.28], [-0.12, 0.22, 0.22], [0.16, 0.24, 0.2]]:
+					draw_circle(h + Vector2(r * b[0], r * b[1]), r * b[2], Color(0.26, 0.17, 0.14))
+				draw_polyline(PackedVector2Array([h + Vector2(-r * 0.4, 0), h + Vector2(-r * 0.12, -r * 0.08),
+					h + Vector2(r * 0.05, r * 0.12), h + Vector2(r * 0.38, -r * 0.05)]), magma, r * 0.06, true)
+				draw_line(h + Vector2(0, -r * 0.4), h + Vector2(-r * 0.05, r * 0.3), magma, r * 0.05)
+				_flame_icon(h + Vector2(-r * 0.05, -r * 0.4), r * 0.5)
+			"ram_mace":
+				draw_line(c + Vector2(0, r), c + Vector2(0, -r * 0.35), wood, r * 0.12)
+				draw_line(c + Vector2(-r * 0.09, r * 0.5), c + Vector2(r * 0.09, r * 0.5), gold, r * 0.1)
+				var h := c + Vector2(0, -r * 0.6)
+				for sd: float in [-1.0, 1.0]:
+					var pts := PackedVector2Array()
+					for i in 17:
+						var t := i / 16.0
+						var th := t * PI * 1.55
+						var rr := r * 0.42 * (1.0 - 0.55 * t)
+						pts.append(h + Vector2(sd * (r * 0.42 - rr * cos(th)), r * 0.1 - rr * sin(th)))
+					draw_polyline(pts, Color(0.85, 0.62, 0.2), r * 0.13, true)
+				for i in 8:
+					var d := Vector2.from_angle(TAU * i / 8.0)
+					_shard(h + d * r * 0.18, d, r * 0.24, r * 0.06, gold)
+				draw_circle(h, r * 0.26, gold)
+				draw_circle(h, r * 0.1, Color(1.0, 0.97, 0.85))
+			"moon_axe":
+				draw_line(c + Vector2(0, r), c + Vector2(0, -r * 0.8), iron, r * 0.12)
+				for sd: float in [-1.0, 1.0]:
+					var o := c + Vector2(-sd * r * 0.2, -r * 0.35)
+					var a0 := 0.0 if sd > 0 else PI
+					var outer := PackedVector2Array()
+					var inner := PackedVector2Array()
+					for i in 13:
+						var t := i / 12.0
+						var d := Vector2.from_angle(a0 + lerpf(-1.1, 1.1, t))
+						outer.append(o + d * r * 0.7)
+						inner.append(o + d * r * 0.7 * (0.96 - 0.42 * sin(PI * t)))
+					draw_polyline(outer, rim, 2.0)
+					inner.reverse()
+					outer.append_array(inner)
+					draw_colored_polygon(outer, Color(0.36, 0.18, 0.62))
+				_shard(c + Vector2(0, -r * 0.75), Vector2.UP, r * 0.32, r * 0.08, violet)
+				_orb_icon(c + Vector2(0, -r * 0.35), r * 0.12)
 
 	## A crystal or blade shard: a long diamond from `p` along `d`.
 	func _shard(p: Vector2, d: Vector2, length: float, w: float, col: Color) -> void:
@@ -1121,6 +1168,8 @@ class Swatch extends Control:
 				parts = ["wand", shape]
 			"ice_staff", "sun_staff", "scythe":
 				parts = [shape]
+			"magma_cleaver", "sun_hammer", "rift_blade", "magma_maul", "ram_mace", "moon_axe":
+				parts = [shape]
 			"crossbow", "heavy":
 				parts = [shape]
 			"knife":
@@ -1168,56 +1217,81 @@ class Swatch extends Control:
 				"tome", "open_tome", "fire_tome":
 					var o := c + Vector2(r * 0.35, 0)
 					if p == "fire_tome":
-						# The burning tome: dark pages with three flames rising off them.
-						o.y += r * 0.3
-						draw_rect(Rect2(o - Vector2(r * 0.6, r * 0.3), Vector2(r * 1.2, r * 0.6)), Color(0.22, 0.14, 0.12))
-						draw_rect(Rect2(o - Vector2(r * 0.52, r * 0.24), Vector2(r * 1.04, r * 0.48)), Color(0.55, 0.22, 0.08))
-						for f: Array in [[0.0, 0.95, 0.2], [-0.32, 0.6, 0.14], [0.32, 0.7, 0.14]]:
-							var fb := o + Vector2(r * f[0], -r * 0.2)
-							draw_colored_polygon(PackedVector2Array([fb + Vector2(-r * f[2], 0), fb + Vector2(0, -r * f[1]), fb + Vector2(r * f[2], 0)]), steel)
-							draw_colored_polygon(PackedVector2Array([fb + Vector2(-r * f[2] * 0.5, 0), fb + Vector2(0, -r * f[1] * 0.6), fb + Vector2(r * f[2] * 0.5, 0)]), Color(1.0, 0.92, 0.45))
+						# The burning grimoire (v230): dark red covers open in a V, gold corners,
+						# a glowing rune on each page and fire rising off it.
+						o.y += r * 0.32
+						for sd: float in [-1.0, 1.0]:
+							var cov := PackedVector2Array([o + Vector2(0, -r * 0.34), o + Vector2(sd * r * 0.66, -r * 0.42),
+								o + Vector2(sd * r * 0.66, r * 0.36), o + Vector2(0, r * 0.42)])
+							draw_colored_polygon(cov, Color(0.32, 0.07, 0.06))
+							var pg := PackedVector2Array([o + Vector2(sd * r * 0.04, -r * 0.27), o + Vector2(sd * r * 0.54, -r * 0.33),
+								o + Vector2(sd * r * 0.54, r * 0.27), o + Vector2(sd * r * 0.04, r * 0.33)])
+							draw_colored_polygon(pg, Color(0.88, 0.64, 0.4))
+							draw_arc(o + Vector2(sd * r * 0.29, 0), r * 0.13, 0, TAU, 16, Color(1.0, 0.5, 0.12), 2.0, true)
+							for y: float in [-0.4, 0.36]:
+								draw_rect(Rect2(o + Vector2(sd * r * 0.66 - r * 0.07, r * y - r * 0.06), Vector2(r * 0.14, r * 0.12)), Color(1.0, 0.82, 0.35))
+						for f: Array in [[0.0, 0.95], [-0.3, 0.6], [0.3, 0.68]]:
+							_flame_icon(o + Vector2(r * f[0], -r * 0.34), r * f[1])
 					elif p == "tome":
 						draw_rect(Rect2(o - Vector2(r * 0.38, r * 0.5), Vector2(r * 0.76, r)), Color(0.7, 0.2, 0.3))
 					else:
 						draw_rect(Rect2(o - Vector2(r * 0.6, r * 0.38), Vector2(r * 1.2, r * 0.76)), Color(0.95, 0.92, 0.85))
 						draw_line(o + Vector2(0, -r * 0.38), o + Vector2(0, r * 0.38), Color(0.6, 0.5, 0.4), 2.0)
 				"ice_staff", "sun_staff", "scythe":
-					draw_line(c + Vector2(-r * 0.2, r), c + Vector2(r * 0.2, -r * 0.6), wood, r * 0.14)
 					var h := c + Vector2(r * 0.24, -r * 0.72)
 					if p == "ice_staff":
-						# A crown of ice crystals: a tall one in the middle, two leaning out.
-						for cr: Array in [[0.0, 0.62, 0.13], [-0.6, 0.42, 0.1], [0.6, 0.42, 0.1]]:
-							var d := Vector2.from_angle(-PI / 2 + cr[0])
-							var n: Vector2 = Vector2(-d.y, d.x) * r * float(cr[2])
-							var bp := h + d * r * 0.05
-							draw_colored_polygon(PackedVector2Array([bp - d * r * 0.12, bp + n, bp + d * r * cr[1], bp - n]), steel)
-							draw_line(bp, bp + d * r * cr[1] * 0.8, Color.WHITE, 1.5)
+						# The glacier staff (v230): a shaft of ice, three ice claws round a great crystal.
+						draw_line(c + Vector2(-r * 0.2, r), c + Vector2(r * 0.2, -r * 0.6), Color(0.5, 0.8, 0.97), r * 0.13)
+						_shard(c + Vector2(-r * 0.2, r * 0.95), Vector2(-0.4, 1.0), r * 0.3, r * 0.07, steel)
+						var ax := (h - (c + Vector2(-r * 0.2, r))).normalized()
+						var nx := Vector2(-ax.y, ax.x)
+						for sd: float in [-1.0, 0.0, 1.0]:
+							var cl := PackedVector2Array([h - ax * r * 0.1, h + nx * sd * r * 0.32 + ax * r * 0.1,
+								h + nx * sd * r * 0.28 + ax * r * 0.42, h + nx * sd * r * 0.1 + ax * r * 0.6])
+							draw_polyline(cl, steel, r * 0.08, true)
+						_shard(h + ax * r * 0.05, ax, r * 0.62, r * 0.14, Color(0.9, 0.98, 1.0))
+						draw_line(h + ax * r * 0.05, h + ax * r * 0.5, Color.WHITE, 1.5)
 					elif p == "sun_staff":
-						# A sun wheel: twelve rays round a white-hot orb.
+						# The sun scepter (v230): a white-gold shaft with gold bands, a gold cup, a sun.
+						draw_line(c + Vector2(-r * 0.2, r), c + Vector2(r * 0.2, -r * 0.6), Color(1.0, 0.93, 0.75), r * 0.12)
+						for t: float in [0.2, 0.5, 0.8]:
+							draw_circle(c + Vector2(-r * 0.2, r).lerp(Vector2(r * 0.2, -r * 0.6), t), r * 0.09, steel)
+						draw_circle(c + Vector2(-r * 0.2, r), r * 0.1, steel)
+						h = c + Vector2(r * 0.3, -r * 0.82)
 						for i in 12:
 							var d := Vector2.from_angle(TAU * i / 12.0)
 							var n := Vector2(-d.y, d.x) * r * 0.07
 							var ray := r * (0.48 if i % 2 == 0 else 0.36)
 							draw_colored_polygon(PackedVector2Array([h + d * r * 0.18 + n, h + d * ray, h + d * r * 0.18 - n]), steel)
+						draw_colored_polygon(PackedVector2Array([c + Vector2(r * 0.05, -r * 0.5), c + Vector2(r * 0.42, -r * 0.62),
+							c + Vector2(r * 0.3, -r * 0.42), c + Vector2(r * 0.17, -r * 0.38)]), steel)
 						draw_arc(h, r * 0.22, 0, TAU, 20, wood, r * 0.07, true)
 						draw_circle(h, r * 0.15, Color(1.0, 0.97, 0.85))
 					else:
-						# A void scythe: a curved violet blade sweeping back from a black orb.
-						var o := h + Vector2(-r * 0.55, r * 0.35)
+						# The reaper's scythe (v230): a crooked black shaft and a great curved blade.
+						var sh := PackedVector2Array([c + Vector2(-r * 0.2, r), c + Vector2(-r * 0.05, r * 0.4),
+							c + Vector2(r * 0.02, -r * 0.1), c + Vector2(r * 0.24, -r * 0.72)])
+						draw_polyline(sh, Color(0.16, 0.09, 0.26), r * 0.13, true)
+						for t: int in [1, 2]:
+							draw_circle(sh[t], r * 0.08, Color(0.85, 0.7, 1.0))
+						_shard(h, Vector2(1.0, 0.25), r * 0.3, r * 0.07, steel)
+						var o := h + Vector2(-r * 0.62, r * 0.4)
 						var pts := PackedVector2Array()
 						var inner := PackedVector2Array()
 						for i in 13:
 							var t := i / 12.0
-							var d := Vector2.from_angle(lerpf(-PI * 0.25, -PI * 0.97, t))
-							pts.append(o + d * r * 0.68)
-							inner.append(o + d * r * 0.68 * (0.96 - 0.32 * sin(PI * t)))
+							var d := Vector2.from_angle(lerpf(-PI * 0.22, -PI * 0.98, t))
+							pts.append(o + d * r * 0.8)
+							inner.append(o + d * r * 0.8 * (0.96 - 0.36 * sin(PI * t)))
 							if i > 0:
 								draw_line(pts[i - 1], pts[i], Color(0.85, 0.7, 1.0), 2.0)
 						inner.reverse()
 						pts.append_array(inner)
-						draw_colored_polygon(pts, steel)
-						draw_circle(h, r * 0.16, Color(0.1, 0.05, 0.18))
-						draw_circle(h, r * 0.08, Color(0.8, 0.6, 1.0))
+						draw_colored_polygon(pts, Color(0.42, 0.24, 0.7))
+						draw_circle(h, r * 0.15, Color(0.1, 0.05, 0.18))
+						draw_circle(h, r * 0.07, Color(0.8, 0.6, 1.0))
+				"magma_cleaver", "sun_hammer", "rift_blade", "magma_maul", "ram_mace", "moon_axe":
+					_whole(p, c, r)
 				"crossbow", "heavy":
 					var w := r * (1.0 if p == "heavy" else 0.75)
 					draw_line(c + Vector2(0, r * 0.8), c + Vector2(0, -r * 0.6), wood, r * 0.14)

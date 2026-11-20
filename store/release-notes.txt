@@ -1,5 +1,7 @@
-Version 229: every hero's special weapons get their own shapes
-- Frostforged, Emberforged, Gilded and Voidsteel are no longer recolours: ice-cased blades, burning weapons, gold wings, halos and ram's horns, void scythes, portals and moon blades.
-- Tap a chest and a great bone hand bursts out holding what you won.
-- The Armory is rebuilt: every tab scrolls and cards show all their words.
-- The Blood Moon is up (Nov 20 - Dec 3): a new event screen, a road to follow, and the Queen to hunt.
+Version 230: the grandest weapons are rebuilt as whole new weapons
+- Knight: a magma cleaver, a gold sun hammer with a halo, a floating rift blade.
+- Barbarian: a magma maul, a gold ram's head mace, a twin moon axe.
+- Mage: a glacier staff, a sun scepter, a reaper's scythe and a burning grimoire.
+- Soft flickering fire, soft glows, and the Style screen steps back so big weapons fit.
+- Tap a chest and a bone hand bursts out holding your prize.
+- The Blood Moon is up until Dec 3: hunt the Queen.

@@ -23,6 +23,7 @@ var _key: DirectionalLight3D
 var _env: Environment
 var _sparks: CPUParticles3D
 var _tall := false
+var _wide := false   # holding a great two-handed weapon (version 230)
 var _time := 0.0
 ## The reveal under way: seconds into it (-1 for none), how long it lasts, and the slot.
 var _reveal_t := -1.0
@@ -97,6 +98,8 @@ func _make_viewport() -> void:
 
 func _ready() -> void:
 	texture = _vp.get_texture()
+	if not solid:
+		material = _see_through()
 
 
 var _cam: Camera3D
@@ -111,6 +114,9 @@ func _frame_camera(tall: bool) -> void:
 
 ## The camera's usual place and the point it looks at.
 func _framing() -> Array:
+	if _wide:
+		var y := 0.15 if _tall else 0.0
+		return [Vector3(-0.45, 1.5 + y, 6.4 + y * 4.0), Vector3(-0.45, 0.92 + y, 0)]
 	if _tall:
 		return [Vector3(0, 1.6, 6.0), Vector3(0, 1.1, 0)]
 	return [Vector3(0, 1.45, 5.2), Vector3(0, 0.95, 0)]
@@ -126,6 +132,8 @@ func _zoomed(slot: String) -> Array:
 			var y := 1.85 if _tall else 1.6
 			return [Vector3(0, y + 0.15, 4.3 if _tall else 3.9), Vector3(0, y, 0)]
 		"hold":
+			if _wide:
+				return [Vector3(-0.5, 1.3, 5.0), Vector3(-0.55, 0.9, 0)]
 			return [Vector3(0.25, 1.25, 3.9), Vector3(0, 1.0, 0)]
 		"aura":
 			return [Vector3(0, 2.0, 5.0), Vector3(0, 0.8, 0)]
@@ -245,12 +253,18 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	var tall := false
 	for x in ["crown", "crypt_crown", "storm_halo", "flame_crown", "antlers", "phantom_horns", "bone_crown", "star_circlet", "moon_crown", "halo", "horns"]:
 		tall = tall or extras.has(x)
-	_frame_camera(tall)
 	_visual = CharacterVisual.new()
 	_visual.outline_me = true
 	_visual.aura_boost = 1.8   # the hero is drawn big here: a Master aura's line grows to match
 	_pivot.add_child(_visual)
 	_visual.build(Heroes.look(def, true))
+	# Version 230: a hero holding a great two-handed weapon holds it out to the side; the
+	# camera steps back and over so its head (a hammer, a maul, a cleaver) stays in view.
+	_wide = false
+	for n in _visual.find_children("2H_*", "MeshInstance3D", true, false):
+		if str(n.name) in ["2H_Sword", "2H_Axe"] and (n as Node3D).visible and (n.get_parent() as Node3D).visible:
+			_wide = true
+	_frame_camera(tall)
 	if def.has("aura"):
 		_visual.add_child(Fx.motif(str(def.aura.get("motif", "wisps")), def.aura.get("spark", Color.WHITE)))   # a Master aura's trail of light
 		if def.aura.get("sigil", false):
@@ -397,7 +411,7 @@ func _show_live(live: bool) -> void:
 		material = null
 	else:
 		texture = _vp.get_texture()
-		material = _solid_mat if solid else null
+		material = _solid_mat if solid else _see_through()
 
 
 ## A ready-made picture of the hero on show (art/ui/heroes/<id>.png), or null.
@@ -539,6 +553,16 @@ func _repair(seen: String) -> void:
 ## The backdrop the stage is drawn on once see-through pictures fail: the Heroes and Style
 ## screens' purple at the pedestal's height, faded out at the edges so it has no hard box.
 const BACKDROP := Color(0.17, 0.12, 0.31)
+
+## Version 230: the see-through picture is drawn premultiplied, so glowing weapon fire and
+## light added over nothing still shows, and soft edges have no dark fringe.
+static var _premult: CanvasItemMaterial
+static func _see_through() -> CanvasItemMaterial:
+	if _premult == null:
+		_premult = CanvasItemMaterial.new()
+		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	return _premult
+
 
 func _set_solid() -> void:
 	_vp.transparent_bg = false

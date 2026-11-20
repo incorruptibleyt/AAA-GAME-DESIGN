@@ -754,7 +754,8 @@ void fragment() {
 	float x = abs(UV.x * 2.0 - 1.0);
 	float w = 0.85 * (1.0 - t) * smoothstep(0.0, 0.3, t) + 0.03;
 	float inside = (1.0 - smoothstep(w * 0.45, w, x)) * smoothstep(0.0, 0.12, t);
-	ALBEDO = mix(hot.rgb, cool.rgb, smoothstep(0.1, 0.8, t)) * inside * (1.2 - t * 0.5);
+	ALBEDO = mix(hot.rgb, cool.rgb, smoothstep(0.1, 0.8, t)) * (1.2 - t * 0.5);
+	ALPHA = inside;   // (v230) only the flame itself counts, so a see-through picture gets no black box
 }
 """
 		_flame_mat = ShaderMaterial.new()
