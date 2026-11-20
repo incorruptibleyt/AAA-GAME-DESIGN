@@ -530,7 +530,9 @@ func _tap() -> void:
 			_step = Step.OPENING
 			_t = 0.0
 			_plan(int(_result.get("tier", 0)))
-			_chest.begin(int(_result.get("tier", 0)), str(_result.get("kind", "coins")), _result.get("preview", {}))
+			var won: Array = _result.get("look", [])
+			_chest.begin(int(_result.get("tier", 0)), str(_result.get("kind", "coins")), _result.get("preview", {}),
+					str(won[0]) if won.size() >= 1 else "")
 			_show_later(false)
 			_action.text = "OPENING"
 			_action.modulate = Color(0.65, 0.65, 0.7)

@@ -81,6 +81,9 @@ var _arrow: MeshInstance3D     # a free Armory level
 var _hero_at: Node3D           # a new look: the hero wearing it stands here
 var _hero: CharacterVisual
 var _hero_id := ""
+var _hero_ring: MeshInstance3D # their Glow: the ring of light at their feet (as on the Style screen)
+var _hero_pool: StandardMaterial3D
+var _look_slot := ""           # which part of the look is the new one ("glow", "aura", "head"...)
 var _token_glow: MeshInstance3D
 var _token_glow_mat: ShaderMaterial
 var _token_light: OmniLight3D
@@ -387,6 +390,14 @@ func _build_token() -> void:
 	_hero_at.rotation.y = PI   # (a hero's own front is away from the camera)
 	_hero_at.scale = Vector3.ONE * (HERO_TALL / 2.1)
 	_token.add_child(_hero_at)
+	# The hero's Glow is the ring of light at their feet: without it a new Glow was a prize
+	# nobody could see. A soft pool of its colour under it, as on the Style screen's pedestal.
+	_hero_pool = U.unlit(Color.WHITE, U.soft_circle()).duplicate()
+	_hero_pool.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	U.floor_quad(_hero_at, Vector2(2.6, 2.6), _hero_pool, Vector3(0, 0.01, 0))
+	_hero_ring = LookFx.ring(Color.WHITE, null, "flow", 1.5, 0.52)
+	_hero_ring.position = Vector3(0, 0.02, 0)
+	_hero_at.add_child(_hero_ring)
 	var gm := SphereMesh.new()
 	gm.radius = 0.24
 	gm.height = 0.48
@@ -550,9 +561,10 @@ static func plan(goal: int) -> Dictionary:
 
 ## The tap: a drop of rarity `goal` holding `kind` ("coins", "look"...) starts to open.
 ## `preview`: for a new look, the hero wearing it (HeroStyle.dressed).
-func begin(goal: int, kind: String, preview := {}) -> void:
+func begin(goal: int, kind: String, preview := {}, slot := "") -> void:
 	_goal = goal
 	_prize = kind
+	_look_slot = slot
 	_since_was = 0.0
 	_beats_done = 0
 	_punch = -1.0
@@ -573,6 +585,10 @@ func begin(goal: int, kind: String, preview := {}) -> void:
 		if _hero._anim:
 			_hero._anim.advance(0.0)   # posed now, so they never flash up in a T-pose
 		_hero_id = str(preview.get("id", ""))
+		var ring_col: Color = preview.get("ring", Color.WHITE)
+		LookFx.set_ring(_hero_ring.material_override, ring_col, preview.get("ring2"), str(preview.get("ring_fx", "flow")),
+				int(preview.get("ring_tier", 0)))
+		_hero_pool.albedo_color = Color(ring_col, 0.4)
 	_token.visible = false
 
 
@@ -887,6 +903,8 @@ const GIFT_POSE := {"eye": Vector3(0, 1.42, 3.2), "at": Vector3(0, 0.8, 0), "zoo
 ## A new look: the camera comes in on the hero standing on the palm (they end up where the
 ## chest's picture is in the screen's layout, above the writing).
 const LOOK_POSE := {"eye": Vector3(0.3, 1.7, 2.5), "at": Vector3(0.0, 1.56, -0.1), "zoom": 1.32, "free": 0.0}
+## A new Glow is a ring of light on the ground: the camera looks down on it from higher up.
+const GLOW_POSE := {"eye": Vector3(0.3, 2.25, 2.35), "at": Vector3(0.0, 1.44, -0.1), "zoom": 1.24, "free": 0.0}
 const WRIST_IN := 0.2      # the wrist's height while the fist waits inside
 const INSIDE := 0.62       # the fist is this much smaller while it is shut in the chest
 ## Where the wrist ends up, how far the arm has turned (the hand is seen from its side) and
@@ -1043,11 +1061,22 @@ func _gift(step: int, col: Color, tier: int, delta: float, since: float, left: f
 		if not _cheered and s > 1.35 and _hero != null and is_instance_valid(_hero):
 			_cheered = true
 			_hero.emote(Heroes.get_hero(_hero_id).get("emote", []))
+		# A new Glow or aura flares as the hero is held out, and stays a little brighter:
+		# they are the quietest looks, and this is their moment (as on the Style screen).
+		var shines := _look_slot == "glow" or _look_slot == "aura"
+		var flare := exp(-pow((s - 1.05) / 0.25, 2.0))
+		var boost := 1.0 + (2.2 if shines else 0.9) * flare + (0.5 * looking if shines else 0.0)
+		if _hero != null and is_instance_valid(_hero):
+			_hero.rim_boost(boost)
+		var glow := _look_slot == "glow"
+		(_hero_ring.material_override as ShaderMaterial).set_shader_parameter("power", boost if glow else 1.0)
+		_hero_ring.scale = Vector3.ONE * (1.0 + (0.3 * flare if glow else 0.0))
+		_hero_pool.albedo_color.a = clampf(0.4 + (0.5 * flare + 0.2 * looking if glow else 0.0), 0.0, 1.0)
 	# The camera drops back and looks up as the arm comes out, then settles (on the hero,
 	# for a new look).
 	var pose := _mix(FACE_POSE, RISE_POSE, 1.0 - pow(1.0 - clampf(s / 0.3, 0.0, 1.0), 3.0))
 	pose = _mix(pose, GIFT_POSE, smoothstep(0.46, 1.1, s))
-	_aim(_mix(pose, LOOK_POSE, looking))
+	_aim(_mix(pose, GLOW_POSE if _look_slot == "glow" else LOOK_POSE, looking))
 	# Rays behind the fist from the moment it is out, so even a black marble hand stands
 	# clear of the dark; they flare when it opens.
 	_sun.position = at + Vector3(0, 0.05, -0.85)
