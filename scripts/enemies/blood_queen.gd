@@ -443,8 +443,15 @@ func _eclipse_move() -> void:
 	Game.set_eclipse(true)
 	Game.hud.callout("ECLIPSE!", Color(1.0, 0.35, 0.3))
 	Fx.magic(center(), RED, 40)
-	var tw := visual.create_tween()
-	tw.tween_property(visual, "scale", Vector3.ONE * 0.01, 0.45).set_ease(Tween.EASE_IN)
+	# Version 221 (v219 review): she no longer vanishes. She fades to a faint ghost and
+	# drifts to the middle of the room, where she comes back out, so the player always
+	# knows where she is (and where to be when her Shades fall).
+	var mid := Vector3(0, 0, -1.5)
+	if Room.current:
+		mid = Room.current.resolve_move(mid, Vector3.ZERO, radius)
+	var tw := create_tween()
+	tw.tween_method(_ghost, 0.01, 1.0, 0.45).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(self, "global_position", mid, 1.4).set_trans(Tween.TRANS_SINE)
 	if _bats:
 		_bats.visible = false
 	await _wait(0.5)
@@ -477,9 +484,8 @@ func _eclipse_move() -> void:
 	if not _alive():
 		return
 	# Back out of the dark in the middle of the room, stunned.
-	var mid := Vector3(0, 0, -1.5)
-	if Room.current:
-		mid = Room.current.resolve_move(mid, Vector3.ZERO, radius)
+	if tw.is_valid():
+		tw.kill()
 	global_position = mid
 	Game.set_eclipse(false)
 	_eclipse = false
@@ -487,13 +493,56 @@ func _eclipse_move() -> void:
 	contact_damage = 16.0
 	if _bats:
 		_bats.visible = true
+	_ghost(0.0)
 	var back := visual.create_tween()
+	visual.scale = Vector3.ONE * 0.8
 	back.tween_property(visual, "scale", Vector3.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	Fx.shockwave(global_position, GOLD, 4.0)
 	Fx.magic(center(), GOLD, 30)
 	Sfx.play("slam", 0.8)
 	Game.hud.callout("STUNNED! HIT HER!", GOLD)
 	await _wait(STUN)
+
+
+## Her look in the Eclipse: a shadow of herself, near black with a thin red edge, laid
+## over her (this renderer can't make a skinned model see-through). `k` fades it in.
+static var _shadow_shader: Shader
+var _shadow: ShaderMaterial
+var _lit_tint: Material
+
+
+static func shadow_material() -> ShaderMaterial:
+	if _shadow_shader == null:
+		_shadow_shader = Shader.new()
+		_shadow_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_back;
+uniform float k = 1.0;
+void fragment() {
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	ALBEDO = mix(vec3(0.06, 0.0, 0.03), vec3(1.0, 0.25, 0.2), rim);
+	ALPHA = clamp((0.72 + rim * 0.25) * k, 0.0, 0.95);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = _shadow_shader
+	return m
+
+
+func _ghost(k: float) -> void:
+	if not is_instance_valid(visual):
+		return
+	if k > 0.0 and _shadow == null:
+		_shadow = shadow_material()
+		_lit_tint = visual._tint_mat
+		visual._tint_mat = _shadow
+		visual._set_flash(false)
+	if _shadow:
+		_shadow.set_shader_parameter("k", k)
+	if k <= 0.0 and _shadow:
+		visual._tint_mat = _lit_tint
+		_shadow = null
+		visual._set_flash(false)
 
 
 func _on_death() -> void:
