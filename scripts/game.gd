@@ -4489,6 +4489,8 @@ func _set_button_size(level: int, save := true) -> void:
 func _set_darkness(light: bool, save := true) -> void:
 	light_dark = light
 	hud.set_darkness_label(light)
+	if _eclipse_k > 0.0 and save:
+		set_eclipse(true)   # v220: changed mid-Eclipse, it takes effect now
 	_save_setting("darkness_light", light, save)
 
 

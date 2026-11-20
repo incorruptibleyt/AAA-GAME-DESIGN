@@ -342,7 +342,9 @@ func _play(action: String, restart := false) -> void:
 func _process(delta: float) -> void:
 	if _flash > 0.0:
 		_flash -= delta / maxf(Engine.time_scale, 0.01)   # real seconds, even in slow motion
-		if hero_flash and _hero_flash_mat and _flash < FLASH_TIME - 0.04:
+		# v220 (v219 review): on the red and orange floors the hit stays white all the way (red
+		# on red could not be seen).
+		if hero_flash and _hero_flash_mat and _flash < FLASH_TIME - 0.04 and not (Floors.hot() or Floors.blood_moon()):
 			_hero_flash_mat.set_shader_parameter("white", 0.0)   # v218: white, then red
 		if _flash <= 0.0:
 			_set_flash(false)
