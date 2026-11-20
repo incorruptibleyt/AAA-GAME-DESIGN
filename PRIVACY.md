@@ -1,6 +1,6 @@
 # Bone Chain privacy policy
 
-_Last updated: November 19, 2026_
+_Last updated: November 20, 2026_
 
 Bone Chain is a dungeon game for Android made by incorruptibleyt. This policy explains what happens to your information when you play it.
 
@@ -18,7 +18,7 @@ If you have turned reports on, then when a run ends, when the game hits an error
 - **A random install number** made on your phone the first time you play. It is not linked to you, your Google account or your phone's advertising ID. It usually changes if you reinstall, but if your phone restores the game from its Google backup, the same number comes back with your save.
 - **Technical details:** the game version, phone model, Android version, graphics chip name, how much memory the phone has, and how much memory the game is using.
 
-**First-week progress notes:** on a new install, for its first 8 days, the game sends a one-line note the first time you reach certain points: opening the game, finishing loading, the end of the opening scene, each room of the tutorial, your first kill, winning or falling in the tutorial (and in which room), leaving or quitting it, your first normal run, your first Crypt Race, reaching floor 2, and opening the game again on days 2 to 8. Each note holds only the name of that point, the game version, the random install number and how many seconds have passed since you first opened the game. Each is sent once. They are sent before you're asked about reports; if you answer No, or turn **Send reports** off, no more are sent and any still waiting on your phone are deleted. A game already played before this version never sends them.
+**First-week progress notes:** on a new install, for its first 8 days, the game sends a one-line note the first time you reach certain points: opening the game, finishing loading, the end of the opening scene, each room of the tutorial, your first kill, winning or falling in the tutorial (and in which room), leaving or quitting it, your first normal run, your first Crypt Race, reaching floor 2, reaching the end of the free floors, opening the Crypt Pass screen, tapping to buy the Crypt Pass, cancelling that purchase, completing or restoring it, and opening the game again on days 2 to 8. Each note holds only the name of that point, the game version, the random install number and how many seconds have passed since you first opened the game. Each is sent once. They are sent before you're asked about reports; if you answer No, or turn **Send reports** off, no more are sent and any still waiting on your phone are deleted. A game already played before this version never sends them.
 
 **Feedback you type:** if you open **Send feedback** in the pause menu and tap **SEND**, your note is sent the same way, with the random install number, the technical details above and where you were in the game. This happens even if reports are off, because you chose to send it. Please don't include your name, email or other personal details in the note.
 
@@ -28,11 +28,11 @@ If you're offline, up to 20 reports wait on your phone and are sent later. Turni
 
 ## The Crypt Pass (in-app purchase)
 
-The Crypt Pass is a one-time purchase made through Google Play. Google handles the whole payment, so the game never sees your card, payment details, name or email. The game only asks Google Play whether your Google account owns the Pass, and saves the answer on your phone so it works offline. No order or payment details are included in the anonymous reports. Google's own privacy policy covers the payment.
+The Crypt Pass is a one-time purchase made through Google Play. Google handles the whole payment, so the game never sees your card, payment details, name or email. The game only asks Google Play whether your Google account owns the Pass, and saves the answer on your phone so it works offline. The anonymous reports and progress notes can say that you opened the Pass screen, tapped to buy, cancelled, or now own the Pass, but they never include order numbers, prices or payment details. Google's own privacy policy covers the payment.
 
 ## What stays on your phone
 
-The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, Daily Crypt best scores, chosen Curses, Curse rewards, free hero trials used, whether you own the Crypt Pass, settings and simple play counts such as perfect dodges) in a file on your own phone, with a backup copy in case the phone shuts down while saving. A run in progress is saved in another file on your phone so you can continue it. All of these files are deleted from the phone when you uninstall the game. If your phone's own Google backup is on, Android may keep a copy of the game's files in your Google account (the save file, its backup copy, the run in progress and your settings; this is Android's backup, not the developer's) and put them back if you reinstall, so your progress isn't lost. You can turn this off or delete it in your phone's Google backup settings.
+The game saves your progress (coins, unlocked heroes, Armory upgrades, best floor and score, Daily Crypt best scores, chosen Curses, Curse rewards, free hero trials used, whether you own the Crypt Pass, settings and simple play counts such as perfect dodges) in a file on your own phone, with a backup copy in case the phone shuts down while saving. A run in progress is saved in another file on your phone so you can continue it. All of these files are deleted from the phone when you uninstall the game. If your phone's own Google backup is on, Android may keep a copy of the game's files in your Google account (including the save file, its backup copy, the run in progress and your settings, and small files such as reports still waiting to be sent; this is Android's backup, not the developer's) and put them back if you reinstall, so your progress isn't lost. You can turn this off or delete it in your phone's Google backup settings.
 
 ## Permissions
 
@@ -55,7 +55,7 @@ Bone Chain is not made for children under 13 and does not knowingly collect info
 
 ## Changes
 
-Version 157 (November 2026) added the first-week progress notes. Version 212 (November 2026) added the time check. If a future version collects anything else (for example ads), this policy will be updated first and the Google Play data safety section will say so.
+Version 157 (November 2026) added the first-week progress notes. Version 212 (November 2026) added the time check. Version 219 (November 2026) added the Crypt Pass progress notes. If a future version collects anything else (for example ads), this policy will be updated first and the Google Play data safety section will say so.
 
 ## Contact
 
