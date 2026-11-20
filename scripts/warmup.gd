@@ -22,6 +22,10 @@ const BUDGET_MS := 12000
 
 static var last_ms := 0
 static var last_core := false
+## Version 221: the step a full warm-up stopped at when it ran out of time (see mark_full),
+## and whether this session has already shown the full one (it shows once a session).
+static var last_stop := 0
+static var full_tried := false
 
 
 ## Which warm-up this launch needs: true for the short one (see FIRST_FOES).
@@ -29,21 +33,35 @@ static func core_only(cfg: ConfigFile) -> bool:
 	return str(cfg.get_value("stats", "warmed_build", "")) == Game.BUILD or Game.first_run_pending()
 
 
-## Notes that this build's whole set has been drawn (see core_only).
-## Version 218: only once the whole set was drawn, or after 3 tries that ran out of time
-## (a slow phone must not wait 12 s on every launch). It was marked after any try, and the
-## robot's full warm-ups mostly stopped at step 3-5, before the heroes.
+## Notes how far this build's full warm-up got (see core_only and resume_step).
+## Version 221 (v219 review): only a finished one marks the build. One that ran out of time
+## saves the step it stopped at, and the next launch carries on from there, so a slow phone
+## sees the loading bar once a launch and each one gets further. Before, it started again
+## from the first step after every run, up to 3 times (3 black screens on update day).
 static func mark_full(cfg: ConfigFile, finished := true) -> void:
-	var tries := int(cfg.get_value("stats", "warm_tries", 0)) + 1
-	if finished or tries >= 3:
+	if finished:
 		cfg.set_value("stats", "warmed_build", Game.BUILD)
-		cfg.set_value("stats", "warm_tries", 0)
+		if cfg.has_section_key("stats", "warm_step"):
+			cfg.erase_section_key("stats", "warm_step")
 	else:
-		cfg.set_value("stats", "warm_tries", tries)
+		cfg.set_value("stats", "warm_step", "%s|%d" % [Game.BUILD, last_stop])
+	if cfg.has_section_key("stats", "warm_tries"):
+		cfg.erase_section_key("stats", "warm_tries")   # (versions 218-220 counted tries)
+
+
+## Where this build's full warm-up carries on from (0: from the start).
+static func resume_step(cfg: ConfigFile) -> int:
+	var parts := str(cfg.get_value("stats", "warm_step", "")).split("|")
+	if parts.size() == 2 and parts[0] == Game.BUILD:
+		return maxi(0, int(parts[1]))
+	return 0
 
 
 ## Returns true when every step was drawn (false when it ran out of time).
-static func run(core := false) -> bool:
+## Version 221: `from` skips the steps an earlier launch already drew (the phone keeps them).
+static func run(core := false, from := 0) -> bool:
+	if not core:
+		full_tried = true
 	var room := Room.current
 	var hero: Hero = Game.hero
 	if room == null or hero == null or Game.world == null:
@@ -82,6 +100,8 @@ static func run(core := false) -> bool:
 				e._spawn_timer = 0.0
 				if kinds[i] == "w":
 					e.make_elite()
+				if kinds[i] == "Q":
+					(e as BloodQueen)._ghost(1.0)   # her Eclipse shadow (version 221)
 				if e._bar:
 					e._bar.reveal()
 				DamageNumber.hit(e, 1234567890.0, kinds[i] == "K")
@@ -242,13 +262,17 @@ static func run(core := false) -> bool:
 
 	# Draw each batch for two frames. Frames, not frame_post_draw: that signal never comes
 	# without a screen (robot test runs).
-	for n in steps.size():
+	if from > 0:
+		print("[warmup] carrying on from step %d of %d" % [from, steps.size()])
+	for n in range(mini(from, steps.size()), steps.size()):
 		# Version 167: never more than 12 s. A phone this slow (or one of Google's test phones,
 		# drawing in software) would wait up to a minute; whatever is left is prepared the
-		# first time it is drawn instead, with a short pause then.
+		# first time it is drawn instead, with a short pause then, or by the next launch
+		# (version 221: it carries on from this step).
 		if Time.get_ticks_msec() - started > BUDGET_MS:
 			print("[warmup] stopped at step %d of %d (over %d ms)" % [n, steps.size(), BUDGET_MS])
 			finished = false
+			last_stop = n
 			break
 		Game.loading = "loading %d/%d" % [n + 1, steps.size()]
 		Game.note_spot()   # if a phone dies while loading, the report says at which step
