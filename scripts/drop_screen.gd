@@ -16,6 +16,8 @@ const CLIMB := [0.35, 0.62, 0.86, 1.06]
 const OPEN_AT := 1.3
 ## The title's full size (it shrinks on short screens: _fit_head).
 const HEAD_SIZE := 46
+const LOOK_TALL := 420.0   # the won look's picture; on a short screen down to LOOK_SHORT
+const LOOK_SHORT := 280.0
 
 ## How a drop opens: 1 "The Gift" takes over the whole screen (chest_show.gd): the writing
 ## fades, the crypt goes black, the camera moves and a great bone hand holds the prize out.
@@ -141,7 +143,7 @@ func _init() -> void:
 	_art.add_child(_chest)
 	_chest_small()
 	_look = HeroStage.new(Vector2(320, 320))
-	_look.custom_minimum_size = Vector2(440, 420)   # the chest's size, so nothing jumps
+	_look.custom_minimum_size = Vector2(440, LOOK_TALL)   # the chest's size, so nothing jumps
 	_look.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_look.visible = false
 	col.add_child(_look)
@@ -952,6 +954,20 @@ func _fit_head() -> void:
 		_head.label_settings.font_size = want
 
 
+## Version 226: on a short (16:9) screen a won look with its words, WEAR IT and DONE made
+## the column taller than the screen, and FEAT DONE! sat cut off at the very top. The
+## hero's picture gives up height until everything fits (it keeps its shape).
+func _fit_look() -> void:
+	var want := LOOK_TALL
+	if _look.visible:
+		var room := size.y - 40.0
+		var need := _col.get_combined_minimum_size().y - _look.custom_minimum_size.y + LOOK_TALL
+		if need > room:
+			want = maxf(LOOK_SHORT, LOOK_TALL - (need - room))
+	if absf(_look.custom_minimum_size.y - want) > 1.0:
+		_look.custom_minimum_size.y = want
+
+
 func _stage_light(delta: float) -> void:
 	var dark := 0.0
 	var ui := 1.0
@@ -973,6 +989,7 @@ func _stage_light(delta: float) -> void:
 	_odds_btn.modulate.a = ui
 	_odds_btn.disabled = ui < 0.5
 	_fit_head()
+	_fit_look()
 	# The prize hangs where the two small lines above the chest are: they make room for it.
 	var room := 0.0 if _staged and _step == Step.OPEN and _art.visible and not _feat_mode and _offer.is_empty() else 1.0
 	_count.modulate.a = move_toward(_count.modulate.a, room, delta * 6.0)

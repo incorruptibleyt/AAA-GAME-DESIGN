@@ -4223,6 +4223,9 @@ func _badge_pill(text: String) -> Label:
 	l.offset_right = 4
 	l.offset_top = -10
 	l.offset_bottom = 10
+	# Version 226: a long tag ("12 NEW LOOKS") grows to the left, over its own button; it
+	# grew to the right before and ran onto the next button.
+	l.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	return l
 
 

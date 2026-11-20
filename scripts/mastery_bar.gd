@@ -141,7 +141,9 @@ func _show(p: int) -> void:
 	_bar.gold = lv >= HeroMastery.MAX_LEVEL
 	_bar.queue_redraw()
 	if lv >= HeroMastery.MAX_LEVEL:
-		_sub.text = "%s  ·  Every reward earned" % rank.name.to_upper()
+		# (Version 226: shorter where it would be cut, as on the Heroes screen.)
+		var done := "%s  ·  Every reward earned" % rank.name.to_upper()
+		_sub.text = done if _fits(done) else "%s  ·  All earned" % rank.name.to_upper()
 	else:
 		# The next level's rewards, shortened until they fit (the Heroes screen's bar is narrow):
 		# "+ 3 new looks" goes first, then the rewards themselves (the LEVELS screen lists them).

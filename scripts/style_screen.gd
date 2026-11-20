@@ -439,6 +439,10 @@ func _card(it: Dictionary) -> Button:
 		v.add_child(Hud.label("CRYPT RACE", 14, RACE))
 	var state := "WEARING" if worn else ("TAP TO WEAR" if got else ("TAP TO TRY ON" if paid or special else "LEVEL %d" % it.level))
 	v.add_child(Hud.label(state, 15, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else (Color(1.0, 0.8, 0.5) if paid else DIM))))
+	# Version 226: a card with more lines than fit grows taller instead of letting the last
+	# line fall out below it (a long name on two lines, or several tags).
+	v.minimum_size_changed.connect(func():
+		b.custom_minimum_size.y = maxf(146.0, v.get_combined_minimum_size().y + 12.0))
 	# The finger can drag the list from on top of a card (PASS lets the list see the drag),
 	# and a card the list was dragged on isn't worn when the finger lifts.
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
