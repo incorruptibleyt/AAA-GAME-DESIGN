@@ -544,6 +544,9 @@ class Swatch extends Control:
 					var by := {"frostforged": {"rogue": "heavy", "knight": "badge", "barbarian": "twin_axes", "mage": "staff"},
 						"emberforged": {"rogue": "twin_knives", "knight": "greatsword", "barbarian": "great_axe", "mage": "open_tome"}}
 					shape = str(by.get(k, grand).get(id, ""))
+					# v228: the Mage's forged, gilded and void weapons have their own shapes (MageArms).
+					if id == "mage":
+						shape = str({"frost": "ice_staff", "gold": "sun_staff", "void": "scythe", "ember": "fire_tome"}.get(finish, shape))
 		queue_redraw()
 
 	func _draw() -> void:
@@ -980,8 +983,10 @@ class Swatch extends Control:
 				parts = ["staff"]
 			"wand":
 				parts = ["wand"]
-			"tome", "open_tome":
+			"tome", "open_tome", "fire_tome":
 				parts = ["wand", shape]
+			"ice_staff", "sun_staff", "scythe":
+				parts = [shape]
 			"crossbow", "heavy":
 				parts = [shape]
 			"knife":
@@ -1026,13 +1031,59 @@ class Swatch extends Control:
 					var o := c + Vector2(-r * 0.4, 0)
 					draw_line(o + Vector2(0, r * 0.8), o + Vector2(0, -r * 0.6), wood, r * 0.1)
 					draw_circle(o + Vector2(0, -r * 0.7), r * 0.16, Color(0.5, 0.9, 1.0))
-				"tome", "open_tome":
+				"tome", "open_tome", "fire_tome":
 					var o := c + Vector2(r * 0.35, 0)
-					if p == "tome":
+					if p == "fire_tome":
+						# The burning tome: dark pages with three flames rising off them.
+						o.y += r * 0.3
+						draw_rect(Rect2(o - Vector2(r * 0.6, r * 0.3), Vector2(r * 1.2, r * 0.6)), Color(0.22, 0.14, 0.12))
+						draw_rect(Rect2(o - Vector2(r * 0.52, r * 0.24), Vector2(r * 1.04, r * 0.48)), Color(0.55, 0.22, 0.08))
+						for f: Array in [[0.0, 0.95, 0.2], [-0.32, 0.6, 0.14], [0.32, 0.7, 0.14]]:
+							var fb := o + Vector2(r * f[0], -r * 0.2)
+							draw_colored_polygon(PackedVector2Array([fb + Vector2(-r * f[2], 0), fb + Vector2(0, -r * f[1]), fb + Vector2(r * f[2], 0)]), steel)
+							draw_colored_polygon(PackedVector2Array([fb + Vector2(-r * f[2] * 0.5, 0), fb + Vector2(0, -r * f[1] * 0.6), fb + Vector2(r * f[2] * 0.5, 0)]), Color(1.0, 0.92, 0.45))
+					elif p == "tome":
 						draw_rect(Rect2(o - Vector2(r * 0.38, r * 0.5), Vector2(r * 0.76, r)), Color(0.7, 0.2, 0.3))
 					else:
 						draw_rect(Rect2(o - Vector2(r * 0.6, r * 0.38), Vector2(r * 1.2, r * 0.76)), Color(0.95, 0.92, 0.85))
 						draw_line(o + Vector2(0, -r * 0.38), o + Vector2(0, r * 0.38), Color(0.6, 0.5, 0.4), 2.0)
+				"ice_staff", "sun_staff", "scythe":
+					draw_line(c + Vector2(-r * 0.2, r), c + Vector2(r * 0.2, -r * 0.6), wood, r * 0.14)
+					var h := c + Vector2(r * 0.24, -r * 0.72)
+					if p == "ice_staff":
+						# A crown of ice crystals: a tall one in the middle, two leaning out.
+						for cr: Array in [[0.0, 0.62, 0.13], [-0.6, 0.42, 0.1], [0.6, 0.42, 0.1]]:
+							var d := Vector2.from_angle(-PI / 2 + cr[0])
+							var n: Vector2 = Vector2(-d.y, d.x) * r * float(cr[2])
+							var bp := h + d * r * 0.05
+							draw_colored_polygon(PackedVector2Array([bp - d * r * 0.12, bp + n, bp + d * r * cr[1], bp - n]), steel)
+							draw_line(bp, bp + d * r * cr[1] * 0.8, Color.WHITE, 1.5)
+					elif p == "sun_staff":
+						# A sun wheel: twelve rays round a white-hot orb.
+						for i in 12:
+							var d := Vector2.from_angle(TAU * i / 12.0)
+							var n := Vector2(-d.y, d.x) * r * 0.07
+							var ray := r * (0.48 if i % 2 == 0 else 0.36)
+							draw_colored_polygon(PackedVector2Array([h + d * r * 0.18 + n, h + d * ray, h + d * r * 0.18 - n]), steel)
+						draw_arc(h, r * 0.22, 0, TAU, 20, wood, r * 0.07, true)
+						draw_circle(h, r * 0.15, Color(1.0, 0.97, 0.85))
+					else:
+						# A void scythe: a curved violet blade sweeping back from a black orb.
+						var o := h + Vector2(-r * 0.55, r * 0.35)
+						var pts := PackedVector2Array()
+						var inner := PackedVector2Array()
+						for i in 13:
+							var t := i / 12.0
+							var d := Vector2.from_angle(lerpf(-PI * 0.25, -PI * 0.97, t))
+							pts.append(o + d * r * 0.68)
+							inner.append(o + d * r * 0.68 * (0.96 - 0.32 * sin(PI * t)))
+							if i > 0:
+								draw_line(pts[i - 1], pts[i], Color(0.85, 0.7, 1.0), 2.0)
+						inner.reverse()
+						pts.append_array(inner)
+						draw_colored_polygon(pts, steel)
+						draw_circle(h, r * 0.16, Color(0.1, 0.05, 0.18))
+						draw_circle(h, r * 0.08, Color(0.8, 0.6, 1.0))
 				"crossbow", "heavy":
 					var w := r * (1.0 if p == "heavy" else 0.75)
 					draw_line(c + Vector2(0, r * 0.8), c + Vector2(0, -r * 0.6), wood, r * 0.14)

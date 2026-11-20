@@ -1,7 +1,6 @@
-Version 227: a new Armory and a new way to open chests
+Version 228: the Mage's weapons get their own shapes
+- Frostforged, Emberforged, Gilded and Voidsteel are no longer recoloured staffs: an ice crystal staff, a burning tome, a sun staff and a void scythe.
 - Tap a chest and a great bone hand bursts out holding what you won.
 - The Armory is rebuilt: every tab scrolls and cards show all their words.
-- Lists scroll in a clear window. Tidier doors, Settings, death screen.
 - The Blood Moon is up (Nov 20 - Dec 3): a new event screen, a road to follow, and the Queen to hunt.
-- Crypt Pass: a Silver Moon row, floors 7-9 remixed.
-- New Cursed Door, deep cards with real choices, four new Vault cards.
+- Crypt Pass: a Silver Moon row.
