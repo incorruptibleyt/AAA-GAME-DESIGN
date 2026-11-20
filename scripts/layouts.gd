@@ -669,13 +669,15 @@ const HARD := [
 	],
 ]
 
+## Version 220 (v219 review): the boss stands two cells nearer, so it starts below the
+## boss bar instead of with its head behind it.
 const BOSS := [
 	".........",
 	".........",
 	".........",
-	"....K....",
 	".........",
-	".#.....#.",
+	".........",
+	".#..K..#.",
 	".........",
 	".........",
 	".........",

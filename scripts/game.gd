@@ -1351,6 +1351,8 @@ func keyboard_move() -> Vector2:
 const VIEW_HALF_WIDTH := 4.4
 ## The hero sits this far above the middle of the screen, away from the thumb.
 const HERO_ABOVE_CENTRE := 0.9
+## Version 220: share of the screen at the top the hero is kept out of (the top HUD).
+const TOP_SAFE := 0.22
 const NEAR_EXTRA := 2.3   # v219 (review 4 fix 20): was 1.5; feet by the near wall stay clear
 ## The title screen's lobby camera looks down at this angle (the fight camera is steeper),
 ## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
@@ -1416,6 +1418,11 @@ func _room_focus() -> Vector3:
 	var hi := Room.HALF_L + 0.6 + NEAR_EXTRA - bottom
 	var lo := -Room.HALF_L - 2.5 - top
 	var z := (lo + hi) * 0.5 if lo > hi else clampf(hero.global_position.z + HERO_ABOVE_CENTRE, lo, hi)
+	# Version 220 (v219 review): the wall clamp let a hero by the far wall sit under the top
+	# HUD (health, boss bar) in boss fights. The camera now follows far enough that the hero
+	# stays below the top 22% of the screen, even if a strip past the far wall shows.
+	var a_min := p - atan((0.5 - TOP_SAFE) * 2.0 * tan(half_v))
+	z = minf(z, hero.global_position.z - (d * cos(p) - d * sin(p) / tan(a_min)))
 	var x_room := maxf(0.0, Room.HALF_W + 0.6 - VIEW_HALF_WIDTH)
 	# Version 219 (review 4 fix 20): the wall clamp used the width seen at the middle of the
 	# screen, but rows nearer the camera see less, so a hero in a near corner sat half off the

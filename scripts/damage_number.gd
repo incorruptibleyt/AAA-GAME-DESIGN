@@ -40,7 +40,7 @@ const SPARE_CAP := 16
 var _key := ""
 ## Version 213: where the number sits from its target (the hero's sit higher, off to the side).
 var _off := OFFSET
-const HERO_OFFSET := Vector3(1.15, 1.5, 0)
+const HERO_OFFSET := Vector3(1.15, 2.2, 0)   # v220: above the shoulder, off the body
 
 
 ## Damage taken by `who`. Hits on the hero are red; crits turn the number gold and bigger.
