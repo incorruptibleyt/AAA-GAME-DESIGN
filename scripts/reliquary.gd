@@ -53,6 +53,32 @@ var _ring_mat: StandardMaterial3D
 var _open := 0.0
 var _opened := false
 var _snap := 0.0
+## The opening's style (DropScreen.style): 0 the first one; the others are full-screen
+## shows (chest_show.gd).
+var style := 0
+var _clock := 0.0             # seconds this chest has been animated (not the wall clock)
+var _cam: Camera3D
+## The camera: where it stands, what it looks at, how far it is zoomed in (1 = at rest)
+## and how far it leans over. A show moves these; reset() puts them back.
+var cam_eye := CAM_EYE
+var cam_at := CAM_AT
+var cam_zoom := 1.0
+var cam_roll := 0.0
+## Drawn over the whole screen (set_full): the look point then lands on `anchor` (in this
+## control's own points) at rest, or on the screen's middle as `cam_free` goes to 1.
+var full := false
+var anchor := Vector2.ZERO
+var cam_free := 0.0
+var _shadow: MeshInstance3D
+var _dust: CPUParticles3D
+var _link_side: PackedInt32Array = []   # which chain (0 left, 1 right) each link is on
+var _chain_t := [-1.0, -1.0]  # seconds since each chain snapped (under 0: still whole)
+var _hit := 0.0               # a punch as the rarity climbs (1 fading to 0)
+var _jolt := 0.0              # a lurch to one side as a chain snaps
+var _yaw := -0.38
+var _hover := 0.0
+var _sway := 1.0
+var _rune_spin := 0.0
 var _lift := 0.0
 var _lift_to := 0.0
 var _tier := 0
@@ -64,6 +90,11 @@ const LID_R := 0.37                        # the lid is half a barrel this deep.
 const LID_SQUASH := 0.62                   # ...and this much as tall
 const LID_OPEN := -1.45                    # how far the lid swings back (radians)
 const CHAIN_X := 0.36
+const CAM_EYE := Vector3(0, 1.42, 2.95)
+const CAM_AT := Vector3(0, 0.8, 0)
+## How many points on screen one unit of slope covers at rest: the chest's first picture
+## was 560 points tall with a 46 degree lens, and it keeps that size whatever it is drawn in.
+const FOCAL := 280.0 / 0.42447
 
 
 func _init() -> void:
@@ -76,10 +107,11 @@ func _init() -> void:
 	_vp.render_target_update_mode = SubViewport.UPDATE_WHEN_PARENT_VISIBLE
 	add_child(_vp)
 	var cam := Camera3D.new()
-	cam.position = Vector3(0, 1.42, 2.95)
+	cam.position = CAM_EYE
 	cam.fov = 46.0
+	_cam = cam
 	_vp.add_child(cam)
-	cam.look_at_from_position(cam.position, Vector3(0, 0.8, 0))
+	cam.look_at_from_position(cam.position, CAM_AT)
 	var env := WorldEnvironment.new()
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_CLEAR_COLOR
@@ -191,6 +223,7 @@ shader_type spatial;
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
 uniform vec4 col : source_color = vec4(1.0);
 uniform float power = 0.0;
+uniform float front = 1.0;
 void fragment() {
 	float a = UV.x * 6.2831853;
 	float rays = pow(sin(a * 5.0 + TIME * 0.7) * 0.5 + 0.5, 4.0) * 0.8
@@ -199,7 +232,7 @@ void fragment() {
 	float fade = pow(1.0 - up, 1.6) * smoothstep(0.0, 0.08, 1.0 - UV.y);
 	float edge = pow(abs(dot(NORMAL, VIEW)), 1.5);
 	ALBEDO = col.rgb * (1.0 + 0.6 * smoothstep(0.6, 1.0, UV.y));
-	ALPHA = clamp(rays * fade * edge * power, 0.0, 1.0);
+	ALPHA = clamp(rays * fade * edge * power, 0.0, 1.0) * (FRONT_FACING ? front : 1.0);
 }
 """
 
@@ -436,7 +469,7 @@ func _plinth() -> void:
 	_mesh(_vp, runes, _runes, Vector3(0, 0.004, 0))
 	var sh := PlaneMesh.new()
 	sh.size = Vector2(1.7, 1.25)
-	_mesh(_root, sh, _shader(SHADOW_CODE), Vector3(0, 0.008, 0))
+	_shadow = _mesh(_root, sh, _shader(SHADOW_CODE), Vector3(0, 0.008, 0))
 
 
 ## The box: bone walls, velvet inside, femur posts at the corners with knobbed ends, a
@@ -681,6 +714,7 @@ func _chains() -> void:
 			# turns a quarter each link so they hook through each other.
 			var basis := Basis(side, up, t) if n % 2 == 0 else Basis(up, -side, t)
 			xfs.append(Transform3D(basis * Basis.from_scale(Vector3(1.0, 1.0, 1.55)), p))
+			_link_side.append(0 if x < 0.0 else 1)
 			seg_pos += step
 			n += 1
 		# The padlock where the chain ends on the front.
@@ -826,6 +860,50 @@ func _effects() -> void:
 	cm.material = _gold
 	_coins.mesh = cm
 	_root.add_child(_coins)
+	# Dust thrown out along the plinth when it slams down (the Chainbreaker opening).
+	_dust = CPUParticles3D.new()
+	_dust.emitting = false
+	_dust.one_shot = true
+	_dust.explosiveness = 1.0
+	_dust.amount = 40
+	_dust.lifetime = 0.75
+	_dust.position = Vector3(0, 0.06, 0)
+	_dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
+	_dust.emission_ring_axis = Vector3.UP
+	_dust.emission_ring_radius = 0.7
+	_dust.emission_ring_inner_radius = 0.55
+	_dust.emission_ring_height = 0.02
+	_dust.direction = Vector3.UP
+	_dust.spread = 80.0
+	_dust.initial_velocity_min = 1.2
+	_dust.initial_velocity_max = 2.6
+	_dust.radial_accel_min = 2.0
+	_dust.radial_accel_max = 5.0
+	_dust.gravity = Vector3(0, -1.5, 0)
+	_dust.damping_min = 2.0
+	_dust.damping_max = 3.0
+	_dust.scale_amount_min = 0.5
+	_dust.scale_amount_max = 1.3
+	var dcurve := Curve.new()
+	dcurve.add_point(Vector2(0, 0.4))
+	dcurve.add_point(Vector2(0.35, 1.0))
+	dcurve.add_point(Vector2(1, 1.25))
+	_dust.scale_amount_curve = dcurve
+	var dfade := Gradient.new()
+	dfade.set_color(0, Color(1, 1, 1, 0.5))
+	dfade.set_color(1, Color(1, 1, 1, 0.0))
+	_dust.color_ramp = dfade
+	var puff := QuadMesh.new()
+	puff.size = Vector2(0.62, 0.62)
+	var pm := _unlit(Color(0.5, 0.46, 0.52))
+	pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	pm.vertex_color_use_as_albedo = true
+	pm.albedo_texture = soft_tex()
+	pm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	pm.billboard_keep_scale = true
+	puff.material = pm
+	_dust.mesh = puff
+	_vp.add_child(_dust)
 	# A ring of light racing out over the plinth.
 	_ring_mat = _unlit()
 	_ring_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -838,6 +916,25 @@ func _effects() -> void:
 	_ring = _mesh(_root, ring, _ring_mat, Vector3(0, 0.05, 0))
 	_ring.scale = Vector3(1, 0.2, 1)
 	_ring.visible = false
+
+
+static var _soft_tex: GradientTexture2D
+
+## A soft round puff (white, fading out to its edge).
+static func soft_tex() -> GradientTexture2D:
+	if _soft_tex == null:
+		var g := Gradient.new()
+		g.set_color(0, Color(1, 1, 1, 1))
+		g.set_color(1, Color(1, 1, 1, 0))
+		g.add_point(0.45, Color(1, 1, 1, 0.5))
+		_soft_tex = GradientTexture2D.new()
+		_soft_tex.gradient = g
+		_soft_tex.fill = GradientTexture2D.FILL_RADIAL
+		_soft_tex.fill_from = Vector2(0.5, 0.5)
+		_soft_tex.fill_to = Vector2(1.0, 0.5)
+		_soft_tex.width = 64
+		_soft_tex.height = 64
+	return _soft_tex
 
 
 # ---------------------------------------------------------------- the solid check
@@ -928,6 +1025,47 @@ func reset() -> void:
 	_root.rotation = Vector3(0, -0.38, 0)
 	_root.position = Vector3.ZERO
 	_root.scale = Vector3.ONE
+	_chain_t = [-1.0, -1.0]
+	_hit = 0.0
+	_jolt = 0.0
+	_yaw = -0.38
+	_hover = 0.0
+	_sway = 1.0
+	cam_eye = CAM_EYE
+	cam_at = CAM_AT
+	cam_zoom = 1.0
+	cam_roll = 0.0
+	cam_free = 0.0
+	_place_camera()
+	_shadow.position = Vector3(0, 0.008, 0)
+	_shadow.scale = Vector3.ONE
+	_light.position = Vector3(0, TOP_Y + 0.35, 0.25)
+
+
+## The rarity just climbed a step: the chest takes the blow.
+func hit() -> void:
+	_hit = 1.0
+
+
+## One chain (0 left, 1 right) snaps: its links fly off, spinning, and its padlock drops.
+func snap_chain(side: int, silent := false) -> void:
+	if _chain_t[side] >= 0.0:
+		return
+	_chain_t[side] = 0.0
+	_jolt = 1.0 if side == 0 else -1.0
+	var rng := RandomNumberGenerator.new()
+	if _link_vel.size() != _link_rest.size():
+		_link_vel.resize(_link_rest.size())
+		_link_spin.resize(_link_rest.size())
+	for i in _link_rest.size():
+		if _link_side[i] != side:
+			continue
+		var xf := _link_rest[i]
+		var out := Vector3(xf.origin.x, 0, xf.origin.z).normalized()
+		_link_vel[i] = out * rng.randf_range(1.2, 2.6) + Vector3(0, rng.randf_range(1.0, 3.0), 0)
+		_link_spin[i] = Vector3(rng.randf_range(-12, 12), rng.randf_range(-12, 12), rng.randf_range(-12, 12))
+	if not silent:
+		Sfx.play("chest_snap" if Sfx.has("chest_snap") else "crack", 0.9, 1.0 if side == 0 else 1.12)
 
 
 func open_up(col: Color, tier := 0, silent := false) -> void:
@@ -935,22 +1073,20 @@ func open_up(col: Color, tier := 0, silent := false) -> void:
 	_open = 0.0
 	_snap = 0.0
 	_tier = tier
-	_lift_to = 0.1 if tier >= 3 else 0.0
+	_lift_to = 0.1 if tier >= 3 and style == 0 else 0.0
 	_beam.visible = true
 	_glow.visible = true
 	_pile.visible = true
 	_pile_gems.visible = tier >= 2
 	_rays.set_shader_parameter("col", col.lightened(0.25))
 	_glow_mat.set_shader_parameter("col", col.lightened(0.3))
-	# The chains snap: every link flies off, spinning, and the padlocks drop away.
-	var rng := RandomNumberGenerator.new()
-	_link_vel.clear()
-	_link_spin.clear()
-	for xf in _link_rest:
-		var out := Vector3(xf.origin.x, 0, xf.origin.z).normalized()
-		_link_vel.append(out * rng.randf_range(1.2, 2.6) + Vector3(0, rng.randf_range(1.0, 3.0), 0))
-		_link_spin.append(Vector3(rng.randf_range(-12, 12), rng.randf_range(-12, 12), rng.randf_range(-12, 12)))
-	if not silent:
+	# The chains snap (any still whole): every link flies off, spinning, and the padlocks
+	# drop away.
+	var whole: bool = _chain_t[0] < 0.0 or _chain_t[1] < 0.0
+	snap_chain(0, true)
+	snap_chain(1, true)
+	_jolt = 0.0
+	if whole and not silent:
 		Sfx.play("chest_snap" if Sfx.has("chest_snap") else "crack", 0.9)   # the chains snapping
 	for wave in ([0.35, 0.7] if tier >= 4 else ([0.35] if tier >= 3 else [])):
 		get_tree().create_timer(wave).timeout.connect(func():
@@ -974,8 +1110,9 @@ func open_up(col: Color, tier := 0, silent := false) -> void:
 	_ring_mat.albedo_color = Color(col, 0.8)
 
 
-func animate(step: int, k: float, col: Color, tier: int, delta: float) -> void:
-	var t := Time.get_ticks_msec() / 1000.0
+## The colours and glows that follow the rarity, whatever the chest is doing.
+func _tint(step: int, col: Color, tier: int, delta: float) -> void:
+	var t := _clock
 	var hot := col.lightened(0.3)
 	_seam.albedo_color = hot * (1.0 + 0.6 * float(tier))
 	_crack_mat.albedo_color = col.lightened(0.45) * 1.7
@@ -985,23 +1122,45 @@ func animate(step: int, k: float, col: Color, tier: int, delta: float) -> void:
 	var gold := Color(1.0, 0.76, 0.28)
 	_trim.albedo_color = gold if moon else Color(0.3, 0.27, 0.3).lerp(gold, clampf(float(tier) / 4.0, 0.0, 1.0))
 	_runes.set_shader_parameter("col", Color(1.0, 0.25, 0.2) if moon and step == 0 else hot)
-	_runes.set_shader_parameter("spin", t * (0.12 if step == 0 else 0.6))
+	_rune_spin += delta * rune_rate
+	_runes.set_shader_parameter("spin", _rune_spin)
+	_hit = move_toward(_hit, 0.0, delta * 4.5)
+	_jolt = move_toward(_jolt, 0.0, delta * 5.0)
+
+## How fast the plinth's runes turn (a show speeds them up).
+var rune_rate := 0.12
+## How much of its usual light the open chest throws (a show with its own lights turns it down).
+var light_cap := 1.0
+
+
+## Closed: eyes breathing, a hop now and then.
+func _idle(t: float) -> void:
+	var breathe := 0.55 + 0.45 * sin(t * 2.2)
+	var eye := Color(1.0, 0.25, 0.2) if moon else Color(0.62, 0.52, 1.0)
+	_eye_mat.albedo_color = eye.darkened(0.35 * (1.0 - breathe))
+	_gem_mat.albedo_color = eye
+	_gem_mat.emission = eye * (0.4 + 0.3 * breathe)
+	_runes.set_shader_parameter("glow", 0.25 + 0.15 * breathe)
+	_chain_mat.emission = Color.BLACK
+	var hop := fmod(t, 2.4)
+	if hop < 0.4:
+		var f := hop / 0.4
+		_root.position.y = sin(f * PI) * 0.1
+		_root.scale = Vector3(1.0 + 0.05 * sin(f * TAU), 1.0 - 0.05 * sin(f * TAU), 1.0 + 0.05 * sin(f * TAU))
+
+
+## `since` and `left`: seconds since the tap and until it opens (the shows use them).
+func animate(step: int, k: float, col: Color, tier: int, delta: float, _since := 0.0, _left := 0.0) -> void:
+	_clock += delta
+	var t := _clock
+	var hot := col.lightened(0.3)
+	rune_rate = 0.12 if step == 0 else 0.6
+	_tint(step, col, tier, delta)
 	_root.position = Vector3.ZERO
-	_root.rotation = Vector3(0, -0.38 + sin(t * 0.6) * 0.1, 0)
+	_root.rotation = Vector3(0, _yaw + sin(t * 0.6) * 0.1, 0)
 	_root.scale = Vector3.ONE
-	if step == 0:   # closed: eyes breathing, a hop now and then
-		var breathe := 0.55 + 0.45 * sin(t * 2.2)
-		var eye := Color(1.0, 0.25, 0.2) if moon else Color(0.62, 0.52, 1.0)
-		_eye_mat.albedo_color = eye.darkened(0.35 * (1.0 - breathe))
-		_gem_mat.albedo_color = eye
-		_gem_mat.emission = eye * (0.4 + 0.3 * breathe)
-		_runes.set_shader_parameter("glow", 0.25 + 0.15 * breathe)
-		_chain_mat.emission = Color.BLACK
-		var hop := fmod(t, 2.4)
-		if hop < 0.4:
-			var f := hop / 0.4
-			_root.position.y = sin(f * PI) * 0.1
-			_root.scale = Vector3(1.0 + 0.05 * sin(f * TAU), 1.0 - 0.05 * sin(f * TAU), 1.0 + 0.05 * sin(f * TAU))
+	if step == 0:
+		_idle(t)
 	elif step == 1:   # opening: shaking harder, chains straining, cracks appearing
 		var kk := clampf(k, 0.0, 1.0)
 		var amp := 0.015 + 0.06 * kk
@@ -1026,37 +1185,123 @@ func animate(step: int, k: float, col: Color, tier: int, delta: float) -> void:
 		# A squash as it bursts, then it stands tall.
 		var pop := exp(-6.0 * _snap) * sin(_snap * 18.0)
 		_root.scale = Vector3(1.0 - 0.06 * pop, 1.0 + 0.08 * pop, 1.0 - 0.06 * pop)
-		_beam.scale = Vector3(1, 0.15 + 0.85 * ease(_open, 0.4), 1)
-		_rays.set_shader_parameter("power", (0.7 + 0.15 * float(tier)) * (0.85 + 0.15 * sin(t * 3.0)))
-		_glow_mat.set_shader_parameter("power", 0.5 + 0.08 * sin(t * 5.0))
-		_light.light_energy = lerpf(_light.light_energy, 1.6 + 0.25 * float(tier), delta * 3.0)
-		_eye_mat.albedo_color = hot
 		_runes.set_shader_parameter("glow", 0.6 + 0.3 * exp(-2.0 * _snap))
-		_chain_mat.emission = col * maxf(0.0, 1.8 - _snap * 1.5)
-		# Links and padlocks flying.
-		if _links.visible:
-			var g := Vector3(0, -7.0, 0)
-			var s := clampf(1.0 - (_snap - 0.6) / 0.6, 0.0, 1.0)
-			for i in _link_rest.size():
-				var r := _link_rest[i]
-				var p := r.origin + _link_vel[i] * _snap + g * 0.5 * _snap * _snap
-				var b := r.basis.rotated(_link_spin[i].normalized(), _link_spin[i].length() * _snap * 0.3)
-				_links.multimesh.set_instance_transform(i, Transform3D(b.scaled(Vector3.ONE * s) if s < 1.0 else b, p))
-			for i in _locks.size():
-				var lr := _lock_rest[i]
-				var lx := signf(lr.origin.x)
-				_locks[i].transform = Transform3D(lr.basis.rotated(Vector3.FORWARD, lx * _snap * 5.0),
-						lr.origin + Vector3(lx * 1.2 * _snap, 1.2 * _snap - 3.5 * _snap * _snap, 0.9 * _snap))
-				_locks[i].visible = s > 0.0
-			if s <= 0.0:
-				_links.visible = false
-		if _ring.visible:
-			var rs := _ring.scale.x + delta * 6.0
-			_ring.scale = Vector3(rs, 0.2, rs)
-			_ring_mat.albedo_color = Color(col, maxf(0.0, 0.8 - (rs - 0.3) * 0.25))
-			if rs > 3.6:
-				_ring.visible = false
-		for c in _cracks:
-			c.visible = true
+		_open_glow(col, tier, delta)
 		_lift = move_toward(_lift, _lift_to, delta * 1.2)
 		_root.position.y += _lift
+	_fly_chains(delta)
+	_ground_shadow()
+	_place_camera()
+
+
+## Open: the light pouring out of it, the ring racing out over the plinth, cracks alight.
+func _open_glow(col: Color, tier: int, delta: float) -> void:
+	var t := _clock
+	_beam.scale = Vector3(1, 0.15 + 0.85 * ease(_open, 0.4), 1)
+	_rays.set_shader_parameter("power", (0.7 + 0.15 * float(tier)) * (0.85 + 0.15 * sin(t * 3.0)))
+	_glow_mat.set_shader_parameter("power", 0.5 + 0.08 * sin(t * 5.0))
+	_light.light_energy = lerpf(_light.light_energy, (1.6 + 0.25 * float(tier)) * light_cap, delta * 3.0)
+	_eye_mat.albedo_color = col.lightened(0.3)
+	_chain_mat.emission = col * maxf(0.0, 1.8 - _snap * 1.5)
+	if _ring.visible:
+		var rs := _ring.scale.x + delta * 6.0
+		_ring.scale = Vector3(rs, 0.2, rs)
+		_ring_mat.albedo_color = Color(col, maxf(0.0, 0.8 - (rs - 0.3) * 0.25))
+		if rs > 3.6:
+			_ring.visible = false
+	for c in _cracks:
+		c.visible = true
+
+
+## Its shadow stays on the plinth, smaller the higher the chest is.
+func _ground_shadow() -> void:
+	var up := _root.position.y
+	_shadow.position.y = 0.008 - up / maxf(0.3, _root.scale.y)
+	_shadow.scale = Vector3.ONE * clampf(1.0 - up * 1.3, 0.45, 1.0)
+
+
+## Draws the chest over the whole of `box` (its parent's size, in points) at up to `sharp`
+## real pixels a point, in place of its own small picture. `at` is where the chest's
+## look point lands at rest.
+func set_full(box: Vector2, at: Vector2, sharp: float) -> void:
+	anchor = at
+	var px := Vector2i((box * sharp).round())
+	if full and _vp.size == px:
+		return
+	full = true
+	stretch = false
+	_vp.size = px
+	set_anchors_preset(Control.PRESET_TOP_LEFT)
+	position = Vector2.ZERO
+	size = Vector2(px)
+	scale = Vector2.ONE / sharp
+	# Its picture keeps its lights where nothing solid is behind them (they are added to
+	# the screen, not blended), and soft edges stay clean.
+	if _premult == null:
+		_premult = CanvasItemMaterial.new()
+		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
+	material = _premult
+	_place_camera()
+
+
+## Back to its own small picture (its parent lays it out).
+func set_small() -> void:
+	full = false
+	material = null
+	scale = Vector2.ONE
+	stretch = true
+	_place_camera()
+
+static var _premult: CanvasItemMaterial
+
+
+## Where a point of the chest's world is on screen, in this control's parent's points.
+func spot(world: Vector3) -> Vector2:
+	return position + _cam.unproject_position(world) * scale
+
+
+## Points the camera (see cam_eye and the rest).
+func _place_camera() -> void:
+	var look := Transform3D(Basis.looking_at(cam_at - cam_eye, Vector3.UP), cam_eye)
+	if not full:
+		_cam.fov = rad_to_deg(2.0 * atan(0.42447 / cam_zoom))
+		_cam.transform = look
+		return
+	var box := size * scale
+	var f := FOCAL * cam_zoom
+	_cam.fov = rad_to_deg(2.0 * atan(box.y * 0.5 / f))
+	var a := anchor.lerp(box * 0.5, cam_free)
+	look.basis = look.basis * Basis(Vector3.RIGHT, -atan((box.y * 0.5 - a.y) / f)) \
+			* Basis(Vector3.UP, atan((a.x - box.x * 0.5) / f)) * Basis(Vector3.BACK, cam_roll)
+	_cam.transform = look
+
+
+## Links and padlocks flying, each chain from the moment it snapped.
+func _fly_chains(delta: float) -> void:
+	if not _links.visible or (_chain_t[0] < 0.0 and _chain_t[1] < 0.0):
+		return
+	var g := Vector3(0, -7.0, 0)
+	var gone := true
+	for side in 2:
+		if _chain_t[side] < 0.0:
+			gone = false
+			continue
+		_chain_t[side] += delta
+		var st: float = _chain_t[side]
+		var s := clampf(1.0 - (st - 0.6) / 0.6, 0.0, 1.0)
+		if s > 0.0:
+			gone = false
+		for i in _link_rest.size():
+			if _link_side[i] != side:
+				continue
+			var r := _link_rest[i]
+			var p := r.origin + _link_vel[i] * st + g * 0.5 * st * st
+			var b := r.basis.rotated(_link_spin[i].normalized(), _link_spin[i].length() * st * 0.3)
+			_links.multimesh.set_instance_transform(i, Transform3D(b.scaled(Vector3.ONE * s) if s < 1.0 else b, p))
+		var lr := _lock_rest[side]
+		var lx := signf(lr.origin.x)
+		_locks[side].transform = Transform3D(lr.basis.rotated(Vector3.FORWARD, lx * st * 5.0),
+				lr.origin + Vector3(lx * 1.2 * st, 1.2 * st - 3.5 * st * st, 0.9 * st))
+		_locks[side].visible = s > 0.0
+	if gone:
+		_links.visible = false

@@ -14,6 +14,25 @@ enum Step { CLOSED, OPENING, OPEN }
 ## When the glow climbs to the next colour, in seconds into the opening.
 const CLIMB := [0.35, 0.62, 0.86, 1.06]
 const OPEN_AT := 1.3
+## The title's full size (it shrinks on short screens: _fit_head).
+const HEAD_SIZE := 46
+
+## How a drop opens: 1 "The Gift" takes over the whole screen (chest_show.gd): the writing
+## fades, the crypt goes black, the camera moves and a great bone hand holds the prize out.
+## 0 is the first opening (the chest in its small picture), kept as a way back.
+static var style := 1
+var _climb: Array = CLIMB      # this opening's climb times
+var _open_at := OPEN_AT       # ...and when it opens
+var _clock := 0.0              # seconds this screen has been animating (not the wall clock)
+var _col: VBoxContainer
+var _dim: ColorRect            # the crypt goes dark for a big opening
+var _under: Control            # light behind the chest (added, not blended)
+var _stage: Control            # the chest's own layer when it is drawn over the whole screen
+var _scrim: TextureRect        # a shadow under the writing while the hand holds a hero out
+var _staged := false
+var _await_reveal := false     # a big opening has burst; the prize is not out yet
+var _shown_at := 0.0           # when (in _t) the prize came out
+var _anchor := Vector2.ZERO
 
 var _step := Step.CLOSED
 var _t := 0.0
@@ -24,7 +43,7 @@ var _flash := 0.0
 var _pop := 0.0
 var _art: Control
 var _look: HeroStage   # a drop-only look found: the hero wearing it, in place of the box
-var _chest: Reliquary
+var _chest: ChestShow
 var _wear: Button
 ## Feats won this run, shown one by one like a found look (reveal_feats): [{name, look, hero}].
 var _feat_queue: Array = []
@@ -58,7 +77,45 @@ func _init() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
+	_dim = ColorRect.new()
+	_dim.color = Color(0.0, 0.0, 0.02, 0.0)
+	_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Hud.full(_dim)
+	add_child(_dim)
+	var add := CanvasItemMaterial.new()
+	add.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	_under = Control.new()
+	_under.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_under.material = add
+	Hud.full(_under)
+	_under.draw.connect(_draw_under)
+	add_child(_under)
+	_stage = Control.new()
+	_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	Hud.full(_stage)
+	add_child(_stage)
+	# A soft shadow under the writing while the hand holds a hero out: the camera is in
+	# close then, and the chest's gold is right behind the words.
+	var fade := Gradient.new()
+	fade.set_color(0, Color(0, 0, 0.02, 0.0))
+	fade.set_color(1, Color(0, 0, 0.02, 0.84))
+	fade.add_point(0.22, Color(0, 0, 0.02, 0.62))
+	fade.add_point(0.45, Color(0, 0, 0.02, 0.8))
+	var fade_tex := GradientTexture2D.new()
+	fade_tex.gradient = fade
+	fade_tex.fill_from = Vector2(0, 0)
+	fade_tex.fill_to = Vector2(0, 1)
+	fade_tex.width = 4
+	fade_tex.height = 64
+	_scrim = TextureRect.new()
+	_scrim.texture = fade_tex
+	_scrim.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_scrim.stretch_mode = TextureRect.STRETCH_SCALE
+	_scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scrim.modulate.a = 0.0
+	add_child(_scrim)
 	var col := VBoxContainer.new()
+	_col = col
 	Hud.full(col)
 	col.offset_left = 20
 	col.offset_right = -20
@@ -66,7 +123,7 @@ func _init() -> void:
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_theme_constant_override("separation", 14)
 	add_child(col)
-	_head = Hud.label("BONE DROP", 46, Color(1, 0.85, 0.55))
+	_head = Hud.label("BONE DROP", HEAD_SIZE, Color(1, 0.85, 0.55))
 	col.add_child(_head)
 	_count = Hud.label("", 19, Color(0.8, 0.78, 0.85))
 	col.add_child(_count)
@@ -80,15 +137,9 @@ func _init() -> void:
 	col.add_child(_art)
 	# Version 116: a real 3D reliquary in the middle of the glow (it was drawn flat);
 	# version 137: the chained bone reliquary (scripts/reliquary.gd), bigger.
-	_chest = Reliquary.new()
-	Hud.full(_chest)
-	# Its picture reaches past the art box (the lid, the beam and the plinth's edge), so
-	# nothing is cut off by a straight line.
-	_chest.offset_top = -110
-	_chest.offset_bottom = 30
-	_chest.offset_left = -50
-	_chest.offset_right = 50
+	_chest = ChestShow.new()
 	_art.add_child(_chest)
+	_chest_small()
 	_look = HeroStage.new(Vector2(320, 320))
 	_look.custom_minimum_size = Vector2(440, 420)   # the chest's size, so nothing jumps
 	_look.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -241,7 +292,10 @@ func close() -> void:
 	_feat_mode = false
 	_feat_queue.clear()
 	_offer = {}
+	_calm()
+	_dim.color.a = 0.0
 	visible = false
+	_chest.reset()   # (nothing of the opening is kept: the hand, the hero on its palm)
 	closed.emit()
 
 
@@ -281,6 +335,8 @@ func show_offer(o: Dictionary) -> void:
 	_result = {"kind": "look", "look": o.look, "hero": o.hero, "preview": o.preview, "tier": 3, "color": BAZAAR}
 	_step = Step.OPEN
 	_t = 0.0
+	_shown_at = 0.0
+	_await_reveal = false
 	_flash = 0.0
 	_pop = 0.0
 	_set_purse(Game.coins)
@@ -331,6 +387,8 @@ func _next_feat() -> void:
 	_result = {"kind": "look", "look": f.look, "hero": f.hero, "preview": f.preview, "tier": 4, "color": Color(0.5, 0.95, 1.0)}
 	_step = Step.OPEN
 	_t = 0.0
+	_shown_at = 0.0
+	_await_reveal = false
 	_flash = 1.0
 	_pop = 1.0
 	_head.text = "FEAT DONE!"
@@ -365,6 +423,7 @@ func _show_later(on: bool) -> void:
 func _show_look(on: bool) -> void:
 	_look.visible = on
 	_art.visible = not on
+	_chest.visible = not on
 	_look.set_active(on)
 	if on:
 		_look.show_hero(_result.preview, false)
@@ -376,12 +435,19 @@ func _show_look(on: bool) -> void:
 
 
 func _ready_next() -> void:
+	_shown_at = 0.0
 	_land_all()
 	_set_purse(Game.coins)
 	_show_look(false)
 	_wear.visible = false
 	_odds_btn.visible = true
 	_head.label_settings.font_color = Color(1, 0.85, 0.55)
+	_calm()
+	_chest.style = style
+	if style > 0:
+		_chest_full()
+	else:
+		_chest_small()
 	_chest.casket_look(casket)
 	_chest.reset()
 	_chest.check()
@@ -463,6 +529,8 @@ func _tap() -> void:
 			_left -= 1
 			_step = Step.OPENING
 			_t = 0.0
+			_plan(int(_result.get("tier", 0)))
+			_chest.begin(int(_result.get("tier", 0)), str(_result.get("kind", "coins")), _result.get("preview", {}))
 			_show_later(false)
 			_action.text = "OPENING"
 			_action.modulate = Color(0.65, 0.65, 0.7)
@@ -473,7 +541,7 @@ func _tap() -> void:
 			if _t > 0.2:
 				_finish()   # a second tap skips to the prize
 		Step.OPEN:
-			if _t < 0.35:
+			if _t < 0.35 or _await_reveal or _t < _shown_at + 0.35:
 				return   # a quick double tap shouldn't open the next one by mistake
 			if not _offer.is_empty():
 				close()
@@ -487,6 +555,8 @@ func _tap() -> void:
 				return
 			if _left > 0:
 				_ready_next()
+				if _staged:
+					_chest.arrive()   # the next one drops onto the plinth
 			else:
 				close()
 
@@ -495,12 +565,13 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	_t += delta
+	_clock += delta
 	_flash = move_toward(_flash, 0.0, delta * 3.0)
 	_pop = move_toward(_pop, 0.0, delta * 2.5)
 	if _step == Step.OPENING:
 		var goal: int = _result.get("tier", 0)
 		var reach := 0
-		for at: float in CLIMB:
+		for at: float in _climb:
 			if _t >= at:
 				reach += 1
 		reach = mini(reach, goal)
@@ -510,9 +581,17 @@ func _process(delta: float) -> void:
 			Sfx.play("upgrade", 0.5, 0.8 + 0.15 * reach)
 			if Game.vibration:
 				Input.vibrate_handheld(25)
-		if _t >= OPEN_AT:
+			if style > 0:
+				_chest.hit()
+		if _t >= _open_at:
 			_finish()
-	_chest.animate(_step, _t / OPEN_AT, _tier_color(), _shown_tier, delta)
+	if _staged:
+		if _art.visible:
+			_anchor = _art.global_position + _art.size * 0.5 + Vector2(0, -40) - global_position
+		_chest.set_full(size, _anchor, _sharp())
+	if _chest.visible or not _staged:
+		_chest.animate(_step, _t / _open_at, _tier_color(), _shown_tier, delta, _t, _open_at - _t)
+	_stage_light(delta)
 	_art.queue_redraw()
 	_fly(delta)
 
@@ -522,6 +601,25 @@ func _finish() -> void:
 	_action.modulate = Color.WHITE
 	_t = 0.0
 	_shown_tier = _result.get("tier", 0)
+	var c: Color = _result.get("color", Color.WHITE)
+	_chest.open_up(c, _shown_tier)
+	get_tree().create_timer(0.1).timeout.connect(func(): _sound("chest_lid", 0.9))
+	if style > 0 and _staged:
+		# A big opening: the chest bursts now, and the prize comes out of it a moment later.
+		_await_reveal = true
+		_sound("slam", 1.0, 0.8)
+		_sound("boom", 0.8)
+		if Game.vibration:
+			Input.vibrate_handheld(70)
+		return
+	_reveal()
+
+
+## The prize is out: its rarity and what it is, coins flying to the purse, the buttons.
+func _reveal() -> void:
+	_await_reveal = false
+	_shown_at = _t
+	var big := style > 0 and _staged
 	_flash = 1.0
 	_pop = 1.0
 	var c: Color = _result.get("color", Color.WHITE)
@@ -538,7 +636,11 @@ func _finish() -> void:
 			_prize_extra += "\n" + ln
 	_prize.label_settings.font_color = Hud.GOLD if _result.get("kind", "") == "coins" else c.lightened(0.35)
 	_prize.label_settings.font_size = 34 if _result.get("kind", "") == "coins" else 22
-	_chest.open_up(c, _shown_tier)
+	if big:
+		# The rarity slams in.
+		_rarity.pivot_offset = _rarity.size * 0.5
+		_rarity.scale = Vector2(2.4, 2.4)
+		create_tween().tween_property(_rarity, "scale", Vector2.ONE, 0.32).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	# The prize pops in; coins fly out of the chest into your purse and count up.
 	_prize.pivot_offset = _prize.size * 0.5
 	_prize.scale = Vector2(0.4, 0.4)
@@ -548,11 +650,14 @@ func _finish() -> void:
 	# Version 122: Epic and Legendary get a bigger moment: the chest lifts and bursts twice
 	# (three times for Legendary) under a beam, the screen flashes white, and a sting plays.
 	if _shown_tier >= 3:
-		_white_flash(0.85 if _shown_tier >= 4 else 0.5)
+		if not big:   # (a big opening brings its own flash)
+			_white_flash(0.85 if _shown_tier >= 4 else 0.5)
 		Sfx.play("sting", 0.9)
 	if _result.get("kind", "") == "look":
 		_head.text = "NEW LOOK!"
-		if _shown_tier >= 3:
+		if big and _chest.holds_look():
+			pass   # (the hand is holding the hero out, wearing it)
+		elif _shown_tier >= 3 or big:
 			# Let the chest's moment play before the hero steps out wearing the look.
 			var r := _result
 			get_tree().create_timer(0.8).timeout.connect(func():
@@ -568,7 +673,6 @@ func _finish() -> void:
 	_action.text = "OPEN NEXT" if _left > 0 else "DONE"
 	_show_later(_left > 0)
 	Sfx.play("victory" if _shown_tier >= 3 else ("upgrade" if _shown_tier >= 1 else "coin"), 0.7)
-	get_tree().create_timer(0.1).timeout.connect(func(): _sound("chest_lid", 0.9))
 	if _result.get("kind", "") == "coins":
 		get_tree().create_timer(0.22).timeout.connect(func(): _sound("chest_coins", 0.8))
 	if Game.vibration:
@@ -576,9 +680,9 @@ func _finish() -> void:
 
 
 ## Plays a chest sound if this build has it (falls back to nothing).
-func _sound(n: String, vol := 1.0) -> void:
+func _sound(n: String, vol := 1.0, pitch := 1.0) -> void:
 	if Sfx.has(n):
-		Sfx.play(n, vol)
+		Sfx.play(n, vol, pitch)
 
 
 # ---------------------------------------------------------------- coins into the purse
@@ -605,6 +709,8 @@ func _coin_shower(amount: int) -> void:
 	_purse_to = maxi(Game.coins, _purse_shown + amount)
 	var n := clampi(amount / 20, 8, 18)
 	var from := _art.global_position + _art.size * Vector2(0.5, 0.38) - _fx.global_position
+	if _staged:
+		from = _chest.spot(_chest.prize_at())   # out of the prize itself
 	var to := _purse_icon.global_position + _purse_icon.size * 0.5 - _fx.global_position
 	var left := amount
 	for i in n:
@@ -689,7 +795,7 @@ func _draw_fx() -> void:
 
 var _white: ColorRect
 
-func _white_flash(strength: float) -> void:
+func _white_flash(strength: float, dur := 0.4) -> void:
 	if _white == null:
 		_white = ColorRect.new()
 		_white.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -697,12 +803,15 @@ func _white_flash(strength: float) -> void:
 		add_child(_white)
 	move_child(_white, get_child_count() - 1)
 	_white.color = Color(1, 1, 1, strength)
-	create_tween().tween_property(_white, "color:a", 0.0, 0.4).set_ease(Tween.EASE_OUT)
+	create_tween().tween_property(_white, "color:a", 0.0, dur).set_ease(Tween.EASE_OUT)
 
 
 # ---------------------------------------------------------------- the reliquary
 
 func _tier_color() -> Color:
+	# (A big opening ends its climb on the prize's own colour: a Moon Casket's are its own.)
+	if _staged and _step != Step.CLOSED and _result.has("color") and _shown_tier >= int(_result.get("tier", 0)):
+		return _result.color
 	return Drops.TIERS[clampi(_shown_tier, 0, Drops.TIERS.size() - 1)].color
 
 
@@ -728,6 +837,8 @@ static func _soft_glow() -> GradientTexture2D:
 ## Behind the 3D chest (version 137: soft light, not flat rings): a halo of the current
 ## colour that swells as the rarity climbs, and soft rays turning once it's open.
 func _draw_art() -> void:
+	if _staged:
+		return   # (the chest has the whole screen: its light is drawn under it, _draw_under)
 	var a := _art
 	var c := a.size * 0.5 + Vector2(0, -10)
 	var col := _tier_color()
@@ -735,12 +846,12 @@ func _draw_art() -> void:
 	var k := 1.0 + 0.18 * ease(_pop, 0.5)
 	var glow := 0.3 + 0.12 * _shown_tier + 0.45 * _flash
 	if _step == Step.CLOSED:
-		glow = 0.16 + 0.04 * sin(Time.get_ticks_msec() / 1000.0 * 2.2)
+		glow = 0.16 + 0.04 * sin(_clock * 2.2)
 		col = Color(1.0, 0.3, 0.25) if casket else Color(0.6, 0.5, 1.0)
 	var r := 210.0 * k
 	a.draw_texture_rect(_soft_glow(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(col, glow))
 	if open:
-		var spin := Time.get_ticks_msec() / 1000.0 * 0.35
+		var spin := _clock * 0.35
 		var tip := Color(col, 0.0)
 		var base := Color(col.lightened(0.3), 0.3 + 0.3 * _flash)
 		for i in 14:
@@ -753,6 +864,136 @@ func _draw_art() -> void:
 	if _flash > 0.0:
 		var fr := 240.0
 		a.draw_texture_rect(_soft_glow(), Rect2(c - Vector2(fr, fr), Vector2(fr, fr) * 2.0), false, Color(col.lightened(0.4), _flash * 0.6))
+
+
+# ---------------------------------------------------------------- the big openings
+
+## Works out this opening's beats from the rarity inside: the rarer, the longer it builds.
+func _plan(goal: int) -> void:
+	_await_reveal = false
+	if style == 0 or not _staged:
+		_climb = CLIMB
+		_open_at = OPEN_AT
+		return
+	var pl := ChestShow.plan(goal)
+	_climb = pl.beats
+	_open_at = pl.open
+
+
+## Everything back to rest (a new drop, or the screen closing).
+func _calm() -> void:
+	_await_reveal = false
+	_rarity.scale = Vector2.ONE
+	_scrim.modulate.a = 0.0
+	_col.modulate.a = 1.0
+	_purse.modulate.a = 1.0
+	_odds_btn.modulate.a = 1.0
+	_under.queue_redraw()
+
+
+## The chest in its own small picture inside the column (the first opening).
+func _chest_small() -> void:
+	if _chest.get_parent() != _art:
+		_chest.get_parent().remove_child(_chest)
+		_art.add_child(_chest)
+	_staged = false
+	_chest.set_small()
+	Hud.full(_chest)
+	# Its picture reaches past the art box (the lid, the beam and the plinth's edge), so
+	# nothing is cut off by a straight line.
+	_chest.offset_top = -110
+	_chest.offset_bottom = 30
+	_chest.offset_left = -50
+	_chest.offset_right = 50
+
+
+## The chest drawn over the whole screen, under the writing, standing just where the small
+## picture shows it. The camera can then go anywhere.
+func _chest_full() -> void:
+	if _chest.get_parent() != _stage:
+		_chest.get_parent().remove_child(_chest)
+		_stage.add_child(_chest)
+	_staged = true
+	_anchor = size * Vector2(0.5, 0.42)
+	if size.x > 0.0:
+		_chest.set_full(size, _anchor, _sharp())
+
+
+## How many real pixels the chest's picture gets for each point of the screen: as sharp as
+## the screen itself, up to what a cheap phone can fill without slowing down.
+func _sharp() -> float:
+	if Game.graphics_level <= 0 or Game.low_memory_phone():
+		return 1.0
+	var k := float(get_window().size.x) / maxf(1.0, get_viewport_rect().size.x)
+	return clampf(minf(k, sqrt(1500000.0 / maxf(1.0, size.x * size.y))), 1.0, 3.0)
+
+
+## Each frame of a big opening: the dark, the writing fading out and back, the flash, and
+## the moment the prize is out.
+## Version 223: on a short (16:9) screen the title sits level with the coin counter, and a
+## long one ("MOON CASKET") ran under it. It shrinks until it clears the counter. Taller
+## phones have room above the title and keep the full size.
+func _fit_head() -> void:
+	var want := HEAD_SIZE
+	if size.y < 1040.0 and _purse.visible:
+		var font := _head.get_theme_font("font") if _head.label_settings.font == null else _head.label_settings.font
+		var wide := font.get_string_size(_head.text, HORIZONTAL_ALIGNMENT_LEFT, -1, HEAD_SIZE).x + 12.0
+		# (the counter as wide as it will be once the coins have flown in)
+		var pfont := _purse_label.get_theme_font("font") if _purse_label.label_settings.font == null else _purse_label.label_settings.font
+		var now := pfont.get_string_size(_purse_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+		var then := pfont.get_string_size(Hud.thousands(maxi(_purse_to, Game.coins)), HORIZONTAL_ALIGNMENT_LEFT, -1, 26).x
+		var edge := _purse.position.x + _purse.size.x + maxf(then - now, 0.0)
+		var free := (size.x * 0.5 - edge - 8.0) * 2.0   # (centred: the same room on each side)
+		if wide > free:
+			want = clampi(int(HEAD_SIZE * free / wide), 32, HEAD_SIZE)
+	if _head.label_settings.font_size != want:
+		_head.label_settings.font_size = want
+
+
+func _stage_light(delta: float) -> void:
+	var dark := 0.0
+	var ui := 1.0
+	if _staged and not _feat_mode and _offer.is_empty():
+		dark = _chest.dark
+		ui = _chest.ui
+		if _look.visible:
+			dark = minf(dark, 0.55)
+			ui = 1.0
+		if _chest.flash > 0.0:
+			_white_flash(_chest.flash, 0.22)   # (a quick blink: the show goes on behind it)
+			_chest.flash = 0.0
+		if _await_reveal and _chest.revealed:
+			_reveal()
+	var to := dark * 0.95
+	_dim.color.a = to if to > _dim.color.a else move_toward(_dim.color.a, to, delta * 3.0)
+	_col.modulate.a = ui
+	_purse.modulate.a = ui
+	_odds_btn.modulate.a = ui
+	_odds_btn.disabled = ui < 0.5
+	_fit_head()
+	# The prize hangs where the two small lines above the chest are: they make room for it.
+	var room := 0.0 if _staged and _step == Step.OPEN and _art.visible and not _feat_mode and _offer.is_empty() else 1.0
+	_count.modulate.a = move_toward(_count.modulate.a, room, delta * 6.0)
+	_pity.modulate.a = _count.modulate.a
+	var shade := 1.0 if _staged and _step == Step.OPEN and not _await_reveal and _chest.visible and _chest.holds_look() else 0.0
+	_scrim.modulate.a = move_toward(_scrim.modulate.a, shade, delta * 2.5)
+	if _scrim.modulate.a > 0.0:
+		var top := _art.global_position.y + _art.size.y - global_position.y - 150.0
+		_scrim.position = Vector2(0, top)
+		_scrim.size = Vector2(size.x, maxf(1.0, size.y - top))
+	_under.queue_redraw()
+
+
+## Light under the chest's picture when it has the whole screen: the halo it waits in.
+func _draw_under() -> void:
+	if not _staged or not _chest.visible or not _art.visible:
+		return
+	var a := _under
+	var c := _anchor + Vector2(0, 30)
+	if _step == Step.CLOSED:
+		var col := Color(1.0, 0.3, 0.25) if casket else Color(0.6, 0.5, 1.0)
+		var r := 210.0
+		a.draw_texture_rect(_soft_glow(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(col, 0.16 + 0.04 * sin(_clock * 2.2)))
 
 
 ## A pile of coins, a star (Lucky Start) or an arrow (a free Armory level).

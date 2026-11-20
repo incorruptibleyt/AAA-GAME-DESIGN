@@ -359,7 +359,7 @@ func _event_pictures() -> void:
 		for k in mini(Events.caskets(cfg), 3):
 			await get_tree().create_timer(0.4).timeout
 			Game.hud._drops._tap()
-			await get_tree().create_timer(3.2).timeout
+			await get_tree().create_timer(4.6).timeout
 			await _shot()
 			Game.hud._drops._tap()
 		await get_tree().create_timer(0.4).timeout
