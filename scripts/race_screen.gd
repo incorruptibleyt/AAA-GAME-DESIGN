@@ -646,7 +646,7 @@ func _build_road() -> void:
 	_road_scroll = ScrollContainer.new()
 	_road_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_road_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	col.add_child(_road_scroll)
+	col.add_child(Hud.scroll_window(_road_scroll))   # version 227: the same window as the Armory
 	_road_list = VBoxContainer.new()
 	_road_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_road_list.add_theme_constant_override("separation", 8)
@@ -722,7 +722,7 @@ func _road_row(cfg: ConfigFile, i: int, b: int) -> Control:
 		h.add_child(c)
 	else:
 		var tag := Hud.label("DONE" if got else "", 16, DONE)
-		tag.custom_minimum_size = Vector2(70, 0)
+		tag.custom_minimum_size = Vector2(70 if got else 0, 0)   # v227: no empty column when not done
 		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 		h.add_child(tag)
 	return p

@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-20h"
+const BUILD := "2026-11-20i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -5203,7 +5203,11 @@ func _show_curses() -> void:
 	var next := Curses.next_reward(m)
 	var goal := "%s: best Curse Level beaten %d." % [Heroes.get_hero(hero_id).title, m]
 	goal += ("\nBeat the floor %d boss at Curse Level %d to earn %s." % [Store.FREE_FLOORS, next.level, next.title]) if not next.is_empty() else "\nEvery reward earned!"
-	hud.show_curses(true, rows, "CURSE LEVEL %d  ·  Score x%s" % [Curses.level_of(on), _mult_text(Curses.score_mult(on))], goal)
+	# version 227: with none on, the head says how to turn one on (the rows only said OFF)
+	var head := "CURSE LEVEL %d  ·  Score x%s" % [Curses.level_of(on), _mult_text(Curses.score_mult(on))]
+	if on.is_empty():
+		head = "No curses on.  Tap one to turn it on."
+	hud.show_curses(true, rows, head, goal)
 
 
 func _toggle_curse(id: String) -> void:

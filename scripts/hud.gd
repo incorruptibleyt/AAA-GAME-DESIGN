@@ -95,6 +95,8 @@ const FLICK_DISTANCE := 70.0   # 45 before version 140: a small step often dashe
 
 const BAZAAR_AMBER := Color(1.0, 0.62, 0.3)   # the Bone Bazaar (version 152)
 const SHOP_WELL := Color(0.04, 0.03, 0.06, 0.88)   # the Armory's card window (version 225)
+const DOOR_TEXT_PAD := 34.0   # the door's words keep this far in from the archway's sides (v227)
+const END_TEXT_W := 468.0   # the end screen's lines wrap at this width, clear of the edges (v227)
 ## Each Armory upgrade's picture on its card (version 225): a BlessingIcon picture and colour.
 const ARMORY_ICONS := {
 	"vigor": ["vitality", Color(0.95, 0.38, 0.42)],
@@ -189,6 +191,7 @@ var _quit_armed := false
 var _pause_title: Label
 var _pause_head: Label   # SETTINGS over the switches' card (hidden on the title's Settings)
 var _resume_button: Button
+var _settings_back: Button
 ## The pause menu opened from the title screen as Settings: BACK instead of RESUME, no Quit run.
 var _settings_only := false
 var _title_box: Control
@@ -1141,7 +1144,12 @@ func _build_hud() -> void:
 	_score_label.position = Vector2(0, 38)
 	_score_label.size = Vector2(300, 26)
 	_chain_box.add_child(_score_label)
-	_broken_label = label("", 24, Color(1, 0.35, 0.3))
+	# Version 227: chunky and edged like the number it replaces (thin red letters were hard
+	# to read over a busy floor).
+	_broken_label = label("", 24, Color(1, 0.38, 0.32))
+	chunky(_broken_label.label_settings)
+	_broken_label.label_settings.outline_size = 7
+	_broken_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_broken_label.position = Vector2(-40, 0)
 	_broken_label.size = Vector2(380, 36)
 	_broken_label.modulate.a = 0.0
@@ -1694,8 +1702,9 @@ func _build_doors() -> void:
 		var inner := VBoxContainer.new()
 		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		full(inner)
-		inner.offset_left = 26
-		inner.offset_right = -26
+		# Version 227: the words stay inside the dark doorway (they ran onto the stones).
+		inner.offset_left = DOOR_TEXT_PAD
+		inner.offset_right = -DOOR_TEXT_PAD
 		inner.offset_top = 62
 		inner.offset_bottom = -30
 		inner.add_theme_constant_override("separation", 12)
@@ -1732,6 +1741,13 @@ func show_doors(doors: Array, boss_next := false) -> void:
 		var t := inner.get_child(1) as Label
 		t.text = d.title
 		t.label_settings.font_color = (d.color as Color).lightened(0.25)
+		# a long name ("Champion's Door") shrinks to one line inside the doorway
+		var fs := 25
+		var font: Font = t.label_settings.font if t.label_settings.font else ThemeDB.fallback_font
+		var room := b.custom_minimum_size.x - DOOR_TEXT_PAD * 2.0 - 8.0
+		while fs > 19 and font.get_string_size(t.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + t.label_settings.outline_size > room:
+			fs -= 1
+		t.label_settings.font_size = fs
 		(inner.get_child(2) as Label).text = d.text
 	# Version 160: on a tall phone the doors stand taller (up to half the screen), so the
 	# screen is two great doorways instead of two small ones in an empty purple field.
@@ -2214,6 +2230,11 @@ func _build_end() -> void:
 	col.add_child(_end_best)
 	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
 	col.add_child(_end_stats)
+	# Version 227: the words keep clear of the screen's edges (a long death tip ran from
+	# edge to edge and left one word alone on the last line).
+	for l: Label in [_end_best, _end_stats]:
+		l.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		l.custom_minimum_size.x = END_TEXT_W
 	# Hero Mastery: the run's points filling the hero's bar (mastery_bar.gd).
 	_end_mastery = MasteryBar.new()
 	_end_mastery.custom_minimum_size = Vector2(470, 84)
@@ -2227,6 +2248,8 @@ func _build_end() -> void:
 			see_looks.emit(str(_end_looks_for.id), int(_end_looks_for.level)))
 	col.add_child(_centered(_end_looks))
 	_end_goal = label("", 22, Color(1.0, 0.82, 0.42))
+	_end_goal.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_end_goal.custom_minimum_size.x = END_TEXT_W
 	_end_goal.visible = false
 	col.add_child(_end_goal)
 	_end_drop = _drop_button()
@@ -2477,6 +2500,12 @@ func _build_pause() -> void:
 	# policy asks for to delete someone's reports (shown even with reports off).
 	_pause_build = label("Build " + Game.BUILD, 16, Color(0.6, 0.57, 0.65))
 	col.add_child(_pause_build)
+	# Version 227: the title's Settings has BACK in the bottom-left corner like every other
+	# screen (it used to be the pause menu's big RESUME button, renamed, at the top).
+	_settings_back = back_corner(button("BACK", 26))
+	_settings_back.pressed.connect(_on_resume_pressed)
+	_settings_back.visible = false
+	_pause_box.add_child(_settings_back)
 
 
 ## SEND FEEDBACK (pause menu and settings): testers type a note that goes to the
@@ -3317,6 +3346,11 @@ func _apply_safe_area() -> void:
 		back.offset_right = 204 + left
 		back.offset_top = -96 - bottom
 		back.offset_bottom = -24 - bottom
+	if _settings_back != null:
+		_settings_back.offset_left = 24 + left
+		_settings_back.offset_right = 204 + left
+		_settings_back.offset_top = -96 - bottom
+		_settings_back.offset_bottom = -24 - bottom
 	if _armory_purse != null:
 		# (grows up and left from its corner, so only that corner moves)
 		var right := float(_safe.get_theme_constant("margin_right"))
@@ -4340,6 +4374,67 @@ func _frame(box: Control, col: VBoxContainer, back: Button) -> void:
 
 
 ## `back` in the bottom-left corner of a full-screen box.
+## Version 227 (the "look harder" sweep): every scrolling list sits in the same dark window
+## as the Armory, so the list has a clear edge and BACK never seems to cut a card in half.
+## The window fades at an edge only while there is more to see past it. Returns the frame
+## to add in place of the scroll; the scroll's own content is added to it as before.
+static func scroll_window(scroll: ScrollContainer, well := SHOP_WELL) -> Control:
+	var frame := Control.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	frame.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var bg := Panel.new()
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = well
+	sb.border_color = Color(0.24, 0.18, 0.26)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(18)
+	bg.add_theme_stylebox_override("panel", sb)
+	frame.add_child(full(bg))
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_FILL
+	full(scroll)
+	scroll.offset_left = 8
+	scroll.offset_top = 8
+	scroll.offset_right = -8
+	scroll.offset_bottom = -8
+	frame.add_child(scroll)
+	var fades: Array[Control] = []
+	for top: bool in [true, false]:
+		var g := Gradient.new()
+		g.set_color(0, Color(well, 1.0) if top else Color(well, 0.0))
+		g.set_color(1, Color(well, 0.0) if top else Color(well, 1.0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.width = 4
+		gt.height = 32
+		gt.fill_from = Vector2(0, 0)
+		gt.fill_to = Vector2(0, 1)
+		var fade := TextureRect.new()
+		fade.texture = gt
+		fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fade.stretch_mode = TextureRect.STRETCH_SCALE
+		fade.anchor_right = 1.0
+		fade.anchor_top = 0.0 if top else 1.0
+		fade.anchor_bottom = fade.anchor_top
+		fade.offset_left = 4
+		fade.offset_right = -4
+		fade.offset_top = 4.0 if top else -40.0
+		fade.offset_bottom = 40.0 if top else -4.0
+		fade.visible = false
+		frame.add_child(fade)
+		fades.append(fade)
+	var bar := scroll.get_v_scroll_bar()
+	var show_fades := func() -> void:
+		fades[0].visible = bar.value > 2.0
+		fades[1].visible = bar.value + bar.page < bar.max_value - 2.0
+	bar.value_changed.connect(func(_v: float): show_fades.call())
+	bar.changed.connect(show_fades)
+	return frame
+
+
 static func back_corner(back: Button) -> Button:
 	back.custom_minimum_size = Vector2(180, 72)
 	back.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
@@ -5623,6 +5718,8 @@ func show_pause(v: bool, settings_only := false) -> void:
 	_resume_button.text = "BACK" if _settings_only else ("BACK TO THE RACE" if Game.race else "RESUME")
 	_quit_button.text = _quit_text()
 	_quit_button.visible = not _settings_only
+	(_resume_button.get_parent() as Control).visible = not _settings_only
+	_settings_back.visible = _settings_only
 	if _rate_button:
 		_rate_button.visible = not Game.first_run   # v220 (v219 review): no "Rate us" in the tutorial
 	_pause_head.visible = not _settings_only
