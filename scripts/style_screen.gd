@@ -487,6 +487,7 @@ class Swatch extends Control:
 	var shine := false   # a Crypt King look: a glint runs across its picture
 	var pat := 0   # a Feat or drop outfit's pattern, drawn on its swatch
 	var finish := ""   # a weapon finish (gold, frost, ember, void)
+	var forged := false   # v229: a non-Mage forged, gilded or void weapon's own shape is drawn on it
 	var tier := 0   # how grand a glow's ring is (HeroStyle.glow_tier)
 	var fx := ""   # a glow's ring shape (flame, frost, storm, stars, runes)
 	var a2 = null   # a Legend road glow's second colour (it shimmers between the two)
@@ -544,9 +545,11 @@ class Swatch extends Control:
 					var by := {"frostforged": {"rogue": "heavy", "knight": "badge", "barbarian": "twin_axes", "mage": "staff"},
 						"emberforged": {"rogue": "twin_knives", "knight": "greatsword", "barbarian": "great_axe", "mage": "open_tome"}}
 					shape = str(by.get(k, grand).get(id, ""))
-					# v228: the Mage's forged, gilded and void weapons have their own shapes (MageArms).
+					# v228: the Mage's forged, gilded and void weapons have their own shapes (ForgedArms).
 					if id == "mage":
 						shape = str({"frost": "ice_staff", "gold": "sun_staff", "void": "scythe", "ember": "fire_tome"}.get(finish, shape))
+					else:
+						forged = finish in ["frost", "ember", "gold", "void"]   # (ForgedArms, v229)
 		queue_redraw()
 
 	func _draw() -> void:
@@ -940,6 +943,137 @@ class Swatch extends Control:
 			pts.append(p + Vector2.from_angle(-PI / 2 + TAU * i / 8.0) * (s if i % 2 == 0 else s * 0.35))
 		draw_colored_polygon(pts, col)
 
+	## v229: the Knight's, Rogue's and Barbarian's forged, gilded and void weapons have their
+	## own shapes (ForgedArms); this draws them over the weapon they are built on.
+	func _forged(c: Vector2, r: float) -> void:
+		var ice := Color(0.82, 0.96, 1.0)
+		var gold := Color(1.0, 0.84, 0.4)
+		var violet := Color(0.68, 0.45, 1.0)
+		var rim := Color(0.9, 0.75, 1.0)
+		match shape:
+			"badge":
+				# ice cased sword, a snowflake of ice spikes round the shield
+				_shard(c + Vector2(-r * 0.35, r * 0.45), Vector2.UP, r * 1.35, r * 0.17, ice)
+				var sh := c + Vector2(r * 0.35, r * 0.05)
+				for i in 10:
+					var d := Vector2.from_angle(TAU * i / 10.0)
+					_shard(sh + d * r * 0.48, d, r * (0.32 if i % 2 == 0 else 0.2), r * 0.08, ice)
+			"greatsword":
+				if finish == "ember":
+					for i in 3:
+						var y := r * (0.3 - i * 0.42)
+						_flame_icon(c + Vector2(-r * 0.16, y + r * 0.1), r * 0.38)
+						_flame_icon(c + Vector2(r * 0.16, y), r * 0.44)
+				elif finish == "gold":
+					for sd: float in [-1.0, 1.0]:
+						for k in 3:
+							var d := Vector2(sd, 0).rotated(sd * deg_to_rad(18.0 + k * 26.0))
+							_leaf(c + Vector2(sd * r * 0.4, r * 0.5), d, r * (0.58 - k * 0.1), r * 0.12, gold)
+					_ring(c + Vector2(0, -r * 0.4), r * 0.42, r * 0.14, gold)
+					draw_circle(c + Vector2(0, r * 0.5), r * 0.11, Color(1.0, 0.97, 0.85))
+				elif finish == "void":
+					for sd: float in [-1.0, 1.0]:
+						draw_line(c + Vector2(sd * r * 0.13, r * 0.4), c + Vector2(sd * r * 0.13, -r * 0.85), rim, 2.0)
+						for k in 2:
+							_shard(c + Vector2(sd * r * 0.45, r * (0.25 - k * 0.6) + sd * r * 0.1), Vector2(0.3 * sd, -1.0), r * 0.28, r * 0.08, violet)
+					_orb_icon(c + Vector2(0, -r * 0.98), r * 0.14)
+			"heavy":
+				var tips := [c + Vector2(-r * 0.89, -r * 0.55), c + Vector2(r * 0.89, -r * 0.55)]
+				if finish == "frost":
+					for i in 2:
+						var sd := -1.0 if i == 0 else 1.0
+						_shard(tips[i], Vector2(sd, -0.35), r * 0.45, r * 0.1, ice)
+					_shard(c + Vector2(0, r * 0.3), Vector2.UP, r * 1.25, r * 0.08, ice)
+				elif finish == "gold":
+					for i in 2:
+						var sd := -1.0 if i == 0 else 1.0
+						for k in 4:
+							_leaf(tips[i], Vector2(sd, 0).rotated(-sd * deg_to_rad(5.0 + k * 22.0)), r * (0.62 - k * 0.09), r * 0.11, gold)
+					draw_circle(c + Vector2(0, r * 0.25), r * 0.1, Color(1.0, 0.97, 0.85))
+				elif finish == "void":
+					var g := c + Vector2(0, -r * 0.82)
+					draw_circle(g, r * 0.3, Color(0.4, 0.15, 0.7, 0.55))
+					draw_arc(g, r * 0.3, 0.0, TAU, 24, rim, r * 0.09, true)
+					_orb_icon(c + Vector2(0, -r * 0.2), r * 0.12)
+			"twin_knives":
+				for sd: float in [-1.0, 1.0]:
+					_flame_icon(c + Vector2(sd * r * 0.45, -r * 0.05), r * 0.62)
+			"twin_axes":
+				for sd: float in [-1.0, 1.0]:
+					var o := c + Vector2(-r * 0.35 if sd < 0 else r * 0.35, 0)
+					var w := r * 0.45
+					for y: float in [-0.8, -0.5, -0.2]:
+						_shard(o + Vector2(w, r * y), Vector2(1.0, (y + 0.5) * 0.9), r * 0.3, r * 0.07, ice)
+					_shard(o + Vector2(0, -r * 0.8), Vector2.UP, r * 0.3, r * 0.07, ice)
+			"great_axe":
+				if finish == "ember":
+					for f: Array in [[-0.42, 0.42], [0.0, 0.55], [0.42, 0.42]]:
+						_flame_icon(c + Vector2(r * f[0], -r * 0.85), r * f[1])
+				elif finish == "gold":
+					for sd: float in [-1.0, 1.0]:
+						var pts := PackedVector2Array()
+						for i in 17:
+							var t := i / 16.0
+							var th := t * PI * 1.55
+							var rr := r * 0.4 * (1.0 - 0.55 * t)
+							pts.append(c + Vector2(sd * (r * 0.47 - rr * cos(th)), -r * 0.55 - rr * sin(th)))
+						draw_polyline(pts, gold, r * 0.13, true)
+					draw_circle(c + Vector2(0, -r * 0.5), r * 0.12, Color(1.0, 0.97, 0.85))
+				elif finish == "void":
+					for sd: float in [-1.0, 1.0]:
+						var o := c + Vector2(sd * r * 0.2, -r * 0.5)
+						var a0 := 0.0 if sd > 0 else PI
+						var outer := PackedVector2Array()
+						var inner := PackedVector2Array()
+						for i in 13:
+							var t := i / 12.0
+							var d := Vector2.from_angle(a0 + lerpf(-1.05, 1.05, t))
+							outer.append(o + d * r * 0.72)
+							inner.append(o + d * r * 0.72 * (0.96 - 0.38 * sin(PI * t)))
+						draw_polyline(outer, rim, 2.0)
+						inner.reverse()
+						outer.append_array(inner)
+						draw_colored_polygon(outer, violet)
+					_orb_icon(c + Vector2(0, -r * 0.5), r * 0.14)
+
+	## A crystal or blade shard: a long diamond from `p` along `d`.
+	func _shard(p: Vector2, d: Vector2, length: float, w: float, col: Color) -> void:
+		var dd := d.normalized()
+		var n := Vector2(-dd.y, dd.x) * w
+		draw_colored_polygon(PackedVector2Array([p - dd * length * 0.2, p + n, p + dd * length, p - n]), col)
+
+	## A feather: a pointed leaf from `p` along `d`.
+	func _leaf(p: Vector2, d: Vector2, length: float, w: float, col: Color) -> void:
+		var dd := d.normalized()
+		var n := Vector2(-dd.y, dd.x)
+		var pts := PackedVector2Array()
+		for i in 9:
+			var t := i / 8.0
+			pts.append(p + dd * length * t + n * w * sin(t * PI))
+		for i in range(7, 0, -1):
+			var t := i / 8.0
+			pts.append(p + dd * length * t - n * w * sin(t * PI))
+		draw_colored_polygon(pts, col)
+
+	## A flame standing on `p`, `h` tall.
+	func _flame_icon(p: Vector2, h: float) -> void:
+		draw_colored_polygon(PackedVector2Array([p + Vector2(-h * 0.3, 0), p + Vector2(0, -h), p + Vector2(h * 0.3, 0)]), Color(1.0, 0.5, 0.12))
+		draw_colored_polygon(PackedVector2Array([p + Vector2(-h * 0.15, 0), p + Vector2(0, -h * 0.6), p + Vector2(h * 0.15, 0)]), Color(1.0, 0.92, 0.45))
+
+	## A flat ring seen from the side (a halo).
+	func _ring(o: Vector2, rx: float, ry: float, col: Color) -> void:
+		var pts := PackedVector2Array()
+		for i in 25:
+			var ang := TAU * i / 24.0
+			pts.append(o + Vector2(cos(ang) * rx, sin(ang) * ry))
+		draw_polyline(pts, col, 2.5, true)
+
+	## A black void orb with a violet glow.
+	func _orb_icon(o: Vector2, rr: float) -> void:
+		draw_circle(o, rr * 1.7, Color(0.6, 0.25, 1.0, 0.35))
+		draw_circle(o, rr, Color(0.08, 0.03, 0.14))
+		draw_circle(o + Vector2(-rr * 0.3, -rr * 0.3), rr * 0.3, Color(0.85, 0.65, 1.0))
+
 	func _hold(c: Vector2, r: float) -> void:
 		var steel := Color(0.78, 0.8, 0.86)
 		var wood := Color(0.6, 0.4, 0.25)
@@ -1092,6 +1226,8 @@ class Swatch extends Control:
 					var o := c + Vector2(r * 0.45 if p == "knife" else -r * 0.45, 0)
 					draw_line(o + Vector2(0, r * 0.6), o + Vector2(0, -r * 0.5), steel, r * 0.14)
 					draw_line(o + Vector2(-r * 0.18, r * 0.25), o + Vector2(r * 0.18, r * 0.25), wood, r * 0.1)
+		if forged:
+			_forged(c, r)
 		if finish == "crypt":
 			# The Crypt King's arms (v201): gold crown points up both sides and a soul gem.
 			var gold := Color(1.0, 0.8, 0.3)
