@@ -1,7 +1,7 @@
-Version 219: a bigger Crypt Pass and fairer fights
-- Crypt Pass: new Moonlit, Aurora and Ashen crypts, and a Silver Moon row on the event road.
+Version 219: the Blood Moon is up (Nov 20 - Dec 3)
+- Hunt the Blood Moon Queen and walk the event road. Crypt Pass owners get a Silver Moon row.
+- Crypt Pass: floors 7-9 remixed with new light and guest skeletons.
 - New Cursed Door, deep cards with real choices, and a stronger Bone Chain.
 - Four new Vault cards to spend your coins on.
 - The camera keeps your hero in view, and bosses wear real crowns.
 - New settings: Flashes, Left hand, Button size, Darkness.
-- Calmer screens: fewer words in fights, one clear TRY AGAIN.
