@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-20b"
+const BUILD := "2026-11-20c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -229,6 +229,8 @@ var event_tier := 0
 var _event_requested := ""
 var _event_tier_requested := 0
 var _event_done := false
+## Version 221: the end of an event run was left by BACK TO EVENT: the title opens the event screen.
+var _to_event := false
 var _shards_unsaved := 0
 var _shards_shown := 0
 var _caskets_run := 0
@@ -728,10 +730,10 @@ func _ready() -> void:
 	# one for a new player (and on launches after this build's full one), see warmup.gd.
 	var wcfg := _load_save()
 	var short_warm := Warmup.core_only(wcfg)
-	var warmed: bool = await Warmup.run(short_warm)
+	var warmed: bool = await Warmup.run(short_warm, 0 if short_warm else Warmup.resume_step(wcfg))
 	if not short_warm:
 		wcfg = _load_save()
-		Warmup.mark_full(wcfg, warmed)   # v218: only a finished one (or the 3rd try)
+		Warmup.mark_full(wcfg, warmed)   # v221: only a finished one; else where it stopped
 		write_save(wcfg)
 	hud.show_title(true, _best_text(), coins)
 	Telemetry.step("title")   # (version 157: loading finished on a new install)
@@ -1805,6 +1807,7 @@ func _on_screen_tapped() -> void:
 			if _state_time > 1.5 and not _loop_choice and not _celebrating:   # the end of a loop has its own buttons
 				Sfx.play("click")
 				if _daily_done or _event_done:
+					_to_event = _event_done and Events.active()   # v221: BACK TO EVENT
 					_back_to_title()
 				else:
 					_descend()
@@ -2445,8 +2448,11 @@ func _back_to_title(keep_run := false) -> void:
 	_snap_camera()
 	# Version 165: after the tutorial, while the screen is black, the rest of the warm-up
 	# that a new player's first launch left out (every floor, skeleton and look).
-	if not Warmup.core_only(_load_save()):
-		var warmed: bool = await Warmup.run(false)
+	# Version 221 (v219 review): only when this session hasn't shown the full one yet. After
+	# an update a slow phone showed it again after each run (up to 3 times); now the next
+	# launch carries on from where it stopped.
+	if not Warmup.core_only(_load_save()) and not Warmup.full_tried:
+		var warmed: bool = await Warmup.run(false, Warmup.resume_step(_load_save()))
 		var wcfg := _load_save()
 		Warmup.mark_full(wcfg, warmed)
 		write_save(wcfg)
@@ -2462,6 +2468,9 @@ func _back_to_title(keep_run := false) -> void:
 	_set_state(State.TITLE)
 	_check_pass_lost()
 	_settle_events()
+	if _to_event:
+		_to_event = false
+		_open_event()
 	await _fade(1.0, 0.0, 0.4)
 	_maybe_event_splash()
 	_ask_reminders_on_title()
@@ -3613,6 +3622,8 @@ func _win() -> void:
 	_celebrating = false
 	hud.hero_quiet()   # the bubble would show through the end screen
 	var tap := "Tap to return to the title" if _daily_done or _event_done else "Tap to descend to floor %d" % (floor_num + 1)
+	if _event_done and Events.active():
+		tap = Hud.EVENT_TAP   # v221: a green BACK TO EVENT (the road and the next Hunt)
 	if shards > 0:
 		extra = "\nMoon Shards  +%d" % shards + extra
 	var fallen := "%s has fallen." % boss_name if event == "hunt" else "%s of floor %d has fallen." % [boss_name, floor_num]

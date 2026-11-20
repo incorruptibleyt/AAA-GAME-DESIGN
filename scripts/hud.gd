@@ -168,6 +168,11 @@ var _special: SpecialButton
 var _dash_button: DashButton
 var _quit_button: Button
 var _rate_button: Button   # v220: hidden in the tutorial
+## Version 221 (v219 review): the pause menu shows RESUME, Music, Sounds, MORE SETTINGS and
+## Quit; MORE SETTINGS opens the rest in place (the title's Settings always shows them all).
+var _pause_more := false
+var _pause_rows: Array[Control] = []
+var _more_button: Button
 var _quit_armed := false
 var _pause_title: Label
 var _pause_head: Label   # SETTINGS over the switches' card (hidden on the title's Settings)
@@ -2347,10 +2352,18 @@ func _build_pause() -> void:
 	var mpair := _pair(_music_button, _sounds_button)
 	mpair.add_theme_constant_override("separation", 12)
 	sc.add_child(mpair)
+	_more_button = button("More settings", 18)
+	_more_button.custom_minimum_size = Vector2(436, 66)
+	_more_button.pressed.connect(func():
+		Sfx.play("click")
+		_pause_more = true
+		_show_pause_rows())
+	sc.add_child(_centered(_more_button))
 	_graphics_button = button("Graphics: High", 26)
 	# High, Medium, Low, Low at a steady 30, then back to High.
 	_graphics_button.pressed.connect(func(): graphics_toggled.emit((_graphics_level + 3) % 4))
 	sc.add_child(_centered(_graphics_button))
+	_pause_rows.append(sc.get_child(sc.get_child_count() - 1))
 	# Full, Reduced, Off, then back to Full.
 	_shake_button = button("Shake: Full", 18)
 	_shake_button.custom_minimum_size = Vector2(212, 66)
@@ -2362,6 +2375,7 @@ func _build_pause() -> void:
 	var spair := _pair(_shake_button, _flashes_button)
 	spair.add_theme_constant_override("separation", 12)
 	sc.add_child(spair)
+	_pause_rows.append(spair)
 	# Vibration and Colour-blind share a row (version 148), so the menu still fits a 16:9 phone.
 	_vibration_button = button("Vibration: On", 18)
 	_vibration_button.custom_minimum_size = Vector2(212, 66)
@@ -2374,6 +2388,7 @@ func _build_pause() -> void:
 	var vpair := _pair(_vibration_button, _colorblind_button)
 	vpair.add_theme_constant_override("separation", 12)
 	sc.add_child(vpair)
+	_pause_rows.append(vpair)
 	# Version 219 (review 4 fix 32): DASH and the special on the left, bigger fight buttons,
 	# and a lighter Eclipse.
 	_left_button = button("Left hand: Off", 16)
@@ -2392,6 +2407,7 @@ func _build_pause() -> void:
 	for b: Button in [_left_button, _size_button, _dark_button]:
 		trio.add_child(b)
 	sc.add_child(trio)
+	_pause_rows.append(trio)
 	# Reports and reminders share a row (version 143), so the menu still fits a 16:9 phone.
 	_reports_button = button("Send reports: Off", 18)
 	_reports_button.custom_minimum_size = Vector2(212, 66)
@@ -2402,6 +2418,7 @@ func _build_pause() -> void:
 	var pair := _pair(_reports_button, _reminders_button)
 	pair.add_theme_constant_override("separation", 12)
 	sc.add_child(pair)
+	_pause_rows.append(pair)
 	# Three small buttons side by side, so the menu still fits a 16:9 phone.
 	var small := HBoxContainer.new()
 	small.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -2423,6 +2440,7 @@ func _build_pause() -> void:
 	_rate_button = rate
 	(small.get_child(0) as Control).custom_minimum_size = Vector2(160, 64)
 	col.add_child(small)
+	_pause_rows.append(small)
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
@@ -4804,11 +4822,19 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_fit_end_soon()
 
 
+## The end screen's line after an event run (Game: any tap goes back to the event screen).
+const EVENT_TAP := "Tap to return to the event"
+
+
 ## The end screen's "tap anywhere" line. Going deeper after a win is the main way on, so it
 ## looks like a bright button (DESCEND TO FLOOR 3) instead of a faint line; any tap still works.
 func _set_end_tap(tap_text: String) -> void:
-	var deeper := tap_text.begins_with("Tap to descend")
-	_end_tap.text = tap_text.replace("Tap to descend", "DESCEND").to_upper() if deeper else tap_text
+	# Version 221 (v219 review): the end of a Queen Hunt or a Blood Moon run had only a faint
+	# "Tap to return to the title"; it is now a green BACK TO EVENT button (to the road and
+	# the next Hunt). Any tap still works, and goes there too.
+	var to_event := tap_text == EVENT_TAP
+	var deeper := tap_text.begins_with("Tap to descend") or to_event
+	_end_tap.text = ("BACK TO EVENT" if to_event else tap_text.replace("Tap to descend", "DESCEND").to_upper()) if deeper else tap_text
 	(_end_tap as Pulse).low = 0.85 if deeper else 0.1
 	# Version 147: the green DESCEND button is the main way on, so it is big (about 96 px,
 	# 73 dp on a phone; was about 66) with bigger letters.
@@ -5175,23 +5201,23 @@ static func _tally_number(line: String) -> RegExMatch:
 
 
 ## The stats with lines before `upto` in full, line `upto` counted `k` (0..1) of the way,
-## and the rest blank (they keep their space, so nothing below jumps).
+## and the rest at 0. Version 221 (v219 review): the lines still to come showed blank, a
+## big empty hole in the middle of the win screen for the first few seconds; now every line
+## is there at once and only the numbers count up, in turn (nothing below jumps either).
 func _tally_text(upto: int, k: float) -> String:
 	var out := []
 	for i in _tally.size():
 		var line: String = _tally[i]
 		if i < upto or upto >= _tally.size():
 			out.append(line)
-		elif i == upto:
+		else:
 			var m := _tally_number(line)
 			if m == null:
 				out.append(line)
 			else:
 				var full := int(m.get_string().replace(",", ""))
-				var n := roundi(full * ease(k, 0.5))
+				var n := roundi(full * ease(k, 0.5)) if i == upto else 0
 				out.append(line.substr(0, m.get_start()) + (thousands(n) if m.get_string().contains(",") else str(n)) + line.substr(m.get_end()))
-		else:
-			out.append("")
 	return "\n".join(out)
 
 
@@ -5313,6 +5339,9 @@ func show_pause(v: bool, settings_only := false) -> void:
 		_rate_button.visible = not Game.first_run   # v220 (v219 review): no "Rate us" in the tutorial
 	_pause_head.visible = not _settings_only
 	(_speed_button.get_parent() as Control).visible = _settings_only
+	if not v:
+		_pause_more = false
+	_show_pause_rows()
 	# Darker over the busy title screen than over a paused room.
 	(_pause_box as ColorRect).color.a = 0.9 if _settings_only else 0.7
 	_pause_box.visible = v
@@ -5320,6 +5349,15 @@ func show_pause(v: bool, settings_only := false) -> void:
 		_pause_build.text = "Build %s  ·  Install %s" % [Game.BUILD, Telemetry.install_id(Game._load_save())]
 	if _quit_armed:
 		_disarm_quit()
+
+
+## The pause menu's longer rows: all of them on the title's Settings or after MORE SETTINGS.
+func _show_pause_rows() -> void:
+	var all := _settings_only or _pause_more
+	for r in _pause_rows:
+		r.visible = all
+	if _more_button:
+		(_more_button.get_parent() as Control).visible = not all
 
 
 ## The pause menu's settings, from the SETTINGS button on the title screen.

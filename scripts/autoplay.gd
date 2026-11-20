@@ -43,6 +43,8 @@ var _hero_choice := ""
 var shop := false
 var quit_test := false
 var _quit_done := false
+var _more_shot := false
+var _more_busy := false
 var _shopped := false
 var _gallery_t := -1.0
 var _paused_once := false
@@ -705,13 +707,23 @@ func _process(delta: float) -> void:
 				else:
 					Game._on_screen_tapped()   # try again
 		Game.State.PAUSED:
-			if Game._state_time > 1.0:
+			if Game._state_time > 1.0 and not _more_busy:
 				if quit_test and not _quit_done:
 					_quit_done = true
 					_t = 0.0
 					Game.hud._on_quit_pressed()
 					print("[autoplay] quit run test: first tap %s" % ("asks" if Game.state == Game.State.PAUSED else "QUIT TOO EARLY"))
 					Game.hud._on_quit_pressed()
+				elif shots_dir != "" and not _more_shot:
+					# Version 221: the short pause menu, then with MORE SETTINGS open.
+					_more_shot = true
+					_more_busy = true
+					await _shot()
+					Game.hud._more_button.pressed.emit()
+					await get_tree().create_timer(0.3, true, false, true).timeout
+					await _shot()
+					print("[autoplay] pause menu: more settings %s" % ("open" if Game.hud._pause_rows[0].visible else "STILL HIDDEN"))
+					_more_busy = false
 				else:
 					# Android's Back button on the pause menu goes back into the run.
 					Game._notification(NOTIFICATION_WM_GO_BACK_REQUEST)

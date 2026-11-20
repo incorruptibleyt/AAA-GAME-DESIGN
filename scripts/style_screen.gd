@@ -185,7 +185,7 @@ func open_hero(cfg: ConfigFile, id: String) -> void:
 			if nk.begins_with(k + "/"):
 				n += 1
 		var tb: Button = _tabs[k]
-		tb.add_theme_font_size_override("font_size", 15 if _new_tab.visible else 19)
+		tb.add_theme_font_size_override("font_size", 16 if _new_tab.visible else 19)   # v221: 16 px at least (was 15)
 		tb.set_meta("fresh", n > 0 or k == "new")
 	visible = true
 	_stage.set_active(true)
