@@ -5762,6 +5762,8 @@ func _on_store_changed() -> void:
 		_show_curses()
 	if hud.daily_visible():
 		_show_daily()
+	# v219 review: bought from the event road's PASS button, the event screen shows the Pass row as owned.
+	hud.refresh_event()
 	if Store.owned() and hud.end_visible():
 		hud.show_pass_card(false)   # version 123: bought from the card, it no longer offers the Pass
 	if Store.owned() and _free_end and state == State.VICTORY:
@@ -5769,8 +5771,8 @@ func _on_store_changed() -> void:
 		if Loops.loop_end(floor_num):
 			_loop_choice = true
 			_checkpoint(false, true)
-			hud.set_end_stats("Crypt Pass unlocked. Thank you!\n\n" + _loop_text())
-			hud.show_end_loop(true, _bank_bonus(), Loops.loop_of(floor_num) + 1)
+			hud.set_end_stats("Crypt Pass unlocked. Thank you!\n\nThe Drowned Vault waits below.")
+			hud.show_end_loop(true, _bank_bonus(), Loops.loop_of(floor_num) + 1, true)
 		else:
 			hud.set_end_stats("Crypt Pass unlocked. Thank you!")
 			hud.end_offer_done("Tap to descend to floor %d" % (floor_num + 1))

@@ -5249,7 +5249,7 @@ func end_visible() -> bool:
 	return _end_box.visible
 
 
-func show_end_loop(v: bool, bonus := 0, next_loop := 2) -> void:
+func show_end_loop(v: bool, bonus := 0, next_loop := 2, just_bought := false) -> void:
 	_end_loop.visible = v
 	if not v:
 		return
@@ -5259,6 +5259,11 @@ func show_end_loop(v: bool, bonus := 0, next_loop := 2) -> void:
 	_end_spacer.custom_minimum_size.y = 24.0
 	_loop_deeper_button.text = "DESCEND INTO LOOP %d" % next_loop
 	_loop_bank_button.text = "BANK AND LEAVE  (+%d coins)" % bonus
+	# v219 review: right after buying the Pass at the free end, the one way on is down into the
+	# Drowned Vault the offer promised. Banking comes back at the next loop end.
+	if just_bought:
+		_loop_deeper_button.text = "ENTER THE DROWNED VAULT"
+	_loop_bank_button.get_parent().visible = not just_bought
 	_fit_end_soon()
 
 
