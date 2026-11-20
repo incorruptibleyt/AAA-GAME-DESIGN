@@ -94,6 +94,18 @@ const FLICK_TIME := 0.22
 const FLICK_DISTANCE := 70.0   # 45 before version 140: a small step often dashed
 
 const BAZAAR_AMBER := Color(1.0, 0.62, 0.3)   # the Bone Bazaar (version 152)
+const SHOP_WELL := Color(0.04, 0.03, 0.06, 0.88)   # the Armory's card window (version 225)
+## Each Armory upgrade's picture on its card (version 225): a BlessingIcon picture and colour.
+const ARMORY_ICONS := {
+	"vigor": ["vitality", Color(0.95, 0.38, 0.42)],
+	"might": ["damage", Color(1.0, 0.56, 0.28)],
+	"haste": ["speed", Color(1.0, 0.84, 0.32)],
+	"swift": ["boots", Color(0.42, 0.82, 1.0)],
+	"luck": ["marrow", Color(0.52, 0.92, 0.56)],
+	"blessed": ["door_shrine", Color(0.76, 0.58, 1.0)],
+	"second_wind": ["ward", Color(0.6, 0.92, 0.95)],
+	"buy_drop": ["ossuary", Color(0.93, 0.88, 0.76)],
+}
 const GOLD := Color(1.0, 0.8, 0.3)
 ## The chunky cartoon font for titles, buttons and big numbers (fonts/OFL-LilitaOne.txt).
 const UI_FONT := preload("res://fonts/LilitaOne-Regular.ttf")
@@ -215,6 +227,11 @@ var _shop_title: Label
 var _shop_sub: Label
 ## The Armory's two tabs: UPGRADES and the VAULT (new blessings), and the rows last shown.
 var _armory_tabs: Control
+## Version 225: the cards scroll in a window; the coins sit in a purse by BACK.
+var _armory_scroll: ScrollContainer
+var _armory_purse: Control
+var _armory_fades: Array = []
+var _shop_down_at := 0
 var _tab_buttons := {}
 var _armory_tab := "upgrades"
 var _bazaar_tab_badge: Label
@@ -2623,7 +2640,8 @@ func _build_armory() -> void:
 		tb.pressed.connect(func():
 			Sfx.play("click")
 			_armory_tab = id
-			_fill_shop(_shop_rows, _shop_coins))
+			_fill_shop(_shop_rows, _shop_coins)
+			_armory_scroll.scroll_vertical = 0)
 		_tab_buttons[id] = tb
 		if id == "bazaar":
 			_bazaar_tab_badge = _badge_pill("NEW")
@@ -2634,14 +2652,121 @@ func _build_armory() -> void:
 	_armory_tabs.add_theme_constant_override("separation", 10)
 	_armory_tabs.add_child(tabs[2])
 	col.add_child(_armory_tabs)
-	_armory_coins = coin_row(30, col, true)
+	# Version 225 (Jesse: "I can't even scroll down"): the cards scroll inside a dark window
+	# that fills the screen down to BACK, so BACK never covers a card. The window fades at
+	# an edge only while there is more to see past it.
+	var frame := Control.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(frame)
+	var bg := Panel.new()
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = SHOP_WELL
+	sb.border_color = Color(0.24, 0.18, 0.26)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(18)
+	bg.add_theme_stylebox_override("panel", sb)
+	frame.add_child(full(bg))
+	_armory_scroll = ScrollContainer.new()
+	_armory_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	full(_armory_scroll)
+	_armory_scroll.offset_left = 4
+	_armory_scroll.offset_top = 4
+	_armory_scroll.offset_right = -4
+	_armory_scroll.offset_bottom = -4
+	frame.add_child(_armory_scroll)
+	var pad := MarginContainer.new()
+	pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pad.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	for side: String in ["left", "right"]:
+		pad.add_theme_constant_override("margin_" + side, 8)
+	pad.add_theme_constant_override("margin_top", 10)
+	pad.add_theme_constant_override("margin_bottom", 14)
+	_armory_scroll.add_child(pad)
 	_armory_rows = VBoxContainer.new()
 	_armory_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_armory_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_armory_rows.add_theme_constant_override("separation", 8)
-	col.add_child(_armory_rows)
+	pad.add_child(_armory_rows)
+	_armory_fades = []
+	for top: bool in [true, false]:
+		var g := Gradient.new()
+		g.set_color(0, Color(SHOP_WELL, 1.0) if top else Color(SHOP_WELL, 0.0))
+		g.set_color(1, Color(SHOP_WELL, 0.0) if top else Color(SHOP_WELL, 1.0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.width = 4
+		gt.height = 32
+		gt.fill_from = Vector2(0, 0)
+		gt.fill_to = Vector2(0, 1)
+		var fade := TextureRect.new()
+		fade.texture = gt
+		fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fade.stretch_mode = TextureRect.STRETCH_SCALE
+		fade.anchor_right = 1.0
+		fade.anchor_top = 0.0 if top else 1.0
+		fade.anchor_bottom = fade.anchor_top
+		fade.offset_left = 4
+		fade.offset_right = -4
+		fade.offset_top = 4.0 if top else -40.0
+		fade.offset_bottom = 40.0 if top else -4.0
+		frame.add_child(fade)
+		_armory_fades.append(fade)
+	var bar := _armory_scroll.get_v_scroll_bar()
+	bar.value_changed.connect(func(_v: float): _shop_fades())
+	bar.changed.connect(_shop_fades)
 	var back := button("BACK", 26)
 	back.pressed.connect(func(): show_armory(false))
 	_frame(_armory_box, col, back)
+	# Your coins sit in a purse in the bottom corner, level with BACK (they took a row
+	# above the cards before).
+	_armory_purse = PanelContainer.new()
+	_armory_purse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var ps := StyleBoxFlat.new()
+	ps.bg_color = Color(0.1, 0.07, 0.04, 0.95)
+	ps.border_color = Color(GOLD, 0.8)
+	ps.set_border_width_all(2)
+	ps.border_width_bottom = 4
+	ps.set_corner_radius_all(18)
+	ps.content_margin_left = 14
+	ps.content_margin_right = 18
+	ps.content_margin_top = 6
+	ps.content_margin_bottom = 8
+	_armory_purse.add_theme_stylebox_override("panel", ps)
+	_armory_coins = coin_row(28, _armory_purse)
+	_armory_purse.anchor_left = 1.0
+	_armory_purse.anchor_right = 1.0
+	_armory_purse.anchor_top = 1.0
+	_armory_purse.anchor_bottom = 1.0
+	_armory_purse.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_armory_purse.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_armory_purse.offset_left = -24
+	_armory_purse.offset_right = -24
+	_armory_purse.offset_top = -36
+	_armory_purse.offset_bottom = -36
+	_armory_box.add_child(_armory_purse)
+
+
+## The window's edge fades show only while there are more cards past that edge.
+func _shop_fades() -> void:
+	if _armory_scroll == null or _armory_fades.size() < 2:
+		return
+	var bar := _armory_scroll.get_v_scroll_bar()
+	var v := bar.value
+	(_armory_fades[0] as Control).visible = v > 2.0
+	(_armory_fades[1] as Control).visible = v + bar.page < bar.max_value - 2.0
+
+
+## A tap on a card in the Armory window counts only if the list wasn't dragged with it
+## (the finger can drag the list from on top of a card).
+func _shop_tap(b: Button, act: Callable) -> void:
+	b.mouse_filter = Control.MOUSE_FILTER_PASS
+	b.button_down.connect(func(): _shop_down_at = _armory_scroll.scroll_vertical)
+	b.pressed.connect(func():
+		if absi(_armory_scroll.scroll_vertical - _shop_down_at) <= 6:
+			act.call())
 
 
 ## The Crypt Pass screen: four picture tiles for what it gives, the price, and buy / restore.
@@ -3192,6 +3317,13 @@ func _apply_safe_area() -> void:
 		back.offset_right = 204 + left
 		back.offset_top = -96 - bottom
 		back.offset_bottom = -24 - bottom
+	if _armory_purse != null:
+		# (grows up and left from its corner, so only that corner moves)
+		var right := float(_safe.get_theme_constant("margin_right"))
+		_armory_purse.offset_right = -24 - right
+		_armory_purse.offset_left = _armory_purse.offset_right
+		_armory_purse.offset_bottom = -36 - bottom
+		_armory_purse.offset_top = _armory_purse.offset_bottom
 
 
 ## The title's SETTINGS and RECORDS sit in the top corner, so they move below a notch or
@@ -4511,13 +4643,19 @@ func armory_visible() -> bool:
 
 ## rows: [{id, title, text, level, max, cost}] where cost is -1 once maxed out.
 func show_armory(v: bool, rows := [], coins := 0) -> void:
+	var opening := v and (not _armory_box.visible or _shop_curses)
 	_armory_box.visible = v
 	if not v:
 		refresh_armory_badge()
 		return
 	_shop_curses = false
 	_shop_title.text = "ARMORY"
+	# After a buy the list stays where it was; a fresh open starts at the top.
+	var keep := 0 if opening else _armory_scroll.scroll_vertical
 	_fill_shop(rows, coins)
+	_armory_scroll.scroll_vertical = keep
+	if keep > 0:
+		_armory_scroll.set_deferred("scroll_vertical", keep)
 
 
 ## rows: [{id, name, badge, mastery, cost, unlocked, selected, trial, trying}]
@@ -4535,6 +4673,7 @@ func heroes_visible() -> bool:
 ## rows: [{id, title, text, level, on, locked}]. `info` is the Curse Level line, `goal` the
 ## next hero reward.
 func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
+	var again := v and _armory_box.visible and _shop_curses   # a curse switched on or off
 	_armory_box.visible = v
 	if not v:
 		return
@@ -4542,11 +4681,15 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 	_shop_title.text = "CURSES"
 	_shop_sub.text = "%s\n%s" % [info, goal]
 	_armory_tabs.visible = false
-	_armory_coins.get_parent().visible = false
+	_armory_purse.visible = false
+	var keep := _armory_scroll.scroll_vertical if again else 0
 	for c in _armory_rows.get_children():
 		c.queue_free()
 	for r: Dictionary in rows:
 		_armory_rows.add_child(_curse_row(r))
+	_armory_scroll.scroll_vertical = keep
+	if keep > 0:
+		_armory_scroll.set_deferred("scroll_vertical", keep)
 
 
 ## "Playing as the Mage  ·  Mastery 4" (in gold once they're a Master, at level 10).
@@ -4556,7 +4699,9 @@ func set_title_hero(hero_name: String, mastery := 0, master := false) -> void:
 	_title_hero.label_settings.font_color = (GOLD if mastery <= HeroMastery.FRAME_LEVEL else HeroMastery.frame_color(mastery)) if master else Color(0.75, 0.85, 1.0)
 
 
-## Shows the rows of the open tab: Armory upgrades, or the Vault's blessings.
+## Shows the rows of the open tab: Armory upgrades, the Vault's blessings or the Bazaar.
+## Version 225: what you can still buy comes first (Vault by price), then what you already
+## have under its own heading, so an all-bought tab reads as done at a glance.
 func _fill_shop(rows: Array, coins: int) -> void:
 	_shop_rows = rows
 	_shop_coins = coins
@@ -4564,8 +4709,8 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	var bazaar := _armory_tab == "bazaar"
 	_shop_title.text = "BONE BAZAAR" if bazaar else "ARMORY"
 	_shop_title.label_settings.font_color = BAZAAR_AMBER if bazaar else Color(1, 0.85, 0.55)
-	_shop_sub.text = ("Three looks a day. Buy once, every hero can wear it.\n%s" % Bazaar.refresh_text()) if bazaar \
-			else ("New blessings. Buy one once and it can\nturn up in all your runs." if vault else "Upgrades bought here last forever.")
+	_shop_sub.text = ("Three new looks a day  ·  %s" % Bazaar.refresh_text()) if bazaar \
+			else ("New blessings for your runs. Buy each one once." if vault else "Upgrades bought here last forever.")
 	if bazaar:
 		var cfg := Game._load_save()
 		if Bazaar.unseen(cfg):
@@ -4575,21 +4720,85 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	_armory_tabs.visible = true
 	for id: String in _tab_buttons:
 		paint(_tab_buttons[id], "gold" if id == _armory_tab else "slate")
-	_armory_coins.get_parent().visible = true
+	_armory_purse.visible = true
 	_armory_coins.text = thousands(coins)
 	for c in _armory_rows.get_children():
 		c.queue_free()
-	var shown := 0
+	if bazaar:
+		var shown := 0
+		for r: Dictionary in rows:
+			if r.has("look"):
+				_armory_rows.add_child(_bazaar_row(r, coins))
+				shown += 1
+		if shown == 0:
+			_armory_rows.add_child(label("Every look is yours!\nNew ones may come in later updates.", 20, Color(0.8, 0.8, 0.85)))
+		else:
+			_armory_rows.add_child(_shop_note("Feat looks are never sold: win them in runs."))
+		return
+	var spare := []
+	var buy := []
+	var have := []
 	for r: Dictionary in rows:
-		if bazaar and r.has("look"):
-			_armory_rows.add_child(_bazaar_row(r, coins))
-			shown += 1
-		elif not bazaar and not r.has("look") and r.has("vault") == vault:
-			_armory_rows.add_child(_armory_row(r, coins))
-	if bazaar and shown == 0:
-		_armory_rows.add_child(label("Every look is yours!\nNew ones may come in later updates.", 20, Color(0.8, 0.8, 0.85)))
-	elif bazaar:
-		_armory_rows.add_child(label("Feat looks are never sold: win them in runs.", 15, Color(0.62, 0.6, 0.66)))
+		if r.has("look") or r.has("vault") != vault:
+			continue
+		if r.id == "buy_drop":
+			spare.append(r)
+		elif int(r.cost) < 0:
+			have.append(r)
+		else:
+			buy.append(r)
+	if vault:
+		buy.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a.cost) < int(b.cost))
+	var all := buy.size() + have.size()
+	if not spare.is_empty():
+		_armory_rows.add_child(_shop_head("SPARE COINS", "Every upgrade is maxed"))
+		for r: Dictionary in spare:
+			_armory_rows.add_child(_shop_card(r, coins))
+	if not buy.is_empty():
+		_armory_rows.add_child(_shop_head("TO BUY", "%d left" % buy.size()))
+		for r: Dictionary in buy:
+			_armory_rows.add_child(_shop_card(r, coins))
+	if not have.is_empty():
+		_armory_rows.add_child(_shop_head("IN YOUR RUNS" if vault else "MAXED", "%d / %d" % [have.size(), all]))
+		if vault and buy.is_empty():
+			_armory_rows.add_child(_shop_note("All %d are yours. Each one can turn up in your runs." % have.size()))
+		for r: Dictionary in have:
+			_armory_rows.add_child(_shop_card(r, coins))
+
+
+## A heading over a group of cards: its name on the left, a count on the right, a thin line.
+func _shop_head(text: String, count := "") -> Control:
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 3)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(h)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(6, 0)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(gap)
+	var t := label(text, 17, Color(1, 0.85, 0.55), HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	t.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	h.add_child(t)
+	var n := label(count, 16, Color(0.66, 0.62, 0.7), HORIZONTAL_ALIGNMENT_RIGHT)
+	n.autowrap_mode = TextServer.AUTOWRAP_OFF
+	h.add_child(n)
+	var gap2 := gap.duplicate()
+	h.add_child(gap2)
+	var line := ColorRect.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.color = Color(1, 0.85, 0.55, 0.18)
+	line.custom_minimum_size = Vector2(0, 2)
+	v.add_child(line)
+	return v
+
+
+## A quiet line of words in the card window.
+func _shop_note(text: String) -> Label:
+	var l := label(text, 16, Color(0.66, 0.64, 0.72))
+	return l
 
 
 ## A Bone Bazaar look: its picture, name and kind, and its price (or OWNED). A tap shows the
@@ -4602,7 +4811,7 @@ func _bazaar_row(r: Dictionary, coins: int) -> Button:
 	b.custom_minimum_size = Vector2(0, 150)
 	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(3 if afford else 2)
 	var look: Array = r.look
-	b.pressed.connect(func(): bazaar_look.emit(str(look[0]), str(look[1])))
+	_shop_tap(b, func(): bazaar_look.emit(str(look[0]), str(look[1])))
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right"]:
@@ -4659,7 +4868,8 @@ func _curse_row(r: Dictionary) -> Button:
 	b.custom_minimum_size = Vector2(0, 80 if r.get("gold", false) else 64)
 	if on or r.get("gold", false):
 		(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4 if on else 2)
-	b.pressed.connect(func(): curse_toggled.emit(r.id))
+	var cid: String = r.id
+	_shop_tap(b, func(): curse_toggled.emit(cid))
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	for side in ["left", "right"]:
@@ -4687,58 +4897,133 @@ func _curse_row(r: Dictionary) -> Button:
 	return b
 
 
-func _armory_row(r: Dictionary, coins: int) -> Button:
-	var maxed: bool = r.cost < 0
-	var afford: bool = not maxed and r.cost <= coins
-	var b := button("", 20, Color(0.12, 0.1, 0.16, 0.98), GOLD if afford else Color(0.4, 0.35, 0.45, 0.6))
+## One Armory or Vault card (version 225): the picture, the name with its level dots, the
+## words (they wrap, and the card grows to hold them: they spilled out before) and, on the
+## right, the price or what it is now. A PanelContainer holds the button and the words on
+## top of it, so the card is always as tall as its words.
+func _shop_card(r: Dictionary, coins: int) -> Control:
+	var have: bool = int(r.cost) < 0
+	var afford: bool = not have and int(r.cost) <= coins
 	var blessing: Dictionary = r.get("vault", {})
-	b.custom_minimum_size = Vector2(0, 70 if blessing.is_empty() else 78)
-	b.pressed.connect(func(): armory_buy.emit(r.id))
+	var vault := not blessing.is_empty()
+	var pic: Array = ARMORY_ICONS.get(str(r.id), ["", GOLD])
+	var accent: Color = Upgrades.color(blessing) if vault else pic[1]
+	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	var bg := Color(0.08, 0.07, 0.1, 0.96) if have else Color(0.14, 0.11, 0.18, 0.98)
+	var edge := GOLD if afford else (Color(0.4, 0.62, 0.45, 0.45) if have else Color(0.42, 0.37, 0.48, 0.65))
+	var b := button("", 20, bg, edge)
+	b.custom_minimum_size = Vector2(0, 84)
+	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(3 if afford else 2)
+	var id := str(r.id)
+	_shop_tap(b, func(): armory_buy.emit(id))
+	card.add_child(b)
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["left", "right"]:
-		m.add_theme_constant_override("margin_" + side, 16)
-	full(m)
-	b.add_child(m)
+	m.add_theme_constant_override("margin_left", 10)
+	m.add_theme_constant_override("margin_right", 12)
+	m.add_theme_constant_override("margin_top", 9)
+	m.add_theme_constant_override("margin_bottom", 10)
+	card.add_child(m)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", 10)
+	h.add_theme_constant_override("separation", 12)
 	m.add_child(h)
-	if not blessing.is_empty():
-		# Vault rows show the blessing's own badge, as on its card.
-		var icon := BlessingIcon.new()
-		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var icon := BlessingIcon.new()
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	if vault:
 		icon.show_for(blessing)
-		h.add_child(icon)
+	else:
+		icon.show_icon(str(pic[0]), "bone", accent)
+	h.add_child(icon)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	texts.alignment = BoxContainer.ALIGNMENT_CENTER
-	texts.add_theme_constant_override("separation", 0)
+	texts.add_theme_constant_override("separation", 2)
 	h.add_child(texts)
-	var pips := "" if r.max <= 1 else "   " + "■".repeat(r.level) + "□".repeat(r.max - r.level)
-	var title_col := Upgrades.color(blessing) if not blessing.is_empty() else Color.WHITE
-	var t := label(r.title + pips, 22, title_col if not maxed or not blessing.is_empty() else Color(0.7, 1, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_constant_override("separation", 10)
+	texts.add_child(top)
+	var t := label(str(r.title), 22, accent.lightened(0.25) if not have or vault else Color(0.78, 0.95, 0.78), HORIZONTAL_ALIGNMENT_LEFT)
 	t.autowrap_mode = TextServer.AUTOWRAP_OFF
-	texts.add_child(t)
-	var d := label(r.text, 15 if not blessing.is_empty() else 16, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
-	if blessing.is_empty():
-		d.autowrap_mode = TextServer.AUTOWRAP_OFF
+	top.add_child(t)
+	if int(r.max) > 1:
+		top.add_child(_level_dots(int(r.level), int(r.max), accent))
+	var d := label(str(r.text), 16, Color(0.8, 0.79, 0.86) if not have else Color(0.68, 0.67, 0.74), HORIZONTAL_ALIGNMENT_LEFT)
+	d.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	texts.add_child(d)
-	if maxed:
-		var done: String = r.get("done", "IN RUNS" if not blessing.is_empty() else ("OWNED" if r.max <= 1 else "MAX"))
-		var tag := label(done, 20 if not blessing.is_empty() else 22, Color(0.6, 1, 0.6))
-		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(tag)
+	if have:
+		var done: String = r.get("done", "IN RUNS" if vault else ("OWNED" if int(r.max) <= 1 else "MAX"))
+		var green := Color(0.55, 0.95, 0.6)
+		h.add_child(_shop_chip(done, green if r.get("done", "") == "" else Color(0.75, 0.72, 0.8)))
 	else:
-		var price := HBoxContainer.new()
-		price.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_child(price)
-		var cost_label := coin_row(24, price)
-		cost_label.text = str(r.cost)
-		if not afford:
-			cost_label.label_settings.font_color = Color(0.6, 0.55, 0.5)
-	return b
+		h.add_child(_price_pill(int(r.cost), afford))
+	return card
+
+
+## The level dots after an upgrade's name: lit ones in its colour, the rest dark.
+static func _level_dots(level: int, most: int, col: Color) -> Control:
+	var p := Control.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.custom_minimum_size = Vector2(most * 15 - 3, 16)
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	p.draw.connect(func():
+		for i in most:
+			var c := Vector2(6 + i * 15, p.size.y * 0.5)
+			p.draw_circle(c, 6.5, INK)
+			if i < level:
+				p.draw_circle(c, 5.0, col)
+				p.draw_circle(c + Vector2(-1.5, -1.8), 1.6, Color(1, 1, 1, 0.55))
+			else:
+				p.draw_circle(c, 5.0, Color(0.24, 0.22, 0.28)))
+	return p
+
+
+## A price on a card: a coin and the number in a raised gold pill (grey if you can't pay).
+func _price_pill(cost: int, afford: bool) -> Control:
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.4, 0.25, 0.04) if afford else Color(0.17, 0.15, 0.2)
+	sb.border_color = GOLD if afford else Color(0.38, 0.35, 0.42)
+	sb.set_border_width_all(2)
+	sb.border_width_bottom = 5
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 9
+	sb.content_margin_right = 12
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 5
+	p.add_theme_stylebox_override("panel", sb)
+	p.custom_minimum_size = Vector2(96, 0)   # the prices line up down the list
+	var l := coin_row(22, p, true)
+	(l.get_parent() as HBoxContainer).add_theme_constant_override("separation", 6)
+	l.text = thousands(cost)
+	if not afford:
+		l.label_settings.font_color = Color(0.62, 0.58, 0.62)
+		(l.get_parent().get_child(0) as Control).modulate = Color(1, 1, 1, 0.55)
+	return p
+
+
+## What a card is now, in a small outlined chip: IN RUNS, MAX, OWNED, TOMORROW...
+func _shop_chip(text: String, col: Color) -> Label:
+	var l := label(text, 16, col)
+	l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(col, 0.12)
+	sb.border_color = Color(col, 0.5)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 3
+	sb.content_margin_bottom = 3
+	l.add_theme_stylebox_override("normal", sb)
+	return l
 
 
 func show_hint(text: String) -> void:
