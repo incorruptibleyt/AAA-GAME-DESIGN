@@ -65,6 +65,19 @@ static func draw_shard(ci: CanvasItem, c: Vector2, h: float, glow := 0.0) -> voi
 		Color(1, 1, 1, 0.8), maxf(1.5, h * 0.05), true)
 
 
+## Version 222: a piece of the event set on the road bar and the road's track: a five-point
+## star, gold with a dark edge once `lit` (found or reached), dark with a gold edge before.
+static func draw_star(ci: CanvasItem, c: Vector2, r: float, lit: bool, alpha := 1.0) -> void:
+	var pts := PackedVector2Array()
+	for i in 10:
+		var ang := -PI / 2 + i * PI / 5
+		pts.append(c + Vector2(cos(ang), sin(ang)) * r * (1.0 if i % 2 == 0 else 0.46))
+	var edge := pts.duplicate()
+	edge.append(pts[0])
+	ci.draw_colored_polygon(pts, Color(1.0, 0.78, 0.3, alpha) if lit else Color(0.16, 0.1, 0.06, alpha))
+	ci.draw_polyline(edge, Color(0.3, 0.14, 0.02, alpha) if lit else Color(0.85, 0.62, 0.28, alpha), maxf(1.5, r * 0.16), true)
+
+
 ## The Moon Shard as a small Control (for rows of text).
 class ShardIcon extends Control:
 	var glow := 0.0
@@ -125,9 +138,13 @@ class Moon extends Control:
 
 
 ## The event road bar: shards so far and how far to the next prize, crimson and gold.
+## Version 222: on a near-black bar (it was dark red on the red wall), with a star on it for
+## each piece of the set: gold once found.
 class RoadBar extends Button:
 	var frac := 0.0
 	var waiting := 0
+	## [where on the bar (0-1), found] for each piece of the set.
+	var marks: Array = []
 	var _text: Label
 
 	func _init() -> void:
@@ -154,28 +171,34 @@ class RoadBar extends Button:
 
 	func _draw() -> void:
 		var r := Rect2(Vector2.ZERO, size)
+		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 4.0) if waiting > 0 else 0.0
 		var bg := StyleBoxFlat.new()
-		bg.bg_color = Color(0.16, 0.04, 0.07)
-		bg.border_color = Hud.ROLES.gold[1] if waiting > 0 else Color(0.32, 0.03, 0.06)
+		bg.bg_color = Color(0.07, 0.04, 0.06)
+		# A prize waiting: a pulsing gold edge (version 222: the bar no longer fills with gold,
+		# so PLAY stays the one big gold thing on the screen).
+		bg.border_color = Hud.ROLES.gold[0].lerp(Hud.ROLES.gold[1], 0.6 * (1.0 - pulse)) if waiting > 0 else Color(0.3, 0.16, 0.18)
 		bg.set_border_width_all(3)
 		bg.border_width_bottom = 8
 		bg.set_corner_radius_all(18)
-		bg.shadow_color = Color(0, 0, 0, 0.35)
-		bg.shadow_size = 2
-		bg.shadow_offset = Vector2(0, 4)
+		bg.shadow_color = Color(1.0, 0.7, 0.2, 0.15 + 0.25 * pulse) if waiting > 0 else Color(0, 0, 0, 0.35)
+		bg.shadow_size = 8 if waiting > 0 else 2
+		bg.shadow_offset = Vector2(0, 2 if waiting > 0 else 4)
 		draw_style_box(bg, r)
 		var inner := Rect2(4, 4, r.size.x - 8.0, r.size.y - 13.0)
-		var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 4.0) if waiting > 0 else 0.0
-		var w := inner.size.x * (1.0 if waiting > 0 else frac)
+		var w := inner.size.x * frac
 		if w > 8.0:
 			var fill := StyleBoxFlat.new()
-			fill.bg_color = (Hud.ROLES.gold[0] if waiting > 0 else CRIMSON).lightened(0.15 * pulse)
+			fill.bg_color = CRIMSON
 			fill.set_corner_radius_all(14)
 			draw_style_box(fill, Rect2(inner.position, Vector2(w, inner.size.y)))
 			var shine := StyleBoxFlat.new()
 			shine.bg_color = Color(1, 1, 1, 0.18)
 			shine.set_corner_radius_all(10)
 			draw_style_box(shine, Rect2(inner.position + Vector2(4, 3), Vector2(maxf(w - 8.0, 0.0), inner.size.y * 0.38)))
+		# The set's pieces, on the bar's lower edge (under the words).
+		for m: Array in marks:
+			var x := clampf(inner.position.x + inner.size.x * float(m[0]), inner.position.x + 12.0, inner.end.x - 10.0)
+			EventArt.draw_star(self, Vector2(x, r.size.y - 9.0), 10.0, bool(m[1]))
 		EventArt.draw_shard(self, Vector2(26, r.size.y * 0.5 - 3.0), r.size.y * 0.62)
 
 	func _process(_d: float) -> void:
@@ -492,3 +515,197 @@ class RoadIcon extends Control:
 				draw_colored_polygon(pts, Color(1.0, 0.78, 0.3, a))
 				draw_circle(c, r * 0.18, Color(1.0, 0.3, 0.26, a))
 		draw_arc(c, r - 1.5, 0, TAU, 40, Color(1.0, 0.78, 0.4, 0.55 * a), 2.0, true)
+
+
+## Version 222 (design critique fix 1 and 4): one piece of the event set, as a picture: its
+## swatch from the Looks screen in a round frame. Gold with a tick once found, a pulsing gold
+## ring when it is reached and waiting on the road, dim before that. `tint` is the frame's
+## colour (silver for the Crypt Pass's Silver Moon set).
+class SetBadge extends Control:
+	var found := false
+	var waiting := false
+	var tint := Color(1.0, 0.78, 0.3)
+	var _sw: Control
+	var _tick: Control
+	var _t := 0.0
+
+	func _init(size_px := 64.0) -> void:
+		custom_minimum_size = Vector2(size_px, size_px)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_tick = Control.new()
+		_tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_tick.draw.connect(_draw_tick)
+		add_child(_tick)
+		resized.connect(func():
+			if _sw:
+				_sw.position = Vector2(5, 5)
+				_sw.size = size - Vector2(10, 10)
+			_tick.position = Vector2.ZERO
+			_tick.size = size
+			_tick.queue_redraw())
+
+	## The look `slot`/`key` as hero `id` wears it (`base` = Heroes.get_hero(id)).
+	func setup(id: String, slot: String, key: String, base: Dictionary, got: bool, ready_now: bool) -> void:
+		found = got
+		waiting = ready_now and not got
+		if _sw:
+			_sw.queue_free()
+		var sw := StyleScreen.Swatch.new()
+		sw.setup(id, slot, key, base)
+		sw.position = Vector2(5, 5)
+		sw.size = size - Vector2(10, 10) if size.x > 10.0 else custom_minimum_size - Vector2(10, 10)
+		sw.modulate = Color.WHITE if got or waiting else Color(1, 1, 1, 0.72)
+		_sw = sw
+		add_child(sw)
+		move_child(_tick, -1)
+		set_process(waiting)
+		queue_redraw()
+		_tick.queue_redraw()
+
+	func _process(delta: float) -> void:
+		_t += delta
+		queue_redraw()
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5
+		if waiting:
+			var p := 0.5 + 0.5 * sin(_t * 4.0)
+			draw_circle(c, r + 3.0 + 3.0 * p, Color(tint.r, tint.g, tint.b, 0.18 + 0.12 * p))
+		draw_circle(c, r, Color(0.05, 0.03, 0.045, 0.95))
+		var ring := tint if found or waiting else tint.darkened(0.55)
+		draw_arc(c, r - 1.5, 0, TAU, 48, ring, 3.0 if found or waiting else 2.0, true)
+
+	func _draw_tick() -> void:
+		if not found:
+			return
+		var r := minf(size.x, size.y) * 0.17
+		var c := Vector2(size.x - r * 0.9, size.y - r * 0.9)
+		_tick.draw_circle(c, r, tint)
+		_tick.draw_arc(c, r, 0, TAU, 24, Color(0.25, 0.12, 0.0), 2.0, true)
+		_tick.draw_polyline(PackedVector2Array([c + Vector2(-r * 0.5, 0), c + Vector2(-r * 0.12, r * 0.4), c + Vector2(r * 0.52, -r * 0.42)]),
+			Color(0.2, 0.08, 0.0), maxf(2.0, r * 0.3), true)
+
+
+## Version 222 (design critique fix 4): the event road as a track. Its rows sit in `list`;
+## a line runs down the left past every step, crimson as far as the shards reach, with a node
+## for each step (a big star for a piece of the set, a tick once claimed) and a glowing shard
+## where you are. The Crypt Pass's rows branch off it in silver.
+class RoadTrack extends MarginContainer:
+	const X := 30.0
+	const INDENT := 26.0
+	var list: VBoxContainer
+	## One per road step: {row, at, state ("got", "ready" or "next"), look}.
+	var stops: Array = []
+	## One per Crypt Pass row: {row, state}.
+	var branches: Array = []
+	var shards := 0
+	var _t := 0.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		add_theme_constant_override("margin_left", 62)
+		add_theme_constant_override("margin_right", 6)
+		add_theme_constant_override("margin_top", 14)
+		add_theme_constant_override("margin_bottom", 14)
+		list = VBoxContainer.new()
+		list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		list.add_theme_constant_override("separation", 10)
+		add_child(list)
+		list.sort_children.connect(queue_redraw)
+
+	func clear() -> void:
+		for c in list.get_children():
+			list.remove_child(c)
+			c.queue_free()
+		stops.clear()
+		branches.clear()
+
+	func _process(delta: float) -> void:
+		if is_visible_in_tree():
+			_t += delta
+			queue_redraw()
+
+	func _y(row: Control) -> float:
+		return list.position.y + row.position.y + row.size.y * 0.5
+
+	## Where you are on the track: between the last step reached and the next, as far as
+	## the shards go.
+	func _you_y() -> float:
+		var first: Dictionary = stops[0]
+		if shards <= int(first.at):
+			return lerpf(list.position.y, _y(first.row), clampf(float(shards) / float(first.at), 0.0, 1.0))
+		for i in range(stops.size() - 1):
+			var a: Dictionary = stops[i]
+			var b: Dictionary = stops[i + 1]
+			if shards < int(b.at):
+				return lerpf(_y(a.row), _y(b.row), float(shards - int(a.at)) / float(int(b.at) - int(a.at)))
+		return _y(stops[stops.size() - 1].row)
+
+	func _draw() -> void:
+		if stops.is_empty():
+			return
+		var top := list.position.y
+		var bottom := _y(stops[stops.size() - 1].row)
+		var pulse := 0.5 + 0.5 * sin(_t * 4.0)
+		# The bare track, then the part walked, in crimson.
+		draw_line(Vector2(X, top), Vector2(X, bottom), Color(0.03, 0.015, 0.025), 12.0, true)
+		draw_line(Vector2(X, top), Vector2(X, bottom), Color(0.22, 0.14, 0.17), 6.0, true)
+		var you := _you_y()
+		if you > top + 1.0:
+			draw_line(Vector2(X, top), Vector2(X, you), Color(1.0, 0.2, 0.15, 0.25), 16.0, true)
+			draw_line(Vector2(X, top), Vector2(X, you), EventArt.CRIMSON, 7.0, true)
+		# The Crypt Pass's rows: a silver branch from the track.
+		for b: Dictionary in branches:
+			var y := _y(b.row)
+			var a := 0.5 if str(b.state) == "got" else 1.0
+			var silver := Color(0.75, 0.84, 1.0, a)
+			draw_line(Vector2(X, y), Vector2(get_theme_constant("margin_left") + INDENT, y), silver.darkened(0.25), 3.0, true)
+			draw_circle(Vector2(X, y), 7.0, silver)
+			draw_arc(Vector2(X, y), 7.0, 0, TAU, 20, Color(0.1, 0.12, 0.2, a), 2.0, true)
+		# A node for each step.
+		for s: Dictionary in stops:
+			var c := Vector2(X, _y(s.row))
+			var st := str(s.state)
+			if bool(s.look):
+				if st == "ready":
+					draw_circle(c, 24.0 + 4.0 * pulse, Color(1.0, 0.75, 0.3, 0.2 + 0.15 * pulse))
+				EventArt.draw_star(self, c, 21.0, st != "next", 0.6 if st == "got" else 1.0)
+				if st == "got":
+					_tick(c + Vector2(10, 10), 7.0, 0.8)
+				continue
+			match st:
+				"got":
+					draw_circle(c, 10.0, Color(0.5, 0.1, 0.1))
+					_tick(c, 10.0, 0.75)
+				"ready":
+					draw_circle(c, 15.0 + 3.0 * pulse, Color(1.0, 0.75, 0.3, 0.22 + 0.15 * pulse))
+					draw_circle(c, 12.0, Hud.ROLES.gold[0])
+					draw_arc(c, 12.0, 0, TAU, 24, Hud.ROLES.gold[1], 2.5, true)
+				_:
+					draw_circle(c, 9.0, Color(0.1, 0.06, 0.08))
+					draw_arc(c, 9.0, 0, TAU, 24, Color(0.45, 0.33, 0.36), 2.0, true)
+		# You: a glowing shard on the track, with YOU over it.
+		var yc := Vector2(X, you)
+		for i in 3:
+			draw_circle(yc, 18.0 + 6.0 * i + 3.0 * pulse, Color(1.0, 0.2, 0.15, 0.12 - 0.03 * i))
+		draw_circle(yc, 17.0, Color(0.12, 0.02, 0.04))
+		draw_arc(yc, 17.0, 0, TAU, 32, Color(1.0, 0.72, 0.6), 2.5, true)
+		EventArt.draw_shard(self, yc, 24.0)
+		var font := Hud.UI_FONT
+		var w := font.get_string_size("YOU", HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x
+		var pill := Rect2(yc + Vector2(-w * 0.5 - 6.0, -42.0), Vector2(w + 12.0, 20.0))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(1.0, 0.84, 0.5)
+		sb.set_corner_radius_all(8)
+		sb.border_color = Color(0.35, 0.12, 0.02)
+		sb.set_border_width_all(2)
+		draw_style_box(sb, pill)
+		draw_string(font, Vector2(pill.position.x + 6.0, pill.position.y + 16.0), "YOU", HORIZONTAL_ALIGNMENT_LEFT, -1, 15, Color(0.3, 0.06, 0.02))
+
+	## A small tick in a dark ring (a claimed step).
+	func _tick(c: Vector2, r: float, a: float) -> void:
+		draw_polyline(PackedVector2Array([c + Vector2(-r * 0.45, 0), c + Vector2(-r * 0.1, r * 0.38), c + Vector2(r * 0.5, -r * 0.4)]),
+			Color(1.0, 0.85, 0.75, a), maxf(2.0, r * 0.28), true)

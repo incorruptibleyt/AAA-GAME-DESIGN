@@ -344,6 +344,10 @@ func _event_pictures() -> void:
 		if Events.shards(cfg) >= int(Events.ROAD[i].at) and not Events.claimed(cfg, i):
 			Game._claim_event_road(i)
 			cfg = Game._load_save()
+	for j in Events.PASS_ROAD.size():   # version 222: the Crypt Pass row too (with the Pass)
+		if Store.owned() and Events.shards(cfg) >= int(Events.PASS_ROAD[j].at) and not Events.pass_claimed(cfg, j):
+			Game._claim_event_road(EventScreen.PASS_INDEX + j)
+			cfg = Game._load_save()
 	print("[autoplay] event road: shards %d, claimed to %d, caskets %d, looks %s, coins %d" % [Events.shards(cfg), Events.next_index(cfg),
 		Events.caskets(cfg), str(Events.missing_looks(cfg)), Game.coins])
 	await get_tree().create_timer(0.4).timeout

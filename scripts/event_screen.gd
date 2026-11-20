@@ -1,9 +1,13 @@
 class_name EventScreen
 extends ColorRect
-## The event screen (events.gd, version 134): the Blood Moon's own lobby. The big moon with
-## the chapter and countdown on top, then the Blood Moon run, the five Queen Hunt tiers,
-## the event road, the Moon Caskets waiting and the three chapters. Its second page is the
-## event road, every step with its prize and a CLAIM button.
+## The event screen (events.gd, version 134): the Blood Moon's own lobby. Its second page is
+## the event road, every step with its prize and a CLAIM button.
+## Version 222 (design critique of the live screen): the top is the event's picture, your
+## hero in the whole Blood Moon set in front of the moon with the four pieces around them,
+## the chapter and the time left, and one gold PLAY. Under it the road bar, the Moon Caskets,
+## the Queen Hunt and the chapters, on near-black cards: red is kept for the moon and the
+## shards (red cards on the red wall read as one smear). The story is the splash's; the
+## how-to paragraphs are gone. The road page is a track (see EventArt.RoadTrack).
 
 signal run_pressed
 signal hunt_pressed(tier: int)
@@ -17,6 +21,10 @@ const GOLD := Color(1.0, 0.8, 0.42)
 const TEXT := Color(0.92, 0.86, 0.88)
 const DIM := Color(0.62, 0.55, 0.6)
 const DONE := Color(0.45, 0.85, 0.5)
+## Version 222: the cards' near-black, their edge, and the warm white of their headings.
+const CARD := Color(0.075, 0.05, 0.065, 0.95)
+const EDGE := Color(0.3, 0.19, 0.21)
+const HEAD := Color(1.0, 0.87, 0.78)
 
 var _main: Control
 var _road_page: Control
@@ -25,26 +33,29 @@ var _title: Label
 var _chapter: Label
 var _clock: Label
 var _double: Label
-var _story: Label
-var _shard_count: Label
 var _road_bar: EventArt.RoadBar
 var _road_sub: Label
 var _run_btn: Button
 var _run_sub: Label
 var _pass_btn: Button
 var _tiers: VBoxContainer
+var _locked: Label
 var _caskets: Button
-var _chapters: VBoxContainer
+var _casket_note: Label
+var _chapters: HBoxContainer
+var _chapter_note: Label
 var _scroll: ScrollContainer
 var _road_count: Label
 var _road_note: Label
 var _road_scroll: ScrollContainer
+var _track: EventArt.RoadTrack
 var _road_list: VBoxContainer
 var _t := 0.0
-## Version 143: the Blood Moon set, worn by your hero, at the top of the event screen.
+## Version 143: the Blood Moon set, worn by your hero, at the top of the event screen
+## (version 222: in front of the moon, its four pieces around them).
 var _set_stage: HeroStage
 var _set_title: Label
-var _set_pieces: VBoxContainer
+var _badges: Array[VBoxContainer] = []
 
 
 func _init() -> void:
@@ -83,94 +94,66 @@ func _build_main() -> void:
 	outer.add_child(_scroll)
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	col.add_theme_constant_override("separation", 10)
+	col.add_theme_constant_override("separation", 14)
 	_scroll.add_child(col)
-	# The moon, with the event's name across it.
-	var head := Control.new()
-	head.custom_minimum_size = Vector2(0, 250)
-	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	col.add_child(head)
-	_moon = EventArt.Moon.new()
-	_moon.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_moon.offset_top = 0
-	_moon.offset_bottom = 200
-	head.add_child(_moon)
-	_title = Hud.label("BLOOD MOON", 58, Color(1.0, 0.9, 0.84))
-	_title.label_settings.outline_color = Color(0.3, 0.0, 0.03)
-	_title.label_settings.shadow_color = Color(1.0, 0.1, 0.05, 0.6)
-	_title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	_title.offset_top = 120
-	_title.offset_bottom = 196
-	head.add_child(_title)
-	_chapter = Hud.label("", 22, GOLD)
-	_chapter.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	_chapter.offset_top = -46
-	_chapter.offset_bottom = -12
-	head.add_child(_chapter)
-	_clock = Hud.label("", 19, TEXT)
-	col.add_child(_clock)
+	_build_head(col)
+	# The one big button, gold like every way into a fight on this screen (it was red, the
+	# game's danger colour, on red cards).
+	var play := _tight(col)
 	_double = Hud.label("DOUBLE MOON SHARDS TODAY!", 22, Color(1.0, 0.85, 0.3))
-	col.add_child(_double)
-	_story = Hud.label("", 16, Color(0.85, 0.76, 0.8))
-	col.add_child(_story)
-	# Shards and the event road.
-	var shards_row := HBoxContainer.new()
-	shards_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	shards_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	shards_row.add_theme_constant_override("separation", 8)
-	shards_row.add_child(EventArt.ShardIcon.new(34.0))
-	_shard_count = Hud.label("", 28, Color(1.0, 0.8, 0.78))
-	_shard_count.autowrap_mode = TextServer.AUTOWRAP_OFF
-	shards_row.add_child(_shard_count)
-	col.add_child(shards_row)
+	play.add_child(_double)
+	_run_btn = Hud.button("PLAY THE BLOOD MOON", 28)
+	Hud.paint(_run_btn, "gold")
+	_run_btn.custom_minimum_size = Vector2(440, 86)
+	_run_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_run_btn.pressed.connect(func(): _confirm(_run_btn, run_pressed.emit))
+	play.add_child(_run_btn)
+	_run_sub = Hud.label("", 16, GOLD)
+	play.add_child(_run_sub)
+	# The road: the bar (its stars are the set's pieces) and the next prize under it.
+	var road := _tight(col)
 	_road_bar = EventArt.RoadBar.new()
-	_road_bar.custom_minimum_size = Vector2(440, 66)
+	_road_bar.custom_minimum_size = Vector2(470, 68)
 	_road_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_road_bar.pressed.connect(func():
 		Sfx.play("click")
 		show_road())
-	col.add_child(_road_bar)
+	road.add_child(_road_bar)
 	_road_sub = Hud.label("", 16, DIM)
-	col.add_child(_road_sub)
-	# The Blood Moon run (version 212, critic fix #6: above the set card, so PLAY shows
-	# without scrolling; it was hidden behind BACK on the first view).
-	var run := _card(col, "BLOOD MOON RUN", "Three floors of the Blood Moon Crypt. Moon Surges make every skeleton faster and worth a shard. Bloodbats, Moon Howlers, and the Queen at the end. Beat the Queen each day for a Moon Casket.")
-	_run_sub = Hud.label("", 16, GOLD)
-	run.add_child(_run_sub)
-	_run_btn = Hud.button("PLAY THE BLOOD MOON", 24, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
-	Hud.paint(_run_btn, "red")
-	_run_btn.custom_minimum_size = Vector2(380, 76)
-	_run_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_run_btn.pressed.connect(func(): _confirm(_run_btn, run_pressed.emit))
-	run.add_child(_run_btn)
-	# Version 219 (review 4 fix 26): the Pass's event perk was grey text; now a button that
-	# opens the Pass (free players only).
+	road.add_child(_road_sub)
+	# Version 219 (review 4 fix 26): the Pass's event perk, a button that opens the Pass
+	# (free players only).
 	_pass_btn = Hud.button("CRYPT PASS: +50% SHARDS", 18, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-	_pass_btn.custom_minimum_size = Vector2(340, 58)
+	_pass_btn.custom_minimum_size = Vector2(320, 56)
 	_pass_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_pass_btn.pressed.connect(func():
 		Sfx.play("click")
 		pass_pressed.emit())
-	run.add_child(_pass_btn)
-	# The Queen Hunt (v220: above the set card, the second thing you see).
-	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Each tier pays in full once a day. Your first Hunt win each day holds a Moon Casket.")
+	road.add_child(_pass_btn)
+	# Moon Caskets: a gold button with some to open, one plain line on the next one without.
+	_caskets = Hud.button("MOON CASKETS", 22, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
+	_caskets.custom_minimum_size = Vector2(360, 64)
+	_caskets.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_caskets.pressed.connect(func(): caskets_pressed.emit())
+	col.add_child(_caskets)
+	_casket_note = Hud.label("", 16, DIM)
+	col.add_child(_casket_note)
+	# The Queen Hunt: the open tiers, then the locked ones in one line.
+	var hunt := _card(col, "QUEEN HUNT", "Straight to the Queen, with blessings to start. Each tier pays in full once a day.")
 	_tiers = VBoxContainer.new()
 	_tiers.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tiers.add_theme_constant_override("separation", 6)
 	hunt.add_child(_tiers)
-	_build_set_card(col)
-	# Moon Caskets.
-	_caskets = Hud.button("MOON CASKETS", 24, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-	_caskets.custom_minimum_size = Vector2(420, 74)
-	_caskets.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	_caskets.pressed.connect(func(): caskets_pressed.emit())
-	col.add_child(_caskets)
-	# The chapters.
+	_locked = Hud.label("", 16, DIM, HORIZONTAL_ALIGNMENT_LEFT)
+	hunt.add_child(_locked)
+	# The chapters: three side by side, and what the next one brings.
 	var ch := _card(col, "CHAPTERS", "")
-	_chapters = VBoxContainer.new()
+	_chapters = HBoxContainer.new()
 	_chapters.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_chapters.add_theme_constant_override("separation", 6)
 	ch.add_child(_chapters)
+	_chapter_note = Hud.label("", 16, TEXT)
+	ch.add_child(_chapter_note)
 	var pad := Control.new()
 	pad.custom_minimum_size = Vector2(0, 8)
 	col.add_child(pad)
@@ -182,109 +165,155 @@ func _build_main() -> void:
 	_main.add_child(Hud.back_corner(back))
 
 
-## Version 143 (review change 2): the event's prize you can see. Your hero stands on a
-## pedestal wearing the whole Blood Moon set, beside its four pieces and how far each one
-## is up the road. Players work toward what they can see; before, the set was one line of
-## text at step 525 of a list.
-func _build_set_card(parent: Control) -> void:
-	var panel := PanelContainer.new()
-	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.16, 0.05, 0.05, 0.95)
-	sb.border_color = Color(1.0, 0.72, 0.32)
-	sb.set_border_width_all(3)
-	sb.set_corner_radius_all(18)
-	sb.content_margin_left = 8
-	sb.content_margin_right = 12
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
-	sb.shadow_color = Color(1.0, 0.2, 0.1, 0.25)
-	sb.shadow_size = 12
-	panel.add_theme_stylebox_override("panel", sb)
-	parent.add_child(panel)
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 8)
-	panel.add_child(row)
-	_set_stage = HeroStage.new(Vector2(190, 236))
-	_set_stage.custom_minimum_size = Vector2(190, 236)
-	_set_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(_set_stage)
+## A column with its parts close together (a button and the line under it).
+func _tight(parent: Control) -> VBoxContainer:
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
 	v.add_theme_constant_override("separation", 4)
-	row.add_child(v)
-	_set_title = Hud.label("THE BLOOD MOON SET", 24, GOLD, HORIZONTAL_ALIGNMENT_LEFT)
-	v.add_child(_set_title)
-	v.add_child(Hud.label("Every hero can wear it. Only in this event.", 14, TEXT, HORIZONTAL_ALIGNMENT_LEFT))
-	_set_pieces = VBoxContainer.new()
-	_set_pieces.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_set_pieces.add_theme_constant_override("separation", 2)
-	v.add_child(_set_pieces)
-	var b := Hud.button("SEE THE ROAD", 18, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-	b.custom_minimum_size = Vector2(200, 64)
-	b.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	b.pressed.connect(func():
-		Sfx.play("click")
-		show_road())
-	v.add_child(b)
+	parent.add_child(v)
+	return v
 
 
-## The set card filled from the save: the hero in all four pieces, each piece found or not.
+## Version 222 (design critique fix 1): the top of the screen is the event's picture: its
+## name, the chapter and the time left, then your hero in the whole Blood Moon set in front
+## of the moon (the whole moon: it was cut off at the top), with the set's four pieces
+## around them, each found or the shards it waits at. Version 143's set card (the hero
+## beside a list of the pieces, fourth on the screen) was this, further down.
+func _build_head(col: VBoxContainer) -> void:
+	var head := Control.new()
+	head.custom_minimum_size = Vector2(0, 400)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(head)
+	_moon = EventArt.Moon.new()
+	_moon.anchor_left = 0.5
+	_moon.anchor_right = 0.5
+	_moon.offset_left = -150
+	_moon.offset_right = 150
+	_moon.offset_top = 46
+	_moon.offset_bottom = 346
+	head.add_child(_moon)
+	_title = Hud.label("BLOOD MOON", 54, Color(1.0, 0.9, 0.84))
+	_title.label_settings.outline_color = Color(0.3, 0.0, 0.03)
+	_title.label_settings.shadow_color = Color(1.0, 0.1, 0.05, 0.6)
+	_title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	_title.offset_top = 0
+	_title.offset_bottom = 60
+	head.add_child(_title)
+	# The chapter and the time left, on one dark tag under the name.
+	var tag := PanelContainer.new()
+	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.02, 0.035, 0.88)
+	sb.border_color = Color(0.45, 0.3, 0.22)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 3
+	tag.add_theme_stylebox_override("panel", sb)
+	tag.anchor_left = 0.5
+	tag.anchor_right = 0.5
+	tag.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tag.offset_top = 60
+	tag.offset_bottom = 92
+	head.add_child(tag)
+	var tag_row := HBoxContainer.new()
+	tag_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag_row.add_theme_constant_override("separation", 10)
+	tag.add_child(tag_row)
+	_chapter = Hud.label("", 18, GOLD)
+	_chapter.autowrap_mode = TextServer.AUTOWRAP_OFF
+	tag_row.add_child(_chapter)
+	_clock = Hud.label("", 18, TEXT)
+	_clock.autowrap_mode = TextServer.AUTOWRAP_OFF
+	tag_row.add_child(_clock)
+	_set_stage = HeroStage.new(Vector2(220, 272))
+	_set_stage.custom_minimum_size = Vector2(220, 272)
+	_set_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_set_stage.anchor_left = 0.5
+	_set_stage.anchor_right = 0.5
+	_set_stage.offset_left = -110
+	_set_stage.offset_right = 110
+	_set_stage.offset_top = 96
+	_set_stage.offset_bottom = 368
+	head.add_child(_set_stage)
+	# The four pieces: the first two on the left, the last two on the right.
+	for i in 4:
+		var v := VBoxContainer.new()
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_theme_constant_override("separation", 0)
+		var right := i % 2 == 1
+		v.anchor_left = 1.0 if right else 0.0
+		v.anchor_right = v.anchor_left
+		v.offset_left = -136.0 if right else 0.0
+		v.offset_right = 0.0 if right else 136.0
+		v.offset_top = 96.0 if i < 2 else 232.0
+		v.offset_bottom = v.offset_top + 130.0
+		head.add_child(v)
+		_badges.append(v)
+	_set_title = Hud.label("", 20, GOLD)
+	_set_title.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	_set_title.offset_top = -34
+	_set_title.offset_bottom = 0
+	head.add_child(_set_title)
+
+
+## The set filled from the save: the hero in all four pieces, each piece found or not.
 func _fill_set(cfg: ConfigFile) -> void:
 	var id := Heroes.selected(cfg)
+	var base := Heroes.get_hero(id)
 	var p := HeroStyle.picks(cfg, id)
 	var found := 0
-	for c in _set_pieces.get_children():
-		_set_pieces.remove_child(c)
-		c.queue_free()
 	var s := Events.shards(cfg)
+	var k := 0
 	for st: Dictionary in Events.ROAD:
 		if str(st.kind) != "look":
 			continue
 		p[str(st.look[0])] = str(st.look[1])
 		var got := Events.has_look(cfg, str(st.look[0]), str(st.look[1]))
 		found += 1 if got else 0
-		var line := HBoxContainer.new()
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		line.add_theme_constant_override("separation", 6)
-		line.add_child(EventArt.RoadIcon.new("look", 22.0, not got))
-		var name := Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 16, TEXT if got else Color(0.85, 0.75, 0.7), HORIZONTAL_ALIGNMENT_LEFT)
-		name.autowrap_mode = TextServer.AUTOWRAP_OFF
-		name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		line.add_child(name)
-		var need := Hud.label("FOUND" if got else ("ready!" if s >= int(st.at) else Hud.thousands(int(st.at))), 14, DONE if got else (Hud.GOLD if s >= int(st.at) else DIM))
+		if k >= _badges.size():
+			continue
+		var v: VBoxContainer = _badges[k]
+		k += 1
+		for c in v.get_children():
+			v.remove_child(c)
+			c.queue_free()
+		var reached := s >= int(st.at)
+		var badge := EventArt.SetBadge.new(64.0)
+		badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		badge.setup(id, str(st.look[0]), str(st.look[1]), base, got, reached)
+		v.add_child(badge)
+		v.add_child(Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 16, TEXT if got or reached else Color(0.82, 0.74, 0.76)))
+		var need := Hud.label("FOUND" if got else ("ON THE ROAD!" if reached else Hud.thousands(int(st.at))), 16, GOLD if got or reached else DIM)
 		need.autowrap_mode = TextServer.AUTOWRAP_OFF
-		line.add_child(need)
-		_set_pieces.add_child(line)
-	_set_title.text = "THE BLOOD MOON SET  %d/4" % found
+		v.add_child(need)
+	_set_title.text = "BLOOD MOON SET  %d/4  ·  for every hero" % found
 	_set_stage.show_hero(HeroStyle.dressed(Heroes.get_hero(id), p), found >= 4, Color(1.0, 0.3, 0.26))
 	_set_stage.set_active(visible and _main.visible)
 
 
-## A dark crimson card with a heading and a line of text; returns its column.
+## A near-black card with a heading and a line of text; returns its column.
 func _card(parent: Control, heading: String, text: String) -> VBoxContainer:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.12, 0.02, 0.05, 0.93)
-	sb.border_color = Color(0.62, 0.1, 0.12)
+	sb.bg_color = CARD
+	sb.border_color = EDGE
 	sb.set_border_width_all(2)
-	sb.border_width_top = 4
-	sb.set_corner_radius_all(16)
+	sb.set_corner_radius_all(18)
 	sb.content_margin_left = 14
 	sb.content_margin_right = 14
 	sb.content_margin_top = 10
-	sb.content_margin_bottom = 12
+	sb.content_margin_bottom = 14
 	panel.add_theme_stylebox_override("panel", sb)
 	parent.add_child(panel)
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 8)
 	panel.add_child(v)
-	v.add_child(Hud.label(heading, 28, CRIMSON.lightened(0.2)))
+	v.add_child(Hud.label(heading, 28, HEAD))
 	if text != "":
 		v.add_child(Hud.label(text, 16, TEXT))
 	return v
@@ -297,7 +326,7 @@ func _build_road() -> void:
 	_road_page.visible = false
 	add_child(_road_page)
 	var col := _page(_road_page)
-	col.add_child(Hud.label("EVENT ROAD", 44, Color(1.0, 0.75, 0.7)))
+	col.add_child(Hud.label("EVENT ROAD", 44, Color(1.0, 0.82, 0.74)))
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -307,16 +336,58 @@ func _build_road() -> void:
 	_road_count.autowrap_mode = TextServer.AUTOWRAP_OFF
 	row.add_child(_road_count)
 	col.add_child(row)
-	_road_note = Hud.label("", 16, TEXT)
+	_road_note = Hud.label("", 18, GOLD)
 	col.add_child(_road_note)
+	# Version 222 (critique fix 6): the road scrolls inside a dark window that fades at its
+	# edges (the rows slid hard under the header before).
+	var frame := Control.new()
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(frame)
+	var well := Color(0.035, 0.018, 0.03, 0.86)
+	var bg := Panel.new()
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = well
+	sb.border_color = Color(0.22, 0.13, 0.15)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(18)
+	bg.add_theme_stylebox_override("panel", sb)
+	frame.add_child(Hud.full(bg))
 	_road_scroll = ScrollContainer.new()
-	_road_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_road_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	col.add_child(_road_scroll)
-	_road_list = VBoxContainer.new()
-	_road_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_road_list.add_theme_constant_override("separation", 8)
-	_road_scroll.add_child(_road_list)
+	Hud.full(_road_scroll)
+	_road_scroll.offset_left = 4
+	_road_scroll.offset_top = 6
+	_road_scroll.offset_right = -6
+	_road_scroll.offset_bottom = -6
+	frame.add_child(_road_scroll)
+	_track = EventArt.RoadTrack.new()
+	_road_scroll.add_child(_track)
+	_road_list = _track.list
+	for top in [true, false]:
+		var g := Gradient.new()
+		g.set_color(0, Color(well.r, well.g, well.b, 1.0) if top else Color(well.r, well.g, well.b, 0.0))
+		g.set_color(1, Color(well.r, well.g, well.b, 0.0) if top else Color(well.r, well.g, well.b, 1.0))
+		var gt := GradientTexture2D.new()
+		gt.gradient = g
+		gt.width = 4
+		gt.height = 32
+		gt.fill_from = Vector2(0, 0)
+		gt.fill_to = Vector2(0, 1)
+		var fade := TextureRect.new()
+		fade.texture = gt
+		fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fade.stretch_mode = TextureRect.STRETCH_SCALE
+		fade.anchor_right = 1.0
+		fade.anchor_top = 0.0 if top else 1.0
+		fade.anchor_bottom = fade.anchor_top
+		fade.offset_left = 6
+		fade.offset_right = -16
+		fade.offset_top = 6.0 if top else -34.0
+		fade.offset_bottom = 34.0 if top else -6.0
+		frame.add_child(fade)
 	var back := Hud.button("BACK", 26)
 	back.pressed.connect(func():
 		Sfx.play("click")
@@ -367,57 +438,52 @@ func refresh(cfg: ConfigFile) -> void:
 	var ci: int = Events.chapter(e) if live else 0
 	_chapter.text = "CHAPTER %d  ·  %s" % [ci + 1, info.name]
 	if live:
-		var next := Events.days_to_next_chapter(e)
-		_clock.text = "Ends in %s" % Events.time_text(Events.seconds_left(e)) \
-			+ ("  ·  next chapter in %d day%s" % [next, "" if next == 1 else "s"] if next > 0 else "  ·  the final chapter")
+		_clock.text = "Ends in %s" % Events.time_text(Events.seconds_left(e))
 	else:
 		_clock.text = "Begins in %s" % Events.time_text(Events.seconds_left(e))
 	_double.visible = live and Events.double_today(e)
-	# Version 214 (hardest review fix #20): the whole event in one plain line after the story.
-	_story.text = str(e.story) + "\n\nEarn Moon Shards in event runs and the Queen Hunt. Shards move you along the road below, which ends in the Blood Moon set."
-	# Version 218: on a short 16:9 screen the story pushed PLAY THE BLOOD MOON under BACK.
-	# The road and the cards below say the same, so the story goes there.
-	_story.visible = get_viewport().get_visible_rect().size.y >= 1100.0
 	var s := Events.shards(cfg, e)
-	_shard_count.text = "%s Moon Shards" % Hud.thousands(s)
 	var ni := Events.next_index(cfg, e)
 	var ready := Events.ready_count(cfg, e)
 	# version 212 (critic fix #6): the whole road on the bar ("0 / 2,400", the set at the end),
 	# not the next step ("0 / 40" read like a 40-step road). The line under it names the next prize.
 	var road_end := int(Events.ROAD[Events.ROAD.size() - 1].at)
 	_road_bar.set_road(s, road_end if ni < Events.ROAD.size() else 0, clampf(float(s) / float(road_end), 0.0, 1.0), ready)
+	var marks := []
+	for st: Dictionary in Events.ROAD:
+		if str(st.kind) == "look":
+			marks.append([float(st.at) / float(road_end), s >= int(st.at)])
+	_road_bar.marks = marks
 	if ready > 0:
 		_road_sub.text = "%d prize%s ready to claim. Tap the road!" % [ready, "" if ready == 1 else "s"]
 	elif ni < Events.ROAD.size():
-		_road_sub.text = "Next: %s  ·  the road ends in the Blood Moon set" % Events.step_text(Events.ROAD[ni])
+		_road_sub.text = "Next prize: %s in %s shards" % [Events.step_text(Events.ROAD[ni]), Hud.thousands(int(Events.ROAD[ni].at) - s)]
 	else:
 		var bl := Events.bonus_line(cfg)
 		_road_sub.text = "Road walked! " + bl.left(1).to_upper() + bl.substr(1)
 	_fill_set(cfg)
-	var bonus := []
-	if Events.double_today(e) and live:
-		bonus.append("double shards today")
-	if Store.owned():
-		bonus.append("+50% shards with the Crypt Pass")
 	_pass_btn.visible = not Store.owned()   # (v219: was the line "Crypt Pass: +50% shards")
 	# version 213 (hardest review fix #3): the measured full run is ~200, ~300 with the Pass
-	_run_sub.text = ("About 300 shards a full run" if Store.owned() else "About 200 shards a full run") + ("  ·  " + ", ".join(bonus) if not bonus.is_empty() else "")
+	_run_sub.text = ("About 300 shards a full run, with your Crypt Pass" if Store.owned() else "About 200 shards a full run") \
+		+ ("  ·  double today" if live and Events.double_today(e) else "")
 	_run_btn.disabled = not live
 	_run_btn.text = "PLAY THE BLOOD MOON" if live else "OPENS IN %s" % Events.time_text(Events.seconds_left(e)).to_upper()
-	# Tiers.
+	# Tiers: the open ones as rows, the locked ones in one line under them.
 	for c in _tiers.get_children():
 		_tiers.remove_child(c)
 		c.queue_free()
 	var open_n := Events.tiers_open(cfg, e) if live else 0
-	for t in Events.TIERS.size():
+	for t in open_n:
 		_tiers.add_child(_tier_row(cfg, e, t, open_n, live))
+	_locked.text = _locked_line(e, open_n, live)
+	_locked.visible = _locked.text != ""
 	var n := Events.caskets(cfg, e)
-	# Version 219 (review 4 fix 18): with none to open the button goes grey and says how to
-	# get one, so it never looks like a gold button that does nothing.
-	_caskets.text = ("OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n) if n > 0 else "NO CASKET YET\nFirst Hunt win each day holds one"
-	_caskets.add_theme_font_size_override("font_size", 26 if n > 0 else 18)
-	_caskets.disabled = n <= 0
-	_caskets.modulate = Color.WHITE if n > 0 else Color(0.78, 0.78, 0.84)
+	_caskets.text = "OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n
+	_caskets.visible = n > 0
+	# Version 219 (review 4 fix 18) gave an empty casket button a grey "NO CASKET YET"; version
+	# 222 (critique fix 5): one plain line instead, true to what is left today.
+	_casket_note.text = _casket_line(cfg, e, live)
+	_casket_note.visible = n <= 0 and _casket_note.text != ""
 	# Chapters.
 	for c in _chapters.get_children():
 		_chapters.remove_child(c)
@@ -434,23 +500,110 @@ func refresh(cfg: ConfigFile) -> void:
 		else:
 			var d := int(chp.day) - (Events.day(e) if live else 1)
 			when = "DAY %d" % int(chp.day) if not live else ("in %d day%s" % [d, "" if d == 1 else "s"])
-		var h := HBoxContainer.new()
-		h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		h.add_theme_constant_override("separation", 10)
-		var nm := Hud.label("%d. %s" % [i + 1, chp.name], 20, GOLD if now else (DONE if past else DIM), HORIZONTAL_ALIGNMENT_LEFT)
-		nm.custom_minimum_size = Vector2(170, 0)
-		nm.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(nm)
-		var tx := Hud.label(str(chp.text), 15, TEXT if now else DIM, HORIZONTAL_ALIGNMENT_LEFT)
-		tx.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		h.add_child(tx)
-		var wl := Hud.label(when, 15, GOLD if now else DIM)
-		wl.custom_minimum_size = Vector2(70, 0)
-		wl.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(wl)
-		_chapters.add_child(h)
+		_chapters.add_child(_chapter_box(i, str(chp.name), when, now, past))
+	var nxt := ci + 1 if live else 0
+	if nxt < e.chapters.size():
+		var d := int(e.chapters[nxt].day) - Events.day(e)
+		_chapter_note.text = ("Next, in %d day%s: " % [d, "" if d == 1 else "s"] if live else "") + str(e.chapters[nxt].text)
+	else:
+		_chapter_note.text = "The final chapter: " + str(e.chapters[ci].text)
 	if _road_page.visible:
 		_fill_road(cfg)
+
+
+## One chapter, a small box: its number and name over when it comes (NOW in gold).
+func _chapter_box(i: int, title: String, when: String, now: bool, past: bool) -> Control:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.2, 0.13, 0.05, 0.95) if now else Color(0.04, 0.025, 0.035, 0.9)
+	sb.border_color = GOLD if now else Color(0.22, 0.15, 0.17)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(12)
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	panel.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 0)
+	panel.add_child(v)
+	var nm := Hud.label("%d. %s" % [i + 1, title], 18, GOLD if now else (DIM if past else TEXT))
+	nm.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(nm)
+	v.add_child(Hud.label(when, 16, GOLD if now else DIM))
+	return panel
+
+
+## Version 222 (critique fix 5): the locked tiers in one line, not a grey card each:
+## "LOCKED: TIERS III-IV in 5 days  ·  ECLIPSE (Blood Eclipse glow) in 10 days".
+func _locked_line(e: Dictionary, open_n: int, live: bool) -> String:
+	if not live:
+		return "The Hunt opens with the event"
+	var parts := []
+	var beat := []
+	var by_day := {}
+	var days := []
+	for t in range(open_n, Events.TIERS.size()):
+		var needed := -1
+		for i in e.chapters.size():
+			if int(e.chapters[i].tiers) > t:
+				needed = i
+				break
+		if needed > Events.chapter(e):
+			var d := int(e.chapters[needed].day) - Events.day(e)
+			if not by_day.has(d):
+				by_day[d] = []
+				days.append(d)
+			by_day[d].append(t)
+		else:
+			beat.append(t)
+	if not beat.is_empty():
+		var first := int(beat[0])
+		var line := "Beat %s to open %s" % [str(Events.TIERS[first - 1].name), str(Events.TIERS[first].name)]
+		if beat.size() > 1:
+			line += ", then %s" % _tier_span(beat.slice(1))
+		parts.append(line)
+	for d: int in days:
+		parts.append("%s in %d day%s" % [_tier_span(by_day[d]), d, "" if d == 1 else "s"])
+	return ("LOCKED:  " if beat.is_empty() else "") + "  ·  ".join(parts)
+
+
+## "TIER III", "TIERS III-IV", "TIERS III-IV and ECLIPSE (Blood Eclipse glow)": tiers in a
+## row, the last one named with its own prize.
+func _tier_span(ts: Array) -> String:
+	var numbered := []
+	var named := []
+	for t: int in ts:
+		var n := str(Events.TIERS[t].name)
+		if n.begins_with("TIER "):
+			numbered.append(n.trim_prefix("TIER "))
+		else:
+			named.append(n + (" (Blood Eclipse glow)" if t == Events.TIERS.size() - 1 else ""))
+	var parts := []
+	if numbered.size() == 1:
+		parts.append("TIER " + str(numbered[0]))
+	elif numbered.size() > 1:
+		parts.append("TIERS %s-%s" % [numbered[0], numbered[numbered.size() - 1]])
+	parts.append_array(named)
+	return " and ".join(parts)
+
+
+## Version 222 (critique fix 5): how the next Moon Casket comes, true to what is left today
+## (the old grey button said "First Hunt win each day holds one" after today's was won, and
+## never named the run's).
+func _casket_line(cfg: ConfigFile, e: Dictionary, live: bool) -> String:
+	if not live:
+		return ""
+	var hunt := Events.casket_ready(cfg, "hunt", e)
+	var run := Events.casket_ready(cfg, "run", e)
+	if hunt and run:
+		return "2 Moon Caskets today: beat the Queen in a run and in a Hunt"
+	if run:
+		return "1 more Moon Casket today: beat the Queen in a run"
+	if hunt:
+		return "1 more Moon Casket today: win a Queen Hunt"
+	return "Today's 2 Moon Caskets are won. 2 more tomorrow"
 
 
 func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) -> Control:
@@ -462,8 +615,8 @@ func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) 
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
 	var eclipse := t == Events.TIERS.size() - 1
-	sb.bg_color = Color(0.2, 0.03, 0.06, 0.95) if open else Color(0.08, 0.05, 0.08, 0.9)
-	sb.border_color = (Color(1.0, 0.45, 0.2) if eclipse else CRIMSON.darkened(0.2)) if open else Color(0.25, 0.2, 0.26)
+	sb.bg_color = Color(0.13, 0.08, 0.09, 0.97) if open else Color(0.06, 0.045, 0.055, 0.9)
+	sb.border_color = (Color(1.0, 0.45, 0.2) if eclipse else Color(0.5, 0.32, 0.26)) if open else Color(0.22, 0.17, 0.2)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(12)
 	sb.content_margin_left = 10
@@ -481,7 +634,7 @@ func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) 
 	texts.add_theme_constant_override("separation", 0)
 	h.add_child(texts)
 	var name_text := str(tier.name) + ("  ·  BEATEN" if beaten else "")
-	texts.add_child(Hud.label(name_text, 22, (Color(1.0, 0.6, 0.3) if eclipse else Color(1.0, 0.82, 0.78)) if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	texts.add_child(Hud.label(name_text, 22, (Color(1.0, 0.6, 0.3) if eclipse else Color(1.0, 0.9, 0.84)) if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	var shards := int(tier.shards)
 	# (Version 192: "Queen health x0.6" on the hardest tier read as the easiest. The number
 	# is a factor on health that already grows with the floor. Say how hard it is instead,
@@ -496,30 +649,15 @@ func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) 
 		note = ("Won today  ·  pays %d shards again" % roundi(shards / 3.0)) if won else ("First win today: +50% shards" + (" and a Moon Casket" if Events.casket_ready(cfg, "hunt", e) else ""))
 	elif not live:
 		note = "Opens with the event"
-	else:
-		var needed := -1
-		for i in e.chapters.size():
-			if int(e.chapters[i].tiers) > t:
-				needed = i
-				break
-		if needed > Events.chapter(e):
-			var d := int(e.chapters[needed].day) - Events.day(e)
-			note = "Opens in chapter %d (%d day%s)" % [needed + 1, d, "" if d == 1 else "s"]
-		else:
-			note = "Beat %s first" % str(Events.TIERS[t - 1].name)
 	texts.add_child(Hud.label(note, 14, GOLD if open and not won else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if open:
 		var b := Hud.button("FIGHT", 22, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
-		Hud.paint(b, "gold" if not won else "red")
+		# (version 222: a tier won today was red, the danger colour; now a quieter slate)
+		Hud.paint(b, "gold" if not won else "slate")
 		b.custom_minimum_size = Vector2(112, 62)
 		b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		b.pressed.connect(func(): _confirm(b, hunt_pressed.emit.bind(t + 1)))
 		h.add_child(b)
-	else:
-		var lock := Hud.label("LOCKED", 15, DIM)
-		lock.custom_minimum_size = Vector2(112, 0)
-		lock.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(lock)
 	return panel
 
 
@@ -540,31 +678,44 @@ func _confirm(b: Button, f: Callable) -> void:
 
 
 func _fill_road(cfg: ConfigFile) -> void:
-	for c in _road_list.get_children():
-		_road_list.remove_child(c)
-		c.queue_free()
+	_track.clear()
 	var s := Events.shards(cfg)
+	_track.shards = s
 	_road_count.text = "%s Moon Shards" % Hud.thousands(s)
 	var ready := Events.ready_count(cfg)
 	var ni := Events.next_index(cfg)
 	if ready > 0:
 		_road_note.text = "%d prize%s ready to claim!" % [ready, "" if ready == 1 else "s"]
 	elif ni < Events.ROAD.size():
-		_road_note.text = "Shards come from event runs and the Queen Hunt.\nAfter the road, a bonus Moon Casket every %d shards (one a day)." % Events.BONUS_EVERY
+		_road_note.text = "Next prize: %s in %s shards" % [Events.step_text(Events.ROAD[ni]), Hud.thousands(int(Events.ROAD[ni].at) - s)]
 	else:
-		_road_note.text = "The whole event road walked!\nBonus Moon Casket every %d shards (one a day): %s." % [Events.BONUS_EVERY, Events.bonus_line(cfg)]
+		var bl := Events.bonus_line(cfg)
+		_road_note.text = "Road walked! " + bl.left(1).to_upper() + bl.substr(1)
+	var id := Heroes.selected(cfg)
+	var base := Heroes.get_hero(id)
 	var focus: Control = null
 	for i in Events.ROAD.size():
-		var row := _road_row(cfg, i, s)
+		var st: Dictionary = Events.ROAD[i]
+		var got := Events.claimed(cfg, i)
+		var row := _road_row(cfg, i, s, id, base)
 		_road_list.add_child(row)
-		if focus == null and (i == ni or (s >= int(Events.ROAD[i].at) and not Events.claimed(cfg, i))):
+		_track.stops.append({"row": row, "at": int(st.at), "look": str(st.kind) == "look",
+			"state": "got" if got else ("ready" if s >= int(st.at) else "next")})
+		if focus == null and (i == ni or (s >= int(st.at) and not got)):
 			focus = row
 		for j in Events.PASS_ROAD.size():
-			if int(Events.PASS_ROAD[j].at) == int(Events.ROAD[i].at):
-				var pr := _pass_row(cfg, j, s)
+			if int(Events.PASS_ROAD[j].at) == int(st.at):
+				var pr := _pass_row(cfg, j, s, id, base)
 				_road_list.add_child(pr)
-				if focus == null and Store.owned() and s >= int(Events.PASS_ROAD[j].at) and not Events.pass_claimed(cfg, j):
+				var pgot := Events.pass_claimed(cfg, j)
+				_track.branches.append({"row": pr, "state": "got" if pgot else ("ready" if Store.owned() and s >= int(st.at) else "next")})
+				if focus == null and Store.owned() and s >= int(Events.PASS_ROAD[j].at) and not pgot:
 					focus = pr
+	# The bonus caskets after the road, once, at its end (they were a second line of the
+	# header, which wrapped to a lone "day).").
+	var after := Hud.label("After the road: a bonus Moon Casket every %d shards, one a day." % Events.BONUS_EVERY, 16, DIM)
+	_road_list.add_child(after)
+	_track.queue_redraw()
 	if focus:
 		_scroll_to(focus)
 
@@ -579,130 +730,164 @@ func _scroll_to(row: Control) -> void:
 		await get_tree().process_frame
 	if ask != _scroll_ask or not is_instance_valid(row) or not visible:
 		return
-	_road_scroll.scroll_vertical = int(maxf(0.0, row.position.y - _road_scroll.size.y * 0.35))
+	_road_scroll.scroll_vertical = int(maxf(0.0, _road_list.position.y + row.position.y - _road_scroll.size.y * 0.35))
 
 
-func _road_row(cfg: ConfigFile, i: int, s: int) -> Control:
+## Version 222 (design critique fix 4): one step of the road. Claimed steps sink back (their
+## green DONE edges outshone the prizes still to come); a step reached glows gold with its
+## CLAIM; a piece of the set is a big row with its picture.
+func _road_row(cfg: ConfigFile, i: int, s: int, id: String, base: Dictionary) -> Control:
 	var st: Dictionary = Events.ROAD[i]
 	var reached := s >= int(st.at)
 	var got := Events.claimed(cfg, i)
 	var look := str(st.kind) == "look"
+	# Found early in a Legendary casket: this step pays coins instead (a plain row).
+	var early := look and not got and Events.has_look(cfg, str(st.look[0]), str(st.look[1]))
+	var big := look and not early
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.22, 0.05, 0.07, 0.97) if reached and not got else Color(0.1, 0.04, 0.07, 0.95)
-	if look:
-		sb.bg_color = sb.bg_color.lerp(Color(0.3, 0.18, 0.04), 0.35)
-	sb.border_color = Hud.GOLD if reached and not got else (DONE.darkened(0.3) if got else (Color(0.8, 0.55, 0.2) if look else Color(0.34, 0.12, 0.16)))
-	sb.set_border_width_all(3 if (reached and not got) or look else 2)
+	if got:
+		sb.bg_color = Color(0.06, 0.045, 0.055, 0.8)
+		sb.border_color = Color(0.17, 0.12, 0.14)
+		sb.set_border_width_all(1)
+	elif reached:
+		sb.bg_color = Color(0.22, 0.14, 0.04, 0.97)
+		sb.border_color = Hud.GOLD
+		sb.set_border_width_all(3)
+	elif big:
+		sb.bg_color = Color(0.15, 0.1, 0.045, 0.97)
+		sb.border_color = Color(0.78, 0.55, 0.22)
+		sb.set_border_width_all(3)
+	else:
+		sb.bg_color = Color(0.1, 0.065, 0.08, 0.95)
+		sb.border_color = Color(0.26, 0.17, 0.2)
+		sb.set_border_width_all(2)
 	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 10 if big else 6
+	sb.content_margin_bottom = 10 if big else 6
 	panel.add_theme_stylebox_override("panel", sb)
+	if got:
+		panel.modulate = Color(1, 1, 1, 0.6)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", 12)
+	h.add_theme_constant_override("separation", 10)
 	panel.add_child(h)
-	var at := Hud.label(str(int(st.at)), 22, Color(1.0, 0.7, 0.66) if reached else DIM)
-	at.custom_minimum_size = Vector2(64, 0)
+	var to_go := "%s shards to go" % Hud.thousands(int(st.at) - s)
+	if big:
+		var badge := EventArt.SetBadge.new(88.0)
+		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		badge.setup(id, str(st.look[0]), str(st.look[1]), base, got, reached)
+		h.add_child(badge)
+		var texts := VBoxContainer.new()
+		texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		texts.alignment = BoxContainer.ALIGNMENT_CENTER
+		texts.add_theme_constant_override("separation", 0)
+		h.add_child(texts)
+		texts.add_child(Hud.label("BLOOD MOON SET  ·  %s" % Hud.thousands(int(st.at)), 16, Color(1.0, 0.62, 0.5) if not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		texts.add_child(Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 24, GOLD if not got else TEXT, HORIZONTAL_ALIGNMENT_LEFT))
+		texts.add_child(Hud.label("Claimed" if got else ("Ready!" if reached else to_go + "  ·  every hero"), 16, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		if reached and not got:
+			var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
+			c.custom_minimum_size = Vector2(150, 60)
+			c.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+			c.pressed.connect(func(): claim.emit(i))
+			texts.add_child(c)
+		return panel
+	var at := Hud.label(Hud.thousands(int(st.at)), 20, Color(1.0, 0.72, 0.66) if reached and not got else DIM)
+	at.custom_minimum_size = Vector2(54, 0)
 	at.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(at)
-	var icon := EventArt.RoadIcon.new(str(st.kind), 54.0 if look else 46.0, got)
+	var icon := EventArt.RoadIcon.new("coins" if early else str(st.kind), 44.0, got)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(icon)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	texts.add_theme_constant_override("separation", 0)
 	h.add_child(texts)
-	var what := Events.step_text(st)
-	if look:
-		what = "BLOOD MOON SET: " + what
-		# Found early in a Legendary casket: this step pays coins instead.
-		if not got and Events.has_look(cfg, str(st.look[0]), str(st.look[1])):
-			what = "%d COINS (%s found early)" % [Events.EARLY_LOOK_COINS, Events.step_text(st)]
-	texts.add_child(Hud.label(what, 20 if look else 21, (GOLD if look else TEXT) if reached else (Color(0.85, 0.65, 0.35) if look else DIM), HORIZONTAL_ALIGNMENT_LEFT))
-	var need := ("Claimed" if got else "Ready!") if reached else "%d shards to go" % (int(st.at) - s)
-	if look and not what.contains("found early"):
-		need += "  ·  every hero can wear it"
-	texts.add_child(Hud.label(need, 14, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	var what := "%d COINS (%s found early)" % [Events.EARLY_LOOK_COINS, Events.step_text(st)] if early else Events.step_text(st)
+	texts.add_child(Hud.label(what, 20, TEXT if reached and not got else (Color(0.85, 0.8, 0.82) if not got else DIM), HORIZONTAL_ALIGNMENT_LEFT))
+	texts.add_child(Hud.label(("Claimed" if got else "Ready!") if reached else to_go, 16, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if reached and not got:
 		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-		c.custom_minimum_size = Vector2(118, 64)
+		c.custom_minimum_size = Vector2(108, 60)
 		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		c.pressed.connect(func(): claim.emit(i))
 		h.add_child(c)
-	else:
-		var tag := Hud.label("DONE" if got else "", 16, DONE)
-		tag.custom_minimum_size = Vector2(118, 0)
-		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(tag)
 	return panel
 
 
 ## Version 219 (review 4 fix 26): a Crypt Pass step under its road step: a Silver Moon look,
 ## claimed with the Pass (CLAIM), or a button that opens the Pass for everyone else.
-## Its CLAIM sends index PASS_INDEX + j through the same claim signal.
+## Its CLAIM sends index PASS_INDEX + j through the same claim signal. Version 222: a silver
+## branch off the track, with the look's picture.
 const PASS_INDEX := 1000
 const SILVER := Color(0.8, 0.88, 1.0)
 
-func _pass_row(cfg: ConfigFile, j: int, s: int) -> Control:
+func _pass_row(cfg: ConfigFile, j: int, s: int, id: String, base: Dictionary) -> Control:
 	var st: Dictionary = Events.PASS_ROAD[j]
 	var owned := Store.owned()
 	var reached := s >= int(st.at)
 	var got := Events.pass_claimed(cfg, j)
+	var indent := MarginContainer.new()
+	indent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	indent.add_theme_constant_override("margin_left", int(EventArt.RoadTrack.INDENT))
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	indent.add_child(panel)
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.08, 0.1, 0.22, 0.97) if owned and reached and not got else Color(0.06, 0.07, 0.15, 0.95)
-	sb.border_color = Hud.GOLD if owned and reached and not got else (DONE.darkened(0.3) if got else SILVER.darkened(0.35))
-	sb.set_border_width_all(3)
+	sb.bg_color = Color(0.08, 0.1, 0.22, 0.97) if owned and reached and not got else Color(0.05, 0.06, 0.13, 0.95)
+	sb.border_color = Hud.GOLD if owned and reached and not got else (Color(0.25, 0.28, 0.36) if got else SILVER.darkened(0.35))
+	sb.set_border_width_all(1 if got else 3)
 	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 24
-	sb.content_margin_right = 12
-	sb.content_margin_top = 8
-	sb.content_margin_bottom = 8
+	sb.content_margin_left = 8
+	sb.content_margin_right = 10
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
 	panel.add_theme_stylebox_override("panel", sb)
+	if got:
+		panel.modulate = Color(1, 1, 1, 0.6)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", 12)
+	h.add_theme_constant_override("separation", 10)
 	panel.add_child(h)
+	var badge := EventArt.SetBadge.new(58.0)
+	badge.tint = SILVER
+	badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	badge.setup(id, str(st.look[0]), str(st.look[1]), base, got, owned and reached)
+	h.add_child(badge)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
 	texts.add_theme_constant_override("separation", 0)
 	h.add_child(texts)
-	texts.add_child(Hud.label("CRYPT PASS: " + Events.step_text(st), 20, SILVER if owned or reached else SILVER.darkened(0.25), HORIZONTAL_ALIGNMENT_LEFT))
-	var need := ("Claimed" if got else ("Ready!" if owned else "Reached: claim it with the Crypt Pass")) if reached else "%d shards to go" % (int(st.at) - s)
-	if not got:
-		need += "  ·  Silver Moon set, every hero"
+	texts.add_child(Hud.label("CRYPT PASS", 16, SILVER.darkened(0.2) if not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	texts.add_child(Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 20, SILVER if not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	var need := ("Claimed" if got else ("Ready!" if owned else "Reached: claim it with the Pass")) if reached else "%s shards to go" % Hud.thousands(int(st.at) - s)
 	texts.add_child(Hud.label(need, 16, Hud.GOLD if owned and reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if got:
-		var tag := Hud.label("DONE", 16, DONE)
-		tag.custom_minimum_size = Vector2(118, 0)
-		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
-		h.add_child(tag)
+		pass
 	elif owned and reached:
 		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-		c.custom_minimum_size = Vector2(118, 64)
+		c.custom_minimum_size = Vector2(108, 60)
 		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		c.pressed.connect(func(): claim.emit(PASS_INDEX + j))
 		h.add_child(c)
 	elif not owned:
 		var p := Hud.button("PASS", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-		p.custom_minimum_size = Vector2(118, 64)
+		p.custom_minimum_size = Vector2(108, 60)
 		p.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		p.pressed.connect(func():
 			Sfx.play("click")
 			pass_pressed.emit())
 		h.add_child(p)
-	else:
-		var tag := Hud.label("", 16, DIM)
-		tag.custom_minimum_size = Vector2(118, 0)
-		h.add_child(tag)
-	return panel
+	return indent
 
 
 func _process(delta: float) -> void:
