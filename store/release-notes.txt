@@ -1,4 +1,4 @@
-Version 223: a new way to open Bone Drops and Moon Caskets
+Version 224: a new way to open Bone Drops and Moon Caskets
 - Tap a chest and a great bone hand bursts out holding what you won: coins, a star, an upgrade, or your hero in a new look.
 - The Blood Moon is up (Nov 20 - Dec 3): a new event screen, a road to follow, and the Blood Moon Queen to hunt.
 - Crypt Pass: a Silver Moon row, floors 7-9 remixed.
