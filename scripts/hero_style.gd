@@ -441,7 +441,9 @@ static func has_look(cfg: ConfigFile, id: String, slot: String, key: String) -> 
 	if e.has("race"):
 		return Race.has_look(cfg, slot, key)
 	if e.has("event"):
-		return Events.has_look(cfg, slot, key)
+		# v220 (v219 review): the Silver Moon set from the Pass row goes with the Pass (a
+		# refund used to leave it on).
+		return Events.has_look(cfg, slot, key) and (not e.get("passroad", false) or Store.owned(cfg))
 	return item_level(id, slot, key) <= HeroMastery.level(cfg, id)
 
 
