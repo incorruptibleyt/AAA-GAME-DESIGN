@@ -295,7 +295,9 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 		var rarer := pool.filter(func(u): return u.rarity != "common")
 		if not rarer.is_empty():
 			pool = rarer
-	if rng == null:
+	# v220 (v219 review): a Path door's promise and the step-4 synergy come first, so resting
+	# cards are only set aside on an ordinary pick.
+	if rng == null and family == "" and not finish_synergy:
 		pool = _fresh(pool, count)
 	if finish_synergy and out.is_empty():
 		# Wildfire first: room 1 offered half of it (roll_commons), and it's the one you see.

@@ -314,7 +314,7 @@ func use_special() -> void:
 		return
 	# Version 219 (review 4 fix 30): a full chain feeds the special. Cast at the chain's cap
 	# and half the charge comes straight back.
-	var full_chain := Game.chain >= Game.chain_max() - 0.01
+	var full_chain := Game.chain >= Game.CHAIN_FULL - 0.01   # v220: x3 for every build
 	special_charge = 0.5 if full_chain else 0.0
 	if full_chain:
 		Fx.magic(center(), Color(1.0, 0.9, 0.5), 18)

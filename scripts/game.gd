@@ -153,6 +153,11 @@ func chain_max() -> float:
 	return 4.0 if hero and hero.perks.has("marrow") else 3.0
 
 
+## Version 220 (v219 review): a "full chain" for the special's refund and Blood Rush is x3 for
+## every build (Marrow's x4 cap made them harder to reach with an epic card).
+const CHAIN_FULL := 3.0
+
+
 func chain_time() -> float:
 	var t := 3.5 if hero and hero.perks.has("links") else 2.5
 	if curses.has("longlinks"):
@@ -484,6 +489,8 @@ func _break_chain() -> void:
 		# Chain Echo (a Vault card, v219): half of it stays, and starts its timer again.
 		chain = 1.0 + (was - 1.0) * 0.5
 		_combo_left = chain_time()
+		hud.chain_broken(was)   # v220: it still breaks where you can see and hear it
+		Sfx.play("crack", 0.4)
 		hud.show_chain(chain)
 		return
 	if was > 1.01:
@@ -3104,7 +3111,7 @@ func on_enemy_died(e: Enemy) -> void:
 	_combo += 1
 	record_max("best_combo", _combo)
 	_combo_left = chain_time()
-	if hero and not hero.dead and hero.perks.has("blood_rush") and chain >= chain_max() - 0.01:
+	if hero and not hero.dead and hero.perks.has("blood_rush") and chain >= CHAIN_FULL - 0.01:
 		hero.heal(hero.max_health * 0.01)   # Blood Rush (a Vault card, v219)
 	var before := chain
 	# Grave Pact: only kills right after a dash grow the chain (others still keep it alive).
