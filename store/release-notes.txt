@@ -1,7 +1,7 @@
-Version 221: the Blood Moon is up (Nov 20 - Dec 3)
-- Hunt the Blood Moon Queen and walk the event road. Crypt Pass owners get a Silver Moon row.
+Version 222: the Blood Moon is up (Nov 20 - Dec 3)
+- New event screen: your hero in the Blood Moon set and a road to follow step by step.
+- Hunt the Blood Moon Queen. Crypt Pass owners get a Silver Moon row.
 - Crypt Pass: floors 7-9 remixed with new light and guest skeletons.
 - New Cursed Door, deep cards with real choices, four new Vault cards.
 - The camera keeps your hero in view, and bosses wear real crowns.
-- Closer races, clearer fights, cleaner win screens, faster loading.
-- New settings: Flashes, Left hand, Button size, Darkness (in More settings).
+- Closer races, clearer fights, cleaner win screens, faster loading, new settings.
