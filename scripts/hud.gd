@@ -4448,19 +4448,25 @@ func set_darkness_label(light: bool) -> void:
 ## for the left hand), at 100, 115 or 130% (version 219, review 4 fix 32).
 func _place_fight_buttons() -> void:
 	var k: float = [1.0, 1.15, 1.3][clampi(_size_level, 0, 2)]
-	for spec: Array in [[_special, -124.0, -24.0], [race_surge, -318.0, -234.0], [_dash_button, -224.0, -144.0]]:
+	# v219 review: laid out in a row from the corner with their scaled widths (each grew from
+	# its own corner before, so Huge pushed the special over DASH and DASH over the Surge).
+	# [button, width, gap after it]
+	var x := 24.0
+	for spec: Array in [[_special, 100.0, 20.0], [_dash_button, 80.0, 10.0], [race_surge, 84.0, 0.0]]:
 		var c: Control = spec[0]
+		var w: float = spec[1]
 		if c == null:
+			x += w * k + float(spec[2])
 			continue
 		c.set_anchors_preset(Control.PRESET_BOTTOM_LEFT if _left_on else Control.PRESET_BOTTOM_RIGHT, true)
-		var l: float = spec[1]
-		var r: float = spec[2]
+		var l := -x - w
+		var r := -x
 		c.offset_left = -r if _left_on else l
 		c.offset_right = -l if _left_on else r
-		# Bigger buttons grow from the screen corner, so they push inward, not off screen.
-		var w := r - l
+		# Bigger buttons grow from their corner-side edge, so they push inward, not off screen.
 		c.pivot_offset = Vector2(0.0 if _left_on else w, c.offset_bottom - c.offset_top)
 		c.scale = Vector2(k, k)
+		x += w * k + float(spec[2])
 
 
 func set_colorblind_label(on: bool) -> void:
