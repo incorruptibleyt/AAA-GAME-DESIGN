@@ -1,6 +1,7 @@
-Version 224: a new way to open Bone Drops and Moon Caskets
-- Tap a chest and a great bone hand bursts out holding what you won: coins, a star, an upgrade, or your hero in a new look.
-- The Blood Moon is up (Nov 20 - Dec 3): a new event screen, a road to follow, and the Blood Moon Queen to hunt.
+Version 225: a new Armory and a new way to open chests
+- Tap a chest and a great bone hand bursts out holding what you won.
+- The Armory is rebuilt: every tab scrolls, cards show all their words, and what you own sits below what you can buy.
+- The Blood Moon is up (Nov 20 - Dec 3): a new event screen, a road to follow, and the Queen to hunt.
 - Crypt Pass: a Silver Moon row, floors 7-9 remixed.
 - New Cursed Door, deep cards with real choices, four new Vault cards.
-- Clearer fights, cleaner win screens, faster loading, new settings.
+- Faster loading, new settings.
