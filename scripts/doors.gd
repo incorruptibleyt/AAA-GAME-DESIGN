@@ -71,7 +71,7 @@ static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 			return {"title": "Champion's Door", "text": "A purple elite waits.\nNext pick: rare or better",
 				"color": Color(1.0, 0.55, 0.3), "icon": "door_champion", "family": "bolt"}
 		"cursed":
-			return {"title": "Cursed Door", "text": "%s\nuntil the boss. +%d%% coins" % [omen_text(str(door.get("omen", "blades"))), roundi(CURSED_COINS * 100)],
+			return {"title": "Cursed Door", "text": "%s\nuntil the boss.\n+%d%% coins" % [omen_text(str(door.get("omen", "blades"))), roundi(CURSED_COINS * 100)],
 				"color": Color(0.85, 0.5, 1.0), "icon": "greed", "family": "bolt"}
 	return {}
 
