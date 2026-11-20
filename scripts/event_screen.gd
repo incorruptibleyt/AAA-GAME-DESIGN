@@ -152,13 +152,13 @@ func _build_main() -> void:
 		Sfx.play("click")
 		pass_pressed.emit())
 	run.add_child(_pass_btn)
-	_build_set_card(col)
-	# The Queen Hunt.
+	# The Queen Hunt (v220: above the set card, the second thing you see).
 	var hunt := _card(col, "QUEEN HUNT", "Straight to the Blood Moon Queen, with blessings to start. Each tier pays in full once a day. Your first Hunt win each day holds a Moon Casket.")
 	_tiers = VBoxContainer.new()
 	_tiers.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tiers.add_theme_constant_override("separation", 6)
 	hunt.add_child(_tiers)
+	_build_set_card(col)
 	# Moon Caskets.
 	_caskets = Hud.button("MOON CASKETS", 24, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
 	_caskets.custom_minimum_size = Vector2(420, 74)
