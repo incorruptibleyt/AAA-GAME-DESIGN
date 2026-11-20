@@ -338,7 +338,7 @@ class Splash extends ColorRect:
 		_go.pressed.connect(func(): enter.emit())
 		_col.add_child(_go)
 		# Version 218 (review 4): the quick fight right here, not two screens in.
-		var hunt_btn := Hud.button("HUNT THE QUEEN  ·  ~1 MIN", 22)
+		var hunt_btn := Hud.button("HUNT THE QUEEN  ·  1-2 MIN", 22)
 		Hud.paint(hunt_btn, "gold")
 		hunt_btn.custom_minimum_size = Vector2(340, 70)
 		hunt_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

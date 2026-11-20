@@ -167,6 +167,7 @@ var _doors_age := 0.0
 var _special: SpecialButton
 var _dash_button: DashButton
 var _quit_button: Button
+var _rate_button: Button   # v220: hidden in the tutorial
 var _quit_armed := false
 var _pause_title: Label
 var _pause_head: Label   # SETTINGS over the switches' card (hidden on the title's Settings)
@@ -2419,6 +2420,7 @@ func _build_pause() -> void:
 		Sfx.play("click")
 		UpdateGate.open_store_page())
 	small.add_child(rate)
+	_rate_button = rate
 	(small.get_child(0) as Control).custom_minimum_size = Vector2(160, 64)
 	col.add_child(small)
 	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
@@ -5303,6 +5305,8 @@ func show_pause(v: bool, settings_only := false) -> void:
 	_resume_button.text = "BACK" if _settings_only else ("BACK TO THE RACE" if Game.race else "RESUME")
 	_quit_button.text = _quit_text()
 	_quit_button.visible = not _settings_only
+	if _rate_button:
+		_rate_button.visible = not Game.first_run   # v220 (v219 review): no "Rate us" in the tutorial
 	_pause_head.visible = not _settings_only
 	(_speed_button.get_parent() as Control).visible = _settings_only
 	# Darker over the busy title screen than over a paused room.
