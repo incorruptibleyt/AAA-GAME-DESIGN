@@ -5420,7 +5420,7 @@ func set_shards(n: int) -> void:
 ## `eclipse` the Queen's Eclipse darkening the screen instead.
 func set_surge(k: float, warn: bool, eclipse := false) -> void:
 	if eclipse:
-		_eclipse_dim.color.a = 0.3 * k   # v217: was 0.5 (with k up to 0.7)
+		_eclipse_dim.color.a = 0.12 * k   # v217: was 0.5 (with k up to 0.7); v219 review: 0.3 -> 0.12
 		return
 	_surge_warn = warn
 	_surge_edge.set_meta("k", k)

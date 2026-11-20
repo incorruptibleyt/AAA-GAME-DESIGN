@@ -4105,7 +4105,7 @@ func _end_surge() -> void:
 
 
 ## The Blood Moon Queen's Eclipse: the moon goes dark (the room's light dims) and comes back.
-const ECLIPSE_AMBIENT := 0.35
+const ECLIPSE_AMBIENT := 0.2   # v219 review: 0.35 + the darker v219 floor grid made it -58%
 var _eclipse_k := 0.0
 var _eclipse_eff := 0.0   # v219: how dark it really is (Darkness: Light dims a third as much)
 var _eclipse_tw: Tween
@@ -4124,7 +4124,7 @@ func set_eclipse(on: bool) -> void:
 		k *= dim
 		_eclipse_eff = k
 		if _moon:
-			_moon.light_energy = _moon_energy * (1.0 - 0.7 * k)
+			_moon.light_energy = _moon_energy * (1.0 - 0.45 * k)   # v219 review: was 0.7
 		_env.ambient_light_energy = amb * (1.0 - ECLIPSE_AMBIENT * k)
 		hud.set_surge(k * 0.7, false, true), _eclipse_k, 1.0 if on else 0.0, 0.6)
 
