@@ -1261,7 +1261,7 @@ func phase_banner(move: String, col := Color(1.0, 0.3, 0.2)) -> void:
 	_phase_tw.tween_interval(1.4)
 	_phase_tw.tween_property(_phase_box, "modulate:a", 0.0, 0.3)
 	_phase_tw.tween_callback(func(): _phase_box.visible = false)
-	_boss_flash.color.a = 0.85
+	_boss_flash.color.a = 0.85 * Game.flash_scale   # v219 review: the Flashes setting covers it
 	create_tween().tween_property(_boss_flash, "color:a", 0.0, 0.25)
 	_boss_name.label_settings.font_color = Color(1.0, 0.35, 0.3)
 

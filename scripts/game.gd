@@ -690,8 +690,9 @@ func _ready() -> void:
 	_set_sounds(bool(cfg.get_value("settings", "sounds", true)), false)
 	_set_graphics(_saved_graphics(cfg), false)
 	_set_shake(int(cfg.get_value("settings", "shake", 2)), false)
-	# Flashes followed shake before v219: a player who turned shake down keeps fewer flashes.
-	_set_flashes(int(cfg.get_value("settings", "flashes", 2 if int(cfg.get_value("settings", "shake", 2)) == 2 else 1)), false)
+	# Flashes followed shake before v219: a player who turned shake down keeps fewer flashes,
+	# and shake Off means Flashes Off (v219 review: it was Reduced, brighter than before).
+	_set_flashes(clampi(int(cfg.get_value("settings", "flashes", int(cfg.get_value("settings", "shake", 2)))), 0, 2), false)
 	_set_left_hand(bool(cfg.get_value("settings", "left_hand", false)), false)
 	_set_button_size(int(cfg.get_value("settings", "button_size", 0)), false)
 	_set_darkness(bool(cfg.get_value("settings", "darkness_light", false)), false)
