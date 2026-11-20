@@ -8,8 +8,9 @@ class_name Doors
 const KINDS := ["path", "spring", "treasure", "shrine", "champion", "cursed"]
 ## Version 219 (review 4 fix 30): the Cursed Door, a real risk for a reward. One Omen
 ## (loops.gd) holds until the floor's boss is beaten, and every coin on the floor is worth
-## 60% more.
-const CURSED_COINS := 0.6
+## 60% more. Version 219 review (Phase 0): +40%, never on floors 1-2, never right before the
+## boss, never while a curse already holds, and the door says what the Omen does.
+const CURSED_COINS := 0.4
 const CURSE_OMENS := ["haste", "bones", "blades", "horde", "night"]
 ## Healing Spring: share of max health healed. Treasure Room: extra coins in the next room.
 const SPRING_HEAL := 0.3
@@ -33,7 +34,8 @@ static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool,
 	var no_rares := not taken.is_empty() and Upgrades.rares_left(taken) == 0
 	var kinds := KINDS.filter(func(k): return not (k in ["champion", "treasure"] and boss_next) and not (k == "shrine" and not can_reroll) \
 		and not (k == "champion" and no_rares) \
-		and not (k == "cursed" and (Game.event != "" or Game.daily or Game.race)) \
+		and not (k == "cursed" and (Game.event != "" or Game.daily or Game.race or boss_next \
+			or Game.floor_num <= 2 or Game._curse_omen != "")) \
 		and not (k == "path" and families.is_empty()) and not (k == "spring" and full_health))
 	var out := []
 	while out.size() < 2 and not kinds.is_empty():
@@ -69,9 +71,15 @@ static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 			return {"title": "Champion's Door", "text": "A purple elite waits.\nNext pick: rare or better",
 				"color": Color(1.0, 0.55, 0.3), "icon": "door_champion", "family": "bolt"}
 		"cursed":
-			return {"title": "Cursed Door", "text": "%s until the boss.\n+%d%% coins on this floor" % [omen_title(str(door.get("omen", "blades"))), roundi(CURSED_COINS * 100)],
+			return {"title": "Cursed Door", "text": "%s\nuntil the boss. +%d%% coins" % [omen_text(str(door.get("omen", "blades"))), roundi(CURSED_COINS * 100)],
 				"color": Color(0.85, 0.5, 1.0), "icon": "greed", "family": "bolt"}
 	return {}
+
+
+## What the Omen does, in plain words ("Skeletons hit 25% harder").
+static func omen_text(id: String) -> String:
+	var o := Loops.get_omen(id)
+	return str(o.text) if not o.is_empty() else omen_title(id)
 
 
 static func omen_title(id: String) -> String:

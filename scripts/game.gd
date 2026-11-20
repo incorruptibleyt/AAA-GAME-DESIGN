@@ -2557,7 +2557,7 @@ func _pick_omen(id: String) -> void:
 	if state != State.VICTORY or not _loop_choice or Loops.get_omen(id).is_empty():
 		return
 	Sfx.play("upgrade")
-	omens[id] = _omen(id) + 1
+	omens[id] = int(omens.get(id, 0)) + 1   # v219 review: a Cursed Door's Omen is not saved into the loop's
 	_omen_choices = []
 	_loop_choice = false
 	_update_score_mult()
