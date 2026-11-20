@@ -83,6 +83,13 @@ static func hero_state(h: Hero) -> Dictionary:
 	for p in HERO_PROPS:
 		var v = h.get(p)
 		out[p] = v.duplicate() if v is Dictionary else v
+	# Version 219 review (Phase 0): the deep cards' base stats (upgrades.gd _deep_base), so
+	# CONTINUE doesn't take the boosted numbers as a new base.
+	var deep := {}
+	for k in h.get_meta_list():
+		if str(k).begins_with("deep_base_"):
+			deep[str(k)] = float(h.get_meta(k))
+	out["deep_base"] = deep
 	return out
 
 
@@ -91,4 +98,8 @@ static func apply_hero(h: Hero, state: Dictionary) -> void:
 		if state.has(p):
 			var v = state[p]
 			h.set(p, v.duplicate() if v is Dictionary else v)
+	var deep = state.get("deep_base", {})
+	if deep is Dictionary:
+		for k in deep:
+			h.set_meta(StringName(k), float(deep[k]))
 	h.health = minf(h.health, h.max_health)

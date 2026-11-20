@@ -112,7 +112,7 @@ const ENDLESS := [
 	{"id": "deep_haste", "family": "bolt", "rarity": "common", "title": "Deep Haste", "text": "+6% attack speed", "max": 999, "endless": true},
 	# Version 219 (review 4 fix 30): deep cards with a choice in them. Three of these are
 	# dealt at random once the blessings run out (they were the same three every time).
-	{"id": "deep_glass", "family": "bolt", "rarity": "common", "title": "Glass Edge", "text": "+15% damage, but -6% max health", "max": 999, "endless": true},
+	{"id": "deep_glass", "family": "bolt", "rarity": "common", "title": "Glass Edge", "text": "+15% damage, but -6% max health", "max": 5, "endless": true},
 	{"id": "deep_pierce", "family": "bolt", "rarity": "common", "title": "Deep Pierce", "text": "Shots pierce one more skeleton", "max": 3, "endless": true},
 	{"id": "deep_ward", "family": "bone", "rarity": "common", "title": "Deep Ward", "text": "+1 Bone Ward: blocks a hit, comes back each room", "max": 3, "endless": true},
 	{"id": "deep_steady", "family": "bone", "rarity": "common", "title": "Steady Chain", "text": "The chain fades 10% slower", "max": 5, "endless": true},
@@ -190,21 +190,23 @@ static func apply(id: String, h: Hero) -> void:
 		# card, added (x1.08 compounded, and the endless floors got easier the deeper you went).
 		"deep_power": h.damage += _deep_base(h, "damage") * 0.08
 		"deep_vigor":
-			var add := roundf(h.max_health * 0.08)
+			var add := roundf(_deep_base(h, "max_health") * 0.08)
 			h.max_health += add
 			h.heal(add)
 		"deep_haste": h.shots_per_second += _deep_base(h, "shots_per_second") * 0.06
+		# Version 219 review (Phase 0): Glass Edge and Deep Stride add a share of the base too
+		# (Glass multiplied, x4 damage after 10 picks), and Glass stops at 5.
 		"deep_glass":
-			h.damage *= 1.15
-			h.max_health = maxf(20.0, roundf(h.max_health * 0.94))
+			h.damage += _deep_base(h, "damage") * 0.15
+			h.max_health = maxf(20.0, roundf(h.max_health - _deep_base(h, "max_health") * 0.06))
 			h.health = minf(h.health, h.max_health)
 		"deep_pierce": h.pierce += 1
 		"deep_ward":
 			h.ward_max += 1
 			h.ward += 1
 		"deep_stride":
-			h.move_speed *= 1.08
-			h.damage *= 0.96
+			h.move_speed += _deep_base(h, "move_speed") * 0.08
+			h.damage -= _deep_base(h, "damage") * 0.04
 		"boots": h.move_speed *= 1.12
 		"frost": h.frost = true
 		"frostbite": h.frost_time *= 2.0
