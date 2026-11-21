@@ -803,7 +803,7 @@ func _swing(fwd: Vector3) -> void:
 			Burning.apply(a, burn_dps, 2.5)
 		elif crit and perks.has("flashfire") and not a.dead:
 			Burning.apply(a, 8.0, 2.5)   # Flashfire
-		if frost and not a.dead and a is Enemy:
+		if (frost or Blizzard.heart_chill()) and not a.dead and a is Enemy:
 			(a as Enemy).chill(frost_time)
 	if hits > 0:
 		Sfx.play("hit", 0.7)

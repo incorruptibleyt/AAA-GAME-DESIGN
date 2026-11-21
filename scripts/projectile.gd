@@ -320,7 +320,7 @@ func _process(delta: float) -> void:
 			Burning.apply(a, burn_dps, 2.5)
 		elif crit and owner_team == Actor.Team.HERO and not a.dead and Game.hero and Game.hero.perks.has("flashfire"):
 			Burning.apply(a, 8.0, 2.5)   # Flashfire
-		if frost and not a.dead and a is Enemy:
+		if (frost or (owner_team == Actor.Team.HERO and Blizzard.heart_chill())) and not a.dead and a is Enemy:
 			(a as Enemy).chill(Game.hero.frost_time if Game.hero else 1.5)
 		if splash > 0.0:
 			_explode(next, target, a)
@@ -385,7 +385,7 @@ func _grind(delta: float) -> void:
 			a.take_damage(damage * GRIND_SHARE * (crit_mult if crit else 1.0), d.normalized() if d.length_squared() > 0.01 else dir, push * 0.15, crit)
 			if burn_dps > 0.0 and not a.dead:
 				Burning.apply(a, burn_dps, 2.5)
-			if frost and not a.dead and a is Enemy:
+			if (frost or (owner_team == Actor.Team.HERO and Blizzard.heart_chill())) and not a.dead and a is Enemy:
 				(a as Enemy).chill(Game.hero.frost_time if Game.hero else 1.5)
 			hits += 1
 		if hits > 0:

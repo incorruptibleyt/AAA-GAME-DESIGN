@@ -1,4 +1,3 @@
-Version 245: the Frost Gift
-- Frostfall's Frost Gift is a real wrapped present now: snowflake paper, a gold bow and icicles.
-- Its gold ribbons snap as the rarity climbs, the lid and bow are blown away and its four sides fall open onto quilted red velvet as the bone hand comes up with your prize.
-- Frostfall starts Dec 11. The Blood Moon is up until Dec 3.
+Version 246: Frostfall's own blessings
+- Frostfall runs offer their own blessings instead of the Blood Moon's: Hearthkeeper (fires warm farther and heal you in a Blizzard), Thick Furs (the cold builds slower), Gift Hunter (Gift Thieves never get away) and Winter's Heart (the cold can't freeze you).
+- The Frost Gift is a real wrapped present. Frostfall starts Dec 11; the Blood Moon is up until Dec 3.

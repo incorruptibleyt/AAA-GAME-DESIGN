@@ -95,6 +95,8 @@ func can_be_hit() -> bool:
 
 func _think(hero: Hero, delta: float) -> void:
 	_left -= delta
+	if hero.perks.has("gifthunter"):
+		_left = maxf(_left, 2.5)   # Gift Hunter (a Frostfall blessing): it never gets away
 	if _left <= 0.0:
 		_get_away()
 		return

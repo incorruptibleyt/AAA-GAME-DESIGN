@@ -137,6 +137,10 @@ func _draw() -> void:
 		"overcharge": _overcharge()
 		"bloodpact": _blood_drop()
 		"shardhunter": _shard()
+		"hearth": _brazier()
+		"furs": _mitten()
+		"gifthunter": _gift()
+		"winters_heart": _ice_heart()
 		"door_shrine": _shrine()
 		"door_champion": _crown()
 		"door_dark": _lantern()
@@ -148,6 +152,7 @@ func _draw() -> void:
 				"frost": _snowflake()
 				"bone": _bone()
 				"moon": _crescent()
+				"yule": _snowflake()
 
 
 # ---------------------------------------------------------------- drawing helpers
@@ -557,6 +562,61 @@ func _crescent() -> void:
 	draw_circle(_v(Vector2.ZERO), 13.0 * _k, color)
 	draw_circle(_v(Vector2(6, -5)), 11.0 * _k, color.darkened(0.82))
 	_dot(Vector2(-6, 4), 2.0, Color(1, 1, 1, 0.6))
+
+
+## Version 246, Frostfall's blessings.
+func _brazier() -> void:
+	# Hearthkeeper: a fire bowl on three legs, a warm ring under it.
+	_arc(Vector2(0, 14), 15.0, PI * 0.08, PI * 0.92, 2.5, Color(1.0, 0.55, 0.2, 0.8))
+	_ln(Vector2(-7, 2), Vector2(-10, 15), 2.5, Color(0.6, 0.58, 0.6))
+	_ln(Vector2(7, 2), Vector2(10, 15), 2.5, Color(0.6, 0.58, 0.6))
+	_ln(Vector2(0, 3), Vector2(0, 15), 2.5, Color(0.6, 0.58, 0.6))
+	_poly([Vector2(-14, -3), Vector2(14, -3), Vector2(9, 5), Vector2(-9, 5)], Color(0.45, 0.43, 0.45))
+	var ring := color
+	color = Color(1.0, 0.5, 0.15)   # (a real fire, not the family's green)
+	_flame(Vector2(0, -12), 0.75)
+	color = ring
+
+
+func _mitten() -> void:
+	# Thick Furs: a woolly mitten with a white fur cuff.
+	var pts := []
+	for i in 16:
+		var t := PI * i / 15.0
+		pts.append(Vector2(-cos(t) * 10.0 + 2.0, -sin(t) * 12.0 - 4.0))
+	pts.append(Vector2(12, 8))
+	pts.append(Vector2(-8, 8))
+	_poly(pts, Color(0.85, 0.22, 0.25))
+	_poly([Vector2(-8, 2), Vector2(-15, -6), Vector2(-12, -10), Vector2(-6, -4)], Color(0.85, 0.22, 0.25))
+	for x in [-4.0, 2.0, 8.0]:
+		_ln(Vector2(x - 2.0, -6), Vector2(x + 2.0, -2), 1.5, Color(1, 1, 1, 0.55))
+	_poly([Vector2(-10, 7), Vector2(14, 7), Vector2(14, 16), Vector2(-10, 16)], Color(0.95, 0.96, 1.0))
+
+
+func _gift() -> void:
+	# Gift Hunter: a present, gold ribbon and bow.
+	var gold := Color(1.0, 0.8, 0.3)
+	_poly([Vector2(-14, -4), Vector2(14, -4), Vector2(14, 16), Vector2(-14, 16)], Color(0.25, 0.55, 0.95))
+	_poly([Vector2(-16, -10), Vector2(16, -10), Vector2(16, -3), Vector2(-16, -3)], Color(0.78, 0.9, 1.0))
+	_poly([Vector2(-3, -10), Vector2(3, -10), Vector2(3, 16), Vector2(-3, 16)], gold)
+	_oval(Vector2(-6, -14), 6.0, 3.5, -0.4, 3.0, gold)
+	_oval(Vector2(6, -14), 6.0, 3.5, 0.4, 3.0, gold)
+	_dot(Vector2(0, -12), 3.0, gold)
+
+
+func _ice_heart() -> void:
+	# Winter's Heart: a heart of ice with a snowflake in it.
+	var pts := []
+	for i in 32:
+		var t := TAU * i / 32.0
+		var x := 16.0 * pow(sin(t), 3)
+		var y := -(13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t))
+		pts.append(Vector2(x, y) * 0.95 + Vector2(0, -2))
+	_poly(pts, Color(0.45, 0.78, 1.0))
+	for i in 3:
+		var d := Vector2.UP.rotated(PI / 3.0 * i) * 7.5
+		_ln(-d + Vector2(0, -1), d + Vector2(0, -1), 2.0, Color.WHITE)
+	_sparkle(Vector2(-8, -9), 3.5)
 
 
 func _shard() -> void:

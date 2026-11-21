@@ -15,6 +15,8 @@ const FAMILIES := {
 	"bone": {"name": "Bone", "color": Color(0.88, 0.92, 0.72)},
 	# The Blood Moon event's own blessings (events.gd): only offered in its runs.
 	"moon": {"name": "Blood Moon", "color": Color(1.0, 0.38, 0.34)},
+	# Version 246: Frostfall's own, each about its Blizzard (blizzard.gd).
+	"yule": {"name": "Frostfall", "color": Color(0.5, 1.0, 0.72)},
 }
 
 const RARITIES := {
@@ -62,11 +64,17 @@ const LIST := [
 	{"id": "burning_ground", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Burning Ground", "text": "Charged orbs leave a pool of fire that burns skeletons", "max": 1},
 	{"id": "frost_orbit", "hero": "mage", "family": "frost", "rarity": "common", "title": "Frost Orbit", "text": "While you move, ice orbs circle you, chilling skeletons they touch", "max": 1},
 	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Meteor hits 3 more skeletons", "max": 1},
-	# Blood Moon blessings (version 134): only offered in the event's runs and hunts.
-	{"id": "bloodpact", "event": true, "family": "moon", "rarity": "rare", "title": "Blood Pact", "text": "+30% damage, but 15% less max health", "max": 1},
-	{"id": "moonstep", "event": true, "family": "moon", "rarity": "common", "title": "Moonlit Step", "text": "Dash recharges 25% faster, +8% move speed", "max": 2},
-	{"id": "shardhunter", "event": true, "family": "moon", "rarity": "rare", "title": "Shard Hunter", "text": "Skeletons felled in a Moon Surge pay 2 more Moon Shards", "max": 1},
-	{"id": "eclipse_heart", "event": true, "family": "moon", "rarity": "epic", "title": "Eclipse Heart", "text": "During a Moon Surge you heal 1 per kill and hit 25% harder", "max": 1},
+	# Event blessings: only offered in that event's runs and hunts ("event" is its id). The
+	# Blood Moon's (version 134):
+	{"id": "bloodpact", "event": "blood_moon", "family": "moon", "rarity": "rare", "title": "Blood Pact", "text": "+30% damage, but 15% less max health", "max": 1},
+	{"id": "moonstep", "event": "blood_moon", "family": "moon", "rarity": "common", "title": "Moonlit Step", "text": "Dash recharges 25% faster, +8% move speed", "max": 2},
+	{"id": "shardhunter", "event": "blood_moon", "family": "moon", "rarity": "rare", "title": "Shard Hunter", "text": "Skeletons felled in a Moon Surge pay 2 more Moon Shards", "max": 1},
+	{"id": "eclipse_heart", "event": "blood_moon", "family": "moon", "rarity": "epic", "title": "Eclipse Heart", "text": "During a Moon Surge you heal 1 per kill and hit 25% harder", "max": 1},
+	# Frostfall's (version 246; its runs used to be offered the Moon Surge ones):
+	{"id": "hearth", "event": "frostfall", "family": "yule", "rarity": "common", "title": "Hearthkeeper", "text": "Fires warm 50% farther; in a Blizzard their warmth heals you", "max": 1},
+	{"id": "furs", "event": "frostfall", "family": "yule", "rarity": "common", "title": "Thick Furs", "text": "The cold builds 40% slower", "max": 2},
+	{"id": "gifthunter", "event": "frostfall", "family": "yule", "rarity": "rare", "title": "Gift Hunter", "text": "Gift Thieves never get away; Blizzard kills pay 2 more Snowflakes", "max": 1},
+	{"id": "winters_heart", "event": "frostfall", "family": "yule", "rarity": "epic", "title": "Winter's Heart", "text": "The cold can't freeze you; in a Blizzard your hits chill skeletons", "max": 1},
 	# Vault blessings: bought once with coins in the Armory, then they can turn up in runs.
 	{"id": "siphon", "vault": true, "family": "bone", "rarity": "rare", "title": "Soul Siphon", "text": "Perfect dodges heal 10, up to 12% of your health each room", "max": 2},
 	{"id": "frozen_ground", "vault": true, "family": "frost", "rarity": "rare", "title": "Frozen Ground", "text": "Perfect dodges chill skeletons near you", "max": 1},
@@ -145,9 +153,10 @@ static func fits_hero(u: Dictionary) -> bool:
 	return not u.has("hero") or (Game.hero != null and Game.hero.hero_id == u.hero)
 
 
-## Vault blessings only turn up once they're bought; Blood Moon ones only in the event.
+## Vault blessings only turn up once they're bought; an event's own only in its runs.
 static func unlocked(u: Dictionary) -> bool:
-	if u.get("event", false) and Game.event == "":
+	var ev := str(u.get("event", ""))
+	if ev != "" and (Game.event == "" or str(Events.ev().get("id", "")) != ev):
 		return false
 	return not u.get("vault", false) or Game.vault.has(u.id)
 

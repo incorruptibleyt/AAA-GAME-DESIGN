@@ -142,7 +142,7 @@ const TIERS := [
 const ECLIPSE_LOOK := ["glow", "blood_eclipse"]
 ## Blessings never given as the Queen Hunt's starting gifts: they do little or nothing in a
 ## fight with one Queen (coins, hearts, the chain, Moon Surge shards).
-const HUNT_NO_GIFT := ["greed", "magnet", "harvest", "links", "marrow", "shardhunter", "ossuary"]
+const HUNT_NO_GIFT := ["greed", "magnet", "harvest", "links", "marrow", "shardhunter", "ossuary", "gifthunter"]
 
 ## The event road: 30 steps, about 2,400 shards in all (a couple of runs a day for the two
 ## weeks). kind: casket (n Moon Caskets), coins, drop (Bone Drops), lucky (Lucky Starts) or

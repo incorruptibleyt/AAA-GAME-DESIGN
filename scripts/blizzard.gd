@@ -27,6 +27,7 @@ var cold := 0.0            # the hero's cold, 0..1
 var _t := 0.0
 var _on := false
 var _call := 0.0           # a blizzard called up now (Krampus): seconds left of warning + blow
+var _hearth := 0.0         # Hearthkeeper's heal ticks
 var _room: Room
 var _ring: MeshInstance3D  # the cold ring round the hero's feet
 var _ring_mat: ShaderMaterial
@@ -105,24 +106,46 @@ func _update_hero(delta: float, here: bool) -> void:
 	if here and not hero.dead:
 		if warm(hero.global_position):
 			cold = move_toward(cold, 0.0, THAW * delta)
+			# Hearthkeeper: in a Blizzard the fire heals, 1.5% of health every half second.
+			if k > 0.3 and hero.perks.has("hearth"):
+				_hearth += delta
+				if _hearth >= 0.5:
+					_hearth -= 0.5
+					hero.heal(hero.max_health * 0.015)
 		elif k > 0.3:
-			cold = minf(1.0, cold + delta / COLD_IN * k)
+			# (Thick Furs: 40% slower for each one taken)
+			cold = minf(1.0, cold + delta / COLD_IN * k * pow(0.6, float(hero.perks.get("furs", 0))))
 		else:
 			cold = move_toward(cold, 0.0, 0.15 * delta)
+		if hero.perks.has("winters_heart"):
+			cold = minf(cold, 0.7)   # Winter's Heart: it slows, it never freezes
 		if cold >= 1.0 and hero.can_be_snared():
 			hero.freeze(FREEZE)
 			cold = 0.55
 	hero.cold = cold if here else 0.0
 
 
+## How far a brazier's warmth reaches (Hearthkeeper, a Frostfall blessing: half again).
+static func warm_r() -> float:
+	var h: Hero = Game.hero
+	return WARM_R * (1.5 if h != null and is_instance_valid(h) and h.perks.has("hearth") else 1.0)
+
+
+## Winter's Heart (a Frostfall blessing): in a Blizzard the hero's hits chill skeletons.
+static func heart_chill() -> bool:
+	var h: Hero = Game.hero
+	return blowing() and h != null and is_instance_valid(h) and h.perks.has("winters_heart")
+
+
 ## True inside the warm ring of one of the room's braziers.
 func warm(p: Vector3) -> bool:
 	if _room == null or not is_instance_valid(_room):
 		return false
+	var r := warm_r()
 	for b in _room.get_meta("braziers", []):
 		var d: Vector3 = p - (b as Node3D).global_position
 		d.y = 0.0
-		if d.length() < WARM_R:
+		if d.length() < r:
 			return true
 	return false
 
@@ -329,7 +352,7 @@ static func _add_brazier(room: Room, p: Vector3) -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = _warm_shader
 	var q := QuadMesh.new()
-	q.size = Vector2(WARM_R * 2.0, WARM_R * 2.0)
+	q.size = Vector2.ONE * warm_r() * 2.0
 	q.orientation = PlaneMesh.FACE_Y
 	var ring := MeshInstance3D.new()
 	ring.mesh = q

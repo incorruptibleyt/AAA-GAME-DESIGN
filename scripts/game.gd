@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21o"
+const BUILD := "2026-11-21p"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3155,8 +3155,8 @@ func on_enemy_died(e: Enemy) -> void:
 	if event != "" and not e.is_boss:
 		var in_surge := surge > 0.5 or Blizzard.blowing()   # v243: a Blizzard pays like a Surge
 		var n := (Events.ELITE_SHARDS if e.elite else 0) + (Events.SURGE_SHARDS if in_surge else 0)
-		if in_surge and hero and hero.perks.has("shardhunter"):
-			n += 2   # Shard Hunter
+		if in_surge and hero and (hero.perks.has("shardhunter") or hero.perks.has("gifthunter")):
+			n += 2   # Shard Hunter, Gift Hunter (Frostfall)
 		if in_surge and hero and hero.perks.has("eclipse_heart") and not hero.dead:
 			hero.heal(1.0)   # Eclipse Heart
 		if n > 0:
