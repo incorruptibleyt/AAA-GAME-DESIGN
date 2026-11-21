@@ -6,7 +6,9 @@ extends Node
 ## water lapping in the Drowned Vault with bubbles rising, and in the Glowcap Grotto a soft
 ## hollow cave air with a faint shimmer, where the fungus chimes now and then. Frostfall Hall
 ## (the winter event, version 243): a storm howling outside, a fire crackling close by, and
-## now and then Krampus's bells jingling somewhere far off.
+## now and then Krampus's bells jingling somewhere far off. The Sandfall Tomb (version 247):
+## a dry desert wind moaning over the tomb, sand hissing as it pours in, and now and then a
+## slide of sand somewhere in the walls.
 ## All of it is made in code. The draught loops play on the Music bus, so they muffle with
 ## the music when the game is paused; the drips and pops go through the Effects echo. It
 ## follows the Sounds setting, and is silent on the title screen.
@@ -21,13 +23,13 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0)]
 
 static var _instance: Ambience
 ## Version 243: Frostfall's Blizzard turns the storm up (0..1, blizzard.gd).
 static var gust := 0.0
-var _beds: Array = [null, null, null, null, null, null, null]
-var _ones: Array = [null, null, null, null, null, null, null]
+var _beds: Array = [null, null, null, null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -100,6 +102,8 @@ func _build_all() -> void:
 	_ones[5] = _one(0.9, _heartbeat)
 	_beds[6] = _loop(_storm_bed)
 	_ones[6] = _one(1.1, _bells)
+	_beds[7] = _loop(_sand_bed)
+	_ones[7] = _one(1.3, _sand_slide)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -346,3 +350,48 @@ func _bells(n: int) -> PackedFloat32Array:
 				x[i] += (sin(TAU * hz * t) + 0.5 * sin(TAU * hz * 2.76 * t)) * exp(-t * 18.0) * minf(t / 0.002, 1.0) * amp
 	return x
 
+
+
+## The Sandfall Tomb: a dry wind moaning low over the desert above (two close bands of wind,
+## out of step), and the fine hiss of sand pouring in through the cracks, swelling and
+## thinning as the streams shift.
+func _sand_bed(n: int) -> PackedFloat32Array:
+	var low := _wind(n, 110.0, 380.0, 6.0, 1.8, 81)
+	var a := _wind(n, 1400.0, 2600.0, 3.0, 1.0, 82)
+	var b := _wind(n, 1000.0, 1900.0, 3.0, 1.0, 82)
+	var c := _wind(n, 420.0, 900.0, 2.0, 1.0, 83)
+	var d := _wind(n, 300.0, 640.0, 2.0, 1.0, 83)
+	for i in n:
+		var t := float(i) / RATE
+		# 2, 3 and 6 second swells all meet again at the loop's seam.
+		var pour := 0.45 + 0.55 * pow(0.5 + 0.5 * sin(TAU * t / 2.0 + 0.7) * sin(TAU * t / 3.0), 2.0)
+		var moan := 0.35 + 0.65 * pow(0.5 + 0.5 * sin(TAU * t / 6.0 + 1.1), 2.0)
+		low[i] += (a[i] - b[i]) * 0.9 * pour + (c[i] - d[i]) * 1.1 * moan
+	return low
+
+
+## A slide of sand somewhere in the walls: a hiss that swells and runs out, with a few grains
+## and pebbles ticking down at its end.
+func _sand_slide(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 91
+	var y := 0.0
+	var y2 := 0.0
+	for i in n:
+		var t := float(i) / Sfx.RATE
+		var env := minf(t / 0.25, 1.0) * exp(-maxf(t - 0.25, 0.0) * 3.2)
+		# Noise through two high-passes of a low-pass: a band from about 1.5 to 5 kHz.
+		var w := rng.randf() * 2.0 - 1.0
+		y += 0.5 * (w - y)
+		y2 += 0.18 * (y - y2)
+		x[i] = (y - y2) * env * 0.9
+	for k in 5:
+		var start := 0.55 + k * 0.11 + rng.randf() * 0.05
+		var hz := rng.randf_range(1800.0, 3200.0)
+		for i in n:
+			var t := float(i) / Sfx.RATE - start
+			if t >= 0.0:
+				x[i] += sin(TAU * hz * t) * exp(-t * 60.0) * minf(t / 0.001, 1.0) * 0.18 * (1.0 - k * 0.15)
+	return x

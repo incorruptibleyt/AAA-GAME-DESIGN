@@ -280,6 +280,14 @@ static func run(core := false, from := 0) -> bool:
 		ball.position = spots[3] + Vector3(0, 0.4, 0)
 		FrostRing.warm_up(holder, spots[1])
 		Blizzard.warm_up(holder, spots[4]))
+	# The Sandfall Tomb (version 247): a sandfall (its falling-sand shader and the dust where
+	# it lands) and a lotus column.
+	if not core: steps.append(func():
+		var fall := Node3D.new()
+		holder.add_child(fall)
+		fall.position = spots[25] + Vector3(0, 0, -0.6)
+		Props._add_sandfall(fall)
+		Props._mesh(holder, Props.lotus_column()).position = spots[26] + Vector3(0, 0, -0.6))
 	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
 	# a spore cloud, crawling roots and the Sporemother's pod.
 	if core: steps.append(func():

@@ -1,3 +1,3 @@
-Version 246: Frostfall's own blessings
-- Frostfall runs offer their own blessings instead of the Blood Moon's: Hearthkeeper (fires warm farther and heal you in a Blizzard), Thick Furs (the cold builds slower), Gift Hunter (Gift Thieves never get away) and Winter's Heart (the cold can't freeze you).
-- The Frost Gift is a real wrapped present. Frostfall starts Dec 11; the Blood Moon is up until Dec 3.
+Version 247: floor 5 is a new place, the Sandfall Tomb
+- A royal tomb under the desert where the free game ends with the King and the Lich: sandstone carved with signs, a winged sun in the middle of the floor, painted walls, obelisks, jars, painted coffins by the door, lotus columns and sand pouring in through the walls.
+- Its own music (shehnai, sitar and hand drums) and its own desert wind.

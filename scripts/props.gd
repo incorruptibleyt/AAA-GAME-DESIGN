@@ -4,7 +4,8 @@ class_name Props
 ## crystals in the Frozen Ossuary, braziers and lava grates in the Ember Catacomb (on the
 ## walls, so they never look like fire on the floor), broken columns grown over with kelp
 ## and drains pouring water in the Drowned Vault, clumps of glowing mushrooms and shelf
-## fungus in the Glowcap Grotto. The pieces are simple shapes baked
+## fungus in the Glowcap Grotto, obelisks, jars, painted coffins and sand pouring in through
+## cracks in the walls in the Sandfall Tomb. The pieces are simple shapes baked
 ## into one mesh per material and add no lights, so they stay cheap on phones. A corner
 ## piece only goes where the room's layout leaves that corner empty.
 
@@ -56,6 +57,11 @@ static func dress(room: Room, layout: Array) -> void:
 				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
 				_mesh(n, _pine_tree() if p.z < 0.0 else _snowman())
 				_glow_pool(n, 2.4, Color(1.0, 0.7, 0.35, 0.2))
+			"sand":
+				# An obelisk in each far corner; in the near ones (by the camera) a low heap
+				# of jars, one tipped over and spilling sand. Both look into the room.
+				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+				_mesh(n, _obelisk() if p.z < 0.0 else _jars())
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
@@ -89,6 +95,10 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 1.0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_mesh(n, _wreath())
+				"sand":
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_add_sandfall(n)
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
@@ -114,6 +124,12 @@ static func dress(room: Room, layout: Array) -> void:
 				var n := _place(room, Vector3(x * 0.62, 1.35, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
 				_mesh(n, _wreath())
+			"sand":
+				# A painted coffin standing guard either side of the door.
+				var n := _place(room, Vector3(x * 0.75, 0, -Room.HALF_L + 0.05), false)
+				n.rotation.y = -PI / 2
+				_mesh(n, _sarcophagus())
+				room._add_obstacle(Vector3(x * 0.75, 0, -Room.HALF_L), 0.5)
 
 
 ## KayKit pieces along the walls (version 134): a banner either side of the door and a few
@@ -129,6 +145,8 @@ const KIT := {
 	"moon": {"banner": "banner_patternC_red", "side": [["box_small_decorated", 0.62], ["rubble_half", 0.5], ["sword_shield_broken", 0.6], ["barrel_small", 0.8]]},
 	"fungus": {"banner": "banner_patternA_green", "side": [["rubble_half", 0.55], ["box_small", 0.6], ["barrel_small", 0.8], ["bottle_B_brown", 0.4]]},
 	"yule": {"banner": "banner_patternA_red", "side": [["keg", 0.75], ["box_small_decorated", 0.62], ["candle_triple", 0.6], ["barrel_small", 0.8]]},
+	# The Sandfall Tomb: no KayKit banners; its own jars ("@jar", made below) and fallen stone.
+	"sand": {"banner": "", "side": [["@jar", 0.0], ["rubble_half", 0.5], ["@jar", 0.0], ["rubble_half", 0.55]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
 
@@ -137,7 +155,7 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 	if not KIT.has(kind):
 		return
 	var kit: Dictionary = KIT[kind]
-	var banner := Art.get_model(kit.banner)
+	var banner := Art.get_model(kit.banner) if kit.banner != "" else null
 	if banner:
 		for x in [-2.5, 2.5]:
 			var n := _place(room, Vector3(x, 0.75, -Room.HALF_L + 0.12), false)
@@ -152,15 +170,19 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 			if col < line.length() and line[col] != ".":
 				continue
 			var pick: Array = kit.side[(i + s * 2) % kit.side.size()]
-			var scene := Art.get_model(pick[0])
-			if scene == null:
+			var own := str(pick[0]).begins_with("@")
+			var scene: PackedScene = null if own else Art.get_model(pick[0])
+			if scene == null and not own:
 				continue
 			var at := Vector3(side * (Room.HALF_W - 0.42), 0, z)
 			# Version 165: not where it would narrow the way past a pillar one column in from
 			# the wall (that made pockets a skeleton couldn't reach, or get out of).
 			if not room.leaves_gap(Vector3(side * Room.HALF_W, 0, z), 0.7):
 				continue
-			_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
+			if own:
+				_no_shadow(_mesh(_place(room, at), _jar()))
+			else:
+				_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
 			room._add_obstacle(Vector3(side * Room.HALF_W, 0, z), 0.7)
 
 
@@ -186,8 +208,9 @@ static func _scatter(room: Room, layout: Array, kind: String) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(str(layout)) + Game.floor_num * 7919
 	var look := Floors.current()
-	var stone := U.mat((look.floor as Color) * Color(0.42, 0.4, 0.46), 0.95)
-	var chip := U.mat((look.floor as Color) * Color(0.62, 0.6, 0.66), 0.9)
+	var pebble: Color = look.get("pebble", look.floor)
+	var stone := U.mat(pebble * Color(0.42, 0.4, 0.46), 0.95)
+	var chip := U.mat(pebble * Color(0.62, 0.6, 0.66), 0.9)
 	var bone := U.mat(Color(0.82, 0.78, 0.66), 0.85)
 	var dark := U.mat(Color(0.06, 0.05, 0.05), 1.0)
 	var parts := []
@@ -275,6 +298,29 @@ static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, r
 					parts.append([_sphere(), _xf(p + Vector3.UP * 0.03 + yaw * Vector3(side * 0.07, 0, 0), Vector3(0.08, 0.02, 0.035), yaw * Basis(Vector3.UP, side * 0.5)), _yule_mat("pine")])
 				for k in 3:
 					parts.append([_sphere(), _xf(p + Vector3(0, 0.05, 0) + yaw * Vector3((k - 1) * 0.025, 0, 0.02 * (k % 2)), Vector3.ONE * 0.026), _yule_mat("berry")])
+		"sand":
+			var roll := rng.randf()
+			if roll < 0.4:
+				# A little mound of sand.
+				var sz := rng.randf_range(0.16, 0.32)
+				parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.08, Vector3(sz, sz * 0.25, sz * 0.75), yaw), _tomb_mat("sand")])
+			elif roll < 0.7:
+				# Shards of a broken jar: curved bits of red clay, one painted.
+				for k in 2:
+					var sz := rng.randf_range(0.07, 0.12)
+					var at := p + yaw * Vector3(k * 0.13, 0, k * 0.05)
+					parts.append([_cube(), _xf(at + Vector3.UP * 0.02, Vector3(sz * 1.4, 0.025, sz), yaw * Basis(Vector3.UP, k * 1.3) * Basis(Vector3.RIGHT, 0.2)), _tomb_mat("clay" if k == 0 else "turq")])
+			elif roll < 0.85:
+				# A beetle: a dark shell, a head, sitting very still.
+				parts.append([_sphere(), _xf(p + Vector3.UP * 0.035, Vector3(0.05, 0.035, 0.065), yaw), _tomb_mat("beetle")])
+				parts.append([_sphere(), _xf(p + Vector3.UP * 0.03 + yaw * Vector3(0, 0, -0.07), Vector3(0.028, 0.022, 0.022), yaw), _tomb_mat("dark")])
+			else:
+				# A long bone half buried in the sand.
+				var bl := rng.randf_range(0.4, 0.6)
+				var flat := yaw * Basis(Vector3.RIGHT, PI / 2)
+				parts.append([_cone(0.04, 0.04, bl, 6), Transform3D(flat, p + Vector3.UP * 0.03), bone])
+				parts.append([_sphere(), _xf(p + Vector3.UP * 0.04 + yaw * Vector3(0, 0, -0.5 * bl), Vector3.ONE * 0.068), bone])
+				parts.append([_sphere(), _xf(p + Vector3.UP * 0.02 + yaw * Vector3(0, 0, 0.42 * bl), Vector3(0.16, 0.05, 0.12), yaw), _tomb_mat("sand")])
 		"fungus":
 			# A tiny mushroom: a stalk and a glowing cap.
 			var h := rng.randf_range(0.13, 0.24)
@@ -795,3 +841,246 @@ static func timber_post() -> ArrayMesh:
 	_baked["timber_post"] = _bake(parts)
 	return _baked["timber_post"]
 
+
+
+
+# ---------------------------------------------------------------- the Sandfall Tomb (v247)
+
+static func _tomb_mat(key: String) -> Material:
+	var k := "tomb_" + key
+	if not _baked.has(k):
+		match key:
+			"stone": _baked[k] = U.mat(Color(0.5, 0.37, 0.24), 0.9)
+			"stone_dark": _baked[k] = U.mat(Color(0.34, 0.24, 0.15), 0.9)
+			"sand": _baked[k] = U.mat(Color(0.5, 0.39, 0.26), 0.95)
+			"clay": _baked[k] = U.mat(Color(0.5, 0.25, 0.14), 0.8)
+			"turq": _baked[k] = U.mat(Color(0.1, 0.44, 0.41), 0.5)
+			"lapis": _baked[k] = U.mat(Color(0.08, 0.12, 0.33), 0.45)
+			"gold": _baked[k] = U.mat(Color(0.78, 0.58, 0.22), 0.3)
+			"ochre": _baked[k] = U.mat(Color(0.52, 0.37, 0.14), 0.5)
+			"dark": _baked[k] = U.mat(Color(0.04, 0.03, 0.03), 1.0)
+			"beetle": _baked[k] = U.mat(Color(0.05, 0.16, 0.14), 0.3)
+	return _baked[k]
+
+
+## A ring round a shape: a short wide cylinder, `r` across, `h` tall, at height `y`.
+static func _band(parts: Array, r: float, h: float, y: float, mat: Material, sides := 12, at := Vector3.ZERO, scale := Vector3.ONE) -> void:
+	parts.append([_cone(r, r, h, sides), _xf(at + Vector3(0, y, 0), scale), mat])
+
+
+## An obelisk on a stepped plinth: a tall four-sided shaft of sandstone narrowing to a gold
+## cap, a carved strip of signs down each face, and a dune of sand banked at its foot on the
+## room side (+X and +Z). About as tall as the walls.
+static func _obelisk() -> ArrayMesh:
+	if _baked.has("obelisk"):
+		return _baked["obelisk"]
+	var parts := []
+	var stone := _tomb_mat("stone")
+	parts.append([_cube(), _xf(Vector3(0, 0.12, 0), Vector3(0.95, 0.24, 0.95)), _tomb_mat("stone_dark")])
+	parts.append([_cube(), _xf(Vector3(0, 0.3, 0), Vector3(0.72, 0.14, 0.72)), stone])
+	var h := 2.3
+	var turn := Basis(Vector3.UP, PI / 4)
+	parts.append([_cone(0.19, 0.3, h, 4), _xf(Vector3(0, 0.37 + h * 0.5, 0), Vector3.ONE, turn), stone])
+	parts.append([_cone(0.0, 0.2, 0.34, 4), _xf(Vector3(0, 0.37 + h + 0.16, 0), Vector3.ONE, turn), _tomb_mat("gold")])
+	# A narrow lapis channel down each face that looks into the room, inlaid with gold signs,
+	# and a turquoise band low on the shaft.
+	for face in [Vector3(1, 0, 0), Vector3(0, 0, 1)]:
+		var across := Vector3(0, 0, 1) if face.x > 0.0 else Vector3(1, 0, 0)
+		var lean := Basis(across, (-0.11 / h) * (1.0 if face.x > 0.0 else -1.0) * -1.0)
+		var mid := 0.75 + 0.85
+		var at_mid: Vector3 = face * ((0.3 - (mid - 0.37) / h * 0.11) * 0.7071 + 0.004) + Vector3.UP * mid
+		var strip := Vector3(0.012, 1.7, 0.07) if face.x > 0.0 else Vector3(0.07, 1.7, 0.012)
+		parts.append([_cube(), _xf(at_mid, strip, lean), _tomb_mat("lapis")])
+		for k in 6:
+			var y := 0.88 + k * 0.29
+			var at: Vector3 = face * ((0.3 - (y - 0.37) / h * 0.11) * 0.7071 + 0.009) + Vector3.UP * y
+			var mark := Vector3(0.012, 0.035 + 0.03 * (k % 2), 0.04) if face.x > 0.0 else Vector3(0.04, 0.035 + 0.03 * (k % 2), 0.012)
+			parts.append([_cube(), _xf(at, mark, lean), _tomb_mat("gold")])
+	_band(parts, 0.305, 0.06, 0.6, _tomb_mat("turq"), 4, Vector3.ZERO, Vector3.ONE)
+	parts[parts.size() - 1][1] = Transform3D(turn, Vector3(0, 0.6, 0))
+	# The dune at its foot.
+	parts.append([_sphere(), _xf(Vector3(0.55, 0.02, 0.55), Vector3(0.6, 0.2, 0.42), Basis(Vector3.UP, -PI / 4)), _tomb_mat("sand")])
+	parts.append([_sphere(), _xf(Vector3(0.2, 0.18, 0.62), Vector3(0.3, 0.14, 0.24)), _tomb_mat("sand")])
+	_baked["obelisk"] = _bake(parts)
+	return _baked["obelisk"]
+
+
+## One canopic jar: a round clay belly with a turquoise band, a narrow neck and a lid
+## carved as a little head, painted gold.
+static func _jar_parts(parts: Array, at: Vector3, sz: float, basis := Basis.IDENTITY) -> void:
+	var b := basis
+	parts.append([_sphere(), Transform3D(b * Basis.from_scale(Vector3(0.26, 0.3, 0.26) * sz), at + b * Vector3(0, 0.3 * sz, 0)), _tomb_mat("clay")])
+	parts.append([_cone(0.2 * sz, 0.27 * sz, 0.08 * sz, 12), Transform3D(b, at + b * Vector3(0, 0.36 * sz, 0)), _tomb_mat("turq")])
+	parts.append([_cone(0.13 * sz, 0.17 * sz, 0.12 * sz, 10), Transform3D(b, at + b * Vector3(0, 0.6 * sz, 0)), _tomb_mat("clay")])
+	parts.append([_sphere(), Transform3D(b * Basis.from_scale(Vector3(0.12, 0.13, 0.12) * sz), at + b * Vector3(0, 0.74 * sz, 0)), _tomb_mat("gold")])
+
+
+## Three jars and a tipped one spilling sand, for the near corners (all low, so they never
+## hide the hero from the camera).
+static func _jars() -> ArrayMesh:
+	if _baked.has("jars"):
+		return _baked["jars"]
+	var parts := []
+	_jar_parts(parts, Vector3(0.05, 0, 0.05), 1.25)
+	_jar_parts(parts, Vector3(0.55, 0, 0.0), 0.95)
+	_jar_parts(parts, Vector3(0.0, 0, 0.52), 0.8)
+	# On its side, mouth to the room, with sand run out of it.
+	_jar_parts(parts, Vector3(0.48, 0.2, 0.5), 0.8, Basis(Vector3(1, 0, -1).normalized(), PI / 2))
+	parts.append([_sphere(), _xf(Vector3(0.88, 0.02, 0.9), Vector3(0.42, 0.12, 0.3), Basis(Vector3.UP, -PI / 4)), _tomb_mat("sand")])
+	parts.append([_sphere(), _xf(Vector3(0.3, 0.02, 0.3), Vector3(0.62, 0.14, 0.5), Basis(Vector3.UP, -PI / 4)), _tomb_mat("sand")])
+	_baked["jars"] = _bake(parts)
+	return _baked["jars"]
+
+
+## A single jar standing against a side wall.
+static func _jar() -> ArrayMesh:
+	if _baked.has("jar"):
+		return _baked["jar"]
+	var parts := []
+	_jar_parts(parts, Vector3.ZERO, 1.1)
+	_jar_parts(parts, Vector3(0.12, 0, 0.36), 0.7)
+	_baked["jar"] = _bake(parts)
+	return _baked["jar"]
+
+
+## A painted coffin standing on end against the far wall, its face out of the wall (+X):
+## a gold body banded in turquoise and lapis, a striped lapis-and-gold headdress, a gold
+## face and crossed arms.
+static func _sarcophagus() -> ArrayMesh:
+	if _baked.has("sarcophagus"):
+		return _baked["sarcophagus"]
+	var parts := []
+	var flat := Vector3(0.62, 1.0, 1.0)
+	parts.append([_cube(), _xf(Vector3(0.05, 0.08, 0), Vector3(0.5, 0.16, 0.8)), _tomb_mat("stone_dark")])
+	parts.append([_cone(0.3, 0.26, 1.5, 12), _xf(Vector3(0.05, 0.9, 0), flat), _tomb_mat("ochre")])
+	for k in 4:
+		var y := 0.32 + k * 0.24
+		var rr := 0.26 + (y - 0.15) / 1.5 * 0.04 + 0.012
+		_band(parts, rr, 0.07, y, _tomb_mat("turq" if k % 2 == 0 else "lapis"), 12, Vector3(0.05, 0, 0), flat)
+	# Crossed arms over the chest.
+	for side in [-1.0, 1.0]:
+		parts.append([_cone(0.035, 0.045, 0.5, 6), _xf(Vector3(0.24, 1.3, 0), Vector3.ONE, Basis(Vector3.RIGHT, side * 0.95)), _tomb_mat("gold")])
+	# The headdress, falling to the shoulders in stripes, and the face.
+	parts.append([_cone(0.22, 0.34, 0.55, 12), _xf(Vector3(0.03, 1.72, 0), flat), _tomb_mat("lapis")])
+	for k in 3:
+		_band(parts, 0.268 + k * 0.026, 0.04, 1.82 - k * 0.12, _tomb_mat("gold"), 12, Vector3(0.03, 0, 0), flat)
+	parts.append([_sphere(), _xf(Vector3(0.03, 2.02, 0), Vector3(0.18, 0.2, 0.24)), _tomb_mat("lapis")])
+	parts.append([_sphere(), _xf(Vector3(0.16, 1.88, 0), Vector3(0.1, 0.15, 0.13)), _tomb_mat("gold")])
+	for ez in [-0.05, 0.05]:
+		parts.append([_sphere(), _xf(Vector3(0.25, 1.92, ez), Vector3(0.02, 0.016, 0.03)), _tomb_mat("dark")])
+	parts.append([_cube(), _xf(Vector3(0.24, 1.72, 0), Vector3(0.03, 0.1, 0.035)), _tomb_mat("gold")])
+	_baked["sarcophagus"] = _bake(parts)
+	return _baked["sarcophagus"]
+
+
+## The Sandfall Tomb's pillars: a lotus column. A stepped foot, a round shaft of sandstone,
+## painted bands under a capital that opens like a flower, and a square block on top. As
+## wide as the stone pillars it stands in for.
+static func lotus_column() -> ArrayMesh:
+	if _baked.has("lotus"):
+		return _baked["lotus"]
+	var parts := []
+	var stone := _tomb_mat("stone")
+	var h := Room.WALL_H + 0.4
+	parts.append([_cube(), _xf(Vector3(0, 0.12, 0), Vector3(1.15, 0.24, 1.15)), _tomb_mat("stone_dark")])
+	parts.append([_cone(0.5, 0.52, 0.16, 16), _xf(Vector3(0, 0.32, 0), Vector3.ONE), stone])
+	parts.append([_cone(0.36, 0.42, h - 1.1, 16), _xf(Vector3(0, 0.4 + (h - 1.1) * 0.5, 0), Vector3.ONE), stone])
+	# Carved rings low on the shaft, then the painted bands under the capital.
+	for k in 3:
+		_band(parts, 0.425 - k * 0.004, 0.035, 0.62 + k * 0.1, _tomb_mat("stone_dark"), 16)
+	var top := 0.4 + h - 1.1
+	_band(parts, 0.375, 0.08, top - 0.3, _tomb_mat("turq"), 16)
+	_band(parts, 0.375, 0.05, top - 0.22, _tomb_mat("gold"), 16)
+	_band(parts, 0.375, 0.08, top - 0.15, _tomb_mat("lapis"), 16)
+	_band(parts, 0.375, 0.05, top - 0.08, _tomb_mat("gold"), 16)
+	# The flower: a bell of sandstone, eight turquoise petals around it.
+	parts.append([_cone(0.58, 0.37, 0.55, 16), _xf(Vector3(0, top + 0.27, 0), Vector3.ONE), stone])
+	for i in 8:
+		var a := TAU * i / 8.0
+		var out := Vector3(cos(a), 0, sin(a))
+		var tilt := Basis(out.cross(Vector3.UP).normalized(), -0.42)
+		parts.append([_cone(0.0, 0.1, 0.5, 4), _xf(Vector3(0, top + 0.26, 0) + out * 0.47, Vector3(1, 1, 0.35), tilt * Basis(Vector3.UP, -a)), _tomb_mat("turq")])
+	parts.append([_cube(), _xf(Vector3(0, h - 0.05, 0), Vector3(1.0, 0.22, 1.0)), stone])
+	_baked["lotus"] = _bake(parts)
+	return _baked["lotus"]
+
+
+## Sand pouring in through a crack high in a side wall: the dark crack, a stream of sand
+## running down (a little shader, so it moves) and a cone of sand heaped where it lands.
+## +X points out of the wall.
+static func _add_sandfall(n: Node3D) -> void:
+	_mesh(n, _sandfall())
+	var heap := _mesh(n, _sand_heap())
+	heap.position = Vector3(0.42, 0, 0)
+	var dust := U.floor_quad(n, Vector2(1.5, 1.5), _sand_dust_mat(), Vector3(0.45, 0.05, 0))
+	dust.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+static func _sandfall() -> ArrayMesh:
+	if _baked.has("sandfall"):
+		return _baked["sandfall"]
+	var parts := []
+	var wh := Room.WALL_H
+	parts.append([_cube(), _xf(Vector3(0.02, wh - 0.25, 0), Vector3(0.05, 0.5, 0.12), Basis(Vector3.RIGHT, 0.2)), _tomb_mat("dark")])
+	parts.append([_cube(), _xf(Vector3(0.02, wh - 0.6, 0.04), Vector3(0.04, 0.3, 0.07), Basis(Vector3.RIGHT, -0.3)), _tomb_mat("dark")])
+	# A lip of sand spilling out of the crack, then the stream: a narrow cone of falling sand
+	# that spreads as it falls.
+	parts.append([_sphere(), _xf(Vector3(0.07, wh - 0.08, 0), Vector3(0.09, 0.05, 0.12)), _tomb_mat("sand")])
+	parts.append([_cone(0.035, 0.17, wh - 0.12, 10), _xf(Vector3(0.3, (wh - 0.12) * 0.5 + 0.02, 0), Vector3.ONE), _falling_sand()])
+	_baked["sandfall"] = _bake(parts)
+	return _baked["sandfall"]
+
+
+## A soft cloud of dust where the sand lands.
+static func _sand_dust_mat() -> StandardMaterial3D:
+	if not _baked.has("sand_dust"):
+		var m := U.unlit(Color(0.62, 0.5, 0.34, 0.2), U.soft_circle()).duplicate()
+		_baked["sand_dust"] = m
+	return _baked["sand_dust"]
+
+
+static func _sand_heap() -> ArrayMesh:
+	if _baked.has("sand_heap"):
+		return _baked["sand_heap"]
+	var parts := []
+	parts.append([_cone(0.04, 0.62, 0.3, 14), _xf(Vector3(0, 0.15, 0), Vector3(1.0, 1.0, 1.2)), _tomb_mat("sand")])
+	parts.append([_sphere(), _xf(Vector3(0.35, 0.02, 0.1), Vector3(0.5, 0.1, 0.6)), _tomb_mat("sand")])
+	_baked["sand_heap"] = _bake(parts)
+	return _baked["sand_heap"]
+
+
+## The stream of sand: grains running down in strands at slightly different speeds, thinner
+## and broken up near the top, spreading and denser where it lands.
+static func _falling_sand() -> ShaderMaterial:
+	if _baked.has("sand_fall_mat"):
+		return _baked["sand_fall_mat"]
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.86, 0.67, 0.42, 1.0);
+varying vec3 p;
+void vertex() {
+	p = VERTEX;
+}
+float h(float x) {
+	return fract(sin(x * 127.1) * 43758.5453);
+}
+void fragment() {
+	// Strands of sand round the cone, each running down at its own speed, with grains
+	// glinting in them; soft at the cone's edges, so it reads as a stream, not a pole.
+	float lane = floor(atan(p.z, p.x - 0.3) * 4.0);
+	float s = fract(p.y * 1.8 + TIME * (1.6 + 0.7 * h(lane)) + h(lane + 3.0));
+	float strand = smoothstep(0.0, 0.5, s) * (0.45 + 0.55 * h(lane + 7.0));
+	float grain = step(0.6, fract(sin(dot(floor(vec2(atan(p.z, p.x - 0.3) * 12.0, p.y * 30.0 + TIME * 55.0)), vec2(12.9898, 78.233))) * 43758.5453));
+	float foot = 1.0 - smoothstep(0.0, 0.5, p.y);
+	float edge = smoothstep(0.05, 0.55, abs(dot(NORMAL, VIEW)));
+	ALBEDO = col.rgb * (0.75 + 0.25 * strand + 0.15 * grain);
+	float top = smoothstep(2.5, 1.6, p.y);
+	ALPHA = clamp((0.15 + 0.5 * strand + 0.25 * grain + 0.25 * foot) * edge * mix(0.55, 1.0, top), 0.0, 0.85);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	_baked["sand_fall_mat"] = m
+	return m

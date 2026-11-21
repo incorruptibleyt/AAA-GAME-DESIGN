@@ -112,6 +112,8 @@ static var _floor_shaders := {}
 ##    veins of blood light throbbing with a heartbeat and the blood moon in the middle.
 ## 6. Frostfall Hall (the winter event): dark timber planks instead of stone, snow drifted
 ##    in along the walls and a crimson runner with gold trim down the middle.
+## 7. The Sandfall Tomb (floor 5): sandstone blocks carved with signs, a processional way
+##    between turquoise borders, a winged sun inlaid in the middle and rippled sand dunes.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -536,6 +538,161 @@ void fragment() {
 	// A little greyer, so heroes, skeletons and their shots stand out.
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.88);
 	n = normalize(vec3((r - 0.5) * 0.04, 1.0, (h(vec2(pl, pid + 1.7)) - 0.5) * 0.04));
+#elif STYLE == 7
+	// The Sandfall Tomb (floor 5, version 247): great squared blocks of sandstone, every
+	// other column shifted by half a block, about one in four carved with a sign (an eye, a
+	// sun, water, a beetle), some of them still painted turquoise. A processional way of
+	// darker, redder stone runs down the middle between two inlaid borders of turquoise and
+	// lapis triangles, and a winged sun is inlaid at the centre of the room. Sand has blown
+	// in: rippled dunes along the walls, fans of it where it pours in through the cracks (the
+	// side walls, see props.gd) and grit in the joints.
+	const vec3 TURQ = vec3(0.1, 0.33, 0.31);
+	const vec3 LAPIS = vec3(0.06, 0.09, 0.22);
+	const vec3 GOLD = vec3(0.42, 0.31, 0.12);
+	const float WAY = 1.38;
+	const float BW = 1.46;
+	float ax = abs(pos.x);
+	vec2 bsz = vec2(BW);
+	vec2 s;
+	if (ax < WAY) {
+		bsz = vec2(WAY, 0.72);
+		s = vec2((pos.x + WAY) / WAY, pos.y / 0.72 + 0.5 * step(0.0, pos.x));
+	} else {
+		float colx = (ax - 1.62) / BW;
+		s = vec2(colx, pos.y / BW + 0.5 * mod(floor(colx), 2.0) + 0.25);
+	}
+	vec2 cell = floor(s) + vec2(step(pos.x, 0.0) * step(WAY, ax) * 20.0, 0.0);
+	vec2 f = fract(s) - 0.5;
+	vec2 e = (0.5 - abs(f)) * bsz;
+	float edge = min(e.x, e.y);
+	r = h(cell);
+	float r2 = h(cell + 13.7);
+	vec3 stone = ax < WAY ? vec3(0.27, 0.18, 0.13) : vec3(0.34, 0.27, 0.19);
+	stone *= mix(vec3(1.0), vec3(1.07, 0.96, 0.9), step(0.6, r2));
+	c = stone * (0.8 + 0.3 * r) * (0.9 + 0.2 * fine) * tint.rgb;
+	c *= mix(1.0, 1.07, smoothstep(0.55, 0.85, big));
+	rough = 0.8;
+	float aa = fwidth(edge);
+	gap = 1.0 - smoothstep(0.02 - aa, 0.02 + aa, edge);
+	float a = r2 * 3.1416;
+	vec2 dir = vec2(cos(a), sin(a));
+	float off = dot(f, vec2(-dir.y, dir.x)) + 0.035 * sin(dot(f, dir) * 13.0 + r * 30.0);
+	crack = (1.0 - smoothstep(0.0, 0.01 + fwidth(off), abs(off))) * step(0.86, r) * step(WAY, ax)
+		* (1.0 - smoothstep(0.25, 0.45, abs(dot(f, dir))));
+	float rim_hi = max((1.0 - smoothstep(0.03, 0.1, e.y)) * step(f.y, 0.0), (1.0 - smoothstep(0.03, 0.1, e.x)) * step(f.x, 0.0));
+	float rim_lo = max((1.0 - smoothstep(0.03, 0.12, e.y)) * step(0.0, f.y), (1.0 - smoothstep(0.03, 0.12, e.x)) * step(0.0, f.x));
+	c *= 1.0 + 0.2 * rim_hi - 0.26 * rim_lo;
+	vec2 bevel = sign(f) * (1.0 - smoothstep(0.0, 0.08, e)) * 0.6;
+	n = normalize(vec3(bevel.x + (r - 0.5) * 0.08, 1.0, bevel.y + (r2 - 0.5) * 0.08));
+	bool middle = ax < 3.4 && abs(pos.y) < 1.15;
+	// A carved sign in about one block in four (none on the way or round the winged sun).
+	if (ax >= 1.62 && !middle && h(cell + 31.0) > 0.74) {
+		vec2 g = f * bsz;
+		float kind = floor(h(cell + 47.0) * 4.0);
+		float d = 9.0;
+		if (kind < 1.0) {
+			// An eye: an almond outline, the pupil, and a curl below.
+			float lid = max(length(g - vec2(0.0, 0.19)) - 0.26, length(g + vec2(0.0, 0.19)) - 0.26);
+			d = min(abs(lid) - 0.018, length(g) - 0.055);
+			d = min(d, seg(g, vec2(0.02, 0.07), vec2(-0.03, 0.2)) - 0.016);
+		} else if (kind < 2.0) {
+			// A sun: a disc in a ring, with eight short rays.
+			float R = length(g);
+			d = min(abs(R - 0.13) - 0.018, R - 0.06);
+			float an = atan(g.y, g.x);
+			float k8 = round(an / 0.7853982) * 0.7853982;
+			vec2 gr = vec2(cos(-k8) * g.x - sin(-k8) * g.y, sin(-k8) * g.x + cos(-k8) * g.y);
+			d = min(d, seg(gr, vec2(0.18, 0.0), vec2(0.27, 0.0)) - 0.016);
+		} else if (kind < 3.0) {
+			// Water: three zigzag lines.
+			for (int k = 0; k < 3; k++) {
+				float yv = float(k - 1) * 0.1 + 0.035 * (abs(fract(g.x * 5.0) - 0.5) * 4.0 - 1.0);
+				d = min(d, max(abs(g.y - yv) - 0.014, abs(g.x) - 0.24));
+			}
+		} else {
+			// A beetle: a round body split down the back, a head and six legs.
+			vec2 gb = vec2(abs(g.x), g.y);
+			d = abs(length(g / vec2(0.13, 0.16)) - 1.0) * 0.13 - 0.014;
+			d = min(d, max(abs(g.x) - 0.012, abs(g.y - 0.0) - 0.15));
+			d = min(d, length(g + vec2(0.0, 0.21)) - 0.055);
+			for (int k = 0; k < 3; k++) {
+				float ly = float(k - 1) * 0.09;
+				d = min(d, seg(gb, vec2(0.12, ly), vec2(0.21, ly + 0.05 * float(k - 1) - 0.03)) - 0.012);
+			}
+		}
+		float ad = fwidth(d) + 0.002;
+		float carve = 1.0 - smoothstep(-ad, ad, d);
+		vec3 deep = h(cell + 5.0) > 0.5 ? TURQ * 0.85 : c * 0.45;
+		c = mix(c, deep, carve);
+		rough = mix(rough, 0.95, carve);
+		crack *= 1.0 - carve;
+	}
+	// The borders of the way: lapis triangles on turquoise between thin gold lines.
+	if (ax >= WAY && ax < 1.62) {
+		float bx = ax - 1.5;
+		float tri = abs(fract(pos.y / 0.24) - 0.5) * 2.0;
+		float ba = fwidth(bx) + 0.003;
+		float inner = 1.0 - smoothstep(-ba, ba, (bx + 0.085) / 0.17 - (1.0 - tri));
+		vec3 bc = mix(TURQ * (0.9 + 0.2 * fine), LAPIS, inner);
+		bc = mix(bc, GOLD, 1.0 - smoothstep(0.01, 0.01 + ba, abs(abs(bx) - 0.1)));
+		bc = mix(bc, grout.rgb, 1.0 - smoothstep(0.0, ba * 2.0, 0.12 - abs(bx)));
+		c = bc;
+		gap = 0.0;
+		crack = 0.0;
+		rough = 0.5;
+		n = vec3(0.0, 1.0, 0.0);
+	}
+	// The winged sun at the middle of the room: a gold disc in a ring, and two great wings
+	// of gold, turquoise and lapis feathers spread towards the side walls.
+	if (middle) {
+		float R = length(pos);
+		float aR = fwidth(R) + 0.004;
+		float disc = 1.0 - smoothstep(0.5 - aR, 0.5 + aR, R);
+		float ring = 1.0 - smoothstep(0.03, 0.03 + aR, abs(R - 0.58));
+		float u = clamp((ax - 0.66) / 2.6, 0.0, 1.0);
+		float yc = -0.24 * sin(u * 3.1416) + 0.04;
+		float hw = 0.42 * pow(1.0 - u, 0.6) + 0.05;
+		float yy = pos.y - yc;
+		float tips = 0.06 * abs(sin(ax * 9.4248));
+		float wd = max(-hw - yy, yy - hw + tips);
+		float wa = fwidth(wd) + 0.003;
+		float wing = step(0.66, ax) * (1.0 - smoothstep(-wa, wa, wd)) * (1.0 - smoothstep(3.2, 3.26, ax));
+		float v = clamp((yy + hw) / (2.0 * hw), 0.0, 1.0);
+		vec3 wc = v < 0.3 ? GOLD * (0.85 + 0.3 * step(0.5, fract(ax * 7.0))) : (v < 0.52 ? TURQ : LAPIS);
+		float quill = (1.0 - smoothstep(0.02, 0.05, abs(fract(ax * 5.0) - 0.5) * 0.4)) * step(0.52, v);
+		wc = mix(wc, TURQ * 1.1, quill);
+		wc = mix(wc, GOLD * 1.15, 1.0 - smoothstep(0.0, wa * 2.0, -wd - 0.025));
+		c = mix(c, wc * (0.92 + 0.16 * fine), wing);
+		c = mix(c, GOLD * (0.85 + 0.3 * texture(blobs_a, pos * 0.5).r), disc);
+		c = mix(c, LAPIS, disc * (1.0 - smoothstep(0.02, 0.02 + aR, abs(R - 0.3))));
+		c = mix(c, GOLD * 1.25, ring);
+		float inl = max(max(wing, disc), ring);
+		rough = mix(rough, 0.42, inl);
+		gap *= 1.0 - inl;
+		crack *= 1.0 - inl;
+		em += GOLD * ring * 0.15;
+	}
+	// Sand: dunes along the walls, fans under the cracks it pours from, a few patches, and
+	// grit in the joints. Rippled by the wind; bright only by the walls, so skeletons still
+	// stand out on it in the middle of the room.
+	float drift = 1.0 - smoothstep(0.25, 0.9 + 1.3 * big, wall);
+	vec2 fp = vec2(ax - (half_size.x - 0.35), abs(pos.y) - 3.0);
+	float fan = 1.0 - smoothstep(0.15, 1.1 + 0.8 * big2, length(fp * vec2(1.0, 0.7)));
+	float patchy = smoothstep(0.78, 0.9, big2) * 0.75 * (1.0 - step(ax, 3.4) * step(abs(pos.y), 1.15));
+	float sand = clamp(max(max(drift, fan), patchy) * grime_amount * 1.25, 0.0, 1.0);
+	sand *= smoothstep(0.15, 0.45, sand + fine * 0.3);
+	float rip = sin((wall + big * 0.7) * 22.0 + fine * 2.0);
+	vec3 sc = grime.rgb * (0.88 + 0.2 * fine) * (0.92 + 0.1 * rip) * mix(0.72, 1.0, max(drift, fan));
+	c = mix(c, mix(grout.rgb, grime.rgb * 0.6, smoothstep(0.35, 0.75, big2 + fine * 0.3)), gap);
+	c = mix(c, sc, sand);
+	rough = mix(rough, 0.95, sand);
+	gap *= 1.0 - sand;
+	crack *= 1.0 - sand;
+	c *= 1.0 - crack * 0.5;
+	n = normalize(mix(n, vec3(rip * 0.12, 1.0, 0.0), sand));
+	// Greyer and darker, so heroes, skeletons and their shots stand out (the first try was
+	// twice as bright as the other floors and glowed orange).
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.72) * 0.8;
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -666,6 +823,8 @@ static var _wall_shaders := {}
 ##    frieze of gold crescent moons.
 ## 6. Frostfall Hall (the winter event): dark timber boards with frost on the beams and
 ##    snow banked at the foot.
+## 7. The Sandfall Tomb (floor 5): sandstone courses, a painted frieze of carved signs in
+##    gold on turquoise, and sand banked at the foot.
 ## The pattern follows where the point is in the world, so walls built from several boxes
 ## join up, and a box's top takes the pattern seen from above.
 static func _wall_material(look: Dictionary, base: Material) -> Material:
@@ -843,6 +1002,65 @@ void fragment() {
 	c = mix(c, bcol, bulb);
 	em += bcol * bulb * tw * 1.4 + bcol * (1.0 - smoothstep(0.0, 0.14, length(bl))) * (1.0 - top) * 0.12 * tw;
 	rough = mix(0.8, 0.6, bank);
+#elif STYLE == 7
+	// The Sandfall Tomb: courses of great sandstone blocks, a painted frieze at shoulder
+	// height (carved signs in gold on a turquoise band between gold lines, a band of lapis
+	// triangles under it) and sand banked against the foot.
+	const float BH = 0.62;
+	float row = floor(uv.y / BH);
+	float bx = uv.x / 1.3 + mod(row, 2.0) * 0.5;
+	float bc = floor(bx);
+	vec2 bf = vec2(fract(bx), fract(uv.y / BH));
+	float hb = h(vec2(bc, row));
+	c = vec3(0.36, 0.255, 0.16) * (0.8 + 0.35 * hb) * (0.88 + 0.24 * fine);
+	c *= mix(1.0, 1.08, step(0.6, h(vec2(bc, row + 9.0))));
+	float joint = (1.0 - smoothstep(0.0, 0.02, min(min(bf.x, 1.0 - bf.x) * 1.3, min(bf.y, 1.0 - bf.y) * BH))) * (1.0 - top);
+	c *= 1.0 + 0.12 * smoothstep(0.85, 1.0, bf.y) - 0.16 * (1.0 - smoothstep(0.0, 0.14, bf.y));
+	c = mix(c, vec3(0.07, 0.045, 0.03), joint * 0.85);
+	if (top < 0.5 && height > 1.08 && height < 1.66) {
+		float fy = height - 1.4;
+		vec3 fc = vec3(0.09, 0.3, 0.28) * (0.9 + 0.2 * fine);
+		vec2 g = vec2((fract(uv.x / 0.5) - 0.5) * 0.5, fy);
+		float gi = floor(uv.x / 0.5);
+		float kind = mod(gi, 4.0);
+		float d = 9.0;
+		if (kind < 1.0) {
+			float lid = max(length(g - vec2(0.0, 0.1)) - 0.14, length(g + vec2(0.0, 0.1)) - 0.14);
+			d = min(abs(lid) - 0.011, length(g) - 0.03);
+		} else if (kind < 2.0) {
+			float R = length(g);
+			d = min(abs(R - 0.075) - 0.011, R - 0.035);
+			float an = atan(g.y, g.x);
+			d = min(d, max(abs(fract(an / 0.7853982 + 0.5) - 0.5) * R * 0.785 - 0.009, abs(R - 0.13) - 0.03));
+		} else if (kind < 3.0) {
+			for (int k = 0; k < 2; k++) {
+				float yv = float(k) * 0.08 - 0.04 + 0.025 * (abs(fract(g.x * 8.0) - 0.5) * 4.0 - 1.0);
+				d = min(d, max(abs(g.y - yv) - 0.01, abs(g.x) - 0.15));
+			}
+		} else {
+			d = abs(length(g / vec2(0.07, 0.09)) - 1.0) * 0.07 - 0.009;
+			d = min(d, length(g - vec2(0.0, 0.12)) - 0.03);
+			d = min(d, max(abs(abs(g.x) - 0.1) - 0.008, abs(g.y) - 0.06));
+		}
+		float ad = fwidth(d) + 0.002;
+		fc = mix(fc, vec3(0.55, 0.41, 0.17), 1.0 - smoothstep(-ad, ad, d));
+		// Gold lines above and below, lapis triangles under the lower one.
+		float gl = 1.0 - smoothstep(0.012, 0.02, abs(abs(fy) - 0.2));
+		if (abs(fy) > 0.2) {
+			float tri = abs(fract(uv.x / 0.16) - 0.5) * 2.0;
+			fc = fy < 0.0 ? mix(vec3(0.36, 0.255, 0.16) * 0.9, vec3(0.07, 0.1, 0.24), step((-fy - 0.2) / 0.06, 1.0 - tri)) : vec3(0.36, 0.255, 0.16) * 0.95;
+		}
+		fc = mix(fc, vec3(0.55, 0.41, 0.17), gl);
+		c = mix(c, fc * (0.9 + 0.15 * hb), 1.0 - smoothstep(0.24, 0.27, abs(fy)));
+		em += vec3(0.55, 0.41, 0.17) * gl * 0.06;
+	}
+	if (top > 0.5) {
+		c = vec3(0.4, 0.3, 0.19) * (0.85 + 0.3 * fine);
+	}
+	// Sand banked against the foot of the wall.
+	float bank = clamp(1.0 - smoothstep(0.0, 0.3 + 0.45 * texture(blobs, vec2(uv.x * 0.25, 0.3)).r, height), 0.0, 1.0) * (1.0 - top);
+	c = mix(c, vec3(0.56, 0.43, 0.27) * (0.85 + 0.3 * fine), bank);
+	rough = mix(0.85, 0.95, bank);
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
@@ -946,10 +1164,11 @@ func _read_layout(layout: Array) -> void:
 				"#":
 					_add_obstacle(p, 0.6)
 					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts
-					# are made in code (props.gd).
-					if str(Floors.current().get("pillar", "")) == "timber":
+					# and the Sandfall Tomb's lotus columns are made in code (props.gd).
+					var kind := str(Floors.current().get("pillar", ""))
+					if kind == "timber" or kind == "lotus":
 						var post := MeshInstance3D.new()
-						post.mesh = Props.timber_post()
+						post.mesh = Props.timber_post() if kind == "timber" else Props.lotus_column()
 						_anchor(p).add_child(post)
 					else:
 						_add_pillar(p, stone)

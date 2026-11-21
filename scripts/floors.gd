@@ -1,7 +1,7 @@
 class_name Floors
 ## Each floor of the crypt has its own look, made from colours, lights, particles and its
-## own props (props.gd): the Bone Crypt, the Frozen Ossuary, the Ember Catacomb and (version
-## 128) the Glowcap Grotto on floor 4. Past the free floors (the Crypt Pass) the Drowned
+## own props (props.gd): the Bone Crypt, the Frozen Ossuary, the Ember Catacomb, (version
+## 128) the Glowcap Grotto on floor 4 and (version 247) the Sandfall Tomb on floor 5. Past the free floors (the Crypt Pass) the Drowned
 ## Vault joins them: floor 6 is flooded, then every fifth floor (see index). Each endless
 ## loop below floor 5 darkens them. To add a theme, copy an entry in THEMES. The floor keys (grout, grime, patch,
 ## water) are explained in room.gd's _floor_material; colours there are as they look on
@@ -96,6 +96,22 @@ const THEMES := [
 		# Big soft snowflakes falling (white, slow, never the shape or speed of a shot).
 		"motes": [Color(0.96, 0.98, 1.0, 0.9), Color(0.78, 0.86, 1.0, 0.45)], "motes_fall": true, "motes_size": 0.85,
 		"banner": Color(1.0, 0.35, 0.3), "floor_style": 6, "props": "yule", "pillar": "timber", "light": [1.2, 1.45, 0.0, 0.0]},
+	# Version 247 (whole-game review fix 4): the Sandfall Tomb, floor 5, where the free game
+	# ends with the King and the Lich. Until now floor 5 was the Frozen Ossuary again. A royal
+	# tomb under the desert: great sandstone blocks carved with signs, turquoise and gold
+	# inlay with a winged sun in the middle, sand pouring in through cracks in the walls and
+	# drifting in rippled dunes along them, painted coffins standing guard, obelisks, lotus
+	# columns and jars. Warm sun through the cracks, cool turquoise in the shadows.
+	{"name": "Sandfall Tomb", "wisp": Color(0.62, 0.95, 1.0), "floor": Color(1.0, 1.0, 1.0),
+		"grout": Color(0.06, 0.04, 0.03), "grime": Color(0.5, 0.4, 0.28), "grime_amount": 0.8,
+		"patch_tint": Color(0.95, 0.9, 0.85), "patch_rough": 0.7,
+		"wall": Color(0.3, 0.21, 0.13), "trim": Color(0.42, 0.3, 0.18),
+		"ambient": Color(0.2, 0.21, 0.27), "fog": Color(0.07, 0.045, 0.03), "background": Color(0.035, 0.022, 0.014),
+		"moon": Color(0.92, 0.86, 0.76), "torch": Color(1.0, 0.62, 0.32), "torch_energy": 1.3, "pool": 0.55,
+		# Grains of sand drifting in the light: small and pale, never the shape of a shot.
+		"motes": [Color(1.0, 0.86, 0.6, 0.6), Color(0.92, 0.72, 0.48, 0.28)], "motes_fall": false, "motes_size": 0.4,
+		"pebble": Color(0.9, 0.68, 0.45),   # the colour of loose stones on the floor (props.gd)
+		"banner": Color(1.0, 0.8, 0.42), "floor_style": 7, "props": "sand", "pillar": "lotus", "light": [1.05, 1.45, 0.1, 0.0]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
@@ -105,14 +121,17 @@ const GROTTO := 4
 const BLOOD_MOON := 5
 ## Frostfall Hall: never in the rotation, only in the Frostfall event's runs.
 const FROSTFALL := 6
-## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, Frozen.
-const FREE_ORDER := [0, 1, 2, GROTTO, 1]
+## The Sandfall Tomb: floor 5 (version 247).
+const SANDFALL := 7
+## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, and the Sandfall Tomb.
+const FREE_ORDER := [0, 1, 2, GROTTO, SANDFALL]
 ## Each loop of the Crypt Pass (5 floors, see Loops) shows all five, the Drowned Vault first.
 const PASS_ORDER := [DROWNED, 0, 1, 2, GROTTO]
 
 
-## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Grotto, Frozen
-## (until version 128 floor 4 was the Bone Crypt again, with the Lich for a second time);
+## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Grotto, Sandfall
+## (until version 128 floor 4 was the Bone Crypt again, with the Lich for a second time, and
+## until version 247 floor 5 was the Frozen Ossuary again);
 ## from floor 6 the five themes take turns starting with the Drowned Vault (6, 11, 16...),
 ## so it is the first thing the Crypt Pass shows. Music, room sounds and each theme's own
 ## skeletons follow the same order.
@@ -207,3 +226,8 @@ static func drowned() -> bool:
 ## The Glowcap Grotto (floor 4, then every fifth floor from 10).
 static func grotto() -> bool:
 	return index(Game.floor_num) == GROTTO
+
+
+## The Sandfall Tomb (floor 5).
+static func sandfall() -> bool:
+	return index(Game.floor_num) == SANDFALL

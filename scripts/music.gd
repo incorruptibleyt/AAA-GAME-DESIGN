@@ -21,9 +21,12 @@ const TRACKS := {
 	# it's on; Krampus's horns and bells.
 	"frost": [preload("res://audio/music/bc_frost.ogg"), preload("res://audio/music/bc_frost_fight.ogg")],
 	"krampus": [preload("res://audio/music/bc_krampus.ogg")],
+	# The Sandfall Tomb (version 247): the tune on a shehnai and an oboe over strings and
+	# harp, with hand drums and a tambourine.
+	"tomb": [preload("res://audio/music/bc_tomb.ogg"), preload("res://audio/music/bc_tomb_fight.ogg")],
 }
 ## One track per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost"]
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5

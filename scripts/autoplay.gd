@@ -884,14 +884,15 @@ func _gallery_step(delta: float) -> void:
 			Game.state = Game.State.TRANSITION
 			return
 		if _props:
-			# The floor's own props: a near corner and wall, the other wall, then the far end.
-			var spots := [Vector3(-4.6, 0, 8.4), Vector3(4.6, 0, 2.0), Vector3(-2.5, 0, -7.0)]
+			# The floor's own props: a near corner and wall, the other wall, then the far end
+			# and a far corner.
+			var spots := [Vector3(-4.6, 0, 8.4), Vector3(4.6, 0, 2.0), Vector3(-2.5, 0, -7.0), Vector3(3.8, 0, -6.5)]
 			for i in spots.size():
 				get_tree().create_timer(0.6 + i * 1.4).timeout.connect(func():
 					Game.hero.place_at(spots[i])
 					Game._snap_camera())
 				get_tree().create_timer(1.4 + i * 1.4).timeout.connect(_shot)
-			get_tree().create_timer(5.0).timeout.connect(get_tree().quit)
+			get_tree().create_timer(6.4).timeout.connect(get_tree().quit)
 			_gallery_t = 200.0
 			return
 		if _new_foes:

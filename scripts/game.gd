@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21p"
+const BUILD := "2026-11-21q"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1754,13 +1754,14 @@ func boss_kind() -> String:
 ## Ossuary ("f"), Cinder Skeletons in the Ember Catacomb ("e"), Drowned Skeletons in the
 ## Drowned Vault ("d"), Sporelings and Rootbinders in the Glowcap Grotto ("pr"), none in
 ## the Bone Crypt. The events' crypts: Bloodbats and Moon Howlers ("bh"); in Frostfall Hall
-## Snow Rollers, Bell Ringers and a Gift Thief ("noi").
+## Snow Rollers, Bell Ringers and a Gift Thief ("noi"). The Sandfall Tomb (floor 5, version
+## 247) keeps floor 5's Frost Wraiths (tomb spirits) and adds the scorched Cinder Skeletons.
 func theme_enemy() -> String:
 	if first_run:
 		return ""
 	if Floors.remixed(floor_num):
 		return str(Floors.PASS_REMIX[Floors.index(floor_num)].guests)   # v219: the Pass's own mix
-	return ["", "f", "e", "d", "pr", "bh", "noi"][Floors.index(floor_num)]
+	return ["", "f", "e", "d", "pr", "bh", "noi", "fe"][Floors.index(floor_num)]
 
 
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
@@ -2723,6 +2724,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	# room with a single minion still meets both over a floor.
 	if theme_kind.length() > 1 and index % 2 == 1:
 		theme_kind = theme_kind.reverse()
+	# The Sandfall Tomb's two (version 247) take turns, one a room, as floor 5 had one before.
+	if Floors.sandfall():
+		theme_kind = theme_kind.left(1)
 	# The tutorial teaches the basics first: bone spiders and bombers wait for floor 2. They
 	# are left out (they used to turn into extra minions, a bigger pack for a new player),
 	# unless that would leave fewer than two skeletons in the room.

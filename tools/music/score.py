@@ -119,6 +119,14 @@ def perc(s, style, b, d, sec):
             if pos == 0: s.note("perc", t, 36, .3, 50)
             if pos == 0 and t % 8 == 0: s.note("perc", t, 81, 2, 50)
             if sec in ("B", "A2") and pos == 2: s.note("perc", t, 53, .4, 40)
+        elif style == "tomb":
+            # The Sandfall Tomb: a hand drum's deep "dum" and its sharp "tek" in a desert
+            # rhythm, a tambourine in the busier sections, finger cymbals every two bars.
+            if pos in (0, 1.5): s.note("perc", t, 64, .3, 66 if pos == 0 else 54)
+            if pos in (1, 2.5, 3.5): s.note("perc", t, 60, .2, 46 if pos != 2.5 else 54)
+            if pos == 3: s.note("perc", t, 63, .2, 44)
+            if sec in ("B", "A2"): s.note("perc", t, 54, .2, 40 if k % 2 else 50)
+            if pos == 0 and t % 8 == 0: s.note("perc", t, 80, 1, 46)
         elif style == "grotto":
             if pos in (0, 2.5): s.note("perc", t, 77, .2, 64)
             if pos in (1, 3): s.note("perc", t, 76, .2, 50)
@@ -204,6 +212,10 @@ TRACKS = {
     "frost": ("calm", dict(bpm=92, tr=1, lead=9, dbl=8, pad=49, arp=46, ctr=58, perc="sleigh",
                            bass_style="soft", spark=14, seed=21)),
     "krampus": ("boss", dict(bpm=136, tr=-2, lead=60, dbl=14)),
+    # The Sandfall Tomb (version 247): the tune on a shehnai doubled by an oboe, a sitar for
+    # the broken chords, slow strings, a clarinet counter line, kalimba sparkles and hand drums.
+    "tomb": ("calm", dict(bpm=98, tr=-4, lead=111, dbl=68, pad=48, arp=104, ctr=71, perc="tomb",
+                          spark=108, seed=27)),
 }
 REVERB = dict(room=0.7, level=0.55, damp=0.45)
 
