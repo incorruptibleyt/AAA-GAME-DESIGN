@@ -2240,13 +2240,18 @@ static func add_drift_column(n: Node3D) -> void:
 ## 0.45 for "b") and about as tall, so what you see is what stops you and your shots.
 ## False when the floor has none of its own yet (room.gd then places the KayKit piece).
 static func add_cover(n: Node3D, cell: String) -> bool:
-	var mesh: ArrayMesh = null
 	match str(Floors.current().get("cover", "")) + ":" + cell:
-		"ice:c": mesh = _ice_block()
-		"ice:b": mesh = _frost_urn()
-	if mesh == null:
-		return false
-	_mesh(n, mesh)
+		"ice:c": _mesh(n, _ice_block())
+		"ice:b": _mesh(n, _frost_urn())
+		"ember:c":
+			_mesh(n, _pyre())
+			Fx.flame(n, Vector2(0.55, 0.75), Vector3(0.18, 1.02, 0.06))
+			Fx.flame(n, Vector2(0.38, 0.52), Vector3(-0.26, 0.94, -0.12))
+		"ember:b":
+			_mesh(n, _fire_cage())
+			Fx.flame(n, Vector2(0.4, 0.5), Vector3(0, 0.52, 0))
+		_:
+			return false
 	return true
 
 
@@ -2392,3 +2397,100 @@ static func _frost_urn() -> ArrayMesh:
 			parts.append([_cone(0.0, 0.045, ln, 4), _xf(out * 0.38 + Vector3(0, 0.36 + j * 0.05, 0) + up * ln * 0.45, Vector3.ONE, Basis(Quaternion(Vector3.UP, up))), _ice()])
 	_baked["frost_urn"] = _bake(parts)
 	return _baked["frost_urn"]
+
+
+## Embers glowing orange (not yellow: see the Foundry's fire) for the Ember Catacomb's cover.
+static func _ember_mat(k: String) -> StandardMaterial3D:
+	var key := "ember_" + k
+	if not _baked.has(key):
+		match k:
+			"coals": _baked[key] = U.mat(Color(0.95, 0.26, 0.05), 0.9, 1.6)
+			"char": _baked[key] = U.mat(Color(0.085, 0.065, 0.055), 0.95)
+			"bone": _baked[key] = U.mat(Color(0.62, 0.56, 0.48), 0.9)
+			"iron": _baked[key] = U.mat(Color(0.12, 0.1, 0.1), 0.45)
+	return _baked[key]
+
+
+## The Ember Catacomb's crates: a funeral pyre. Charred logs stacked crosswise four high,
+## coals glowing deep inside and at the end of every log, and the dead laid on top, burning
+## (room.gd's add_cover adds the flames).
+static func _pyre() -> ArrayMesh:
+	if _baked.has("pyre"):
+		return _baked["pyre"]
+	var parts := []
+	var soot := _ember_mat("char")
+	var coals := _ember_mat("coals")
+	var bone := _ember_mat("bone")
+	var wood := _cone(0.1, 0.1, 1.12, 7)
+	var end := _cone(0.075, 0.075, 0.02, 7)
+	for layer in 4:
+		var y := 0.1 + layer * 0.19
+		var across := layer % 2 == 1
+		for side in [-1.0, 1.0]:
+			var off: float = side * (0.4 - layer * 0.03)
+			var at := Vector3(0, y, off) if not across else Vector3(off, y, 0)
+			var turn := Basis(Vector3.FORWARD, PI / 2) if not across else Basis(Vector3.RIGHT, PI / 2)
+			turn = Basis(Vector3.UP, (layer - 1.5) * 0.05) * turn
+			parts.append([wood, _xf(at, Vector3.ONE, turn), soot])
+			for e in [-0.565, 0.565]:
+				parts.append([end, _xf(at + turn * Vector3(0, e, 0), Vector3.ONE, turn), coals])
+	# The fire deep in the stack, showing between the logs, and a bed of coals on top.
+	parts.append([_cube(), _xf(Vector3(0, 0.36, 0), Vector3(0.66, 0.56, 0.66)), coals])
+	parts.append([_cube(), _xf(Vector3(0, 0.76, 0), Vector3(0.9, 0.05, 0.84)), soot])
+	for c in [Vector3(0.3, 0.79, 0.28), Vector3(-0.1, 0.79, -0.3), Vector3(0.36, 0.79, -0.22)]:
+		parts.append([_sphere(), _xf(c, Vector3(0.07, 0.03, 0.07)), coals])
+	# The dead laid on top: skull, ribs, arms crossed, legs.
+	_skull(parts, Vector3(-0.36, 0.92, 0.0), 0.18, Vector3(-0.3, 1, 0), bone, coals)
+	for k in 4:
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.1
+		torus.outer_radius = 0.12
+		torus.rings = 10
+		torus.ring_segments = 4
+		parts.append([torus, Transform3D(Basis(Vector3.FORWARD, PI / 2), Vector3(-0.2 + k * 0.07, 0.86, 0)), bone])
+	_rod_part(parts, Vector3(-0.24, 0.84, 0.0), Vector3(0.12, 0.82, 0.0), 0.025, bone)
+	_rod_part(parts, Vector3(-0.2, 0.9, -0.12), Vector3(0.02, 0.93, 0.1), 0.022, bone)
+	_rod_part(parts, Vector3(-0.2, 0.9, 0.12), Vector3(0.02, 0.93, -0.1), 0.022, bone)
+	_rod_part(parts, Vector3(0.12, 0.83, -0.06), Vector3(0.44, 0.83, -0.1), 0.028, bone)
+	_rod_part(parts, Vector3(0.12, 0.83, 0.06), Vector3(0.44, 0.84, 0.12), 0.028, bone)
+	_baked["pyre"] = _bake(parts)
+	return _baked["pyre"]
+
+
+## The Ember Catacomb's barrels: a cage of black iron bars on a fire bowl, a skull burning
+## inside it on a heap of coals, its eyes lit (room.gd's add_cover adds the flame).
+static func _fire_cage() -> ArrayMesh:
+	if _baked.has("fire_cage"):
+		return _baked["fire_cage"]
+	var parts := []
+	var iron := _ember_mat("iron")
+	var coals := _ember_mat("coals")
+	var soot := _ember_mat("char")
+	parts.append([_cone(0.36, 0.4, 0.1, 10), _xf(Vector3(0, 0.05, 0), Vector3.ONE), iron])
+	parts.append([_cone(0.38, 0.32, 0.16, 10), _xf(Vector3(0, 0.18, 0), Vector3.ONE), iron])
+	parts.append([_sphere(), _xf(Vector3(0, 0.27, 0), Vector3(0.3, 0.08, 0.3)), coals])
+	# The skull burning on the coals: charred, its eyes and mouth lit.
+	_skull(parts, Vector3(0, 0.42, 0.02), 0.17, Vector3(0, 0.25, 1), soot, coals)
+	# Bars bulging out round it, a ring halfway and one at the top under a pointed cap.
+	for k in 8:
+		var a := TAU * k / 8.0
+		var out := Vector3(cos(a), 0, sin(a))
+		_rod_part(parts, out * 0.32 + Vector3(0, 0.24, 0), out * 0.37 + Vector3(0, 0.56, 0), 0.022, iron)
+		_rod_part(parts, out * 0.37 + Vector3(0, 0.56, 0), out * 0.26 + Vector3(0, 0.9, 0), 0.022, iron)
+	for ring in [[0.37, 0.56], [0.26, 0.9]]:
+		var t := TorusMesh.new()
+		t.inner_radius = ring[0] - 0.025
+		t.outer_radius = ring[0] + 0.025
+		t.rings = 12
+		t.ring_segments = 4
+		parts.append([t, Transform3D(Basis.IDENTITY, Vector3(0, ring[1], 0)), iron])
+	parts.append([_cone(0.02, 0.27, 0.16, 8), _xf(Vector3(0, 0.98, 0), Vector3.ONE), iron])
+	var hook := TorusMesh.new()
+	hook.inner_radius = 0.04
+	hook.outer_radius = 0.065
+	hook.rings = 8
+	hook.ring_segments = 4
+	parts.append([hook, Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(0, 1.1, 0)), iron])
+	_baked["fire_cage"] = _bake(parts)
+	return _baked["fire_cage"]
+

@@ -43,7 +43,11 @@ const THEMES := [
 		"moon": Color(0.9, 0.6, 0.45), "torch": Color(1.0, 0.45, 0.18), "torch_energy": 1.7,
 		# Embers stay small, dim and deep red so they never look like coins or enemy shots.
 		"motes": [Color(0.95, 0.38, 0.16, 0.5), Color(0.7, 0.15, 0.06, 0.2)], "motes_fall": false, "motes_size": 0.5,
-		"banner": Color(1, 0.55, 0.3), "floor_style": 3, "props": "ember", "light": [1.35, 1.6, 0.4, 0.3]},
+		"banner": Color(1, 0.55, 0.3),
+		# Version 257: its own cover (props.gd add_cover): funeral pyres burning for crates,
+		# iron fire cages with a burning skull for barrels.
+		"cover": "ember",
+		"floor_style": 3, "props": "ember", "light": [1.35, 1.6, 0.4, 0.3]},
 	# Flooded halls: dark green-grey stone under shallow water that pools in the low places
 	# and fills the gaps, rippling and catching the light. Pale sea-green lamps.
 	{"name": "Drowned Vault", "wisp": Color(0.35, 1.0, 0.9), "floor": Color(0.76, 0.9, 0.88), "water": Color(0.07, 0.25, 0.27, 1.0),

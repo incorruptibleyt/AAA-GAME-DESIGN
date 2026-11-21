@@ -1,4 +1,5 @@
-Version 256: the Frozen Ossuary has its own cover
-- On floor 2 the crates you hide behind are now blocks of clear ice with skeletons frozen inside, and the barrels are frosted urns full of skulls, hung with icicles.
-- They block movement and shots just like before, so nothing changes in how you play.
-- Next, every other floor gets its own cover too, one at a time.
+Version 257: the Ember Catacomb has its own cover
+- On floor 3 the crates you hide behind are now funeral pyres: charred logs stacked crosswise, glowing at every end, with the dead laid on top and burning.
+- The barrels are now iron fire cages with a skull burning inside on a heap of coals.
+- They block movement and shots just like before.
+- Floor 2's ice blocks and frosted urns came in version 256. The other floors follow, one at a time.
