@@ -779,7 +779,6 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 				if src and src.albedo_texture:
 					mi.material_override = LookFx.weapon(src, finish, glow, book if str(mi.name).begins_with("Spellbook") else null)
 				CryptArms.dress(mi, finish == "crypt")
-				ForgedArms.dress(mi, finish)   # v228-229: forged, gilded and void weapons have their own shapes
 				if str(mi.name) == "1H_Wand" and not mi.has_meta("big"):
 					_wand_star(mi, glow if glow is Color else Color(0.6, 0.85, 1.0))
 				if not mi.has_meta("big"):
@@ -789,6 +788,9 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 						_crest(mi, book if book is Color and not _reddish(book) else Color(0.18, 0.36, 0.8))
 					elif str(mi.name) == "Mug":
 						_tankard(mi, skel)
+				# v228-231: forged, gilded and void weapons have their own shapes (last, so a
+				# whole new weapon can hide what was added onto the one it replaces)
+				ForgedArms.dress(mi, finish)
 
 
 ## The Knight's crest shield (version 177) was a blank cream slab: it gets a crest on its

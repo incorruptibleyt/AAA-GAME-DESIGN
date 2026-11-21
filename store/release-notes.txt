@@ -1,7 +1,7 @@
-Version 230: the grandest weapons are rebuilt as whole new weapons
-- Knight: a magma cleaver, a gold sun hammer with a halo, a floating rift blade.
-- Barbarian: a magma maul, a gold ram's head mace, a twin moon axe.
-- Mage: a glacier staff, a sun scepter, a reaper's scythe and a burning grimoire.
-- Soft flickering fire, soft glows, and the Style screen steps back so big weapons fit.
-- Tap a chest and a bone hand bursts out holding your prize.
+Version 231: every special weapon is now a whole new weapon
+- Rogue: icicle crossbow, flame daggers, sun-wing crossbow, rift crossbow with a portal for limbs.
+- Knight: glacier sword and frost shield, magma cleaver, sun hammer, floating rift blade.
+- Barbarian: icicle axes, magma maul, ram's head mace, moon axe.
+- Mage: glacier staff, sun scepter, reaper's scythe, burning grimoire.
+- Soft fire and glows; big weapons fit on the Style screen.
 - The Blood Moon is up until Dec 3: hunt the Queen.

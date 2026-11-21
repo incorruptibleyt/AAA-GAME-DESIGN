@@ -1,22 +1,19 @@
 class_name ForgedArms
 ## Version 228-229 (Jesse: "the mage weapons ... aren't they just reskins?"): they were, and
 ## so was every hero's Frostforged, Emberforged, Gilded and Voidsteel weapon: a weapon the
-## hero already had, in a new colour (the LookFx.weapon finish). Each now has its own shape on
-## top of its finish:
-## - Mage: an ice crystal crown staff, a burning tome, a sun staff, a void scythe (v228).
-## - Knight: an ice-cased sword with a frost-spiked shield, and in place of the greatsword
-##   (v230): a magma cleaver, a gold sun hammer with a halo, a shattered rift blade.
-## - Rogue: a crossbow with ice limbs and an ice bolt, burning knives, a gold winged
-##   crossbow, a void crossbow with a portal ring at its front.
-## - Barbarian: ice-edged twin axes, and in place of the great axe (v230): a magma maul, a
-##   gold ram-headed mace, a moon axe with two crescent blades.
-## Built in the weapon mesh's own space, so the shapes scale with the weapon in a run.
-## Version 230 (critique of v229: "add-ons glued on the same weapon"): the Knight's and the
-## Barbarian's grand looks are whole new weapons. The weapon they were built on is hidden
-## (render layers 0) and a weapon of its own is built in its place. So are the Mage's four
-## (Jesse: "make sure you're happy with the mage weapons too"): a glacier staff, a sun
-## scepter, a reaper's scythe and a burning grimoire. Fire is soft flickering flame (Fx.flame)
-## instead of hard cones, which read as yellow spikes, and glows are soft light, not glass balls.
+## hero already had, in a new colour (the LookFx.weapon finish). 228-229 added shapes onto
+## those weapons; the critique of that ("add-ons glued on the same weapon") led to whole new
+## weapons: the weapon a look is built on is hidden (render layers 0, and whatever was added
+## onto it) and one of its own is built in its place, in the weapon mesh's own space so it
+## scales with the weapon in a run.
+## - Mage (v230): a glacier staff, a sun scepter, a reaper's scythe, a burning grimoire.
+## - Knight: a glacier sword and frost ward (v231); a magma cleaver, a gold sun hammer with a
+##   halo, a floating rift blade (v230).
+## - Rogue (v231): an icicle crossbow, flame krises, a sun-wing crossbow and wing dagger, a
+##   rift crossbow (a portal for limbs) and rift dagger.
+## - Barbarian: icicle axes (v231); a magma maul, a gold ram's head mace, a moon axe (v230).
+## Fire is soft flickering flame (Fx.flame), not hard cones that read as yellow spikes, and
+## glows are soft light, not glass balls. Only the Emberforged wand keeps an add-on (a flame).
 
 static var _mats := {}
 ## Which finish gives which shape, per weapon part (the weapon mesh's name in the hero model).
@@ -34,16 +31,20 @@ const SHAPES := {
 	"1H_Axe_Offhand": {"frost": "ice_axe"},
 	"2H_Axe": {"ember": "magma_maul", "gold": "ram_mace", "void": "moon_axe"},
 }
-## Shapes that are a whole weapon: the weapon they are built on is hidden.
-const REPLACES := ["ice_staff", "sun_staff", "scythe", "fire_tome",
-	"magma_cleaver", "sun_hammer", "rift_blade", "magma_maul", "ram_mace", "moon_axe"]
+## Shapes added onto the weapon they are built on; every other shape is a whole weapon of its
+## own, and the weapon it replaces is hidden (v231: all of them but the wand's flame).
+const ADD_ONS := ["fire_wand"]
 
 
 ## Puts the shape for `finish` on weapon `mi`, or takes an old one off.
 static func dress(mi: MeshInstance3D, finish: String) -> void:
 	var want: String = SHAPES.get(str(mi.name), {}).get(finish, "")
 	if SHAPES.has(str(mi.name)):
-		mi.layers = 0 if want in REPLACES else 1   # (a whole new weapon hides the one it replaces)
+		var whole := want != "" and not want in ADD_ONS
+		mi.layers = 0 if whole else 1   # (a whole new weapon hides the one it replaces)
+		for c in mi.get_children():   # and what was added onto it (the Knight's shield crest)
+			if c is Node3D and str(c.name) != "ForgedArms":
+				(c as Node3D).visible = not whole
 	var old := mi.get_node_or_null("ForgedArms")
 	if old:
 		if str(old.get_meta("shape", "")) == want:
@@ -278,9 +279,10 @@ static func _scythe(root: Node3D) -> void:
 		_part(motes, m, _mat("void mote"), Vector3(sin(a), 0.1 * (1 - 2 * i), cos(a)) * 0.3)
 
 
-## Burning grimoire (v230): in place of the open book, a thick black-red grimoire, its covers
-## open in a V with gold corners and a gold clasp, a glowing rune ring on each page, and soft
-## fire rising off its pages with embers circling above.
+## Burning grimoire (v230-231): in place of the open book, a thick dark-red grimoire lying open,
+## its pages swelling up from a deep middle the way an open book's do, gold corners, lines of
+## glowing script and a rune on each page, a red ribbon hanging out, and soft fire rising off
+## it with embers circling above.
 static func _fire(root: Node3D) -> void:
 	# (The open book it replaces stands about 0.83 wide and 0.57 tall in its x-y plane, its
 	# pages facing +z.)
@@ -288,51 +290,59 @@ static func _fire(root: Node3D) -> void:
 	var gold := _mat("gold")
 	var still := Node3D.new()
 	root.add_child(still)
+	var top := [Vector2(0.0, 0.25), Vector2(0.05, 0.3), Vector2(0.13, 0.33), Vector2(0.23, 0.34), Vector2(0.33, 0.33), Vector2(0.4, 0.31)]
+	var bottom := [Vector2(0.4, -0.31), Vector2(0.33, -0.29), Vector2(0.23, -0.28), Vector2(0.13, -0.29), Vector2(0.05, -0.31), Vector2(0.0, -0.35)]
 	for side: float in [-1.0, 1.0]:
 		var half := Node3D.new()
 		half.position = Vector3(0.0, 0.0, -0.04)
-		half.rotation = Vector3(0, -side * 0.32, 0)
+		half.rotation = Vector3(0, -side * 0.28, 0)
 		still.add_child(half)
-		var cover := BoxMesh.new()
-		cover.size = Vector3(0.5, 0.76, 0.05)
-		_part(half, cover, hide, Vector3(side * 0.25, 0, 0))
-		var pages := BoxMesh.new()
-		pages.size = Vector3(0.38, 0.6, 0.08)
-		_part(half, pages, _mat("page"), Vector3(side * 0.2, 0, 0.06))
-		for y: float in [-0.34, 0.34]:
-			var corner := BoxMesh.new()
-			corner.size = Vector3(0.11, 0.11, 0.09)
-			_part(half, corner, gold, Vector3(side * 0.46, y, 0.01))
+		var page := PackedVector2Array()
+		var cover := PackedVector2Array()
+		for v: Vector2 in top + bottom:
+			page.append(Vector2(v.x * side, v.y))
+			var grow := Vector2(0.05 if v.x > 0.2 else 0.0, 0.05 * signf(v.y))
+			cover.append(Vector2((v.x + grow.x) * side, v.y + grow.y))
+		var c := _slab_part(half, "grimoire cover %s" % side, cover, 0.03, hide)
+		c.position = Vector3(0, 0, -0.02)
+		var pg := _slab_part(half, "grimoire page %s" % side, page, 0.04, _mat("page"))
+		pg.position = Vector3(0, 0, 0.03)
+		# (The Mage holds the book turned on its side, so the lines of script run along y.)
+		for x: float in [0.08, 0.13, 0.31, 0.36]:
+			for y: Array in [[0.12, 0.16], [-0.12, 0.2]]:
+				var line := BoxMesh.new()
+				line.size = Vector3(0.022, float(y[1]), 0.01)
+				_part(half, line, _mat("ink"), Vector3(side * x, float(y[0]), 0.075))
 		var rune := TorusMesh.new()
-		rune.inner_radius = 0.085
-		rune.outer_radius = 0.11
+		rune.inner_radius = 0.06
+		rune.outer_radius = 0.085
 		rune.rings = 16
 		rune.ring_segments = 4
-		var r := _part(half, rune, _mat("magma"), Vector3(side * 0.2, -0.02, 0.105))
+		var r := _part(half, rune, _mat("magma"), Vector3(side * 0.22, 0.0, 0.075))
 		r.rotation = Vector3(PI / 2, 0, 0)
-		_rod(half, Vector3(side * 0.2, -0.13, 0.105), Vector3(side * 0.2, 0.09, 0.105), 0.012, 0.012, _mat("magma"))
-		FeatHeads.bake(half, "forged grimoire %s" % side)
+		for y: float in [-0.35, 0.37]:
+			var corner := BoxMesh.new()
+			corner.size = Vector3(0.11, 0.11, 0.08)
+			_part(half, corner, gold, Vector3(side * 0.43, y, -0.01))
+		FeatHeads.bake(half, "forged grimoire4 %s" % side)
 	var spine := CylinderMesh.new()
 	spine.top_radius = 0.06
 	spine.bottom_radius = 0.06
-	spine.height = 0.68
+	spine.height = 0.74
 	spine.radial_segments = 8
 	spine.rings = 1
-	_part(still, spine, hide, Vector3(0, 0, -0.06))
-	var clasp := SphereMesh.new()
-	clasp.radius = 0.07
-	clasp.height = 0.14
-	clasp.radial_segments = 8
-	clasp.rings = 4
-	_part(still, clasp, gold, Vector3(0, 0.0, -0.1))
-	var top := Vector3(0, 0.22, 0.06)
+	_part(still, spine, hide, Vector3(0, -0.03, -0.08))
+	var ribbon := BoxMesh.new()
+	ribbon.size = Vector3(0.05, 0.32, 0.012)
+	var rb := _part(still, ribbon, _mat("ribbon"), Vector3(0.03, -0.48, 0.03))
+	rb.rotation = Vector3(0, 0, 0.15)
 	var up := Upright.new()
-	up.position = top
+	up.position = Vector3(0, 0.26, 0.05)
 	root.add_child(up)
-	for f: Array in [[Vector3(0, 0, 0), 0.2, 0.85], [Vector3(-0.22, -0.04, 0.02), 0.14, 0.55], [Vector3(0.22, -0.04, -0.02), 0.14, 0.62]]:
+	for f: Array in [[Vector3(0, 0, 0), 0.2, 0.85], [Vector3(-0.24, 0.0, 0.02), 0.14, 0.55], [Vector3(0.24, 0.0, -0.02), 0.14, 0.62]]:
 		_flame(up, f[0], f[1], f[2])
 	_embers(up, Vector3(0, 0.45, 0), 4, 0.42, 0.07)
-	_glow(up, Vector3(0, 0.25, 0), 0.5, Color(1.0, 0.5, 0.12, 0.45))
+	_glow(up, Vector3(0, 0.15, 0), 0.55, Color(1.0, 0.5, 0.12, 0.45))
 
 
 ## The Emberforged wand: a small soft flame burning at its tip.
@@ -347,34 +357,57 @@ static func _fire_wand(root: Node3D) -> void:
 # 1H_Sword: blade up +y to 1.41, guard about 0.5 wide. Badge_Shield: 0.88 wide, 1.02 tall,
 # its face toward +z. 2H_Sword: guard at y 0.3 (0.84 wide), blade to 1.96 about 0.28 wide.
 
-## Frostforged sword: the blade cased in a long ice crystal, shards jutting off its edges.
+## Frostforged sword (v231): a glacier longsword. A blade of clear ice with a bright frost
+## ridge and small crystals breaking out of both edges, a crossguard of ice shards, an ice grip.
 static func _ice_sword(root: Node3D) -> void:
 	var ice := _mat("ice")
 	var still := Node3D.new()
 	root.add_child(still)
-	_crystal(still, Vector3(0, 0.12, 0), Vector3.UP, 0.15, 1.55, ice)
-	for i in 3:
-		for sd: float in [-1.0, 1.0]:
-			_crystal(still, Vector3(sd * 0.07, 0.42 + i * 0.3, 0), Vector3(sd, 1.0, 0), 0.065, 0.36 - i * 0.06, ice)
+	_rod(still, Vector3(0, -0.32, 0), Vector3(0, 0.14, 0), 0.05, 0.045, _mat("ice shaft"))
+	_crystal(still, Vector3(0, -0.3, 0), Vector3.DOWN, 0.06, 0.2, ice)
 	for sd: float in [-1.0, 1.0]:
-		_crystal(still, Vector3(sd * 0.18, 0.04, 0), Vector3(sd, 0.35, 0), 0.07, 0.34, ice)
-	FeatHeads.bake(still, "forged ice_sword")
-	_glow(root, Vector3(0, 0.85, 0), 0.4, Color(0.35, 0.85, 1.0, 0.22))
+		_crystal(still, Vector3(sd * 0.04, 0.15, 0), Vector3(sd, 0.3, 0), 0.06, 0.34, ice)
+		_crystal(still, Vector3(sd * 0.04, 0.13, 0), Vector3(sd, -0.35, 0), 0.04, 0.2, ice)
+	var blade := PackedVector2Array([Vector2(-0.11, 0.16), Vector2(-0.14, 0.9), Vector2(-0.09, 1.28), Vector2(0, 1.52),
+		Vector2(0.09, 1.28), Vector2(0.14, 0.9), Vector2(0.11, 0.16)])
+	_slab_part(still, "glacier blade", blade, 0.035, ice)
+	for z: float in [-0.04, 0.04]:
+		_rod(still, Vector3(0, 0.22, z), Vector3(0, 1.3, z), 0.018, 0.012, _mat("frost line"))
+	for sd: float in [-1.0, 1.0]:
+		for y: float in [0.5, 0.95]:
+			_crystal(still, Vector3(sd * 0.11, y + (0.08 if sd > 0.0 else 0.0), 0), Vector3(sd, 0.9, 0), 0.04, 0.2, ice)
+	FeatHeads.bake(still, "forged glacier_sword")
+	_glow(root, Vector3(0, 0.85, 0), 0.45, Color(0.35, 0.85, 1.0, 0.35))
 
 
-## Frostforged shield: a ring of ice spikes round the rim like a snowflake and a crystal boss.
+## Frostforged shield (v231): a frost ward. A kite shield of deep blue ice with a rim of clear
+## ice, a snowflake standing out on both faces round a crystal boss, ice spikes along its top.
 static func _ice_shield(root: Node3D) -> void:
 	var ice := _mat("ice")
 	var still := Node3D.new()
 	root.add_child(still)
-	var c := Vector3(0, -0.03, 0.02)
-	for i in 10:
-		var a := i / 10.0 * TAU
-		var d := Vector3(sin(a), cos(a), 0)
-		_crystal(still, c + Vector3(d.x * 0.38, d.y * 0.44, 0), d + Vector3(0, 0, 0.2), 0.075, 0.42 if i % 2 == 0 else 0.26, ice)
-	_crystal(still, c + Vector3(0, 0, 0.06), Vector3(0, 0, 1), 0.15, 0.42, ice)
-	FeatHeads.bake(still, "forged ice_shield")
-	_glow(root, c + Vector3(0, 0, 0.12), 0.45, Color(0.35, 0.85, 1.0, 0.22))
+	var outline := [Vector2(0, 0.5), Vector2(0.42, 0.36), Vector2(0.44, -0.08), Vector2(0, -0.6), Vector2(-0.44, -0.08), Vector2(-0.42, 0.36)]
+	var body := _slab_part(still, "frost ward", PackedVector2Array(outline), 0.06, _mat("ice shaft"))
+	body.position = Vector3(0, 0, -0.02)
+	for i in outline.size():
+		var a: Vector2 = outline[i]
+		var b: Vector2 = outline[(i + 1) % outline.size()]
+		_rod(still, Vector3(a.x, a.y, -0.02), Vector3(b.x, b.y, -0.02), 0.05, 0.05, ice)
+	for z: float in [-0.1, 0.06]:
+		var out := 1.0 if z > 0.0 else -1.0
+		for i in 6:
+			var ang := i / 6.0 * TAU
+			var d := Vector3(sin(ang), cos(ang), 0)
+			_rod(still, Vector3(0, -0.04, z), Vector3(0, -0.04, z) + d * 0.3, 0.025, 0.018, _mat("frost line"))
+			var mid := Vector3(0, -0.04, z) + d * 0.19
+			var n := Vector3(-d.y, d.x, 0) * 0.07
+			_rod(still, mid - n + d * 0.05, mid, 0.015, 0.015, _mat("frost line"))
+			_rod(still, mid + n + d * 0.05, mid, 0.015, 0.015, _mat("frost line"))
+		_crystal(still, Vector3(0, -0.04, z), Vector3(0, 0, out), 0.1, 0.3, ice)
+	for x: float in [-0.22, 0.0, 0.22]:
+		_crystal(still, Vector3(x, 0.44 - absf(x) * 0.6, -0.02), Vector3(x * 1.5, 1, 0), 0.05, 0.26 if x == 0.0 else 0.18, ice)
+	FeatHeads.bake(still, "forged frost_ward")
+	_glow(root, Vector3(0, 0, 0.1), 0.5, Color(0.35, 0.85, 1.0, 0.3))
 
 
 ## Emberforged (v230): a magma cleaver. A broad black-iron blade that widens to a hooked,
@@ -512,121 +545,220 @@ static func _rift_blade(root: Node3D) -> void:
 # and the Rogue holds it pointing at the floor, so shapes rise along +y. Knife(_Offhand):
 # blade up +y to 0.98.
 
-## Frostforged crossbow: ice limbs reaching far past the bow's own, an ice-shard bolt and
-## frost spikes along the stock.
+## The crossbow's stock along +z from `z0` to `z1`, with a grip hanging under it.
+static func _stock(still: Node3D, z0: float, z1: float, mat: Material, grip: Material) -> void:
+	_rod(still, Vector3(0, 0.06, z0), Vector3(0, 0.06, z1), 0.075, 0.06, mat)
+	_rod(still, Vector3(0, 0.03, 0.12), Vector3(0, -0.24, 0.03), 0.05, 0.045, grip)
+
+
+## Frostforged crossbow (v231): an icicle crossbow. A stock of clear ice with frost spikes along
+## its back, ice limbs sweeping back to crystal tips, a frost string and a long ice-shard bolt.
 static func _ice_bow(root: Node3D) -> void:
 	var ice := _mat("ice")
 	var still := Node3D.new()
 	root.add_child(still)
+	_stock(still, -0.26, 1.0, _mat("ice shaft"), ice)
+	_crystal(still, Vector3(0, 0.06, -0.24), Vector3(0, -0.15, -1), 0.08, 0.3, ice)
 	for sd: float in [-1.0, 1.0]:
-		_crystal(still, Vector3(sd * 0.5, 0.06, 0.84), Vector3(sd, 0.35, -0.45), 0.1, 0.62, ice)
-		_crystal(still, Vector3(sd * 0.5, 0.06, 0.84), Vector3(sd * 0.4, 1.0, -0.2), 0.07, 0.36, ice)
-	_crystal(still, Vector3(0, 0.3, -0.05), Vector3(0, 0.05, 1), 0.075, 1.45, ice)
-	for i in 3:
-		_crystal(still, Vector3(0, 0.27, 0.15 + i * 0.25), Vector3(0, 1, -0.25), 0.055, 0.26 - i * 0.04, ice)
-	FeatHeads.bake(still, "forged ice_bow")
-	_glow(root, Vector3(0, 0.25, 0.7), 0.5, Color(0.35, 0.85, 1.0, 0.22))
+		var arc := [Vector3(sd * 0.05, 0.09, 0.9), Vector3(sd * 0.32, 0.12, 0.84), Vector3(sd * 0.56, 0.14, 0.66)]
+		for k in arc.size() - 1:
+			_rod(still, arc[k], arc[k + 1], 0.065 - k * 0.015, 0.05 - k * 0.015, ice)
+		_crystal(still, arc[2], Vector3(sd * 0.6, 0.1, -1), 0.05, 0.36, ice)
+		_rod(still, Vector3(sd * 0.68, 0.14, 0.4), Vector3(0, 0.12, 0.34), 0.012, 0.012, _mat("frost line"))
+	for k in 3:
+		_crystal(still, Vector3(0, 0.12, 0.05 + k * 0.28), Vector3(0, 1, -0.5), 0.05, 0.24 - k * 0.04, ice)
+	FeatHeads.bake(still, "forged icicle_bow")
+	_crystal(root, Vector3(0, 0.15, 0.3), Vector3(0, 0, 1), 0.05, 1.2, ice)
+	_glow(root, Vector3(0, 0.15, 0.8), 0.6, Color(0.35, 0.85, 1.0, 0.35))
 
 
-## Gilded crossbow: gold wings spread from both limbs and a white-hot gem at the grip.
+## Gilded crossbow (v231): a sun-wing crossbow. A white-gold stock with gold bands, gold wings
+## for limbs, threads of light for a string, a gold bolt, and a sun gem at its front.
 static func _wing_bow(root: Node3D) -> void:
 	var gold := _mat("gold")
 	var still := Node3D.new()
 	root.add_child(still)
+	_stock(still, -0.26, 1.02, _mat("white gold"), gold)
+	for z: float in [-0.05, 0.45]:
+		_rod(still, Vector3(0, 0.06, z), Vector3(0, 0.06, z + 0.07), 0.09, 0.09, gold)
+	var butt := SphereMesh.new()
+	butt.radius = 0.1
+	butt.height = 0.2
+	butt.radial_segments = 10
+	butt.rings = 5
+	_part(still, butt, gold, Vector3(0, 0.06, -0.3))
 	for sd: float in [-1.0, 1.0]:
 		for k in 5:
-			var ang := deg_to_rad(8.0 + k * 19.0)
-			var d := Vector3(sd * cos(ang), sin(ang), -0.3)
-			_feather(still, Vector3(sd * 0.45, 0.08, 0.82), d, 0.62 - k * 0.08, 0.15, gold)
-	FeatHeads.bake(still, "forged wing_bow")
+			var ang := deg_to_rad(6.0 + k * 19.0)
+			_feather(still, Vector3(sd * 0.06, 0.1, 0.86), Vector3(sd * cos(ang), sin(ang), -0.3), 0.78 - k * 0.09, 0.17, gold)
+	FeatHeads.bake(still, "forged sunwing_bow")
+	for sd: float in [-1.0, 1.0]:
+		_rod(root, Vector3(sd * 0.68, 0.16, 0.66), Vector3(0, 0.12, 0.36), 0.012, 0.012, _mat("sun core"))
+	_rod(root, Vector3(0, 0.15, 0.3), Vector3(0, 0.15, 1.15), 0.025, 0.025, gold)
+	_cone(root, Vector3(0, 0.15, 1.15), Vector3(0, 0, 1), 0.06, 0.2, gold)
 	var gem := SphereMesh.new()
-	gem.radius = 0.1
-	gem.height = 0.2
+	gem.radius = 0.11
+	gem.height = 0.22
 	gem.radial_segments = 10
 	gem.rings = 5
-	_part(root, gem, _mat("sun core"), Vector3(0, 0.3, 0.2))
-	_glow(root, Vector3(0, 0.35, 0.6), 0.5, Color(1.0, 0.75, 0.25, 0.2))
+	_part(root, gem, _mat("sun core"), Vector3(0, 0.06, 1.06))
+	_glow(root, Vector3(0, 0.3, 0.8), 0.6, Color(1.0, 0.75, 0.25, 0.4))
 
 
-## Voidsteel crossbow: a violet portal ring stands at its front for the bolts to fly through,
-## motes circling it, and a black star loaded on the stock.
+## Voidsteel crossbow (v231): a rift crossbow. A black stock with violet fins along its back, no
+## limbs: a portal ring stands where they were, turning, four void shards riding it, and a
+## void bolt laid through it. A black star sits at its butt.
 static func _ring_bow(root: Node3D) -> void:
+	var still := Node3D.new()
+	root.add_child(still)
+	_stock(still, -0.22, 0.9, _mat("void blade"), _mat("void blade"))
+	for k in 3:
+		_cone(still, Vector3(0, 0.12, 0.05 + k * 0.26), Vector3(0, 1, -0.6), 0.05, 0.22, _mat("void shard"))
+	FeatHeads.bake(still, "forged rift_bow")
+	_orb(root, Vector3(0, 0.06, -0.3), 0.1)
 	var gate := Spin.new()
 	gate.axis = Vector3(0, 0, 1)
 	gate.speed = 1.5
-	gate.position = Vector3(0, 0.12, 1.12)
+	gate.position = Vector3(0, 0.12, 0.86)
 	root.add_child(gate)
 	var ring := TorusMesh.new()
-	ring.inner_radius = 0.3
-	ring.outer_radius = 0.37
-	ring.rings = 28
+	ring.inner_radius = 0.34
+	ring.outer_radius = 0.41
+	ring.rings = 32
 	ring.ring_segments = 6
 	var r := _part(gate, ring, _mat("void edge"), Vector3.ZERO)
 	r.rotation = Vector3(PI / 2, 0, 0)
 	var disc := CylinderMesh.new()
-	disc.top_radius = 0.31
-	disc.bottom_radius = 0.31
+	disc.top_radius = 0.35
+	disc.bottom_radius = 0.35
 	disc.height = 0.02
-	disc.radial_segments = 20
+	disc.radial_segments = 24
 	var d := _part(gate, disc, _mat("void veil"), Vector3.ZERO)
 	d.rotation = Vector3(PI / 2, 0, 0)
-	for i in 3:
-		var a := i / 3.0 * TAU
-		var m := SphereMesh.new()
-		m.radius = 0.055
-		m.height = 0.11
-		m.radial_segments = 8
-		m.rings = 4
-		_part(gate, m, _mat("void mote"), Vector3(sin(a), cos(a), 0) * 0.5)
-	_orb(root, Vector3(0, 0.32, 0.4), 0.11)
+	for i in 4:
+		var a := i / 4.0 * TAU + PI / 4
+		var out := Vector3(sin(a), cos(a), 0)
+		_cone(gate, out * 0.39, out, 0.055, 0.22, _mat("void shard"))
+	_crystal(root, Vector3(0, 0.15, 0.25), Vector3(0, 0, 1), 0.05, 1.05, _mat("void shard"))
+	_glow(root, Vector3(0, 0.12, 0.86), 0.6, Color(0.6, 0.25, 1.0, 0.35))
 
 
-## Emberforged knife: the blade burns, two flames rising off it and embers at the tip.
+## Emberforged knives (v231): flame krises. A wavy blade of red-hot iron with a glowing edge,
+## a horned guard, a magma pommel, and soft fire rising off the blade.
 static func _flame_knife(root: Node3D) -> void:
-	for k in 2:
-		var up := Upright.new()
-		up.position = Vector3(0, 0.42 + k * 0.36, 0)
-		root.add_child(up)
-		_flame(up, Vector3.ZERO, 0.12, 0.46 - k * 0.08)
-	var top := Upright.new()
-	top.position = Vector3(0, 0.95, 0)
-	root.add_child(top)
-	_embers(top, Vector3(0, 0.12, 0), 3, 0.22, 0.06)
-	_glow(root, Vector3(0, 0.7, 0), 0.32, Color(1.0, 0.5, 0.12, 0.22))
-
-
-## The Gilded off-hand knife: small gold wings at its guard.
-static func _wing_knife(root: Node3D) -> void:
 	var still := Node3D.new()
 	root.add_child(still)
+	_rod(still, Vector3(0, -0.2, 0), Vector3(0, 0.08, 0), 0.045, 0.04, _mat("iron"))
+	var pommel := SphereMesh.new()
+	pommel.radius = 0.065
+	pommel.height = 0.13
+	pommel.radial_segments = 8
+	pommel.rings = 4
+	_part(still, pommel, _mat("magma"), Vector3(0, -0.23, 0))
+	_slab_part(still, "kris guard", PackedVector2Array([Vector2(-0.19, 0.08), Vector2(-0.24, 0.18), Vector2(-0.08, 0.13),
+		Vector2(0.08, 0.13), Vector2(0.24, 0.18), Vector2(0.19, 0.08), Vector2(0.06, 0.03), Vector2(-0.06, 0.03)]), 0.04, _mat("iron"))
+	var left := []
+	var right := []
+	for k in 7:
+		var y := 0.13 + k * 0.12
+		var wave := 0.035 * sin(k * PI * 0.75)
+		var w := 0.085 * (1.0 - k * 0.07)
+		left.append(Vector2(wave - w, y))
+		right.append(Vector2(wave + w, y))
+	var pts := PackedVector2Array(left)
+	pts.append(Vector2(0.0, 1.04))
+	right.reverse()
+	pts.append_array(PackedVector2Array(right))
+	_slab_part(still, "kris blade", pts, 0.025, _mat("hot iron"))
+	for k in right.size() - 1:
+		_rod(still, Vector3(right[k].x, right[k].y, 0), Vector3(right[k + 1].x, right[k + 1].y, 0), 0.022, 0.022, _mat("magma"))
+	FeatHeads.bake(still, "forged flame_kris")
+	for k in 2:
+		var up := Upright.new()
+		up.position = Vector3(0, 0.45 + k * 0.36, 0)
+		root.add_child(up)
+		_flame(up, Vector3.ZERO, 0.1, 0.4 - k * 0.08)
+	var top := Upright.new()
+	top.position = Vector3(0, 1.0, 0)
+	root.add_child(top)
+	_embers(top, Vector3(0, 0.1, 0), 3, 0.2, 0.055)
+	_glow(root, Vector3(0, 0.65, 0), 0.4, Color(1.0, 0.5, 0.12, 0.35))
+
+
+## Gilded off-hand knife (v231): a wing dagger. A leaf-shaped gold blade with a white-gold
+## ridge, gold wings for a guard and a sun gem pommel.
+static func _wing_knife(root: Node3D) -> void:
+	var gold := _mat("gold")
+	var still := Node3D.new()
+	root.add_child(still)
+	_rod(still, Vector3(0, -0.2, 0), Vector3(0, 0.06, 0), 0.042, 0.04, _mat("white gold"))
+	_slab_part(still, "wing dagger", PackedVector2Array([Vector2(-0.08, 0.12), Vector2(-0.12, 0.45), Vector2(-0.07, 0.8),
+		Vector2(0, 1.02), Vector2(0.07, 0.8), Vector2(0.12, 0.45), Vector2(0.08, 0.12)]), 0.025, gold)
+	for z: float in [-0.03, 0.03]:
+		_rod(still, Vector3(0, 0.16, z), Vector3(0, 0.88, z), 0.014, 0.01, _mat("white gold"))
 	for sd: float in [-1.0, 1.0]:
 		for k in 3:
-			var ang := deg_to_rad(15.0 + k * 22.0)
-			_feather(still, Vector3(sd * 0.05, 0.03, 0), Vector3(sd * cos(ang), sin(ang), 0), 0.36 - k * 0.06, 0.09, _mat("gold"))
-	FeatHeads.bake(still, "forged wing_knife")
+			var ang := deg_to_rad(12.0 + k * 24.0)
+			_feather(still, Vector3(sd * 0.05, 0.08, 0), Vector3(sd * cos(ang), sin(ang), 0), 0.4 - k * 0.07, 0.1, gold)
+	FeatHeads.bake(still, "forged wing_dagger")
+	var gem := SphereMesh.new()
+	gem.radius = 0.065
+	gem.height = 0.13
+	gem.radial_segments = 8
+	gem.rings = 4
+	_part(root, gem, _mat("sun core"), Vector3(0, -0.24, 0))
 
 
-## The Voidsteel off-hand knife: a black star at its pommel with motes circling it.
+## Voidsteel off-hand knife (v231): a rift dagger. A black grip and a blade broken into three
+## floating violet shards with glowing rims, a black star for a pommel.
 static func _void_knife(root: Node3D) -> void:
-	_orb(root, Vector3(0, -0.2, 0), 0.08)
+	var still := Node3D.new()
+	root.add_child(still)
+	_rod(still, Vector3(0, -0.2, 0), Vector3(0, 0.08, 0), 0.045, 0.04, _mat("void blade"))
+	_slab_part(still, "rift dagger guard", PackedVector2Array([Vector2(-0.18, 0.1), Vector2(0, 0.04), Vector2(0.18, 0.1), Vector2(0, 0.17)]), 0.035, _mat("void edge"))
+	FeatHeads.bake(still, "forged rift_dagger")
+	for k in 3:
+		var y0 := 0.24 + k * 0.27
+		var w := 0.09 - k * 0.012
+		var pts := PackedVector2Array([Vector2(-w, 0), Vector2(w, 0), Vector2(w * 0.8, 0.2), Vector2(-w * 0.8, 0.2)])
+		if k == 2:
+			pts = PackedVector2Array([Vector2(-w, 0), Vector2(w, 0), Vector2(0, 0.3)])
+		var piece := Node3D.new()
+		piece.position = Vector3(0.025 * (1 - 2 * (k % 2)), y0, 0)
+		piece.rotation = Vector3(0, 0, 0.08 * (1 - 2 * (k % 2)))
+		root.add_child(piece)
+		_slab_part(piece, "rift dagger %d" % k, pts, 0.025, _mat("void blade"))
+		var rim := _slab_part(piece, "rift dagger %d" % k, pts, 0.025, _mat("void edge"))
+		rim.scale = Vector3(1.2, 1.12, 0.6)
+		rim.position = Vector3(0, -0.01, 0)
+	_orb(root, Vector3(0, -0.25, 0), 0.07)
+	_glow(root, Vector3(0, 0.55, 0), 0.4, Color(0.6, 0.25, 1.0, 0.3))
 
 
 # ---------------------------------------------------------------- Barbarian
 # 1H_Axe(_Offhand): handle up +y to 0.97, the blade out to x -0.59 near the top.
 # 2H_Axe: two blades out to x 0.62 between y 0.72 and 1.29.
 
-## Frostforged axe: ice crystals growing out of the blade's edge and a spike on top.
+## Frostforged twin axes (v231): icicle axes. A dark haft with ice wraps, a bearded axe head
+## of clear ice with a bright frost edge, a spike at the back, one on top, icicles hanging.
 static func _ice_axe(root: Node3D) -> void:
 	var ice := _mat("ice")
 	var still := Node3D.new()
 	root.add_child(still)
-	for i in 4:
-		var y := 0.56 + i * 0.13
-		_crystal(still, Vector3(-0.5, y, 0), Vector3(-1, (i - 1.5) * 0.4, 0), 0.075, 0.34 if i == 1 or i == 2 else 0.26, ice)
-	_crystal(still, Vector3(-0.08, 0.9, 0), Vector3(0.15, 1, 0), 0.07, 0.42, ice)
-	_crystal(still, Vector3(0.06, 0.76, 0), Vector3(1, 0.4, 0), 0.06, 0.3, ice)
-	FeatHeads.bake(still, "forged ice_axe")
-	_glow(root, Vector3(-0.45, 0.78, 0), 0.38, Color(0.35, 0.85, 1.0, 0.22))
+	_rod(still, Vector3(0, -0.27, 0), Vector3(0, 0.96, 0), 0.05, 0.045, _mat("wood"))
+	for y: float in [-0.05, 0.3]:
+		_rod(still, Vector3(0, y, 0), Vector3(0, y + 0.08, 0), 0.07, 0.07, ice)
+	var head := [Vector2(0.06, 0.94), Vector2(-0.12, 0.96), Vector2(-0.36, 1.14), Vector2(-0.62, 1.02), Vector2(-0.68, 0.68),
+		Vector2(-0.54, 0.38), Vector2(-0.32, 0.44), Vector2(-0.14, 0.62), Vector2(0.06, 0.6)]
+	_slab_part(still, "icicle axe", PackedVector2Array(head), 0.045, ice)
+	for k in range(2, 5):
+		_rod(still, Vector3(head[k].x - 0.01, head[k].y, 0), Vector3(head[k + 1].x - 0.01, head[k + 1].y, 0), 0.03, 0.03, _mat("frost line"))
+	_crystal(still, Vector3(0.05, 0.77, 0), Vector3(1, 0.25, 0), 0.06, 0.34, ice)
+	_crystal(still, Vector3(0, 0.95, 0), Vector3(0.1, 1, 0), 0.06, 0.32, ice)
+	for x: float in [-0.5, -0.38, -0.26]:
+		_crystal(still, Vector3(x, 0.43 + (x + 0.5) * 0.4, 0), Vector3.DOWN, 0.035, 0.2 - (x + 0.5) * 0.25, ice)
+	FeatHeads.bake(still, "forged icicle_axe")
+	_glow(root, Vector3(-0.38, 0.78, 0), 0.45, Color(0.35, 0.85, 1.0, 0.3))
 
 
 ## Emberforged (v230): a magma maul. A great lump of black rock split by glowing magma on
@@ -1026,6 +1158,15 @@ static func _mat(kind: String) -> Material:
 		"wood":
 			m.albedo_color = Color(0.36, 0.22, 0.13)
 			m.roughness = 0.7
+		"frost line":
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.albedo_color = Color(0.85, 0.97, 1.0) * 1.15
+		"page edge":
+			m.albedo_color = Color(0.78, 0.66, 0.48)
+			m.roughness = 0.9
+		"ribbon":
+			m.albedo_color = Color(0.75, 0.1, 0.08)
+			m.roughness = 0.6
 		"hot iron":
 			m.albedo_color = Color(0.32, 0.22, 0.2)
 			m.metallic = 0.7
@@ -1041,11 +1182,14 @@ static func _mat(kind: String) -> Material:
 			m.emission = Color(0.42, 0.16, 0.75)
 			m.emission_energy_multiplier = 0.9
 		"page":
-			m.albedo_color = Color(0.85, 0.62, 0.4)
+			m.albedo_color = Color(0.93, 0.82, 0.62)
 			m.roughness = 0.8
 			m.emission_enabled = true
-			m.emission = Color(1.0, 0.45, 0.12)
-			m.emission_energy_multiplier = 0.35
+			m.emission = Color(1.0, 0.5, 0.15)
+			m.emission_energy_multiplier = 0.15
+		"ink":
+			m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+			m.albedo_color = Color(0.85, 0.3, 0.06)
 		"ice shaft":
 			m.albedo_color = Color(0.5, 0.78, 0.95)
 			m.metallic = 0.35

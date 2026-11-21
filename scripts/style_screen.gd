@@ -1295,7 +1295,8 @@ class Swatch extends Control:
 				"crossbow", "heavy":
 					var w := r * (1.0 if p == "heavy" else 0.75)
 					draw_line(c + Vector2(0, r * 0.8), c + Vector2(0, -r * 0.6), wood, r * 0.14)
-					draw_arc(c + Vector2(0, -r * 0.1), w, PI * 1.15, PI * 1.85, 16, steel, r * 0.12, true)
+					if not (p == "heavy" and finish in ["gold", "void"]):   # (v231: wings or a portal for limbs)
+						draw_arc(c + Vector2(0, -r * 0.1), w, PI * 1.15, PI * 1.85, 16, steel, r * 0.12, true)
 				"knife", "knife2":
 					var o := c + Vector2(r * 0.45 if p == "knife" else -r * 0.45, 0)
 					draw_line(o + Vector2(0, r * 0.6), o + Vector2(0, -r * 0.5), steel, r * 0.14)
