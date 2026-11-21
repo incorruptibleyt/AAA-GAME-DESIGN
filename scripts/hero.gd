@@ -136,6 +136,15 @@ var _charge_full := false
 const CHARGE_TIME := 1.2
 const CHARGE_MIN := 0.25   # less than this and the next orb is a plain one
 
+## Version 236 (fix 2, the Rogue). The only hero who fights on the run: while moving, the
+## Rogue throws knives at the nearest skeleton (run_fire times the crossbow's rate, each
+## KNIFE_SHARE of a bolt, Twin Shots and the other hit blessings count); standing still,
+## the crossbow fires as before.
+var run_fire := 0.0
+var knives := 0   # thrown this run
+var _knife_timer := 0.35
+const KNIFE_SHARE := 0.6
+
 
 static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	var cfg := Game._load_save()
@@ -163,6 +172,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.guard = def.get("guard", false)
 	h.boomerang = def.get("boomerang", 0.0)
 	h.charges = def.get("charge", false)
+	h.run_fire = def.get("run_fire", 0.0)
 	parent.add_child(h)
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
@@ -557,6 +567,8 @@ func _process(delta: float) -> void:
 		# shortly after you stop.
 		_shot_timer = maxf(_shot_timer - delta, 0.12)
 		_retarget = 0.0   # and aims from where you stopped
+		if run_fire > 0.0 and playing:
+			_run_knives(delta)
 	else:
 		move_by(Vector3.ZERO, delta)
 		if playing:
@@ -650,6 +662,36 @@ func _shoot(fwd: Vector3) -> void:
 	for i in rear_bolts:
 		_fire(global_position + Vector3.UP * 1.1 - fwd * 0.6, -fwd, col)
 	_bone_storm(fwd, origin)
+
+
+## The Rogue's knives on the run: one at the nearest skeleton in sight whenever the knife
+## hand is ready. The body keeps facing the way it runs.
+func _run_knives(delta: float) -> void:
+	_knife_timer -= delta
+	if _knife_timer > 0.0:
+		return
+	var t := _pick_target()
+	if t == null:
+		_knife_timer = 0.1
+		return
+	var to := t.global_position - global_position
+	to.y = 0.0
+	if to.length() > 13.0:
+		_knife_timer = 0.1
+		return
+	_knife_timer = 1.0 / maxf(shots_per_second * run_fire, 0.1)
+	knives += 1
+	var d := to.normalized()
+	var origin := global_position + Vector3.UP * 1.1 + d * 0.5
+	var p := Projectile.fire(Team.HERO, origin, d, damage * KNIFE_SHARE * pow(TWIN_GAIN, front_bolts - 1) * Game.chain_damage(), bolt_speed * 1.15, Color(0.86, 0.92, 1.0), bolt_size * 0.85, "Shot", "shard")
+	p.pierce = pierce
+	p.push = bolt_push * 0.5
+	p.crit_chance = crit_chance
+	p.crit_mult = crit_mult
+	p.burn_dps = burn_dps
+	p.frost = frost
+	Sfx.play("swing", 0.25, 1.6)
+	Game._teach("rogue_knives", "KNIVES: the Rogue throws knives while running. Stand still for the crossbow!")
 
 
 ## Bone Storm: every third volley (or swing) also throws a ring of piercing bone shards.

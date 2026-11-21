@@ -5,11 +5,11 @@ class_name Heroes
 ## hero's own colour: the ring at their feet and the glow around their edges.
 
 const LIST := [
-	{"id": "rogue", "difficulty": 2, "title": "Rogue", "text": "Quick crossbow bolts. A good all-rounder.", "cost": 0,
+	{"id": "rogue", "difficulty": 2, "title": "Rogue", "text": "The only hero who fights on the run: throws knives while moving, and quick crossbow bolts standing still.", "cost": 0,
 		"key": "Rogue_Hooded", "hide": ["Knife", "Knife_Offhand", "2H_Crossbow", "Throwable"], "attack_anim": "1H_Ranged_Shoot",
 		"body": Color(0.25, 0.45, 0.78), "hood": true, "ring": Color(0.3, 0.6, 1.0),
 		"health": 100.0, "move_speed": 5.2, "damage": 12.0, "rate": 1.8, "bolt_speed": 17.0, "bolt_size": 0.22,
-		"bolt_color": Color(0.55, 0.85, 1.0),
+		"bolt_color": Color(0.55, 0.85, 1.0), "run_fire": 0.7,
 		"special": "Shadow Volley", "special_text": "Three rings of bolts in every direction.",
 		# Version 129: names and personality. "about" sits under the name; "pick" lines are
 		# said on the Heroes screen, "hello" at the start of a run, "win" over a beaten boss.

@@ -1,6 +1,6 @@
-Version 235: the Mage charges up
-- Moving in a fight charges the Mage's magic: an orb grows over the hat.
-- The first orb after stopping carries the charge: bigger, up to 2.2x the damage and a 1.7x wider blast, with a boom.
-- So the Mage dances: dodge, stop, blast.
-- The Barbarian's axes fly back to his hand. The Knight swings his sword and blocks with his shield.
+Version 236: every hero fights their own way
+- Rogue: the only hero who fights on the run. Moving, the Rogue throws knives; standing still, quick crossbow bolts.
+- Mage: moving charges magic, and the first orb after stopping is a big blast.
+- Barbarian: axes fly back to his hand, cutting on the way out and back.
+- Knight: sword swings up close, and his shield blocks shots from the front.
 - The Blood Moon is up until Dec 3: hunt the Queen.
