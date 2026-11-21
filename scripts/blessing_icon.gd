@@ -139,6 +139,8 @@ func _draw() -> void:
 		"shardhunter": _shard()
 		"door_shrine": _shrine()
 		"door_champion": _crown()
+		"door_dark": _lantern()
+		"door_traps": _spike_row()
 		_:
 			match family:
 				"bolt": _bolt()
@@ -732,6 +734,29 @@ func _shrine() -> void:
 		var out := tip.normalized()
 		_poly([tip + along * 7.0, tip + out * 5.5, tip - out * 5.5])
 	_dot(Vector2.ZERO, 3.5, Color.WHITE)
+
+
+func _lantern() -> void:
+	# Dark Room (v242): a lit lantern in the dark.
+	var glow := Color(1.0, 0.85, 0.45)
+	_dot(Vector2(0, 2), 15.0, Color(1.0, 0.8, 0.4, 0.18))
+	_arc(Vector2(0, -13), 5.0, PI, TAU, 2.5, Color(0.75, 0.75, 0.85))
+	_poly([Vector2(-8, -9), Vector2(8, -9), Vector2(6, -5), Vector2(-6, -5)], Color(0.5, 0.5, 0.6))
+	_poly([Vector2(-7, -5), Vector2(7, -5), Vector2(8, 10), Vector2(-8, 10)], glow)
+	_poly([Vector2(-3, 7), Vector2(0, -2), Vector2(3, 7)], Color(1.0, 0.55, 0.2))
+	_ln(Vector2(-7.5, -5), Vector2(-8.5, 10), 2.0, Color(0.5, 0.5, 0.6))
+	_ln(Vector2(7.5, -5), Vector2(8.5, 10), 2.0, Color(0.5, 0.5, 0.6))
+	_poly([Vector2(-10, 10), Vector2(10, 10), Vector2(9, 14), Vector2(-9, 14)], Color(0.5, 0.5, 0.6))
+
+
+func _spike_row() -> void:
+	# Trap Hall (v242): a row of spikes on a red-lit plate.
+	_poly([Vector2(-17, 7), Vector2(17, 7), Vector2(17, 13), Vector2(-17, 13)], Color(0.95, 0.3, 0.2))
+	for i in 5:
+		var x := -14.0 + i * 7.0
+		var tall := 17.0 if i % 2 == 0 else 12.0
+		_poly([Vector2(x - 3.4, 7), Vector2(x, 7 - tall), Vector2(x + 3.4, 7)], Color(0.88, 0.88, 0.94))
+		_ln(Vector2(x, 7 - tall), Vector2(x - 1.2, 3), 1.0, Color(1, 1, 1, 0.7))
 
 
 func _crown() -> void:

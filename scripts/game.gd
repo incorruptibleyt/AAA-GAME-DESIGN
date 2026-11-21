@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21k"
+const BUILD := "2026-11-21l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -269,6 +269,8 @@ var _picked := {}
 ## What the door before this room promised the blessing pick after it.
 var _pick_family := ""
 var _pick_better := false
+## Version 242: a Dark Room was won, so one more blessing pick follows this one.
+var _extra_pick := false
 ## In the Daily Crypt these are seeded, so everyone gets the same blessing cards (and
 ## rerolls), elites and waves; in other runs they're random (_pick_rng null).
 var _pick_rng: RandomNumberGenerator
@@ -2163,6 +2165,7 @@ func _reset_run_stats() -> void:
 	_picked = {}
 	_pick_family = ""
 	_pick_better = false
+	_extra_pick = false
 
 
 ## Gives the hero everything bought in the Armory. Called once at the start of each run.
@@ -2805,6 +2808,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_race_goal = maxi(1, alive_enemies * _wave_total + _wave_total - 1)
 	if _omen("stalker") > 0 and alive_enemies > 0:
 		Stalker.rise_in(room, _omen("stalker"), _in_boss_room())   # v241: the Omen of the Stalker
+	if _door.get("kind", "") == "traps" and alive_enemies > 0:
+		TrapHall.lay(room)   # v242: the Trap Hall door
 	_checkpoint()
 	note_spot()
 
@@ -3375,6 +3380,19 @@ func _room_cleared() -> void:
 	# The door picked before this room shapes the blessings after it.
 	_pick_family = str(_door.get("family", ""))
 	_pick_better = _door.get("kind", "") == "champion"
+	# Version 242: the room doors pay out once their room is won.
+	match str(_door.get("kind", "")):
+		"traps":
+			if hero and not hero.dead:
+				print("[run] trap hall won: full heal from %d" % roundi(hero.health))
+				hero.heal(hero.max_health)
+				Fx.magic(hero.center(), Color(0.5, 1.0, 0.6), 30)
+				if _mastery_callout == "":
+					_mastery_callout = "TRAP HALL WON: full heal!"
+		"dark":
+			_extra_pick = true
+			if _mastery_callout == "":
+				_mastery_callout = "DARK ROOM WON: pick two blessings!"
 	_door = {}
 	_pick_rng = Curses.daily_rng(500 + floor_num * 10 + _room_index, _daily_date) if daily or race else null
 	_choices = Upgrades.roll_first(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better, _pick_rng)
@@ -3422,6 +3440,14 @@ func _on_card_picked(i: int) -> void:
 	_pick_better = false
 	_picked = u
 	Sfx.play("upgrade")
+	# Version 242: a won Dark Room gives a second pick straight after the first.
+	if _extra_pick:
+		_extra_pick = false
+		_choices = Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, false, "", false, _pick_rng)
+		if not _choices.is_empty():
+			print("[run] dark room: second pick after %s" % u.id)
+			hud.show_cards(_choices, rerolls, true, "DARK ROOM: pick one more blessing!", _taken)
+			return
 	# Then two doors to the next room (still paused), except in the first run.
 	_doors = _door_offer()
 	if not _doors.is_empty():
@@ -4149,8 +4175,8 @@ func fight_on() -> bool:
 	return alive_enemies > 0 or _waves_left > 0 or _wave_pending
 
 
-## Version 241 (whole-game review fix 12), the Omen of Night: the room's own light nearly goes
-## out and the hero's lantern becomes the light of the room, so skeletons come out of the
+## Version 241 (whole-game review fix 12), the Omen of Night (and from version 242 the Dark
+## Room door): the room's own light nearly goes out and the hero's lantern becomes the light of the room, so skeletons come out of the
 ## dark (their eyes, shots and every warning on the floor still glow). Darkness: Light (the
 ## comfort setting) keeps more of the room's light.
 const NIGHT_AMBIENT := 0.08
@@ -4160,7 +4186,7 @@ const NIGHT_RANGE := 6.0   # it hangs 3.6 m up, so it lights about 4.8 m of floo
 
 
 func _night_light() -> void:
-	var night := _omen("night") > 0
+	var night: bool = _omen("night") > 0 or _door.get("kind", "") == "dark"   # v242: the Dark Room
 	if hero and hero.lantern:
 		hero.lantern.light_energy = NIGHT_LANTERN if night else Hero.LANTERN_ENERGY
 		hero.lantern.omni_range = NIGHT_RANGE if night else Hero.LANTERN_RANGE

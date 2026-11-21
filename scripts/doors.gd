@@ -5,7 +5,13 @@ class_name Doors
 ## (a purple elite waits, and the blessing after it is rare or better).
 ## A door is saved as {"kind", "family"}; everything else comes from `describe`.
 
-const KINDS := ["path", "spring", "treasure", "shrine", "champion", "cursed"]
+const KINDS := ["path", "spring", "treasure", "shrine", "champion", "cursed", "dark", "traps"]
+## Version 242 (whole-game review fix 13): the first doors that lead to a different room
+## instead of a different reward. The Dark Room is lit only by the hero's lantern (the Omen
+## of Night's light, game.gd _night_light) and pays two blessings; the Trap Hall has rows of
+## spikes firing across it (trap_hall.gd) and heals fully once won. Neither comes right
+## before the boss, on floor 1, in the Crypt Race or in the Queen Hunt.
+const ROOM_KINDS := ["dark", "traps"]
 ## Version 219 (review 4 fix 30): the Cursed Door, a real risk for a reward. One Omen
 ## (loops.gd) holds until the floor's boss is beaten, and every coin on the floor is worth
 ## 60% more. Version 219 review (Phase 0): +40%, never on floors 1-2, never right before the
@@ -36,6 +42,7 @@ static func offer(rng: RandomNumberGenerator, boss_next: bool, can_reroll: bool,
 		and not (k == "champion" and no_rares) \
 		and not (k == "cursed" and (Game.event != "" or Game.daily or Game.race or boss_next \
 			or Game.floor_num <= 2 or Game._curse_omen != "")) \
+		and not (k in ROOM_KINDS and (boss_next or Game.race or Game.event == "hunt" or Game.floor_num <= 1)) \
 		and not (k == "path" and families.is_empty()) and not (k == "spring" and full_health))
 	var out := []
 	while out.size() < 2 and not kinds.is_empty():
@@ -70,6 +77,12 @@ static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 		"champion":
 			return {"title": "Champion's Door", "text": "A purple elite waits.\nNext pick: rare\nor better",
 				"color": Color(1.0, 0.55, 0.3), "icon": "door_champion", "family": "bolt"}
+		"dark":
+			return {"title": "Dark Room", "text": "Lit only round you.\nPick 2 blessings\nafter it",
+				"color": Color(0.62, 0.66, 1.0), "icon": "door_dark", "family": "frost"}
+		"traps":
+			return {"title": "Trap Hall", "text": "Spike rows fire\nacross the hall.\nFull heal after it",
+				"color": Color(1.0, 0.5, 0.38), "icon": "door_traps", "family": "flame"}
 		"cursed":
 			return {"title": "Cursed Door", "text": "%s\nuntil the boss.\n+%d%% coins" % [omen_text(str(door.get("omen", "blades"))), roundi(CURSED_COINS * 100)],
 				"color": Color(0.85, 0.5, 1.0), "icon": "greed", "family": "bolt"}
@@ -99,6 +112,10 @@ static func room_tip(door: Dictionary) -> String:
 			return "Treasure Room: +%d%% coins here" % roundi(TREASURE_COINS * 100)
 		"champion":
 			return "Champion's Door: a purple elite waits"
+		"dark":
+			return "Dark Room: only your lantern lights it. Two blessings after!"
+		"traps":
+			return "Trap Hall: keep off the red rows. Lead skeletons onto them!"
 		"cursed":
 			var o: Dictionary = {}
 			for x: Dictionary in Loops.OMENS:

@@ -227,6 +227,12 @@ static func run(core := false, from := 0) -> bool:
 	steps.append(func():
 		Telegraph.circle(at + Vector3(-1.5, 0, 0), 1.0, 9.0, func(): pass)
 		Telegraph.line(at, Vector3.FORWARD, 3.0, 1.0, 9.0, func(): pass)
+		# Version 242: the Trap Hall's rows (its spikes are one instanced mesh per row).
+		var hall := TrapHall.lay(holder)
+		hall.set_process(false)
+		hall.position = Vector3(0, 0, at.z - 4.0)
+		for r: Dictionary in hall._rows:
+			(r.spikes as Node3D).position.y = 0.0
 		FirePatch.spawn(at + Vector3(1.5, 0, 0), 1.0, 9.0)
 		Pickup.drop(at + Vector3(0, 0, 1))
 		Pickup.drop_coins(at + Vector3(0, 0, -1), 3))
