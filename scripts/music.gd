@@ -33,9 +33,12 @@ const TRACKS := {
 	# The Clockwork Foundry (version 250): the tune on a clavinet and muted trumpet over
 	# tinkling bells, with a trombone, hammers, clanks and steam.
 	"foundry": [preload("res://audio/music/bc_foundry.ogg"), preload("res://audio/music/bc_foundry_fight.ogg")],
+	# The Starfall Abyss (version 255): the tune on crystal glass with a far-off pan flute,
+	# a celesta, a new-age pad and a French horn, with deep booms and star chimes.
+	"abyss": [preload("res://audio/music/bc_abyss.ogg"), preload("res://audio/music/bc_abyss_fight.ogg")],
 }
 ## One track per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb", "mine", "library", "foundry"]
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb", "mine", "library", "foundry", "abyss"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5

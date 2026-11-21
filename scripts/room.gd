@@ -121,6 +121,9 @@ static var _floor_shaders := {}
 ## 10. The Clockwork Foundry (floor 9): riveted iron plates, some with a diamond tread, rust
 ##    and oil, long grates with the furnaces glowing under them, and a great brass gear in
 ##    the middle turning two smaller ones.
+## 11. The Starfall Abyss (floor 10): moonstone plates drifted apart over a starry void that
+##    shows in every gap (and where plates by the walls have fallen away), and a star gate in
+##    the middle: a window onto a turning spiral of stars under a silver seal.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -1032,6 +1035,116 @@ void fragment() {
 	}
 	n = normalize(vec3((r - 0.5) * 0.04, 1.0, (r2 - 0.5) * 0.04));
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.85);
+#elif STYLE == 11
+	// The Starfall Abyss (floor 10, version 255): the floor is pale moonstone broken into
+	// plates that have drifted a little apart, wider and wider towards the walls where the
+	// floor crumbles, and through every gap the abyss shows far below: blue dark, a slow
+	// nebula and stars, sliding as the view moves because they are deep down. Starlight
+	// from below catches the plates' edges. In the middle a star gate is set into the floor:
+	// a dark stone ring with twelve silver stars, a window onto a slowly turning spiral of
+	// stars, and a silver seal of twelve points drawn across it.
+	vec2 id;
+	const float PS = 1.45;
+	vec2 vd = cells(pos / PS, id);
+	r = h(id);
+	float r2 = h(id + 13.7);
+	float pe = (vd.y - vd.x) * PS * 0.5;
+	// How far the plates have drifted apart here: a little in the middle, more by the walls.
+	float crumble = 1.0 - smoothstep(0.3, 2.6, wall);
+	float gw = 0.05 + 0.035 * smoothstep(0.45, 0.85, big2) + 0.2 * crumble * (0.6 + 0.6 * big);
+	vec3 wv = normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
+	vec2 par = -wv.xz / max(wv.y, 0.3);
+	// The abyss: blue dark, a nebula drifting far down and two layers of stars.
+	vec2 np = pos + par * 6.0;
+	float neb = texture(blobs_a, np * 0.035 + vec2(TIME * 0.004, 0.2)).r;
+	float neb2 = texture(blobs_b, np * 0.05 + vec2(0.4, TIME * 0.003)).r;
+	vec3 abyss = vec3(0.004, 0.006, 0.02);
+	vec3 abyss_em = vec3(0.01, 0.016, 0.05) + spores.rgb * 0.35 * smoothstep(0.4, 0.85, neb) + vec3(0.3, 0.12, 0.42) * 0.25 * smoothstep(0.5, 0.9, neb2);
+	for (int k = 0; k < 2; k++) {
+		float depth = k == 0 ? 2.0 : 5.0;
+		float cs = k == 0 ? 0.3 : 0.2;
+		vec2 sp = (pos + par * depth) / cs + vec2(float(k) * 5.3, float(k) * 2.7);
+		vec2 sc = floor(sp);
+		vec2 sf = (fract(sp) - 0.5 - (vec2(h(sc + 1.3), h(sc + 2.9)) - 0.5) * 0.6) * cs;
+		float on = step(k == 0 ? 0.45 : 0.35, h(sc + 7.1));
+		float tw = 0.55 + 0.45 * sin(TIME * (1.0 + 2.5 * h(sc + 3.3)) + h(sc) * 6.283);
+		float sz = (k == 0 ? 0.034 : 0.02) * (0.6 + 0.8 * h(sc + 5.5));
+		float star = on * tw * (1.0 - smoothstep(0.0, sz, length(sf)));
+		vec3 scol = h(sc + 8.8) > 0.85 ? spores2.rgb : vec3(0.85, 0.9, 1.0);
+		abyss_em += scol * star * (k == 0 ? 2.4 : 1.3);
+	}
+	// The plates: pale moonstone, each its own shade, with faint silver veins.
+	float vn = texture(grain, pos * 0.08 + vec2(r * 3.0, r2)).r;
+	float vein = 1.0 - smoothstep(0.0, 0.025 + fwidth(vn), abs(vn - 0.5));
+	c = vec3(0.265, 0.27, 0.295) * (0.84 + 0.26 * r) * (0.9 + 0.18 * fine) * tint.rgb;
+	c = mix(c, vec3(0.38, 0.39, 0.43), vein * 0.15);
+	rough = 0.7;
+	float g = smoothstep(0.62, 0.9, big + crumble * 0.3) * grime_amount;
+	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g * 0.7);
+	rough = mix(rough, 0.9, g);
+	// Each plate sinks a little towards its edge, and the edge itself catches starlight.
+	c *= 0.82 + 0.18 * smoothstep(gw, gw + 0.25, pe);
+	float paa = fwidth(pe) + 0.003;
+	float hole = 1.0 - smoothstep(gw - paa, gw + paa, pe);
+	float lip = (1.0 - smoothstep(gw, gw + 0.035, pe)) * (1.0 - hole);
+	em += spores.rgb * lip * 0.16;
+	// A few plates near the walls have fallen away altogether.
+	float gone = step(0.72, h(id + 21.7)) * step(wall, 1.1) * step(0.5, half_size.y - abs(pos.y) - 1.2);
+	hole = max(hole, gone);
+	// The star gate in the middle of the room.
+	float gr = length(pos);
+	if (gr < 1.95) {
+		float gaa = fwidth(gr) + 0.004;
+		float disc = 1.0 - smoothstep(1.85 - gaa, 1.85 + gaa, gr);
+		vec3 ring = vec3(0.13, 0.13, 0.17) * (0.85 + 0.3 * fine);
+		c = mix(c, ring, disc);
+		hole *= 1.0 - disc;
+		lip *= 1.0 - disc;
+		rough = mix(rough, 0.45, disc);
+		float silver_l = max(1.0 - smoothstep(0.012, 0.012 + gaa, abs(gr - 1.78)), 1.0 - smoothstep(0.016, 0.016 + gaa, abs(gr - 1.26)));
+		float ang = atan(pos.y, pos.x);
+		// Twelve stars round the ring, each a four-pointed sparkle, and a tick between each.
+		float sa = (fract(ang * 12.0 / 6.2831853 + 0.5) - 0.5) * 6.2831853 / 12.0;
+		vec2 sl = vec2(sa * gr, gr - 1.52);
+		float spark = min(abs(sl.x) * 4.0 + abs(sl.y), abs(sl.y) * 4.0 + abs(sl.x));
+		float sstar = 1.0 - smoothstep(0.075, 0.075 + gaa * 3.0, spark);
+		float tick_a = (fract(ang * 12.0 / 6.2831853) - 0.5) * 6.2831853 / 12.0 * gr;
+		float tick = (1.0 - smoothstep(0.008, 0.008 + gaa, abs(tick_a))) * step(1.62, gr) * step(gr, 1.74);
+		vec3 silver = vec3(0.62, 0.66, 0.78);
+		c = mix(c, silver, max(silver_l, tick) * disc);
+		c = mix(c, vec3(0.9, 0.92, 1.0), sstar);
+		em += spores.rgb * sstar * 0.5 * (0.75 + 0.25 * sin(TIME * 1.5 + ang * 3.0));
+		em += spores.rgb * silver_l * 0.06;
+		// The window: the abyss under glass, with a spiral of stars turning slowly in it.
+		float win = 1.0 - smoothstep(1.22 - gaa, 1.22 + gaa, gr);
+		if (win > 0.0) {
+			float sa2 = ang + TIME * 0.06;
+			float arms = pow(0.5 + 0.5 * sin(2.0 * sa2 - log(max(gr, 0.05)) * 4.5), 3.0);
+			float fall = exp(-gr * 1.6);
+			vec3 gal = (mix(spores.rgb, vec3(0.75, 0.45, 1.0), 0.35) * arms * fall * 1.1 + vec3(1.0, 0.92, 0.8) * exp(-gr * gr * 10.0) * 0.7);
+			float dust = smoothstep(0.55, 0.95, texture(grain, vec2(gr * 0.6, sa2 * 0.5) + par * 0.05).r) * arms * fall;
+			gal += vec3(0.9, 0.92, 1.0) * dust * 0.9;
+			c = mix(c, abyss, win);
+			em += (gal + abyss_em * 0.5) * win;
+			rough = mix(rough, 0.08, win);
+			// The seal: a twelve-pointed star of silver lines across the glass.
+			float seal = 8.0;
+			for (int si = 0; si < 12; si++) {
+				float a0 = float(si) * 0.5235988;
+				float a1 = a0 + 5.0 * 0.5235988;
+				seal = min(seal, seg(pos, vec2(cos(a0), sin(a0)) * 1.2, vec2(cos(a1), sin(a1)) * 1.2));
+			}
+			float sline = (1.0 - smoothstep(0.01, 0.01 + gaa, seal)) * win;
+			c = mix(c, silver * 0.8, sline);
+			em = mix(em, spores.rgb * 0.15, sline);
+		}
+	}
+	c = mix(c, abyss, hole);
+	em = em * (1.0 - hole) + abyss_em * hole;
+	rough = mix(rough, 0.95, hole);
+	gap = 0.0;
+	n = normalize(vec3((r - 0.5) * 0.07, 1.0, (r2 - 0.5) * 0.07));
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.85);
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -1170,6 +1283,8 @@ static var _wall_shaders := {}
 ##    books, a few of them glowing as they whisper.
 ## 10. The Clockwork Foundry (floor 9): riveted iron plates streaked with rust, copper pipes
 ##    on brackets, gauges, and a brass band at the top.
+## 11. The Starfall Abyss (floor 10): dark moonstone blocks split by cracks with stars in
+##    them, under a frieze of silver constellations.
 ## The pattern follows where the point is in the world, so walls built from several boxes
 ## join up, and a box's top takes the pattern seen from above.
 static func _wall_material(look: Dictionary, base: Material) -> Material:
@@ -1561,6 +1676,62 @@ void fragment() {
 		}
 	}
 	rough = 0.5;
+#elif STYLE == 11
+	// The Starfall Abyss: great blocks of dark moonstone, split by cracks that open onto the
+	// abyss behind (stars glint in them), and a frieze of silver constellations along the
+	// top, the stars joined by fine lines.
+	float br = floor(height / 0.62);
+	vec2 bq = vec2(uv.x / 1.3 + 0.5 * mod(br, 2.0), height / 0.62);
+	vec2 bci = floor(bq);
+	vec2 bfr = fract(bq) - 0.5;
+	vec2 bee = (0.5 - abs(bfr)) * vec2(1.3, 0.62);
+	float rb = h(bci);
+	c = vec3(0.13, 0.135, 0.17) * (0.8 + 0.35 * rb) * (0.85 + 0.3 * fine);
+	float bg = min(bee.x, bee.y);
+	c *= 1.0 - 0.6 * (1.0 - smoothstep(0.008, 0.022, bg));
+	c *= 1.0 + 0.1 * (1.0 - smoothstep(0.02, 0.06, bg));
+	rough = 0.7;
+	if (top > 0.5) {
+		c = vec3(0.1, 0.1, 0.13) * (0.85 + 0.3 * fine);
+	} else {
+		// A wandering crack down about one block in three, with stars glinting inside.
+		if (h(bci + 4.4) > 0.66) {
+			float cx = (bfr.x + (h(bci + 6.1) - 0.5) * 0.5) * 1.3 + 0.05 * sin(height * 23.0 + rb * 9.0) + 0.03 * sin(height * 57.0);
+			float cw = 0.012 + 0.02 * (0.5 + 0.5 * sin(height * 7.0 + rb * 5.0));
+			float crk = 1.0 - smoothstep(cw, cw + 0.008, abs(cx));
+			float tw = h(floor(vec2(uv.x * 30.0, height * 30.0)));
+			float glint = step(0.93, tw) * (0.5 + 0.5 * sin(TIME * 2.0 + tw * 40.0));
+			c = mix(c, vec3(0.005, 0.007, 0.02), crk);
+			em += (spores.rgb * 0.25 + vec3(0.9, 0.92, 1.0) * glint * 1.2) * crk;
+		}
+		// The frieze: a dark band with silver stars joined into constellations.
+		if (height > 2.05 && height < 2.5) {
+			float fy = height - 2.275;
+			c = vec3(0.07, 0.07, 0.1) * (0.85 + 0.3 * fine);
+			float edge_l = (1.0 - smoothstep(0.01, 0.018, abs(abs(fy) - 0.2)));
+			c = mix(c, vec3(0.55, 0.58, 0.7), edge_l);
+			float cell = floor(uv.x / 0.55);
+			float best = 8.0;
+			float lines = 8.0;
+			vec2 prev = vec2(0.0);
+			for (int k = -1; k <= 2; k++) {
+				float ck = cell + float(k);
+				vec2 sp = vec2((ck + 0.2 + 0.6 * h(vec2(ck, 1.7))) * 0.55, 2.275 + (h(vec2(ck, 3.1)) - 0.5) * 0.26);
+				vec2 d = vec2(uv.x, height) - sp;
+				best = min(best, length(d) / (0.6 + 0.8 * h(vec2(ck, 5.3))));
+				if (k > -1 && h(vec2(ck, 7.7)) > 0.25) {
+					vec2 pa = vec2(uv.x, height) - prev;
+					vec2 ba = sp - prev;
+					lines = min(lines, length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0)));
+				}
+				prev = sp;
+			}
+			float st = 1.0 - smoothstep(0.018, 0.03, best);
+			float ln = (1.0 - smoothstep(0.003, 0.007, lines)) * 0.6;
+			c = mix(c, vec3(0.6, 0.64, 0.78), max(ln, st));
+			em += spores.rgb * st * (0.45 + 0.25 * sin(TIME * 1.7 + uv.x * 3.0)) + spores.rgb * ln * 0.05;
+		}
+	}
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
@@ -1665,11 +1836,13 @@ func _read_layout(layout: Array) -> void:
 					_add_obstacle(p, 0.6)
 					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts,
 					# the Sandfall Tomb's lotus columns, the Amethyst Mine's rock columns, the
-					# Whispering Library's bookcases and the Clockwork Foundry's iron columns are
-					# made in code (props.gd).
+					# Whispering Library's bookcases, the Clockwork Foundry's iron columns and the
+					# Starfall Abyss's broken floating columns are made in code (props.gd).
 					var kind := str(Floors.current().get("pillar", ""))
 					if kind == "iron":
 						Props.add_iron_column(_anchor(p))
+					elif kind == "drift":
+						Props.add_drift_column(_anchor(p))
 					elif kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf":
 						var post := MeshInstance3D.new()
 						match kind:

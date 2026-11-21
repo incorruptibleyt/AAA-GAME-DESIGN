@@ -93,6 +93,16 @@ static func dress(room: Room, layout: Array) -> void:
 					_glow_pool(n, 2.8, Color(1.0, 0.45, 0.15, 0.2))
 				else:
 					_mesh(n, _cog_pile())
+			"abyss":
+				# A brazier of cold star fire in each far corner, rocks circling over it; in the
+				# near ones (by the camera) a low heap of broken moonstone round a fallen star.
+				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+				if p.z < 0.0:
+					_add_star_brazier(n)
+					_glow_pool(n, 2.8, Color(0.55, 0.6, 1.0, 0.2))
+				else:
+					_mesh(n, _star_rubble())
+					_glow_pool(n, 1.6, Color(1.0, 0.8, 0.45, 0.16))
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
@@ -146,6 +156,11 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_add_wall_gears(n)
+				"abyss":
+					# A great chain hung down the wall from the dark above to a ring at its foot.
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_no_shadow(_mesh(n, _great_chain()))
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
@@ -194,6 +209,13 @@ static func dress(room: Room, layout: Array) -> void:
 				n.rotation.y = -PI / 2
 				_add_piston(n)
 				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + 0.3), 0.45)
+			"abyss":
+				# A standing stone carved with a constellation either side of the door, its
+				# broken top floating above it.
+				var n := _place(room, Vector3(x * 1.2, 0, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_add_monolith(n)
+				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + 0.3), 0.45)
 
 
 ## KayKit pieces along the walls (version 134): a banner either side of the door and a few
@@ -214,6 +236,7 @@ const KIT := {
 	"mine": {"banner": "", "side": [["box_small", 0.6], ["@ore", 0.0], ["barrel_small", 0.8], ["@ore", 0.0]]},
 	"library": {"banner": "", "side": [["@books", 0.0], ["candle_triple", 0.6], ["@books", 0.0], ["box_small_decorated", 0.62]]},
 	"foundry": {"banner": "", "side": [["@cogs", 0.0], ["barrel_small", 0.8], ["@cogs", 0.0], ["box_small", 0.6]]},
+	"abyss": {"banner": "", "side": [["@float", 0.0], ["rubble_half", 0.5], ["@star", 0.0], ["rubble_half", 0.55]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
 
@@ -252,6 +275,8 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 					"@jar": own_mesh = _jar()
 					"@ore": own_mesh = _ore_pile()
 					"@books": own_mesh = _wall_books()
+					"@float": own_mesh = _floating_rocks()
+					"@star": own_mesh = _fallen_star()
 					_: own_mesh = _wall_cogs()
 				_no_shadow(_mesh(_place(room, at), own_mesh))
 			else:
@@ -445,6 +470,16 @@ static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, r
 				# A lump of coal.
 				var sz := rng.randf_range(0.06, 0.11)
 				parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.5, Vector3(sz, sz * 0.7, sz * 0.9), yaw), _iron_mat("coal")])
+		"abyss":
+			if rng.randf() < 0.65:
+				# A splinter of fallen star, glowing, half sunk in the floor.
+				var sz := rng.randf_range(0.04, 0.08)
+				var tilt := yaw * Basis(Vector3.RIGHT, rng.randf_range(-0.5, 0.5))
+				parts.append([_cone(0.0, sz, sz * 2.6, 4), Transform3D(tilt, p + Vector3.UP * sz * 0.9), _abyss_mat("gold" if rng.randf() < 0.3 else "star")])
+			else:
+				# A chip of moonstone.
+				var sz := rng.randf_range(0.07, 0.14)
+				parts.append([_cube(), _xf(p + Vector3.UP * sz * 0.35, Vector3(sz * 1.5, sz * 0.7, sz), yaw * Basis(Vector3.RIGHT, rng.randf_range(-0.3, 0.3))), _abyss_mat("stone")])
 		"fungus":
 			# A tiny mushroom: a stalk and a glowing cap.
 			var h := rng.randf_range(0.13, 0.24)
@@ -1942,3 +1977,258 @@ static func add_iron_column(n: Node3D) -> void:
 		_baked["iron_column"] = _bake(parts)
 	_mesh(n, _baked["iron_column"])
 	_turning_gear(n, Vector3(0, 1.62, 0), 1, 0.52, 14, 0.12, "brass", 0.35)
+
+
+## The Starfall Abyss (floor 10, version 255): moonstone, dark stone, silver, iron for the
+## chains, and the glowing stuff of fallen stars (white-blue, and a few gold).
+static func _abyss_mat(key: String) -> Material:
+	var k := "abyss_" + key
+	if not _baked.has(k):
+		match key:
+			"stone": _baked[k] = U.mat(Color(0.36, 0.37, 0.43), 0.75)
+			"stone_dark": _baked[k] = U.mat(Color(0.15, 0.15, 0.19), 0.8)
+			"silver": _baked[k] = U.mat(Color(0.62, 0.66, 0.78), 0.3)
+			"iron": _baked[k] = U.mat(Color(0.13, 0.13, 0.15), 0.45)
+			"star": _baked[k] = U.mat(Color(0.7, 0.78, 1.0), 0.3, 1.6)
+			"gold": _baked[k] = U.mat(Color(1.0, 0.8, 0.45), 0.3, 1.4)
+	return _baked[k]
+
+
+## Stone that floats: a shader lifts its mesh up and down (`amp` metres, `speed`) and turns it
+## slowly round its node's upright axis (`spin` radians a second), each prop on its own beat
+## (from where it stands). Nothing moves on the CPU.
+static func _drift_mat(key: String, amp: float, speed: float, spin := 0.0) -> ShaderMaterial:
+	var k := "drift_%s_%.2f_%.2f_%.2f" % [key, amp, speed, spin]
+	if not _baked.has(k):
+		if not _baked.has("drift_shader"):
+			var sh := Shader.new()
+			sh.code = """
+shader_type spatial;
+uniform vec4 albedo : source_color = vec4(0.4, 0.4, 0.45, 1.0);
+uniform float rough = 0.75;
+uniform float glow = 0.0;
+uniform float amp = 0.1;
+uniform float speed = 1.0;
+uniform float spin = 0.0;
+void vertex() {
+	float ph = dot(NODE_POSITION_WORLD.xz, vec2(1.37, 0.71));
+	float a = TIME * spin + ph;
+	if (spin != 0.0) {
+		mat2 r = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a)));
+		VERTEX.xz = r * VERTEX.xz;
+		NORMAL.xz = r * NORMAL.xz;
+	}
+	VERTEX.y += sin(TIME * speed + ph) * amp;
+}
+void fragment() {
+	ALBEDO = albedo.rgb;
+	ROUGHNESS = rough;
+	EMISSION = albedo.rgb * glow;
+}
+"""
+			_baked["drift_shader"] = sh
+		var m := ShaderMaterial.new()
+		m.shader = _baked["drift_shader"]
+		var base := _abyss_mat(key) as StandardMaterial3D
+		m.set_shader_parameter("albedo", base.albedo_color)
+		m.set_shader_parameter("rough", base.roughness)
+		m.set_shader_parameter("glow", base.emission_energy_multiplier if base.emission_enabled else 0.0)
+		m.set_shader_parameter("amp", amp)
+		m.set_shader_parameter("speed", speed)
+		m.set_shader_parameter("spin", spin)
+		_baked[k] = m
+	return _baked[k]
+
+
+## A rough lump of rock: a coarse, faceted ball squashed and turned, with a second chunk
+## stuck to it so no two look alike.
+static func _rock(parts: Array, at: Vector3, size: Vector3, basis: Basis, mat: Material) -> void:
+	if not _baked.has("rock_mesh"):
+		var m := SphereMesh.new()
+		m.radial_segments = 6
+		m.rings = 3
+		m.radius = 1.0
+		m.height = 2.0
+		_baked["rock_mesh"] = m
+	parts.append([_baked["rock_mesh"], Transform3D(basis * Basis.from_scale(size), at), mat])
+	parts.append([_baked["rock_mesh"], Transform3D(basis * Basis(Vector3(1, 0, 1).normalized(), 0.9) * Basis.from_scale(size * 0.7), at + basis * Vector3(size.x * 0.45, -size.y * 0.25, 0)), mat])
+
+
+## A cold star fire on its own quad (Fx.flame, recoloured white and violet-blue).
+static func _star_flame(n: Node3D, size: Vector2, at: Vector3) -> void:
+	var f := Fx.flame(n, size, at)
+	if not _baked.has("star_flame"):
+		var m := (f.material_override as ShaderMaterial).duplicate() as ShaderMaterial
+		m.set_shader_parameter("hot", Color(0.95, 0.96, 1.0))
+		m.set_shader_parameter("cool", Color(0.35, 0.38, 1.0))
+		_baked["star_flame"] = m
+	f.material_override = _baked["star_flame"]
+
+
+## A far corner's brazier (+X and +Z into the room): a moonstone bowl on a fluted stand and a
+## silver rim, burning with cold star fire, and three rocks circling slowly over it.
+static func _add_star_brazier(n: Node3D) -> void:
+	if not _baked.has("star_brazier"):
+		var parts := []
+		var c := Vector3(0.45, 0, 0.45)
+		parts.append([_cone(0.5, 0.58, 0.22, 10), _xf(c + Vector3(0, 0.11, 0), Vector3.ONE), _abyss_mat("stone_dark")])
+		parts.append([_cone(0.2, 0.28, 1.0, 8), _xf(c + Vector3(0, 0.72, 0), Vector3.ONE), _abyss_mat("stone")])
+		parts.append([_cone(0.55, 0.22, 0.32, 12), _xf(c + Vector3(0, 1.36, 0), Vector3.ONE), _abyss_mat("stone")])
+		_band(parts, 0.56, 0.05, 1.5, _abyss_mat("silver"), 12, c)
+		# Star shards heaped in the bowl, glowing.
+		for k in 6:
+			var a := TAU * k / 6.0
+			var tilt := Basis(Vector3(cos(a), 0, sin(a)).cross(Vector3.UP), 0.4)
+			parts.append([_cone(0.0, 0.07, 0.24, 4), Transform3D(tilt, c + Vector3(cos(a) * 0.22, 1.56, sin(a) * 0.22)), _abyss_mat("star")])
+		_baked["star_brazier"] = _bake(parts)
+		var ring := []
+		for k in 3:
+			var a := TAU * k / 3.0
+			_rock(ring, Vector3(cos(a) * 0.75, 2.45 + 0.12 * k, sin(a) * 0.75), Vector3(0.16, 0.12, 0.14) * (1.0 + 0.25 * k), Basis(Vector3.UP, a), _drift_mat("stone", 0.08, 1.1, 0.35))
+		_baked["star_brazier_ring"] = _bake(ring)
+	_mesh(n, _baked["star_brazier"])
+	var orbit := Node3D.new()
+	orbit.position = Vector3(0.45, 0, 0.45)
+	n.add_child(orbit)
+	_no_shadow(_mesh(orbit, _baked["star_brazier_ring"]))
+	_star_flame(n, Vector2(0.6, 0.85), Vector3(0.45, 1.5, 0.45))
+	_star_flame(n, Vector2(0.35, 0.55), Vector3(0.58, 1.5, 0.38))
+
+
+## A near corner's heap (low, so it never hides the hero): broken moonstone blocks round a
+## fallen star, a gold crystal stuck in a little crater, with splinters about it.
+static func _star_rubble() -> ArrayMesh:
+	if _baked.has("star_rubble"):
+		return _baked["star_rubble"]
+	var parts := []
+	var blocks := [[Vector3(0.3, 0.15, 0.7), Vector3(0.5, 0.3, 0.35), 0.3], [Vector3(0.75, 0.12, 0.25), Vector3(0.4, 0.24, 0.45), -0.5],
+		[Vector3(0.2, 0.1, 0.2), Vector3(0.35, 0.2, 0.3), 1.1], [Vector3(0.62, 0.32, 0.62), Vector3(0.3, 0.2, 0.28), 0.8]]
+	for b: Array in blocks:
+		parts.append([_cube(), _xf(b[0], b[1], Basis(Vector3.UP, b[2]) * Basis(Vector3.RIGHT, 0.15)), _abyss_mat("stone")])
+	parts.append([_cone(0.42, 0.5, 0.06, 12), _xf(Vector3(0.55, 0.03, 0.55), Vector3.ONE), _abyss_mat("stone_dark")])
+	parts.append([_cone(0.0, 0.17, 0.62, 5), Transform3D(Basis(Vector3(1, 0, -1).normalized(), 0.35), Vector3(0.55, 0.26, 0.55)), _abyss_mat("gold")])
+	for k in 4:
+		var a := k * 1.7
+		parts.append([_cone(0.0, 0.06, 0.22, 4), Transform3D(Basis(Vector3(cos(a), 0, sin(a)), 0.6), Vector3(0.55 + cos(a) * 0.3, 0.08, 0.55 + sin(a) * 0.3)), _abyss_mat("gold" if k % 2 else "star")])
+	_baked["star_rubble"] = _bake(parts)
+	return _baked["star_rubble"]
+
+
+## A side wall's great chain (+X out of the wall): iron links as long as a man's arm, hung
+## from high above the wall down to a ring bolted at its foot.
+static func _great_chain() -> ArrayMesh:
+	if _baked.has("great_chain"):
+		return _baked["great_chain"]
+	var parts := []
+	var link := TorusMesh.new()
+	link.inner_radius = 0.09
+	link.outer_radius = 0.14
+	link.rings = 12
+	link.ring_segments = 6
+	var top := Room.WALL_H + 1.6
+	var y := top
+	var k := 0
+	while y > 0.35:
+		var b := Basis(Vector3.RIGHT, PI / 2) * Basis.from_scale(Vector3(1.0, 1.0, 1.7))
+		if k % 2 == 1:
+			b = Basis(Vector3.UP, PI / 2) * b
+		parts.append([link, Transform3D(b, Vector3(0.2, y, 0)), _abyss_mat("iron")])
+		y -= 0.36
+		k += 1
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.16
+	ring.outer_radius = 0.22
+	ring.rings = 14
+	ring.ring_segments = 6
+	parts.append([ring, Transform3D(Basis(Vector3(0, 0, 1), PI / 2), Vector3(0.16, 0.22, 0)), _abyss_mat("iron")])
+	parts.append([_cube(), _xf(Vector3(0.04, 0.22, 0), Vector3(0.08, 0.36, 0.36)), _abyss_mat("stone_dark")])
+	_baked["great_chain"] = _bake(parts)
+	return _baked["great_chain"]
+
+
+## By the far wall (+X out of the wall): a standing stone carved with a constellation in
+## silver and glowing stars, its broken top floating a hand's breadth above it.
+static func _add_monolith(n: Node3D) -> void:
+	if not _baked.has("monolith"):
+		var parts := []
+		parts.append([_cube(), _xf(Vector3(0.3, 0.1, 0), Vector3(0.7, 0.2, 0.95)), _abyss_mat("stone_dark")])
+		parts.append([_cube(), _xf(Vector3(0.3, 1.05, 0), Vector3(0.45, 1.7, 0.75)), _abyss_mat("stone")])
+		var stars := [Vector2(0.2, 1.6), Vector2(-0.15, 1.35), Vector2(0.1, 1.05), Vector2(-0.2, 0.75), Vector2(0.18, 0.5)]
+		for i in stars.size():
+			var sp: Vector2 = stars[i]
+			parts.append([_sphere(), _xf(Vector3(0.53, sp.y, sp.x), Vector3.ONE * 0.05), _abyss_mat("gold" if i == 2 else "star")])
+			if i > 0:
+				var a: Vector2 = stars[i - 1]
+				var mid := (a + sp) * 0.5
+				var d := sp - a
+				var ang := atan2(d.x, d.y)
+				parts.append([_cube(), Transform3D(Basis(Vector3.RIGHT, -ang) * Basis.from_scale(Vector3(0.01, d.length(), 0.012)), Vector3(0.528, mid.y, mid.x)), _abyss_mat("silver")])
+		_baked["monolith"] = _bake(parts)
+		var top := []
+		top.append([_cube(), _xf(Vector3(0.3, 2.42, 0), Vector3(0.45, 0.5, 0.75), Basis(Vector3.RIGHT, 0.16)), _drift_mat("stone", 0.07, 0.9)])
+		top.append([_sphere(), _xf(Vector3(0.53, 2.42, 0.05), Vector3.ONE * 0.06), _drift_mat("star", 0.07, 0.9)])
+		top.append([_sphere(), _xf(Vector3(0.3, 2.06, 0), Vector3.ONE * 0.07), _drift_mat("star", 0.05, 1.3)])
+		_baked["monolith_top"] = _bake(top)
+	_mesh(n, _baked["monolith"])
+	_mesh(n, _baked["monolith_top"])
+
+
+## Rocks floating by a side wall (the "@float" piece of the KIT), bobbing gently.
+static func _floating_rocks() -> ArrayMesh:
+	if _baked.has("floating_rocks"):
+		return _baked["floating_rocks"]
+	var parts := []
+	_rock(parts, Vector3(0.05, 0.75, 0.0), Vector3(0.26, 0.2, 0.24), Basis(Vector3.UP, 0.4), _drift_mat("stone", 0.09, 1.2))
+	_rock(parts, Vector3(0.12, 1.25, 0.35), Vector3(0.14, 0.11, 0.13), Basis(Vector3.UP, 1.3), _drift_mat("stone", 0.09, 1.2))
+	_rock(parts, Vector3(0.0, 0.45, -0.32), Vector3(0.12, 0.09, 0.1), Basis(Vector3.UP, 2.2), _drift_mat("stone", 0.09, 1.2))
+	parts.append([_cone(0.0, 0.07, 0.22, 4), _xf(Vector3(0.05, 0.98, 0.0), Vector3.ONE), _drift_mat("star", 0.09, 1.2)])
+	_baked["floating_rocks"] = _bake(parts)
+	return _baked["floating_rocks"]
+
+
+## A fallen star against a side wall (the "@star" piece of the KIT): a cluster of glowing
+## crystals in a little crater of broken stone.
+static func _fallen_star() -> ArrayMesh:
+	if _baked.has("fallen_star"):
+		return _baked["fallen_star"]
+	var parts := []
+	parts.append([_cone(0.32, 0.4, 0.06, 10), _xf(Vector3(0.05, 0.03, 0), Vector3.ONE), _abyss_mat("stone_dark")])
+	var spikes := [[Vector3(0.05, 0.2, 0), 0.0, 0.0, 0.5], [Vector3(0.12, 0.14, 0.12), 0.5, 1.0, 0.32], [Vector3(-0.05, 0.12, -0.12), 0.6, 4.0, 0.3], [Vector3(0.15, 0.1, -0.08), 0.8, 2.4, 0.24]]
+	for sp: Array in spikes:
+		var b := Basis(Vector3.UP, sp[2]) * Basis(Vector3.RIGHT, sp[1])
+		parts.append([_cone(0.0, 0.08 * sp[3] / 0.3, sp[3], 5), Transform3D(b, sp[0]), _abyss_mat("star")])
+	for k in 4:
+		var a := k * 1.6 + 0.3
+		parts.append([_cube(), _xf(Vector3(0.05 + cos(a) * 0.32, 0.06, sin(a) * 0.32), Vector3(0.16, 0.1, 0.12), Basis(Vector3.UP, a) * Basis(Vector3.RIGHT, 0.4)), _abyss_mat("stone")])
+	_baked["fallen_star"] = _bake(parts)
+	return _baked["fallen_star"]
+
+
+## The Starfall Abyss's pillars: a moonstone column broken in three, the lower piece standing
+## on its plinth and the two above floating apart, bobbing on their own beats, the top one
+## turning slowly, with starlight glowing in the gaps. As wide as the stone pillars it stands
+## in for.
+static func add_drift_column(n: Node3D) -> void:
+	if not _baked.has("drift_column"):
+		var parts := []
+		parts.append([_cube(), _xf(Vector3(0, 0.14, 0), Vector3(1.0, 0.28, 1.0)), _abyss_mat("stone_dark")])
+		parts.append([_cone(0.4, 0.43, 0.95, 10), _xf(Vector3(0, 0.75, 0), Vector3.ONE), _abyss_mat("stone")])
+		_band(parts, 0.44, 0.06, 0.34, _abyss_mat("silver"), 10)
+		# The break: a jagged top, and a little star glowing just above it in the gap.
+		for k in 5:
+			var a := TAU * k / 5.0
+			parts.append([_cone(0.0, 0.14, 0.2, 4), _xf(Vector3(cos(a) * 0.26, 1.28, sin(a) * 0.26), Vector3.ONE, Basis(Vector3.UP, a)), _abyss_mat("stone")])
+		parts.append([_sphere(), _xf(Vector3(0, 1.5, 0), Vector3.ONE * 0.09), _abyss_mat("star")])
+		_baked["drift_column"] = _bake(parts)
+		var mid := []
+		mid.append([_cone(0.39, 0.4, 0.6, 10), _xf(Vector3(0, 1.95, 0), Vector3.ONE, Basis(Vector3.RIGHT, 0.06)), _drift_mat("stone", 0.07, 0.8)])
+		mid.append([_sphere(), _xf(Vector3(0, 2.42, 0), Vector3.ONE * 0.07), _drift_mat("star", 0.07, 0.8)])
+		_baked["drift_column_mid"] = _bake(mid)
+		var top := []
+		top.append([_cone(0.38, 0.39, 0.4, 10), _xf(Vector3(0, 2.85, 0), Vector3.ONE, Basis(Vector3(0, 0, 1), 0.1)), _drift_mat("stone", 0.11, 0.6, 0.15)])
+		top.append([_cube(), _xf(Vector3(0, 3.12, 0), Vector3(0.95, 0.16, 0.95)), _drift_mat("stone_dark", 0.11, 0.6, 0.15)])
+		top.append([_cone(0.45, 0.45, 0.04, 10), _xf(Vector3(0, 3.02, 0), Vector3.ONE), _drift_mat("silver", 0.11, 0.6, 0.15)])
+		_baked["drift_column_top"] = _bake(top)
+	_mesh(n, _baked["drift_column"])
+	_mesh(n, _baked["drift_column_mid"])
+	_mesh(n, _baked["drift_column_top"])

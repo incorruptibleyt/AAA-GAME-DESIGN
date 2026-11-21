@@ -314,6 +314,18 @@ static func run(core := false, from := 0) -> bool:
 		holder.add_child(pis)
 		pis.position = spots[24] + Vector3(0, 0, 0.6)
 		Props._add_piston(pis))
+	# The Starfall Abyss (version 255): a broken column floating apart and a standing stone's
+	# floating top (the floating-stone shader), and a brazier of cold star fire.
+	if not core: steps.append(func():
+		var col := Node3D.new()
+		holder.add_child(col)
+		col.position = spots[27] + Vector3(0.6, 0, -0.6)
+		Props.add_drift_column(col)
+		var stone := Node3D.new()
+		holder.add_child(stone)
+		stone.position = spots[26] + Vector3(0.6, 0, 0.6)
+		Props._add_monolith(stone)
+		Props._add_star_brazier(stone))
 	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
 	# a spore cloud, crawling roots and the Sporemother's pod.
 	if core: steps.append(func():

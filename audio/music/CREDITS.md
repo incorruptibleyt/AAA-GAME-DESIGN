@@ -22,6 +22,7 @@ by Frank Wen), so there is nothing to credit beyond that.
 | bc_mine.ogg | Amethyst Mine (floor 7): harmonica and banjo tune, nylon guitar broken chords, halo pad, tuba counter line, xylophone, pick clinks and low toms |
 | bc_library.ogg | Whispering Library (floor 8): harpsichord and flute tune, harp broken chords, soft voices, cello counter line, vibraphone, a ticking clock |
 | bc_foundry.ogg | Clockwork Foundry (floor 9): clavinet and muted trumpet tune, tinkling bell broken chords, sweep pad, trombone counter line, steel drum sparks, a hammer kick, clanks and an anvil-bright triangle |
+| bc_abyss.ogg | Starfall Abyss (floor 10): crystal-glass tune with a far-off pan flute, celesta broken chords, new-age pad, French horn counter line, glockenspiel sparks, a deep far boom, star-chime triangle and a soft shaker of star dust |
 | bc_*_fight.ogg | Each crypt's fight layer (low strings, cello rhythm, war drums), in sync with its track; the game fades it in while enemies are alive |
 
 Every file is a seamless loop: the piece is rendered twice through and the second pass kept,

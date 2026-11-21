@@ -1,4 +1,4 @@
-Version 254: the Bone Road ends in a prize of its own
-- The last step of the Bone Road, at 1,000 bones, now gives the Bone Chain aura to every hero, found nowhere else.
-- It is a ring of vertebrae round your hero. In a run its bones light up one by one, gold then red-hot, as your Bone Chain grows.
-- The Bone Road screen shows the prize on your hero, with how many bones are left.
+Version 255: floor 10 is a new place, the Starfall Abyss
+- The bottom of the crypt, where the world breaks off into a starry void. Stars and a nebula glow far below through every crack in the floor, and it crumbles away by the walls.
+- A star gate in the middle of the floor, pillars whose broken pieces float, braziers of cold star fire, great chains and fallen stars.
+- Its own music and room sounds.

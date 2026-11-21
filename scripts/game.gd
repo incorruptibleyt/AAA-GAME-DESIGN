@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21x"
+const BUILD := "2026-11-21y"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1732,8 +1732,8 @@ func _build_run() -> void:
 
 ## Who rules this floor: the Ember Catacomb (floor 3, then every Ember floor) has the
 ## Cinder Colossus, the Drowned Vault (floor 6, 11, 16...) the Tidecaller, the Glowcap
-## Grotto (floor 4, 10, 15...) the Sporemother; elsewhere the Skeleton King and the Lich
-## take turns (the King on odd floors).
+## Grotto (floor 4) and the Starfall Abyss (floor 10, 15...; its "boss" key) the Sporemother;
+## elsewhere the Skeleton King and the Lich take turns (the King on odd floors).
 func boss_kind() -> String:
 	# An event: its own boss on floor 3 and alone in its hunt (the Blood Moon Queen, Krampus);
 	# two of the crypt's bosses guard floors 1 and 2 (events.gd "guards").
@@ -1764,7 +1764,8 @@ func boss_kind() -> String:
 ## The Pass's own places name theirs ("guests", floors.gd): the Amethyst Mine keeps the
 ## Drowned Skeletons and Rootbinders its floor had before, the Whispering Library its
 ## Frost Wraiths (the ghosts of its readers) and Cinder Skeletons (book burners), and the
-## Clockwork Foundry the Cinder Skeletons (its stokers) and Sporelings its floor had before.
+## Clockwork Foundry the Cinder Skeletons (its stokers) and Sporelings its floor had before,
+## and the Starfall Abyss (version 255) the Sporelings and Rootbinders of the Grotto it replaced.
 func theme_enemy() -> String:
 	if first_run:
 		return ""

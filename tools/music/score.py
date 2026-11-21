@@ -148,6 +148,14 @@ def perc(s, style, b, d, sec):
             if pos in (1, 3): s.note("perc", t, 37, .2, 50)
             if pos % 1 == 0.5: s.note("perc", t, 42, .2, 34 if sec != "B" else 44)
             if pos == 0: s.note("perc", t, 81 if t % 8 == 0 else 80, .5, 40)
+        elif style == "abyss":
+            # The Starfall Abyss: a far, deep boom at the top of every bar, a triangle ringing
+            # out like a star every two bars, star dust (a soft shaker) in the busier sections
+            # and a ride bell every four bars.
+            if pos == 0: s.note("perc", t, 41, .5, 58)
+            if pos == 2 and t % 8 == 2: s.note("perc", t, 81, 2, 46)
+            if sec in ("B", "A2") and k % 2 == 1: s.note("perc", t, 82, .2, 30)
+            if pos == 0 and t % 16 == 0: s.note("perc", t, 53, 1, 40)
         elif style == "grotto":
             if pos in (0, 2.5): s.note("perc", t, 77, .2, 64)
             if pos in (1, 3): s.note("perc", t, 76, .2, 50)
@@ -252,6 +260,11 @@ TRACKS = {
     # line, steel-drum sparkles and the hammers, clanks and steam of the works.
     "foundry": ("calm", dict(bpm=112, tr=-3, lead=7, dbl=59, pad=95, arp=112, ctr=57, perc="foundry",
                              spark=114, seed=47)),
+    # The Starfall Abyss (version 255): the tune on crystal glass doubled by a pan flute far
+    # off, a celesta for the broken chords, a new-age pad, a French horn counter line,
+    # glockenspiel sparkles and the deep booms and star chimes of the void.
+    "abyss": ("calm", dict(bpm=80, tr=1, lead=98, dbl=75, pad=88, arp=8, ctr=60, perc="abyss",
+                           arp_div=1, bass_style="soft", spark=9, seed=53)),
 }
 REVERB = dict(room=0.7, level=0.55, damp=0.45)
 

@@ -160,6 +160,25 @@ const THEMES := [
 		"motes": [Color(1.0, 0.65, 0.3, 0.6), Color(0.85, 0.88, 0.92, 0.3)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.5, 0.5, 0.54), "guests": "ep", "boss": "C",
 		"banner": Color(1.0, 0.7, 0.35), "floor_style": 10, "props": "foundry", "pillar": "iron", "light": [1.3, 1.6, 0.0, 0.0]},
+	# Version 255: the Starfall Abyss, floor 10 (the Crypt Pass), the last floor of each loop,
+	# which until now was floor 4's Glowcap Grotto again. The bottom of the crypt, where the
+	# world breaks off into a starry void: pale moonstone plates drifted apart over the abyss
+	# (stars and a nebula far below in every gap, room.gd), a star gate in the middle, walls
+	# split by starlit cracks under a frieze of silver constellations, broken pillars whose
+	# pieces float apart, rocks drifting in the air, great chains rising into the dark and
+	# braziers of cold star fire. Starlight "spores" (the gate, the plate edges) and gold stars
+	# ("spores2"). It keeps the Sporelings, Rootbinders and the Sporemother its floor had.
+	{"name": "Starfall Abyss", "wisp": Color(0.85, 0.88, 1.0), "floor": Color(1.0, 1.0, 1.0),
+		"grout": Color(0.01, 0.01, 0.03), "grime": Color(0.13, 0.12, 0.17), "grime_amount": 0.6,
+		"patch_tint": Color(0.9, 0.9, 1.0), "patch_rough": 0.4,
+		"spores": Color(0.55, 0.68, 1.0, 1.0), "spores2": Color(1.0, 0.82, 0.5),
+		"wall": Color(0.12, 0.12, 0.15), "trim": Color(0.28, 0.29, 0.33),
+		"ambient": Color(0.2, 0.21, 0.25), "fog": Color(0.02, 0.02, 0.05), "background": Color(0.006, 0.007, 0.02),
+		"moon": Color(0.84, 0.87, 0.95), "torch": Color(0.62, 0.78, 1.0), "torch_energy": 1.4, "pool": 0.5,
+		# Star dust drifting down out of the dark, a little of it gold.
+		"motes": [Color(0.85, 0.9, 1.0, 0.6), Color(1.0, 0.85, 0.55, 0.35)], "motes_fall": true, "motes_size": 0.35,
+		"pebble": Color(0.46, 0.47, 0.55), "guests": "pr", "boss": "S",
+		"banner": Color(0.7, 0.75, 1.0), "floor_style": 11, "props": "abyss", "pillar": "drift", "light": [1.3, 1.6, 0.0, 0.0]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
@@ -177,13 +196,16 @@ const MINE := 8
 const LIBRARY := 9
 ## The Clockwork Foundry: floor 9, the fourth floor of each Crypt Pass loop (version 250).
 const FOUNDRY := 10
+## The Starfall Abyss: floor 10, the last floor of each Crypt Pass loop (version 255).
+const ABYSS := 11
 ## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, and the Sandfall Tomb.
 const FREE_ORDER := [0, 1, 2, GROTTO, SANDFALL]
 ## Each loop of the Crypt Pass (5 floors, see Loops): the Drowned Vault first, then (version
 ## 248) the Amethyst Mine where the Bone Crypt came back relit, (version 249) the Whispering
 ## Library where the Frozen Ossuary did and (version 250) the Clockwork Foundry where the
-## Ember Catacomb did. Floor 10 is still the Glowcap Grotto of floor 4.
-const PASS_ORDER := [DROWNED, MINE, LIBRARY, FOUNDRY, GROTTO]
+## Ember Catacomb did, and (version 255) the Starfall Abyss where floor 4's Glowcap Grotto
+## came back.
+const PASS_ORDER := [DROWNED, MINE, LIBRARY, FOUNDRY, ABYSS]
 
 
 ## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Grotto, Sandfall
@@ -281,7 +303,7 @@ static func drowned() -> bool:
 	return index(Game.floor_num) == DROWNED
 
 
-## The Glowcap Grotto (floor 4, then every fifth floor from 10).
+## The Glowcap Grotto (floor 4; until version 255 every fifth floor from 10 too).
 static func grotto() -> bool:
 	return index(Game.floor_num) == GROTTO
 

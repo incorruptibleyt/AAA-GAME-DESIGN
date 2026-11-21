@@ -28,13 +28,13 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0), Vector2(4.0, 9.0), Vector2(4.0, 10.0), Vector2(3.5, 8.0)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0), Vector2(4.0, 9.0), Vector2(4.0, 10.0), Vector2(3.5, 8.0), Vector2(4.0, 9.0)]
 
 static var _instance: Ambience
 ## Version 243: Frostfall's Blizzard turns the storm up (0..1, blizzard.gd).
 static var gust := 0.0
-var _beds: Array = [null, null, null, null, null, null, null, null, null, null, null]
-var _ones: Array = [null, null, null, null, null, null, null, null, null, null, null]
+var _beds: Array = [null, null, null, null, null, null, null, null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null, null, null, null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -115,6 +115,9 @@ func _build_all() -> void:
 	_ones[9] = _one(1.3, _pages)
 	_beds[10] = _loop(_foundry_bed)
 	_ones[10] = _one(1.4, _steam)
+	# The Starfall Abyss (version 255): the hum of the void and a star falling.
+	_beds[11] = _loop(_abyss_bed)
+	_ones[11] = _one(1.5, _falling_star)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -540,4 +543,36 @@ func _steam(n: int) -> PackedFloat32Array:
 		y2 += 0.3 * (y - y2)
 		x[i] = (y - y2) * env * 0.7
 		x[i] += sin(TAU * 640.0 * t) * exp(-t * 40.0) * 0.3 * minf(t / 0.002, 1.0)
+	return x
+
+
+## The Starfall Abyss: a deep, slow wind out of the void, a low hum, and a high glassy tone
+## beating slowly against itself and swelling (3 s, so it meets itself at the loop's seam).
+func _abyss_bed(n: int) -> PackedFloat32Array:
+	var x := _wind(n, 50.0, 200.0, 6.0, 1.6, 131)
+	for i in n:
+		var t := float(i) / RATE
+		var swell := 0.5 + 0.5 * sin(TAU * t / 3.0)
+		x[i] += sin(TAU * 49.0 * t) * 0.022 + sin(TAU * 98.0 * t) * 0.012
+		x[i] += (sin(TAU * 1318.5 * t) + sin(TAU * 1320.0 * t) + 0.4 * sin(TAU * 1975.5 * t)) * 0.007 * swell * swell
+	return x
+
+
+## A star falling: a thin whistle gliding down, then a soft shimmer of bells where it lands.
+func _falling_star(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var phase := 0.0
+	for i in n:
+		var t := float(i) / Sfx.RATE
+		if t < 0.7:
+			var hz := lerpf(3200.0, 900.0, pow(t / 0.7, 0.8))
+			phase += TAU * hz / Sfx.RATE
+			var env := minf(t / 0.08, 1.0) * (1.0 - smoothstep(0.45, 0.7, t))
+			x[i] += sin(phase) * env * 0.16
+		for k in 3:
+			var st := t - 0.62 - 0.07 * k
+			if st > 0.0:
+				var hz2: float = [2349.0, 2794.0, 3136.0][k]
+				x[i] += (sin(TAU * hz2 * st) + 0.3 * sin(TAU * hz2 * 2.0 * st)) * minf(st / 0.01, 1.0) * exp(-st * 4.5) * 0.12
 	return x
