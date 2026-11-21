@@ -553,14 +553,16 @@ class Swatch extends Control:
 					shape = str(by.get(k, grand).get(id, ""))
 					# v228: the Mage's forged, gilded and void weapons have their own shapes (ForgedArms).
 					if id == "mage":
-						shape = str({"frost": "ice_staff", "gold": "sun_staff", "void": "scythe", "ember": "fire_tome"}.get(finish, shape))
+						shape = str({"frost": "ice_staff", "gold": "sun_staff", "void": "scythe", "ember": "fire_tome", "crypt": "king_staff"}.get(finish, shape))
 					else:
 						forged = finish in ["frost", "ember", "gold", "void"]   # (ForgedArms, v229)
 					# v230: the Knight's and Barbarian's grand looks are whole new weapons.
 					if shape == "greatsword":
-						shape = str({"ember": "magma_cleaver", "gold": "sun_hammer", "void": "rift_blade"}.get(finish, shape))
+						shape = str({"ember": "magma_cleaver", "gold": "sun_hammer", "void": "rift_blade", "crypt": "king_blade"}.get(finish, shape))
 					elif shape == "great_axe":
-						shape = str({"ember": "magma_maul", "gold": "ram_mace", "void": "moon_axe"}.get(finish, shape))
+						shape = str({"ember": "magma_maul", "gold": "ram_mace", "void": "moon_axe", "crypt": "king_axe"}.get(finish, shape))
+					elif shape == "heavy" and finish == "crypt":
+						shape = "king_bow"   # (v253: the Crypt King's arms are whole weapons, CryptArms)
 		queue_redraw()
 
 	func _draw() -> void:
@@ -1063,6 +1065,9 @@ class Swatch extends Control:
 
 	## v230: the Knight's and Barbarian's grand looks, each a whole weapon of its own.
 	func _whole(p: String, c: Vector2, r: float) -> void:
+		var obsidian := Color(0.16, 0.13, 0.22)
+		var bone := Color(0.93, 0.88, 0.76)
+		var soul := Color(0.3, 1.0, 0.82)
 		var iron := Color(0.22, 0.19, 0.2)
 		var magma := Color(1.0, 0.5, 0.12)
 		var gold := Color(1.0, 0.84, 0.4)
@@ -1151,6 +1156,93 @@ class Swatch extends Control:
 					draw_colored_polygon(outer, Color(0.36, 0.18, 0.62))
 				_shard(c + Vector2(0, -r * 0.75), Vector2.UP, r * 0.32, r * 0.08, violet)
 				_orb_icon(c + Vector2(0, -r * 0.35), r * 0.12)
+			# Version 253: the Crypt King's arms, whole weapons of obsidian, bone and gold with
+			# teal soul fire (CryptArms).
+			"king_blade":
+				# the Kingsbane: obsidian rails round a channel of soul fire, a gold crown tip,
+				# a crowned skull for its guard between gold rib wings, a bone grip
+				draw_line(c + Vector2(0, r), c + Vector2(0, r * 0.5), bone, r * 0.12)
+				for y: float in [0.88, 0.72]:
+					draw_line(c + Vector2(-r * 0.09, r * y), c + Vector2(r * 0.09, r * y), gold, r * 0.04)
+				for sd: float in [-1.0, 1.0]:
+					var a0 := 0.35 * PI if sd > 0 else 0.65 * PI
+					var a1 := -0.3 * PI if sd > 0 else 1.3 * PI
+					for rr: float in [0.42, 0.3]:
+						draw_arc(c + Vector2(0, r * 0.42), r * rr, a0, a1, 14, gold, r * 0.06, true)
+					var rail := PackedVector2Array([c + Vector2(sd * r * 0.06, r * 0.38), c + Vector2(sd * r * 0.22, r * 0.38),
+						c + Vector2(sd * r * 0.26, -r * 0.1), c + Vector2(sd * r * 0.22, -r * 0.6), c + Vector2(0, -r * 0.95),
+						c + Vector2(0, -r * 0.76), c + Vector2(sd * r * 0.06, -r * 0.64)])
+					draw_colored_polygon(rail, obsidian)
+					draw_polyline(PackedVector2Array([rail[1], rail[2], rail[3], rail[4]]), gold, 2.0, true)
+				draw_line(c + Vector2(0, r * 0.36), c + Vector2(0, -r * 0.7), soul, r * 0.1)
+				for d: Vector2 in [Vector2(-0.55, -1.0), Vector2(0, -1.0), Vector2(0.55, -1.0)]:
+					_shard(c + Vector2(0, -r * 0.9), d, r * (0.3 if d.x == 0.0 else 0.22), r * 0.06, gold)
+				_skull_icon(c + Vector2(0, r * 0.42), r * 0.15)
+			"king_axe":
+				# the Skull Crusher: a crowned skull for a head, jagged blades lined with soul fire
+				draw_line(c + Vector2(0, r), c + Vector2(0, -r * 0.3), obsidian.lightened(0.15), r * 0.12)
+				for y: float in [0.8, 0.3]:
+					draw_line(c + Vector2(-r * 0.09, r * y), c + Vector2(r * 0.09, r * y), gold, r * 0.08)
+				var h := c + Vector2(0, -r * 0.45)
+				var teeth := [Vector2(0.2, 0.84), Vector2(0.5, 0.62), Vector2(0.64, 0.8), Vector2(0.56, 0.9), Vector2(0.72, 1.0),
+					Vector2(0.6, 1.1), Vector2(0.74, 1.22), Vector2(0.6, 1.33), Vector2(0.5, 1.5), Vector2(0.2, 1.26)]
+				for sd: float in [-1.0, 1.0]:
+					var pts := PackedVector2Array()
+					for q: Vector2 in teeth:
+						pts.append(h + Vector2(sd * q.x, -(q.y - 1.05)) * r * 0.95)
+					draw_colored_polygon(pts, obsidian)
+					draw_polyline(pts.slice(1, pts.size() - 1), soul, 2.0, true)
+				_skull_icon(h, r * 0.27)
+			"king_staff":
+				# the Spine: stacked vertebrae round soul fire, a soul flame held up, and the
+				# Crypt Crown floating over it
+				var b0 := c + Vector2(-r * 0.2, r)
+				var b1 := c + Vector2(r * 0.16, -r * 0.48)
+				draw_line(b0, b1, soul, r * 0.05)
+				for i in 9:
+					draw_circle(b0.lerp(b1, (i + 0.5) / 9.0), r * 0.075, bone)
+				var h := c + Vector2(r * 0.2, -r * 0.62)
+				draw_circle(h, r * 0.22, Color(soul, 0.3))
+				draw_circle(h, r * 0.12, soul)
+				draw_arc(h, r * 0.17, PI * 0.15, PI * 0.85, 10, bone, r * 0.05, true)
+				_crown_icon(h + Vector2(0, -r * 0.42), r * 0.56)
+			"king_bow":
+				# the ribcage crossbow: three pairs of gold-tipped ribs, a skull at its nose, a
+				# soul-fire bolt and a crown by the hand
+				draw_line(c + Vector2(0, r * 0.8), c + Vector2(0, -r * 0.5), obsidian.lightened(0.15), r * 0.14)
+				draw_line(c + Vector2(0, r * 0.25), c + Vector2(0, -r * 0.5), soul, r * 0.05)
+				for k in 3:
+					var y := -r * 0.32 + k * r * 0.24
+					var span := r * (0.88 - k * 0.2)
+					for sd: float in [-1.0, 1.0]:
+						var rib := PackedVector2Array([c + Vector2(sd * r * 0.05, y), c + Vector2(sd * span * 0.5, y - r * 0.16),
+							c + Vector2(sd * span * 0.92, y - r * 0.06), c + Vector2(sd * span, y + r * 0.1)])
+						draw_polyline(rib, bone, r * 0.07, true)
+						_shard(rib[3], Vector2(sd * 0.3, 1.0), r * 0.14, r * 0.04, gold)
+				_skull_icon(c + Vector2(0, -r * 0.62), r * 0.14)
+				_crown_icon(c + Vector2(0, r * 0.58), r * 0.32)
+
+	## v253: a bone skull with soul-fire eyes wearing a gold crown (CryptArms' skulls).
+	func _skull_icon(o: Vector2, sz: float) -> void:
+		draw_circle(o, sz, Color(0.93, 0.88, 0.76))
+		draw_rect(Rect2(o + Vector2(-sz * 0.55, sz * 0.45), Vector2(sz * 1.1, sz * 0.55)), Color(0.93, 0.88, 0.76))
+		for sd: float in [-1.0, 1.0]:
+			draw_circle(o + Vector2(sd * sz * 0.38, sz * 0.05), sz * 0.28, Color(0.03, 0.03, 0.05))
+			draw_circle(o + Vector2(sd * sz * 0.38, sz * 0.05), sz * 0.13, Color(0.3, 1.0, 0.82))
+		draw_colored_polygon(PackedVector2Array([o + Vector2(-sz * 0.1, sz * 0.5), o + Vector2(0, sz * 0.32), o + Vector2(sz * 0.1, sz * 0.5)]), Color(0.03, 0.03, 0.05))
+		_crown_icon(o + Vector2(0, -sz * 0.72), sz * 1.5)
+
+	## v253: the Crypt Crown, `w` wide: a gold band, five points, soul gems on the tall ones.
+	func _crown_icon(o: Vector2, w: float) -> void:
+		var gold := Color(1.0, 0.82, 0.35)
+		draw_rect(Rect2(o + Vector2(-w * 0.5, -w * 0.02), Vector2(w, w * 0.2)), gold)
+		for i in 5:
+			var x := (i - 2) * w * 0.22
+			var tall := i % 2 == 0
+			var h := w * (0.48 if tall else 0.3)
+			draw_colored_polygon(PackedVector2Array([o + Vector2(x - w * 0.09, 0), o + Vector2(x, -h), o + Vector2(x + w * 0.09, 0)]), gold)
+			if tall:
+				draw_circle(o + Vector2(x, -h), w * 0.06, Color(0.3, 1.0, 0.82))
 
 	## A crystal or blade shard: a long diamond from `p` along `d`.
 	func _shard(p: Vector2, d: Vector2, length: float, w: float, col: Color) -> void:
@@ -1237,7 +1329,7 @@ class Swatch extends Control:
 				parts = ["wand", shape]
 			"ice_staff", "sun_staff", "scythe":
 				parts = [shape]
-			"magma_cleaver", "sun_hammer", "rift_blade", "magma_maul", "ram_mace", "moon_axe":
+			"magma_cleaver", "sun_hammer", "rift_blade", "magma_maul", "ram_mace", "moon_axe", "king_blade", "king_axe", "king_staff", "king_bow":
 				parts = [shape]
 			"crossbow", "heavy":
 				parts = [shape]
@@ -1359,7 +1451,7 @@ class Swatch extends Control:
 						draw_colored_polygon(pts, Color(0.42, 0.24, 0.7))
 						draw_circle(h, r * 0.15, Color(0.1, 0.05, 0.18))
 						draw_circle(h, r * 0.07, Color(0.8, 0.6, 1.0))
-				"magma_cleaver", "sun_hammer", "rift_blade", "magma_maul", "ram_mace", "moon_axe":
+				"magma_cleaver", "sun_hammer", "rift_blade", "magma_maul", "ram_mace", "moon_axe", "king_blade", "king_axe", "king_staff", "king_bow":
 					_whole(p, c, r)
 				"crossbow", "heavy":
 					var w := r * (1.0 if p == "heavy" else 0.75)
@@ -1372,12 +1464,3 @@ class Swatch extends Control:
 					draw_line(o + Vector2(-r * 0.18, r * 0.25), o + Vector2(r * 0.18, r * 0.25), wood, r * 0.1)
 		if forged:
 			_forged(c, r)
-		if finish == "crypt":
-			# The Crypt King's arms (v201): gold crown points up both sides and a soul gem.
-			var gold := Color(1.0, 0.8, 0.3)
-			for i in 4:
-				var y := -r * 0.75 + i * r * 0.32
-				for s: float in [-1.0, 1.0]:
-					var b := c + Vector2(s * r * 0.1, y)
-					draw_colored_polygon(PackedVector2Array([b + Vector2(0, -r * 0.1), b + Vector2(0, r * 0.1), b + Vector2(s * r * 0.3, -r * 0.14)]), gold)
-			draw_circle(c + Vector2(0, r * 0.5), r * 0.17, Color(0.3, 1.0, 0.8))

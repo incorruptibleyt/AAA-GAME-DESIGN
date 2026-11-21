@@ -1339,10 +1339,12 @@ static func magic(pos: Vector3, color: Color, count := 18) -> void:
 
 
 static var _flame_mat: ShaderMaterial
+static var _soul_flame_mat: ShaderMaterial
 
 ## A flickering flame that always faces the camera, drawn by the graphics card (no script,
-## no light): `size` is its width and height in metres, standing on `pos`.
-static func flame(parent: Node3D, size: Vector2, pos := Vector3.ZERO) -> MeshInstance3D:
+## no light): `size` is its width and height in metres, standing on `pos`. `soul`: the Crypt
+## King's teal soul fire instead of orange (version 253, CryptArms).
+static func flame(parent: Node3D, size: Vector2, pos := Vector3.ZERO, soul := false) -> MeshInstance3D:
 	if _flame_mat == null:
 		var sh := Shader.new()
 		sh.code = """
@@ -1372,11 +1374,15 @@ void fragment() {
 """
 		_flame_mat = ShaderMaterial.new()
 		_flame_mat.shader = sh
+		_soul_flame_mat = ShaderMaterial.new()
+		_soul_flame_mat.shader = sh
+		_soul_flame_mat.set_shader_parameter("hot", Color(0.8, 1.0, 0.95))
+		_soul_flame_mat.set_shader_parameter("cool", Color(0.08, 0.85, 0.68))
 	var q := QuadMesh.new()
 	q.size = Vector2.ONE
 	var f := MeshInstance3D.new()
 	f.mesh = q
-	f.material_override = _flame_mat
+	f.material_override = _soul_flame_mat if soul else _flame_mat
 	f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	f.scale = Vector3(size.x, size.y, 1.0)
 	f.position = pos + Vector3.UP * size.y * 0.5

@@ -18,19 +18,20 @@ class_name ForgedArms
 static var _mats := {}
 ## Which finish gives which shape, per weapon part (the weapon mesh's name in the hero model).
 const SHAPES := {
-	"2H_Staff": {"frost": "ice_staff", "gold": "sun_staff", "void": "scythe"},
+	"2H_Staff": {"frost": "ice_staff", "gold": "sun_staff", "void": "scythe", "crypt": "king_staff"},
 	"Spellbook_open": {"ember": "fire_tome"},
 	"1H_Wand": {"ember": "fire_wand"},
 	"1H_Sword": {"frost": "ice_sword"},
 	"Badge_Shield": {"frost": "ice_shield"},
-	"2H_Sword": {"ember": "magma_cleaver", "gold": "sun_hammer", "void": "rift_blade"},
-	"2H_Crossbow": {"frost": "ice_bow", "gold": "wing_bow", "void": "ring_bow"},
+	"2H_Sword": {"ember": "magma_cleaver", "gold": "sun_hammer", "void": "rift_blade", "crypt": "king_blade"},
+	"2H_Crossbow": {"frost": "ice_bow", "gold": "wing_bow", "void": "ring_bow", "crypt": "king_bow"},
 	"Knife": {"ember": "flame_knife"},
-	"Knife_Offhand": {"ember": "flame_knife", "gold": "wing_knife", "void": "void_knife"},
+	"Knife_Offhand": {"ember": "flame_knife", "gold": "wing_knife", "void": "void_knife", "crypt": "king_knife"},
 	"1H_Axe": {"frost": "ice_axe"},
 	"1H_Axe_Offhand": {"frost": "ice_axe"},
-	"2H_Axe": {"ember": "magma_maul", "gold": "ram_mace", "void": "moon_axe"},
+	"2H_Axe": {"ember": "magma_maul", "gold": "ram_mace", "void": "moon_axe", "crypt": "king_axe"},
 }
+## (Version 253: the Crypt King's arms, finish "crypt", are whole weapons too: CryptArms.)
 ## Shapes added onto the weapon they are built on; every other shape is a whole weapon of its
 ## own, and the weapon it replaces is hidden (v231: all of them but the wand's flame).
 const ADD_ONS := ["fire_wand"]
@@ -98,6 +99,8 @@ static func dress(mi: MeshInstance3D, finish: String) -> void:
 			_ram_mace(root)
 		"moon_axe":
 			_moon_axe(root)
+		"king_blade", "king_axe", "king_staff", "king_bow", "king_knife":
+			CryptArms.build(root, want)
 	for n in root.find_children("*", "GeometryInstance3D", true, false):
 		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		n.set_meta("fx", true)   # (the hit flash would turn them white)

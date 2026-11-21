@@ -210,6 +210,7 @@ const PASS_HEAD := {"name": "Crypt Crown", "hat": false, "extras": ["crypt_crown
 const PASS_GLOW := {"name": "Crypt Gold", "fx": "crown", "ring": Color(1.0, 0.84, 0.38), "bolt": Color(1.0, 0.92, 0.6), "pass": true}
 ## The set's weapon (version 198): the hero's grandest weapon in obsidian, edged in gold,
 ## with teal soul fire burning along it. Until then the paid set carried a plain grey weapon.
+## Version 253: whole weapons of their own instead (CryptArms, built by ForgedArms.dress).
 const PASS_HOLD := {"name": "Crypt King's arms", "finish": "crypt", "pass": true}
 ## The aura: a gold outline a white glint runs round, gold crowns of light rising, and a
 ## turning gold sigil on the floor under the hero, the one thing seen from anywhere in a room.
@@ -811,7 +812,6 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 				var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
 				if src and src.albedo_texture:
 					mi.material_override = LookFx.weapon(src, finish, glow, book if str(mi.name).begins_with("Spellbook") else null)
-				CryptArms.dress(mi, finish == "crypt")
 				if str(mi.name) == "1H_Wand" and not mi.has_meta("big"):
 					_wand_star(mi, glow if glow is Color else Color(0.6, 0.85, 1.0))
 				if not mi.has_meta("big"):

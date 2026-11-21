@@ -1,6 +1,5 @@
-Version 252: every hero's level-20 aura has its own colour and shape
-- Rogue (Nightlord): three violet shadow daggers circle you, leaving ghosts behind.
-- Knight (Lionheart): a lion's mane of gold flame burns round your head.
-- Barbarian (Worldbreaker): cyan lightning leaps off you and strikes the floor.
-- Mage (Starsage): gold stars run round two green rings turning round you.
-Before, all four were the same orange-gold column of light.
+Version 253: the Crypt King's arms are whole new weapons
+- Knight: the Kingsbane, a black greatsword split by a channel of soul fire, a crowned skull for its guard.
+- Barbarian: the Skull Crusher, a crowned skull for an axe head with soul fire in its eyes.
+- Mage: the Spine, a staff of bones with the Crypt Crown floating over it.
+- Rogue: a ribcage crossbow with a skull at its nose, and the Crown Fang knife.
