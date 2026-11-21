@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21zm"
+const BUILD := "2026-11-21zn"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -366,6 +366,7 @@ const MEET_LINES := {
 	"Sporeling": "SPORELING: bursts into spores. Step back after the kill!",
 	"Rootbinder": "ROOTBINDER: roots crawl after you. Step aside!",
 	"VoidWalker": "VOID WALKER: steps out of a rift by you. Get away from it!",
+	"ClockworkSkeleton": "CLOCKWORK SKELETON: charges and bounces off a wall. Hit it when it runs down!",
 	"Bloodbat": "BLOODBATS: swoop along a strip. Dash through!",
 	"MoonHowler": "MOON HOWLER: pounces along a strip. Step aside!",
 }
@@ -1766,7 +1767,8 @@ func boss_kind() -> String:
 ## The Pass's own places name theirs ("guests", floors.gd): the Amethyst Mine keeps the
 ## Drowned Skeletons and Rootbinders its floor had before, the Whispering Library its
 ## Frost Wraiths (the ghosts of its readers) and Cinder Skeletons (book burners), and the
-## Clockwork Foundry the Cinder Skeletons (its stokers) and Sporelings its floor had before,
+## Clockwork Foundry its own Clockwork Skeletons (version 270) and the Cinder Skeletons (its
+## stokers; until then beside the Sporelings its floor had before),
 ## and the Starfall Abyss its own Void Walkers (version 269; from version 255 it borrowed the
 ## Sporelings and Rootbinders of the Grotto it replaced).
 func theme_enemy() -> String:

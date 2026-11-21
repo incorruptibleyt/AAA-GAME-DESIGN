@@ -188,7 +188,9 @@ const THEMES := [
 		"moon": Color(0.85, 0.88, 0.95), "torch": Color(1.0, 0.6, 0.3), "torch_energy": 1.4, "pool": 0.55,
 		# Sparks drifting up from the furnaces, and wisps of steam.
 		"motes": [Color(1.0, 0.65, 0.3, 0.6), Color(0.85, 0.88, 0.92, 0.3)], "motes_fall": false, "motes_size": 0.4,
-		"pebble": Color(0.5, 0.5, 0.54), "guests": "ep", "boss": "C",
+		# Version 270 (hard review fix 3): its own Clockwork Skeletons beside its Cinder
+		# Skeleton stokers (the Grotto's Sporelings it borrowed are gone).
+		"pebble": Color(0.5, 0.5, 0.54), "guests": "ue", "boss": "C",
 		"banner": Color(1.0, 0.7, 0.35),
 		# Version 263: its own cover (props.gd add_cover): anvils on iron blocks with a blade
 		# still glowing on them for crates, steam valves with red handwheels for barrels.

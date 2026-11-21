@@ -390,3 +390,16 @@ if WHICH in ("all", "void"):
         a = mix((lowpass(game(CRUNCH[i + 1], 0.95), 3000), 0, 0.7), (suck, 0.03, 0.5),
                 (tinkle(0.5, 7, 2600, 6200, 0.25), 0.5, 0.25))
         save(verb(a, 0.9, 0.35, 6000), "die_void_%d" % i, cap=1.2)
+if WHICH in ("all", "clock"):
+    # The Clockwork Skeleton (version 270, the Clockwork Foundry's own skeleton): the bone
+    # crunch with brass falling after it, a spring going "boing" as it snaps loose, the gears
+    # rattling to a stop and a last puff of steam. (python3 ... clock)
+    for i in range(3):
+        tt = t(0.7)
+        f = 340 * np.exp(-tt * 2.2) + 120
+        spring = np.sin(2 * np.pi * np.cumsum(f * (1 + 0.08 * np.sin(2 * np.pi * 26 * tt))) / R) * env(len(tt), 0.004, 0.22)
+        rattle = crackle(0.5, 60 - 10 * i, 0.18)
+        a = mix((game(CRUNCH[i + 2], 1.0), 0, 0.6), (load("k1/impact-sounds/impactMetal_light_00%d.ogg" % i, 1.1), 0.05, 0.6),
+                (load("k1/impact-sounds/impactMetal_light_00%d.ogg" % (i + 2), 1.35), 0.17, 0.35),
+                (spring, 0.08, 0.4), (rattle, 0.12, 0.5), (hiss(0.5, 0.18, 3000), 0.25, 0.2))
+        save(a, "die_clock_%d" % i, cap=1.1)

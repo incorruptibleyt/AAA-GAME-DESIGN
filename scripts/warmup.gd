@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "b", "h", "Q", "q", "o", "n", "i", "Y"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "u", "b", "h", "Q", "q", "o", "n", "i", "Y"]
 
 ## Version 165: the skeletons, floor and effects of the first floor. A new player's first
 ## launch warms only these (with the hero they play), and the rest waits for the black

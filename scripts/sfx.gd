@@ -169,7 +169,7 @@ func _load_samples() -> void:
 			# Version 251: each skeleton family's own death and each boss's own roar
 			# (tools/audio/voices.py; see Enemy.die_sound and roar_sound).
 			"die_armour", "die_archer", "die_mage", "die_spider", "die_frost", "die_cinder", "die_drowned",
-			"die_spore", "die_root", "die_bat", "die_howler", "die_shade", "die_snow", "die_bell", "die_thief", "die_void",
+			"die_spore", "die_root", "die_bat", "die_howler", "die_shade", "die_snow", "die_bell", "die_thief", "die_void", "die_clock",
 			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star"]:
 		var found := []
 		for i in 10:
