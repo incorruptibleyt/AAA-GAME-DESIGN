@@ -1,5 +1,3 @@
-Version 265: the Bone Crypt has its own cover
-- On floor 1 the crates are now blocks of ossuary wall: thigh bones stacked ends out between rows of skulls, with candles burning on top.
-- The barrels are now bone totems: thigh bones bound in iron, a red rag and a big skull with a candle on its crown.
-- They block movement and shots just like before.
-- With this every floor, 1 to 10, has cover of its own.
+Version 266: lighter cover on floor 1
+- The ossuary walls and bone totems on floor 1 now take a quarter of the drawing work they did in version 265, with the same look, so older phones keep up.
+- Small skull eye sockets everywhere use simpler shapes too.

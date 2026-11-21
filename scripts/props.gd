@@ -543,6 +543,19 @@ static func _sphere() -> SphereMesh:
 	return _baked["sphere"]
 
 
+## A small low-poly ball (6 sides, 3 rings: 28 corners against the round one's 91) for knobs
+## and bone ends too small to show their facets.
+static func _knob() -> SphereMesh:
+	if not _baked.has("knob"):
+		var s := SphereMesh.new()
+		s.radius = 1.0
+		s.height = 2.0
+		s.radial_segments = 6
+		s.rings = 3
+		_baked["knob"] = s
+	return _baked["knob"]
+
+
 static func _cube() -> BoxMesh:
 	if not _baked.has("cube"):
 		_baked["cube"] = BoxMesh.new()
@@ -2301,7 +2314,7 @@ static func _skull(parts: Array, at: Vector3, s: float, look: Vector3, bone: Mat
 	parts.append([_sphere(), _xf(at, Vector3(s, s * 0.92, s * 1.05), b), bone])
 	parts.append([_cube(), _xf(at + b * Vector3(0, -s * 0.62, -s * 0.38), Vector3(s * 0.95, s * 0.4, s * 0.7), b), bone])
 	for ex in [-0.38, 0.38]:
-		parts.append([_sphere(), _xf(at + b * Vector3(ex * s, s * 0.05, -s * 0.88), Vector3.ONE * s * 0.26), dark])
+		parts.append([_knob(), _xf(at + b * Vector3(ex * s, s * 0.05, -s * 0.88), Vector3.ONE * s * 0.26), dark])
 
 
 ## A bone (or any rod) from `a` to `b`, `r` thick.
@@ -3416,21 +3429,21 @@ static func _ossuary_block() -> ArrayMesh:
 	var packed := U.mat(Color(0.3, 0.26, 0.22), 1.0)
 	parts.append([_cube(), _xf(Vector3(0, 0.04, 0), Vector3(1.18, 0.08, 0.68)), U.mat(Color(0.22, 0.21, 0.26), 0.8)])
 	parts.append([_cube(), _xf(Vector3(0, 0.5, 0), Vector3(1.04, 0.86, 0.52)), packed])
-	# Two layers of thigh bones, ends out (each end a double knob), front and back.
+	# Two layers of thigh bones, ends out (each end a double knob) on the side that faces the
+	# room; the back never turns to the camera. Small knobs use a low-poly ball (_knob): the
+	# first build used the round one and the block came to 36,000 corners, ten times any other.
 	for row_y in [0.14, 0.25, 0.56, 0.67]:
 		for k in 10:
 			var x := -0.45 + k * 0.1 + (0.025 if int(row_y * 100) % 2 == 0 else -0.025)
-			for z in [0.27, -0.27]:
-				var bone_mat := old if (k + int(row_y * 10)) % 3 == 0 else bone
-				parts.append([_sphere(), _xf(Vector3(x - 0.02, row_y, z), Vector3(0.034, 0.04, 0.03)), bone_mat])
-				parts.append([_sphere(), _xf(Vector3(x + 0.022, row_y + 0.008, z), Vector3(0.03, 0.036, 0.03)), bone_mat])
+			var bone_mat := old if (k + int(row_y * 10)) % 3 == 0 else bone
+			parts.append([_knob(), _xf(Vector3(x - 0.02, row_y, 0.27), Vector3(0.034, 0.04, 0.03)), bone_mat])
+			parts.append([_knob(), _xf(Vector3(x + 0.022, row_y + 0.008, 0.27), Vector3(0.03, 0.036, 0.03)), bone_mat])
 	# The ends of the block: more bone ends, in rows across.
 	for row_y in [0.14, 0.25, 0.4, 0.56, 0.67, 0.79]:
 		for k in 5:
 			var z := -0.2 + k * 0.1
 			for x in [0.53, -0.53]:
-				parts.append([_sphere(), _xf(Vector3(x, row_y, z - 0.02), Vector3(0.03, 0.04, 0.034)), old if k % 2 == 0 else bone])
-				parts.append([_sphere(), _xf(Vector3(x, row_y + 0.008, z + 0.022), Vector3(0.03, 0.036, 0.03)), old if k % 2 == 0 else bone])
+				parts.append([_knob(), _xf(Vector3(x, row_y, z), Vector3(0.03, 0.04, 0.05)), old if k % 2 == 0 else bone])
 	# Two rows of skulls looking out at the room.
 	for row in 2:
 		var y := 0.4 + row * 0.39
@@ -3443,8 +3456,8 @@ static func _ossuary_block() -> ArrayMesh:
 		var b := Vector3(0.44, 0.95, z + 0.03)
 		_rod_part(parts, a, b, 0.032, bone)
 		for e in [a, b]:
-			parts.append([_sphere(), _xf(e + Vector3(0, 0, -0.022), Vector3.ONE * 0.042), bone])
-			parts.append([_sphere(), _xf(e + Vector3(0, 0, 0.022), Vector3.ONE * 0.042), bone])
+			parts.append([_knob(), _xf(e + Vector3(0, 0, -0.022), Vector3.ONE * 0.042), bone])
+			parts.append([_knob(), _xf(e + Vector3(0, 0, 0.022), Vector3.ONE * 0.042), bone])
 	_skull(parts, Vector3(-0.3, 1.06, -0.04), 0.1, Vector3(-0.3, 0.3, 1), bone, dark)
 	_skull(parts, Vector3(0.22, 1.05, -0.12), 0.1, Vector3(0.4, 0.25, 1), old, dark)
 	_candle(parts, Vector3(-0.3, 1.15, -0.04), 0.14)
@@ -3486,8 +3499,8 @@ static func _bone_totem() -> ArrayMesh:
 		var m := old if i % 3 == 1 else bone
 		_rod_part(parts, lo, hi, 0.034, m)
 		for e in [lo, hi]:
-			parts.append([_sphere(), _xf(e + Vector3(0.018, 0, 0), Vector3.ONE * 0.043), m])
-			parts.append([_sphere(), _xf(e + Vector3(-0.018, 0, 0), Vector3.ONE * 0.043), m])
+			parts.append([_knob(), _xf(e + Vector3(0.018, 0, 0), Vector3.ONE * 0.043), m])
+			parts.append([_knob(), _xf(e + Vector3(-0.018, 0, 0), Vector3.ONE * 0.043), m])
 	for y in [0.3, 0.64]:
 		var band := TorusMesh.new()
 		band.inner_radius = 0.13
