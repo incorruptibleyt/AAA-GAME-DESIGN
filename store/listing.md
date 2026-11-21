@@ -54,7 +54,7 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 
 ★ A CRYPT THAT FIGHTS BACK
 • Skeleton warriors, archers, mages, bombers, spitters, bone spiders and elites with their own moves.
-• Giant bosses that change at half health: the Skeleton King, the Lich, the Cinder Colossus, the Sporemother and the Tidecaller.
+• Giant bosses that change at half health: the Skeleton King, the Lich, the Cinder Colossus, the Sporemother, the Tidecaller and the Star Eater.
 • Five free places to descend: the Bone Crypt, the Frozen Ossuary, the Ember Catacomb, the Glowcap Grotto and the Sandfall Tomb, each with its own ground, light, music and cover.
 • Skeletons with their own tricks, like Frost Wraiths that fire ice beams and Cinder Skeletons that leave fire behind them.
 

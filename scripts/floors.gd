@@ -211,7 +211,9 @@ const THEMES := [
 		"moon": Color(0.84, 0.87, 0.95), "torch": Color(0.62, 0.78, 1.0), "torch_energy": 1.4, "pool": 0.5,
 		# Star dust drifting down out of the dark, a little of it gold.
 		"motes": [Color(0.85, 0.9, 1.0, 0.6), Color(1.0, 0.85, 0.55, 0.35)], "motes_fall": true, "motes_size": 0.35,
-		"pebble": Color(0.46, 0.47, 0.55), "guests": "pr", "boss": "S",
+		"pebble": Color(0.46, 0.47, 0.55), "guests": "pr",
+		# Version 268 (hard review fix 2): its own boss, the Star Eater (was the Sporemother).
+		"boss": "A",
 		"banner": Color(0.7, 0.75, 1.0),
 		# Version 264: its own cover (props.gd add_cover): open moonstone coffins with their
 		# lids floating over them for crates, great bells fallen out of the dark for barrels.

@@ -368,3 +368,16 @@ if WHICH in ("all", "roar"):
                      (load("k1/rpg-audio/beltHandle%d.ogg" % (i % 2 + 1), 0.8), 0.25, 0.5))
         a = mix((g, 0, 1.0), (chains, 0.05, 0.6), (sleigh(0.8, 9), 0.1, 0.35))
         save(a, "roar_krampus_%d" % i, mean_db=-14.0, cap=1.6)
+
+if WHICH in ("all", "star"):
+    # The Star Eater (version 268, the Starfall Abyss's boss): a roar from very far away,
+    # slowed and hollow, over a deep humming chord like the void itself, a falling star's
+    # whoosh and glassy chimes of starlight, all in a long echo. (python3 ... star)
+    for i, (src, sp) in enumerate([("k2/creatures-2/roar_04", 0.55), ("k2/creatures-2/roar_06", 0.52), ("k2/creatures-2/roar_05", 0.58)]):
+        v = lowpass(load(src + ".ogg", sp), 1600)
+        tt = t(1.9)
+        hum = sum(np.sin(2 * np.pi * f * tt + 0.4 * np.sin(2 * np.pi * 0.6 * tt + k)) * g
+                  for k, (f, g) in enumerate([(55, 0.6), (82.5, 0.45), (110, 0.3), (164.8, 0.18)])) * env(len(tt), 0.35, 0.9)
+        fall = whoosh(1.0, 7000, 700, 1.0, 0.55)
+        a = mix((hum, 0, 0.55), (fall, 0.0, 0.4), (v, 0.15, 1.0), (tinkle(1.3, 12, 1700, 4300, 0.35), 0.45, 0.22))
+        save(verb(a, 1.7, 0.5, 5200), "roar_star_%d" % i, mean_db=-14.0, cap=2.3)

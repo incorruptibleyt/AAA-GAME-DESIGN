@@ -136,6 +136,7 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"p": e = Sporeling.new()
 		"r": e = Rootbinder.new()
 		"S": e = Sporemother.new()
+		"A": e = StarEater.new()   # the Starfall Abyss's own boss (version 268)
 		# The Blood Moon event (events.gd, version 134).
 		"b": e = Bloodbat.new()
 		"h": e = MoonHowler.new()
@@ -533,9 +534,9 @@ func _process(delta: float) -> void:
 ## Tidecaller on 11, each the very same fight. A boss met again (past the floor it is first
 ## met on in a normal run; never in an event) brings an attack of its own that it never used
 ## before (ENCORES): its first move, then one more in its shuffled bag.
-const BOSS_FIRST := {"SkeletonKing": 1, "Lich": 2, "CinderColossus": 3, "Sporemother": 4, "Tidecaller": 6}
+const BOSS_FIRST := {"SkeletonKing": 1, "Lich": 2, "CinderColossus": 3, "Sporemother": 4, "Tidecaller": 6, "StarEater": 10}
 const ENCORES := {"SkeletonKing": "King's Leap", "Lich": "Seeking Souls", "CinderColossus": "Flame Wheel",
-	"Sporemother": "Deep Breath", "Tidecaller": "Geyser Chase"}
+	"Sporemother": "Deep Breath", "Tidecaller": "Geyser Chase", "StarEater": "Black Hole"}
 
 
 func returning() -> bool:

@@ -1,2 +1,3 @@
-Version 267: the Crypt Pass says what it holds
-- The Crypt Pass screen now shows and names its five places, the Drowned Vault, Amethyst Mine, Whispering Library, Clockwork Foundry and Starfall Abyss, instead of the old "3 remixed crypts".
+Version 268: the Starfall Abyss has its own boss
+- The last floor is now guarded by the Star Eater, a giant skeleton with a fallen star in its ribs, instead of the Sporemother from floor 4.
+- It drops falling stars and strikes the lines between them, drags you in with its gravity, rolls moons across the room and makes stars rain below half health.

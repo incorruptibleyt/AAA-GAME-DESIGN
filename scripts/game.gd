@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21zk"
+const BUILD := "2026-11-21zl"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1732,7 +1732,8 @@ func _build_run() -> void:
 
 ## Who rules this floor: the Ember Catacomb (floor 3, then every Ember floor) has the
 ## Cinder Colossus, the Drowned Vault (floor 6, 11, 16...) the Tidecaller, the Glowcap
-## Grotto (floor 4) and the Starfall Abyss (floor 10, 15...; its "boss" key) the Sporemother;
+## Grotto (floor 4) the Sporemother, the Starfall Abyss (floor 10, 15...; its "boss" key) the
+## Star Eater (version 268; it had the Sporemother before);
 ## elsewhere the Skeleton King and the Lich take turns (the King on odd floors).
 func boss_kind() -> String:
 	# An event: its own boss on floor 3 and alone in its hunt (the Blood Moon Queen, Krampus);

@@ -18,8 +18,8 @@ class_name Layouts
 ##   p  sporeling, r  rootbinder (spore clouds and crawling roots; the Glowcap Grotto swaps in
 ##      one of each)
 ##   ^  spike trap (glows red, then spikes shoot up)
-##   K  the boss (the Skeleton King, the Lich, the Cinder Colossus, the Tidecaller or the
-##      Sporemother: see Game.boss_kind)
+##   K  the boss (the Skeleton King, the Lich, the Cinder Colossus, the Tidecaller, the
+##      Sporemother or the Star Eater: see Game.boss_kind)
 ##
 ## Rooms are drawn the same on both sides. From floor 2 a room may take its right-hand side
 ## from another room, and from floor 3 the far half of one room may be joined to the near
