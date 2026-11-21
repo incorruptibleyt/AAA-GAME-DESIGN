@@ -1762,6 +1762,7 @@ static func _iron_mat(key: String) -> Material:
 			"face": _baked[k] = U.mat(Color(0.72, 0.68, 0.55), 0.6)
 			"red": _baked[k] = U.mat(Color(0.48, 0.07, 0.05), 0.5)
 			"rust": _baked[k] = U.mat(Color(0.32, 0.15, 0.07), 0.9)
+			"steel": _baked[k] = U.mat(Color(0.36, 0.37, 0.41), 0.32)
 	return _baked[k]
 
 
@@ -2272,6 +2273,8 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 			n.rotation.y = randf_range(-0.5, 0.5)   # the scribe's open book towards the camera
 			_mesh(n, _scribe_desk())
 		"library:b": _mesh(n, _hourglass())
+		"foundry:c": _mesh(n, _anvil_block())
+		"foundry:b": _mesh(n, _valve_stand())
 		"wreck:b":
 			n.rotation.y = randf_range(-0.8, 0.8)   # its front porthole turned towards the camera
 			_mesh(n, _diving_helmet())
@@ -3071,4 +3074,90 @@ static func _hourglass() -> ArrayMesh:
 	parts.append([_cone(0.05, 0.05, 0.06, 8), _xf(Vector3(0, 0.505, 0), Vector3.ONE), brass])
 	_baked["hourglass"] = _bake(parts)
 	return _baked["hourglass"]
+
+
+## The Clockwork Foundry's crates: a great anvil on a squat iron block, a blade lying on it
+## still glowing from the fire, the hammer that was beating it, tongs, and a bucket of coal.
+## The anvil's horn points along +X.
+static func _anvil_block() -> ArrayMesh:
+	if _baked.has("anvil_block"):
+		return _baked["anvil_block"]
+	var parts := []
+	var iron := _iron_mat("steel")
+	var dark := _iron_mat("iron_dark")
+	# The block, banded and riveted.
+	parts.append([_cube(), _xf(Vector3(0, 0.28, 0), Vector3(0.66, 0.56, 0.56)), _iron_mat("rust")])
+	for y in [0.08, 0.5]:
+		parts.append([_cube(), _xf(Vector3(0, y, 0), Vector3(0.68, 0.06, 0.58)), dark])
+		for k in 4:
+			parts.append([_sphere(), _xf(Vector3(-0.24 + k * 0.16, y, 0.29), Vector3.ONE * 0.018), _iron_mat("brass")])
+	# The anvil: foot, waist, face, the horn tapering out one end and the heel the other.
+	parts.append([_cube(), _xf(Vector3(0, 0.6, 0), Vector3(0.5, 0.08, 0.36)), dark])
+	parts.append([_cube(), _xf(Vector3(0, 0.7, 0), Vector3(0.32, 0.12, 0.2)), dark])
+	parts.append([_cube(), _xf(Vector3(0, 0.83, 0), Vector3(0.72, 0.15, 0.28)), iron])
+	parts.append([_cone(0.0, 0.11, 0.42, 8), _xf(Vector3(0.56, 0.84, 0), Vector3(1, 1, 1.1), Basis(Vector3.FORWARD, PI / 2)), iron])
+	parts.append([_cube(), _xf(Vector3(-0.42, 0.85, 0), Vector3(0.14, 0.11, 0.22)), iron])
+	# The blade on the face, glowing, and its dark tang.
+	parts.append([_cube(), _xf(Vector3(0.02, 0.915, 0.02), Vector3(0.52, 0.018, 0.075), Basis(Vector3.UP, 0.12)), _iron_mat("fire")])
+	parts.append([_cone(0.0, 0.038, 0.1, 4), _xf(Vector3(0.31, 0.915, 0.055), Vector3(1, 0.25, 1), Basis(Vector3.UP, 0.12) * Basis(Vector3.FORWARD, PI / 2)), _iron_mat("fire")])
+	parts.append([_cube(), _xf(Vector3(-0.3, 0.915, -0.01), Vector3(0.18, 0.02, 0.03), Basis(Vector3.UP, 0.12)), dark])
+	# The hammer laid across the block, the tongs leaning on it.
+	_rod_part(parts, Vector3(-0.1, 0.575, 0.22), Vector3(0.28, 0.575, 0.4), 0.022, _lib_mat("oak"))
+	parts.append([_cube(), _xf(Vector3(-0.14, 0.6, 0.2), Vector3(0.09, 0.09, 0.2), Basis(Vector3.UP, -0.44)), dark])
+	_rod_part(parts, Vector3(-0.36, 0.0, 0.22), Vector3(-0.34, 0.62, 0.12), 0.014, dark)
+	_rod_part(parts, Vector3(-0.3, 0.0, 0.3), Vector3(-0.34, 0.62, 0.12), 0.014, dark)
+	# A bucket of coal at its foot, embers glowing in it.
+	parts.append([_cone(0.13, 0.11, 0.22, 10), _xf(Vector3(0.36, 0.11, 0.36), Vector3.ONE), _iron_mat("copper")])
+	parts.append([_sphere(), _xf(Vector3(0.36, 0.22, 0.36), Vector3(0.12, 0.05, 0.12)), _iron_mat("coal")])
+	parts.append([_sphere(), _xf(Vector3(0.38, 0.235, 0.34), Vector3(0.04, 0.025, 0.04)), _iron_mat("fire")])
+	for i in parts.size():   # a size up, so it stands as tall as the crates it replaces
+		parts[i][1] = parts[i][1].scaled(Vector3.ONE * 1.2)
+	_baked["anvil_block"] = _bake(parts)
+	return _baked["anvil_block"]
+
+
+## The Clockwork Foundry's barrels: a steam valve standing out of the floor, an iron pipe
+## coming up through a riveted flange, a red handwheel on top, a pressure gauge with its
+## needle in the red, and a copper pipe bending away down into the floor.
+static func _valve_stand() -> ArrayMesh:
+	if _baked.has("valve_stand"):
+		return _baked["valve_stand"]
+	var parts := []
+	var iron := _iron_mat("iron")
+	var dark := _iron_mat("iron_dark")
+	var brass := _iron_mat("brass")
+	var copper := _iron_mat("copper")
+	parts.append([_cone(0.3, 0.34, 0.08, 12), _xf(Vector3(0, 0.04, 0), Vector3.ONE), dark])
+	for k in 8:
+		var a := TAU * k / 8.0
+		parts.append([_sphere(), _xf(Vector3(cos(a) * 0.27, 0.085, sin(a) * 0.27), Vector3.ONE * 0.025), brass])
+	parts.append([_cone(0.11, 0.11, 0.7, 10), _xf(Vector3(0, 0.43, 0), Vector3.ONE), iron])
+	for y in [0.3, 0.62]:
+		_band(parts, 0.135, 0.04, y, dark, 10)
+	# The valve body and its handwheel.
+	parts.append([_sphere(), _xf(Vector3(0, 0.82, 0), Vector3(0.17, 0.14, 0.17)), brass])
+	parts.append([_cone(0.025, 0.025, 0.14, 6), _xf(Vector3(0, 0.98, 0), Vector3.ONE), brass])
+	var wheel := TorusMesh.new()
+	wheel.inner_radius = 0.2
+	wheel.outer_radius = 0.25
+	wheel.rings = 16
+	wheel.ring_segments = 6
+	parts.append([wheel, _xf(Vector3(0, 1.04, 0), Vector3.ONE), _iron_mat("red")])
+	for k in 4:
+		var a := TAU * k / 4.0 + 0.4
+		_rod_part(parts, Vector3(0, 1.04, 0), Vector3(cos(a) * 0.22, 1.04, sin(a) * 0.22), 0.018, _iron_mat("red"))
+	parts.append([_cone(0.045, 0.045, 0.04, 8), _xf(Vector3(0, 1.05, 0), Vector3.ONE), brass])
+	# The pressure gauge on an arm, facing the room (+Z).
+	_rod_part(parts, Vector3(0, 0.6, 0.1), Vector3(0, 0.66, 0.24), 0.02, brass)
+	var face := Basis(Vector3.RIGHT, PI / 2 - 0.4)
+	parts.append([_cone(0.11, 0.11, 0.04, 14), _xf(Vector3(0, 0.7, 0.28), Vector3.ONE, face), brass])
+	parts.append([_cone(0.09, 0.09, 0.045, 14), _xf(Vector3(0, 0.702, 0.285), Vector3.ONE, face), _iron_mat("face")])
+	parts.append([_cube(), _xf(Vector3(0.03, 0.72, 0.31), Vector3(0.012, 0.075, 0.006), face * Basis(Vector3.UP, 0.0) * Basis(Vector3.FORWARD, -0.9)), _iron_mat("red")])
+	# A copper pipe out of the side, bending away down into the floor.
+	_rod_part(parts, Vector3(0.1, 0.4, 0), Vector3(0.36, 0.4, -0.08), 0.06, copper)
+	parts.append([_sphere(), _xf(Vector3(0.36, 0.4, -0.08), Vector3.ONE * 0.075), copper])
+	_rod_part(parts, Vector3(0.36, 0.4, -0.08), Vector3(0.42, 0.0, -0.1), 0.06, copper)
+	_band(parts, 0.085, 0.04, 0.2, dark, 8, Vector3(0.4, 0, -0.095))
+	_baked["valve_stand"] = _bake(parts)
+	return _baked["valve_stand"]
 

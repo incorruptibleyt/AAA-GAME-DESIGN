@@ -1,5 +1,5 @@
-Version 262: the Whispering Library has its own cover
-- On floor 8 the crates are now the desks of dead scribes: books stacked high, an open book with a skull resting on the pages, candles still burning and loose pages on the floor.
-- The barrels are now great hourglasses in oak and brass, running with glowing green sand.
+Version 263: the Clockwork Foundry has its own cover
+- On floor 9 the crates are now great anvils on riveted iron blocks, with a blade still glowing on them, the hammer, the tongs and a bucket of coals.
+- The barrels are now steam valves with red handwheels, pressure gauges and copper pipes.
 - They block movement and shots just like before.
-- Floors 2 to 7 got their own cover in versions 256 to 261. Floors 9, 10 and 1 follow.
+- Floors 2 to 8 got their own cover in versions 256 to 262. Floors 10 and 1 follow.

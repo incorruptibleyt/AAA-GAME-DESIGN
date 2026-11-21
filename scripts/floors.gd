@@ -186,7 +186,11 @@ const THEMES := [
 		# Sparks drifting up from the furnaces, and wisps of steam.
 		"motes": [Color(1.0, 0.65, 0.3, 0.6), Color(0.85, 0.88, 0.92, 0.3)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.5, 0.5, 0.54), "guests": "ep", "boss": "C",
-		"banner": Color(1.0, 0.7, 0.35), "floor_style": 10, "props": "foundry", "pillar": "iron", "light": [1.3, 1.6, 0.0, 0.0]},
+		"banner": Color(1.0, 0.7, 0.35),
+		# Version 263: its own cover (props.gd add_cover): anvils on iron blocks with a blade
+		# still glowing on them for crates, steam valves with red handwheels for barrels.
+		"cover": "foundry",
+		"floor_style": 10, "props": "foundry", "pillar": "iron", "light": [1.3, 1.6, 0.0, 0.0]},
 	# Version 255: the Starfall Abyss, floor 10 (the Crypt Pass), the last floor of each loop,
 	# which until now was floor 4's Glowcap Grotto again. The bottom of the crypt, where the
 	# world breaks off into a starry void: pale moonstone plates drifted apart over the abyss
