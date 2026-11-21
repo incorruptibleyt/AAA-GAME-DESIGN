@@ -1,5 +1,4 @@
-Version 244: the Frostfall set
-- The winter event FROSTFALL starts Dec 11: a timber hall in the snow, the Blizzard, three new skeletons and Krampus.
-- Win its set on the event road: the Yule Knit, the Candle Crown, the Snowbound glow and the Snow Globe aura.
-- Its own music: sleigh bells, and horns and bells for Krampus.
-- The Blood Moon is up until Dec 3.
+Version 245: the Frost Gift
+- Frostfall's Frost Gift is a real wrapped present now: snowflake paper, a gold bow and icicles.
+- Its gold ribbons snap as the rarity climbs, the lid and bow are blown away and its four sides fall open onto quilted red velvet as the bone hand comes up with your prize.
+- Frostfall starts Dec 11. The Blood Moon is up until Dec 3.

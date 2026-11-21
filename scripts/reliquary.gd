@@ -82,6 +82,24 @@ var _rune_spin := 0.0
 var _lift := 0.0
 var _lift_to := 0.0
 var _tier := 0
+## Version 245, Frostfall's Frost Gift (casket_look): a wrapped present in place of the bone
+## chest. Gold ribbons snap where the chains would, its lid and bow are blown off and its
+## four sides fall open like petals, the gold lying on red velvet inside.
+var gift := false
+var _bone_body: Node3D
+var _lid_bone: Node3D
+var _gift_body: Node3D
+var _gift_lid: Node3D
+var _walls: Array[Node3D] = []      # front, right, left, back (each hinged at its foot)
+var _ribbons: Array = []            # {mi, side, home, home_xf, rest, vel, spin}
+var _rib_t := [-1.0, -1.0]          # seconds since each ribbon snapped (under 0: whole)
+var _paper: ShaderMaterial
+var _paper_lid: ShaderMaterial
+var _ice: StandardMaterial3D
+var _seam_mi: MeshInstance3D
+var _dust_mat: StandardMaterial3D
+## How much the chains (or the Frost Gift's gold ribbons, which would wash out white) glow.
+var chain_glow := 1.0
 
 const BODY := Vector3(1.16, 0.56, 0.74)   # the box: width, height, depth
 const BASE_Y := 0.07                       # the box's bottom sits on its bone feet
@@ -90,6 +108,11 @@ const LID_R := 0.37                        # the lid is half a barrel this deep.
 const LID_SQUASH := 0.62                   # ...and this much as tall
 const LID_OPEN := -1.45                    # how far the lid swings back (radians)
 const CHAIN_X := 0.36
+const GIFT := Vector3(1.12, TOP_Y, 0.76)   # the Frost Gift's box: width, height, depth
+const GIFT_T := 0.05                       # its sides' thickness
+const LID_TOP := 0.07                      # its lid's top and bottom (from where it closes)
+const LID_BOT := -0.09
+const RIBBON := 0.15                       # how wide its ribbons are
 const CAM_EYE := Vector3(0, 1.42, 2.95)
 const CAM_AT := Vector3(0, 0.8, 0)
 ## How many points on screen one unit of slope covers at rest: the chest's first picture
@@ -282,6 +305,86 @@ void fragment() {
 """
 
 
+## Version 245, the Frost Gift's wrapping paper: a print of six-armed snowflakes in foil
+## (each turned its own way, with dots between), glitter twinkling in it, and red velvet
+## where a vertex is marked (COLOR.r) as the inside. Its faces are flat, so the print is laid
+## on each by its local axes.
+const PAPER_CODE := """
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec3 paper : source_color = vec3(0.13, 0.36, 0.84);
+uniform vec3 ink : source_color = vec3(0.93, 0.97, 1.0);
+uniform vec3 lining : source_color = vec3(0.5, 0.04, 0.07);
+uniform float cells = 5.6;
+uniform float foil = 0.15;
+varying vec3 lp;
+varying vec3 ln;
+float h2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float seg(vec2 p, vec2 a, vec2 b) {
+	vec2 pa = p - a;
+	vec2 ba = b - a;
+	float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+	return length(pa - ba * h);
+}
+float flake(vec2 p) {
+	float r = length(p);
+	float a = atan(p.y, p.x);
+	float s = 1.0471976;
+	a = mod(a + s * 0.5, s) - s * 0.5;
+	vec2 q = r * vec2(cos(a), abs(sin(a)));
+	float d = seg(q, vec2(0.0), vec2(0.36, 0.0));
+	d = min(d, seg(q, vec2(0.15, 0.0), vec2(0.23, 0.085)));
+	d = min(d, seg(q, vec2(0.25, 0.0), vec2(0.31, 0.06)));
+	return d;
+}
+void vertex() {
+	lp = VERTEX;
+	ln = NORMAL;
+}
+void fragment() {
+	vec3 an = abs(ln);
+	vec2 uv = an.x > 0.5 ? lp.zy : (an.y > 0.5 ? lp.xz : lp.xy);
+	vec2 g = uv * cells;
+	float row = floor(g.y);
+	g.x += 0.5 * mod(row, 2.0);
+	vec2 id = floor(g);
+	vec2 f = fract(g) - 0.5;
+	float hv = h2(id + vec2(3.1, 7.7));
+	float rot = hv * 6.2831853;
+	vec2 fr = mat2(vec2(cos(rot), sin(rot)), vec2(-sin(rot), cos(rot))) * f;
+	float sz = mix(0.75, 1.1, fract(hv * 13.7));
+	float aa = length(fwidth(uv)) * cells * 0.7 + 0.004;
+	float d = flake(fr / sz) * sz;
+	float mark = smoothstep(0.028 + aa, 0.028, d);
+	// small dots between the flakes
+	vec2 f2 = fract(g + vec2(0.5, 0.5)) - 0.5;
+	mark = max(mark, smoothstep(0.045 + aa, 0.045, length(f2)) * step(0.4, fract(hv * 7.3)));
+	// paper fibre and a soft sheen band
+	float fib = h2(floor(uv * 160.0)) * 0.06;
+	vec3 c = paper * (0.94 + fib);
+	c = mix(c, ink, mark);
+	// glitter
+	float sp = h2(floor(uv * 70.0) + 2.3);
+	float tw = step(0.962, sp) * pow(0.5 + 0.5 * sin(TIME * (2.0 + sp * 3.0) + sp * 40.0), 6.0);
+	float lin = step(0.5, COLOR.r);
+	// The velvet inside is quilted in diamonds, a gold stud where the seams cross.
+	vec2 qd = vec2(uv.x + uv.y, uv.x - uv.y) * 6.0;
+	vec2 qf = abs(fract(qd) - 0.5);
+	float pillow = smoothstep(0.0, 0.5, min(qf.x, qf.y) * 2.0);
+	float stud = smoothstep(0.1, 0.06, length(qf - 0.5) );
+	vec3 vel = lining * (0.5 + 0.55 * pillow + h2(floor(uv * 90.0)) * 0.1);
+	vel = mix(vel, vec3(1.0, 0.78, 0.3), stud * lin);
+	ALBEDO = mix(c, vel, lin);
+	ROUGHNESS = mix(mix(0.5, 0.22, mark), 1.0, lin);
+	METALLIC = mix(mark * foil, stud * 0.8, lin);
+	SPECULAR = mix(0.55, 0.1, lin);
+	RIM = mix(0.25, 0.0, lin);
+	RIM_TINT = 0.5;
+	EMISSION = (vec3(1.0) * tw * 1.1 + ink * mark * 0.4) * (1.0 - lin);
+}
+"""
+
+
 func _shader(code: String) -> ShaderMaterial:
 	var sh := Shader.new()
 	sh.code = code
@@ -450,6 +553,7 @@ func _build() -> void:
 	_body()
 	_lid_build()
 	_chains()
+	_gift_build()
 	_treasure()
 	_effects()
 
@@ -475,6 +579,8 @@ func _plinth() -> void:
 ## The box: bone walls, velvet inside, femur posts at the corners with knobbed ends, a
 ## ribcage on the front, crossed bones on the sides, trim bands with studs, and the jaw.
 func _body() -> void:
+	_bone_body = Node3D.new()
+	_root.add_child(_bone_body)
 	var w := BODY.x
 	var h := BODY.y
 	var d := BODY.z
@@ -524,7 +630,7 @@ func _body() -> void:
 	_ball(bone, Vector3(0, TOP_Y - 0.06, jaw_z - 0.02), 0.1, Vector3(1.15, 0.55, 0.7))
 	for i in 6:
 		_add(bone, _boxm(Vector3(0.026, 0.04, 0.025)), _at(Vector3(-0.07 + i * 0.028, TOP_Y - 0.02, jaw_z + 0.035)))
-	_put(_root, bone, _relic)
+	_put(_bone_body, bone, _relic)
 	# Velvet inside (seen once it opens).
 	var vel := _new_st()
 	var iw := w - t * 2.0 - 0.004
@@ -536,7 +642,7 @@ func _body() -> void:
 	_add(vel, q, _at(Vector3(0, cy, idp * 0.5), Vector3(0, PI, 0), Vector3(iw, h, 1)))
 	_add(vel, q, _at(Vector3(-iw * 0.5, cy, 0), Vector3(0, PI / 2, 0), Vector3(idp, h, 1)))
 	_add(vel, q, _at(Vector3(iw * 0.5, cy, 0), Vector3(0, -PI / 2, 0), Vector3(idp, h, 1)))
-	_put(_root, vel, _velvet)
+	_put(_bone_body, vel, _velvet)
 	# Iron (gold, as the rarity climbs) bands round the bottom and the rim, studded.
 	var tr := _new_st()
 	_add(tr, _boxm(Vector3(w + 0.03, 0.06, d + 0.03)), _at(Vector3(0, BASE_Y + 0.05, 0)))
@@ -547,7 +653,7 @@ func _body() -> void:
 			if absf(sx) < 0.1 and y > cy:
 				continue   # the jaw sits there
 			_ball(tr, Vector3(sx, y, d * 0.5 + 0.02), 0.022, Vector3(1, 1, 0.6), 6)
-	_put(_root, tr, _trim)
+	_put(_bone_body, tr, _trim)
 	# The glowing seam under the lid, and cracks of light across the ribs (one per step up).
 	# (a frame round the rim, not a slab, so the open chest shows its gold, not a white lid)
 	var sm := _new_st()
@@ -555,7 +661,7 @@ func _body() -> void:
 		_add(sm, _boxm(Vector3(w - 0.02, 0.03, 0.035)), _at(Vector3(0, TOP_Y + 0.004, zz * (d * 0.5 - 0.03))))
 	for xx in [-1.0, 1.0]:
 		_add(sm, _boxm(Vector3(0.035, 0.03, d - 0.02)), _at(Vector3(xx * (w * 0.5 - 0.03), TOP_Y + 0.004, 0)))
-	_put(_root, sm, _seam)
+	_seam_mi = _put(_root, sm, _seam)
 	var crack_at := [Vector3(-0.22, BASE_Y + 0.2, fz + 0.035), Vector3(0.26, BASE_Y + 0.33, fz + 0.035),
 			Vector3(-0.3, BASE_Y + 0.38, fz + 0.035), Vector3(0.2, BASE_Y + 0.14, fz + 0.035)]
 	for i in crack_at.size():
@@ -579,6 +685,8 @@ func _lid_build() -> void:
 	_lid = Node3D.new()
 	_lid.position = Vector3(0, TOP_Y, -LID_R)
 	_root.add_child(_lid)
+	_lid_bone = Node3D.new()
+	_lid.add_child(_lid_bone)
 	var w := BODY.x + 0.02
 	var seg := 18
 	var outer := _new_st()
@@ -615,8 +723,8 @@ func _lid_build() -> void:
 			pts.append(Vector3(x, sin(a) * (LID_R * LID_SQUASH + 0.025), LID_R + cos(a) * (LID_R + 0.025)))
 			rad.append(0.032 if x != 0.0 else 0.026)
 		_tube(outer, pts, rad, 7)
-	_put(_lid, outer, _relic)
-	_put(_lid, inner, _velvet)
+	_put(_lid_bone, outer, _relic)
+	_put(_lid_bone, inner, _velvet)
 	# Metal edges along the lid's front and back rims, and its gem mount.
 	var tr := _new_st()
 	_add(tr, _boxm(Vector3(w + 0.03, 0.04, 0.045)), _at(Vector3(0, 0.02, LID_R * 2.0 + 0.005)))
@@ -628,13 +736,13 @@ func _lid_build() -> void:
 		_tube(tr, PackedVector3Array([Vector3(cos(a) * 0.07, top + 0.04, LID_R + sin(a) * 0.07),
 				Vector3(cos(a) * 0.075, top + 0.11, LID_R + sin(a) * 0.075), Vector3(cos(a) * 0.045, top + 0.16, LID_R + sin(a) * 0.045)]),
 				PackedFloat32Array([0.014, 0.012, 0.008]), 5)
-	_put(_lid, tr, _trim)
+	_put(_lid_bone, tr, _trim)
 	var gem := SphereMesh.new()
 	gem.radius = 0.075
 	gem.height = 0.15
 	gem.radial_segments = 6
 	gem.rings = 2
-	_mesh(_lid, gem, _gem_mat, Vector3(0, top + 0.12, LID_R)).scale = Vector3(1.0, 1.45, 1.0)
+	_mesh(_lid_bone, gem, _gem_mat, Vector3(0, top + 0.12, LID_R)).scale = Vector3(1.0, 1.45, 1.0)
 	# The skull: a cranium with brow and cheekbones, deep sockets and glowing eyes, upper
 	# teeth, and two curling horns. Its jaw is on the body, so it gapes when the lid opens.
 	var sz := LID_R * 2.0 + 0.07
@@ -645,16 +753,16 @@ func _lid_build() -> void:
 		_ball(sk, Vector3(x * 0.085, 0.0, sz + 0.05), 0.05, Vector3(1.0, 0.75, 0.7))  # cheek
 	for i in 6:
 		_add(sk, _boxm(Vector3(0.026, 0.045, 0.025)), _at(Vector3(-0.07 + i * 0.028, -0.045, sz + 0.065)))
-	_put(_lid, sk, _relic)
+	_put(_lid_bone, sk, _relic)
 	var dark := _new_st()
 	for x in [-1.0, 1.0]:
 		_ball(dark, Vector3(x * 0.058, 0.055, sz + 0.065), 0.045, Vector3(1.0, 0.85, 0.5))
 	_ball(dark, Vector3(0, -0.008, sz + 0.085), 0.02, Vector3(1.0, 1.3, 0.5))      # nose
-	_put(_lid, dark, _unlit(Color(0.03, 0.01, 0.03)))
+	_put(_lid_bone, dark, _unlit(Color(0.03, 0.01, 0.03)))
 	var eyes := _new_st()
 	for x in [-1.0, 1.0]:
 		_ball(eyes, Vector3(x * 0.058, 0.055, sz + 0.085), 0.02)
-	_put(_lid, eyes, _eye_mat)
+	_put(_lid_bone, eyes, _eye_mat)
 	var horns := _new_st()
 	for x in [-1.0, 1.0]:
 		var pts := PackedVector3Array()
@@ -664,7 +772,7 @@ func _lid_build() -> void:
 			pts.append(Vector3(x * (0.11 + 0.2 * sin(f * 1.9)), 0.1 + 0.27 * f - 0.05 * sin(f * PI), sz - 0.04 + 0.08 * f * f - 0.06 * sin(f * PI)))
 			rad.append(lerpf(0.045, 0.006, f))
 		_tube(horns, pts, rad, 8)
-	_put(_lid, horns, _horn_mat)
+	_put(_lid_bone, horns, _horn_mat)
 
 
 static func _cyl(top: float, bottom: float, h: float, sides: int) -> CylinderMesh:
@@ -750,6 +858,194 @@ func _chains() -> void:
 	_links.material_override = _chain_mat
 	_links.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_root.add_child(_links)
+
+
+## Like _add, with each corner marked (COLOR.r 1) where its face looks along `lining` (the
+## velvet inside of the Frost Gift's paper, PAPER_CODE).
+static func _addc(st: SurfaceTool, m: PrimitiveMesh, xf: Transform3D, lining := Vector3.ZERO) -> void:
+	var arr := m.get_mesh_arrays()
+	var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
+	var nr: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+	var nb := xf.basis.inverse().transposed()
+	var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+	for i in idx:
+		var n := (nb * nr[i]).normalized()
+		st.set_color(Color(1, 0, 0) if lining != Vector3.ZERO and n.dot(lining) > 0.7 else Color(0, 0, 0))
+		st.set_normal(n)
+		st.add_vertex(xf * v[i])
+
+
+## One triangle facing `n` (Godot's front faces wind clockwise as seen).
+static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
+	var pts := [a, b, c] if (b - a).cross(c - a).dot(n) < 0.0 else [a, c, b]
+	for p: Vector3 in pts:
+		st.set_normal(n)
+		st.add_vertex(p)
+
+
+## A flat ribbon along `pts`, `wide` across (along `across`), seen from both sides; `notch`
+## cuts a V into its end, as ribbon tails are cut.
+static func _strip(st: SurfaceTool, pts: PackedVector3Array, across: PackedVector3Array, wide: float, notch := 0.0) -> void:
+	var n := pts.size()
+	for i in n - 1:
+		var t := (pts[i + 1] - pts[i]).normalized()
+		var a0 := pts[i] - across[i] * wide * 0.5
+		var b0 := pts[i] + across[i] * wide * 0.5
+		var a1 := pts[i + 1] - across[i + 1] * wide * 0.5
+		var b1 := pts[i + 1] + across[i + 1] * wide * 0.5
+		var nm := t.cross(across[i]).normalized()
+		for side: float in [1.0, -1.0]:
+			if i == n - 2 and notch > 0.0:
+				var mid := pts[i + 1] - t * notch
+				_tri(st, a0, a1, mid, nm * side)
+				_tri(st, a0, mid, b0, nm * side)
+				_tri(st, b0, mid, b1, nm * side)
+			else:
+				_tri(st, a0, a1, b1, nm * side)
+				_tri(st, a0, b1, b0, nm * side)
+
+
+## Version 245, the Frost Gift (casket_look): a box wrapped in blue snowflake paper with an
+## ice-white lid, two gold ribbons crossing over it (the chains' part: each snaps, side 0
+## across, side 1 front to back), a great gold bow with a gem in its knot, and icicles
+## hanging off the lid. Its sides are hinged at their feet, so it can fall open.
+func _gift_build() -> void:
+	var sh := Shader.new()
+	sh.code = PAPER_CODE
+	_paper = ShaderMaterial.new()
+	_paper.shader = sh
+	_paper_lid = ShaderMaterial.new()
+	_paper_lid.shader = sh
+	_paper_lid.set_shader_parameter("paper", Color(0.9, 0.96, 1.0))
+	_paper_lid.set_shader_parameter("ink", Color(0.16, 0.42, 0.95))
+	_paper_lid.set_shader_parameter("foil", 0.05)
+	_ice = StandardMaterial3D.new()
+	_ice.albedo_color = Color(0.42, 0.68, 0.95)
+	_ice.metallic = 0.3
+	_ice.roughness = 0.05
+	_ice.emission_enabled = true
+	_ice.emission = Color(0.16, 0.4, 0.72)
+	_ice.rim_enabled = true
+	_ice.rim = 0.8
+	_gift_body = Node3D.new()
+	_gift_body.visible = false
+	_root.add_child(_gift_body)
+	var gx := GIFT.x * 0.5
+	var gz := GIFT.z * 0.5
+	var h := GIFT.y
+	var t := GIFT_T
+	var floor_st := _new_st()
+	_addc(floor_st, _boxm(Vector3(GIFT.x - 0.004, 0.04, GIFT.z - 0.004)), _at(Vector3(0, 0.02, 0)), Vector3.UP)
+	_put(_gift_body, floor_st, _paper)
+	# The four sides: where each is hinged, its box (in its own frame), its velvet side and
+	# its ribbon (which way it lies, which ribbon it belongs to).
+	var sides := [
+		[Vector3(0, 0, gz), Vector3(GIFT.x, h, t), Vector3(0, h * 0.5, -t * 0.5), Vector3.BACK, 1],
+		[Vector3(gx, 0, 0), Vector3(t, h, GIFT.z - 2.0 * t), Vector3(-t * 0.5, h * 0.5, 0), Vector3.RIGHT, 0],
+		[Vector3(-gx, 0, 0), Vector3(t, h, GIFT.z - 2.0 * t), Vector3(t * 0.5, h * 0.5, 0), Vector3.LEFT, 0],
+		[Vector3(0, 0, -gz), Vector3(GIFT.x, h, t), Vector3(0, h * 0.5, t * 0.5), Vector3.FORWARD, 1]]
+	_walls.clear()
+	_ribbons.clear()
+	for sd: Array in sides:
+		var wall := Node3D.new()
+		wall.position = sd[0]
+		_gift_body.add_child(wall)
+		var out: Vector3 = sd[3]
+		var st := _new_st()
+		_addc(st, _boxm(sd[1]), _at(sd[2]), -out)
+		_put(wall, st, _paper)
+		var rb := Vector3(RIBBON, h - 0.06, 0.012) if absf(out.z) > 0.5 else Vector3(0.012, h - 0.06, RIBBON)
+		var rmi := _mesh(wall, _boxm(rb), _chain_mat, out * 0.006 + Vector3(0, (h - 0.06) * 0.5, 0))
+		_ribbons.append({"mi": rmi, "side": sd[4], "home": wall, "home_xf": rmi.transform})
+		_walls.append(wall)
+	# The lid: a cap over the top of the box (its sides hang down over the box's), hinged
+	# with the chest's lid at the back.
+	_gift_lid = Node3D.new()
+	_gift_lid.visible = false
+	_gift_lid.position = Vector3(0, 0, LID_R)
+	_lid.add_child(_gift_lid)
+	var lx := gx + 0.027
+	var lz := gz + 0.027
+	var lh := LID_TOP - LID_BOT
+	var lm := (LID_TOP + LID_BOT) * 0.5
+	var cap := _new_st()
+	_addc(cap, _boxm(Vector3(lx * 2.0, 0.03, lz * 2.0)), _at(Vector3(0, LID_TOP - 0.015, 0)), Vector3.DOWN)
+	for zz in [-1.0, 1.0]:
+		_addc(cap, _boxm(Vector3(lx * 2.0, lh, 0.025)), _at(Vector3(0, lm, zz * (lz - 0.0125))), Vector3(0, 0, -zz))
+	for xx in [-1.0, 1.0]:
+		_addc(cap, _boxm(Vector3(0.025, lh, lz * 2.0 - 0.05)), _at(Vector3(xx * (lx - 0.0125), lm, 0)), Vector3(-xx, 0, 0))
+	_put(_gift_lid, cap, _paper_lid)
+	# Its ribbons, in halves (they part in the middle when they snap): over the top and down
+	# its side.
+	for side in 2:
+		for sgn: float in [-1.0, 1.0]:
+			var along := Vector3(sgn, 0, 0) if side == 0 else Vector3(0, 0, sgn)
+			var half := lx if side == 0 else lz
+			var lift := 0.0 if side == 0 else 0.002   # (the second lies over the first)
+			var piece := MeshInstance3D.new()
+			piece.material_override = _chain_mat
+			piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			piece.position = along * half * 0.5 + Vector3(0, LID_TOP, 0)
+			var st := _new_st()
+			var top_size := Vector3(half, 0.012, RIBBON) if side == 0 else Vector3(RIBBON, 0.012, half)
+			_add(st, _boxm(top_size), _at(Vector3(0, 0.006 + lift, 0)))
+			var drop_size := Vector3(0.012, lh + 0.012, RIBBON) if side == 0 else Vector3(RIBBON, lh + 0.012, 0.012)
+			_add(st, _boxm(drop_size), _at(along * (half * 0.5 + 0.006) + Vector3(0, -lh * 0.5 + 0.006, 0)))
+			piece.mesh = st.commit()
+			_gift_lid.add_child(piece)
+			_ribbons.append({"mi": piece, "side": side, "home": _gift_lid, "home_xf": piece.transform})
+	# The bow: two great loops, two tails with cut ends and the knot, a gem set in its front.
+	var knot := Vector3(0, LID_TOP + 0.055, 0.0)
+	var bow := _new_st()
+	for sgn: float in [-1.0, 1.0]:
+		var o := Vector3(sgn * 0.9, 0.42, 0.08).normalized()
+		var w := Vector3(sgn * 0.3, 0.62, 0.72).normalized()
+		var u: Vector3 = w.cross(o).normalized() * sgn
+		var pts := PackedVector3Array()
+		var acr := PackedVector3Array()
+		for k in 17:
+			var f := k / 16.0
+			var a := 0.3 * pow(sin(PI * f), 2.0)
+			var b := 0.11 * sin(TAU * f)
+			pts.append(knot + o * a + u * b)
+			acr.append(w)
+		_strip(bow, pts, acr, 0.13)
+		# A tail: out of the knot, over the lid and down its front edge.
+		var tp := PackedVector3Array()
+		var ta := PackedVector3Array()
+		var dir := Vector3(sgn * 0.45, 0, 1.0).normalized()
+		var side_dir := Vector3.UP.cross(dir).normalized()
+		for k in 7:
+			var f := k / 6.0
+			var p := knot + dir * ((lz + 0.016) / dir.z) * minf(f * 1.25, 1.0) + Vector3(0, -0.036 - 0.01 * sin(f * 9.0), 0)
+			if f > 0.8:
+				p += Vector3(0, -(f - 0.8) * 0.55, 0)
+			tp.append(p)
+			ta.append(side_dir)
+		_strip(bow, tp, ta, 0.1, 0.05)
+	_ball(bow, knot, 0.062, Vector3(1.3, 0.85, 1.05), 10)
+	_put(_gift_lid, bow, _chain_mat)
+	var gem := SphereMesh.new()
+	gem.radius = 0.04
+	gem.height = 0.08
+	gem.radial_segments = 6
+	gem.rings = 2
+	_mesh(_gift_lid, gem, _gem_mat, knot + Vector3(0, 0.012, 0.06))
+	# Icicles off the lid's corners (a few, long and short, clear of the ribbons and tails).
+	var ice := _new_st()
+	var spots := []
+	for x: float in [-0.53, -0.47, 0.45, 0.53]:
+		spots.append(Vector3(x, LID_BOT, lz - 0.012))
+	for z: float in [-0.33, 0.27, 0.34]:
+		for xx: float in [-1.0, 1.0]:
+			spots.append(Vector3(xx * (lx - 0.012), LID_BOT, z))
+	var lens := [0.13, 0.06, 0.08, 0.14, 0.05, 0.05, 0.1, 0.07, 0.12, 0.09]
+	for i in spots.size():
+		var p: Vector3 = spots[i]
+		var l: float = lens[i]
+		var r := 0.012 + l * 0.07
+		_add(ice, _cyl(r, 0.002, l, 6), _at(p + Vector3(0, -l * 0.5 + 0.004, 0)))
+	_put(_gift_lid, ice, _ice)
 
 
 ## The gold inside (and gems from Super Rare up), with the light pouring out of it.
@@ -896,6 +1192,7 @@ func _effects() -> void:
 	var puff := QuadMesh.new()
 	puff.size = Vector2(0.62, 0.62)
 	var pm := _unlit(Color(0.5, 0.46, 0.52))
+	_dust_mat = pm
 	pm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	pm.vertex_color_use_as_albedo = true
 	pm.albedo_texture = soft_tex()
@@ -1005,6 +1302,22 @@ func casket_look(on: bool) -> void:
 		_horn_mat.set_shader_parameter("deep", Color(0.08, 0.2, 0.4))
 		_velvet.albedo_color = Color(0.55, 0.04, 0.06)
 		_chain_mat.albedo_color = Color(1.0, 0.75, 0.25)
+	# Version 245: the Frost Gift is a wrapped present, not the chest (the hand inside is
+	# still the frosted marble above).
+	gift = on and Events.frost()
+	_bone_body.visible = not gift
+	_lid_bone.visible = not gift
+	_gift_body.visible = gift
+	_gift_lid.visible = gift
+	_links.visible = not gift
+	for l in _locks:
+		l.visible = not gift
+	for c in _cracks:
+		c.position.z = -0.045 if gift else 0.0   # (the paper's front is behind the ribs')
+	_chain_mat.metallic = 0.55 if gift else 0.9   # satin, not iron
+	chain_glow = 0.12 if gift else 1.0
+	_chain_mat.roughness = 0.36 if gift else 0.32
+	_dust_mat.albedo_color = Color(0.85, 0.93, 1.0) if gift else Color(0.5, 0.46, 0.52)   # powder snow
 
 
 func reset() -> void:
@@ -1025,12 +1338,13 @@ func reset() -> void:
 	for c in _cracks:
 		c.visible = false
 	_ring.visible = false
-	_links.visible = true
+	_links.visible = not gift
 	for i in _link_rest.size():
 		_links.multimesh.set_instance_transform(i, _link_rest[i])
 	for i in _locks.size():
 		_locks[i].transform = _lock_rest[i]
-		_locks[i].visible = true
+		_locks[i].visible = not gift
+	_wrap()
 	_root.rotation = Vector3(0, -0.38, 0)
 	_root.position = Vector3.ZERO
 	_root.scale = Vector3.ONE
@@ -1062,6 +1376,11 @@ func snap_chain(side: int, silent := false) -> void:
 		return
 	_chain_t[side] = 0.0
 	_jolt = 1.0 if side == 0 else -1.0
+	if gift:
+		_snap_ribbon(side)
+		if not silent:
+			Sfx.play("chest_snap" if Sfx.has("chest_snap") else "crack", 0.8, 1.3 if side == 0 else 1.42)
+		return
 	var rng := RandomNumberGenerator.new()
 	if _link_vel.size() != _link_rest.size():
 		_link_vel.resize(_link_rest.size())
@@ -1087,6 +1406,13 @@ func open_up(col: Color, tier := 0, silent := false) -> void:
 	_glow.visible = true
 	_pile.visible = true
 	_pile_gems.visible = tier >= 2
+	if gift:
+		# Its sides fall open (_unwrap): the gold lies on the velvet floor, and a puff of
+		# powder snow is thrown out round it.
+		_pile.position.y = -0.5
+		_glow.position.y = 0.3
+		_dust.restart()
+		_dust.emitting = true
 	_rays.set_shader_parameter("col", col.lightened(0.25))
 	_glow_mat.set_shader_parameter("col", col.lightened(0.3))
 	# The chains snap (any still whole): every link flies off, spinning, and the padlocks
@@ -1130,7 +1456,7 @@ func _tint(step: int, col: Color, tier: int, delta: float) -> void:
 	# Iron at Common, turning gold as the rarity climbs.
 	var gold := Color(1.0, 0.76, 0.28)
 	_trim.albedo_color = gold if moon else Color(0.3, 0.27, 0.3).lerp(gold, clampf(float(tier) / 4.0, 0.0, 1.0))
-	_runes.set_shader_parameter("col", Color(1.0, 0.25, 0.2) if moon and step == 0 else hot)
+	_runes.set_shader_parameter("col", (Color(0.5, 0.82, 1.0) if gift else Color(1.0, 0.25, 0.2)) if moon and step == 0 else hot)
 	_rune_spin += delta * rune_rate
 	_runes.set_shader_parameter("spin", _rune_spin)
 	_hit = move_toward(_hit, 0.0, delta * 4.5)
@@ -1145,7 +1471,7 @@ var light_cap := 1.0
 ## Closed: eyes breathing, a hop now and then.
 func _idle(t: float) -> void:
 	var breathe := 0.55 + 0.45 * sin(t * 2.2)
-	var eye := Color(1.0, 0.25, 0.2) if moon else Color(0.62, 0.52, 1.0)
+	var eye := (Color(0.55, 0.85, 1.0) if gift else Color(1.0, 0.25, 0.2)) if moon else Color(0.62, 0.52, 1.0)
 	_eye_mat.albedo_color = eye.darkened(0.35 * (1.0 - breathe))
 	_gem_mat.albedo_color = eye
 	_gem_mat.emission = eye * (0.4 + 0.3 * breathe)
@@ -1180,17 +1506,24 @@ func animate(step: int, k: float, col: Color, tier: int, delta: float, _since :=
 		for i in _cracks.size():
 			_cracks[i].visible = i < tier
 		_eye_mat.albedo_color = hot
-		_chain_mat.emission = col * (0.3 + 1.6 * kk) * (0.8 + 0.2 * sin(t * 40.0))
+		_chain_mat.emission = col * (0.3 + 1.6 * kk) * (0.8 + 0.2 * sin(t * 40.0)) * chain_glow
 		_runes.set_shader_parameter("glow", 0.5 + 0.5 * kk)
 		_light.light_color = col
 		_light.light_energy = 0.3 * float(tier) + 0.5 * kk
 	elif _opened:
 		_open = minf(1.0, _open + delta / 0.9)
 		_snap += delta
-		# The lid springs back past open and settles.
-		var e := 1.0 - exp(-7.0 * _open) * cos(13.0 * _open)
-		_lid.rotation.x = LID_OPEN * e
-		_lid.position = Vector3(0, TOP_Y + 0.05 * minf(1.0, _open * 4.0), -LID_R - 0.06 * e)
+		if gift:
+			# The Frost Gift's lid (and its bow) is blown up and away, tumbling.
+			var lt := _snap
+			_lid.position = Vector3(0, TOP_Y, -LID_R) + Vector3(0.6, 3.6, -1.2) * lt + Vector3(0, -7.0, 0) * 0.5 * lt * lt
+			_lid.rotation = Vector3(-4.5 * lt, 1.6 * lt, 2.2 * lt)
+			_lid.visible = lt < 0.9
+		else:
+			# The lid springs back past open and settles.
+			var e := 1.0 - exp(-7.0 * _open) * cos(13.0 * _open)
+			_lid.rotation.x = LID_OPEN * e
+			_lid.position = Vector3(0, TOP_Y + 0.05 * minf(1.0, _open * 4.0), -LID_R - 0.06 * e)
 		# A squash as it bursts, then it stands tall.
 		var pop := exp(-6.0 * _snap) * sin(_snap * 18.0)
 		_root.scale = Vector3(1.0 - 0.06 * pop, 1.0 + 0.08 * pop, 1.0 - 0.06 * pop)
@@ -1211,7 +1544,7 @@ func _open_glow(col: Color, tier: int, delta: float) -> void:
 	_glow_mat.set_shader_parameter("power", 0.5 + 0.08 * sin(t * 5.0))
 	_light.light_energy = lerpf(_light.light_energy, (1.6 + 0.25 * float(tier)) * light_cap, delta * 3.0)
 	_eye_mat.albedo_color = col.lightened(0.3)
-	_chain_mat.emission = col * maxf(0.0, 1.8 - _snap * 1.5)
+	_chain_mat.emission = col * maxf(0.0, 1.8 - _snap * 1.5) * chain_glow
 	if _ring.visible:
 		var rs := _ring.scale.x + delta * 6.0
 		_ring.scale = Vector3(rs, 0.2, rs)
@@ -1219,7 +1552,7 @@ func _open_glow(col: Color, tier: int, delta: float) -> void:
 		if rs > 3.6:
 			_ring.visible = false
 	for c in _cracks:
-		c.visible = true
+		c.visible = not gift   # (the Frost Gift's front has fallen open)
 
 
 ## Its shadow stays on the plinth, smaller the higher the chest is.
@@ -1287,6 +1620,10 @@ func _place_camera() -> void:
 
 ## Links and padlocks flying, each chain from the moment it snapped.
 func _fly_chains(delta: float) -> void:
+	if gift:
+		_fly_ribbons(delta)
+		_unwrap()
+		return
 	if not _links.visible or (_chain_t[0] < 0.0 and _chain_t[1] < 0.0):
 		return
 	var g := Vector3(0, -7.0, 0)
@@ -1314,3 +1651,83 @@ func _fly_chains(delta: float) -> void:
 		_locks[side].visible = s > 0.0
 	if gone:
 		_links.visible = false
+
+
+# ---------------------------------------------------------------- the Frost Gift
+
+## Wraps the Frost Gift up again: its sides stood up, its ribbons back on, its lid on.
+func _wrap() -> void:
+	_rib_t = [-1.0, -1.0]
+	for r: Dictionary in _ribbons:
+		var mi: Node3D = r.mi
+		if mi.get_parent() != r.home:
+			mi.reparent(r.home, false)
+		mi.transform = r.home_xf
+		mi.visible = true
+		r.erase("vel")
+	for w in _walls:
+		w.rotation = Vector3.ZERO
+	_lid.visible = true
+	_seam_mi.visible = true
+	_pile.position = Vector3.ZERO
+	_glow.position = Vector3(0, TOP_Y + 0.05, 0)
+	for c in _cracks:
+		c.position.z = -0.045 if gift else 0.0
+
+
+## A ribbon (0 across, 1 front to back) snaps: its pieces spring off, spinning.
+func _snap_ribbon(side: int) -> void:
+	_rib_t[side] = 0.0
+	var rng := RandomNumberGenerator.new()
+	for r: Dictionary in _ribbons:
+		if int(r.side) != side:
+			continue
+		var mi: Node3D = r.mi
+		mi.reparent(_root, true)
+		r.rest = mi.transform
+		var out := Vector3(mi.position.x, 0, mi.position.z)
+		out = out.normalized() if out.length() > 0.01 else Vector3.BACK
+		r.vel = out * rng.randf_range(1.3, 2.3) + Vector3(0, rng.randf_range(1.8, 3.0), 0)
+		r.spin = Vector3(rng.randf_range(-9, 9), rng.randf_range(-9, 9), rng.randf_range(-9, 9))
+
+
+func _fly_ribbons(delta: float) -> void:
+	for side in 2:
+		if _rib_t[side] >= 0.0:
+			_rib_t[side] += delta
+	for r: Dictionary in _ribbons:
+		var tt: float = _rib_t[int(r.side)]
+		if tt < 0.0 or not r.has("vel"):
+			continue
+		var mi: Node3D = r.mi
+		var s := clampf(1.0 - (tt - 0.45) / 0.4, 0.0, 1.0)
+		mi.visible = s > 0.0
+		if s <= 0.0:
+			continue
+		var rest: Transform3D = r.rest
+		var spin: Vector3 = r.spin
+		var b := rest.basis.rotated(spin.normalized(), spin.length() * tt * 0.3)
+		mi.transform = Transform3D(b.scaled(Vector3.ONE * s) if s < 1.0 else b,
+				rest.origin + (r.vel as Vector3) * tt + Vector3(0, -7.0, 0) * 0.5 * tt * tt)
+
+
+## Opened: its four sides fall outward like petals, one a moment after another, bounce
+## and lie flat, the velvet inside up.
+func _unwrap() -> void:
+	if not _opened:
+		return
+	_seam_mi.visible = false
+	for i in _walls.size():
+		var s := _snap - 0.06 - 0.035 * i
+		var a := 0.0
+		if s > 0.0:
+			var f := minf(1.0, s / 0.3)
+			a = PI * 0.5 * f * f
+			if f >= 1.0:
+				var u := s - 0.3
+				a -= 0.22 * exp(-7.0 * u) * absf(sin(u * 13.0))
+		match i:
+			0: _walls[i].rotation = Vector3(a, 0, 0)
+			1: _walls[i].rotation = Vector3(0, 0, -a)
+			2: _walls[i].rotation = Vector3(0, 0, a)
+			3: _walls[i].rotation = Vector3(-a, 0, 0)

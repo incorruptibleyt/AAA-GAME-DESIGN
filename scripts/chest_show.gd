@@ -628,6 +628,8 @@ func warm() -> void:
 		e.visible = true
 	_sparks.emitting = true
 	_motes.emitting = true
+	_gift_body.visible = true   # (version 245: the Frost Gift's paper, satin and ice)
+	_gift_lid.visible = true
 
 
 ## The next chest drops onto the plinth (OPEN NEXT).
@@ -837,7 +839,7 @@ func animate(step: int, k: float, col: Color, tier: int, delta: float, since := 
 	_eye_glow_mat.set_shader_parameter("col", eye_c)
 	_eye_glow_mat.set_shader_parameter("power", 0.75)
 	for e in _eye_glow:
-		e.visible = _lid.visible and _lid_t < 0.0
+		e.visible = _lid.visible and _lid_t < 0.0 and not gift   # (the Frost Gift has no skull)
 
 
 ## The next chest falls onto the plinth, squashes and settles.
@@ -991,7 +993,7 @@ func _gift(step: int, col: Color, tier: int, delta: float, since: float, left: f
 		for i in _cracks.size():
 			_cracks[i].visible = i < tier
 		_eye_mat.albedo_color = hot.lerp(Color.WHITE, clampf(pop + strain, 0.0, 1.0))
-		_chain_mat.emission = col * (0.4 + 0.5 * float(tier) + 2.5 * pop)
+		_chain_mat.emission = col * (0.4 + 0.5 * float(tier) + 2.5 * pop) * chain_glow
 		_runes.set_shader_parameter("glow", 0.5 + 0.1 * float(tier) + 0.7 * pop + 0.6 * strain)
 		_floor_mat.set_shader_parameter("tint", col)
 		_floor_mat.set_shader_parameter("lit", 0.4 + 0.08 * float(tier) + 0.9 * pop + 0.5 * strain)
