@@ -240,6 +240,11 @@ func _process(delta: float) -> void:
 	for a: Actor in hits:
 		if not _touches(a, target, from, next):
 			continue
+		# Version 233: the Knight's shield stops a shot from the front while he stands still.
+		if a is Hero and (a as Hero).blocks_shot(dir):
+			(a as Hero).on_block(Vector3(next.x, global_position.y, next.z))
+			finish()
+			return
 		_hit[a] = true
 		var crit := randf() < crit_chance
 		Fx.impact(Vector3(next.x, global_position.y, next.z), Color.WHITE.lerp(_col, 0.5) if crit else _col, radius * (6.0 if crit else 4.0))

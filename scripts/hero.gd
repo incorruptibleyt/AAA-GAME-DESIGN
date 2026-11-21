@@ -100,6 +100,22 @@ var _retarget := 0.0
 var _invulnerable := 0.0
 var _moving := false
 
+## Version 233 (whole-game review, fix 2: the heroes fought the same way). The Knight fights
+## up close. A skeleton within sword reach (melee_reach) is cut by a SWING: one wide arc in
+## front that hits every skeleton in it at once and knocks enemy shots out of the air.
+## Farther off he still throws his sword wave. Standing still he holds his shield up
+## (guard): shots that come at him from the front clang off it.
+var melee_reach := 0.0
+var guard := false
+var _guard_mark: MeshInstance3D
+var _guard_mat: StandardMaterial3D
+var _guard_flash := 0.0
+var blocked := 0   # shots the shield has stopped this run
+const SWING_MULT := 1.5   # a swing hits harder than a wave, and hits everything in the arc
+const SWING_ARC := 65.0   # degrees either side of straight ahead (+15 for each Side Shots)
+const GUARD_COS := 0.5    # the shield stops shots from within 60 degrees of straight ahead
+static var _arc_meshes := {}
+
 
 static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	var cfg := Game._load_save()
@@ -123,6 +139,8 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.armor = def.get("armor", 0.0)
 	h.splash = def.get("splash", 0.0)
 	h.heal_on_kill = def.get("heal_on_kill", 0.0)
+	h.melee_reach = def.get("melee", 0.0)
+	h.guard = def.get("guard", false)
 	parent.add_child(h)
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
@@ -140,6 +158,8 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	elif h._master or HeroStyle.worn(cfg, def.id, "glow") in ["gold", HeroStyle.PASS_KEY]:
 		h._build_sparkles()   # Masters (and the Gold glow) leave a trail of gold sparkles
 	h._build_dash_ring()
+	if h.guard:
+		h._build_guard_mark()
 	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.
 	var mastery := Curses.mastery(cfg, def.id)
 	if mastery >= 10 and HeroStyle.worn(cfg, def.id, "glow") == "":
@@ -453,6 +473,7 @@ func _process(delta: float) -> void:
 		return
 	_update_ward_bubble()
 	_update_dash_ring()
+	_update_guard_mark(delta)
 	if is_instance_valid(_aura_fx):
 		_aura_fx.rotation.y = -rotation.y
 	_dash_cooldown -= delta
@@ -539,7 +560,11 @@ func _auto_attack(delta: float) -> void:
 	# long wait doesn't fire a burst). Resetting to a full gap threw away about half a frame a
 	# shot: 3-11% fewer shots at 30 FPS on cheap phones (audit fix 3).
 	_shot_timer = maxf(_shot_timer, -0.1) + 1.0 / shots_per_second
-	_shoot(to.normalized())
+	to.y = 0.0
+	if melee_reach > 0.0 and to.length() < melee_reach + target.radius:
+		_swing(to.normalized())
+	else:
+		_shoot(to.normalized())
 
 
 ## The nearest skeleton the hero can actually hit; if every one is behind cover, just the nearest.
@@ -581,7 +606,11 @@ func _shoot(fwd: Vector3) -> void:
 		_fire(origin, fwd.rotated(Vector3.UP, -angle), col)
 	for i in rear_bolts:
 		_fire(global_position + Vector3.UP * 1.1 - fwd * 0.6, -fwd, col)
-	# Bone Storm: every third volley also throws a ring of piercing bone shards.
+	_bone_storm(fwd, origin)
+
+
+## Bone Storm: every third volley (or swing) also throws a ring of piercing bone shards.
+func _bone_storm(fwd: Vector3, origin: Vector3) -> void:
 	_volleys += 1
 	if perks.has("bonestorm") and _volleys % 3 == 0:
 		for i in 10:
@@ -589,6 +618,178 @@ func _shoot(fwd: Vector3) -> void:
 			var p := Projectile.fire(Team.HERO, origin - fwd * 0.6 + d * 0.5, d, damage * 0.7 * Game.chain_damage(), bolt_speed * 0.85, Color(0.95, 0.92, 0.8), bolt_size * 0.9, "Shot", "shard")
 			p.pierce = 2
 			p.push = bolt_push * 0.5
+
+
+## The Knight's sword swing (version 233): every skeleton within reach in the arc in front
+## is hit at once, for more than a sword wave. Blessings still count: each Twin Shots adds
+## the same 40% it adds to a volley and a little reach, each Side Shots widens the arc, Back
+## Shots cuts behind too; crits, burning, frost and Bone Storm work as they do on shots.
+func _swing(fwd: Vector3) -> void:
+	visual.attack()
+	Sfx.play("swing", 0.7, randf_range(0.92, 1.08))
+	var half := deg_to_rad(minf(SWING_ARC + 15.0 * diagonal_bolts, 180.0))
+	var reach := melee_reach + 0.25 * (front_bolts - 1)
+	var col := Color(1.0, 0.55, 0.2) if burn_dps > 0.0 else bolt_color
+	_slash(fwd, half, reach, col)
+	var back_cos := cos(deg_to_rad(50.0))
+	if rear_bolts > 0:
+		_slash(-fwd, deg_to_rad(50.0), reach, col)
+	if _finish_col != null and Time.get_ticks_msec() - _finish_ms > 250:
+		_finish_ms = Time.get_ticks_msec()
+		Fx.sparks(global_position + Vector3.UP * 1.1 + fwd * 0.8, _finish_col)
+	var dmg := damage * SWING_MULT * pow(TWIN_GAIN, front_bolts - 1) * Game.chain_damage()
+	var cos_half := cos(half)
+	var hits := 0
+	for a: Actor in Actor.all.duplicate():
+		if a.team != Team.UNDEAD or not a.can_be_hit():
+			continue
+		var d := a.global_position - global_position
+		d.y = 0.0
+		var dist := d.length()
+		if dist > reach + a.radius:
+			continue
+		var dn := d / maxf(dist, 0.001)
+		var ahead := dn.dot(fwd)
+		# (Anything pressed right against him is hit whichever side it is on.)
+		if dist > a.radius + radius + 0.2 and ahead < cos_half and not (rear_bolts > 0 and ahead < -back_cos):
+			continue
+		var crit := randf() < crit_chance
+		Fx.impact(a.center(), Color.WHITE.lerp(col, 0.5) if crit else col, 1.6 if crit else 1.1)
+		a.take_damage(dmg * crit_mult if crit else dmg, dn, bolt_push * 1.4, crit)
+		hits += 1
+		if burn_dps > 0.0 and not a.dead:
+			Burning.apply(a, burn_dps, 2.5)
+		elif crit and perks.has("flashfire") and not a.dead:
+			Burning.apply(a, 8.0, 2.5)   # Flashfire
+		if frost and not a.dead and a is Enemy:
+			(a as Enemy).chill(frost_time)
+	if hits > 0:
+		Sfx.play("hit", 0.7)
+		Game.shake(0.05 + 0.03 * mini(hits, 4))
+	# The blade knocks enemy shots out of the air.
+	for p: Projectile in Projectile.danger.duplicate():
+		if not is_instance_valid(p) or p.is_queued_for_deletion():
+			continue
+		var d: Vector3 = p.global_position - global_position
+		d.y = 0.0
+		if d.length() < reach + 0.4 and (d.length() < 0.9 or d.normalized().dot(fwd) >= cos_half):
+			p.shatter()
+	_bone_storm(fwd, global_position + Vector3.UP * 1.1 + fwd * 0.6)
+	Game._teach("knight_swing", "SWORD: up close, one swing cuts every skeleton in front!")
+
+
+## A bright arc of the blade's path, swept round and faded in a fifth of a second.
+func _slash(fwd: Vector3, half: float, reach: float, col: Color) -> void:
+	var world := Game.world
+	if world == null:
+		return
+	var m := MeshInstance3D.new()
+	m.mesh = _arc_mesh(half, 0.5, true)
+	var mat := _arc_material(Color(col.r, col.g, col.b, 1.0).lerp(Color.WHITE, 0.35))
+	m.material_override = mat
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	world.add_child(m)
+	m.global_position = global_position + Vector3.UP * 0.9
+	var face_y := atan2(-fwd.x, -fwd.z)
+	m.rotation.y = face_y + 0.7
+	m.scale = Vector3.ONE * reach * 0.8
+	var tw := m.create_tween().set_parallel(true)
+	tw.tween_property(m, "rotation:y", face_y, 0.1).set_ease(Tween.EASE_OUT)
+	tw.tween_property(m, "scale", Vector3.ONE * reach, 0.14).set_ease(Tween.EASE_OUT)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.22).set_delay(0.06)
+	tw.chain().tween_callback(m.queue_free)
+
+
+## A flat arc round -Z from -half to +half, between `inner` and 1 m. `sweep` brightens it
+## toward the leading edge and the rim, like a blade's path; otherwise it is even.
+static func _arc_mesh(half: float, inner: float, sweep: bool) -> Mesh:
+	var key := "%d_%d_%s" % [int(rad_to_deg(half)), int(inner * 100.0), sweep]
+	if _arc_meshes.has(key):
+		return _arc_meshes[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 20
+	for i in n:
+		var k0 := float(i) / n
+		var k1 := float(i + 1) / n
+		var a0 := lerpf(half, -half, k0)
+		var a1 := lerpf(half, -half, k1)
+		var o0 := Vector3(-sin(a0), 0.0, -cos(a0))
+		var o1 := Vector3(-sin(a1), 0.0, -cos(a1))
+		var e0 := (0.15 + 0.85 * k0) if sweep else 1.0
+		var e1 := (0.15 + 0.85 * k1) if sweep else 1.0
+		var ci := Color(1, 1, 1, 0.0 if sweep else 0.55)
+		for v in [[o0 * inner, ci], [o0, Color(1, 1, 1, e0)], [o1, Color(1, 1, 1, e1)],
+				[o0 * inner, ci], [o1, Color(1, 1, 1, e1)], [o1 * inner, ci]]:
+			st.set_color(v[1])
+			st.add_vertex(v[0])
+	var mesh := st.commit()
+	_arc_meshes[key] = mesh
+	return mesh
+
+
+static func _arc_material(col: Color) -> StandardMaterial3D:
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	mat.vertex_color_use_as_albedo = true
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_color = col
+	return mat
+
+
+## The Knight's guard: a faint arc on the floor in front of him while he stands still,
+## showing where his shield covers. It flashes when a shot clangs off it.
+func _build_guard_mark() -> void:
+	_guard_mark = MeshInstance3D.new()
+	_guard_mark.mesh = _arc_mesh(acos(GUARD_COS), 0.84, false)
+	_guard_mat = _arc_material(Color(1.0, 0.9, 0.6, 0.0))
+	_guard_mark.material_override = _guard_mat
+	_guard_mark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_guard_mark.position = Vector3(0, 0.07, 0)
+	_guard_mark.scale = Vector3(1.75, 1.0, 1.75)   # just past his body as the run camera sees it
+	add_child(_guard_mark)
+	_rings.append(_guard_mark)
+
+
+func _update_guard_mark(delta: float) -> void:
+	if _guard_mark == null:
+		return
+	_guard_flash = maxf(_guard_flash - delta * 3.0, 0.0)
+	var up := guarding()
+	var goal := (0.5 if up else 0.0) + _guard_flash * 0.5
+	_guard_mat.albedo_color.a = move_toward(_guard_mat.albedo_color.a, goal, delta * 4.0)
+	var k := 1.75 + _guard_flash * 0.25
+	_guard_mark.scale = Vector3(k, 1.0, k)
+
+
+## Whether the shield is up: the Knight standing still in a fight (not dashing, spinning
+## or knocked down).
+func guarding() -> bool:
+	return guard and not _moving and _dash_left <= 0.0 and down_left <= 0.0 and _spin_left <= 0.0 \
+		and not dead and Game.state == Game.State.PLAYING and Game.alive_enemies > 0
+
+
+## Whether a shot flying along `dir` hits the shield: the shield is up and the shot comes
+## from in front of him.
+func blocks_shot(dir: Vector3) -> bool:
+	if not guarding():
+		return false
+	var fwd := -global_transform.basis.z
+	fwd.y = 0.0
+	var from := -dir
+	from.y = 0.0
+	return from.normalized().dot(fwd.normalized()) > GUARD_COS
+
+
+func on_block(at: Vector3) -> void:
+	blocked += 1
+	_guard_flash = 1.0
+	Fx.sparks(at, Color(1.0, 0.92, 0.6))
+	Sfx.play("block", 0.75, randf_range(0.94, 1.08))
+	add_charge(0.03)   # every blocked shot builds a little toward Shield Slam
+	Game._teach("knight_shield", "SHIELD: stand still and shots from the front clang off!")
 
 
 ## Twin Shots: each pick adds a forward shot and 40% to the forward volley, shared between

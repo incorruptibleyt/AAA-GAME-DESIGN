@@ -51,7 +51,7 @@ const LIST := [
 	{"id": "backstab", "hero": "rogue", "family": "bolt", "rarity": "rare", "title": "Backstab", "text": "Critical hits deal triple damage", "max": 1},
 	{"id": "quiver", "hero": "rogue", "family": "bolt", "rarity": "epic", "title": "Shadow Quiver", "text": "Shadow Volley fires 5 rings instead of 3", "max": 1},
 	{"id": "bulwark", "hero": "knight", "family": "bone", "rarity": "rare", "title": "Bulwark", "text": "Take 10% less damage", "max": 2},
-	{"id": "broad", "hero": "knight", "family": "bolt", "rarity": "common", "title": "Broad Swing", "text": "Sword waves 25% wider and 10% harder", "max": 2},
+	{"id": "broad", "hero": "knight", "family": "bolt", "rarity": "common", "title": "Broad Swing", "text": "Swings reach 15% further, waves 25% wider, both 10% harder", "max": 2},
 	{"id": "aftershock", "hero": "knight", "family": "bone", "rarity": "epic", "title": "Aftershock", "text": "Shield Slam reaches 40% further and freezes longer", "max": 1},
 	{"id": "bloodlust", "hero": "barbarian", "family": "bone", "rarity": "rare", "title": "Bloodlust", "text": "Heal 2 more per kill, up to 8% more of your health each room", "max": 2},
 	{"id": "heavy", "hero": "barbarian", "family": "bolt", "rarity": "common", "title": "Heavy Axes", "text": "Axes hit 10% harder and knock skeletons further", "max": 2},
@@ -224,6 +224,7 @@ static func apply(id: String, h: Hero) -> void:
 		"broad":
 			h.bolt_size *= 1.25
 			h.damage *= 1.1
+			h.melee_reach += 0.4   # (version 233: the sword swing reaches further too)
 		"aftershock": h.slam_reach *= 1.4
 		"bloodlust": h.heal_on_kill += 2.0
 		"heavy":

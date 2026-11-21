@@ -93,6 +93,10 @@ func _ready() -> void:
 	_make("click", 0.06, func(t): return _sine(t, 700) * _env(t, 0.06) * 0.25)
 	_make("dash", 0.22, func(t): return (_noise() * 0.6 + _sweep(t, 300, 1400) * 0.25) * _env(t, 0.22) * 0.4)
 	_make("slam", 0.9, func(t): return (_sweep(t, 120, 35) * 0.7 + _noise() * 0.35 * exp(-t * 8.0)) * _env(t, 0.9) * 0.6)
+	# Version 233: the Knight's sword swing (a quick whoosh) and his shield stopping a shot
+	# (a bright clang of steel).
+	_make("swing", 0.22, func(t): return (_noise() * 0.75 * exp(-pow((t - 0.06) / 0.045, 2.0)) + _sweep(t, 520, 160) * 0.22 * exp(-t * 14.0)) * _env(t, 0.22) * 0.55)
+	_make("block", 0.45, func(t): return (_sine(t, 1180) * 0.4 + _sine(t, 1730) * 0.3 + _sine(t, 2610) * 0.18 + _sine(t, 3920) * 0.1 * exp(-t * 20.0) + _noise() * exp(-t * 70.0) * 0.7) * exp(-t * 8.0) * clampf(t / 0.002, 0.0, 1.0) * 0.45)
 	_make("crack", 0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
 	# A heartbeat for low health (code-made on purpose: two soft low thumps).
 	# Water: a wash of noise that dies away with a little rising bloop (the Drowned Vault).

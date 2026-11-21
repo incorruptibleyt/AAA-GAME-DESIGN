@@ -1,5 +1,6 @@
-Version 232: no more lookalike looks
-- Silver Moon outfit now has its own night blue and silver (it drew exactly like Blood Moon).
-- Glows with a second colour show it on wide arcs, and no two glows look alike: Inferno, Mythic, Diamond, Sulfur, Abyss, Photon and more got their own colours.
-- Mythic, Diamond, Toxic and Thunder outfits no longer look like Shadow, Frost, Forest and Midnight.
+Version 233: the Knight fights like a knight
+- Up close he swings his sword: one wide arc hits every skeleton in front of him and knocks their shots out of the air.
+- Farther off he still throws sword waves.
+- Standing still, his shield blocks shots from the front. A faint arc shows where it covers, and each block charges Shield Slam.
+- Broad Swing now makes his swings reach further too.
 - The Blood Moon is up until Dec 3: hunt the Queen.
