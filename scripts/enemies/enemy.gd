@@ -137,6 +137,7 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"r": e = Rootbinder.new()
 		"S": e = Sporemother.new()
 		"A": e = StarEater.new()   # the Starfall Abyss's own boss (version 268)
+		"v": e = VoidWalker.new()   # the Starfall Abyss's own skeleton (version 269)
 		# The Blood Moon event (events.gd, version 134).
 		"b": e = Bloodbat.new()
 		"h": e = MoonHowler.new()

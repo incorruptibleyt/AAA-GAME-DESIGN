@@ -1,3 +1,3 @@
-Version 268: the Starfall Abyss has its own boss
-- The last floor is now guarded by the Star Eater, a giant skeleton with a fallen star in its ribs, instead of the Sporemother from floor 4.
-- It drops falling stars and strikes the lines between them, drags you in with its gravity, rolls moons across the room and makes stars rain below half health.
+Version 269: the Starfall Abyss has its own skeleton
+- Void Walkers now stalk the Abyss instead of the Grotto's Sporelings and Rootbinders.
+- A Void Walker sinks into a rift at its feet, a second rift opens right beside you, and a second later it steps out swinging its crescent blade. Walls don't stop it: get away from the new rift.

@@ -381,3 +381,12 @@ if WHICH in ("all", "star"):
         fall = whoosh(1.0, 7000, 700, 1.0, 0.55)
         a = mix((hum, 0, 0.55), (fall, 0.0, 0.4), (v, 0.15, 1.0), (tinkle(1.3, 12, 1700, 4300, 0.35), 0.45, 0.22))
         save(verb(a, 1.7, 0.5, 5200), "roar_star_%d" % i, mean_db=-14.0, cap=2.3)
+if WHICH in ("all", "void"):
+    # The Void Walker (version 269, the Starfall Abyss's own skeleton): its night-sky bones
+    # crunch, then the void sucks the pieces back in (a whoosh played backwards, rising to a
+    # stop) with a last glint of starlight, in a short echo. (python3 ... void)
+    for i in range(3):
+        suck = whoosh(0.55, 700 + 150 * i, 5200, 1.0, 0.05)[::-1].copy()
+        a = mix((lowpass(game(CRUNCH[i + 1], 0.95), 3000), 0, 0.7), (suck, 0.03, 0.5),
+                (tinkle(0.5, 7, 2600, 6200, 0.25), 0.5, 0.25))
+        save(verb(a, 0.9, 0.35, 6000), "die_void_%d" % i, cap=1.2)

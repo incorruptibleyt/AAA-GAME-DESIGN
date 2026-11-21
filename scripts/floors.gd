@@ -211,7 +211,9 @@ const THEMES := [
 		"moon": Color(0.84, 0.87, 0.95), "torch": Color(0.62, 0.78, 1.0), "torch_energy": 1.4, "pool": 0.5,
 		# Star dust drifting down out of the dark, a little of it gold.
 		"motes": [Color(0.85, 0.9, 1.0, 0.6), Color(1.0, 0.85, 0.55, 0.35)], "motes_fall": true, "motes_size": 0.35,
-		"pebble": Color(0.46, 0.47, 0.55), "guests": "pr",
+		# Version 269 (hard review fix 3): its own skeleton, the Void Walker (it borrowed the
+		# Grotto's Sporelings and Rootbinders before).
+		"pebble": Color(0.46, 0.47, 0.55), "guests": "v",
 		# Version 268 (hard review fix 2): its own boss, the Star Eater (was the Sporemother).
 		"boss": "A",
 		"banner": Color(0.7, 0.75, 1.0),

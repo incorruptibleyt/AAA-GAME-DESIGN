@@ -17,6 +17,8 @@ class_name Layouts
 ##   d  drowned skeleton (swims under the water and bursts up; Drowned Vault floors swap one in)
 ##   p  sporeling, r  rootbinder (spore clouds and crawling roots; the Glowcap Grotto swaps in
 ##      one of each)
+##   v  void walker (sinks into a rift and steps out of another beside you; the Starfall
+##      Abyss swaps one in)
 ##   ^  spike trap (glows red, then spikes shoot up)
 ##   K  the boss (the Skeleton King, the Lich, the Cinder Colossus, the Tidecaller, the
 ##      Sporemother or the Star Eater: see Game.boss_kind)
