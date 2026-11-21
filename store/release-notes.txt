@@ -1,4 +1,4 @@
-Version 255: floor 10 is a new place, the Starfall Abyss
-- The bottom of the crypt, where the world breaks off into a starry void. Stars and a nebula glow far below through every crack in the floor, and it crumbles away by the walls.
-- A star gate in the middle of the floor, pillars whose broken pieces float, braziers of cold star fire, great chains and fallen stars.
-- Its own music and room sounds.
+Version 256: the Frozen Ossuary has its own cover
+- On floor 2 the crates you hide behind are now blocks of clear ice with skeletons frozen inside, and the barrels are frosted urns full of skulls, hung with icicles.
+- They block movement and shots just like before, so nothing changes in how you play.
+- Next, every other floor gets its own cover too, one at a time.

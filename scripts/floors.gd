@@ -29,6 +29,9 @@ const THEMES := [
 		"ambient": Color(0.27, 0.31, 0.4), "fog": Color(0.05, 0.08, 0.13), "background": Color(0.02, 0.035, 0.06),
 		"moon": Color(0.72, 0.83, 0.95), "torch": Color(0.72, 0.87, 1.0), "torch_energy": 1.5,
 		"motes": [Color(0.95, 0.98, 1.0, 0.9), Color(0.6, 0.8, 1.0, 0.4)], "motes_fall": true, "banner": Color(0.6, 0.9, 1.0),
+		# Version 256: its own cover (props.gd add_cover): blocks of clear ice with skeletons
+		# frozen inside for crates, frosted urns of skulls for barrels.
+		"cover": "ice",
 		"floor_style": 2, "props": "ice", "pillar": "column", "light": [1.05, 1.2, 0.15, 0.1]},
 	# Charcoal slabs with fire in the gaps ("seams"), so fire and warnings stand out on them.
 	{"name": "Ember Catacomb", "wisp": Color(0.45, 0.78, 1.0), "floor": Color(0.34, 0.3, 0.3), "seams": Color(1.0, 0.28, 0.04),

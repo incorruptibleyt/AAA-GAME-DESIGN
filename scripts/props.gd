@@ -2232,3 +2232,163 @@ static func add_drift_column(n: Node3D) -> void:
 	_mesh(n, _baked["drift_column"])
 	_mesh(n, _baked["drift_column_mid"])
 	_mesh(n, _baked["drift_column_top"])
+
+
+## Version 256: each floor's own cover for the rooms' "c" (a stack of crates) and "b" (a
+## barrel) cells, named by "cover" in Floors.THEMES, instead of the same KayKit crates and
+## barrels on every floor. Each is about as wide as the circle that blocks you (0.6 for "c",
+## 0.45 for "b") and about as tall, so what you see is what stops you and your shots.
+## False when the floor has none of its own yet (room.gd then places the KayKit piece).
+static func add_cover(n: Node3D, cell: String) -> bool:
+	var mesh: ArrayMesh = null
+	match str(Floors.current().get("cover", "")) + ":" + cell:
+		"ice:c": mesh = _ice_block()
+		"ice:b": mesh = _frost_urn()
+	if mesh == null:
+		return false
+	_mesh(n, mesh)
+	return true
+
+
+## A skull looking along `look` (its face is -Z of the basis), `s` across.
+static func _skull(parts: Array, at: Vector3, s: float, look: Vector3, bone: Material, dark: Material) -> void:
+	var b := Basis.looking_at(look, Vector3.UP)
+	parts.append([_sphere(), _xf(at, Vector3(s, s * 0.92, s * 1.05), b), bone])
+	parts.append([_cube(), _xf(at + b * Vector3(0, -s * 0.62, -s * 0.38), Vector3(s * 0.95, s * 0.4, s * 0.7), b), bone])
+	for ex in [-0.38, 0.38]:
+		parts.append([_sphere(), _xf(at + b * Vector3(ex * s, s * 0.05, -s * 0.88), Vector3.ONE * s * 0.26), dark])
+
+
+## A bone (or any rod) from `a` to `b`, `r` thick.
+static func _rod_part(parts: Array, a: Vector3, b: Vector3, r: float, mat: Material) -> void:
+	var d := b - a
+	var turn := Basis.IDENTITY
+	if d.normalized().dot(Vector3.UP) < -0.999:
+		turn = Basis(Vector3.RIGHT, PI)
+	elif d.normalized().dot(Vector3.UP) < 0.999:
+		turn = Basis(Quaternion(Vector3.UP, d.normalized()))
+	parts.append([_cone(r, r, 1.0, 6), _xf((a + b) * 0.5, Vector3(1, d.length(), 1), turn), mat])
+
+
+## Clear ice you can see into: nearly clear in the middle of each face, white frost along
+## the edges (the box's own UVs: Godot lays a box out 3 by 2) and where the face turns away
+## from you, with a faint cold glow. Made for boxes; a shader, so warmup.gd draws it first.
+static func _clear_ice() -> ShaderMaterial:
+	if not _baked.has("clear_ice"):
+		var sh := Shader.new()
+		sh.code = """shader_type spatial;
+render_mode blend_mix, depth_draw_opaque, cull_back;
+void fragment() {
+	vec2 c = fract(UV * vec2(3.0, 2.0));
+	float edge = 1.0 - smoothstep(0.015, 0.085, min(min(c.x, 1.0 - c.x), min(c.y, 1.0 - c.y)));
+	float turn = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	float frost = clamp(max(edge, turn * 0.7), 0.0, 1.0);
+	ALBEDO = mix(vec3(0.4, 0.68, 0.93), vec3(0.88, 0.95, 1.0), frost);
+	ALPHA = mix(0.2, 0.9, frost);
+	ROUGHNESS = mix(0.05, 0.55, frost);
+	SPECULAR = 0.8;
+	EMISSION = vec3(0.16, 0.42, 0.78) * 0.35 + vec3(0.55, 0.78, 1.0) * frost * 0.3;
+}
+"""
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		_baked["clear_ice"] = m
+	return _baked["clear_ice"]
+
+
+## The Frozen Ossuary's crates: a great block of clear ice with a skeleton frozen inside,
+## its skull tipped back and one hand reaching up flat against the top, as if it was
+## climbing out when the cold took it. Shards of blue ice break up through the top corners
+## and white frost spreads over the floor round its foot.
+static func _ice_block() -> ArrayMesh:
+	if _baked.has("ice_block"):
+		return _baked["ice_block"]
+	var parts := []
+	var ice := _clear_ice()
+	var bone := U.mat(Color(0.9, 0.92, 0.94), 0.7, 0.18)
+	var dark := U.mat(Color(0.04, 0.06, 0.1), 1.0)
+	var lean := Basis(Vector3.FORWARD, 0.05)
+	parts.append([_cube(), _xf(Vector3(0, 0.47, 0), Vector3(1.1, 0.94, 0.98), lean), ice])
+	# Frost spread on the floor round it.
+	parts.append([_cone(0.8, 0.8, 0.02, 9), _xf(Vector3(0.04, 0.012, 0.02), Vector3(1, 1, 0.85)), U.mat(Color(0.56, 0.67, 0.8), 0.6)])
+	# The skeleton: skull tipped back, ribs, the spine down to the hips, legs folded under,
+	# one arm down and one reaching up, its hand flat under the top.
+	_skull(parts, Vector3(-0.12, 0.6, 0.1), 0.21, Vector3(0.1, 0.75, 1), bone, dark)
+	_rod_part(parts, Vector3(-0.08, 0.44, -0.02), Vector3(0.04, 0.12, -0.08), 0.03, bone)
+	for k in 4:
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.14 - k * 0.014
+		torus.outer_radius = 0.165 - k * 0.014
+		torus.rings = 10
+		torus.ring_segments = 4
+		parts.append([torus, Transform3D(Basis(Vector3.RIGHT, 0.35), Vector3(-0.06 + k * 0.02, 0.42 - k * 0.07, -0.03 - k * 0.015)), bone])
+	_rod_part(parts, Vector3(0.04, 0.12, -0.08), Vector3(0.34, 0.24, 0.18), 0.03, bone)
+	_rod_part(parts, Vector3(0.34, 0.24, 0.18), Vector3(0.1, 0.08, 0.3), 0.026, bone)
+	_rod_part(parts, Vector3(0.04, 0.12, -0.08), Vector3(-0.3, 0.16, 0.16), 0.03, bone)
+	_rod_part(parts, Vector3(-0.3, 0.16, 0.16), Vector3(-0.1, 0.06, 0.34), 0.026, bone)
+	var shoulder := Vector3(0.12, 0.44, 0.0)
+	var elbow := Vector3(0.3, 0.64, 0.1)
+	var wrist := Vector3(0.26, 0.84, 0.2)
+	_rod_part(parts, shoulder, elbow, 0.026, bone)
+	_rod_part(parts, elbow, wrist, 0.022, bone)
+	for f in 4:
+		var spread := (f - 1.5) * 0.35
+		var tip := wrist + Vector3(sin(spread) * 0.14, 0.05, cos(spread) * 0.14)
+		_rod_part(parts, wrist, tip, 0.014, bone)
+	_rod_part(parts, Vector3(-0.26, 0.42, -0.02), Vector3(-0.38, 0.22, -0.2), 0.026, bone)
+	_rod_part(parts, Vector3(-0.38, 0.22, -0.2), Vector3(-0.2, 0.1, -0.32), 0.022, bone)
+	# Shards of blue ice breaking up through the top.
+	var shards := [[Vector3(-0.42, 0.9, -0.34), 0.5, Vector3(-0.3, 1, -0.2)], [Vector3(-0.22, 0.9, -0.4), 0.34, Vector3(0.1, 1, -0.35)],
+		[Vector3(0.44, 0.9, -0.3), 0.42, Vector3(0.35, 1, -0.1)], [Vector3(0.4, 0.9, 0.38), 0.28, Vector3(0.3, 1, 0.3)],
+		[Vector3(-0.44, 0.9, 0.32), 0.24, Vector3(-0.4, 1, 0.2)]]
+	for sh in shards:
+		var up: Vector3 = (sh[2] as Vector3).normalized()
+		var ln: float = sh[1]
+		parts.append([_cone(0.0, 0.09 + ln * 0.12, ln, 4), _xf(sh[0] + up * ln * 0.45, Vector3.ONE, Basis(Quaternion(Vector3.UP, up))), _ice()])
+	_baked["ice_block"] = _bake(parts)
+	return _baked["ice_block"]
+
+
+## The Frozen Ossuary's barrels: a stone urn of the dead, round-bellied with a narrow neck,
+## skulls heaped up out of its mouth, its lip crusted with ice and hung with icicles, blue ice
+## crystals growing on its belly and frost spread round its foot.
+static func _frost_urn() -> ArrayMesh:
+	if _baked.has("frost_urn"):
+		return _baked["frost_urn"]
+	var parts := []
+	var stone := U.mat(Color(0.3, 0.33, 0.4), 0.75)
+	var bone := U.mat(Color(0.88, 0.88, 0.85), 0.8)
+	var dark := U.mat(Color(0.05, 0.05, 0.07), 1.0)
+	parts.append([_cone(0.56, 0.56, 0.02, 9), _xf(Vector3(0, 0.012, 0), Vector3.ONE), U.mat(Color(0.56, 0.67, 0.8), 0.6)])
+	parts.append([_cone(0.2, 0.27, 0.1, 10), _xf(Vector3(0, 0.05, 0), Vector3.ONE), stone])
+	parts.append([_cone(0.17, 0.2, 0.1, 10), _xf(Vector3(0, 0.15, 0), Vector3.ONE), stone])
+	parts.append([_sphere(), _xf(Vector3(0, 0.46, 0), Vector3(0.42, 0.34, 0.42)), stone])
+	parts.append([_cone(0.19, 0.3, 0.16, 10), _xf(Vector3(0, 0.78, 0), Vector3.ONE), stone])
+	parts.append([_cone(0.27, 0.2, 0.08, 10), _xf(Vector3(0, 0.89, 0), Vector3.ONE), stone])
+	# Two handles, one each side.
+	for side in [-1.0, 1.0]:
+		var ring := TorusMesh.new()
+		ring.inner_radius = 0.07
+		ring.outer_radius = 0.11
+		ring.rings = 8
+		ring.ring_segments = 4
+		parts.append([ring, Transform3D(Basis(Vector3.FORWARD, PI / 2), Vector3(side * 0.36, 0.7, 0)), stone])
+	# Skulls heaped up out of its mouth.
+	_skull(parts, Vector3(0.0, 1.06, 0.02), 0.15, Vector3(0.2, 0.45, 1), bone, dark)
+	_skull(parts, Vector3(0.12, 0.96, -0.1), 0.13, Vector3(1, 0.3, -0.4), bone, dark)
+	_skull(parts, Vector3(-0.13, 0.96, -0.06), 0.13, Vector3(-1, 0.3, -0.2), bone, dark)
+	# Ice crusted on the lip, icicles hanging from it, crystals growing on the belly.
+	_band(parts, 0.29, 0.05, 0.92, _ice(), 10)
+	for k in 9:
+		var a := TAU * k / 9.0 + 0.2
+		var ln := 0.12 + 0.12 * (k % 3) / 2.0
+		parts.append([_cone(0.035, 0.0, ln, 5), _xf(Vector3(cos(a) * 0.27, 0.88 - ln * 0.5, sin(a) * 0.27), Vector3.ONE), _ice()])
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.9
+		var out := Vector3(cos(a), 0.0, sin(a))
+		for j in 2:
+			var up := (out + Vector3(0, 0.9 + j * 0.5, 0) + Vector3(-out.z, 0, out.x) * (j - 0.5) * 0.6).normalized()
+			var ln := 0.16 - j * 0.04
+			parts.append([_cone(0.0, 0.045, ln, 4), _xf(out * 0.38 + Vector3(0, 0.36 + j * 0.05, 0) + up * ln * 0.45, Vector3.ONE, Basis(Quaternion(Vector3.UP, up))), _ice()])
+	_baked["frost_urn"] = _bake(parts)
+	return _baked["frost_urn"]

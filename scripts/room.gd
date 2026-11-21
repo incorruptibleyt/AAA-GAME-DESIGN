@@ -1859,7 +1859,9 @@ func _read_layout(layout: Array) -> void:
 				"b":
 					_add_obstacle(p, 0.45)
 					var prefab := Art.get_model(Art.BARREL)
-					if prefab:
+					if Props.add_cover(_anchor(p), "b"):   # (version 256: the floor's own cover)
+						pass
+					elif prefab:
 						Art.place_prop(prefab, _anchor(p), 1.0)
 					else:
 						U.cylinder(self, 0.4, 0.95, wood, p)
@@ -1868,7 +1870,9 @@ func _read_layout(layout: Array) -> void:
 				"c":
 					_add_obstacle(p, 0.6)
 					var prefab := Art.get_model(Art.CRATES)
-					if prefab:
+					if Props.add_cover(_anchor(p), "c"):   # (version 256: the floor's own cover)
+						pass
+					elif prefab:
 						Art.place_prop(prefab, _anchor(p), 1.4)
 					else:
 						var a := U.box(self, Vector3.ONE * 0.9, wood, p + Vector3.UP * 0.45)
