@@ -291,7 +291,7 @@ static func roll(taken: Dictionary, count := 3, finish_synergy := false, family 
 	if rng == null and family == "" and not finish_synergy:
 		pool = _fresh(pool, count)
 	if finish_synergy and out.is_empty():
-		# Wildfire first: room 1 offered half of it (roll_commons), and it's the one you see.
+		# Wildfire first: room 1 offered half of it (roll_first), and it's the one you see.
 		var order := SYNERGIES.duplicate()
 		order.sort_custom(func(a, b): return a.id == "wildfire" and b.id != "wildfire")
 		for s in order:
@@ -352,17 +352,30 @@ static func _weighted(pool: Array, rng: RandomNumberGenerator = null) -> Diction
 	return pool[0]
 
 
-## The very first pick (tutorial room 1): Vitality, one plain common card and one you can
-## SEE (Twin Shots or Fire Shots, half of Wildfire), so the first choice changes how the
-## hero shoots. Version 142 (review fix 10): it used to be three plain commons.
-static func roll_commons(taken: Dictionary) -> Array:
-	var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and not u.has("hero") and not u.has("vault") and not u.has("event") and taken.get(u.id, 0) < u.max and u.id != "vitality")
-	pool.shuffle()
-	var shots := ["multishot", "fire"].filter(func(id): return taken.get(id, 0) < int(get_def(id).max))
+## The very first pick (tutorial room 1). Version 240 (whole-game review fix 15): three cards
+## that each change how the hero fights, so the first choice is a real one. It used to be
+## Vitality and a plain common beside one card you could see (version 142). Now: a new shot
+## (Twin Shots or Fire Shots, half of Wildfire), one of the hero's own (version 239), and one
+## more you can see at work (Frost Shots, Eyes in the Back or Bone Ward).
+static func roll_first(taken: Dictionary) -> Array:
+	var can := func(id: String) -> bool: return taken.get(id, 0) < int(get_def(id).get("max", 1))
+	var out := []
+	var shots := ["multishot", "fire"].filter(can)
 	shots.shuffle()
-	var out := [get_def("vitality")]
 	if not shots.is_empty():
 		out.append(get_def(shots[0]))
-	out += pool.slice(0, 3 - out.size())
+	var own := LIST.filter(func(u): return u.has("hero") and u.rarity != "epic" and fits_hero(u) and can.call(u.id))
+	own.shuffle()
+	if not own.is_empty():
+		out.append(own[0])
+	var seen := ["frost", "rear", "ward"].filter(can)
+	seen.shuffle()
+	for id in seen:
+		if out.size() < 3:
+			out.append(get_def(id))
+	if out.size() < 3:
+		var pool := LIST.filter(func(u): return u.rarity == "common" and not u.has("needs") and not u.has("hero") and not u.has("vault") and not u.has("event") and can.call(u.id) and not out.has(u))
+		pool.shuffle()
+		out += pool.slice(0, 3 - out.size())
 	out.shuffle()
 	return out

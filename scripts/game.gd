@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21i"
+const BUILD := "2026-11-21j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3367,7 +3367,7 @@ func _room_cleared() -> void:
 	_pick_better = _door.get("kind", "") == "champion"
 	_door = {}
 	_pick_rng = Curses.daily_rng(500 + floor_num * 10 + _room_index, _daily_date) if daily or race else null
-	_choices = Upgrades.roll_commons(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better, _pick_rng)
+	_choices = Upgrades.roll_first(_taken) if step == 1 else Upgrades.roll(_taken, 2 if curses.has("narrow") else 3, step == 4, _pick_family, _pick_better, _pick_rng)
 	var lv_line := _mastery_callout
 	_mastery_callout = ""
 	# Version 170: the first gold card says what a synergy is.

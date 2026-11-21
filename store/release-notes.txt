@@ -1,7 +1,5 @@
-Version 239: hero blessings that change how you fight
-- Knight: Riposte sends blocked shots back. Cutting Wind adds a wave to every swing.
-- Barbarian: Thunder Catch slams the ground as you catch. Buzzsaw axes grind at the far end.
-- Mage: Burning Ground leaves fire under charged orbs. Frost Orbit spins ice round you.
-- Rogue: Shadow Step leaves a knife-throwing shadow. Ricochet bolts bounce on.
-- Returning bosses bring a new attack (v238).
+Version 240: a better first blessing pick
+- Your first blessing now always offers 3 cards that change how you fight: a shot blessing (Twin Shots or Fire Shots), one of your hero's own blessings, and Frost Shots, Eyes in the Back or Bone Ward.
+- Tips like "NEW: DASH!" now sit low on the screen, just over DASH and your special, so they point at the button.
+- Hero blessings that change how each hero fights (v239).
 - The Blood Moon is up until Dec 3.

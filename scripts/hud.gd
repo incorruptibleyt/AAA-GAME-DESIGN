@@ -1155,16 +1155,18 @@ func _build_hud() -> void:
 	_broken_label.modulate.a = 0.0
 	_chain_box.add_child(_broken_label)
 
-	# First-run tips ("Kill fast. Your chain grows.") sit just under the chain meter.
-	# Big, short and on a dark panel, so young players and anyone on a small screen can
-	# read them over the fight.
+	# First-run tips ("Kill fast. Your chain grows.") and the first-meeting lines ("BOMBER:
+	# runs in and explodes"). Big, short and on a dark panel, so young players and anyone on
+	# a small screen can read them over the fight. Version 240 (whole-game review fix 15):
+	# low on the screen, just over DASH and the special. Under the chain meter they were a
+	# dark strip over the top of the room, just where new skeletons come in.
 	_tip = label("", 27, Color(1, 0.96, 0.84))
-	_tip.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	_tip.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_tip.offset_left = -250
 	_tip.offset_right = 250
-	_tip.offset_top = CHAIN_TOP + CHAIN_H + 14
-	_tip.offset_bottom = CHAIN_TOP + CHAIN_H + 54
-	_tip.grow_vertical = Control.GROW_DIRECTION_END   # longer tips grow down, clear of the chain meter
+	_tip.offset_top = -198
+	_tip.offset_bottom = -158
+	_tip.grow_vertical = Control.GROW_DIRECTION_BEGIN   # longer tips grow up, clear of the buttons
 	_tip.label_settings.outline_size = 7
 	_tip.label_settings.outline_color = Color(0, 0, 0, 0.9)
 	_tip.add_theme_stylebox_override("normal", _text_panel())
