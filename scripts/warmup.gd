@@ -297,6 +297,17 @@ static func run(core := false, from := 0) -> bool:
 		Props._mesh(lect, Props._lectern())
 		Props._add_pages(lect, Vector3.ZERO)
 		Props._mesh(holder, Props.bookcase_column()).position = spots[28] + Vector3(0, 0, -0.6))
+	# The Clockwork Foundry (version 250): an iron column with its turning gear collar (the
+	# moving-metal shader) and a piston pumping.
+	if not core: steps.append(func():
+		var col := Node3D.new()
+		holder.add_child(col)
+		col.position = spots[29] + Vector3(0, 0, -0.6)
+		Props.add_iron_column(col)
+		var pis := Node3D.new()
+		holder.add_child(pis)
+		pis.position = spots[24] + Vector3(0, 0, 0.6)
+		Props._add_piston(pis))
 	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
 	# a spore cloud, crawling roots and the Sporemother's pod.
 	if core: steps.append(func():

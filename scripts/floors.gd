@@ -144,6 +144,22 @@ const THEMES := [
 		"motes": [Color(1.0, 0.88, 0.65, 0.5), Color(0.45, 1.0, 0.85, 0.35)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.55, 0.42, 0.32), "guests": "fe",
 		"banner": Color(0.5, 1.0, 0.85), "floor_style": 9, "props": "library", "pillar": "shelf", "light": [1.35, 1.65, 0.0, 0.0]},
+	# Version 250 (review fix 4): the Clockwork Foundry, floor 9 (the Crypt Pass), the Cinder
+	# Colossus's floor, which until now was the Ember Catacomb relit ("Ashen Catacomb"). The
+	# works where the dead forge their iron giant: riveted iron floor plates with the furnaces'
+	# glow under long grates, a great brass gear turning in the floor, walls of iron plate run
+	# with copper pipes and gauges, boilers with their fire doors open, gears turning on the
+	# walls, pistons pumping and iron pillars with turning brass collars.
+	{"name": "Clockwork Foundry", "wisp": Color(1.0, 0.82, 0.55), "floor": Color(1.0, 1.0, 1.0),
+		"grout": Color(0.03, 0.03, 0.035), "grime": Color(0.3, 0.15, 0.08), "grime_amount": 0.75,
+		"patch_tint": Color(0.9, 0.9, 0.95), "patch_rough": 0.4, "spores": Color(1.0, 0.42, 0.1, 1.0),   # (the furnaces' glow, room.gd)
+		"wall": Color(0.14, 0.15, 0.17), "trim": Color(0.36, 0.27, 0.12),
+		"ambient": Color(0.22, 0.22, 0.27), "fog": Color(0.05, 0.04, 0.035), "background": Color(0.02, 0.018, 0.016),
+		"moon": Color(0.85, 0.88, 0.95), "torch": Color(1.0, 0.6, 0.3), "torch_energy": 1.4, "pool": 0.55,
+		# Sparks drifting up from the furnaces, and wisps of steam.
+		"motes": [Color(1.0, 0.65, 0.3, 0.6), Color(0.85, 0.88, 0.92, 0.3)], "motes_fall": false, "motes_size": 0.4,
+		"pebble": Color(0.5, 0.5, 0.54), "guests": "ep", "boss": "C",
+		"banner": Color(1.0, 0.7, 0.35), "floor_style": 10, "props": "foundry", "pillar": "iron", "light": [1.3, 1.6, 0.0, 0.0]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
@@ -159,12 +175,15 @@ const SANDFALL := 7
 const MINE := 8
 ## The Whispering Library: floor 8, the third floor of each Crypt Pass loop (version 249).
 const LIBRARY := 9
+## The Clockwork Foundry: floor 9, the fourth floor of each Crypt Pass loop (version 250).
+const FOUNDRY := 10
 ## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, and the Sandfall Tomb.
 const FREE_ORDER := [0, 1, 2, GROTTO, SANDFALL]
 ## Each loop of the Crypt Pass (5 floors, see Loops): the Drowned Vault first, then (version
-## 248) the Amethyst Mine where the Bone Crypt came back relit, and (version 249) the
-## Whispering Library where the Frozen Ossuary did.
-const PASS_ORDER := [DROWNED, MINE, LIBRARY, 2, GROTTO]
+## 248) the Amethyst Mine where the Bone Crypt came back relit, (version 249) the Whispering
+## Library where the Frozen Ossuary did and (version 250) the Clockwork Foundry where the
+## Ember Catacomb did. Floor 10 is still the Glowcap Grotto of floor 4.
+const PASS_ORDER := [DROWNED, MINE, LIBRARY, FOUNDRY, GROTTO]
 
 
 ## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Grotto, Sandfall
@@ -241,9 +260,10 @@ static func hot() -> bool:
 	return current().has("seams")
 
 
-## The Ember Catacomb (the Cinder Colossus's floor).
+## The Ember Catacomb (the Cinder Colossus's floor; on the Pass the Clockwork Foundry names
+## its boss with its own "boss" key instead, see Game.boss_kind).
 static func ember() -> bool:
-	return index(Game.floor_num) == 2 and Game.event == "" and not lobby   # (v219: by place, the Pass's Ashen Catacomb too)
+	return index(Game.floor_num) == 2 and Game.event == "" and not lobby
 
 
 ## The Blood Moon crypt (the event).

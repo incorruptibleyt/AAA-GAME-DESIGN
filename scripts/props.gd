@@ -7,7 +7,8 @@ class_name Props
 ## fungus in the Glowcap Grotto, obelisks, jars, painted coffins and sand pouring in through
 ## cracks in the walls in the Sandfall Tomb, crystals, carts and boarded tunnels in the
 ## Amethyst Mine, and lecterns with flying pages, piled books, ladders, a clock and a globe
-## in the Whispering Library. The pieces are simple shapes baked
+## in the Whispering Library, boilers, gears turning on the walls and pumping pistons in the
+## Clockwork Foundry. The pieces are simple shapes baked
 ## into one mesh per material and add no lights, so they stay cheap on phones. A corner
 ## piece only goes where the room's layout leaves that corner empty.
 
@@ -83,6 +84,15 @@ static func dress(room: Room, layout: Array) -> void:
 					_glow_pool(n, 2.6, Color(0.35, 1.0, 0.82, 0.16))
 				else:
 					_mesh(n, _book_pile())
+			"foundry":
+				# A boiler with its fire door open in each far corner; in the near ones (by the
+				# camera) gears and parts heaped up.
+				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+				if p.z < 0.0:
+					_mesh(n, _boiler())
+					_glow_pool(n, 2.8, Color(1.0, 0.45, 0.15, 0.2))
+				else:
+					_mesh(n, _cog_pile())
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
@@ -131,6 +141,11 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_no_shadow(_mesh(n, _ladder()))
+				"foundry":
+					# Gears turning on an iron plate.
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_add_wall_gears(n)
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
@@ -173,6 +188,12 @@ static func dress(room: Room, layout: Array) -> void:
 				n.rotation.y = -PI / 2
 				_mesh(n, _clock() if x < 0.0 else _globe())
 				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + (0.25 if x < 0.0 else 0.5)), 0.45)
+			"foundry":
+				# A piston pumping either side of the door.
+				var n := _place(room, Vector3(x * 1.2, 0, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_add_piston(n)
+				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + 0.3), 0.45)
 
 
 ## KayKit pieces along the walls (version 134): a banner either side of the door and a few
@@ -192,6 +213,7 @@ const KIT := {
 	"sand": {"banner": "", "side": [["@jar", 0.0], ["rubble_half", 0.5], ["@jar", 0.0], ["rubble_half", 0.55]]},
 	"mine": {"banner": "", "side": [["box_small", 0.6], ["@ore", 0.0], ["barrel_small", 0.8], ["@ore", 0.0]]},
 	"library": {"banner": "", "side": [["@books", 0.0], ["candle_triple", 0.6], ["@books", 0.0], ["box_small_decorated", 0.62]]},
+	"foundry": {"banner": "", "side": [["@cogs", 0.0], ["barrel_small", 0.8], ["@cogs", 0.0], ["box_small", 0.6]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
 
@@ -225,7 +247,12 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 			if not room.leaves_gap(Vector3(side * Room.HALF_W, 0, z), 0.7):
 				continue
 			if own:
-				var own_mesh: ArrayMesh = _jar() if pick[0] == "@jar" else (_ore_pile() if pick[0] == "@ore" else _wall_books())
+				var own_mesh: ArrayMesh
+				match str(pick[0]):
+					"@jar": own_mesh = _jar()
+					"@ore": own_mesh = _ore_pile()
+					"@books": own_mesh = _wall_books()
+					_: own_mesh = _wall_cogs()
 				_no_shadow(_mesh(_place(room, at), own_mesh))
 			else:
 				_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
@@ -281,7 +308,7 @@ static func _scatter(room: Room, layout: Array, kind: String) -> void:
 			var p := at + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
 			var yaw := Basis(Vector3.UP, rng.randf() * TAU)
 			var roll := rng.randf()
-			if roll < 0.5 and kind != "library":   # (no stones on the library's parquet)
+			if roll < 0.5 and kind != "library" and kind != "foundry":   # (no stones on parquet or iron)
 				# Pebbles and broken stone.
 				var sz := rng.randf_range(0.08, 0.17)
 				var m := chip if rng.randf() < 0.4 else stone
@@ -401,6 +428,23 @@ static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, r
 				# An ink pot and its quill.
 				parts.append([_cone(0.028, 0.04, 0.06, 8), Transform3D(yaw, p + Vector3.UP * 0.03), _lib_mat("dark")])
 				parts.append([_sphere(), _xf(p + Vector3.UP * 0.1 + yaw * Vector3(0.03, 0, 0), Vector3(0.012, 0.11, 0.03), yaw * Basis(Vector3.FORWARD, 0.4)), _lib_mat("paper")])
+		"foundry":
+			var roll := rng.randf()
+			if roll < 0.4:
+				# A nut: a little six-sided ring of iron.
+				parts.append([_cone(0.035, 0.035, 0.025, 6), Transform3D(yaw, p + Vector3.UP * 0.013), _iron_mat("iron")])
+			elif roll < 0.65:
+				# A bolt lying on its side.
+				var flat := yaw * Basis(Vector3.RIGHT, PI / 2)
+				parts.append([_cone(0.012, 0.012, 0.12, 6), Transform3D(flat, p + Vector3.UP * 0.014), _iron_mat("iron")])
+				parts.append([_cone(0.026, 0.026, 0.02, 6), Transform3D(flat, p + Vector3.UP * 0.026 + yaw * Vector3(0, 0, -0.07)), _iron_mat("iron")])
+			elif roll < 0.85:
+				# A small gear, dropped.
+				_gear_parts(parts, p + Vector3.UP * 0.015, yaw, rng.randf_range(0.07, 0.12), 8, 0.025, _iron_mat("brass" if rng.randf() < 0.5 else "copper"))
+			else:
+				# A lump of coal.
+				var sz := rng.randf_range(0.06, 0.11)
+				parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.5, Vector3(sz, sz * 0.7, sz * 0.9), yaw), _iron_mat("coal")])
 		"fungus":
 			# A tiny mushroom: a stalk and a glowing cap.
 			var h := rng.randf_range(0.13, 0.24)
@@ -1664,3 +1708,237 @@ static func bookcase_column() -> ArrayMesh:
 				x += w + rng.randf_range(0.0, 0.008)
 	_baked["bookcase_column"] = _bake(parts)
 	return _baked["bookcase_column"]
+
+
+# ---------------------------------------------------------------- the Clockwork Foundry
+
+## The Clockwork Foundry's materials (floor 9, version 250), made once.
+static func _iron_mat(key: String) -> Material:
+	var k := "iron_" + key
+	if not _baked.has(k):
+		match key:
+			"iron": _baked[k] = U.mat(Color(0.19, 0.195, 0.21), 0.5)
+			"iron_dark": _baked[k] = U.mat(Color(0.085, 0.085, 0.095), 0.6)
+			"brass": _baked[k] = U.mat(Color(0.62, 0.46, 0.19), 0.35)
+			"copper": _baked[k] = U.mat(Color(0.5, 0.26, 0.13), 0.4)
+			"fire": _baked[k] = U.mat(Color(0.95, 0.24, 0.04), 0.6, 1.1)
+			"coal": _baked[k] = U.mat(Color(0.05, 0.045, 0.045), 0.9)
+			"face": _baked[k] = U.mat(Color(0.72, 0.68, 0.55), 0.6)
+			"red": _baked[k] = U.mat(Color(0.48, 0.07, 0.05), 0.5)
+			"rust": _baked[k] = U.mat(Color(0.32, 0.15, 0.07), 0.9)
+	return _baked[k]
+
+
+## Metal that turns or pumps by itself: a shader spins its mesh round the mesh's own X (axis
+## 0) or Y (axis 1) axis, `speed` radians a second, or (axis 2) slides it up and down. Nothing
+## moves on the CPU.
+static func _moving_mat(key: String, axis: int, speed: float) -> ShaderMaterial:
+	var k := "moving_%s_%d_%.2f" % [key, axis, speed]
+	if not _baked.has(k):
+		if not _baked.has("moving_shader"):
+			var sh := Shader.new()
+			sh.code = """
+shader_type spatial;
+uniform vec4 albedo : source_color = vec4(0.6, 0.45, 0.2, 1.0);
+uniform float rough = 0.35;
+uniform int axis = 1;
+uniform float speed = 0.5;
+void vertex() {
+	float a = TIME * speed;
+	mat2 r = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a)));
+	if (axis == 0) {
+		VERTEX.yz = r * VERTEX.yz;
+		NORMAL.yz = r * NORMAL.yz;
+	} else if (axis == 1) {
+		VERTEX.xz = r * VERTEX.xz;
+		NORMAL.xz = r * NORMAL.xz;
+	} else {
+		VERTEX.y += sin(TIME * speed) * 0.32;
+	}
+}
+void fragment() {
+	ALBEDO = albedo.rgb;
+	ROUGHNESS = rough;
+}
+"""
+			_baked["moving_shader"] = sh
+		var m := ShaderMaterial.new()
+		m.shader = _baked["moving_shader"]
+		var base := _iron_mat(key) as StandardMaterial3D
+		m.set_shader_parameter("albedo", base.albedo_color)
+		m.set_shader_parameter("rough", base.roughness)
+		m.set_shader_parameter("axis", axis)
+		m.set_shader_parameter("speed", speed)
+		_baked[k] = m
+	return _baked[k]
+
+
+## A gear round its own Y axis, centred on `at`: a disc `r` across and `thick` deep with
+## `teeth` square teeth, a raised rim and hub, and (big ones) four holes between spokes.
+static func _gear_parts(parts: Array, at: Vector3, basis: Basis, r: float, teeth: int, thick: float, mat: Material, phase := 0.0) -> void:
+	parts.append([_cone(r, r, thick, maxi(teeth * 2, 12)), Transform3D(basis, at), mat])
+	var tw := TAU * r / teeth * 0.5
+	for k in teeth:
+		var a := TAU * k / teeth + phase
+		var tb := basis * Basis(Vector3.UP, -a)
+		parts.append([_cube(), Transform3D(tb * Basis.from_scale(Vector3(0.11 * r / 0.7 + 0.04, thick, tw)), at + basis * Vector3(cos(a), 0, sin(a)) * (r + 0.03)), mat])
+	parts.append([_cone(r * 0.28, r * 0.28, thick * 1.6, 12), Transform3D(basis, at), mat])
+	parts.append([_cone(r * 0.1, r * 0.1, thick * 1.9, 8), Transform3D(basis, at), _iron_mat("iron_dark")])
+
+
+## A gear on its own MeshInstance, turning (axis 0 = its X, 1 = its Y) at `speed`.
+static func _turning_gear(parent: Node3D, at: Vector3, axis: int, r: float, teeth: int, thick: float, key: String, speed: float, phase := 0.0) -> MeshInstance3D:
+	var mk := "gear_%d_%.2f_%d_%.2f_%s_%.2f" % [axis, r, teeth, thick, key, phase]
+	if not _baked.has(mk):
+		var parts := []
+		var b := Basis(Vector3(0, 0, 1), PI / 2) if axis == 0 else Basis.IDENTITY
+		_gear_parts(parts, Vector3.ZERO, b, r, teeth, thick, _moving_mat(key, axis, speed), phase)
+		# (the hub's dark axle turns too: give it the turning material's twin in iron)
+		parts[parts.size() - 1][2] = _moving_mat("iron_dark", axis, speed)
+		_baked[mk] = _bake(parts)
+	var mi := _mesh(parent, _baked[mk])
+	mi.position = at
+	return mi
+
+
+## A boiler in a far corner (+X and +Z into the room): a riveted iron tank with a domed top,
+## its fire door open and glowing, coal heaped in front, a gauge, a chimney to the roof and a
+## copper pipe into the wall.
+static func _boiler() -> ArrayMesh:
+	if _baked.has("boiler"):
+		return _baked["boiler"]
+	var parts := []
+	var c := Vector3(0.42, 0, 0.42)
+	var d := Vector3(1, 0, 1).normalized()
+	parts.append([_cone(0.62, 0.66, 0.2, 16), _xf(c + Vector3(0, 0.1, 0), Vector3.ONE), _iron_mat("iron_dark")])
+	parts.append([_cone(0.6, 0.6, 1.5, 16), _xf(c + Vector3(0, 0.95, 0), Vector3.ONE), _iron_mat("iron")])
+	parts.append([_sphere(), _xf(c + Vector3(0, 1.7, 0), Vector3(0.6, 0.28, 0.6)), _iron_mat("iron")])
+	for y in [0.3, 0.95, 1.6]:
+		_band(parts, 0.62, 0.06, y, _iron_mat("brass"), 16, c)
+		for k in 12:
+			var a := TAU * k / 12.0
+			parts.append([_sphere(), _xf(c + Vector3(cos(a) * 0.62, y + 0.06, sin(a) * 0.62), Vector3.ONE * 0.025), _iron_mat("iron_dark")])
+	# The fire door, open: a black frame round the glowing coals, the door swung aside.
+	var face := Basis(Vector3.UP, -PI / 4)
+	var door := c + d * 0.58 + Vector3(0, 0.55, 0)
+	parts.append([_cube(), Transform3D(face * Basis.from_scale(Vector3(0.12, 0.42, 0.46)), door), _iron_mat("iron_dark")])
+	parts.append([_cube(), Transform3D(face * Basis.from_scale(Vector3(0.1, 0.3, 0.34)), door + d * 0.02), _iron_mat("fire")])
+	var side := Vector3(1, 0, -1).normalized()
+	parts.append([_cube(), Transform3D(Basis(Vector3.UP, PI / 4 - 1.2) * Basis.from_scale(Vector3(0.04, 0.4, 0.42)), door + d * 0.12 + side * 0.36), _iron_mat("iron")])
+	# Coal heaped in front, a few lumps glowing.
+	for k in 5:
+		var a := k * 1.3
+		var at := c + d * (0.85 + 0.12 * sin(a)) + side * (0.25 * cos(a * 1.7))
+		parts.append([_sphere(), _xf(at + Vector3(0, 0.07, 0), Vector3(0.13, 0.08, 0.11), Basis(Vector3.UP, a)), _iron_mat("coal" if k % 3 else "fire")])
+	# A gauge and a red valve wheel.
+	var g := c + d * 0.6 + Vector3(0, 1.28, 0)
+	parts.append([_cone(0.13, 0.13, 0.05, 16), Transform3D(face * Basis(Vector3(0, 0, 1), PI / 2), g), _iron_mat("brass")])
+	parts.append([_cone(0.1, 0.1, 0.02, 16), Transform3D(face * Basis(Vector3(0, 0, 1), PI / 2), g + d * 0.03), _iron_mat("face")])
+	parts.append([_cube(), Transform3D(face * Basis(Vector3.RIGHT, 0.7) * Basis.from_scale(Vector3(0.01, 0.08, 0.012)), g + d * 0.045 + Vector3(0, 0.02, 0)), _iron_mat("red")])
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.1
+	torus.outer_radius = 0.13
+	torus.rings = 16
+	torus.ring_segments = 6
+	parts.append([torus, Transform3D(Basis(side, PI / 2), c + side * 0.66 + Vector3(0, 1.05, 0)), _iron_mat("red")])
+	# The chimney up to the roof, and a pipe into the wall.
+	parts.append([_cone(0.13, 0.13, 1.5, 10), _xf(c + Vector3(-0.12, 2.5, -0.12), Vector3.ONE), _iron_mat("iron_dark")])
+	parts.append([_cone(0.16, 0.16, 0.08, 10), _xf(c + Vector3(-0.12, 2.0, -0.12), Vector3.ONE), _iron_mat("brass")])
+	parts.append([_cone(0.07, 0.07, 0.8, 10), _xf(c + Vector3(-0.55, 1.35, 0.1), Vector3.ONE, Basis(Vector3(0, 0, 1), PI / 2)), _iron_mat("copper")])
+	_baked["boiler"] = _bake(parts)
+	return _baked["boiler"]
+
+
+## Gears and parts heaped in a near corner (low, so they never hide the hero): loose gears
+## lying and leaning, an oil can and a big spanner.
+static func _cog_pile() -> ArrayMesh:
+	if _baked.has("cog_pile"):
+		return _baked["cog_pile"]
+	var parts := []
+	var gears := [[Vector3(0.25, 0.04, 0.2), Basis.IDENTITY, 0.42, 12, "brass"], [Vector3(0.6, 0.1, 0.15), Basis.IDENTITY, 0.26, 9, "iron"],
+		[Vector3(0.15, 0.3, 0.12), Basis(Vector3(1, 0, -1).normalized(), 1.2), 0.3, 10, "copper"],
+		[Vector3(0.3, 0.12, 0.65), Basis(Vector3.RIGHT, 0.3), 0.22, 8, "iron"], [Vector3(0.62, 0.2, 0.55), Basis(Vector3(1, 0, 1).normalized(), 0.5), 0.18, 8, "brass"]]
+	for g: Array in gears:
+		_gear_parts(parts, g[0], g[1], g[2], g[3], 0.06, _iron_mat(g[4]))
+	# An oil can with its long spout.
+	var oc := Vector3(0.85, 0, 0.3)
+	parts.append([_cone(0.09, 0.11, 0.16, 12), _xf(oc + Vector3(0, 0.08, 0), Vector3.ONE), _iron_mat("red")])
+	parts.append([_cone(0.012, 0.03, 0.3, 6), _xf(oc + Vector3(0.1, 0.24, 0.0), Vector3.ONE, Basis(Vector3(0, 0, 1), -0.9)), _iron_mat("brass")])
+	# A spanner on the floor.
+	var sb := Basis(Vector3.UP, 0.6)
+	parts.append([_cube(), Transform3D(sb * Basis.from_scale(Vector3(0.5, 0.03, 0.06)), Vector3(0.75, 0.015, 0.8)), _iron_mat("iron")])
+	parts.append([_cone(0.07, 0.07, 0.03, 6), Transform3D(sb, Vector3(0.75, 0.015, 0.8) + sb * Vector3(0.27, 0, 0)), _iron_mat("iron")])
+	_baked["cog_pile"] = _bake(parts)
+	return _baked["cog_pile"]
+
+
+## A side wall's machine (+X out of the wall): an iron plate bolted to the wall and two gears
+## turning on it, a big one and a small one meshing with it, the other way and faster.
+static func _add_wall_gears(n: Node3D) -> void:
+	if not _baked.has("gear_plate"):
+		var parts := []
+		parts.append([_cube(), _xf(Vector3(0.03, 1.3, 0.35), Vector3(0.06, 1.9, 2.1)), _iron_mat("iron_dark")])
+		for y in [0.45, 2.15]:
+			for z in [-0.6, 1.3]:
+				parts.append([_sphere(), _xf(Vector3(0.07, y, z), Vector3.ONE * 0.04), _iron_mat("brass")])
+		_baked["gear_plate"] = _bake(parts)
+	_no_shadow(_mesh(n, _baked["gear_plate"]))
+	_no_shadow(_turning_gear(n, Vector3(0.13, 1.35, 0.0), 0, 0.68, 16, 0.08, "brass", 0.45))
+	_no_shadow(_turning_gear(n, Vector3(0.15, 1.35, 1.14), 0, 0.38, 9, 0.08, "copper", -0.8, PI / 9))
+
+
+## A piston by the far wall (+X out of the wall): an iron frame, a cylinder at its foot, and
+## the rod and crosshead pumping up and down.
+static func _add_piston(n: Node3D) -> void:
+	if not _baked.has("piston"):
+		var parts := []
+		for z in [-0.38, 0.38]:
+			parts.append([_cube(), _xf(Vector3(0.3, 1.2, z), Vector3(0.12, 2.4, 0.12)), _iron_mat("iron")])
+		parts.append([_cube(), _xf(Vector3(0.3, 2.42, 0), Vector3(0.16, 0.16, 0.92)), _iron_mat("iron")])
+		parts.append([_cone(0.28, 0.3, 0.6, 14), _xf(Vector3(0.3, 0.3, 0), Vector3.ONE), _iron_mat("iron_dark")])
+		_band(parts, 0.31, 0.06, 0.58, _iron_mat("brass"), 14, Vector3(0.3, 0, 0))
+		parts.append([_cone(0.07, 0.07, 0.9, 10), _xf(Vector3(-0.0, 0.35, 0.2), Vector3.ONE, Basis(Vector3(0, 0, 1), PI / 2)), _iron_mat("copper")])
+		_baked["piston"] = _bake(parts)
+		var rod := []
+		rod.append([_cone(0.065, 0.065, 1.0, 10), _xf(Vector3(0.3, 1.1, 0), Vector3.ONE), _moving_mat("brass", 2, 1.7)])
+		rod.append([_cube(), _xf(Vector3(0.3, 1.6, 0), Vector3(0.2, 0.14, 0.7)), _moving_mat("iron_dark", 2, 1.7)])
+		_baked["piston_rod"] = _bake(rod)
+	_mesh(n, _baked["piston"])
+	_mesh(n, _baked["piston_rod"])
+
+
+## Gears and a crate of parts against a side wall (the "@cogs" piece of the KIT).
+static func _wall_cogs() -> ArrayMesh:
+	if _baked.has("wall_cogs"):
+		return _baked["wall_cogs"]
+	var parts := []
+	_gear_parts(parts, Vector3(0.05, 0.35, -0.1), Basis(Vector3(0, 0, 1), PI / 2 - 0.25), 0.3, 10, 0.06, _iron_mat("iron"))
+	_gear_parts(parts, Vector3(0.1, 0.04, 0.3), Basis.IDENTITY, 0.22, 8, 0.06, _iron_mat("brass"))
+	_gear_parts(parts, Vector3(0.12, 0.1, 0.32), Basis(Vector3.UP, 0.3), 0.14, 7, 0.05, _iron_mat("copper"))
+	_baked["wall_cogs"] = _bake(parts)
+	return _baked["wall_cogs"]
+
+
+## The Clockwork Foundry's pillars: an eight-sided iron column, riveted, banded in brass, a
+## copper pipe climbing it and a brass gear collar turning round it. As wide as the stone
+## pillars it stands in for.
+static func add_iron_column(n: Node3D) -> void:
+	if not _baked.has("iron_column"):
+		var parts := []
+		var h := Room.WALL_H + 0.4
+		parts.append([_cube(), _xf(Vector3(0, 0.12, 0), Vector3(0.95, 0.24, 0.95)), _iron_mat("iron_dark")])
+		parts.append([_cone(0.38, 0.38, h, 8), _xf(Vector3(0, h * 0.5, 0), Vector3.ONE, Basis(Vector3.UP, PI / 8)), _iron_mat("iron")])
+		parts.append([_cube(), _xf(Vector3(0, h - 0.1, 0), Vector3(0.92, 0.2, 0.92)), _iron_mat("iron_dark")])
+		for y in [0.42, 2.55]:
+			_band(parts, 0.41, 0.08, y, _iron_mat("brass"), 8)
+			parts[parts.size() - 1][1] = Transform3D(Basis(Vector3.UP, PI / 8), Vector3(0, y, 0))
+		for y in [0.95, 2.2]:
+			for k in 8:
+				var a := TAU * k / 8.0 + PI / 8
+				parts.append([_sphere(), _xf(Vector3(cos(a) * 0.36, y, sin(a) * 0.36), Vector3.ONE * 0.03), _iron_mat("iron_dark")])
+		parts.append([_cone(0.055, 0.055, h - 0.3, 8), _xf(Vector3(0.44, h * 0.5, 0.1), Vector3.ONE), _iron_mat("copper")])
+		for y in [0.8, 2.3]:
+			parts.append([_cube(), _xf(Vector3(0.4, y, 0.1), Vector3(0.1, 0.05, 0.14)), _iron_mat("iron_dark")])
+		_baked["iron_column"] = _bake(parts)
+	_mesh(n, _baked["iron_column"])
+	_turning_gear(n, Vector3(0, 1.62, 0), 1, 0.52, 14, 0.12, "brass", 0.35)

@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21s"
+const BUILD := "2026-11-21t"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1741,6 +1741,11 @@ func boss_kind() -> String:
 		return str(Events.ev().get("boss", "Q"))
 	if event == "run":
 		return str(Events.ev().get("guards", "KL"))[clampi(floor_num - 1, 0, 1)]
+	# Version 250: a place can name its own boss ("boss" in Floors.THEMES): the Clockwork
+	# Foundry (floor 9) is the Cinder Colossus's, as the Ember Catacomb relit was before it.
+	var own := str(Floors.current().get("boss", ""))
+	if own != "" and not first_run:
+		return own
 	if Floors.ember() and not first_run:
 		return "C"
 	if Floors.drowned() and not first_run:
@@ -1757,8 +1762,9 @@ func boss_kind() -> String:
 ## Snow Rollers, Bell Ringers and a Gift Thief ("noi"). The Sandfall Tomb (floor 5, version
 ## 247) keeps floor 5's Frost Wraiths (tomb spirits) and adds the scorched Cinder Skeletons.
 ## The Pass's own places name theirs ("guests", floors.gd): the Amethyst Mine keeps the
-## Drowned Skeletons and Rootbinders its floor had before, and the Whispering Library its
-## Frost Wraiths (the ghosts of its readers) and Cinder Skeletons (book burners).
+## Drowned Skeletons and Rootbinders its floor had before, the Whispering Library its
+## Frost Wraiths (the ghosts of its readers) and Cinder Skeletons (book burners), and the
+## Clockwork Foundry the Cinder Skeletons (its stokers) and Sporelings its floor had before.
 func theme_enemy() -> String:
 	if first_run:
 		return ""

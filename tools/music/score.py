@@ -140,6 +140,14 @@ def perc(s, style, b, d, sec):
             if pos % 1 == 0: s.note("perc", t, 76 if pos in (0, 2) else 77, .2, 50 if pos == 0 else 40)
             if sec in ("B", "A2") and k % 2 == 1: s.note("perc", t, 82, .2, 34)
             if pos == 0 and t % 8 == 0: s.note("perc", t, 53, 1, 40)
+        elif style == "foundry":
+            # The Clockwork Foundry: a hammer on every beat (low and heavy on one and three),
+            # a clank on two and four, steam hissing on the off-beats and an anvil-bright
+            # bell every bar.
+            if pos in (0, 2): s.note("perc", t, 36, .3, 66 if pos == 0 else 56)
+            if pos in (1, 3): s.note("perc", t, 37, .2, 50)
+            if pos % 1 == 0.5: s.note("perc", t, 42, .2, 34 if sec != "B" else 44)
+            if pos == 0: s.note("perc", t, 81 if t % 8 == 0 else 80, .5, 40)
         elif style == "grotto":
             if pos in (0, 2.5): s.note("perc", t, 77, .2, 64)
             if pos in (1, 3): s.note("perc", t, 76, .2, 50)
@@ -239,6 +247,11 @@ TRACKS = {
     # line, vibraphone sparkles and a ticking clock.
     "library": ("calm", dict(bpm=90, tr=-2, lead=6, dbl=73, pad=53, arp=46, ctr=42, perc="library",
                              spark=11, seed=41)),
+    # The Clockwork Foundry (version 250): the tune on a clavinet doubled by muted trumpet,
+    # tinkling bells for the broken chords (the clockwork), a sweep pad, a trombone counter
+    # line, steel-drum sparkles and the hammers, clanks and steam of the works.
+    "foundry": ("calm", dict(bpm=112, tr=-3, lead=7, dbl=59, pad=95, arp=112, ctr=57, perc="foundry",
+                             spark=114, seed=47)),
 }
 REVERB = dict(room=0.7, level=0.55, damp=0.45)
 

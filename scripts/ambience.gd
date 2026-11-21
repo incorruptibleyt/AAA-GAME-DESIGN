@@ -12,7 +12,8 @@ extends Node
 ## of the mountain, timbers creaking, crystals humming faintly, and now and then the clink
 ## of a pick far off down a tunnel. The Whispering Library (version 249): still air, a tall
 ## clock ticking, voices whispering just too low to make out, and now and then the pages of
-## a book riffling by themselves.
+## a book riffling by themselves. The Clockwork Foundry (version 250): the deep drone of the
+## furnaces, gears ticking round and a hammer far off, and now and then steam blowing off.
 ## All of it is made in code. The draught loops play on the Music bus, so they muffle with
 ## the music when the game is paused; the drips and pops go through the Effects echo. It
 ## follows the Sounds setting, and is silent on the title screen.
@@ -27,13 +28,13 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0), Vector2(4.0, 9.0), Vector2(4.0, 10.0)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0), Vector2(4.0, 9.0), Vector2(4.0, 10.0), Vector2(3.5, 8.0)]
 
 static var _instance: Ambience
 ## Version 243: Frostfall's Blizzard turns the storm up (0..1, blizzard.gd).
 static var gust := 0.0
-var _beds: Array = [null, null, null, null, null, null, null, null, null, null]
-var _ones: Array = [null, null, null, null, null, null, null, null, null, null]
+var _beds: Array = [null, null, null, null, null, null, null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null, null, null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -112,6 +113,8 @@ func _build_all() -> void:
 	_ones[8] = _one(1.6, _clink)
 	_beds[9] = _loop(_library_bed)
 	_ones[9] = _one(1.3, _pages)
+	_beds[10] = _loop(_foundry_bed)
+	_ones[10] = _one(1.4, _steam)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -500,4 +503,41 @@ func _pages(n: int) -> PackedFloat32Array:
 	for i in n - th:
 		var t := float(i) / Sfx.RATE
 		x[th + i] += sin(TAU * 110.0 * t) * exp(-t * 30.0) * 0.4 * minf(t / 0.003, 1.0)
+	return x
+
+
+## The Clockwork Foundry: the furnaces' low roar, a machine hum (two close low notes beating),
+## the gears' ticking (a dry tick every quarter second, every fourth louder) and a hammer
+## striking twice a loop far off.
+func _foundry_bed(n: int) -> PackedFloat32Array:
+	var x := _wind(n, 70.0, 240.0, 3.0, 2.0, 121)
+	for i in n:
+		var t := float(i) / RATE
+		x[i] += (sin(TAU * 110.0 * t) + sin(TAU * 111.0 * t)) * 0.01 + sin(TAU * 220.0 * t) * 0.004
+		var tt := fmod(t, 0.25)
+		var loud := 1.6 if int(t / 0.25) % 4 == 0 else 1.0
+		x[i] += sin(TAU * 2600.0 * tt) * exp(-tt * 220.0) * 0.035 * loud
+		for hit: float in [1.0, 4.0]:
+			var ht := t - hit
+			if ht > 0.0 and ht < 0.6:
+				x[i] += (sin(TAU * 820.0 * ht) + 0.7 * sin(TAU * 1370.0 * ht) + 0.5 * sin(TAU * 2210.0 * ht)) * exp(-ht * 9.0) * 0.05
+	return x
+
+
+## Steam blowing off a valve: a sharp hiss that swells and fades, with a clank as it opens.
+func _steam(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 122
+	var y := 0.0
+	var y2 := 0.0
+	for i in n:
+		var t := float(i) / Sfx.RATE
+		var env := minf(t / 0.12, 1.0) * exp(-maxf(t - 0.25, 0.0) * 2.6)
+		var w := rng.randf() * 2.0 - 1.0
+		y += 0.7 * (w - y)
+		y2 += 0.3 * (y - y2)
+		x[i] = (y - y2) * env * 0.7
+		x[i] += sin(TAU * 640.0 * t) * exp(-t * 40.0) * 0.3 * minf(t / 0.002, 1.0)
 	return x

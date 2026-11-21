@@ -1,3 +1,4 @@
-Version 249: floor 8 is a new place, the Whispering Library
-- The Lich's own floor is now a library of forbidden books: herringbone floors, old rugs, a brass circle of glowing letters, bookcases for walls and pillars, lecterns with their pages flying round them, ladders, a tall clock and a great globe.
-- Its own music (harpsichord, harp and soft voices) and the sound of whispering and a ticking clock.
+Version 250: floor 9 is a new place, the Clockwork Foundry
+- The Cinder Colossus's own floor is now an iron foundry: riveted plates, glowing furnace grates, a great brass gear turning in the floor, copper pipes and gauges on the walls, boilers, turning wall gears, pumping pistons and iron pillars.
+- Its own music (clavinet, muted trumpet and a hammering beat) and the hiss of steam.
+- Floors 7, 8 and 9 are no longer the first three floors relit: each is a place of its own.

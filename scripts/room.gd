@@ -118,6 +118,9 @@ static var _floor_shaders := {}
 ##    and glints, and mine-cart tracks on timber sleepers with a spur curving to the side.
 ## 9. The Whispering Library (floor 8): herringbone parquet, two worn rugs and a brass circle
 ##    of glowing letters set into the middle of the floor.
+## 10. The Clockwork Foundry (floor 9): riveted iron plates, some with a diamond tread, rust
+##    and oil, long grates with the furnaces glowing under them, and a great brass gear in
+##    the middle turning two smaller ones.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -925,6 +928,110 @@ void fragment() {
 	n = normalize(vec3((r - 0.5) * 0.05, 1.0, (r2 - 0.5) * 0.05));
 	// A little greyer and darker, so heroes, skeletons and their shots stand out.
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.78) * 0.92;
+#elif STYLE == 10
+	// The Clockwork Foundry (floor 9, version 250): a floor of iron plates 2 m by 1.5 m in
+	// staggered rows, riveted along their edges, one in three with a raised diamond tread;
+	// rust in patches and dark oil stains. Long grates run down both sides with the furnaces
+	// glowing and flickering under them. In the middle a great brass gear is set into the
+	// floor, turning slowly, and two copper gears either side of it turn the other way.
+	const vec2 PL = vec2(2.0, 1.5);
+	float prow = floor(pos.y / PL.y);
+	vec2 ps2 = vec2(pos.x / PL.x + 0.5 * mod(prow, 2.0), pos.y / PL.y);
+	vec2 pc = floor(ps2);
+	vec2 pf = fract(ps2) - 0.5;
+	vec2 pe = (0.5 - abs(pf)) * PL;
+	float pedge = min(pe.x, pe.y);
+	r = h(pc);
+	float r2 = h(pc + 13.7);
+	c = vec3(0.21, 0.22, 0.24) * (0.82 + 0.3 * r) * (0.88 + 0.24 * fine) * tint.rgb;
+	if (r2 > 0.66) {
+		// Tread plate: raised diamonds, each row turned the other way.
+		vec2 tq = pos / vec2(0.12, 0.12);
+		vec2 tr = fract(tq) - 0.5;
+		float odd = mod(floor(tq.x) + floor(tq.y), 2.0);
+		vec2 tl = odd > 0.5 ? vec2(tr.x + tr.y, tr.x - tr.y) : vec2(tr.x - tr.y, tr.x + tr.y);
+		float bump = 1.0 - smoothstep(0.06, 0.1, length(vec2(tl.x * 0.3, tl.y)));
+		c *= 0.92 + 0.32 * bump;
+	}
+	float paa = fwidth(pedge);
+	gap = 1.0 - smoothstep(0.012 - paa, 0.02 + paa, pedge);
+	c *= 1.0 + 0.14 * (1.0 - smoothstep(0.02, 0.07, pedge));
+	float rx = (fract(pos.x / 0.25) - 0.5) * 0.25;
+	float ry = (fract(pos.y / 0.25) - 0.5) * 0.25;
+	float rv1 = length(vec2(rx, pe.y - 0.08));
+	float rv2 = length(vec2(ry, pe.x - 0.08));
+	float rvd = min(rv1 + step(pe.x, 0.12) * 9.0, rv2 + step(pe.y, 0.12) * 9.0);
+	float rivet = 1.0 - smoothstep(0.022, 0.03, rvd);
+	c = mix(c, vec3(0.3, 0.31, 0.33) * (1.0 + 0.4 * smoothstep(0.025, 0.0, rvd)), rivet);
+	rough = 0.5;
+	// Rust and oil.
+	float rust = smoothstep(0.6, 0.82, big) * grime_amount * (0.6 + 0.6 * fine);
+	c = mix(c, grime.rgb * (0.7 + 0.5 * fine), clamp(rust, 0.0, 0.7));
+	rough = mix(rough, 0.9, rust);
+	float oil = smoothstep(0.81, 0.84, big2 + fine * 0.04);
+	float sheen = 0.5 + 0.5 * sin(big2 * 140.0 + fine * 6.0);
+	c = mix(c, mix(vec3(0.07, 0.06, 0.06), vec3(0.16, 0.13, 0.2), sheen * 0.5), oil * 0.6);
+	rough = mix(rough, 0.15, oil);
+	// Darker and sooty by the walls.
+	c *= mix(0.75, 1.0, smoothstep(0.0, 1.8, wall));
+	c = mix(c, grout.rgb, gap);
+	// The grates down both sides: iron bars over a pit with the fire glowing in it.
+	float gx = abs(pos.x) - 4.25;
+	if (abs(gx) < 0.45 && abs(pos.y) < 7.2) {
+		float ge = min(0.45 - abs(gx), 7.2 - abs(pos.y));
+		float frame = 1.0 - smoothstep(0.06, 0.075, ge);
+		float bx = abs(fract(pos.y / 0.14) - 0.5);
+		bar = (1.0 - smoothstep(0.16, 0.22, bx)) * (1.0 - frame);
+		pit = 1.0 - frame;
+		float heat = 0.55 + 0.45 * sin(TIME * 2.3 + pos.y * 0.8) * sin(TIME * 1.1 + pos.y * 0.37);
+		vec3 deep = mix(vec3(0.03, 0.015, 0.01), spores.rgb * 0.5, 0.6 + 0.4 * heat);
+		c = mix(c, deep, pit * (1.0 - bar));
+		c = mix(c, vec3(0.12, 0.12, 0.13) * (0.8 + 0.4 * fine), bar);
+		c = mix(c, vec3(0.24, 0.24, 0.26) * (0.85 + 0.3 * fine), frame);
+		em += spores.rgb * pit * (1.0 - bar) * (0.35 + 0.5 * heat) * spores.a;
+		em += spores.rgb * bar * 0.06 * heat;
+		gap = 0.0;
+	}
+	// The gears: a great brass one in the middle (24 teeth) and a copper one either side
+	// (10 teeth) meshing with it, turning the other way, 2.4 times as fast (24 / 10).
+	float spin = TIME * 0.12;
+	for (int gi = 0; gi < 3; gi++) {
+		vec2 gcen = gi == 0 ? vec2(0.0) : vec2(gi == 1 ? -2.22 : 2.22, 0.0);
+		float GR = gi == 0 ? 1.5 : 0.62;
+		float NT = gi == 0 ? 24.0 : 10.0;
+		float ga = gi == 0 ? spin : -spin * 2.4 + 3.1415927 / NT;
+		vec2 gp2 = pos - gcen;
+		float gr = length(gp2);
+		if (gr > GR + 0.3) {
+			continue;
+		}
+		float gan = atan(gp2.y, gp2.x) - ga;
+		float tooth = clamp(cos(gan * NT) * 2.6 + 0.2, 0.0, 1.0);
+		float outer = GR + 0.12 * tooth;
+		float gaa = fwidth(gr) + 0.004;
+		float body = 1.0 - smoothstep(outer - gaa, outer + gaa, gr);
+		// The rim, the spokes and the hub; the holes between the spokes show the dark pit.
+		float rim = smoothstep(GR * 0.72 - gaa, GR * 0.72 + gaa, gr);
+		float spokes = gi == 0 ? 6.0 : 4.0;
+		float sp = abs(fract(gan * spokes / 6.2831853 + 0.5) - 0.5) * 6.2831853 / spokes * gr;
+		float spoke = 1.0 - smoothstep(GR * 0.09 - gaa, GR * 0.09 + gaa, sp);
+		float hub = 1.0 - smoothstep(GR * 0.24 - gaa, GR * 0.24 + gaa, gr);
+		float metal = body * max(max(rim, spoke), hub);
+		float axle = 1.0 - smoothstep(GR * 0.08 - gaa, GR * 0.08 + gaa, gr);
+		vec3 gcol = gi == 0 ? vec3(0.56, 0.41, 0.17) : vec3(0.5, 0.26, 0.13);
+		gcol *= 0.8 + 0.3 * fine;
+		// Lit along the rim's edges and the hub's ring.
+		gcol *= 1.0 + 0.25 * (1.0 - smoothstep(0.0, 0.05, abs(gr - GR * 0.72))) + 0.25 * (1.0 - smoothstep(0.0, 0.04, abs(gr - GR * 0.24)));
+		// The slot it turns in.
+		float slot = 1.0 - smoothstep(GR + 0.2 - gaa, GR + 0.2 + gaa, gr);
+		c = mix(c, vec3(0.03, 0.03, 0.035), slot * (1.0 - metal));
+		c = mix(c, gcol, metal);
+		c = mix(c, vec3(0.1, 0.1, 0.11), axle);
+		rough = mix(rough, 0.35, metal);
+		gap *= 1.0 - slot;
+	}
+	n = normalize(vec3((r - 0.5) * 0.04, 1.0, (r2 - 0.5) * 0.04));
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.85);
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -1061,6 +1168,8 @@ static var _wall_shaders := {}
 ##    beams, gravel at the foot.
 ## 9. The Whispering Library (floor 8): bookcases from the floor to the cornice, full of old
 ##    books, a few of them glowing as they whisper.
+## 10. The Clockwork Foundry (floor 9): riveted iron plates streaked with rust, copper pipes
+##    on brackets, gauges, and a brass band at the top.
 ## The pattern follows where the point is in the world, so walls built from several boxes
 ## join up, and a box's top takes the pattern seen from above.
 static func _wall_material(look: Dictionary, base: Material) -> Material:
@@ -1390,6 +1499,68 @@ void fragment() {
 			c = oak * 0.7 * (0.85 + 0.3 * smoothstep(0.1, 0.16, height));
 		}
 	}
+#elif STYLE == 10
+	// The Clockwork Foundry: walls of iron plate 1.5 m by 0.85 m, riveted at the edges and
+	// streaked with rust running down, two runs of copper pipe on brackets (a thick one low,
+	// a thin one high), an iron pipe standing every 4 m, pressure gauges on a few plates
+	// (their needles trembling) and a brass band along the top.
+	float pr = floor(height / 0.85);
+	vec2 pq = vec2(uv.x / 1.5 + 0.5 * mod(pr, 2.0), height / 0.85);
+	vec2 pci = floor(pq);
+	vec2 pfr = fract(pq) - 0.5;
+	vec2 pee = (0.5 - abs(pfr)) * vec2(1.5, 0.85);
+	float rp = h(pci);
+	c = vec3(0.15, 0.16, 0.18) * (0.8 + 0.35 * rp) * (0.85 + 0.3 * fine);
+	float streak = smoothstep(0.55, 0.8, texture(blobs, vec2(uv.x * 1.6, height * 0.12)).r) * smoothstep(0.0, 0.3, 0.5 - pfr.y);
+	c = mix(c, vec3(0.28, 0.13, 0.06) * (0.7 + 0.5 * fine), streak * 0.7);
+	float pg = min(pee.x, pee.y);
+	c *= 1.0 - 0.55 * (1.0 - smoothstep(0.008, 0.02, pg));
+	c *= 1.0 + 0.12 * (1.0 - smoothstep(0.02, 0.06, pg));
+	float rvx = (fract(uv.x / 0.2) - 0.5) * 0.2;
+	float rvd2 = length(vec2(rvx, pee.y - 0.06));
+	float riv = (1.0 - smoothstep(0.018, 0.026, rvd2)) * step(0.1, pee.x);
+	c = mix(c, vec3(0.28, 0.29, 0.31), riv);
+	if (top > 0.5) {
+		c = vec3(0.12, 0.12, 0.13) * (0.85 + 0.3 * fine);
+	} else {
+		// Gauges on about one plate in five, at chest height.
+		vec2 gq = vec2((pfr.x) * 1.5, height - (pr + 0.5) * 0.85);
+		if (step(0.8, h(pci + 3.3)) > 0.5 && pr == 1.0) {
+			float gd = length(gq);
+			float ring = (1.0 - smoothstep(0.1, 0.11, gd)) * smoothstep(0.08, 0.09, gd);
+			float face = 1.0 - smoothstep(0.08, 0.085, gd);
+			float na = 0.6 + 0.08 * sin(TIME * 7.0 + rp * 20.0) + rp;
+			vec2 nd = vec2(sin(na), cos(na));
+			float needle = (1.0 - smoothstep(0.006, 0.012, abs(dot(gq, vec2(nd.y, -nd.x))))) * step(0.0, dot(gq, nd)) * step(gd, 0.07);
+			c = mix(c, vec3(0.6, 0.56, 0.45), face);
+			c = mix(c, vec3(0.55, 0.4, 0.16), ring);
+			c = mix(c, vec3(0.5, 0.06, 0.04), needle);
+		}
+		// The pipes: round, lit along their tops.
+		for (int pi = 0; pi < 2; pi++) {
+			float py = pi == 0 ? 0.42 : 1.95;
+			float prad = pi == 0 ? 0.085 : 0.055;
+			float pd = (height - py) / prad;
+			if (abs(pd) < 1.0) {
+				float round_ = sqrt(1.0 - pd * pd);
+				vec3 pcol = vec3(0.48, 0.25, 0.13) * (0.35 + 0.75 * round_ * (0.6 + 0.4 * smoothstep(-1.0, 0.6, pd)));
+				pcol += vec3(0.25, 0.18, 0.1) * pow(max(0.0, 1.0 - abs(pd - 0.45) * 4.0), 3.0);
+				// Brackets every 1.5 m.
+				float bk = 1.0 - smoothstep(0.03, 0.04, abs((fract(uv.x / 1.5 + 0.25) - 0.5) * 1.5));
+				pcol = mix(pcol, vec3(0.08, 0.08, 0.09) * (0.6 + 0.6 * round_), bk);
+				c = pcol;
+			}
+		}
+		float vpx = (fract(uv.x / 4.0 + 0.13) - 0.5) * 4.0;
+		if (abs(vpx) < 0.07) {
+			float vr = sqrt(1.0 - pow(vpx / 0.07, 2.0));
+			c = vec3(0.17, 0.17, 0.19) * (0.4 + 0.8 * vr);
+		}
+		if (height > 2.42) {
+			c = vec3(0.5, 0.37, 0.15) * (0.7 + 0.45 * smoothstep(2.42, 2.52, height) * (1.0 - smoothstep(2.52, 2.6, height)));
+		}
+	}
+	rough = 0.5;
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
@@ -1493,10 +1664,13 @@ func _read_layout(layout: Array) -> void:
 				"#":
 					_add_obstacle(p, 0.6)
 					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts,
-					# the Sandfall Tomb's lotus columns, the Amethyst Mine's rock columns and the
-					# Whispering Library's bookcases are made in code (props.gd).
+					# the Sandfall Tomb's lotus columns, the Amethyst Mine's rock columns, the
+					# Whispering Library's bookcases and the Clockwork Foundry's iron columns are
+					# made in code (props.gd).
 					var kind := str(Floors.current().get("pillar", ""))
-					if kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf":
+					if kind == "iron":
+						Props.add_iron_column(_anchor(p))
+					elif kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf":
 						var post := MeshInstance3D.new()
 						match kind:
 							"timber": post.mesh = Props.timber_post()

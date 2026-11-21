@@ -30,9 +30,12 @@ const TRACKS := {
 	# The Whispering Library (version 249): the tune on a harpsichord and a flute over a harp
 	# and soft voices, with a cello and a ticking clock.
 	"library": [preload("res://audio/music/bc_library.ogg"), preload("res://audio/music/bc_library_fight.ogg")],
+	# The Clockwork Foundry (version 250): the tune on a clavinet and muted trumpet over
+	# tinkling bells, with a trombone, hammers, clanks and steam.
+	"foundry": [preload("res://audio/music/bc_foundry.ogg"), preload("res://audio/music/bc_foundry_fight.ogg")],
 }
 ## One track per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb", "mine", "library"]
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb", "mine", "library", "foundry"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5
