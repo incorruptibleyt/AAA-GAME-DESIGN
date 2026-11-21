@@ -453,7 +453,7 @@ class Splash extends ColorRect:
 		gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		_col.add_child(gap)
 		_go = Hud.button("ENTER THE EVENT", 28)
-		Hud.paint(_go, "red")
+		Hud.paint(_go, "blue" if Events.frost() else "red")
 		_go.custom_minimum_size = Vector2(380, 84)
 		_go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_go.pressed.connect(func(): enter.emit())

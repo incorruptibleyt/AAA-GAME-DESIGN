@@ -80,6 +80,14 @@ static func word(key: String, e: Dictionary = {}) -> String:
 	return str(e.get("words", BLOOD_MOON.words).get(key, BLOOD_MOON.words.get(key, key)))
 
 
+## The event with id `id` (a look's "event"), the Blood Moon when unknown.
+static func by_id(id: String) -> Dictionary:
+	for e: Dictionary in LIST:
+		if str(e.id) == id:
+			return e
+	return BLOOD_MOON
+
+
 static func frost(e: Dictionary = {}) -> bool:
 	if e.is_empty():
 		e = ev()
@@ -183,9 +191,9 @@ const PASS_ROAD := [
 ]
 
 ## Version 243: Frostfall's road. The same pace and prizes as the Blood Moon's (so the economy
-## stays as reviewed), with Frost Gifts for caskets and its own set: the Krampus Coat, the
-## Krampus Horns, the Northern Lights glow and the Snowstorm aura. Its Pass row is the Polar
-## Night set (outfit, glow, aura).
+## stays as reviewed), with Frost Gifts for caskets and its own set (version 244): the Yule
+## Knit outfit, the Candle Crown, the Snowbound glow and the Snow Globe aura. Its Pass row is
+## the Polar Night set (outfit, glow, aura).
 const FROST_ROAD := [
 	{"at": 40, "kind": "casket", "n": 1},
 	{"at": 85, "kind": "coins", "n": 40},
@@ -196,7 +204,7 @@ const FROST_ROAD := [
 	{"at": 340, "kind": "lucky", "n": 1},
 	{"at": 400, "kind": "casket", "n": 1},
 	{"at": 460, "kind": "coins", "n": 60},
-	{"at": 525, "kind": "look", "look": ["outfit", "krampus"]},
+	{"at": 525, "kind": "look", "look": ["outfit", "yule_knit"]},
 	{"at": 595, "kind": "casket", "n": 1},
 	{"at": 665, "kind": "drop", "n": 2},
 	{"at": 740, "kind": "coins", "n": 75},
@@ -204,19 +212,19 @@ const FROST_ROAD := [
 	{"at": 895, "kind": "lucky", "n": 1},
 	{"at": 975, "kind": "coins", "n": 100},
 	{"at": 1060, "kind": "casket", "n": 1},
-	{"at": 1145, "kind": "look", "look": ["head", "krampus_horns"]},
+	{"at": 1145, "kind": "look", "look": ["head", "candle_crown"]},
 	{"at": 1235, "kind": "drop", "n": 2},
 	{"at": 1325, "kind": "casket", "n": 2},
 	{"at": 1420, "kind": "coins", "n": 110},
 	{"at": 1520, "kind": "lucky", "n": 2},
 	{"at": 1620, "kind": "casket", "n": 1},
-	{"at": 1725, "kind": "look", "look": ["glow", "northern_lights"]},
+	{"at": 1725, "kind": "look", "look": ["glow", "snowbound"]},
 	{"at": 1830, "kind": "coins", "n": 125},
 	{"at": 1940, "kind": "drop", "n": 3},
 	{"at": 2050, "kind": "casket", "n": 2},
 	{"at": 2165, "kind": "coins", "n": 150},
 	{"at": 2280, "kind": "casket", "n": 3},
-	{"at": 2400, "kind": "look", "look": ["aura", "snowstorm"]},
+	{"at": 2400, "kind": "look", "look": ["aura", "snow_globe"]},
 ]
 const FROST_PASS_ROAD := [
 	{"at": 525, "kind": "look", "look": ["outfit", "polar_night"]},

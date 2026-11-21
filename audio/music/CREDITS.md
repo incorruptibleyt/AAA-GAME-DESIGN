@@ -16,6 +16,8 @@ by Frank Wen), so there is nothing to credit beyond that.
 | bc_boss.ogg | Boss: the tune over war drums, timpani, choir, cellos and brass |
 | bc_moon.ogg | Blood Moon event (crypt and title): music box and flute over a choir, cello counter line, heartbeat drum |
 | bc_queen.ogg | The Blood Moon Queen: the boss arrangement led by a church organ |
+| bc_frost.ogg | Frostfall event (hall and title): glockenspiel and celesta over slow strings, harp, a tuba counter line, sleigh bells |
+| bc_krampus.ogg | Krampus: the boss arrangement led by French horns, tubular bells doubling the tune |
 | bc_*_fight.ogg | Each crypt's fight layer (low strings, cello rhythm, war drums), in sync with its track; the game fades it in while enemies are alive |
 
 Every file is a seamless loop: the piece is rendered twice through and the second pass kept,

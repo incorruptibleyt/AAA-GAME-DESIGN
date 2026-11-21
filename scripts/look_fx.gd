@@ -11,7 +11,10 @@ class_name LookFx
 
 ## (Version 176: five more shapes, so glows of one colour family no longer look alike:
 ## sun rays, a chain of beads, a rippling wave, a turning crescent, and the Crypt King's crown.)
-const STYLES := {"flow": 0, "flame": 1, "frost": 2, "storm": 3, "stars": 4, "runes": 5, "rays": 6, "beads": 7, "wave": 8, "eclipse": 9, "crown": 10}
+## (Version 244, the Frostfall set: snowflakes turning round the ring, the northern lights
+## hanging off it, and a blizzard whirling round it.)
+const STYLES := {"flow": 0, "flame": 1, "frost": 2, "storm": 3, "stars": 4, "runes": 5, "rays": 6, "beads": 7, "wave": 8, "eclipse": 9, "crown": 10,
+	"snowflake": 11, "aurora": 12, "whirl": 13}
 const FINISHES := {"": 0, "gold": 1, "frost": 2, "ember": 3, "void": 4, "crypt": 5}
 ## The sparks a finished weapon throws when it fires (hero.gd).
 const FINISH_SPARK := {"gold": Color(1.0, 0.84, 0.4), "frost": Color(0.65, 0.92, 1.0), "ember": Color(1.0, 0.48, 0.12), "void": Color(0.72, 0.48, 1.0), "crypt": Color(0.3, 1.0, 0.8)}
@@ -25,7 +28,8 @@ static var _orb_mesh: SphereMesh
 static var _burst_shader: Shader
 static var _mark_shader: Shader
 ## Each aura's own mark on the floor (version 179), by its name: [shape, how many].
-## Shapes: 0 polygon, 1 star, 2 spiral, 3 rays, 4 crescents, 5 dots, 6 zigzag ring.
+## Shapes: 0 polygon, 1 star, 2 spiral, 3 rays, 4 crescents, 5 dots, 6 zigzag ring,
+## 7 a six-armed snowflake, 8 a compass star (version 244, the Frostfall auras).
 const MARKS := {
 	"Nightshade": [4, 2], "Venom": [2, 3], "Shadow King": [1, 5], "Duskblade": [3, 4], "Nightlord": [4, 3],
 	"Sunguard": [3, 8], "Stormplate": [0, 6], "Paladin": [0, 4], "Dawnshield": [1, 4], "Lionheart": [6, 12],
@@ -34,6 +38,7 @@ const MARKS := {
 	"Quickstep": [3, 3], "Arcane": [0, 8], "Stormcaller": [6, 5], "Phantom": [4, 4], "Sunflare": [3, 12],
 	"Snowfall": [5, 6], "Bubbles": [5, 3], "Fireflies": [5, 4], "Blood Moon": [4, 1], "Will-o'-Wisp": [2, 1],
 	"Golden Souls": [6, 9], "Comet": [2, 5], "Bone King Comet": [1, 3],
+	"Snow Globe": [7, 6], "Polar Night": [8, 4],
 }
 static var _weapon_mats := {}
 static var _shell_mesh: CylinderMesh
@@ -202,6 +207,53 @@ static func aura_fx(aura: Dictionary, stage := false) -> Node3D:
 		var b := burst(ink, ink2, 0.5, 1.45, 0.62)
 		b.position = Vector3(0, 0.028, 0)
 		root.add_child(b)
+	if stage and str(aura.get("motif", "")) == "globe":
+		root.add_child(globe(ink2))
+	return root
+
+
+## The Snow Globe aura on the pedestal (version 244): the hero stands inside a glass dome
+## (bright only at its edges and in one curved glint, so the hero shows through) on a gold
+## base. Not in a run: from above a dome is one more circle round the hero.
+static var _glass_shader: Shader
+static func globe(gold: Color) -> Node3D:
+	var root := Node3D.new()
+	if _glass_shader == null:
+		_glass_shader = Shader.new()
+		_glass_shader.code = GLASS
+	var m := ShaderMaterial.new()
+	m.shader = _glass_shader
+	var dome := SphereMesh.new()
+	dome.radius = 1.15
+	dome.height = 2.3
+	dome.radial_segments = 28
+	dome.rings = 14
+	var d := MeshInstance3D.new()
+	d.mesh = dome
+	d.material_override = m
+	d.position = Vector3(0, 1.0, 0)
+	d.scale = Vector3(1.0, 1.05, 1.0)
+	d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(d)
+	var base := StandardMaterial3D.new()
+	base.albedo_color = gold
+	base.metallic = 0.6
+	base.roughness = 0.3
+	base.emission_enabled = true
+	base.emission = gold
+	base.emission_energy_multiplier = 0.45
+	var t := TorusMesh.new()
+	t.inner_radius = 1.0
+	t.outer_radius = 1.16
+	t.rings = 40
+	t.ring_segments = 10
+	var ring_mi := MeshInstance3D.new()
+	ring_mi.mesh = t
+	ring_mi.material_override = base
+	ring_mi.position = Vector3(0, 0.06, 0)
+	ring_mi.scale = Vector3(1, 1.4, 1)
+	ring_mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(ring_mi)
 	return root
 
 
@@ -259,7 +311,11 @@ static func shell_for(aura: Dictionary) -> Array:
 		# (Version 176: each Master aura names its own column, so a hero's level 8, 9 and 10
 		# auras are three different effects and not one effect in three colours.)
 		return [1.0, int(aura.shell)]
-	if motif in ["stars", "arcane", "comet", "fireflies"]:
+	if motif == "aurora":
+		kind = 5
+	elif motif == "globe":
+		kind = 6
+	elif motif in ["stars", "arcane", "comet", "fireflies"]:
 		kind = 2
 	elif motif in ["storm", "quick"]:
 		kind = 3
@@ -415,6 +471,49 @@ void fragment() {
 		float marks = smoothstep(0.02, 0.008, abs(d + 0.13)) * step(s2, 0.6);
 		extra = max(tooth * (0.75 + 0.25 * sin(t * 2.4 + floor(a * 8.0 + t * 0.04))), max(jewel, marks * 0.8));
 		ec = mix(mix(col2.rgb * 1.1, col.rgb, clamp(k, 0.0, 1.0)), vec3(1.0, 0.98, 0.9), jewel);
+	} else if (style == 11) {
+		// Snowbound (Frostfall): six snowflakes turning round the ring, each slowly spinning
+		// on its own and glinting in turn: six arms with a pair of twigs on each.
+		float n = 6.0;
+		float s = fract(a * n + t * 0.05);
+		float id = floor(a * n + t * 0.05);
+		vec2 f = vec2((s - 0.5) * 6.2831853 / n * r, d - 0.2) / 0.13;
+		float sp = t * (0.6 + 0.3 * hash2(vec2(id, 4.0))) + id;
+		f = vec2(f.x * cos(sp) - f.y * sin(sp), f.x * sin(sp) + f.y * cos(sp));
+		float fr = length(f);
+		float fa = atan(f.y, f.x);
+		float arm = 1.0 - smoothstep(0.07, 0.13, fr * abs(sin(fa * 3.0)));
+		float cell = fract(fa / 1.0471976) - 0.5;
+		vec2 g = vec2(fr * cos(cell * 1.0471976), fr * sin(cell * 1.0471976));
+		float twig = (1.0 - smoothstep(0.05, 0.1, abs(abs(g.y) - (g.x - 0.5) * 0.9))) * step(0.5, g.x) * step(g.x, 0.82);
+		float flake = max(arm, twig) * (1.0 - smoothstep(0.9, 1.0, fr)) + (1.0 - smoothstep(0.12, 0.2, fr));
+		extra = clamp(flake, 0.0, 1.0) * (0.7 + 0.3 * sin(t * 3.0 + id * 2.3));
+		ec = mix(col.rgb, vec3(1.0), 0.45);
+		// and a faint dotted frost line round the outside
+		extra = max(extra, smoothstep(0.012, 0.0, abs(d - 0.36)) * step(fract(a * 48.0 - t * 0.2), 0.4) * 0.6);
+	} else if (style == 12) {
+		// Polar Night: the northern lights hanging off the ring, soft curtains of light
+		// folding and drifting round, green at the foot and violet at the top.
+		float fold = vnoise2(vec2(a * 10.0 + t * 0.25, t * 0.35), 10.0) * 0.65 + vnoise2(vec2(a * 23.0 - t * 0.4, t * 0.6 + 3.0), 23.0) * 0.35;
+		float h = 0.1 + 0.3 * fold;
+		float k = clamp(d / h, 0.0, 1.0);
+		float rays = 0.55 + 0.45 * sin(a * 6.2831853 * 18.0 + fold * 9.0 + t * 0.8);
+		extra = step(0.0, d) * (1.0 - smoothstep(0.35, 1.0, k)) * smoothstep(0.0, 0.05, d) * rays * (0.5 + 0.6 * fold);
+		ec = mix(col2.rgb * 1.1, vec3(0.75, 0.45, 1.0), smoothstep(0.25, 0.95, k));
+	} else if (style == 13) {
+		// Whiteout (the Krampus Hunt's prize): a blizzard whirling round the ring, streaks of
+		// snow racing round and in, the gusts coming and going.
+		float sw = a * 3.0 + d * 2.6 - t * 0.9;
+		float lane = floor(d * 24.0);
+		float h1 = hash2(vec2(lane, 7.0));
+		float run = fract(a * (2.0 + 2.0 * h1) - t * (0.45 + 0.4 * h1) + h1 * 5.0);
+		float streak = smoothstep(0.0, 0.5, run) * (1.0 - smoothstep(0.5, 0.58, run)) * step(0.3, h1);
+		float thin = 1.0 - smoothstep(0.15, 0.45, abs(fract(d * 24.0) - 0.5));
+		float gust = 0.55 + 0.45 * sin(t * 1.7 + sin(t * 0.6) * 2.0);
+		float swirl = pow(0.5 + 0.5 * sin(sw * 6.2831853), 6.0);
+		float zone = step(-0.06, d) * (1.0 - smoothstep(0.28, 0.4, d));
+		extra = zone * clamp(streak * thin * 1.4 + swirl * 0.35 * gust, 0.0, 1.0);
+		ec = mix(col2.rgb, vec3(1.0), streak * thin);
 	} else {
 		// Runes: a ring of marks turning the other way inside a thin outer line.
 		float seg = fract(a * 14.0 + t * 0.05);
@@ -438,6 +537,24 @@ void fragment() {
 	float total = clamp(alpha + extra * 0.9, 0.0, 0.96);
 	ALBEDO = mix(c, ecol, clamp(extra / max(alpha + extra, 0.001), 0.0, 1.0)) * 1.2;
 	ALPHA = total * power * smoothstep(1.0, 0.92, r);
+}
+"""
+
+const GLASS := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_back, shadows_disabled;
+varying vec3 lp;
+void vertex() {
+	lp = VERTEX;
+}
+void fragment() {
+	float fres = pow(1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0), 2.5);
+	// a curved glint down one side, slowly sliding round, as light on glass
+	float a = atan(lp.z, lp.x);
+	float glint = smoothstep(0.12, 0.0, abs(fract((a + TIME * 0.15) / 6.2831853) - 0.3)) * smoothstep(-0.6, 0.6, lp.y);
+	// (as alpha over the picture, not added light: see SHELL)
+	ALBEDO = vec3(0.78, 0.9, 1.0);
+	ALPHA = clamp(fres * 0.5 + glint * 0.3, 0.0, 1.0) * smoothstep(-1.05, -0.9, lp.y);
 }
 """
 
@@ -475,6 +592,22 @@ float shape(vec2 p, float rad) {
 	} else if (kind == 5) {   // dots
 		vec2 q = vec2(r * cos(aa) - rad * 0.92, r * sin(aa));
 		return smoothstep(0.13, 0.06, length(q));
+	} else if (kind == 7) {   // a snowflake: six arms, each with two pairs of twigs
+		float s6 = 1.0471976;
+		float c6 = fract(a / s6) - 0.5;
+		vec2 g = vec2(r * cos(c6 * s6), r * sin(c6 * s6)) / rad;
+		float arm = smoothstep(0.035, 0.012, abs(g.y)) * step(g.x, 1.0);
+		float tw1 = smoothstep(0.03, 0.01, abs(abs(g.y) - (g.x - 0.45) * 0.8)) * step(0.45, g.x) * step(g.x, 0.68);
+		float tw2 = smoothstep(0.03, 0.01, abs(abs(g.y) - (g.x - 0.7) * 0.8)) * step(0.7, g.x) * step(g.x, 0.88);
+		float hex = ln(r * cos(c6 * s6) - rad * 0.24, 0.03);
+		return clamp(max(max(arm, hex), max(tw1, tw2)) * smoothstep(0.08, 0.14, r), 0.0, 1.0);
+	} else if (kind == 8) {   // a compass star: four long points and four short ones
+		float s8 = 0.7853982;
+		float c8 = fract(a / s8 + 0.5) - 0.5;
+		float big = step(0.5, fract(floor(a / s8 + 0.5) * 0.5));
+		float len = mix(rad * 0.55, rad, 1.0 - big);
+		float edge = r - len * (1.0 - abs(c8) * 2.0) * 1.0;
+		return ln(edge, 0.04) * step(r, len) + ln(r - rad * 0.3, 0.025);
 	}
 	return ln(r - rad * (0.84 + 0.16 * (abs(cell - 0.5) * 4.0 - 1.0)), 0.045);   // zigzag ring
 }
@@ -613,6 +746,21 @@ void fragment() {
 		float h = pow(0.5 + 0.5 * sin((y * 2.2 - zig - t * 0.7) * 6.2831853), 5.0);
 		float n = vnoise2(vec2(UV.x * 12.0, y * 3.0 - t * 0.5), 12.0);
 		a = (h * 1.0 + n * 0.18) * (1.0 - smoothstep(0.5, 1.0, y));
+	} else if (kind == 5) {
+		// Polar Night: the northern lights hanging round the hero, curtains of light with
+		// fine rays in them, folding and drifting slowly round.
+		float fold = vnoise2(vec2(UV.x * 8.0 + t * 0.15, t * 0.3), 8.0);
+		float hang = 0.35 + 0.45 * fold;
+		float rays = 0.5 + 0.5 * sin(UV.x * 6.2831853 * 26.0 + fold * 8.0 + t * 0.6);
+		a = smoothstep(hang - 0.25, hang, y) * (1.0 - smoothstep(hang + 0.05, hang + 0.45, y)) * (0.45 + 0.75 * rays) * (0.5 + fold);
+	} else if (kind == 6) {
+		// Snow Globe: snow swirling round inside the glass, flecks riding a slow spiral.
+		vec2 sp = vec2(UV.x * 14.0 - t * 0.35, y * 7.0 + t * 0.5 + UV.x * 3.0);
+		vec2 cell = floor(sp);
+		vec2 f = fract(sp) - 0.5;
+		float h = hash2(vec2(mod(cell.x, 14.0), cell.y));
+		float fleck = smoothstep(0.2, 0.08, length(f + (vec2(hash2(cell + 3.1), hash2(cell + 7.7)) - 0.5) * 0.5)) * step(0.45, h);
+		a = fleck * 1.6 * (1.0 - smoothstep(0.6, 1.0, y)) + vnoise2(vec2(UV.x * 10.0 - t * 0.3, y * 2.5), 10.0) * 0.12 * (1.0 - y);
 	} else if (kind == 3) {
 		// Storm: forks of lightning jumping up the column.
 		float tick = floor(t * 9.0);

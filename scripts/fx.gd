@@ -357,6 +357,37 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			# (Version 200: night-indigo bats edged in the aura's gold, flying close round the
 			# hero. Lemon-yellow bats a hero-width out read as coins or shots in a run.)
 			p.add_child(bats(Color(0.2, 0.12, 0.42), 5, 0.85 * size, 0.6, 0.3 * size, 1.7, Color(color, 1.0)))
+		"globe":
+			# Frostfall's Snow Globe (version 244): tiny glints of snow settling round the
+			# hero, and big snowflakes swirling round them as if the globe were shaken (Fx.flakes).
+			p.amount = 16
+			p.lifetime = 1.6
+			p.direction = Vector3.DOWN
+			p.spread = 25.0
+			p.initial_velocity_min = 0.25
+			p.initial_velocity_max = 0.5
+			p.gravity = Vector3(0, -0.2, 0)
+			p.scale_amount_min = 0.12
+			p.scale_amount_max = 0.22
+			p.emission_ring_radius = 0.95
+			p.emission_ring_inner_radius = 0.55
+			p.position = Vector3(0, 1.4, 0)
+			p.add_child(flakes(Color(color, 1.0), 6, 0.9 * size, 0.9, 0.26 * size, 1.1, Color(0.35, 0.6, 1.0)))
+		"aurora":
+			# Polar Night (version 244): the northern lights hanging round the hero, slowly
+			# drifting round (Fx.curtains), with a few stars twinkling in the night between.
+			p.amount = 8
+			p.lifetime = 1.8
+			p.spread = 180.0
+			p.initial_velocity_min = 0.05
+			p.initial_velocity_max = 0.15
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.35
+			p.scale_amount_max = 0.55
+			p.emission_ring_radius = 1.0
+			p.emission_ring_inner_radius = 0.8
+			p.position = Vector3(0, 1.2, 0)
+			p.add_child(curtains(Color(0.3, 1.0, 0.65), Color(0.7, 0.45, 1.0), 5, 0.95 * size, 1.25 * size))
 		"stars":
 			p.amount = 10
 			p.lifetime = 1.4
@@ -642,6 +673,147 @@ static func bats(color: Color, count: int, radius: float, height: float, size: f
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.extra_cull_margin = radius + 2.0
 	return mi
+
+
+## Version 244, the Snow Globe aura: `count` big snowflakes swirling round the hero like the
+## snow in a shaken globe, each spinning as it rides round and bobs up and down (one quad
+## each, drawn by FLAKE_CODE; `edge` is the line round each flake).
+static var _flake_shader: Shader
+static func flakes(color: Color, count: int, radius: float, height: float, size: float, speed := 1.0, edge := Color(0.4, 0.6, 1.0)) -> MultiMeshInstance3D:
+	if _flake_shader == null:
+		_flake_shader = Shader.new()
+		_flake_shader.code = FLAKE_CODE
+	var m := ShaderMaterial.new()
+	m.shader = _flake_shader
+	m.set_shader_parameter("tint", color)
+	m.set_shader_parameter("size", size)
+	m.set_shader_parameter("edge", edge)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	mm.mesh = q
+	mm.instance_count = count
+	for i in count:
+		mm.set_instance_transform(i, Transform3D())
+		var sp := speed * (0.75 + 0.5 * fmod(i * 0.618, 1.0))
+		mm.set_instance_custom_data(i, Color(float(i) / count, radius * (0.75 + 0.4 * fmod(i * 0.37, 1.0)), height * (0.5 + 0.9 * fmod(i * 0.53, 1.0)), sp))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = radius + 2.0
+	return mi
+
+
+## Version 244, the Polar Night aura: `count` curtains of the northern lights hanging round
+## the hero, `top` colour above `foot`, drifting slowly round (CURTAIN_CODE). Each turns to
+## face the camera round the upright, so from above they show as folds of light.
+static var _curtain_shader: Shader
+static func curtains(foot: Color, top: Color, count: int, radius: float, height: float) -> MultiMeshInstance3D:
+	if _curtain_shader == null:
+		_curtain_shader = Shader.new()
+		_curtain_shader.code = CURTAIN_CODE
+	var m := ShaderMaterial.new()
+	m.shader = _curtain_shader
+	m.set_shader_parameter("foot", foot)
+	m.set_shader_parameter("top", top)
+	m.set_shader_parameter("tall", height)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	mm.mesh = q
+	mm.instance_count = count
+	for i in count:
+		mm.set_instance_transform(i, Transform3D())
+		mm.set_instance_custom_data(i, Color(float(i) / count, radius * (0.9 + 0.2 * fmod(i * 0.37, 1.0)), 0.55 + 0.35 * fmod(i * 0.53, 1.0), 0.18 * (1.0 if i % 2 == 0 else -0.7)))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = radius + height + 2.0
+	return mi
+
+
+const FLAKE_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform float size = 0.3;
+uniform vec4 edge : source_color = vec4(0.4, 0.6, 1.0, 1.0);
+varying float spin;
+varying float glint;
+void vertex() {
+	vec4 c = INSTANCE_CUSTOM;
+	float ang = TIME * c.w + c.x * 6.2831853;
+	float r = c.y * (1.0 + 0.18 * sin(TIME * 0.9 + c.x * 11.0));
+	vec3 at = MODEL_MATRIX[3].xyz + vec3(cos(ang) * r, c.z + 0.3 * sin(TIME * 0.8 + c.x * 7.0), sin(ang) * r);
+	spin = TIME * (1.2 + c.x) + c.x * 9.0;
+	glint = pow(0.5 + 0.5 * sin(TIME * 2.2 + c.x * 17.0), 6.0);
+	vec2 v = VERTEX.xy;
+	vec3 w = at + (INV_VIEW_MATRIX[0].xyz * v.x + INV_VIEW_MATRIX[1].xyz * v.y) * size;
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+float flake(vec2 p) {
+	float r = length(p);
+	float a = atan(p.y, p.x) + spin;
+	float s6 = 1.0471976;
+	float cell = fract(a / s6) - 0.5;
+	vec2 g = vec2(r * cos(cell * s6), r * sin(cell * s6));
+	float arm = (1.0 - smoothstep(0.06, 0.1, abs(g.y))) * step(g.x, 0.92);
+	float twig = (1.0 - smoothstep(0.05, 0.09, abs(abs(g.y) - (g.x - 0.45) * 0.75))) * step(0.45, g.x) * step(g.x, 0.75);
+	float hub = 1.0 - smoothstep(0.16, 0.2, r);
+	return clamp(max(max(arm, twig), hub), 0.0, 1.0);
+}
+void fragment() {
+	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	float outer = flake(p * 0.86);
+	if (outer < 0.05) { discard; }
+	float inner = flake(p);
+	ALBEDO = mix(edge.rgb, tint.rgb * (1.15 + 0.6 * glint), inner);
+	ALPHA = outer * tint.a;
+}
+"""
+
+
+const CURTAIN_CODE := """
+shader_type spatial;
+// (as alpha, not added light: on the Style pedestal's see-through picture added black
+// painted a dark box behind the hero)
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 foot : source_color = vec4(0.3, 1.0, 0.65, 1.0);
+uniform vec4 top : source_color = vec4(0.7, 0.45, 1.0, 1.0);
+uniform float tall = 1.2;
+varying float seed;
+void vertex() {
+	vec4 c = INSTANCE_CUSTOM;
+	seed = c.x;
+	float ang = TIME * c.w + c.x * 6.2831853;
+	vec3 at = MODEL_MATRIX[3].xyz + vec3(cos(ang) * c.y, c.z * tall, sin(ang) * c.y);
+	// face the camera round the upright only, like a hanging curtain
+	vec3 side = normalize(vec3(INV_VIEW_MATRIX[0].x, 0.0, INV_VIEW_MATRIX[0].z));
+	vec3 w = at + side * VERTEX.x * 0.9 + vec3(0.0, 1.0, 0.0) * VERTEX.y * tall;
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+void fragment() {
+	float x = UV.x;
+	float y = 1.0 - UV.y;   // 0 at the foot
+	float t = TIME;
+	float wave = 0.12 * sin(x * 7.0 + t * 1.3 + seed * 20.0) + 0.06 * sin(x * 17.0 - t * 2.1);
+	float foot_line = 0.18 + wave;
+	float rays = 0.55 + 0.45 * sin(x * 60.0 + sin(x * 9.0 + t) * 3.0 + seed * 40.0);
+	float body = smoothstep(foot_line - 0.04, foot_line + 0.06, y) * (1.0 - smoothstep(0.35, 1.0, y));
+	float sides = smoothstep(0.0, 0.25, x) * smoothstep(1.0, 0.75, x);
+	float pulse = 0.7 + 0.3 * sin(t * 0.9 + seed * 13.0);
+	vec3 col = mix(foot.rgb, top.rgb, smoothstep(0.25, 0.8, y));
+	float bright = smoothstep(0.06, 0.0, abs(y - foot_line - 0.05)) * 0.35;
+	ALBEDO = col * 1.25;
+	ALPHA = clamp((body * (0.25 + rays * 0.5) + bright) * sides * pulse, 0.0, 1.0);
+}
+"""
 
 
 const BAT_CODE := """

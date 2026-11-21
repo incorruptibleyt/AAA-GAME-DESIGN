@@ -1,6 +1,5 @@
-Version 243: FROSTFALL is coming
-- A new winter event starts Dec 11: a timber hall deep in the snow, three new skeletons and Krampus.
-- The Blizzard: every 20 seconds the cold builds. Stand by a brazier's fire, or freeze and dash free.
-- Krampus learns new moves on every Hunt tier.
-- Dark Room and Trap Hall doors (v242).
+Version 244: the Frostfall set
+- The winter event FROSTFALL starts Dec 11: a timber hall in the snow, the Blizzard, three new skeletons and Krampus.
+- Win its set on the event road: the Yule Knit, the Candle Crown, the Snowbound glow and the Snow Globe aura.
+- Its own music: sleigh bells, and horns and bells for Krampus.
 - The Blood Moon is up until Dec 3.

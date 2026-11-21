@@ -112,6 +112,13 @@ def perc(s, style, b, d, sec):
             if pos == 0: s.note("perc", t, 36, .3, 74)
             if pos == 0.5: s.note("perc", t, 36, .3, 54)
             if sec in ("B", "A2") and pos == 2: s.note("perc", t, 53, .4, 44)
+        elif style == "sleigh":
+            # Frostfall: sleigh bells shaking on every eighth, stronger on the beat, a
+            # triangle ringing out every two bars, and a soft kick.
+            s.note("perc", t, 54, .2, 58 if pos % 1 == 0 else 40)
+            if pos == 0: s.note("perc", t, 36, .3, 50)
+            if pos == 0 and t % 8 == 0: s.note("perc", t, 81, 2, 50)
+            if sec in ("B", "A2") and pos == 2: s.note("perc", t, 53, .4, 40)
         elif style == "grotto":
             if pos in (0, 2.5): s.note("perc", t, 77, .2, 64)
             if pos in (1, 3): s.note("perc", t, 76, .2, 50)
@@ -191,6 +198,12 @@ TRACKS = {
     "moon": ("calm", dict(bpm=88, tr=-1, lead=10, dbl=73, pad=52, arp=46, ctr=42, perc="moon",
                           bass_style="soft", spark=14, seed=13)),
     "queen": ("boss", dict(bpm=132, tr=-1, lead=19, dbl=10)),
+    # Frostfall (version 244): the tune on glockenspiel and celesta over slow strings, a tuba
+    # for the counter line and sleigh bells for the drums; and Krampus's theme led by French
+    # horns with tubular bells (his chains and bells) doubling the tune.
+    "frost": ("calm", dict(bpm=92, tr=1, lead=9, dbl=8, pad=49, arp=46, ctr=58, perc="sleigh",
+                           bass_style="soft", spark=14, seed=21)),
+    "krampus": ("boss", dict(bpm=136, tr=-2, lead=60, dbl=14)),
 }
 REVERB = dict(room=0.7, level=0.55, damp=0.45)
 

@@ -55,6 +55,7 @@ static func make(what: String, id: String, y: float, hat: bool, style: Dictionar
 		"phantom_horns": h._phantom_horns(id, y, hat)
 		"bone_crown": h._bone_mask(id, y, hat)
 		"moon_crown": h._moon_crown(id, y, hat)
+		"candle_crown": h._candle_crown(id, y, hat)
 		"horns": h._horns(id, y, hat)
 		"halo": h._halo(y + (hat_h if hat else 0.24))
 	bake(h, key)
@@ -706,6 +707,86 @@ func _moon_crown(id: String, y: float, hat: bool) -> void:
 	line.cull_mode = BaseMaterial3D.CULL_FRONT
 	_mi(_arc_tube(big, thick, 0.0, 68.0, 292.0), lit, Vector3.ZERO, _spin)
 	_mi(_arc_tube(big, thick, 0.03, 64.0, 296.0), line, Vector3.ZERO, _spin)
+
+
+# ---------------------------------------------------------------- Candle Crown (Frostfall)
+
+## The Frostfall set's head (version 244): a midwinter wreath of dark pine with sprigs of
+## needles sticking out and clusters of berries, and five tall cream candles standing in it,
+## each burning with a real flame (the run camera, above and behind, sees a ring of five
+## flames). Nothing else in the game is a wreath or a candle: the other heads are horns,
+## crowns and halos.
+func _candle_crown(id: String, y: float, hat: bool) -> void:
+	var f := _fit(id, y, hat)
+	var base := f.x + 0.04
+	var r := f.y * 1.04
+	var pine := StandardMaterial3D.new()
+	pine.albedo_color = Color(0.07, 0.3, 0.15)
+	pine.roughness = 0.85
+	pine.rim_enabled = true
+	pine.rim = 0.5
+	pine.emission_enabled = true
+	pine.emission = Color(0.1, 0.35, 0.18)
+	pine.emission_energy_multiplier = 0.2
+	var needle := StandardMaterial3D.new()
+	needle.albedo_color = Color(0.12, 0.42, 0.2)
+	needle.roughness = 0.8
+	needle.emission_enabled = true
+	needle.emission = Color(0.14, 0.42, 0.2)
+	needle.emission_energy_multiplier = 0.25
+	var berry := StandardMaterial3D.new()
+	berry.albedo_color = Color(0.62, 0.07, 0.12)
+	berry.roughness = 0.3
+	berry.emission_enabled = true
+	berry.emission = Color(0.8, 0.1, 0.12)
+	berry.emission_energy_multiplier = 0.35
+	var wax := StandardMaterial3D.new()
+	wax.albedo_color = Color(0.98, 0.94, 0.84)
+	wax.roughness = 0.6
+	wax.emission_enabled = true
+	wax.emission = Color(1.0, 0.86, 0.6)
+	wax.emission_energy_multiplier = 0.35
+	wax.rim_enabled = true
+	wax.rim = 0.4
+	# The wreath: a thick ring of pine with sprigs of needles fanning out of it all round.
+	_torus(r - 0.08, r + 0.1, pine, Vector3(0, base, 0)).scale = Vector3(1, 1.35, 1)
+	for i in 22:
+		var ang := TAU * (i + 0.5) / 22.0
+		var dir := Vector3(sin(ang), 0, cos(ang))
+		var at := Vector3(0, base, 0) + dir * (r + 0.01)
+		var tilt := 0.25 if i % 2 == 0 else -0.05
+		var side := Vector3(cos(ang), 0, -sin(ang)) * (0.06 if i % 3 == 0 else -0.06)
+		_rod(at, at + dir * 0.2 + Vector3(0, tilt * 0.4 + 0.06, 0) + side, 0.055, 0.0, needle, null, 4)
+	# Berries in clusters of three between the candles.
+	for i in 5:
+		var ang := PI * (0.4 + i * 0.4)
+		var dir := Vector3(sin(ang), 0, cos(ang))
+		var c := Vector3(0, base + 0.1, 0) + dir * (r + 0.07)
+		for k in 3:
+			var off := Vector3(cos(ang), 0, -sin(ang)) * (k - 1) * 0.055 + Vector3(0, 0.035 * float(k == 1), 0)
+			_sphere(0.045, berry, c + off)
+	# Five candles, one straight at the back for the run camera and none at the very front
+	# (a flame there flared over the eyes in the menu), each with a drip of wax at its foot
+	# and a flame with a soft glow round it.
+	var glow := _add_mat(Color(1.0, 0.72, 0.3, 0.35))
+	var hot := Color(1.0, 0.6, 0.16)
+	var core := Color(1.0, 0.96, 0.7)
+	for i in 5:
+		var ang := PI * (0.2 + i * 0.4)
+		var dir := Vector3(sin(ang), 0, cos(ang))
+		var foot := Vector3(0, base + 0.06, 0) + dir * r
+		var tall := 0.3 + (0.06 if i == 2 else 0.0)
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.06
+		cm.bottom_radius = 0.065
+		cm.height = tall
+		cm.radial_segments = 10
+		cm.rings = 1
+		_mi(cm, wax, foot + Vector3(0, tall * 0.5, 0))
+		_torus(0.05, 0.095, wax, foot + Vector3(0, 0.02, 0)).scale = Vector3(1, 0.7, 1)
+		_rod(foot + Vector3(0, tall, 0), foot + Vector3(0, tall + 0.04, 0), 0.012, 0.012, _dark, null, 4)
+		_flame(foot + Vector3(0, tall + 0.02, 0), 0.24, 0.07, hot, core)
+		_sphere(0.11, glow, foot + Vector3(0, tall + 0.1, 0))
 
 
 ## A crescent tube round the Y axis: radius `big`, from angle a0 to a1 (degrees, 0 = the

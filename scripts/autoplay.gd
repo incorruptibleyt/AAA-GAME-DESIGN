@@ -240,6 +240,10 @@ func _ready() -> void:
 			Events.forced_day = int(a.substr(5))
 			_skip_first_run()
 			_event_lobby = true
+			# (Version 244: as a returning player, who gets the title taken over by the event.)
+			var cfg := Game._load_save()
+			cfg.set_value("stats", "wins", maxi(2, int(cfg.get_value("stats", "wins", 0))))
+			Game.write_save(cfg)
 		elif a.begins_with("event="):
 			Game._event_requested = a.substr(6)
 			_skip_first_run()

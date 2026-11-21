@@ -17,9 +17,13 @@ const TRACKS := {
 	# The Blood Moon event (version 134): its crypt and the title while it's on, and the Queen.
 	"moon": [preload("res://audio/music/bc_moon.ogg"), preload("res://audio/music/bc_moon_fight.ogg")],
 	"queen": [preload("res://audio/music/bc_queen.ogg")],
+	# Frostfall (version 244): sleigh bells and glockenspiel in its hall and on the title while
+	# it's on; Krampus's horns and bells.
+	"frost": [preload("res://audio/music/bc_frost.ogg"), preload("res://audio/music/bc_frost_fight.ogg")],
+	"krampus": [preload("res://audio/music/bc_krampus.ogg")],
 }
 ## One track per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon"]
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5
@@ -53,7 +57,7 @@ var _fight := 0.0
 ## "dungeon" plays the current floor's track, "boss" the boss theme, "title" the title theme.
 static func play(track: String) -> void:
 	if _instance:
-		_instance._play_list(track if track in ["boss", "title", "moon", "queen"] else THEMES[Floors.index(Game.floor_num) % THEMES.size()])
+		_instance._play_list(track if track in ["boss", "title", "moon", "queen", "frost", "krampus"] else THEMES[Floors.index(Game.floor_num) % THEMES.size()])
 
 
 static func set_enabled(on: bool) -> void:

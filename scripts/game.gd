@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21m"
+const BUILD := "2026-11-21n"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1826,7 +1826,9 @@ func _on_play_pressed() -> void:
 
 ## The title's music: the Blood Moon's while the event is on.
 func title_track() -> String:
-	return "moon" if Floors.lobby else "title"
+	if Floors.lobby:
+		return "frost" if Events.frost() else "moon"
+	return "title"
 
 
 func _start_run() -> void:
@@ -3118,9 +3120,19 @@ func _kill_points(e: Enemy) -> float:
 
 
 ## A skeleton that got away (a Gift Thief): the room stops waiting for it, but it is no kill.
-func enemy_escaped(_e: Enemy) -> void:
+## (Version 244: and the next wave comes, or the room clears, as after a kill. A thief that
+## got away last left the room waiting for the watchdog, 1.5 s later.)
+func enemy_escaped(e: Enemy) -> void:
 	alive_enemies = maxi(0, alive_enemies - 1)
 	note_progress()
+	print("[run] %s got away, %d left" % [e.kind_name(), alive_enemies])
+	if state != State.PLAYING or _in_boss_room():
+		return
+	if _waves_left > 0 and not _wave_pending and alive_enemies <= (1 if _wave_kinds.size() <= 4 else 2):
+		_wave_pending = true
+		_next_wave()
+	elif alive_enemies == 0 and _waves_left == 0 and not _wave_pending:
+		_finish_room(e.global_position)
 
 
 func on_enemy_died(e: Enemy) -> void:

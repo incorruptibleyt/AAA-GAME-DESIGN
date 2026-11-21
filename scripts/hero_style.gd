@@ -231,6 +231,11 @@ const EXTRA := {
 		# Version 219 (review 4 fix 26): the Silver Moon set, the event road's Crypt Pass row
 		# ("passroad"). Night blue and moon silver, so it never reads as a red danger mark.
 		"silver_moon": {"name": "Silver Moon", "a": Color(0.06, 0.16, 0.4), "b": Color(0.84, 0.9, 1.0), "pat": 14, "own": true, "event": "blood_moon", "passroad": true},
+		# Version 244: the Frostfall set (the winter event's road) and its Pass row, Polar
+		# Night. Each has a pattern of its own: a knitted jumper strung with fairy lights, and
+		# night cloth with the northern lights rippling up it.
+		"yule_knit": {"name": "Yule Knit", "a": Color(0.05, 0.3, 0.17), "b": Color(0.97, 0.93, 0.84), "pat": 37, "own": true, "event": "frostfall"},
+		"polar_night": {"name": "Polar Night", "a": Color(0.03, 0.06, 0.2), "b": Color(0.3, 1.0, 0.7), "pat": 38, "own": true, "event": "frostfall", "passroad": true},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
 		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 33, "own": true, "bazaar": 900},
 		"sunforged": {"name": "Sunforged", "a": Color(0.8, 0.42, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
@@ -249,6 +254,7 @@ const EXTRA := {
 		"phantom_horns": {"name": "Phantom Horns", "hat": false, "extras": ["phantom_horns"], "drop": 4},
 		"bone_crown": {"name": "Bone Mask", "hat": false, "extras": ["bone_crown"], "drop": 4},
 		"moon_crown": {"name": "Moon Crown", "hat": false, "extras": ["moon_crown"], "event": "blood_moon"},
+		"candle_crown": {"name": "Candle Crown", "hat": false, "extras": ["candle_crown"], "event": "frostfall"},
 	},
 	"glow": {
 		"mirage": {"name": "Mirage", "fx": "storm", "ring": Color(0.35, 1.0, 0.95), "ring2": Color(1.0, 0.8, 0.45), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
@@ -264,6 +270,12 @@ const EXTRA := {
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A dark blood-orange
 		# ring with a night-violet crescent (version 232; it was gold, the Legend glow's colours).
 		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(0.5, 0.22, 0.95), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
+		# Frostfall (version 244): frost white and candle gold with snowflakes turning round the
+		# ring; the Pass row's northern lights hanging off it; and the Krampus Hunt's WHITEOUT
+		# prize, a blizzard whirling round it.
+		"snowbound": {"name": "Snowbound", "fx": "snowflake", "ring": Color(0.86, 0.95, 1.0), "ring2": Color(1.0, 0.8, 0.42), "bolt": Color(0.92, 0.97, 1.0), "event": "frostfall"},
+		"polar_night": {"name": "Polar Night", "fx": "aurora", "ring": Color(0.55, 0.95, 1.0), "ring2": Color(0.3, 1.0, 0.5), "bolt": Color(0.6, 1.0, 0.8), "event": "frostfall", "passroad": true},
+		"whiteout": {"name": "Whiteout", "fx": "whirl", "ring": Color(1.0, 1.0, 1.0), "ring2": Color(0.3, 0.85, 1.0), "bolt": Color(0.92, 0.98, 1.0), "event": "frostfall", "hunt": true},
 		"candle": {"name": "Candlelight", "fx": "flame", "ring": Color(1.0, 0.76, 0.32), "ring2": Color(1.0, 0.97, 0.88), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
 		"sulfur": {"name": "Sulfur", "fx": "runes", "ring": Color(1.0, 0.93, 0.2), "ring2": Color(0.3, 0.5, 1.0), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
 		"spectral": {"name": "Spectral", "fx": "runes", "ring": Color(0.75, 1.0, 0.62), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.85, 1.0, 0.8), "bazaar": 600},
@@ -292,6 +304,11 @@ const EXTRA := {
 		# circling the hero, and a blood moon on the floor under them.
 		"blood_moon": {"name": "Blood Moon", "ink": Color(1.0, 0.58, 0.12), "ink2": Color(1.0, 0.8, 0.36), "spark": Color(1.0, 0.66, 0.2), "motif": "bats", "shine": true, "event": "blood_moon"},
 		"silver_moon": {"name": "Silver Moon", "ink": Color(0.72, 0.82, 1.0), "ink2": Color(0.95, 0.97, 1.0), "spark": Color(0.85, 0.92, 1.0), "motif": "bats", "shine": true, "event": "blood_moon", "passroad": true},
+		# Frostfall (version 244): a snow globe round the hero (snowflakes swirling in a glass
+		# dome on a gold base, a snowflake on the floor), and the Pass row's northern lights
+		# hanging round them under a compass star.
+		"snow_globe": {"name": "Snow Globe", "ink": Color(0.78, 0.9, 1.0), "ink2": Color(1.0, 0.82, 0.45), "spark": Color(1.0, 1.0, 1.0), "motif": "globe", "shine": true, "event": "frostfall"},
+		"polar_night": {"name": "Polar Night", "ink": Color(0.3, 1.0, 0.7), "ink2": Color(0.68, 0.45, 1.0), "spark": Color(0.6, 1.0, 0.85), "motif": "aurora", "shine": true, "event": "frostfall", "passroad": true},
 		"wisp": {"name": "Will-o'-Wisp", "ink": Color(0.35, 0.75, 1.0), "ink2": Color(0.6, 1.0, 0.95), "spark": Color(0.6, 0.9, 1.0), "motif": "fireflies", "bazaar": 1500},
 		"golden_souls": {"name": "Golden Souls", "ink": Color(1.0, 0.66, 0.2), "ink2": Color(0.55, 0.9, 1.0), "spark": Color(1.0, 0.86, 0.5), "motif": "souls", "bazaar": 1500},
 		# Crypt Race auras: a comet's tail of teal glints streaming behind the hero, and the Bone
@@ -1087,7 +1104,7 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			_crown(att, id, y, hat)
 		"crypt_crown":
 			att.add_child(CryptCrown.make(id, y, hat))
-		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown", "moon_crown", "horns", "halo":
+		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown", "moon_crown", "candle_crown", "horns", "halo":
 			att.add_child(FeatHeads.make(kind, id, y, hat, style))
 		"mage_hood":
 			var o: Dictionary = style.get("outfit", {})
@@ -1106,6 +1123,10 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 		var pick = oc.get("b" if id == "knight" else "a")
 		if pick is Color:
 			col = pick
+		if kind == "candle_crown" and col.s > 0.25 and col.h > 0.2 and col.h < 0.5:
+			# (Version 244: a warm brown fur cap under the green wreath. A green cap (Yule Knit,
+			# Forest) and the wreath were one green ball from above; a cream one, a white ball.)
+			col = Color(0.48, 0.32, 0.2)
 		if kind == "moon_crown" and col.s > 0.35 and col.h > 0.07 and col.h < 0.18:
 			# (Version 208: a gold cap (Tidecaller) under the gold Moon Crown made the head
 			# one gold ball that read as a coin; the cap goes deep bronze.)
@@ -1632,6 +1653,50 @@ void fragment() {
 			float vine = (1.0 - smoothstep(0.02, 0.05, abs(f.x + 0.12 * sin(uv.y * 6.28)))) * (1.0 - bloom);
 			al = mix(mix(own_a, own_a * 1.8, vine * 0.6), own_b * 0.85, bloom * 0.85);
 			em = own_b * bloom * (1.2 + 0.5 * sin(TIME * 2.0 + h * 20.0)) + vec3(1.0, 0.85, 0.45) * heart * 1.6 + own_b * edge * 0.55;
+		} else if (pat == 37) {
+			// Yule Knit (Frostfall, version 244): a knitted jumper, evergreen with cream bands.
+			// Each band has a green zigzag through it strung with fairy lights (gold, ice blue
+			// and warm white) that blink one after another round the hero; between the bands,
+			// a row of big cream snowflakes, glinting in turn; and the knit's own stitches.
+			float u = ang * 3.82;   // about 24 stitches round
+			float v = q.y * 2.0;
+			float row = fract(v);
+			float rid = floor(v);
+			float st = abs(fract(u * 2.0) - 0.5) * 2.0;
+			float vs = fract(q.y * 14.0 + st * 0.5);
+			float knit = 0.84 + 0.16 * smoothstep(0.15, 0.45, vs) * (1.0 - smoothstep(0.65, 0.95, vs));
+			float band = 1.0 - smoothstep(0.27, 0.3, row);
+			float zig = abs(fract(u * 0.5) - 0.5) * 2.0;
+			float zz = (1.0 - smoothstep(0.025, 0.06, abs(row - 0.05 - zig * 0.17))) * band;
+			float lid = floor(u * 0.5);
+			vec2 lf = vec2((fract(u * 0.5) - 0.5) * 0.9, (row - 0.14) * 2.4);
+			float bulb = (1.0 - smoothstep(0.1, 0.15, length(lf))) * band;
+			float which = mod(lid + rid, 3.0);
+			vec3 bc = which < 0.5 ? vec3(1.0, 0.78, 0.3) : (which < 1.5 ? vec3(0.45, 0.82, 1.0) : vec3(1.0, 0.95, 0.82));
+			float on = 0.25 + 0.75 * smoothstep(0.35, 0.5, fract(TIME * 0.7 - lid / 6.0)) * (1.0 - smoothstep(0.85, 1.0, fract(TIME * 0.7 - lid / 6.0)));
+			vec2 sf = vec2(fract(ang * 1.27) - 0.5, (row - 0.64) * 1.5);
+			float fr = length(sf);
+			float fa = atan(sf.y, sf.x);
+			float arms = (1.0 - smoothstep(0.035, 0.07, fr * abs(sin(fa * 3.0)))) * (1.0 - smoothstep(0.3, 0.34, fr));
+			float flake = max(arms, 1.0 - smoothstep(0.06, 0.09, fr)) * (1.0 - band);
+			float glint = pow(0.5 + 0.5 * sin(TIME * 1.4 - floor(ang * 1.27) * 1.3 - rid * 2.0), 8.0);
+			vec3 cloth = mix(own_a * knit, own_b * knit, band * (1.0 - zz));
+			al = mix(mix(cloth, own_b * 0.95, flake), bc, bulb);
+			em = bc * bulb * on * 2.2 + own_b * flake * (0.12 + 0.9 * glint) + own_b * edge * 0.25;
+		} else if (pat == 38) {
+			// Polar Night (Frostfall's Pass row, version 244): night-blue cloth with the
+			// northern lights rippling up it, green curtains turning violet as they rise, fine
+			// rays running through them, and stars twinkling in the dark between.
+			float fold = fbm(vec3(ang * 1.2 + TIME * 0.12, q.y * 0.8, TIME * 0.15));
+			float hang = q.y * 1.6 + fold * 1.2;
+			float bnd = fract(hang - TIME * 0.18);
+			float cur = smoothstep(0.0, 0.3, bnd) * (1.0 - smoothstep(0.42, 0.8, bnd));
+			float rays = 0.5 + 0.5 * sin(ang * 22.0 + fold * 10.0 + TIME * 0.7);
+			float lit = cur * (0.65 + 0.35 * rays);
+			vec3 aur = mix(own_b, vec3(0.7, 0.42, 1.0), smoothstep(0.15, 0.7, bnd));
+			float star = twinkle(q * 6.0, 0.08, 3.0) * (1.0 - cur);
+			al = mix(own_a, aur * 0.55, lit * 0.65);
+			em = aur * lit * 1.15 + vec3(0.9, 0.95, 1.0) * star * 2.2 + own_b * edge * 0.4;
 		} else if (pat == 15 || pat == 16) {
 			// The Crypt Race outfits (version 153). Pacesetter: black racing cloth with hot
 			// orange speed streaks shooting back round the hero, and a chevron stripe down the

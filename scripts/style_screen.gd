@@ -268,10 +268,15 @@ func _show_preview() -> void:
 				_note.label_settings.font_color = Color(0.5, 0.95, 1.0)
 				return
 			if x.has("event"):
-				_note.text = ("Trying on: %s  ·  Blood Moon: beat the Queen Hunt's ECLIPSE tier" if x.get("hunt", false)
-						else ("Trying on: %s  ·  Silver Moon set: the event road's Crypt Pass row" if x.get("passroad", false)
-						else "Trying on: %s  ·  Blood Moon set: win it on the event road")) % HeroStyle.item_label(_id, slot, key)
-				_note.label_settings.font_color = Color(1.0, 0.45, 0.4)
+				# (Version 244: in the words of the look's own event, Blood Moon or Frostfall.)
+				var e := Events.by_id(str(x.event))
+				var how := "%s set: win it on the event road" % str(e.name).capitalize()
+				if x.get("hunt", false):
+					how = "%s: beat the %s's %s tier" % [str(e.name).capitalize(), Events.word("hunt", e), str(Events.tiers(e)[-1].name)]
+				elif x.get("passroad", false):
+					how = "%s: the event road's Crypt Pass row" % Events.word("pass_set", e)
+				_note.text = "Trying on: %s  ·  %s" % [HeroStyle.item_label(_id, slot, key), how]
+				_note.label_settings.font_color = (e.color as Color).lerp(Color.WHITE, 0.25)
 				return
 			if x.has("race"):
 				_note.text = "Trying on: %s  ·  Crypt Race: Race Road at %d trophies" % [HeroStyle.item_label(_id, slot, key), int(x.race)]
@@ -321,7 +326,7 @@ func _show_tab(slot: String, to_top := false) -> void:
 	var list := HeroStyle.items(_id).filter(func(it: Dictionary) -> bool:
 		if slot == "new":
 			return _is_new(it)
-		return it.slot == slot and (not it.has("event") or event_on or _got(it)))
+		return it.slot == slot and (not it.has("event") or (event_on and str(it.event) == str(Events.ev().id)) or _got(it)))
 	var order := {}
 	for i in list.size():
 		var it: Dictionary = list[i]
@@ -427,7 +432,8 @@ func _card(it: Dictionary) -> Button:
 		if HeroStyle.extra(it.slot, it.key).get("passroad", false):
 			v.add_child(Hud.label("PASS · EVENT", 14, Color(0.8, 0.88, 1.0)))
 		else:
-			v.add_child(Hud.label("BLOOD MOON", 14, Color(1.0, 0.42, 0.38)))
+			var ev := Events.by_id(str(it.event))
+			v.add_child(Hud.label(str(ev.name), 14, (ev.color as Color).lerp(Color.WHITE, 0.2)))
 	elif it.has("feat"):
 		v.add_child(Hud.label("FEAT", 14, Color(0.5, 0.95, 1.0)))
 	elif it.has("drop"):
@@ -666,6 +672,29 @@ class Swatch extends Control:
 				for i in 10:
 					var t := TAU * i / 10.0 - _t * 0.3
 					draw_arc(c, r0 + r * 0.12, t, t + (0.14 if i % 3 else 0.3), 4, Color(lit, 0.9), 2.5, true)
+			"snowflake":   # Frostfall (v244): six little snowflakes turning round the ring
+				for i in 6:
+					var t := TAU * i / 6.0 + _t * 0.3
+					var at := c + Vector2(cos(t), sin(t)) * (r0 + r * 0.12)
+					for k in 3:
+						var ang := _t * 1.2 + k * PI / 3.0 + i
+						var d := Vector2(cos(ang), sin(ang)) * r * 0.12
+						draw_line(at - d, at + d, Color.WHITE, 1.6, true)
+			"aurora":   # curtains of light hanging off the ring, green to violet
+				for i in 16:
+					var t := TAU * i / 16.0 + _t * 0.12
+					var out := Vector2(cos(t), sin(t))
+					var h := r * (0.12 + 0.12 * (0.5 + 0.5 * sin(_t * 1.3 + i * 1.7)))
+					draw_line(c + out * r0, c + out * (r0 + h), Color(0.4, 1.0, 0.65, 0.85), r * 0.1, true)
+					draw_line(c + out * (r0 + h * 0.6), c + out * (r0 + h), Color(0.72, 0.48, 1.0, 0.8), r * 0.1, true)
+			"whirl":   # a blizzard whirling round the ring
+				for i in 5:
+					var t0 := TAU * i / 5.0 - _t * 1.6
+					var pts := PackedVector2Array()
+					for j in 8:
+						var t := t0 + j * 0.12
+						pts.append(c + Vector2(cos(t), sin(t)) * (r0 + r * (0.22 - j * 0.022)))
+					draw_polyline(pts, Color(1, 1, 1, 0.9), 2.0, true)
 
 	## A Feat or drop outfit's own pattern in small (version 116: they all showed the same
 	## glints, so the swatches looked alike): wisps, cracks, stars, facets, lightning,
@@ -770,6 +799,30 @@ class Swatch extends Control:
 					for k in 9:
 						pts.append(Vector2(c.x - r * 0.65 + k * r * 0.1625, y + sin(k * 1.6 + _t * 2.0 * float(pat == 30)) * r * 0.08))
 					draw_polyline(pts, Color(lit, 0.9), r * 0.08, true)
+			37:   # Yule Knit: a cream zigzag band with fairy lights, a snowflake
+				var cream := b
+				draw_rect(Rect2(c.x - r * 0.75, c.y + r * 0.08, r * 1.5, r * 0.34), Color(cream, 0.95))
+				var zz := PackedVector2Array()
+				for k in 9:
+					zz.append(Vector2(c.x - r * 0.72 + k * r * 0.18, c.y + r * (0.14 if k % 2 == 0 else 0.34)))
+				draw_polyline(zz, a, r * 0.06, true)
+				for k in 4:
+					var on := fmod(_t * 0.7 - k / 4.0, 1.0) > 0.4
+					var col: Color = [Color(1.0, 0.78, 0.3), Color(0.45, 0.82, 1.0), Color(1.0, 0.95, 0.82), Color(1.0, 0.78, 0.3)][k]
+					draw_circle(Vector2(c.x - r * 0.54 + k * r * 0.36, c.y + r * 0.25), r * (0.08 if on else 0.05), col if on else col.darkened(0.5))
+				for k in 3:
+					var ang := k * PI / 3.0
+					var d := Vector2(cos(ang), sin(ang)) * r * 0.22
+					draw_line(c + Vector2(0, -r * 0.32) - d, c + Vector2(0, -r * 0.32) + d, Color(cream, 0.6 + 0.4 * pulse), r * 0.06, true)
+			38:   # Polar Night: the northern lights rippling, stars
+				for i in 3:
+					var pts := PackedVector2Array()
+					for k in 9:
+						pts.append(Vector2(c.x - r * 0.7 + k * r * 0.175, c.y + r * (0.3 - i * 0.28) + sin(k * 1.1 + _t * 1.5 + i) * r * 0.08))
+					draw_polyline(pts, Color(0.35, 1.0, 0.65).lerp(Color(0.72, 0.45, 1.0), i / 2.0), r * 0.1, true)
+				for i in 3:
+					var p := c + Vector2(cos(i * 2.3 + 0.5) * 0.5, -0.5 + 0.1 * i) * r
+					draw_circle(p, r * 0.04 * (0.6 + 0.4 * sin(_t * 4.0 + i * 2.0)), Color.WHITE)
 			25, 27:   # Shadow's smoke, Ember's coals
 				for i in 3:
 					var p := c + Vector2((i - 1) * 0.4, -0.15 + 0.12 * sin(_t * 2.0 + i * 2.0)) * r
@@ -788,7 +841,7 @@ class Swatch extends Control:
 		draw_colored_polygon(pts, Color(1.0, 0.95, 0.75, 0.3 * (1.0 - absf(f))))
 
 	func _process(delta: float) -> void:
-		if not (aura.get("cycle", false) or aura.has("ink2") or shine or a2 != null or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown"]):
+		if not (aura.get("cycle", false) or aura.has("ink2") or shine or a2 != null or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown", "candle_crown"]):
 			set_process(false)   # only a pulsing aura's swatch is redrawn every frame
 			return
 		_t += delta
@@ -882,6 +935,22 @@ class Swatch extends Control:
 					var ang := _t * 2.0 + i * 2.1
 					var p := c + Vector2(cos(ang) * r * 0.55, -r * 0.2 + sin(ang) * r * 0.15)
 					draw_polyline(PackedVector2Array([p, p + Vector2(r * 0.1, -r * 0.12), p + Vector2(0, -r * 0.18), p + Vector2(r * 0.12, -r * 0.3)]), Color(0.85, 0.95, 1.0), 2.0, true)
+			"candle_crown":
+				# Frostfall (v244): a pine wreath with berries, five candles burning on it.
+				var pine := Color(0.12, 0.42, 0.2)
+				draw_rect(Rect2(c + Vector2(-r * 0.85, r * 0.22), Vector2(r * 1.7, r * 0.3)), pine)
+				for i in 7:
+					draw_circle(c + Vector2(-r * 0.78 + i * r * 0.26, r * 0.22), r * 0.12, pine.lightened(0.12))
+				for i in 3:
+					draw_circle(c + Vector2(-r * 0.52 + i * r * 0.52, r * 0.48), r * 0.07, Color(0.72, 0.1, 0.14))
+				for i in 5:
+					var x := -0.64 + i * 0.32
+					var h := 0.55 + (0.1 if i == 2 else 0.0)
+					draw_rect(Rect2(c + Vector2((x - 0.07) * r, (0.22 - h) * r), Vector2(r * 0.14, h * r)), Color(0.98, 0.94, 0.84))
+					var fl := r * (0.2 + 0.04 * sin(_t * 9.0 + i * 2.0))
+					var top := c + Vector2(x * r, (0.22 - h) * r)
+					draw_colored_polygon(PackedVector2Array([top + Vector2(-r * 0.07, 0), top + Vector2(0, -fl), top + Vector2(r * 0.07, 0)]), Color(1.0, 0.72, 0.25))
+					draw_circle(top + Vector2(0, -r * 0.04), r * 0.035, Color(1.0, 0.97, 0.75))
 			"moon_crown":
 				# (Version 191: this card had no picture at all.) A dark band with spikes, a white
 				# crescent moon lying over it.

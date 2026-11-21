@@ -251,7 +251,7 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 		_visual.queue_free()
 	var extras: Array = def.get("style", {}).get("extras", [])
 	var tall := false
-	for x in ["crown", "crypt_crown", "storm_halo", "flame_crown", "antlers", "phantom_horns", "bone_crown", "star_circlet", "moon_crown", "halo", "horns"]:
+	for x in ["crown", "crypt_crown", "storm_halo", "flame_crown", "antlers", "phantom_horns", "bone_crown", "star_circlet", "moon_crown", "candle_crown", "halo", "horns"]:
 		tall = tall or extras.has(x)
 	_visual = CharacterVisual.new()
 	_visual.outline_me = true
