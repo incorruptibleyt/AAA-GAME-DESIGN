@@ -3101,8 +3101,11 @@ func show_omens(v: bool, choices := [], next_loop := 2, have := "") -> void:
 	for c in _omen_rows.get_children():
 		c.queue_free()
 	for o: Dictionary in choices:
-		var b := button("%s  ·  +%d%% score\n%s" % [o.title, roundi(Loops.OMEN_SCORE * 100.0), o.text], 22, Color(0.16, 0.06, 0.09, 0.98), Color(0.95, 0.4, 0.42, 0.8))
-		b.custom_minimum_size = Vector2(0, 92)
+		# v241: the rule Omens say more, so their line breaks (an unbroken line widened the
+		# whole screen past the phone's edge).
+		var text := _break_line(str(o.text), 34)
+		var b := button("%s  ·  +%d%% score\n%s" % [o.title, roundi(Loops.OMEN_SCORE * 100.0), text], 22, Color(0.16, 0.06, 0.09, 0.98), Color(0.95, 0.4, 0.42, 0.8))
+		b.custom_minimum_size = Vector2(0, 92 + 28 * text.count("\n"))
 		b.pressed.connect(func(): omen_picked.emit(o.id))
 		_omen_rows.add_child(b)
 	_omen_have.text = "Your Omens: " + have if have != "" else "No Omens yet"
@@ -3110,6 +3113,21 @@ func show_omens(v: bool, choices := [], next_loop := 2, have := "") -> void:
 
 func omens_visible() -> bool:
 	return _omen_box.visible
+
+
+## Breaks `text` into lines of at most about `width` letters, at spaces.
+static func _break_line(text: String, width: int) -> String:
+	var lines: Array[String] = []
+	var line := ""
+	for w in text.split(" "):
+		if line != "" and line.length() + 1 + w.length() > width:
+			lines.append(line)
+			line = w
+		else:
+			line = w if line == "" else line + " " + w
+	if line != "":
+		lines.append(line)
+	return "\n".join(lines)
 
 
 # ---------------------------------------------------------------- Reports question

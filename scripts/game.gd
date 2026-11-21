@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21j"
+const BUILD := "2026-11-21k"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -168,7 +168,7 @@ func chain_time() -> float:
 		t *= 0.4
 	if hero:
 		t *= pow(1.1, int(hero.perks.get("deep_steady", 0)))   # v219: Steady Chain
-	return t * pow(0.75, _omen("night"))
+	return t
 
 
 ## Damage gets a share of the chain's bonus: x1.7 at the cap (version 219, review 4 fix 30:
@@ -1271,8 +1271,7 @@ func _note_floor_one(cfg: ConfigFile, won: bool) -> void:
 
 
 func speed_scale() -> float:
-	return minf(1.3, 1.0 + 0.05 * (floor_num - 1)) * (1.2 if curses.has("restless") else 1.0) * (1.25 if curses.has("frenzy") else 1.0) \
-		* pow(1.1, _omen("haste"))
+	return minf(1.3, 1.0 + 0.05 * (floor_num - 1)) * (1.2 if curses.has("restless") else 1.0) * (1.25 if curses.has("frenzy") else 1.0)
 
 
 ## Daily Crypt rules and Omens that change coins and hearts.
@@ -1291,7 +1290,7 @@ func heal_scale() -> float:
 
 
 func heart_mult() -> float:
-	return heal_scale() * (2.0 if curses.has("hearty") else 1.0) * pow(0.7, _omen("ash"))
+	return heal_scale() * (2.0 if curses.has("hearty") else 1.0)
 
 
 ## A golden arrow at the hero's feet pointing to the open door, so nobody gets lost.
@@ -2662,6 +2661,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		hero = Hero.spawn(world, room.player_start(), _run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save()))
 	hero.place_at(room.player_start())
 	hero.new_room()
+	_night_light()
 	_snap_camera()
 	if not spawn_enemies:
 		return
@@ -2803,6 +2803,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_race_kills_room = 0
 		_race_room_t = 0.0
 		_race_goal = maxi(1, alive_enemies * _wave_total + _wave_total - 1)
+	if _omen("stalker") > 0 and alive_enemies > 0:
+		Stalker.rise_in(room, _omen("stalker"), _in_boss_room())   # v241: the Omen of the Stalker
 	_checkpoint()
 	note_spot()
 
@@ -2927,6 +2929,12 @@ func _continue_run() -> void:
 	omens = (s.get("omens", {}) as Dictionary).duplicate()
 	_door = (s.get("door", {}) as Dictionary).duplicate()
 	_curse_omen = str(s.get("curse", ""))
+	# v241: a run saved before the rule Omens may hold Haste or Ash, which are gone.
+	for id in omens.keys():
+		if Loops.get_omen(str(id)).is_empty():
+			omens.erase(id)
+	if _curse_omen != "" and Loops.get_omen(_curse_omen).is_empty():
+		_curse_omen = "blades"
 	vault = Armory.vault_owned(_load_save())
 	_update_score_mult()
 	heart_bonus = float(s.get("heart_bonus", Armory.heart_bonus(_load_save())))
@@ -3106,6 +3114,8 @@ func on_enemy_died(e: Enemy) -> void:
 	hud.show_hint("")
 	if state != State.PLAYING:
 		return
+	if _omen("graves") > 0 and not e.is_boss:
+		GraveSpikes.mark(e.global_position, _omen("graves"))   # v241: the Omen of Graves
 	if race and not e.is_boss:
 		_race_kill(e)
 	if event != "" and not e.is_boss:
@@ -3446,7 +3456,7 @@ func _on_door_picked(i: int) -> void:
 			rerolls += 1
 		"cursed":
 			_curse_omen = str(_door.get("omen", "blades"))
-	print("[run] door: %s" % Doors.describe(_door).title)
+	print("[run] door: %s%s" % [Doors.describe(_door).title, (" (%s)" % _curse_omen) if _curse_omen != "" else ""])
 	_leave_room()
 
 
@@ -4132,6 +4142,35 @@ func _end_surge() -> void:
 		hud.set_surge(0.0, false)
 		hud.set_surge(0.0, false, true)
 		hud.set_shards(-1)
+
+
+## True while the room's fight is still on: skeletons standing, or waves still to come.
+func fight_on() -> bool:
+	return alive_enemies > 0 or _waves_left > 0 or _wave_pending
+
+
+## Version 241 (whole-game review fix 12), the Omen of Night: the room's own light nearly goes
+## out and the hero's lantern becomes the light of the room, so skeletons come out of the
+## dark (their eyes, shots and every warning on the floor still glow). Darkness: Light (the
+## comfort setting) keeps more of the room's light.
+const NIGHT_AMBIENT := 0.08
+const NIGHT_SUN := 0.05
+const NIGHT_LANTERN := 2.4
+const NIGHT_RANGE := 6.0   # it hangs 3.6 m up, so it lights about 4.8 m of floor round the hero
+
+
+func _night_light() -> void:
+	var night := _omen("night") > 0
+	if hero and hero.lantern:
+		hero.lantern.light_energy = NIGHT_LANTERN if night else Hero.LANTERN_ENERGY
+		hero.lantern.omni_range = NIGHT_RANGE if night else Hero.LANTERN_RANGE
+	if not night or _env == null:
+		return
+	var keep := 2.0 if light_dark else 1.0
+	_env.ambient_light_energy *= minf(1.0, NIGHT_AMBIENT * keep)
+	_moon_energy *= minf(1.0, NIGHT_SUN * keep)
+	if _moon:
+		_moon.light_energy = _moon_energy
 
 
 ## The Blood Moon Queen's Eclipse: the moon goes dark (the room's light dims) and comes back.

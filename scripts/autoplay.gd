@@ -60,6 +60,7 @@ var _perfect_shots := 0
 var _special_shots := 0
 var _force_special := false
 var _perks: PackedStringArray = []
+var _omens: PackedStringArray = []   # v241: `omens=graves,stalker,night` from the first room
 var _card_shot := false
 var _cards_shot := false
 var _door_kind := ""
@@ -165,6 +166,8 @@ func _ready() -> void:
 			_hero_choice = a.substr(5)
 		elif a.begins_with("perks="):
 			_perks = a.substr(6).split(",")
+		elif a.begins_with("omens="):
+			_omens = a.substr(6).split(",")
 		elif a == "special":
 			_force_special = true
 		elif a == "gallery":
@@ -429,6 +432,15 @@ func _process(delta: float) -> void:
 			Upgrades.apply(id, Game.hero)
 		print("[autoplay] perks %s" % ", ".join(_perks))
 		_perks = []
+	if not _omens.is_empty() and Game.state == Game.State.PLAYING and Game.hero:
+		for id in _omens:
+			Game.omens[id] = int(Game.omens.get(id, 0)) + 1
+		Game._update_score_mult()
+		Game._night_light()
+		if Game._omen("stalker") > 0:
+			Stalker.rise_in(Room.current, Game._omen("stalker"), Game._in_boss_room())
+		print("[autoplay] omens %s" % Loops.names(Game.omens))
+		_omens = []
 	if Game.state != _last_state:
 		_last_state = Game.state
 		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
@@ -998,6 +1010,13 @@ func _drive(delta: float) -> void:
 				d.y = 0
 				if d.length() < 2.2:
 					move += d.normalized() * (2.2 - d.length())
+		# v241: walk away from the Omen of the Stalker's shade before it gets close.
+		for c in room.get_children():
+			if c is Stalker and c.visible:
+				var d: Vector3 = hero.global_position - c.global_position
+				d.y = 0
+				if d.length() < 2.8:
+					move += d.normalized() * (2.8 - d.length()) * 1.5
 		# Drift back towards the middle when idle so the hero doesn't get cornered.
 		if move.length() > 0.05:
 			move += (Vector3(0, 0, 4) - hero.global_position) * 0.08

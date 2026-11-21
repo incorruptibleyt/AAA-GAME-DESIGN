@@ -15,14 +15,19 @@ const OMEN_SCORE := 0.25
 ## Rerolls handed out between loops (along with full health).
 const LOOP_REROLLS := 2
 
+## Version 241 (whole-game review fix 12): all seven used to be numbers (10% faster, 30% less
+## healing, a faster chain drain...). Three now change the rules of a room instead:
+## Graves (a fallen skeleton's grave bursts with spikes a moment later), the Stalker (a
+## shade you can't hurt comes for you while you stand still, stalker.gd) and Night (the crypt goes
+## dark and only the hero's lantern lights it). Haste and Ash are gone; Night keeps its id.
 const OMENS := [
-	{"id": "haste", "title": "Omen of Haste", "text": "Skeletons move 10% faster"},
+	{"id": "graves", "title": "Omen of Graves", "text": "Fallen skeletons burst into bone spikes a moment later", "short": "Graves burst\ninto spikes"},
+	{"id": "stalker", "title": "Omen of the Stalker", "text": "A shade you can't hurt creeps closer while you stand still", "short": "A shade hunts\nyou when still"},
+	{"id": "night", "title": "Omen of Night", "text": "The crypt goes dark: only your lantern lights the way", "short": "The crypt\ngoes dark"},
 	{"id": "bones", "title": "Omen of Bones", "text": "Skeletons have 25% more health"},
 	{"id": "blades", "title": "Omen of Blades", "text": "Skeletons hit 25% harder"},
 	{"id": "horde", "title": "Omen of the Horde", "text": "One more skeleton every wave"},
 	{"id": "gold", "title": "Omen of Gold", "text": "Twice the purple elites, +50% coins"},
-	{"id": "ash", "title": "Omen of Ash", "text": "Hearts heal 30% less"},
-	{"id": "night", "title": "Omen of Night", "text": "The Bone Chain drains 25% faster"},
 ]
 
 

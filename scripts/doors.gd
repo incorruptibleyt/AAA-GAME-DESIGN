@@ -11,7 +11,7 @@ const KINDS := ["path", "spring", "treasure", "shrine", "champion", "cursed"]
 ## 60% more. Version 219 review (Phase 0): +40%, never on floors 1-2, never right before the
 ## boss, never while a curse already holds, and the door says what the Omen does.
 const CURSED_COINS := 0.4
-const CURSE_OMENS := ["haste", "bones", "blades", "horde", "night"]
+const CURSE_OMENS := ["graves", "stalker", "night", "bones", "blades", "horde"]   # v241: three rule Omens
 ## Healing Spring: share of max health healed. Treasure Room: extra coins in the next room.
 const SPRING_HEAL := 0.3
 const TREASURE_COINS := 0.6
@@ -76,10 +76,11 @@ static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 	return {}
 
 
-## What the Omen does, in plain words ("Skeletons hit 25% harder").
+## What the Omen does, in plain words ("Skeletons hit 25% harder"; the rule Omens have a
+## shorter line that fits on the door card).
 static func omen_text(id: String) -> String:
 	var o := Loops.get_omen(id)
-	return str(o.text) if not o.is_empty() else omen_title(id)
+	return str(o.get("short", o.text)) if not o.is_empty() else omen_title(id)
 
 
 static func omen_title(id: String) -> String:

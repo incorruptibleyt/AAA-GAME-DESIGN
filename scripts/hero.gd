@@ -231,11 +231,19 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	# A soft light that travels with the hero so they never get lost in the dark.
 	var lantern := OmniLight3D.new()
 	lantern.light_color = Color(1.0, 0.45, 0.42) if mastery >= 2 else Color(0.75, 0.85, 1.0)
-	lantern.light_energy = 0.9
-	lantern.omni_range = 8.0
+	lantern.light_energy = LANTERN_ENERGY
+	lantern.omni_range = LANTERN_RANGE
 	lantern.position = Vector3(0, 3.6, 0.6)   # high and slightly behind, so the hood isn't blown out
 	h.add_child(lantern)
+	h.lantern = lantern
 	return h
+
+
+## The hero's lantern, and how it burns in a normal room. Under the Omen of Night (v241) it
+## is the main light of the room (Game._night_light).
+const LANTERN_ENERGY := 0.9
+const LANTERN_RANGE := 8.0
+var lantern: OmniLight3D
 
 
 func place_at(pos: Vector3) -> void:

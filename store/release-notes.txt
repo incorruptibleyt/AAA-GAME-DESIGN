@@ -1,5 +1,7 @@
-Version 240: a better first blessing pick
-- Your first blessing now always offers 3 cards that change how you fight: a shot blessing (Twin Shots or Fire Shots), one of your hero's own blessings, and Frost Shots, Eyes in the Back or Bone Ward.
-- Tips like "NEW: DASH!" now sit low on the screen, just over DASH and your special, so they point at the button.
-- Hero blessings that change how each hero fights (v239).
+Version 241: Omens that change the rules
+- Omen of Graves: fallen skeletons burst into bone spikes a moment later. Step away, or lead skeletons over the graves.
+- Omen of the Stalker: a shade you can't hurt glides in while you stand still. Attack, step away, attack.
+- Omen of Night: the crypt goes dark and only your lantern lights the way.
+- Cursed Doors can bring these Omens too.
+- Your first blessing pick changes how you fight (v240).
 - The Blood Moon is up until Dec 3.
