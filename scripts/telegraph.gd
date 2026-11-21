@@ -120,7 +120,8 @@ static func circle(pos: Vector3, r: float, seconds: float, done: Callable, volum
 
 
 ## A strip from `origin` going `length` along `direction` (charges, aimed shots).
-static func line(origin: Vector3, direction: Vector3, length: float, width: float, seconds: float, done: Callable) -> Telegraph:
+## `volume`: its warning beep (0 for all but one strip of a fan that lands together).
+static func line(origin: Vector3, direction: Vector3, length: float, width: float, seconds: float, done: Callable, volume := 0.6) -> Telegraph:
 	var t := Telegraph.new()
 	t._is_line = true
 	_parent().add_child(t)
@@ -133,7 +134,8 @@ static func line(origin: Vector3, direction: Vector3, length: float, width: floa
 	U.floor_quad(t, Vector2(width + 0.4, length + 0.4), t._mat, Vector3(0, 0, -length / 2))
 	t.duration = seconds
 	t.on_done = done
-	Sfx.play("warn", 0.6)
+	if volume > 0.0:
+		Sfx.play("warn", volume)
 	return t
 
 

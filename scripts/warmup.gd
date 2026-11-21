@@ -99,7 +99,11 @@ static func run(core := false, from := 0) -> bool:
 				var e := Enemy.create(kinds[i], holder, spots[i])
 				e._spawn_timer = 0.0
 				if kinds[i] == "w":
-					e.make_elite()
+					e.make_elite("ward")   # version 237: its bubble and name tag compile here too
+					if e._tag:
+						e._tag.visible = true
+					if e._bubble:
+						e._bubble.visible = true
 				if kinds[i] == "Q":
 					(e as BloodQueen)._ghost(1.0)   # her Eclipse shadow (version 221)
 				if e._bar:

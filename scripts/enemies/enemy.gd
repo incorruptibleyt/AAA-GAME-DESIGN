@@ -12,6 +12,54 @@ var drop_chance := 0.09
 var is_boss := false
 ## Elite skeletons are purple, bigger and tougher, and drop more coins.
 var elite := false
+## Version 237 (whole-game review fix 7): an elite used to be only x2.2 health and a purple
+## tint, so a player never had to fight one any differently. Now each elite also has one move
+## of its own from ELITE_MOVES, named over its head in that move's colour:
+## split: breaks into two small skeletons when it dies.
+## burst: a fan of warning strips when it dies, then a bone dart flies down each one (not
+## called shards: the Blood Moon's prize is Moon shards, which elites drop).
+## fury: at half health it roars, turns red, runs FURY_SPEED times as fast and can hardly be
+## pushed back. (Not a faster brain: wind-ups are timed in _think, but their warnings on the
+## floor are not, so a faster brain struck before its warning filled in.)
+## mender: every MEND_EVERY seconds heals the hurt skeletons around it.
+## ward: a bubble that stops WARD_HITS hits, breaks, and grows back WARD_REGROW s later.
+var elite_move := ""
+const ELITE_MOVES := {
+	"split": {"tag": "SPLITTER", "word": "Splitter", "col": Color(1.0, 0.52, 0.92),
+		"tip": "SPLITTER ELITE: breaks into 2 skeletons when it dies!"},
+	"burst": {"tag": "BURST", "word": "Burst", "col": Color(1.0, 0.84, 0.5),
+		"tip": "BURST ELITE: shoots bone darts as it dies. Step off the lines!"},
+	"fury": {"tag": "FURY", "word": "Fury", "col": Color(1.0, 0.36, 0.22),
+		"tip": "FURY ELITE: gets fast at half health. Finish it quick!"},
+	"mender": {"tag": "MENDER", "word": "Mender", "col": Color(0.5, 1.0, 0.42),
+		"tip": "MENDER ELITE: heals skeletons near it. Kill it first!"},
+	"ward": {"tag": "WARDED", "word": "Warded", "col": Color(0.72, 0.88, 1.0),
+		"tip": "WARDED ELITE: its bubble stops 3 hits, then grows back."},
+}
+const ELITE_HEALTH := 2.2
+const WARD_HEALTH := 1.8   # the bubble is extra toughness, so a little less health under it
+const SPLIT_HEALTH := 0.5
+const DART_LINES := 6
+const DART_LENGTH := 7.0
+const DART_WARN := 0.8
+const DART_SPEED := 9.0
+const DART_DAMAGE := 10.0
+const FURY_AT := 0.5
+const FURY_SPEED := 1.6
+const MEND_EVERY := 1.25
+const MEND_RANGE := 5.0
+const MEND_SHARE := 0.12
+const WARD_HITS := 3
+const WARD_REGROW := 5.0
+var _tag: Label3D
+var _furious := false
+var _mend_left := MEND_EVERY
+var _ward_hits := 0
+var _ward_left := 0.0
+var _bubble: MeshInstance3D
+var _bubble_mat: StandardMaterial3D
+## Set when it falls because its boss fell: no split or burst then.
+var _crumbling := false
 
 var _slow_left := 0.0
 
@@ -121,14 +169,18 @@ func kind_name() -> String:
 		if i > 0 and n[i] == n[i].to_upper() and n[i] != n[i].to_lower():
 			out += " "
 		out += n[i]
+	if elite and elite_move != "":
+		return "Elite %s %s" % [ELITE_MOVES[elite_move].word, out]
 	return ("Elite " if elite else "") + out
 
 
 ## Turns this skeleton into a purple elite (gold until version 116, the colour of coins and
-## of the Crypt Pass hero).
-func make_elite() -> void:
+## of the Crypt Pass hero). `pick` chooses its move (ELITE_MOVES); left empty, one is drawn
+## from the room's dice, so the Daily Crypt's elites are the same for everyone.
+func make_elite(pick := "") -> void:
 	elite = true
-	init_health(max_health * 2.2)
+	elite_move = pick if pick != "" else _pick_move()
+	init_health(max_health * (WARD_HEALTH if elite_move == "ward" else ELITE_HEALTH))
 	contact_damage *= 1.3
 	knockback_scale *= 0.5
 	radius *= 1.15
@@ -140,6 +192,193 @@ func make_elite() -> void:
 	if _bar:
 		_bar.queue_free()
 		_bar = HealthBar.attach(self)
+	if elite_move == "":
+		return
+	var info: Dictionary = ELITE_MOVES[elite_move]
+	_tag = Label3D.new()
+	_tag.text = info.tag
+	_tag.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_tag.no_depth_test = true
+	_tag.fixed_size = true
+	_tag.pixel_size = 0.0006
+	_tag.font_size = 34
+	_tag.outline_size = 12
+	_tag.modulate = info.col
+	_tag.outline_modulate = Color(0.06, 0.02, 0.08)
+	if Hud.UI_FONT:
+		_tag.font = Hud.UI_FONT
+	_tag.position.y = center_height * 2.0 + 0.95   # just over its health bar
+	_tag.visible = false   # shown once it has climbed out of the floor
+	add_child(_tag)
+	if elite_move == "ward":
+		_ward_hits = WARD_HITS
+		_bubble_mat = U.unlit(Color(info.col, 0.24)).duplicate() as StandardMaterial3D
+		_bubble = U.sphere(self, maxf(0.85, radius * 1.55), _bubble_mat, Vector3(0, center_height * 1.05, 0))
+		_bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_bubble.visible = false   # with the tag, once it is out of the floor
+
+
+## The tutorial's elites stay plain. Bloodbats come in threes and never split.
+func _pick_move() -> String:
+	if Game.first_run:
+		return ""
+	var bag := ELITE_MOVES.keys()
+	if self is Bloodbat:
+		bag.erase("split")
+	return bag[Game._room_rng.randi() % bag.size()]
+
+
+## Each frame once it is up and the fight is on: the move's own timers.
+func _elite_tick(delta: float) -> void:
+	if _tag and not _tag.visible:
+		_tag.visible = true
+		if _bubble and _ward_hits > 0:
+			_bubble.visible = true
+		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0)
+	match elite_move:
+		"fury":
+			if not _furious and health < max_health * FURY_AT:
+				_fury()
+			elif _furious and randf() < delta * 10.0:
+				Fx.magic(center(), ELITE_MOVES.fury.col, 1)
+		"mender":
+			_mend_left -= delta
+			if _mend_left <= 0.0:
+				_mend_left = MEND_EVERY
+				_mend()
+		"ward":
+			if _ward_hits <= 0:
+				_ward_left -= delta
+				if _ward_left <= 0.0:
+					_ward_up()
+			elif _bubble:
+				var s := 1.0 + sin(Time.get_ticks_msec() * 0.004 + get_instance_id()) * 0.04
+				_bubble.scale = Vector3(s, s, s)
+
+
+## Fury: half health. It stops to roar, turns red and from then on runs FURY_SPEED times as
+## fast, and shrugs off most of the push of a hit.
+func _fury() -> void:
+	var col: Color = ELITE_MOVES.fury.col
+	_furious = true
+	move_speed *= FURY_SPEED
+	knockback_scale *= 0.5
+	_flinch_left = maxf(_flinch_left, 0.35)
+	Sfx.play("roar", 0.4, 1.5)
+	Fx.magic(center(), col, 26)
+	Fx.shockwave(global_position, col, 2.2)
+	if visual:
+		visual.set_tint(Color(0.42, 0.06, 0.0))   # purple turns to an angry red
+		visual.enrage(col)
+		_punch_scale(1.14, 0.08, 0.25)
+	if _tag:
+		_tag.text = "FURY!"
+
+
+## Mender: heals each hurt skeleton within MEND_RANGE (never a boss, never itself) by
+## MEND_SHARE of its health, with a green ring out of the mender so you can see who did it.
+func _mend() -> void:
+	var col: Color = ELITE_MOVES.mender.col
+	var healed := 0
+	for a: Actor in Actor.all:
+		if a == self or a.team != team or a.dead or not (a is Enemy) or (a as Enemy).is_boss or not a.can_be_hit():
+			continue
+		if a.health >= a.max_health - 0.5:
+			continue
+		var d := a.global_position - global_position
+		d.y = 0.0
+		if d.length() > MEND_RANGE + a.radius:
+			continue
+		a.heal(a.max_health * MEND_SHARE)
+		Fx.magic(a.center(), col, 10)
+		healed += 1
+	if healed == 0:
+		return
+	Fx.shockwave(global_position, col, MEND_RANGE)
+	Fx.magic(center() + Vector3.UP * 0.5, col, 14)
+	Sfx.play("shimmer", 0.25, 1.5)
+	_punch_scale(1.06, 0.06, 0.2)
+
+
+## Ward: a hit on the bubble does nothing but use up one of its WARD_HITS.
+func _ward_block() -> void:
+	var col: Color = ELITE_MOVES.ward.col
+	_ward_hits -= 1
+	Game.note_progress()
+	Fx.sparks(center(), col)
+	if _bar:
+		_bar.reveal()
+	if _ward_hits > 0:
+		Sfx.play("block", 0.4, 1.3)
+		_bubble_mat.albedo_color.a = 0.1 + 0.05 * _ward_hits
+		if _bubble:
+			var tw := _bubble.create_tween()
+			_bubble.scale = Vector3.ONE * 1.15
+			tw.tween_property(_bubble, "scale", Vector3.ONE, 0.15)
+		return
+	# Broken: now it can be hurt, until the bubble grows back.
+	_ward_left = WARD_REGROW
+	Sfx.play("crack", 0.7, 1.25)
+	Fx.magic(center(), col, 28)
+	Fx.shockwave(global_position, col, 1.8)
+	if _bubble:
+		_bubble.visible = false
+	if _tag:
+		_tag.modulate = Color(col, 0.45)
+
+
+func _ward_up() -> void:
+	var col: Color = ELITE_MOVES.ward.col
+	_ward_hits = WARD_HITS
+	_bubble_mat.albedo_color.a = 0.24
+	Sfx.play("shimmer", 0.3, 1.2)
+	Fx.magic(center(), col, 16)
+	if _bubble:
+		_bubble.visible = true
+		_bubble.scale = Vector3.ONE * 0.3
+		_bubble.create_tween().tween_property(_bubble, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	if _tag:
+		_tag.modulate = col
+
+
+## Splitter: two small, half-health skeletons pop out either side of it, across the hero's
+## line of fire, so both can be seen at once.
+func _split() -> void:
+	var at := global_position
+	var side := Vector3.RIGHT
+	if Game.hero:
+		var to := Game.hero.global_position - at
+		to.y = 0.0
+		if to.length_squared() > 0.01:
+			side = to.normalized().cross(Vector3.UP)
+	Fx.magic(center(), ELITE_MOVES.split.col, 24)
+	Sfx.play("crack", 0.6, 0.8)
+	for k in [-1.0, 1.0]:
+		var off: Vector3 = side * k * 0.8
+		var spot: Vector3 = Room.current.resolve_move(at, off, 0.4) if Room.current else at + off
+		var m := Game.spawn_enemy("m", spot)
+		m.init_health(m.max_health * SPLIT_HEALTH)
+		m._spawn_timer = 0.3   # pops up, rather than climbing out
+		m.radius *= 0.85
+		m.visual.scale *= 0.8
+		m.drop_chance = 0.0
+		m.rotation.y = rotation.y
+
+
+## Burst: DART_LINES strips fan out from where it fell, one straight at the hero, and a
+## bone dart flies down each when they fill. Static, so the darts still fly once the body
+## has gone.
+static func _dart_fan(at: Vector3, hero_at: Vector3, src: String) -> void:
+	var col: Color = ELITE_MOVES.burst.col
+	var to := hero_at - at
+	to.y = 0.0
+	var turn := atan2(-to.x, -to.z) if to.length_squared() > 0.01 else randf() * TAU
+	for i in DART_LINES:
+		var d := Vector3.FORWARD.rotated(Vector3.UP, turn + TAU * i / DART_LINES)
+		var fly := func():
+			var p := Projectile.fire(Team.UNDEAD, at + Vector3.UP * 0.9 + d * 0.4, d, DART_DAMAGE, DART_SPEED, col, 0.24, src)
+			p.life = DART_LENGTH / DART_SPEED
+		Telegraph.line(at + d * 0.3, d, DART_LENGTH, 0.45, DART_WARN, fly, 0.6 if i == 0 else 0.0)
 
 
 ## Elites hit 30% harder (make_elite). Skeletons that change their touch damage mid-fight
@@ -153,6 +392,7 @@ func elite_mult() -> float:
 func crumble() -> void:
 	if dead:
 		return
+	_crumbling = true
 	_spawn_timer = 0.0
 	visual.position.y = 0.0
 	_surface()
@@ -259,6 +499,8 @@ func _process(delta: float) -> void:
 	if Game.state != Game.State.PLAYING or hero == null or hero.dead:
 		stand(delta)
 		return
+	if elite_move != "":
+		_elite_tick(delta)
 	if _flinch_left > 0.0:
 		_flinch_left -= delta
 		stand(delta)
@@ -576,6 +818,9 @@ func track(t: Telegraph) -> Telegraph:
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():
 		return
+	if _ward_hits > 0 and amount < Actor.KILL:
+		_ward_block()
+		return
 	if _slow_left > 0.0 and Game.hero and Game.hero.perks.has("deepfreeze"):
 		amount *= 1.3
 	if health < max_health * 0.3 and Game.hero and Game.hero.perks.has("executioner"):
@@ -631,6 +876,17 @@ func _on_death() -> void:
 		_death_burst(Game.hero)
 		if Game.hero.perks.has("splinters"):
 			_splinters(Game.hero)
+	if _tag:
+		_tag.visible = false
+	if _bubble:
+		_bubble.visible = false
+	# An elite's last move (not when it crumbles because its boss fell). Before the game
+	# counts it as gone, so its split skeletons keep the room from ending.
+	if not _crumbling and Game.state == Game.State.PLAYING and Room.current:
+		if elite_move == "split":
+			_split()
+		elif elite_move == "burst":
+			_dart_fan(global_position, Game.hero.global_position if Game.hero else global_position, kind_name())
 	var hearts := (FIRST_RUN_HEARTS if Game.first_run else 1.0) * Game.assist_hearts()
 	if randf() < drop_chance * hearts + (Game.heart_bonus if drop_chance > 0.0 else 0.0) and not Game.curses.has("famine"):
 		Pickup.drop(global_position)

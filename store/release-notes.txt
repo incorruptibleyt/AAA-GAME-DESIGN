@@ -1,6 +1,9 @@
-Version 236: every hero fights their own way
-- Rogue: the only hero who fights on the run. Moving, the Rogue throws knives; standing still, quick crossbow bolts.
-- Mage: moving charges magic, and the first orb after stopping is a big blast.
-- Barbarian: axes fly back to his hand, cutting on the way out and back.
-- Knight: sword swings up close, and his shield blocks shots from the front.
+Version 237: elites have moves of their own
+- Every purple elite now has one move, named over its head.
+- SPLITTER: breaks into 2 skeletons when it dies.
+- BURST: shoots bone darts down warning lines as it dies.
+- FURY: turns red and fast at half health.
+- MENDER: heals the skeletons near it. Kill it first!
+- WARDED: a bubble stops 3 hits, then grows back.
+- Every hero fights their own way (Knight, Barbarian, Mage, Rogue).
 - The Blood Moon is up until Dec 3: hunt the Queen.
