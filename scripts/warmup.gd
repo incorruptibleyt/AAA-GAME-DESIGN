@@ -288,6 +288,15 @@ static func run(core := false, from := 0) -> bool:
 		fall.position = spots[25] + Vector3(0, 0, -0.6)
 		Props._add_sandfall(fall)
 		Props._mesh(holder, Props.lotus_column()).position = spots[26] + Vector3(0, 0, -0.6))
+	# The Whispering Library (version 249): a lectern with its flying pages (their shader turns
+	# them) and a bookcase pillar.
+	if not core: steps.append(func():
+		var lect := Node3D.new()
+		holder.add_child(lect)
+		lect.position = spots[27] + Vector3(0, 0, -0.6)
+		Props._mesh(lect, Props._lectern())
+		Props._add_pages(lect, Vector3.ZERO)
+		Props._mesh(holder, Props.bookcase_column()).position = spots[28] + Vector3(0, 0, -0.6))
 	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
 	# a spore cloud, crawling roots and the Sporemother's pod.
 	if core: steps.append(func():

@@ -27,9 +27,12 @@ const TRACKS := {
 	# The Amethyst Mine (version 248): the tune on a harmonica and a banjo over a guitar,
 	# with a xylophone, a tuba bass and the clink of picks.
 	"mine": [preload("res://audio/music/bc_mine.ogg"), preload("res://audio/music/bc_mine_fight.ogg")],
+	# The Whispering Library (version 249): the tune on a harpsichord and a flute over a harp
+	# and soft voices, with a cello and a ticking clock.
+	"library": [preload("res://audio/music/bc_library.ogg"), preload("res://audio/music/bc_library_fight.ogg")],
 }
 ## One track per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb", "mine"]
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb", "mine", "library"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5

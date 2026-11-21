@@ -1,3 +1,3 @@
-Version 248: floor 7 is a new place, the Amethyst Mine
-- The first Crypt Pass floor is now a worked-out mine full of glowing amethyst: rails across the floor with a side track, timber props along the walls, crystal clusters, ore carts, boarded tunnels with lanterns and rough rock columns.
-- Its own music (cowbell, claves and plucked strings) and the sound of picks echoing in the dark.
+Version 249: floor 8 is a new place, the Whispering Library
+- The Lich's own floor is now a library of forbidden books: herringbone floors, old rugs, a brass circle of glowing letters, bookcases for walls and pillars, lecterns with their pages flying round them, ladders, a tall clock and a great globe.
+- Its own music (harpsichord, harp and soft voices) and the sound of whispering and a ticking clock.

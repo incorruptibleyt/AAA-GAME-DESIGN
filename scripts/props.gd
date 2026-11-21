@@ -5,7 +5,9 @@ class_name Props
 ## walls, so they never look like fire on the floor), broken columns grown over with kelp
 ## and drains pouring water in the Drowned Vault, clumps of glowing mushrooms and shelf
 ## fungus in the Glowcap Grotto, obelisks, jars, painted coffins and sand pouring in through
-## cracks in the walls in the Sandfall Tomb. The pieces are simple shapes baked
+## cracks in the walls in the Sandfall Tomb, crystals, carts and boarded tunnels in the
+## Amethyst Mine, and lecterns with flying pages, piled books, ladders, a clock and a globe
+## in the Whispering Library. The pieces are simple shapes baked
 ## into one mesh per material and add no lights, so they stay cheap on phones. A corner
 ## piece only goes where the room's layout leaves that corner empty.
 
@@ -71,6 +73,16 @@ static func dress(room: Room, layout: Array) -> void:
 					_glow_pool(n, 2.8, Color(0.7, 0.35, 1.0, 0.24))
 				else:
 					_mesh(n, _mine_cart())
+			"library":
+				# A lectern in each far corner, its pages flying round it; in the near ones
+				# (by the camera) books piled up with candles burning on them.
+				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+				if p.z < 0.0:
+					_mesh(n, _lectern())
+					_add_pages(n, Vector3(0.45, 0, 0.45))
+					_glow_pool(n, 2.6, Color(0.35, 1.0, 0.82, 0.16))
+				else:
+					_mesh(n, _book_pile())
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
@@ -114,6 +126,11 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z * 1.5), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_mesh(n, _wall_crystals())
+				"library":
+					# A ladder leaning on the shelves.
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_no_shadow(_mesh(n, _ladder()))
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
@@ -150,6 +167,12 @@ static func dress(room: Room, layout: Array) -> void:
 				var n := _place(room, Vector3(x * 1.22, 0, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
 				_mesh(n, _boarded_tunnel())
+			"library":
+				# A tall clock on one side of the door and a great globe on the other.
+				var n := _place(room, Vector3(x * 1.2, 0, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_mesh(n, _clock() if x < 0.0 else _globe())
+				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + (0.25 if x < 0.0 else 0.5)), 0.45)
 
 
 ## KayKit pieces along the walls (version 134): a banner either side of the door and a few
@@ -168,6 +191,7 @@ const KIT := {
 	# The Sandfall Tomb: no KayKit banners; its own jars ("@jar", made below) and fallen stone.
 	"sand": {"banner": "", "side": [["@jar", 0.0], ["rubble_half", 0.5], ["@jar", 0.0], ["rubble_half", 0.55]]},
 	"mine": {"banner": "", "side": [["box_small", 0.6], ["@ore", 0.0], ["barrel_small", 0.8], ["@ore", 0.0]]},
+	"library": {"banner": "", "side": [["@books", 0.0], ["candle_triple", 0.6], ["@books", 0.0], ["box_small_decorated", 0.62]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
 
@@ -201,7 +225,8 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 			if not room.leaves_gap(Vector3(side * Room.HALF_W, 0, z), 0.7):
 				continue
 			if own:
-				_no_shadow(_mesh(_place(room, at), _jar() if pick[0] == "@jar" else _ore_pile()))
+				var own_mesh: ArrayMesh = _jar() if pick[0] == "@jar" else (_ore_pile() if pick[0] == "@ore" else _wall_books())
+				_no_shadow(_mesh(_place(room, at), own_mesh))
 			else:
 				_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
 			room._add_obstacle(Vector3(side * Room.HALF_W, 0, z), 0.7)
@@ -256,7 +281,7 @@ static func _scatter(room: Room, layout: Array, kind: String) -> void:
 			var p := at + Vector3(rng.randf_range(-0.5, 0.5), 0, rng.randf_range(-0.5, 0.5))
 			var yaw := Basis(Vector3.UP, rng.randf() * TAU)
 			var roll := rng.randf()
-			if roll < 0.5:
+			if roll < 0.5 and kind != "library":   # (no stones on the library's parquet)
 				# Pebbles and broken stone.
 				var sz := rng.randf_range(0.08, 0.17)
 				var m := chip if rng.randf() < 0.4 else stone
@@ -364,6 +389,18 @@ static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, r
 				var head := p + Vector3.UP * 0.04 + yaw * Vector3(0, 0, -0.31)
 				for sd in [-1.0, 1.0]:
 					parts.append([_cone(0.004, 0.025, 0.24, 5), Transform3D(yaw * Basis(Vector3.FORWARD, sd * PI / 2 * 0.85), head + yaw * Vector3(sd * 0.11, 0, 0)), _mine_mat("iron")])
+		"library":
+			var roll := rng.randf()
+			if roll < 0.5:
+				# A loose page, lying almost flat.
+				parts.append([_cube(), Transform3D(yaw * Basis(Vector3.RIGHT, rng.randf_range(-0.08, 0.08)) * Basis.from_scale(Vector3(0.17, 0.004, 0.22)), p + Vector3.UP * 0.012), _lib_mat("paper")])
+			elif roll < 0.8:
+				# A book dropped on the floor.
+				_book(parts, p, Vector3(0.28, 0.06, 0.21), yaw, BOOK_COLOURS[rng.randi() % 4])
+			else:
+				# An ink pot and its quill.
+				parts.append([_cone(0.028, 0.04, 0.06, 8), Transform3D(yaw, p + Vector3.UP * 0.03), _lib_mat("dark")])
+				parts.append([_sphere(), _xf(p + Vector3.UP * 0.1 + yaw * Vector3(0.03, 0, 0), Vector3(0.012, 0.11, 0.03), yaw * Basis(Vector3.FORWARD, 0.4)), _lib_mat("paper")])
 		"fungus":
 			# A tiny mushroom: a stalk and a glowing cap.
 			var h := rng.randf_range(0.13, 0.24)
@@ -1291,3 +1328,339 @@ static func rock_column() -> ArrayMesh:
 		_prism(parts, c[0], c[1], c[2], c[3], _mine_mat("crystal"))
 	_baked["rock_column"] = _bake(parts)
 	return _baked["rock_column"]
+
+
+# ---------------------------------------------------------------- the Whispering Library
+
+## The Whispering Library's materials (floor 8, version 249), made once.
+static func _lib_mat(key: String) -> Material:
+	var k := "lib_" + key
+	if not _baked.has(k):
+		match key:
+			"oak": _baked[k] = U.mat(Color(0.26, 0.15, 0.08), 0.6)
+			"oak_dark": _baked[k] = U.mat(Color(0.13, 0.075, 0.04), 0.7)
+			"brass": _baked[k] = U.mat(Color(0.66, 0.5, 0.22), 0.35)
+			"paper": _baked[k] = U.mat(Color(0.8, 0.75, 0.62), 0.9)
+			"wax": _baked[k] = U.mat(Color(0.86, 0.82, 0.68), 0.7)
+			"flame": _baked[k] = U.mat(Color(1.0, 0.72, 0.35), 0.5, 3.0)
+			"red": _baked[k] = U.mat(Color(0.36, 0.075, 0.065), 0.7)
+			"green": _baked[k] = U.mat(Color(0.07, 0.2, 0.12), 0.7)
+			"navy": _baked[k] = U.mat(Color(0.08, 0.11, 0.26), 0.7)
+			"tan": _baked[k] = U.mat(Color(0.4, 0.28, 0.12), 0.7)
+			"ghost": _baked[k] = U.mat(Color(0.3, 0.95, 0.78), 0.4, 1.2)
+			"face": _baked[k] = U.mat(Color(0.78, 0.73, 0.58), 0.6)
+			"dark": _baked[k] = U.mat(Color(0.03, 0.025, 0.02), 1.0)
+			"sea": _baked[k] = U.mat(Color(0.1, 0.22, 0.27), 0.5)
+			"land": _baked[k] = U.mat(Color(0.5, 0.41, 0.24), 0.7)
+			"bone": _baked[k] = U.mat(Color(0.8, 0.76, 0.64), 0.85)
+	return _baked[k]
+
+
+const BOOK_COLOURS := ["red", "green", "navy", "tan"]
+
+
+## Makes every part `k` times bigger, from the piece's origin.
+static func _grow(parts: Array, k: float) -> void:
+	var g := Transform3D(Basis.from_scale(Vector3.ONE * k), Vector3.ZERO)
+	for part: Array in parts:
+		part[1] = g * (part[1] as Transform3D)
+
+
+## A closed book lying flat: its cover (`size` = width, thickness, depth) and the pages
+## showing along three edges.
+static func _book(parts: Array, at: Vector3, size: Vector3, basis: Basis, cover: String) -> void:
+	parts.append([_cube(), Transform3D(basis * Basis.from_scale(size), at + basis * Vector3(0, size.y * 0.5, 0)), _lib_mat(cover)])
+	parts.append([_cube(), Transform3D(basis * Basis.from_scale(Vector3(size.x - 0.012, size.y * 0.72, size.z - 0.014)),
+		at + basis * Vector3(0.009, size.y * 0.5, 0)), _lib_mat("paper")])
+
+
+## A stack of `count` books, each a little turned, from `at` up; returns the height of its top.
+static func _book_stack(parts: Array, at: Vector3, count: int, rng: RandomNumberGenerator, big := 1.0) -> float:
+	var y := 0.0
+	for i in count:
+		var sz := Vector3(rng.randf_range(0.26, 0.36), rng.randf_range(0.05, 0.09), rng.randf_range(0.2, 0.27)) * big
+		var b := Basis(Vector3.UP, rng.randf_range(-0.35, 0.35))
+		_book(parts, at + Vector3(rng.randf_range(-0.02, 0.02), y, rng.randf_range(-0.02, 0.02)), sz, b, BOOK_COLOURS[rng.randi() % 4])
+		y += sz.y
+	return y
+
+
+## A candle standing at `at`: wax, a drip, a wick and its flame (no light: the flame glows).
+static func _candle(parts: Array, at: Vector3, h: float) -> void:
+	parts.append([_cone(0.032, 0.036, h, 8), _xf(at + Vector3(0, h * 0.5, 0), Vector3.ONE), _lib_mat("wax")])
+	parts.append([_sphere(), _xf(at + Vector3(0.025, h * 0.7, 0.01), Vector3(0.018, 0.04, 0.018)), _lib_mat("wax")])
+	parts.append([_sphere(), _xf(at + Vector3(0, h + 0.045, 0), Vector3(0.02, 0.045, 0.02)), _lib_mat("flame")])
+
+
+## A tall lectern in a far corner, leaning its great open book towards the room (+X and +Z),
+## a candle on an arm and books piled at its foot. Its pages fly round it (_add_pages).
+static func _lectern() -> ArrayMesh:
+	if _baked.has("lectern"):
+		return _baked["lectern"]
+	var parts := []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 61
+	var at := Vector3(0.3, 0, 0.3)
+	parts.append([_cone(0.2, 0.3, 0.1, 8), _xf(at + Vector3(0, 0.05, 0), Vector3.ONE), _lib_mat("oak_dark")])
+	parts.append([_cone(0.07, 0.1, 0.95, 8), _xf(at + Vector3(0, 0.55, 0), Vector3.ONE), _lib_mat("oak")])
+	parts.append([_cone(0.14, 0.08, 0.08, 8), _xf(at + Vector3(0, 1.05, 0), Vector3.ONE), _lib_mat("oak")])
+	# The sloping desk, its long side across the room's diagonal, tilted towards the room.
+	var across := Vector3(1, 0, -1).normalized()
+	var b := Basis(across, 0.5) * Basis(Vector3.UP, PI / 4)
+	var top := at + Vector3(0, 1.14, 0)
+	parts.append([_cube(), Transform3D(b * Basis.from_scale(Vector3(0.66, 0.04, 0.48)), top), _lib_mat("oak_dark")])
+	parts.append([_cube(), Transform3D(b * Basis.from_scale(Vector3(0.66, 0.05, 0.03)), top + b * Vector3(0, 0.03, 0.24)), _lib_mat("oak")])
+	# The open book: a red cover and two fans of pages rising from the spine.
+	parts.append([_cube(), Transform3D(b * Basis.from_scale(Vector3(0.6, 0.016, 0.4)), top + b * Vector3(0, 0.028, -0.01)), _lib_mat("red")])
+	for sd in [-1.0, 1.0]:
+		var pb := b * Basis(Vector3(0, 0, 1), -sd * 0.1)
+		parts.append([_cube(), Transform3D(pb * Basis.from_scale(Vector3(0.27, 0.035, 0.36)), top + b * Vector3(sd * 0.14, 0.05, -0.01)), _lib_mat("paper")])
+		# Lines of writing that glow faintly.
+		for k in 4:
+			parts.append([_cube(), Transform3D(pb * Basis.from_scale(Vector3(0.19, 0.004, 0.012)), top + b * Vector3(sd * 0.14, 0.07, -0.12 + k * 0.07)), _lib_mat("ghost")])
+	# A candle on an arm.
+	parts.append([_cube(), _xf(at + Vector3(-0.12, 0.98, 0.12), Vector3(0.025, 0.025, 0.34), Basis(Vector3.UP, PI / 4)), _lib_mat("brass")])
+	parts.append([_cone(0.05, 0.03, 0.03, 8), _xf(at + Vector3(-0.24, 0.99, 0.24), Vector3.ONE), _lib_mat("brass")])
+	_candle(parts, at + Vector3(-0.24, 1.0, 0.24), 0.15)
+	# Books heaped at its foot.
+	_book_stack(parts, at + Vector3(0.42, 0, -0.08), 4, rng)
+	_book_stack(parts, at + Vector3(-0.08, 0, 0.42), 2, rng, 1.2)
+	_grow(parts, 1.3)
+	_baked["lectern"] = _bake(parts)
+	return _baked["lectern"]
+
+
+## The lectern's pages, torn loose and flying round it in a slow ring, bobbing and fluttering
+## (a shader turns them; nothing moves on the CPU). They glow faintly with the whispering.
+static func _add_pages(n: Node3D, at: Vector3) -> void:
+	if not _baked.has("pages"):
+		var parts := []
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 62
+		for i in 8:
+			var a := TAU * i / 8.0 + rng.randf_range(-0.2, 0.2)
+			var r := rng.randf_range(0.5, 0.75)
+			var y := rng.randf_range(1.65, 2.45)
+			var pb := Basis(Vector3.UP, -a) * Basis(Vector3(1, 0, 0), rng.randf_range(-0.5, 0.5)) * Basis(Vector3(0, 0, 1), rng.randf_range(0.6, 1.2))
+			parts.append([_cube(), Transform3D(pb * Basis.from_scale(Vector3(0.17, 0.006, 0.22)), Vector3(cos(a) * r, y, sin(a) * r)), _pages_mat()])
+		_baked["pages"] = _bake(parts)
+	var mi := _mesh(n, _baked["pages"])
+	mi.position = at
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+static func _pages_mat() -> ShaderMaterial:
+	if not _baked.has("pages_mat"):
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode cull_disabled;
+uniform vec4 paper : source_color = vec4(0.85, 0.8, 0.66, 1.0);
+uniform vec4 glow : source_color = vec4(0.35, 1.0, 0.82, 1.0);
+varying float ph;
+void vertex() {
+	float a0 = atan(VERTEX.z, VERTEX.x);
+	float r = length(VERTEX.xz);
+	float t = TIME * 0.35;
+	VERTEX.xz = vec2(cos(a0 + t), sin(a0 + t)) * r;
+	VERTEX.y += sin(TIME * 1.1 + a0 * 3.0) * 0.08;
+	NORMAL.xz = vec2(NORMAL.x * cos(t) - NORMAL.z * sin(t), NORMAL.x * sin(t) + NORMAL.z * cos(t));
+	ph = a0;
+}
+void fragment() {
+	ALBEDO = paper.rgb;
+	ROUGHNESS = 0.9;
+	EMISSION = glow.rgb * 0.22 * (0.6 + 0.4 * sin(TIME * 2.0 + ph * 5.0));
+}
+"""
+		var m := ShaderMaterial.new()
+		m.shader = sh
+		_baked["pages_mat"] = m
+	return _baked["pages_mat"]
+
+
+## Books piled in a near corner (all low, so they never hide the hero), candles burning on
+## them, a skull for a candlestick and an open book on the floor.
+static func _book_pile() -> ArrayMesh:
+	if _baked.has("book_pile"):
+		return _baked["book_pile"]
+	var parts := []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 63
+	_book_stack(parts, Vector3(0.12, 0, 0.12), 5, rng, 1.15)
+	var hb := _book_stack(parts, Vector3(0.62, 0, 0.08), 3, rng)
+	_candle(parts, Vector3(0.6, hb, 0.08), 0.2)
+	_candle(parts, Vector3(0.68, hb, 0.16), 0.12)
+	var hc := _book_stack(parts, Vector3(0.08, 0, 0.62), 2, rng, 1.1)
+	# A skull with a candle stuck on it.
+	var sk := Vector3(0.08, hc, 0.62)
+	parts.append([_sphere(), _xf(sk + Vector3(0, 0.1, 0), Vector3(0.1, 0.095, 0.11)), _lib_mat("bone")])
+	parts.append([_cube(), _xf(sk + Vector3(0.03, 0.04, 0.04), Vector3(0.1, 0.05, 0.09), Basis(Vector3.UP, PI / 4)), _lib_mat("bone")])
+	for e in [-1.0, 1.0]:
+		var ep := Basis(Vector3.UP, PI / 4) * Vector3(e * 0.038, 0, 0.085)
+		parts.append([_sphere(), _xf(sk + Vector3(0, 0.1, 0) + ep, Vector3.ONE * 0.026), _lib_mat("dark")])
+	_candle(parts, sk + Vector3(0, 0.18, 0), 0.08)
+	parts.append([_sphere(), _xf(sk + Vector3(0.02, 0.17, 0.02), Vector3(0.05, 0.02, 0.05)), _lib_mat("wax")])
+	# An open book face up on the floor.
+	var ob := Basis(Vector3.UP, -PI / 4 + 0.3)
+	var oa := Vector3(0.62, 0, 0.62)
+	parts.append([_cube(), Transform3D(ob * Basis.from_scale(Vector3(0.5, 0.014, 0.34)), oa + Vector3(0, 0.007, 0)), _lib_mat("navy")])
+	for sd in [-1.0, 1.0]:
+		parts.append([_cube(), Transform3D(ob * Basis(Vector3(0, 0, 1), -sd * 0.08) * Basis.from_scale(Vector3(0.23, 0.03, 0.31)), oa + ob * Vector3(sd * 0.12, 0.025, 0)), _lib_mat("paper")])
+	_grow(parts, 1.35)
+	_baked["book_pile"] = _bake(parts)
+	return _baked["book_pile"]
+
+
+## A library ladder leaning on the bookcases of a side wall (+X out of the wall), its hooks on
+## a brass rail near the top and little brass wheels at its feet.
+static func _ladder() -> ArrayMesh:
+	if _baked.has("ladder"):
+		return _baked["ladder"]
+	var parts := []
+	var foot := 0.58
+	var top_y := 2.32
+	var lean := atan2(foot - 0.06, top_y)
+	var ln := Vector2(foot - 0.06, top_y).length()
+	var b := Basis(Vector3(0, 0, 1), lean)
+	var mid := Vector3((foot + 0.06) * 0.5, top_y * 0.5, 0)
+	for z in [-0.24, 0.24]:
+		parts.append([_cube(), Transform3D(b * Basis.from_scale(Vector3(0.05, ln, 0.05)), mid + Vector3(0, 0, z)), _lib_mat("oak")])
+		parts.append([_cone(0.04, 0.04, 0.03, 10), _xf(Vector3(foot, 0.04, z), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2)), _lib_mat("brass")])
+		parts.append([_cube(), _xf(Vector3(0.05, top_y + 0.02, z), Vector3(0.09, 0.03, 0.03)), _lib_mat("brass")])
+	for k in 7:
+		var t := (k + 0.7) / 8.0
+		parts.append([_cube(), _xf(Vector3(foot + (0.06 - foot) * t, top_y * t, 0), Vector3(0.04, 0.03, 0.5)), _lib_mat("oak_dark")])
+	parts.append([_cube(), _xf(Vector3(0.035, top_y, 0), Vector3(0.025, 0.025, 1.8)), _lib_mat("brass")])
+	_baked["ladder"] = _bake(parts)
+	return _baked["ladder"]
+
+
+## A tall clock against the far wall (+X out of the wall): its case, a hood round a pale face
+## with black hands, a window down its trunk and the brass pendulum behind it.
+static func _clock() -> ArrayMesh:
+	if _baked.has("clock"):
+		return _baked["clock"]
+	var parts := []
+	parts.append([_cube(), _xf(Vector3(0.2, 0.17, 0), Vector3(0.42, 0.34, 0.6)), _lib_mat("oak_dark")])
+	parts.append([_cube(), _xf(Vector3(0.18, 0.95, 0), Vector3(0.34, 1.22, 0.46)), _lib_mat("oak")])
+	parts.append([_cube(), _xf(Vector3(0.2, 1.84, 0), Vector3(0.42, 0.56, 0.58)), _lib_mat("oak_dark")])
+	parts.append([_cube(), _xf(Vector3(0.21, 2.16, 0), Vector3(0.46, 0.08, 0.64)), _lib_mat("oak")])
+	parts.append([_cone(0.0, 0.16, 0.12, 4), _xf(Vector3(0.2, 2.26, 0), Vector3(1.4, 1.0, 2.2), Basis(Vector3.UP, PI / 4)), _lib_mat("oak_dark")])
+	parts.append([_sphere(), _xf(Vector3(0.2, 2.36, 0), Vector3.ONE * 0.04), _lib_mat("brass")])
+	var face := Basis(Vector3(0, 0, 1), PI / 2)
+	parts.append([_cone(0.215, 0.215, 0.02, 20), _xf(Vector3(0.415, 1.84, 0), Vector3.ONE, face), _lib_mat("brass")])
+	parts.append([_cone(0.19, 0.19, 0.02, 20), _xf(Vector3(0.425, 1.84, 0), Vector3.ONE, face), _lib_mat("face")])
+	for k in 12:
+		var a := TAU * k / 12.0
+		parts.append([_cube(), _xf(Vector3(0.437, 1.84 + cos(a) * 0.16, sin(a) * 0.16), Vector3(0.004, 0.035, 0.012), Basis(Vector3.RIGHT, -a)), _lib_mat("dark")])
+	parts.append([_cube(), _xf(Vector3(0.44, 1.89, 0.02), Vector3(0.006, 0.11, 0.016), Basis(Vector3.RIGHT, 0.35)), _lib_mat("dark")])
+	parts.append([_cube(), _xf(Vector3(0.442, 1.84, 0.055), Vector3(0.006, 0.016, 0.13)), _lib_mat("dark")])
+	# The window and the pendulum.
+	parts.append([_cube(), _xf(Vector3(0.355, 0.98, 0), Vector3(0.01, 0.78, 0.26)), _lib_mat("dark")])
+	parts.append([_cube(), _xf(Vector3(0.36, 1.13, 0.03), Vector3(0.008, 0.48, 0.016), Basis(Vector3.RIGHT, 0.08)), _lib_mat("brass")])
+	parts.append([_cone(0.07, 0.07, 0.015, 14), _xf(Vector3(0.365, 0.82, 0.05), Vector3.ONE, face), _lib_mat("brass")])
+	_baked["clock"] = _bake(parts)
+	return _baked["clock"]
+
+
+## A great globe of the world on a three-legged stand, ringed in brass (+X out of the wall).
+static func _globe() -> ArrayMesh:
+	if _baked.has("globe"):
+		return _baked["globe"]
+	var parts := []
+	var c := Vector3(0.48, 0, 0)
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.5
+		var out := Vector3(cos(a), 0, sin(a))
+		var tilt := Basis(out.cross(Vector3.UP).normalized(), 0.32)
+		parts.append([_cone(0.022, 0.03, 0.82, 6), _xf(c + out * 0.14 + Vector3(0, 0.39, 0), Vector3.ONE, tilt), _lib_mat("oak")])
+		parts.append([_sphere(), _xf(c + out * 0.27 + Vector3(0, 0.03, 0), Vector3(0.04, 0.03, 0.04)), _lib_mat("brass")])
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.42
+	ring.outer_radius = 0.46
+	ring.rings = 24
+	ring.ring_segments = 6
+	parts.append([ring, _xf(c + Vector3(0, 1.08, 0), Vector3.ONE), _lib_mat("oak_dark")])
+	parts.append([_cone(0.05, 0.08, 0.1, 8), _xf(c + Vector3(0, 0.78, 0), Vector3.ONE), _lib_mat("oak_dark")])
+	var gc := c + Vector3(0, 1.12, 0)
+	var axis := Basis(Vector3(1, 0, 0), 0.41)
+	parts.append([_sphere(), _xf(gc, Vector3.ONE * 0.36, axis), _lib_mat("sea")])
+	var lands := [[Vector3(0.6, 0.5, 0.4), Vector3(0.16, 0.2, 0.05)], [Vector3(0.75, -0.1, 0.6), Vector3(0.12, 0.25, 0.05)],
+		[Vector3(-0.3, 0.6, 0.7), Vector3(0.2, 0.12, 0.05)], [Vector3(0.9, 0.2, -0.3), Vector3(0.1, 0.14, 0.05)],
+		[Vector3(-0.6, -0.3, 0.7), Vector3(0.12, 0.16, 0.05)], [Vector3(0.2, -0.6, 0.75), Vector3(0.14, 0.1, 0.05)]]
+	for l: Array in lands:
+		var d: Vector3 = (l[0] as Vector3).normalized()
+		var lb := Basis.looking_at(d, Vector3.UP if absf(d.y) < 0.95 else Vector3.RIGHT)
+		parts.append([_sphere(), Transform3D(lb * Basis.from_scale(l[1]), gc + d * 0.345), _lib_mat("land")])
+	var mer := TorusMesh.new()
+	mer.inner_radius = 0.385
+	mer.outer_radius = 0.41
+	mer.rings = 24
+	mer.ring_segments = 6
+	parts.append([mer, Transform3D(axis * Basis(Vector3(0, 0, 1), PI / 2), gc), _lib_mat("brass")])
+	parts.append([_sphere(), _xf(gc + axis * Vector3(0, 0.42, 0), Vector3.ONE * 0.03), _lib_mat("brass")])
+	_baked["globe"] = _bake(parts)
+	return _baked["globe"]
+
+
+## Books stacked against a side wall (the "@books" piece of the KIT).
+static func _wall_books() -> ArrayMesh:
+	if _baked.has("wall_books"):
+		return _baked["wall_books"]
+	var parts := []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 64
+	_book_stack(parts, Vector3(0, 0, -0.12), 4, rng, 1.1)
+	var h := _book_stack(parts, Vector3(0.05, 0, 0.26), 2, rng)
+	_candle(parts, Vector3(0.05, h, 0.26), 0.14)
+	_baked["wall_books"] = _bake(parts)
+	return _baked["wall_books"]
+
+
+## The Whispering Library's pillars: a square bookcase standing free, books on all four sides
+## between oak posts, a plinth and a cornice, and a few books that glow with whispering. As wide
+## as the stone pillars it stands in for.
+static func bookcase_column() -> ArrayMesh:
+	if _baked.has("bookcase_column"):
+		return _baked["bookcase_column"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 65
+	var parts := []
+	var h := Room.WALL_H + 0.4
+	parts.append([_cube(), _xf(Vector3(0, h * 0.5, 0), Vector3(0.72, h, 0.72)), _lib_mat("oak_dark")])
+	for x in [-0.44, 0.44]:
+		for z in [-0.44, 0.44]:
+			parts.append([_cube(), _xf(Vector3(x, h * 0.5, z), Vector3(0.1, h, 0.1)), _lib_mat("oak")])
+	parts.append([_cube(), _xf(Vector3(0, 0.08, 0), Vector3(1.0, 0.16, 1.0)), _lib_mat("oak_dark")])
+	parts.append([_cube(), _xf(Vector3(0, h - 0.08, 0), Vector3(1.06, 0.16, 1.06)), _lib_mat("oak")])
+	parts.append([_cube(), _xf(Vector3(0, h - 0.2, 0), Vector3(0.98, 0.08, 0.98)), _lib_mat("oak_dark")])
+	var levels := [0.16, 0.68, 1.2, 1.72, 2.24]
+	for k in levels.size():
+		var y0: float = levels[k]
+		if k > 0:
+			parts.append([_cube(), _xf(Vector3(0, y0, 0), Vector3(0.96, 0.035, 0.96)), _lib_mat("oak")])
+		var room := (h - 0.24 - y0) if k == levels.size() - 1 else 0.5
+		for f in 4:
+			var out := [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)][f] as Vector3
+			var side := Vector3(out.z, 0, -out.x)
+			var x := -0.38
+			while x < 0.36:
+				var w := rng.randf_range(0.045, 0.1)
+				if x + w > 0.39:
+					break
+				if rng.randf() < 0.06:
+					x += w
+					continue
+				var bh := minf(rng.randf_range(0.26, 0.44), room - 0.04)
+				var lean := 0.0
+				if rng.randf() < 0.08:
+					lean = rng.randf_range(0.12, 0.25)
+				var bb := Basis(out, lean) if absf(out.x) > 0.5 else Basis(out, -lean)
+				var at := out * 0.425 + side * (x + w * 0.5) + Vector3(0, y0 + 0.018 + bh * 0.5, 0)
+				var size := Vector3(0.15, bh, w) if absf(out.x) > 0.5 else Vector3(w, bh, 0.15)
+				var col: String = "ghost" if rng.randf() < 0.025 else BOOK_COLOURS[rng.randi() % 4]
+				parts.append([_cube(), Transform3D(bb * Basis.from_scale(size), at), _lib_mat(col)])
+				x += w + rng.randf_range(0.0, 0.008)
+	_baked["bookcase_column"] = _bake(parts)
+	return _baked["bookcase_column"]

@@ -10,7 +10,9 @@ extends Node
 ## a dry desert wind moaning over the tomb, sand hissing as it pours in, and now and then a
 ## slide of sand somewhere in the walls. The Amethyst Mine (version 248): the deep rumble
 ## of the mountain, timbers creaking, crystals humming faintly, and now and then the clink
-## of a pick far off down a tunnel.
+## of a pick far off down a tunnel. The Whispering Library (version 249): still air, a tall
+## clock ticking, voices whispering just too low to make out, and now and then the pages of
+## a book riffling by themselves.
 ## All of it is made in code. The draught loops play on the Music bus, so they muffle with
 ## the music when the game is paused; the drips and pops go through the Effects echo. It
 ## follows the Sounds setting, and is silent on the title screen.
@@ -25,13 +27,13 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0), Vector2(4.0, 9.0)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0), Vector2(4.0, 9.0), Vector2(4.0, 10.0)]
 
 static var _instance: Ambience
 ## Version 243: Frostfall's Blizzard turns the storm up (0..1, blizzard.gd).
 static var gust := 0.0
-var _beds: Array = [null, null, null, null, null, null, null, null, null]
-var _ones: Array = [null, null, null, null, null, null, null, null, null]
+var _beds: Array = [null, null, null, null, null, null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null, null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -108,6 +110,8 @@ func _build_all() -> void:
 	_ones[7] = _one(1.3, _sand_slide)
 	_beds[8] = _loop(_mine_bed)
 	_ones[8] = _one(1.6, _clink)
+	_beds[9] = _loop(_library_bed)
+	_ones[9] = _one(1.3, _pages)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -433,4 +437,67 @@ func _clink(n: int) -> PackedFloat32Array:
 				var t := float(i) / Sfx.RATE - start
 				if t >= 0.0:
 					x[i] += (sin(TAU * 2350.0 * t) + 0.6 * sin(TAU * 3910.0 * t) + 0.4 * sin(TAU * 1270.0 * t)) * exp(-t * 26.0) * minf(t / 0.001, 1.0) * amp
+	return x
+
+
+## The Whispering Library: still air, a tall clock (tick and a lower tock, one a second, so
+## six meet the loop's seam) and whispering: breathy noise shaped into syllables that come
+## and go, high enough for a phone's speaker.
+func _library_bed(n: int) -> PackedFloat32Array:
+	var x := _wind(n, 90.0, 260.0, 6.0, 1.2, 111)
+	var a := _wind(n, 2200.0, 4200.0, 2.0, 1.0, 112)
+	var b := _wind(n, 1500.0, 2800.0, 2.0, 1.0, 112)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 113
+	# The syllables: short swells at their own times, in two bursts of "speech" a loop.
+	var sy: Array = []
+	for burst: float in [0.6, 3.5]:
+		var t0 := burst
+		for k in rng.randi_range(5, 8):
+			var d := rng.randf_range(0.09, 0.2)
+			sy.append(Vector2(t0, d))
+			t0 += d + rng.randf_range(0.02, 0.12)
+	var env := PackedFloat32Array()
+	env.resize(n)
+	for s: Vector2 in sy:
+		for i in range(int(s.x * RATE), mini(int((s.x + s.y) * RATE), n)):
+			env[i] = maxf(env[i], sin(PI * (float(i) / RATE - s.x) / s.y))
+	for i in n:
+		var t := float(i) / RATE
+		x[i] += (a[i] - b[i]) * 2.2 * env[i]
+		# The clock: a woody knock each second, a little lower every other one.
+		var ct := fmod(t, 1.0)
+		var hz := 1900.0 if int(t) % 2 == 0 else 1500.0
+		x[i] += sin(TAU * hz * ct) * exp(-ct * 90.0) * 0.06 + sin(TAU * hz * 0.5 * ct) * exp(-ct * 50.0) * 0.03
+	return x
+
+
+## A book's pages riffling by themselves: a run of quick papery flicks that slows, and a soft
+## thump as it falls shut.
+func _pages(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 114
+	var t0 := 0.02
+	for k in 14:
+		var gap := 0.025 + k * 0.006
+		var y := 0.0
+		var y2 := 0.0
+		var len_s := 0.03
+		var amp := 0.5 * (1.0 - k * 0.04)
+		var start := int(t0 * Sfx.RATE)
+		for i in int(len_s * Sfx.RATE):
+			if start + i >= n:
+				break
+			var t := float(i) / Sfx.RATE
+			var w := rng.randf() * 2.0 - 1.0
+			y += 0.6 * (w - y)
+			y2 += 0.15 * (y - y2)
+			x[start + i] += (y - y2) * amp * sin(PI * t / len_s)
+		t0 += gap
+	var th := int((t0 + 0.05) * Sfx.RATE)
+	for i in n - th:
+		var t := float(i) / Sfx.RATE
+		x[th + i] += sin(TAU * 110.0 * t) * exp(-t * 30.0) * 0.4 * minf(t / 0.003, 1.0)
 	return x

@@ -128,6 +128,22 @@ const THEMES := [
 		"motes": [Color(0.85, 0.8, 0.9, 0.45), Color(0.8, 0.55, 1.0, 0.35)], "motes_fall": true, "motes_size": 0.4,
 		"pebble": Color(0.62, 0.58, 0.66), "guests": "dr",
 		"banner": Color(0.82, 0.6, 1.0), "floor_style": 8, "props": "mine", "pillar": "rock", "light": [1.3, 1.6, 0.0, 0.0]},
+	# Version 249 (review fix 4): the Whispering Library, floor 8 (the Crypt Pass), the Lich's
+	# own floor, which until now was the Frozen Ossuary relit ("Aurora Ossuary"). The Lich's
+	# library of forbidden books: a herringbone parquet floor with worn rugs and a brass circle
+	# of glowing letters set in the middle, walls of bookcases, bookcases for pillars, lecterns
+	# with their pages circling in the air, ladders, a clock and a great globe. Warm candlelight
+	# and the cold teal glow of books that whisper.
+	{"name": "Whispering Library", "wisp": Color(0.6, 1.0, 0.9), "floor": Color(1.0, 1.0, 1.0),
+		"grout": Color(0.03, 0.018, 0.012), "grime": Color(0.12, 0.09, 0.07), "grime_amount": 0.5,
+		"patch_tint": Color(0.95, 0.9, 0.85), "patch_rough": 0.6, "spores": Color(0.35, 1.0, 0.82, 1.0),   # (the whispering glow, room.gd)
+		"wall": Color(0.2, 0.12, 0.07), "trim": Color(0.3, 0.18, 0.1),
+		"ambient": Color(0.21, 0.2, 0.26), "fog": Color(0.05, 0.035, 0.03), "background": Color(0.02, 0.014, 0.012),
+		"moon": Color(0.75, 0.9, 1.0), "torch": Color(1.0, 0.7, 0.4), "torch_energy": 1.4, "pool": 0.6,
+		# Dust turning in the candlelight, and a few teal sparks of whispering.
+		"motes": [Color(1.0, 0.88, 0.65, 0.5), Color(0.45, 1.0, 0.85, 0.35)], "motes_fall": false, "motes_size": 0.4,
+		"pebble": Color(0.55, 0.42, 0.32), "guests": "fe",
+		"banner": Color(0.5, 1.0, 0.85), "floor_style": 9, "props": "library", "pillar": "shelf", "light": [1.35, 1.65, 0.0, 0.0]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
@@ -141,11 +157,14 @@ const FROSTFALL := 6
 const SANDFALL := 7
 ## The Amethyst Mine: floor 7, the second floor of each Crypt Pass loop (version 248).
 const MINE := 8
+## The Whispering Library: floor 8, the third floor of each Crypt Pass loop (version 249).
+const LIBRARY := 9
 ## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, and the Sandfall Tomb.
 const FREE_ORDER := [0, 1, 2, GROTTO, SANDFALL]
 ## Each loop of the Crypt Pass (5 floors, see Loops): the Drowned Vault first, then (version
-## 248) the Amethyst Mine where the Bone Crypt came back relit.
-const PASS_ORDER := [DROWNED, MINE, 1, 2, GROTTO]
+## 248) the Amethyst Mine where the Bone Crypt came back relit, and (version 249) the
+## Whispering Library where the Frozen Ossuary did.
+const PASS_ORDER := [DROWNED, MINE, LIBRARY, 2, GROTTO]
 
 
 ## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Grotto, Sandfall

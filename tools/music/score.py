@@ -134,6 +134,12 @@ def perc(s, style, b, d, sec):
             if pos in (0, 2.5): s.note("perc", t, 41, .3, 60 if pos == 0 else 48)
             if pos == 3.5: s.note("perc", t, 75, .2, 46)
             if sec in ("B", "A2"): s.note("perc", t, 82, .2, 38 if k % 2 else 48)
+        elif style == "library":
+            # The Whispering Library: a clock's tick and tock on every beat, a soft brush of
+            # pages (shaker) in the busier sections, and a small bell every two bars.
+            if pos % 1 == 0: s.note("perc", t, 76 if pos in (0, 2) else 77, .2, 50 if pos == 0 else 40)
+            if sec in ("B", "A2") and k % 2 == 1: s.note("perc", t, 82, .2, 34)
+            if pos == 0 and t % 8 == 0: s.note("perc", t, 53, 1, 40)
         elif style == "grotto":
             if pos in (0, 2.5): s.note("perc", t, 77, .2, 64)
             if pos in (1, 3): s.note("perc", t, 76, .2, 50)
@@ -228,6 +234,11 @@ TRACKS = {
     # the clink of picks.
     "mine": ("calm", dict(bpm=104, tr=-1, lead=22, dbl=105, pad=94, arp=24, ctr=58, perc="mine",
                           spark=13, seed=33)),
+    # The Whispering Library (version 249): the tune on a harpsichord doubled by a flute,
+    # a harp for the broken chords, soft voices (the whispering) for the pad, a cello counter
+    # line, vibraphone sparkles and a ticking clock.
+    "library": ("calm", dict(bpm=90, tr=-2, lead=6, dbl=73, pad=53, arp=46, ctr=42, perc="library",
+                             spark=11, seed=41)),
 }
 REVERB = dict(room=0.7, level=0.55, damp=0.45)
 

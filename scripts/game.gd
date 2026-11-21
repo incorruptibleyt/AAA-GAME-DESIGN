@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21r"
+const BUILD := "2026-11-21s"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1757,7 +1757,8 @@ func boss_kind() -> String:
 ## Snow Rollers, Bell Ringers and a Gift Thief ("noi"). The Sandfall Tomb (floor 5, version
 ## 247) keeps floor 5's Frost Wraiths (tomb spirits) and adds the scorched Cinder Skeletons.
 ## The Pass's own places name theirs ("guests", floors.gd): the Amethyst Mine keeps the
-## Drowned Skeletons and Rootbinders its floor had before.
+## Drowned Skeletons and Rootbinders its floor had before, and the Whispering Library its
+## Frost Wraiths (the ghosts of its readers) and Cinder Skeletons (book burners).
 func theme_enemy() -> String:
 	if first_run:
 		return ""

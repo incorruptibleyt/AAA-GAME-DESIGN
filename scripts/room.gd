@@ -116,6 +116,8 @@ static var _floor_shaders := {}
 ##    between turquoise borders, a winged sun inlaid in the middle and rippled sand dunes.
 ## 8. The Amethyst Mine (floor 7): bare rock slabs, gravel and dust, glowing amethyst veins
 ##    and glints, and mine-cart tracks on timber sleepers with a spur curving to the side.
+## 9. The Whispering Library (floor 8): herringbone parquet, two worn rugs and a brass circle
+##    of glowing letters set into the middle of the floor.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -779,6 +781,150 @@ void fragment() {
 	n = normalize(vec3((r - 0.5) * 0.12, 1.0, (h(id + 1.7) - 0.5) * 0.12));
 	// A little greyer and darker, so heroes, skeletons and their shots stand out.
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.7);
+#elif STYLE == 9
+	// The Whispering Library (floor 8, version 249): a floor of oak blocks laid in
+	// herringbone, darkened and worn, two old rugs (oxblood with a navy border and a
+	// medallion) and, in the middle of the room, a brass circle set into the wood: two rings
+	// with letters between them that glow and fade as if the words were being whispered,
+	// round an eight-pointed star.
+	// Blocks 0.15 m wide and four times as long, at 45 degrees to the room. In the blocks'
+	// own grid each diagonal band of 2N squares holds a staircase of N-long blocks lying
+	// one way and N-long blocks standing the other.
+	const float PW = 0.15;
+	const float PN = 4.0;
+	vec2 q = vec2(pos.x + pos.y, pos.y - pos.x) * 0.70710678 / PW;
+	vec2 qi = floor(q);
+	float kb = floor((qi.y - qi.x + PN - 1.0) / (2.0 * PN));
+	float qy = q.y - 2.0 * PN * kb;
+	float jj = qi.y - 2.0 * PN * kb;
+	float along;
+	float across;
+	vec2 pid;
+	bool lying = jj - qi.x <= 0.0;
+	if (lying) {
+		along = q.x - jj;
+		across = qy - jj;
+		pid = vec2(jj, kb * 2.0);
+	} else {
+		along = qy - qi.x - 1.0;
+		across = q.x - qi.x;
+		pid = vec2(qi.x, kb * 2.0 + 1.0);
+	}
+	r = h(pid);
+	float r2 = h(pid + 13.7);
+	vec2 gp = lying ? vec2(q.x * 0.1, q.y * 1.2) : vec2(q.x * 1.2, q.y * 0.1);
+	float gr = texture(grain, gp + vec2(r * 7.0, r2 * 5.0)).r;
+	c = mix(vec3(0.23, 0.135, 0.07), vec3(0.36, 0.215, 0.115), r) * (0.78 + 0.42 * gr);
+	c *= mix(vec3(1.0), vec3(0.92, 0.95, 1.05), step(0.7, r2));
+	c *= tint.rgb;
+	float ex = min(across, 1.0 - across) * PW;
+	float ey = min(along, PN - along) * PW;
+	float eaa = fwidth(ex) + fwidth(ey) * 0.5;
+	gap = 1.0 - smoothstep(0.004, 0.009 + eaa, min(ex, ey));
+	// Each block a little bevelled: its far edges catch the light.
+	c *= 1.0 + 0.12 * (1.0 - smoothstep(0.0, 0.03, min(ex, ey)));
+	rough = 0.55;
+	// Worn and dull in patches, dusty by the walls.
+	float wear = smoothstep(0.6, 0.85, big2);
+	c = mix(c, c * vec3(1.1, 1.05, 0.95) + 0.025, wear * 0.5);
+	rough = mix(rough, 0.85, wear);
+	float dusty = (1.0 - smoothstep(0.2, 1.6 + big, wall)) * grime_amount;
+	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), dusty * 0.6);
+	c = mix(c, grout.rgb, gap);
+	// The rugs: one in each half of the room, across it.
+	for (int k = 0; k < 2; k++) {
+		vec2 rc = vec2(0.0, k == 0 ? -5.7 : 5.5);
+		vec2 rp = pos - rc;
+		vec2 ra = abs(rp);
+		const vec2 RH = vec2(2.35, 1.45);
+		float fringe = step(RH.x, ra.x) * (1.0 - step(RH.x + 0.11, ra.x)) * step(ra.y, RH.y - 0.04);
+		float tassel = fringe * step(0.45, fract(rp.y / 0.06 + 0.25)) * (1.0 - smoothstep(0.07, 0.11, ra.x - RH.x + 0.03 * fine));
+		float inside = step(ra.x, RH.x) * step(ra.y, RH.y);
+		if (inside > 0.5) {
+			float eb = min(RH.x - ra.x, RH.y - ra.y);
+			float baa = fwidth(eb) + 0.003;
+			const vec3 OX = vec3(0.26, 0.07, 0.06);
+			const vec3 NAVY = vec3(0.05, 0.07, 0.15);
+			const vec3 GOLD = vec3(0.5, 0.37, 0.14);
+			const vec3 CREAM = vec3(0.55, 0.48, 0.36);
+			vec3 rcol = OX * (0.85 + 0.3 * fine);
+			// A small woven lattice of diamonds in the field.
+			vec2 lp = rp / 0.22;
+			float lat = abs(fract(lp.x + lp.y) - 0.5) + abs(fract(lp.x - lp.y) - 0.5);
+			rcol *= 0.95 + 0.09 * smoothstep(0.42, 0.5, lat);
+			// The medallion: a navy lozenge outlined in gold with a cream rosette inside.
+			float lz = ra.x / 1.25 + ra.y / 0.8;
+			float laa = fwidth(lz) + 0.004;
+			rcol = mix(rcol, NAVY * (0.85 + 0.3 * fine), 1.0 - smoothstep(1.0 - laa, 1.0 + laa, lz));
+			rcol = mix(rcol, GOLD, 1.0 - smoothstep(0.02, 0.02 + laa, abs(lz - 1.0)));
+			rcol = mix(rcol, GOLD * 0.9, 1.0 - smoothstep(0.015, 0.015 + laa, abs(lz - 0.62)));
+			float ros = length(rp * vec2(1.0, 1.25));
+			float pet = ros - 0.22 - 0.06 * cos(atan(rp.y, rp.x) * 8.0);
+			rcol = mix(rcol, CREAM * (0.85 + 0.3 * fine), 1.0 - smoothstep(-0.01, 0.01, pet));
+			rcol = mix(rcol, OX, 1.0 - smoothstep(0.05, 0.07, ros));
+			// Corner pieces: a quarter lozenge in each corner of the field.
+			vec2 cq = vec2(RH.x - 0.3 - ra.x, RH.y - 0.3 - ra.y);
+			float cl = cq.x / 0.8 + cq.y / 0.5;
+			rcol = mix(rcol, NAVY * (0.85 + 0.3 * fine), (1.0 - smoothstep(1.0 - laa, 1.0 + laa, cl)) * step(0.0, cq.x) * step(0.0, cq.y));
+			// The border: navy with a gold line either side and a row of cream dots.
+			float bd = 1.0 - smoothstep(0.3 - baa, 0.3 + baa, eb);
+			vec3 bcol = NAVY * (0.85 + 0.3 * fine);
+			float along_b = ra.x > RH.x - 0.3 && RH.x - ra.x < RH.y - ra.y ? rp.y : rp.x;
+			float dot_b = length(vec2((fract(along_b / 0.16) - 0.5) * 0.16, eb - 0.15)) - 0.035;
+			bcol = mix(bcol, CREAM, 1.0 - smoothstep(-0.006, 0.006, dot_b));
+			rcol = mix(rcol, bcol, bd);
+			rcol = mix(rcol, GOLD, 1.0 - smoothstep(0.012, 0.012 + baa, abs(eb - 0.3)));
+			rcol = mix(rcol, GOLD * 0.8, 1.0 - smoothstep(0.01, 0.01 + baa, abs(eb - 0.04)));
+			// Worn thin in places, the weave showing pale.
+			rcol = mix(rcol, CREAM * 0.55, smoothstep(0.68, 0.8, texture(blobs_a, pos * 0.11 + vec2(0.2 * float(k), 0.4)).r) * 0.5);
+			c = mix(c, rcol, inside);
+			rough = mix(rough, 0.95, inside);
+			gap *= 1.0 - inside;
+		}
+		c = mix(c, vec3(0.5, 0.45, 0.36) * (0.8 + 0.3 * fine), tassel);
+	}
+	// The brass circle in the middle: rings at 1.62 and 1.36 m, letters between them, and an
+	// eight-pointed star inside, all brass set into the wood.
+	float R0 = length(pos);
+	if (R0 < 1.75) {
+		const vec3 BRASS = vec3(0.55, 0.41, 0.17);
+		float raa = fwidth(R0) + 0.003;
+		float ring = max(1.0 - smoothstep(0.028, 0.028 + raa, abs(R0 - 1.62)), 1.0 - smoothstep(0.018, 0.018 + raa, abs(R0 - 1.36)));
+		ring = max(ring, 1.0 - smoothstep(0.014, 0.014 + raa, abs(R0 - 0.55)));
+		// The star: eight points, the long ones on the room's axes.
+		float an = atan(pos.y, pos.x);
+		float sa = abs(fract(an / 0.78539816 + 0.5) - 0.5) * 0.78539816;
+		float tip = mod(floor(an / 0.78539816 + 0.5), 2.0) < 0.5 ? 1.3 : 0.9;
+		vec2 sp = vec2(cos(sa), sin(sa)) * R0;
+		float star = seg(sp, vec2(0.0), vec2(tip, 0.0)) - 0.012 - 0.1 * max(0.0, 1.0 - sp.x / tip) * step(sp.x, tip);
+		float spoke = 1.0 - smoothstep(-0.004, 0.004 + raa, abs(star + 0.012) - 0.012);
+		float starfill = 1.0 - smoothstep(-0.004, 0.004 + raa, star);
+		c = mix(c, c * 0.72, starfill * (1.0 - spoke));
+		// The letters: 36 marks round the band, each a few short strokes of its own.
+		float cell = floor((an + 3.1415927) / 6.2831853 * 36.0);
+		float ca = (cell + 0.5) / 36.0 * 6.2831853 - 3.1415927;
+		vec2 cdir = vec2(cos(ca), sin(ca));
+		vec2 cp = vec2(dot(pos, vec2(-cdir.y, cdir.x)), R0 - 1.49);
+		float glyph = 9.0;
+		for (int g = 0; g < 3; g++) {
+			float hg = h(vec2(cell, float(g) + 3.0));
+			vec2 a0 = (vec2(h(vec2(cell, float(g))), hg) - 0.5) * vec2(0.13, 0.16);
+			vec2 a1 = a0 + vec2(cos(hg * 6.28), sin(hg * 6.28)) * 0.09;
+			glyph = min(glyph, seg(cp, a0, a1) - 0.011);
+		}
+		float letter = (1.0 - smoothstep(-0.003, 0.003 + raa, glyph)) * step(abs(cp.y), 0.11);
+		// A whisper runs round the ring, lighting the letters as it passes.
+		float wave = pow(0.5 + 0.5 * sin(an * 2.0 - TIME * 0.9), 6.0) + 0.25;
+		float brass = max(max(ring, spoke), letter);
+		c = mix(c, BRASS * (0.8 + 0.4 * fine), brass);
+		rough = mix(rough, 0.35, brass);
+		gap *= 1.0 - brass;
+		em += spores.rgb * letter * wave * 0.55 * spores.a;
+		c = mix(c, mix(BRASS, spores.rgb, 0.5), letter * wave * 0.5);
+	}
+	n = normalize(vec3((r - 0.5) * 0.05, 1.0, (r2 - 0.5) * 0.05));
+	// A little greyer and darker, so heroes, skeletons and their shots stand out.
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.78) * 0.92;
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -913,6 +1059,8 @@ static var _wall_shaders := {}
 ##    gold on turquoise, and sand banked at the foot.
 ## 8. The Amethyst Mine (floor 7): rough rock with glowing amethyst veins, timber posts and
 ##    beams, gravel at the foot.
+## 9. The Whispering Library (floor 8): bookcases from the floor to the cornice, full of old
+##    books, a few of them glowing as they whisper.
 ## The pattern follows where the point is in the world, so walls built from several boxes
 ## join up, and a box's top takes the pattern seen from above.
 static func _wall_material(look: Dictionary, base: Material) -> Material:
@@ -1175,6 +1323,73 @@ void fragment() {
 	float heap = clamp(1.0 - smoothstep(0.0, 0.25 + 0.35 * texture(blobs, vec2(uv.x * 0.3, 0.6)).r, height), 0.0, 1.0) * (1.0 - top) * (1.0 - post);
 	c = mix(c, vec3(0.3, 0.27, 0.29) * (0.7 + 0.5 * fine), heap);
 	rough = 0.9;
+#elif STYLE == 9
+	// The Whispering Library: every wall a bookcase. Dark oak uprights every 1.1 m, five
+	// shelves from a plinth at the foot to a cornice at the top, and on them old books of
+	// every size and colour in leather, some with gold bands, a few gaps, and here and there
+	// a book whose spine glows teal and fades (the whispering ones).
+	vec3 oak = vec3(0.2, 0.115, 0.06) * (0.8 + 0.35 * fine);
+	c = oak;
+	rough = 0.6;
+	if (top > 0.5) {
+		c = vec3(0.15, 0.085, 0.045) * (0.85 + 0.3 * fine);
+	} else {
+		float ux = (fract(uv.x / 1.1 + 0.5) - 0.5) * 1.1;
+		float upright = 1.0 - smoothstep(0.045, 0.055, abs(ux));
+		float sy = height - 0.18;
+		float si = floor(sy / 0.44);
+		float sv = sy - si * 0.44;
+		if (sy > 0.0 && si < 5.0 && upright < 0.99) {
+			// The dark back of the case.
+			c = vec3(0.035, 0.022, 0.016);
+			// The books: slots 0.12 m wide, each one thick book or two thinner ones.
+			float bx = uv.x + si * 3.7;
+			float sl = floor(bx / 0.12);
+			float sf = fract(bx / 0.12);
+			float hs = h(vec2(sl, si));
+			float split = hs < 0.4 ? 1.0 : 0.32 + 0.36 * h(vec2(sl, si + 7.0));
+			float bk = sf < split ? 0.0 : 1.0;
+			float b0 = bk < 0.5 ? 0.0 : split;
+			float b1 = bk < 0.5 ? split : 1.0;
+			float lx = (sf - b0) / (b1 - b0);
+			vec2 bid = vec2(sl * 2.0 + bk, si);
+			float bh = 0.25 + 0.13 * h(bid + 3.1);
+			float by = sv - 0.04;
+			float missing = step(0.93, h(bid + 5.5));
+			if (by > 0.0 && by < bh && missing < 0.5) {
+				float pick = h(bid + 1.3);
+				vec3 bc = pick < 0.22 ? vec3(0.34, 0.07, 0.06) : pick < 0.4 ? vec3(0.07, 0.2, 0.12) : pick < 0.56 ? vec3(0.08, 0.11, 0.25)
+					: pick < 0.7 ? vec3(0.4, 0.28, 0.12) : pick < 0.84 ? vec3(0.25, 0.14, 0.075) : pick < 0.93 ? vec3(0.24, 0.08, 0.2) : vec3(0.06, 0.055, 0.05);
+				bc *= 0.75 + 0.45 * h(bid + 2.2);
+				// Round spines: lit across the middle, dark at the edges.
+				bc *= 0.55 + 0.5 * sin(3.1415927 * clamp(lx, 0.0, 1.0));
+				// Gold bands near the top and the foot of half the books, and a label on some.
+				float yb = by / bh;
+				float gold = step(0.5, h(bid + 4.4)) * max(step(0.1, yb) * step(yb, 0.14), step(0.84, yb) * step(yb, 0.88));
+				bc = mix(bc, vec3(0.55, 0.42, 0.17) * (0.6 + 0.5 * sin(3.1415927 * lx)), gold);
+				float label = step(0.7, h(bid + 6.6)) * step(0.55, yb) * step(yb, 0.72) * step(0.22, lx) * step(lx, 0.78);
+				bc = mix(bc, vec3(0.5, 0.45, 0.35) * 0.7, label);
+				c = bc * (0.85 + 0.3 * fine);
+				// The whispering books: their spines glow and fade, each at its own pace.
+				float whisper = step(0.965, h(bid + 9.9));
+				float pulse = pow(0.5 + 0.5 * sin(TIME * (0.6 + h(bid + 8.0)) + h(bid) * 30.0), 3.0);
+				c = mix(c, spores.rgb * 0.5, whisper * 0.6);
+				em += spores.rgb * whisper * (0.2 + 0.8 * pulse) * 0.7 * spores.a * (0.5 + 0.5 * sin(3.1415927 * lx));
+			}
+			// The shelf's front edge.
+			float board = 1.0 - smoothstep(0.035, 0.042, sv);
+			c = mix(c, oak * (1.05 + 0.25 * (1.0 - smoothstep(0.0, 0.035, sv))), board);
+		}
+		// The uprights, with a bead down their middle.
+		c = mix(c, oak * (0.85 + 0.3 * smoothstep(0.05, 0.0, abs(ux))), upright);
+		// The cornice (mouldings) and the plinth.
+		if (height > 2.38) {
+			float mo = fract((height - 2.38) / 0.11);
+			c = oak * (0.75 + 0.4 * smoothstep(0.0, 0.5, mo) * (1.0 - smoothstep(0.6, 1.0, mo)));
+		} else if (height < 0.18) {
+			c = oak * 0.7 * (0.85 + 0.3 * smoothstep(0.1, 0.16, height));
+		}
+	}
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
@@ -1277,14 +1492,21 @@ func _read_layout(layout: Array) -> void:
 			match ch:
 				"#":
 					_add_obstacle(p, 0.6)
-					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts
-					# the Sandfall Tomb's lotus columns and the Amethyst Mine's rock columns are
-					# made in code (props.gd).
+					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts,
+					# the Sandfall Tomb's lotus columns, the Amethyst Mine's rock columns and the
+					# Whispering Library's bookcases are made in code (props.gd).
 					var kind := str(Floors.current().get("pillar", ""))
-					if kind == "timber" or kind == "lotus" or kind == "rock":
+					if kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf":
 						var post := MeshInstance3D.new()
-						post.mesh = Props.timber_post() if kind == "timber" else (Props.lotus_column() if kind == "lotus" else Props.rock_column())
-						_anchor(p).add_child(post)
+						match kind:
+							"timber": post.mesh = Props.timber_post()
+							"lotus": post.mesh = Props.lotus_column()
+							"rock": post.mesh = Props.rock_column()
+							_: post.mesh = Props.bookcase_column()
+						var anchor := _anchor(p)
+						anchor.add_child(post)
+						if kind == "shelf":
+							anchor.rotation.y = PI / 2 * randi_range(0, 3)   # (square: kept square to the room)
 					else:
 						_add_pillar(p, stone)
 				"b":
