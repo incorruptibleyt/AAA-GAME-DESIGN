@@ -1,5 +1,6 @@
 class_name EventArt
-## Pictures for the Blood Moon event (events.gd, version 134), all drawn in code: the Moon
+## Pictures for the big events (events.gd, version 134; Frostfall's ice from version 243,
+## pal()), all drawn in code. For the Blood Moon: the Moon
 ## Shard (the event's own currency, on the HUD and the event screen), the big blood moon at
 ## the top of the event screen (black with a red corona in the Eclipse chapter), and the
 ## "+3" that pops out of a skeleton when it pays shards.
@@ -8,6 +9,25 @@ const CRIMSON := Color(1.0, 0.24, 0.2)
 const SHARD := Color(1.0, 0.32, 0.36)
 const SHARD_LIGHT := Color(1.0, 0.72, 0.7)
 const SHARD_DARK := Color(0.42, 0.03, 0.08)
+## Version 243: each event's own colours (pal()): the Blood Moon's crimson, Frostfall's ice.
+const BLOOD_PAL := {"main": CRIMSON, "shard": SHARD, "light": SHARD_LIGHT, "dark": SHARD_DARK,
+	"glow": Color(1.0, 0.12, 0.08), "hot": Color(1.0, 0.35, 0.2), "bg": Color(0.22, 0.02, 0.05),
+	"edge": Color(0.75, 0.12, 0.12), "shadow": Color(1.0, 0.1, 0.05), "track": Color(0.22, 0.14, 0.17),
+	"node": Color(0.5, 0.1, 0.1), "ink": Color(0.3, 0.0, 0.03), "words": Color(1.0, 0.72, 0.62),
+	"menu": "blood"}
+const FROST_PAL := {"main": Color(0.35, 0.75, 1.0), "shard": Color(0.55, 0.86, 1.0), "light": Color(0.88, 0.97, 1.0),
+	"dark": Color(0.03, 0.1, 0.25), "glow": Color(0.3, 0.65, 1.0), "hot": Color(0.65, 0.92, 1.0),
+	"bg": Color(0.03, 0.08, 0.2), "edge": Color(0.3, 0.6, 0.95), "shadow": Color(0.25, 0.6, 1.0),
+	"track": Color(0.13, 0.17, 0.26), "node": Color(0.12, 0.3, 0.55), "ink": Color(0.0, 0.06, 0.18),
+	"words": Color(0.75, 0.9, 1.0), "menu": "frost"}
+
+
+static func pal(e: Dictionary = {}) -> Dictionary:
+	return FROST_PAL if Events.frost(e) else BLOOD_PAL
+
+
+static func c(key: String) -> Color:
+	return pal()[key]
 
 
 ## "+n" in crimson, rising from `at` (a skeleton that paid shards), with a few red glints.
@@ -24,8 +44,8 @@ static func shard_pop(at: Vector3, n: int) -> void:
 	l.font = Hud.UI_FONT
 	l.font_size = 64
 	l.outline_size = 14
-	l.modulate = SHARD_LIGHT
-	l.outline_modulate = SHARD_DARK
+	l.modulate = c("light")
+	l.outline_modulate = c("dark")
 	l.render_priority = 3
 	l.outline_render_priority = 2
 	world.add_child(l)
@@ -38,12 +58,15 @@ static func shard_pop(at: Vector3, n: int) -> void:
 	tw.tween_property(l, "modulate:a", 0.0, 0.35).set_delay(0.6)
 	tw.tween_property(l, "outline_modulate:a", 0.0, 0.35).set_delay(0.6)
 	tw.chain().tween_callback(l.queue_free)
-	Fx.sparks(at, SHARD)
+	Fx.sparks(at, c("shard"))
 
 
 ## One Moon Shard: a long crimson crystal with a lit face and a dark one, `h` tall, centred
 ## on `c`. `glow` (0-1) adds a soft halo behind it.
 static func draw_shard(ci: CanvasItem, c: Vector2, h: float, glow := 0.0) -> void:
+	if Events.frost():
+		draw_flake(ci, c, h, glow)
+		return
 	var w := h * 0.48
 	if glow > 0.0:
 		for i in 4:
@@ -63,6 +86,30 @@ static func draw_shard(ci: CanvasItem, c: Vector2, h: float, glow := 0.0) -> voi
 	# A glint on the lit face.
 	ci.draw_line(top.lerp(left, 0.35) + Vector2(w * 0.08, 0), top.lerp(left, 0.35) + Vector2(w * 0.08, h * 0.22),
 		Color(1, 1, 1, 0.8), maxf(1.5, h * 0.05), true)
+
+
+## Version 243, Frostfall's currency: a Snowflake, six ice arms with branches on a dark
+## edge, `h` tall, centred on `c`.
+static func draw_flake(ci: CanvasItem, c: Vector2, h: float, glow := 0.0) -> void:
+	var r := h * 0.5
+	var ice: Color = FROST_PAL.shard
+	if glow > 0.0:
+		for i in 4:
+			ci.draw_circle(c, r * (0.9 + 0.3 * i), Color(ice.r, ice.g, ice.b, 0.07 * glow))
+	var ink := Color(0.02, 0.06, 0.16)
+	for pass_i in 2:
+		var w := maxf(2.0, h * (0.17 if pass_i == 0 else 0.09))
+		var col: Color = ink if pass_i == 0 else FROST_PAL.light
+		for i in 6:
+			var d := Vector2.from_angle(-PI / 2.0 + TAU * i / 6.0)
+			ci.draw_line(c, c + d * r, col, w, true)
+			for k in [0.5, 0.75]:
+				var p: Vector2 = c + d * r * k
+				var len: float = r * (0.3 if k < 0.6 else 0.2)
+				ci.draw_line(p, p + d.rotated(0.8) * len, col, w * 0.85, true)
+				ci.draw_line(p, p + d.rotated(-0.8) * len, col, w * 0.85, true)
+	ci.draw_circle(c, h * 0.12, ink)
+	ci.draw_circle(c, h * 0.08, FROST_PAL.light)
 
 
 ## Version 222: a piece of the event set on the road bar and the road's track: a five-point
@@ -108,6 +155,9 @@ class Moon extends Control:
 		var c := size * 0.5
 		var r := minf(size.x, size.y) * 0.34
 		var pulse := 0.5 + 0.5 * sin(_t * 1.6)
+		if Events.frost():
+			_draw_frost(c, r, pulse)
+			return
 		# The glow, widest and faintest first.
 		for i in 7:
 			var k := float(7 - i) / 7.0
@@ -135,6 +185,44 @@ class Moon extends Control:
 			draw_arc(c + Vector2(s.x, s.y) * r, s.z * r, 3.6, 5.4, 10, Color(1.0, 0.45, 0.3, 0.35), maxf(1.0, r * 0.02), true)
 		# A hot rim.
 		draw_arc(c, r, 0.0, TAU, 64, Color(1.0, 0.5 + 0.15 * pulse, 0.3, 0.9), maxf(2.0, r * 0.045), true)
+
+	## Version 243, Frostfall: a pale winter moon behind a great turning snowflake, under
+	## bands of green and blue northern lights. In WHITEOUT, the last chapter, the storm
+	## swallows the moon: only the snowflake shows through whirling snow.
+	func _draw_frost(c: Vector2, r: float, pulse: float) -> void:
+		for i in 7:
+			var k := float(7 - i) / 7.0
+			draw_circle(c, r * (1.0 + 0.6 * k + 0.05 * pulse), Color(0.35, 0.7, 1.0, (0.05 + 0.02 * pulse) * (1.0 - k * 0.5)))
+		# Northern lights: wavy ribbons across the top.
+		for band in 3:
+			var pts := PackedVector2Array()
+			var cols := PackedColorArray()
+			var base := c.y - r * (0.95 - band * 0.28)
+			for i in 25:
+				var x := c.x - r * 1.6 + r * 3.2 * i / 24.0
+				var y := base + sin(i * 0.5 + _t * 0.9 + band * 1.7) * r * 0.12
+				pts.append(Vector2(x, y))
+			var hue: Color = [Color(0.3, 1.0, 0.6), Color(0.3, 0.8, 1.0), Color(0.6, 0.5, 1.0)][band]
+			draw_polyline(pts, Color(hue.r, hue.g, hue.b, 0.16 + 0.06 * pulse), r * 0.16, true)
+			draw_polyline(pts, Color(hue.r, hue.g, hue.b, 0.3), r * 0.05, true)
+		if not eclipse:
+			draw_circle(c, r, Color(0.62, 0.74, 0.9))
+			draw_circle(c + Vector2(-r, -r) * 0.12, r * 0.86, Color(0.75, 0.85, 0.97))
+			draw_circle(c + Vector2(-r, -r) * 0.22, r * 0.55, Color(0.88, 0.94, 1.0))
+			for s: Vector3 in [Vector3(0.3, -0.2, 0.2), Vector3(-0.35, 0.3, 0.15), Vector3(0.12, 0.44, 0.11), Vector3(0.5, 0.22, 0.09)]:
+				draw_circle(c + Vector2(s.x, s.y) * r, s.z * r, Color(0.5, 0.62, 0.8, 0.45))
+			draw_arc(c, r, 0.0, TAU, 64, Color(0.85, 0.95, 1.0, 0.9), maxf(2.0, r * 0.04), true)
+		else:
+			# The storm: streaks of snow whirling round where the moon was.
+			draw_circle(c, r * 1.05, Color(0.1, 0.16, 0.28, 0.85))
+			for i in 30:
+				var a := TAU * i / 30.0 + _t * 0.8
+				var rr := r * (0.35 + 0.7 * fmod(i * 0.37, 1.0))
+				draw_arc(c, rr, a, a + 0.5, 8, Color(0.85, 0.93, 1.0, 0.35), maxf(1.5, r * 0.025), true)
+		var flake := Transform2D(_t * 0.15, c)
+		draw_set_transform_matrix(flake)
+		EventArt.draw_flake(self, Vector2.ZERO, r * 1.45, 0.6 + 0.4 * pulse)
+		draw_set_transform_matrix(Transform2D.IDENTITY)
 
 
 ## The event road bar: shards so far and how far to the next prize, crimson and gold.
@@ -188,7 +276,7 @@ class RoadBar extends Button:
 		var w := inner.size.x * frac
 		if w > 8.0:
 			var fill := StyleBoxFlat.new()
-			fill.bg_color = CRIMSON
+			fill.bg_color = EventArt.c("main")
 			fill.set_corner_radius_all(14)
 			draw_style_box(fill, Rect2(inner.position, Vector2(w, inner.size.y)))
 			var shine := StyleBoxFlat.new()
@@ -224,13 +312,13 @@ class Banner extends Button:
 		_moon.position = Vector2(-6, -12)
 		_moon.size = Vector2(104, 104)
 		add_child(_moon)
-		_name = Hud.label("BLOOD MOON", 30, Color(1.0, 0.86, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
-		_name.label_settings.outline_color = Color(0.25, 0.0, 0.03)
+		_name = Hud.label(str(Events.ev().name), 30, Color(1.0, 0.86, 0.8) if not Events.frost() else Color(0.9, 0.97, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+		_name.label_settings.outline_color = EventArt.c("ink")
 		_name.position = Vector2(96, 6)
 		_name.size = Vector2(330, 40)
 		_name.autowrap_mode = TextServer.AUTOWRAP_OFF
 		add_child(_name)
-		_sub = Hud.label("", 17, Color(1.0, 0.8, 0.62), HORIZONTAL_ALIGNMENT_LEFT)
+		_sub = Hud.label("", 17, Color(1.0, 0.8, 0.62) if not Events.frost() else Color(0.78, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 		_sub.position = Vector2(98, 42)
 		_sub.size = Vector2(330, 28)
 		_sub.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -269,12 +357,13 @@ class Banner extends Button:
 		var r := Rect2(Vector2(0, 0), size)
 		var glow := 0.5 + 0.5 * sin(_t * 2.4)
 		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color(0.22, 0.02, 0.05, 0.96)
-		sb.border_color = Color(1.0, 0.3 + 0.25 * glow, 0.2, 1.0) if hot else Color(0.75, 0.12, 0.12)
+		var p := EventArt.pal()
+		sb.bg_color = Color(p.bg.r, p.bg.g, p.bg.b, 0.96)
+		sb.border_color = (p.hot as Color).lerp(Color.WHITE, 0.25 * glow) if hot else p.edge
 		sb.set_border_width_all(3)
 		sb.border_width_bottom = 7
 		sb.set_corner_radius_all(20)
-		sb.shadow_color = Color(1.0, 0.1, 0.05, 0.25 + 0.2 * glow)
+		sb.shadow_color = Color(p.shadow.r, p.shadow.g, p.shadow.b, 0.25 + 0.2 * glow)
 		sb.shadow_size = 10
 		draw_style_box(sb, r)
 		# A gold line along the top, like the event's marble.
@@ -304,11 +393,11 @@ class Splash extends ColorRect:
 	var _tw: Tween
 
 	func _init() -> void:
-		color = Color(0.02, 0.0, 0.01, 0.97)
+		color = Color(0.02, 0.0, 0.01, 0.97) if not Events.frost() else Color(0.0, 0.01, 0.03, 0.97)
 		set_anchors_preset(Control.PRESET_FULL_RECT)
 		mouse_filter = Control.MOUSE_FILTER_STOP
 		visible = false
-		Hud.backdrop(self, "blood")
+		Hud.backdrop(self, str(EventArt.pal().menu))
 		_rays = Rays.new()
 		add_child(_rays)
 		_moon = Moon.new()
@@ -329,6 +418,15 @@ class Splash extends ColorRect:
 		g.set_color(0, Color(1.0, 0.55, 0.3, 0.0))
 		g.add_point(0.2, Color(1.0, 0.4, 0.25, 0.9))
 		g.set_color(g.get_point_count() - 1, Color(0.8, 0.05, 0.05, 0.0))
+		if Events.frost():
+			# Frostfall: snow drifting down instead of embers rising.
+			g = Gradient.new()
+			g.set_color(0, Color(0.9, 0.96, 1.0, 0.0))
+			g.add_point(0.15, Color(0.92, 0.97, 1.0, 0.9))
+			g.set_color(g.get_point_count() - 1, Color(0.7, 0.85, 1.0, 0.0))
+			_embers.direction = Vector2(0.3, 1.0)
+			_embers.gravity = Vector2(10, 25)
+			_embers.amount = 70
 		_embers.color_ramp = g
 		add_child(_embers)
 		_col = VBoxContainer.new()
@@ -339,12 +437,12 @@ class Splash extends ColorRect:
 		_kicker = Hud.label("", 22, Color(1.0, 0.8, 0.42))
 		_col.add_child(_kicker)
 		_title = Hud.label("", 66, Color(1.0, 0.9, 0.84))
-		_title.label_settings.outline_color = Color(0.3, 0.0, 0.03)
+		_title.label_settings.outline_color = EventArt.c("ink")
 		_title.label_settings.outline_size = 14
-		_title.label_settings.shadow_color = Color(1.0, 0.1, 0.05, 0.7)
+		_title.label_settings.shadow_color = Color(EventArt.c("shadow"), 0.7)
 		_title.label_settings.shadow_size = 18
 		_col.add_child(_title)
-		_line = Hud.label("", 21, Color(1.0, 0.72, 0.62))
+		_line = Hud.label("", 21, EventArt.c("words"))
 		_col.add_child(_line)
 		_story = Hud.label("", 17, Color(0.86, 0.78, 0.82))
 		_col.add_child(_story)
@@ -361,7 +459,7 @@ class Splash extends ColorRect:
 		_go.pressed.connect(func(): enter.emit())
 		_col.add_child(_go)
 		# Version 218 (review 4): the quick fight right here, not two screens in.
-		var hunt_btn := Hud.button("HUNT THE QUEEN  ·  1-2 MIN", 22)
+		var hunt_btn := Hud.button(("HUNT %s  ·  1-2 MIN" % Events.word("foe")).to_upper(), 22)
 		Hud.paint(hunt_btn, "gold")
 		hunt_btn.custom_minimum_size = Vector2(340, 70)
 		hunt_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -460,7 +558,8 @@ class Rays extends Control:
 			var a := TAU * i / 14.0
 			var w := 0.09
 			var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
-			var cols := PackedColorArray([Color(1.0, 0.25, 0.15, 0.22), Color(1.0, 0.1, 0.05, 0.0), Color(1.0, 0.1, 0.05, 0.0)])
+			var h: Color = EventArt.c("hot")
+			var cols := PackedColorArray([Color(h, 0.22), Color(h, 0.0), Color(h, 0.0)])
 			draw_polygon(pts, cols)
 
 
@@ -481,12 +580,14 @@ class RoadIcon extends Control:
 		var c := size * 0.5
 		var r := minf(size.x, size.y) * 0.5
 		var a := 0.45 if dim else 1.0
-		draw_circle(c, r, Color(0.05, 0.01, 0.02, 0.85 * a))
+		draw_circle(c, r, Color(0.05, 0.01, 0.02, 0.85 * a) if not Events.frost() else Color(0.01, 0.03, 0.08, 0.85 * a))
 		match kind:
 			"casket":
+				# (Frostfall's Frost Gift: a blue-white present with a gold ribbon.)
+				var fr := Events.frost()
 				var body := Rect2(c + Vector2(-r * 0.62, -r * 0.18), Vector2(r * 1.24, r * 0.78))
-				draw_rect(body, Color(0.62, 0.08, 0.1, a))
-				draw_rect(Rect2(c + Vector2(-r * 0.66, -r * 0.5), Vector2(r * 1.32, r * 0.36)), Color(0.85, 0.16, 0.16, a))
+				draw_rect(body, Color(0.62, 0.08, 0.1, a) if not fr else Color(0.25, 0.55, 0.9, a))
+				draw_rect(Rect2(c + Vector2(-r * 0.66, -r * 0.5), Vector2(r * 1.32, r * 0.36)), Color(0.85, 0.16, 0.16, a) if not fr else Color(0.75, 0.9, 1.0, a))
 				draw_rect(Rect2(c + Vector2(-r * 0.1, -r * 0.5), Vector2(r * 0.2, r * 1.1)), Color(1.0, 0.78, 0.4, a))
 				draw_circle(c + Vector2(0, -r * 0.05), r * 0.13, Color(1.0, 0.9, 0.6, a))
 			"coins":
@@ -513,7 +614,7 @@ class RoadIcon extends Control:
 					var rr := r * (0.78 if i % 2 == 0 else 0.34)
 					pts.append(c + Vector2(cos(ang), sin(ang)) * rr)
 				draw_colored_polygon(pts, Color(1.0, 0.78, 0.3, a))
-				draw_circle(c, r * 0.18, Color(1.0, 0.3, 0.26, a))
+				draw_circle(c, r * 0.18, Color(EventArt.c("main"), a))
 		draw_arc(c, r - 1.5, 0, TAU, 40, Color(1.0, 0.78, 0.4, 0.55 * a), 2.0, true)
 
 
@@ -652,11 +753,11 @@ class RoadTrack extends MarginContainer:
 		var pulse := 0.5 + 0.5 * sin(_t * 4.0)
 		# The bare track, then the part walked, in crimson.
 		draw_line(Vector2(X, top), Vector2(X, bottom), Color(0.03, 0.015, 0.025), 12.0, true)
-		draw_line(Vector2(X, top), Vector2(X, bottom), Color(0.22, 0.14, 0.17), 6.0, true)
+		draw_line(Vector2(X, top), Vector2(X, bottom), EventArt.c("track"), 6.0, true)
 		var you := _you_y()
 		if you > top + 1.0:
-			draw_line(Vector2(X, top), Vector2(X, you), Color(1.0, 0.2, 0.15, 0.25), 16.0, true)
-			draw_line(Vector2(X, top), Vector2(X, you), EventArt.CRIMSON, 7.0, true)
+			draw_line(Vector2(X, top), Vector2(X, you), Color(EventArt.c("main"), 0.25), 16.0, true)
+			draw_line(Vector2(X, top), Vector2(X, you), EventArt.c("main"), 7.0, true)
 		# The Crypt Pass's rows: a silver branch from the track.
 		for b: Dictionary in branches:
 			var y := _y(b.row)
@@ -678,7 +779,7 @@ class RoadTrack extends MarginContainer:
 				continue
 			match st:
 				"got":
-					draw_circle(c, 10.0, Color(0.5, 0.1, 0.1))
+					draw_circle(c, 10.0, EventArt.c("node"))
 					_tick(c, 10.0, 0.75)
 				"ready":
 					draw_circle(c, 15.0 + 3.0 * pulse, Color(1.0, 0.75, 0.3, 0.22 + 0.15 * pulse))
@@ -690,9 +791,9 @@ class RoadTrack extends MarginContainer:
 		# You: a glowing shard on the track, with YOU over it.
 		var yc := Vector2(X, you)
 		for i in 3:
-			draw_circle(yc, 18.0 + 6.0 * i + 3.0 * pulse, Color(1.0, 0.2, 0.15, 0.12 - 0.03 * i))
-		draw_circle(yc, 17.0, Color(0.12, 0.02, 0.04))
-		draw_arc(yc, 17.0, 0, TAU, 32, Color(1.0, 0.72, 0.6), 2.5, true)
+			draw_circle(yc, 18.0 + 6.0 * i + 3.0 * pulse, Color(EventArt.c("main"), 0.12 - 0.03 * i))
+		draw_circle(yc, 17.0, EventArt.c("dark").darkened(0.5))
+		draw_arc(yc, 17.0, 0, TAU, 32, EventArt.c("light"), 2.5, true)
 		EventArt.draw_shard(self, yc, 24.0)
 		var font := Hud.UI_FONT
 		var w := font.get_string_size("YOU", HORIZONTAL_ALIGNMENT_LEFT, -1, 15).x

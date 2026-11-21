@@ -996,6 +996,15 @@ func casket_look(on: bool) -> void:
 	_horn_mat.set_shader_parameter("deep", Color(0.18, 0.01, 0.03) if on else Color(0.08, 0.06, 0.07))
 	_velvet.albedo_color = Color(0.3, 0.02, 0.05) if on else Color(0.2, 0.03, 0.06)
 	_chain_mat.albedo_color = Color(0.85, 0.6, 0.2) if on else Color(0.2, 0.18, 0.22)
+	if on and Events.frost():
+		# Version 243, a Frost Gift: white marble veined in ice blue, frosted horns, a red
+		# velvet lining and gold chains like ribbon.
+		_relic.set_shader_parameter("base", Color(0.78, 0.86, 0.95))
+		_relic.set_shader_parameter("deep", Color(0.2, 0.36, 0.6))
+		_horn_mat.set_shader_parameter("base", Color(0.55, 0.8, 1.0))
+		_horn_mat.set_shader_parameter("deep", Color(0.08, 0.2, 0.4))
+		_velvet.albedo_color = Color(0.55, 0.04, 0.06)
+		_chain_mat.albedo_color = Color(1.0, 0.75, 0.25)
 
 
 func reset() -> void:

@@ -110,6 +110,8 @@ static var _floor_shaders := {}
 ##    glowing caps in the moss ("spores").
 ## 5. The Blood Moon crypt (the event, events.gd): black marble diamonds with gold inlay,
 ##    veins of blood light throbbing with a heartbeat and the blood moon in the middle.
+## 6. Frostfall Hall (the winter event): dark timber planks instead of stone, snow drifted
+##    in along the walls and a crimson runner with gold trim down the middle.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -180,6 +182,13 @@ float bone(vec2 p, float len, float w) {
 	float shaft = length(vec2(max(abs(p.x) - len * 0.5, 0.0), p.y)) - w;
 	float knob = length(vec2(abs(p.x) - len * 0.5, abs(p.y) - w * 0.9)) - w * 1.3;
 	return min(shaft, knob);
+}
+
+// Distance from p to the segment a-b.
+float seg(vec2 p, vec2 a, vec2 b) {
+	vec2 pa = p - a;
+	vec2 ba = b - a;
+	return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
 }
 
 // The nearest hexagon (inner radius 0.5): xy = the point from its centre, zw = its id.
@@ -448,6 +457,85 @@ void fragment() {
 		em += vec3(1.0, 0.7, 0.3) * max(ring, ray) * 0.15;
 	}
 	n = normalize(vec3((r - 0.5) * 0.05, 1.0, (h(dcell + 3.0) - 0.5) * 0.05));
+#elif STYLE == 6
+	// Frostfall Hall (the winter event): no stone at all. A great hall of dark timber, long
+	// planks running door to door, snow blown in under the walls and lying in drifts, and
+	// a long pine-green carpet with gold and crimson borders down the middle, woven with
+	// gold snowflakes and a great star at the centre of the room.
+	const float PW = 0.46;
+	float pl = floor(pos.x / PW);
+	float px = fract(pos.x / PW);
+	float plen = 2.2 + 1.8 * h(vec2(pl, 2.1));
+	float py = pos.y / plen + h(vec2(pl, 5.3));
+	float pid = floor(py);
+	float pfy = fract(py);
+	r = h(vec2(pl, pid));
+	float gr = texture(grain, vec2(pos.x * 1.3 + r * 5.0, pos.y * 0.08)).r;
+	float gr2 = texture(blobs_a, vec2(pos.x * 0.7 + r * 3.0, pos.y * 0.045)).r;
+	c = vec3(0.25, 0.155, 0.09) * (0.7 + 0.5 * r) * (0.8 + 0.4 * gr);
+	c *= 0.88 + 0.24 * smoothstep(0.3, 0.7, gr2);
+	// Now and then a dark knot in a plank.
+	vec2 kp = vec2((px - 0.5) * PW, (pfy - h(vec2(pl, pid + 9.1))) * plen);
+	float knot = (1.0 - smoothstep(0.03, 0.075, length(kp * vec2(1.0, 0.55)))) * step(0.55, h(vec2(pl, pid + 3.3)));
+	c = mix(c, vec3(0.08, 0.045, 0.03), knot * 0.8);
+	float ex = min(px, 1.0 - px) * PW;
+	float ey = min(pfy, 1.0 - pfy) * plen;
+	gap = max(1.0 - smoothstep(0.011, 0.02 + fwidth(ex), ex), 1.0 - smoothstep(0.008, 0.018 + fwidth(ey), ey));
+	// Each plank is a little rounded: lit along its far edge, darker along its near one.
+	c *= 1.0 + 0.14 * (1.0 - smoothstep(0.0, 0.06, ex)) * step(px, 0.5) - 0.18 * (1.0 - smoothstep(0.0, 0.06, ex)) * step(0.5, px);
+	c *= tint.rgb;
+	rough = 0.72;
+	// The carpet.
+	const float CW = 1.05;
+	float cxa = abs(pos.x);
+	float caa = fwidth(cxa) + 0.004;
+	float carpet = (1.0 - smoothstep(CW - caa, CW + caa, cxa)) * (1.0 - ledge);
+	vec3 cc = vec3(0.06, 0.15, 0.1) * (0.85 + 0.3 * fine) * (0.9 + 0.2 * texture(grain, pos * 1.7).r);
+	const vec3 CGOLD = vec3(0.55, 0.41, 0.16);
+	const vec3 CRED = vec3(0.36, 0.05, 0.06);
+	cc = mix(cc, CRED * (0.85 + 0.3 * fine), smoothstep(CW - 0.13 - caa, CW - 0.13 + caa, cxa));
+	cc = mix(cc, CGOLD, 1.0 - smoothstep(0.018, 0.018 + caa, abs(cxa - (CW - 0.15))));
+	cc = mix(cc, CGOLD * 0.8, 1.0 - smoothstep(0.008, 0.008 + caa, abs(cxa - (CW - 0.24))));
+	// Gold snowflakes woven down the middle, and a great star at the centre of the room.
+	float R0 = length(pos);
+	float sy = (fract(pos.y / 1.9 + 0.5) - 0.5) * 1.9;
+	vec2 fp = R0 < 1.6 ? pos : vec2(pos.x, sy);
+	float fs = R0 < 1.6 ? 1.0 : 0.3;
+	float flake = 9.0;
+	if (carpet > 0.0 && length(fp) < fs * 0.8) {
+		for (int k = 0; k < 6; k++) {
+			float an = float(k) * 1.0471976;
+			vec2 d = vec2(cos(an), sin(an));
+			vec2 nn = vec2(-d.y, d.x);
+			flake = min(flake, seg(fp, vec2(0.0), d * fs * 0.62) - fs * 0.035);
+			vec2 bp = d * fs * 0.36;
+			flake = min(flake, seg(fp, bp, bp + (d * 0.5 + nn * 0.866) * fs * 0.18) - fs * 0.028);
+			flake = min(flake, seg(fp, bp, bp + (d * 0.5 - nn * 0.866) * fs * 0.18) - fs * 0.028);
+		}
+		flake = min(flake, length(fp) - fs * 0.09);
+	}
+	float faa = fwidth(flake) + 0.002;
+	float woven = 1.0 - smoothstep(-faa, faa, flake);
+	cc = mix(cc, CGOLD * (0.85 + 0.25 * fine), woven * (R0 < 1.6 ? 0.8 : 0.7));
+	c = mix(c, cc, carpet);
+	rough = mix(rough, 0.95, carpet);
+	gap *= 1.0 - carpet;
+	c = mix(c, grout.rgb, gap);
+	// Snow: drifted deep under the walls with a wind-blown edge, and in a few patches (none
+	// on the carpet, which is swept).
+	// Version 243: kept off the middle of the hall and blue-grey there (white snow under the
+	// fight hid the white skeletons); bright only in the drifts against the walls.
+	float drift = 1.0 - smoothstep(0.2, 0.9 + 0.9 * big, wall);
+	float patchy = smoothstep(0.74, 0.86, big2) * (1.0 - carpet);
+	float snow = clamp(max(drift, patchy * 0.85) * grime_amount * 1.3, 0.0, 1.0);
+	snow *= smoothstep(0.2, 0.5, snow + fine * 0.35);
+	vec3 sc = grime.rgb * (0.86 + 0.28 * fine) * mix(0.62, 1.0, drift);
+	c = mix(c, sc, snow);
+	rough = mix(rough, 0.55, snow);
+	gap *= 1.0 - snow;
+	// A little greyer, so heroes, skeletons and their shots stand out.
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.88);
+	n = normalize(vec3((r - 0.5) * 0.04, 1.0, (h(vec2(pl, pid + 1.7)) - 0.5) * 0.04));
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -576,6 +664,8 @@ static var _wall_shaders := {}
 ##    fungus threads.
 ## 5. Blood Moon (the event): black marble blocks, gold joints, throbbing blood veins and a
 ##    frieze of gold crescent moons.
+## 6. Frostfall Hall (the winter event): dark timber boards with frost on the beams and
+##    snow banked at the foot.
 ## The pattern follows where the point is in the world, so walls built from several boxes
 ## join up, and a box's top takes the pattern seen from above.
 static func _wall_material(look: Dictionary, base: Material) -> Material:
@@ -722,6 +812,37 @@ void fragment() {
 		em += vec3(1.0, 0.7, 0.3) * moon * 0.25;
 	}
 	rough = mix(0.25, 0.4, joint);
+#elif STYLE == 6
+	// Frostfall Hall: walls of dark logs laid one on another, snow piled at the foot and on
+	// top, and a pine garland hung with little warm lights running round the hall.
+	const float LOG = 0.34;
+	float lrow = floor(uv.y / LOG);
+	float ly = fract(uv.y / LOG);
+	float hl = h(vec2(lrow, 4.2));
+	float lg = texture(grain, vec2(uv.x * 0.08 + hl * 3.0, uv.y * 1.4)).r;
+	c = vec3(0.2, 0.125, 0.075) * (0.75 + 0.4 * hl) * (0.8 + 0.4 * lg);
+	// Round: lit along the top of each log, dark in the crease under it.
+	c *= (0.55 + 0.6 * sin(ly * 3.1416)) * (1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.12, ly)));
+	if (top > 0.5) {
+		c = vec3(0.5, 0.55, 0.62) * (0.85 + 0.3 * fine);
+	}
+	// Snow banked against the foot of the wall.
+	float bank = clamp(1.0 - smoothstep(0.0, 0.45 + 0.35 * texture(blobs, vec2(uv.x * 0.25, 0.3)).r, height), 0.0, 1.0) * (1.0 - top);
+	c = mix(c, vec3(0.55, 0.6, 0.68) * (0.85 + 0.3 * fine), bank);
+	// The garland: a fuzzy band of dark pine sagging between hooks, with lights along it.
+	float sag = 1.62 - 0.12 * sin(fract(uv.x / 1.6) * 3.1416);
+	float gd = abs(height - sag);
+	float pine = (1.0 - smoothstep(0.07, 0.11, gd + (texture(grain, uv * 2.2).r - 0.5) * 0.08)) * (1.0 - top);
+	c = mix(c, vec3(0.04, 0.12, 0.07) * (0.7 + 0.6 * texture(grain, uv * 3.1).r), pine);
+	float bi = floor(uv.x / 0.4);
+	vec2 bl = vec2((fract(uv.x / 0.4) - 0.5) * 0.4, height - sag + 0.02 * sin(bi * 2.1));
+	float bulb = (1.0 - smoothstep(0.022, 0.04, length(bl))) * (1.0 - top);
+	float hb = h(vec2(bi, 7.7));
+	vec3 bcol = hb < 0.6 ? vec3(1.0, 0.72, 0.35) : (hb < 0.82 ? vec3(1.0, 0.25, 0.18) : vec3(0.45, 0.9, 1.0));
+	float tw = 0.65 + 0.35 * sin(TIME * (1.3 + hb) + hb * 40.0);
+	c = mix(c, bcol, bulb);
+	em += bcol * bulb * tw * 1.4 + bcol * (1.0 - smoothstep(0.0, 0.14, length(bl))) * (1.0 - top) * 0.12 * tw;
+	rough = mix(0.8, 0.6, bank);
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
@@ -824,22 +945,14 @@ func _read_layout(layout: Array) -> void:
 			match ch:
 				"#":
 					_add_obstacle(p, 0.6)
-					# Each crypt has its own pillars (version 134).
-					var prefab := Art.get_model(str(Floors.current().get("pillar", Art.PILLAR)))
-					if prefab == null:
-						prefab = Art.get_model(Art.PILLAR)
-					if prefab:
-						var pillar := Art.place_prop(prefab, _anchor(p), WALL_H + 0.4)
-						# Some crypt pillars are chunky: keep them no wider than the old one, so
-						# what you see matches what blocks you.
-						var wide := Art.width_of(pillar)
-						if wide > 1.25:
-							pillar.scale.x *= 1.25 / wide
-							pillar.scale.z *= 1.25 / wide
+					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts
+					# are made in code (props.gd).
+					if str(Floors.current().get("pillar", "")) == "timber":
+						var post := MeshInstance3D.new()
+						post.mesh = Props.timber_post()
+						_anchor(p).add_child(post)
 					else:
-						U.box(self, Vector3(1.2, 0.3, 1.2), stone, p + Vector3.UP * 0.15)
-						U.cylinder(self, 0.45, WALL_H + 0.4, stone, p)
-						U.box(self, Vector3(1.1, 0.25, 1.1), stone, p + Vector3.UP * (WALL_H + 0.4))
+						_add_pillar(p, stone)
 				"b":
 					_add_obstacle(p, 0.45)
 					var prefab := Art.get_model(Art.BARREL)
@@ -866,6 +979,24 @@ func _read_layout(layout: Array) -> void:
 						trap.position = p
 				"m", "w", "a", "g", "K", "L", "x", "t", "s":
 					spawns.append({"kind": ch, "pos": p})
+
+
+func _add_pillar(p: Vector3, stone: Material) -> void:
+	var prefab := Art.get_model(str(Floors.current().get("pillar", Art.PILLAR)))
+	if prefab == null:
+		prefab = Art.get_model(Art.PILLAR)
+	if prefab:
+		var pillar := Art.place_prop(prefab, _anchor(p), WALL_H + 0.4)
+		# Some crypt pillars are chunky: keep them no wider than the old one, so
+		# what you see matches what blocks you.
+		var wide := Art.width_of(pillar)
+		if wide > 1.25:
+			pillar.scale.x *= 1.25 / wide
+			pillar.scale.z *= 1.25 / wide
+	else:
+		U.box(self, Vector3(1.2, 0.3, 1.2), stone, p + Vector3.UP * 0.15)
+		U.cylinder(self, 0.45, WALL_H + 0.4, stone, p)
+		U.box(self, Vector3(1.1, 0.25, 1.1), stone, p + Vector3.UP * (WALL_H + 0.4))
 
 
 func _anchor(p: Vector3) -> Node3D:

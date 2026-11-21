@@ -4,7 +4,9 @@ extends Node
 ## Crypt with water dripping somewhere, a thin whistling wind in the Frozen Ossuary with
 ## ice ticking now and then, a low fire roar in the Ember Catacomb with embers popping, and
 ## water lapping in the Drowned Vault with bubbles rising, and in the Glowcap Grotto a soft
-## hollow cave air with a faint shimmer, where the fungus chimes now and then.
+## hollow cave air with a faint shimmer, where the fungus chimes now and then. Frostfall Hall
+## (the winter event, version 243): a storm howling outside, a fire crackling close by, and
+## now and then Krampus's bells jingling somewhere far off.
 ## All of it is made in code. The draught loops play on the Music bus, so they muffle with
 ## the music when the game is paused; the drips and pops go through the Effects echo. It
 ## follows the Sounds setting, and is silent on the title screen.
@@ -19,11 +21,13 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0)]
 
 static var _instance: Ambience
-var _beds: Array = [null, null, null, null, null, null]
-var _ones: Array = [null, null, null, null, null, null]
+## Version 243: Frostfall's Blizzard turns the storm up (0..1, blizzard.gd).
+static var gust := 0.0
+var _beds: Array = [null, null, null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -67,7 +71,7 @@ func _process(delta: float) -> void:
 				_player.play(randf() * LOOP_SECONDS * 0.9)
 	else:
 		_level = move_toward(_level, 1.0 if _theme >= 0 else 0.0, delta / FADE)
-	_player.volume_db = VOLUME_DB + linear_to_db(maxf(_level, 0.0001))
+	_player.volume_db = VOLUME_DB + linear_to_db(maxf(_level, 0.0001)) + 12.0 * gust
 	# Now and then a drip, a tick of ice, a popping ember or a bubble, but only while fighting.
 	if Game.state == Game.State.PLAYING and _theme >= 0 and _level > 0.5:
 		_next_one -= delta
@@ -94,6 +98,8 @@ func _build_all() -> void:
 	# The Blood Moon Crypt (version 134): the crypt's draught, lower, and a slow heartbeat.
 	_beds[5] = _loop(_moon_bed)
 	_ones[5] = _one(0.9, _heartbeat)
+	_beds[6] = _loop(_storm_bed)
+	_ones[6] = _one(1.1, _bells)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -301,3 +307,42 @@ func _pop(n: int) -> PackedFloat32Array:
 		var t := float(i) / Sfx.RATE
 		x[i] = (rng.randf() * 2.0 - 1.0) * exp(-t * 90.0) * 0.8 + sin(TAU * (110.0 - t * 200.0) * t) * exp(-t * 25.0) * 0.4
 	return x
+
+
+## Frostfall Hall: a storm howling outside the walls (a high moaning band of wind that
+## swells and falls) over a low draught, with a hearth crackling close by.
+func _storm_bed(n: int) -> PackedFloat32Array:
+	var low := _wind(n, 80.0, 260.0, 6.0, 1.7, 61)
+	var a := _wind(n, 500.0, 1100.0, 2.0, 1.0, 62)
+	var b := _wind(n, 330.0, 760.0, 2.0, 1.0, 62)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 63
+	var crackle := 0.0
+	for i in n:
+		var t := float(i) / RATE
+		# 3 and 6 second swells meet again at the loop's seam.
+		var howl := 0.3 + 0.7 * pow(0.5 + 0.5 * sin(TAU * t / 3.0 + 0.4) * sin(TAU * t / 6.0), 2.0)
+		low[i] += (a[i] - b[i]) * 1.6 * howl
+		if rng.randf() < 0.0005:
+			crackle = rng.randf_range(0.05, 0.16) * (1.0 if rng.randf() < 0.5 else -1.0)
+		low[i] += crackle * (rng.randf() * 2.0 - 1.0)
+		crackle *= 0.85
+	return low
+
+
+## Sleigh bells far off: a short shaken run of small bright jingles, fading away.
+func _bells(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 71
+	for k in 9:
+		var start := k * 0.085 + rng.randf() * 0.03
+		var hz := rng.randf_range(2600.0, 3300.0)
+		var amp := 0.22 * (1.0 - k / 10.0)
+		for i in n:
+			var t := float(i) / Sfx.RATE - start
+			if t >= 0.0:
+				x[i] += (sin(TAU * hz * t) + 0.5 * sin(TAU * hz * 2.76 * t)) * exp(-t * 18.0) * minf(t / 0.002, 1.0) * amp
+	return x
+

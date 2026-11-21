@@ -458,10 +458,10 @@ func _ready_next() -> void:
 	_result = {}
 	_shown_tier = 0
 	_pop = 0.0
-	_head.text = "MOON CASKET" if casket else "BONE DROP"
-	_count.text = "%d waiting" % _left if _left > 1 else ("Won in the Blood Moon" if casket else "Earned by brave runs")
+	_head.text = Events.word("casket").to_upper() if casket else "BONE DROP"
+	_count.text = "%d waiting" % _left if _left > 1 else (("Won in " + ("the Blood Moon" if not Events.frost() else "Frostfall")) if casket else "Earned by brave runs")
 	if casket:
-		_head.label_settings.font_color = Color(1.0, 0.42, 0.36)
+		_head.label_settings.font_color = Color(1.0, 0.42, 0.36) if not Events.frost() else Color(0.6, 0.88, 1.0)
 		_odds_btn.visible = false
 	_rarity.text = ""
 	_prize.text = "What's inside?\nTap to find out."
@@ -627,7 +627,7 @@ func _reveal() -> void:
 	_flash = 1.0
 	_pop = 1.0
 	var c: Color = _result.get("color", Color.WHITE)
-	_head.text = "MOON CASKET" if casket else "BONE DROP"
+	_head.text = Events.word("casket").to_upper() if casket else "BONE DROP"
 	_rarity.text = str(_result.get("name", ""))
 	_rarity.label_settings.font_color = c
 	_prize.text = str(_result.get("text", ""))
@@ -851,7 +851,7 @@ func _draw_art() -> void:
 	var glow := 0.3 + 0.12 * _shown_tier + 0.45 * _flash
 	if _step == Step.CLOSED:
 		glow = 0.16 + 0.04 * sin(_clock * 2.2)
-		col = Color(1.0, 0.3, 0.25) if casket else Color(0.6, 0.5, 1.0)
+		col = (Color(1.0, 0.3, 0.25) if not Events.frost() else Color(0.45, 0.8, 1.0)) if casket else Color(0.6, 0.5, 1.0)
 	var r := 210.0 * k
 	a.draw_texture_rect(_soft_glow(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(col, glow))
 	if open:
@@ -1010,7 +1010,7 @@ func _draw_under() -> void:
 	var a := _under
 	var c := _anchor + Vector2(0, 30)
 	if _step == Step.CLOSED:
-		var col := Color(1.0, 0.3, 0.25) if casket else Color(0.6, 0.5, 1.0)
+		var col := (Color(1.0, 0.3, 0.25) if not Events.frost() else Color(0.45, 0.8, 1.0)) if casket else Color(0.6, 0.5, 1.0)
 		var r := 210.0
 		a.draw_texture_rect(_soft_glow(), Rect2(c - Vector2(r, r), Vector2(r, r) * 2.0), false, Color(col, 0.16 + 0.04 * sin(_clock * 2.2)))
 

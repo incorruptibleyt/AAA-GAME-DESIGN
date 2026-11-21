@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "b", "h", "Q", "q"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "b", "h", "Q", "q", "o", "n", "i", "Y"]
 
 ## Version 165: the skeletons, floor and effects of the first floor. A new player's first
 ## launch warms only these (with the hero they play), and the rest waits for the black
@@ -78,7 +78,7 @@ static func run(core := false, from := 0) -> bool:
 	room.add_child(holder)   # skeletons only stand still on the title screen
 	var at := hero.global_position
 	var spots: Array[Vector3] = []
-	for i in 25:
+	for i in 30:   # (version 243: 6 rows, for the Frostfall skeletons)
 		spots.append(at + Vector3((i % 5 - 2) * 1.3, 0, (i / 5 - 1) * 1.3))
 	var tree := Game.get_tree()
 	var made: Array = []
@@ -267,6 +267,19 @@ static func run(core := false, from := 0) -> bool:
 		U.floor_quad(holder, Vector2(1, 1), Props._splash_mat(), spots[14] + Vector3(0, 0.03, 0))
 		U.floor_quad(holder, Vector2(1, 1), Props._foam_mat(), spots[16] + Vector3(0, 0.03, 0))
 		U.box(holder, Vector3(1, 0.6, 0.3), Tidecaller._foam_material(), spots[15] + Vector3(0, 0.3, 0)))
+	# Version 243, Frostfall: the timber post, a snowball, a frost ring, a brazier with its
+	# warm ring, the ring of cold round the hero and the block of ice.
+	if not core: steps.append(func():
+		var post := MeshInstance3D.new()
+		post.mesh = Props.timber_post()
+		holder.add_child(post)
+		post.position = spots[2] + Vector3(0, 0, -0.6)
+		var ball := MeshInstance3D.new()
+		ball.mesh = Snowball._mesh()
+		holder.add_child(ball)
+		ball.position = spots[3] + Vector3(0, 0.4, 0)
+		FrostRing.warm_up(holder, spots[1])
+		Blizzard.warm_up(holder, spots[4]))
 	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
 	# a spore cloud, crawling roots and the Sporemother's pod.
 	if core: steps.append(func():

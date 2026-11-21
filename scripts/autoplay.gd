@@ -30,6 +30,7 @@ extends Node
 ## between pictures (for 1080 x 1920 store screenshots). `chains=1.2,2,3` (with `die`)
 ## fills in the chain reached in each room before, to picture the Daily Crypt share card.
 
+var _blizzard_runs := 0   # v243: times it headed for a brazier (the report line)
 var _surge_held := 0.0
 var god := false
 var start_room := 1
@@ -105,7 +106,8 @@ var _force_cards: Array = []
 var _card_frames: Array = []
 ## The Blood Moon (events.gd): `eday=N` plays day N of the event, `event=run` or
 ## `event=hunt tier=N` starts it, `eventmenu` takes pictures of the event screens and
-## `shards=N caskets=N` fill the event save first.
+## `shards=N caskets=N` fill the event save first. `eid=frostfall` (version 243) makes
+## `eday` pick the Frostfall event instead.
 var _event_menu := false
 ## Version 218 (review 4): `days=N` moves the game's clock N days on (to test the
 ## once-a-day prizes on the next day), and `fastboss` drops a boss to 1 health 3 s in.
@@ -232,6 +234,8 @@ func _ready() -> void:
 			print("[autoplay] clock moved %s days: today is %s" % [a.substr(5), Curses.today()])
 		elif a == "fastboss":
 			_fast_boss = true
+		elif a.begins_with("eid="):
+			Events.forced_id = a.substr(4)
 		elif a.begins_with("eday="):
 			Events.forced_day = int(a.substr(5))
 			_skip_first_run()
@@ -343,12 +347,12 @@ func _event_pictures() -> void:
 	await get_tree().create_timer(0.6).timeout
 	await _shot()
 	var cfg := Game._load_save()
-	for i in Events.ROAD.size():
-		if Events.shards(cfg) >= int(Events.ROAD[i].at) and not Events.claimed(cfg, i):
+	for i in Events.road().size():
+		if Events.shards(cfg) >= int(Events.road()[i].at) and not Events.claimed(cfg, i):
 			Game._claim_event_road(i)
 			cfg = Game._load_save()
-	for j in Events.PASS_ROAD.size():   # version 222: the Crypt Pass row too (with the Pass)
-		if Store.owned() and Events.shards(cfg) >= int(Events.PASS_ROAD[j].at) and not Events.pass_claimed(cfg, j):
+	for j in Events.pass_road().size():   # version 222: the Crypt Pass row too (with the Pass)
+		if Store.owned() and Events.shards(cfg) >= int(Events.pass_road()[j].at) and not Events.pass_claimed(cfg, j):
 			Game._claim_event_road(EventScreen.PASS_INDEX + j)
 			cfg = Game._load_save()
 	print("[autoplay] event road: shards %d, claimed to %d, caskets %d, looks %s, coins %d" % [Events.shards(cfg), Events.next_index(cfg),
@@ -444,6 +448,9 @@ func _process(delta: float) -> void:
 	if Game.state != _last_state:
 		_last_state = Game.state
 		print("[autoplay] t=%.1f state=%s room=%d hp=%s" % [_t, Game.State.keys()[Game.state], Game._room_index + 1, str(Game.hero.health) if Game.hero else "-"])
+		if Floors.frostfall() and Game.event != "" and Blizzard.instance:
+			print("[autoplay] blizzard: braziers %d, k %.2f, cold %.2f, frames heading to a fire %d" % [Room.current.get_meta("braziers", []).size() if Room.current else -1,
+					Blizzard.instance.k, Blizzard.instance.cold, _blizzard_runs])
 		if Game.state == Game.State.UPGRADE and not _force_cards.is_empty():
 			Game._choices = _force_cards.map(func(id): return Upgrades.get_def(id))
 			Game.hud.show_cards(Game._choices, Game.rerolls, true, null, Game._taken)
@@ -1004,6 +1011,15 @@ func _drive(delta: float) -> void:
 					move += r.dir.cross(Vector3.UP) * signf(d.dot(r.dir.cross(Vector3.UP)) + 0.01) * (3.0 - d.length())
 		if hero.snare_left > 0.0 and hero.dash_ready():
 			hero.dash(Vector3.RIGHT if randf() < 0.5 else Vector3.LEFT)
+		# v243, Frostfall's Blizzard: getting cold, head for the nearest brazier's warm ring.
+		var bz := Blizzard.instance
+		if bz and bz.cold > 0.35 and bz.k > 0.3 and not bz.warm(hero.global_position):
+			var fire := bz.nearest_fire(hero.global_position)
+			if fire != Vector3.INF:
+				var d := fire - hero.global_position
+				d.y = 0
+				move += d.normalized() * 4.0
+				_blizzard_runs += 1
 		for a: Actor in Actor.all:
 			if a.team == Actor.Team.UNDEAD and not a.dead:
 				var d := hero.global_position - a.global_position

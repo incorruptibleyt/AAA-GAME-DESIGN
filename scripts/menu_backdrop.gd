@@ -24,6 +24,7 @@ const THEMES := {
 	"forge": {"key": Color(1.0, 0.42, 0.14), "stone": Color(0.7, 0.56, 0.58), "ambient": Color(0.09, 0.05, 0.07), "dust": Color(1.0, 0.55, 0.2), "embers": true},
 	"teal": {"key": Color(0.3, 0.9, 1.0), "stone": Color(0.56, 0.64, 0.74), "ambient": Color(0.05, 0.075, 0.11), "dust": Color(0.65, 1.0, 1.0)},
 	"blood": {"key": Color(1.0, 0.28, 0.3), "stone": Color(0.66, 0.56, 0.64), "ambient": Color(0.09, 0.04, 0.07), "dust": Color(1.0, 0.6, 0.55)},
+	"frost": {"key": Color(0.5, 0.82, 1.0), "stone": Color(0.6, 0.66, 0.8), "ambient": Color(0.045, 0.065, 0.12), "dust": Color(0.92, 0.97, 1.0)},   # v243: Frostfall
 	"bone": {"key": Color(0.8, 0.86, 1.0), "stone": Color(0.62, 0.62, 0.74), "ambient": Color(0.07, 0.065, 0.12), "dust": Color(0.9, 0.95, 1.0)},
 }
 const TORCH := Color(1.0, 0.52, 0.2)
@@ -63,7 +64,7 @@ static func set_cheap(on: bool) -> void:
 ## Puts a lit backdrop at the back of `r` (a full-screen menu).
 static func add_to(r: Control, theme_name := "crypt") -> MenuBackdrop:
 	if theme_name == "crypt" and Events.active():
-		theme_name = "blood"   # the Blood Moon takes the menus over while it's on (version 134)
+		theme_name = str(EventArt.pal().menu)   # an event takes the menus over while it's on (version 134)
 	var b := MenuBackdrop.new()
 	b.look = theme_name
 	r.add_child(b)

@@ -82,6 +82,20 @@ const THEMES := [
 		# Petals falling: deep red and pale rose, small, so they never look like shots.
 		"motes": [Color(1.0, 0.18, 0.18, 0.75), Color(1.0, 0.6, 0.6, 0.35)], "motes_fall": true, "motes_size": 0.55,
 		"banner": Color(1.0, 0.32, 0.26), "floor_style": 5, "props": "moon", "pillar": "pillar_decorated", "light": [1.25, 1.75, 0.1, 0.3]},
+	# Version 243: Frostfall Hall, only in the Frostfall event (events.gd). The one crypt
+	# with no stone floor: a great hall of dark timber under deep snow, a pine-green carpet
+	# with gold snowflakes down the middle, log walls hung with garlands of little lights,
+	# pine trees and gifts in the corners. Blue night outside, warm fire inside, and heavy
+	# snow falling. Not the Frozen Ossuary (dark ice and cold blue everywhere).
+	{"name": "Frostfall Hall", "wisp": Color(0.78, 0.88, 1.0), "floor": Color(1.0, 1.0, 1.0),
+		"grout": Color(0.035, 0.022, 0.015), "grime": Color(0.6, 0.65, 0.76), "grime_amount": 0.75,
+		"patch_tint": Color(0.9, 0.95, 1.0), "patch_rough": 0.5,
+		"wall": Color(0.17, 0.11, 0.07), "trim": Color(0.32, 0.22, 0.14),
+		"ambient": Color(0.2, 0.24, 0.4), "fog": Color(0.03, 0.045, 0.1), "background": Color(0.012, 0.018, 0.045),
+		"moon": Color(0.62, 0.74, 1.0), "torch": Color(1.0, 0.6, 0.28), "torch_energy": 1.7, "pool": 1.2,
+		# Big soft snowflakes falling (white, slow, never the shape or speed of a shot).
+		"motes": [Color(0.96, 0.98, 1.0, 0.9), Color(0.78, 0.86, 1.0, 0.45)], "motes_fall": true, "motes_size": 0.85,
+		"banner": Color(1.0, 0.35, 0.3), "floor_style": 6, "props": "yule", "pillar": "timber", "light": [1.2, 1.45, 0.0, 0.0]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
@@ -89,6 +103,8 @@ const DROWNED := 3
 const GROTTO := 4
 ## The Blood Moon crypt: never in the rotation, only in the event's runs (Game.event).
 const BLOOD_MOON := 5
+## Frostfall Hall: never in the rotation, only in the Frostfall event's runs.
+const FROSTFALL := 6
 ## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, Frozen.
 const FREE_ORDER := [0, 1, 2, GROTTO, 1]
 ## Each loop of the Crypt Pass (5 floors, see Loops) shows all five, the Drowned Vault first.
@@ -106,7 +122,7 @@ static var lobby := false
 
 static func index(floor_num: int) -> int:
 	if Game.event != "" or lobby:
-		return BLOOD_MOON
+		return int(Events.ev().get("theme", BLOOD_MOON))
 	var f := maxi(floor_num, 1)
 	if f <= Store.FREE_FLOORS:
 		return FREE_ORDER[(f - 1) % FREE_ORDER.size()]
@@ -176,6 +192,11 @@ static func ember() -> bool:
 ## The Blood Moon crypt (the event).
 static func blood_moon() -> bool:
 	return index(Game.floor_num) == BLOOD_MOON
+
+
+## Frostfall Hall (the winter event).
+static func frostfall() -> bool:
+	return index(Game.floor_num) == FROSTFALL
 
 
 ## The Drowned Vault (Crypt Pass floors only).

@@ -338,6 +338,7 @@ var _shard_label: Label
 var _shard_icon: EventArt.ShardIcon
 var _shard_pop := 0.0
 var _surge_edge: TextureRect
+var frost_edge: TextureRect   # version 243: the Blizzard
 var _eclipse_dim: ColorRect
 var _surge_warn := false
 var _feats: FeatsScreen
@@ -1366,6 +1367,27 @@ func _build_danger() -> void:
 	full(_surge_edge)
 	_surge_edge.modulate.a = 0.0
 	add_child(_surge_edge)
+	# Version 243, Frostfall's Blizzard: the edges of the screen frost over (blizzard.gd).
+	var fg := Gradient.new()
+	fg.set_color(0, Color(0.85, 0.95, 1.0, 0))
+	fg.set_color(1, Color(0.9, 0.97, 1.0, 0.95))
+	fg.add_point(0.55, Color(0.8, 0.92, 1.0, 0))
+	fg.add_point(0.8, Color(0.82, 0.94, 1.0, 0.3))
+	var ft := GradientTexture2D.new()
+	ft.gradient = fg
+	ft.fill = GradientTexture2D.FILL_RADIAL
+	ft.fill_from = Vector2(0.5, 0.5)
+	ft.fill_to = Vector2(1.02, 1.02)
+	ft.width = 128
+	ft.height = 128
+	frost_edge = TextureRect.new()
+	frost_edge.texture = ft
+	frost_edge.stretch_mode = TextureRect.STRETCH_SCALE
+	frost_edge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	frost_edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(frost_edge)
+	frost_edge.modulate.a = 0.0
+	add_child(frost_edge)
 
 
 func _build_cards() -> void:
@@ -2960,7 +2982,7 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_tiles[1].text = "The Drowned Vault, 3 remixed\ncrypts, then endless loops"
 	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
 	if not Events.current().is_empty():
-		_pass_tiles[0].text = "Grand looks for every hero,\nSilver Moon set, +50% shards"
+		_pass_tiles[0].text = "Grand looks for every hero,\n%s, +50%% %s" % [Events.word("pass_set"), Events.word("unit")]
 	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
 	_pass_more.text = "Plus all 4 heroes now (no need to spend %d coins)." % coins_of_heroes
 	_pass_buy.disabled = owned
@@ -5803,9 +5825,9 @@ func refresh_event_banner() -> void:
 		if ready > 0:
 			badge = "CLAIM!"
 		elif n > 0:
-			badge = "%d CASKET%s" % [n, "" if n == 1 else "S"]
+			badge = "%d %s" % [n, Events.word("casket" if n == 1 else "caskets", e).get_slice(" ", 1).to_upper()]
 		elif Events.double_today(e):
-			badge = "2X SHARDS"
+			badge = "2X " + Events.word("unit", e).to_upper()
 		sub = "%s  ·  ends in %s" % [str(Events.chapter_info(e).name), Events.time_text(Events.seconds_left(e))]
 	else:
 		badge = "SOON"

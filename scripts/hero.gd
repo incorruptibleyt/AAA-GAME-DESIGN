@@ -59,6 +59,10 @@ var snare_left := 0.0
 ## After the roots let go (or a dash tears free), a moment when roots can't take hold again,
 ## so two crawls in a row can't keep the hero pinned under the next attack.
 var snare_guard := 0.0
+## Version 243, Frostfall's Blizzard (blizzard.gd): how cold the hero is (0..1; slower as it
+## rises), and the block of ice they are frozen in (held like roots; a dash breaks it).
+var cold := 0.0
+var _ice: MeshInstance3D
 ## Hero blessings (upgrades.gd) tune these.
 var dash_cooldown_time := DASH_COOLDOWN
 var crit_mult := 2.0
@@ -258,6 +262,8 @@ func place_at(pos: Vector3) -> void:
 	chill_left = 0.0
 	snare_left = 0.0
 	snare_guard = 0.0
+	cold = 0.0
+	_thaw()
 	_safe_left = 0.0
 	if visual:
 		visual.rotation.y = 0.0
@@ -307,7 +313,11 @@ func dash(dir: Vector3) -> void:
 	if snare_left > 0.0:
 		snare_left = 0.0   # tearing free of the roots
 		snare_guard = SNARE_GUARD
-		Fx.magic(center(), RootCrawl.LIME, 12)
+		Fx.magic(center(), RootCrawl.LIME if _ice == null or not _ice.visible else Color(0.75, 0.92, 1.0), 12)
+		if _ice and _ice.visible:
+			Fx.impact(center(), Color(0.8, 0.95, 1.0))
+			Sfx.play("crack", 0.6, 1.3)
+		_thaw()
 	_last_dash_ms = Time.get_ticks_msec()
 	_dash_cooldown = dash_cooldown_time
 	_trail_t = 0.0
@@ -598,13 +608,14 @@ func _process(delta: float) -> void:
 		snare_left -= delta
 		if snare_left <= 0.0:
 			snare_guard = SNARE_GUARD
+			_thaw()
 		if _moving:
 			# Held by the roots: it can turn and strain, but not move (shooting goes on).
 			face(move, 18.0, delta)
 			_moving = false
 			visual.set_moving(false)
 	if _moving:
-		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * delta, delta)
+		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * (1.0 - Blizzard.SLOW * cold) * delta, delta)
 		face(move, 18.0, delta)
 		# The reload keeps counting while you move (it used to wait), and firing resumes
 		# shortly after you stop.
@@ -1369,6 +1380,42 @@ func snare(seconds: float) -> void:
 		Game.hud.callout("ROOTED! DASH FREE!", RootCrawl.LIME, true)
 	snare_left = maxf(snare_left, seconds)
 	Game.buzz(30)
+
+
+## Frozen solid in the Blizzard (version 243): held like roots, in a block of ice. A dash
+## breaks it.
+func freeze(seconds: float) -> void:
+	if not can_be_snared() or dead:
+		return
+	snare_left = maxf(snare_left, seconds)
+	if _ice == null:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = Color(0.7, 0.9, 1.0, 0.45)
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.emission_enabled = true
+		m.emission = Color(0.35, 0.6, 0.85)
+		m.emission_energy_multiplier = 0.6
+		m.roughness = 0.1
+		m.metallic_specular = 1.0
+		_ice = MeshInstance3D.new()
+		var b := BoxMesh.new()
+		b.size = Vector3(1.25, 2.0, 1.25)
+		_ice.mesh = b
+		_ice.material_override = m
+		_ice.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_ice.position = Vector3(0, 1.0, 0)
+		add_child(_ice)
+	_ice.visible = true
+	_ice.rotation.y = randf_range(-0.4, 0.4)
+	Fx.magic(center(), Color(0.75, 0.92, 1.0), 22)
+	Sfx.play("crack", 0.7, 0.8)
+	Game.hud.callout("FROZEN! DASH FREE!", Color(0.6, 0.9, 1.0), true)
+	Game.buzz(40)
+
+
+func _thaw() -> void:
+	if _ice:
+		_ice.visible = false
 
 
 ## False while held already, or just after getting free (see snare_guard).

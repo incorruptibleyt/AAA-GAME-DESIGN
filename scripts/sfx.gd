@@ -101,6 +101,8 @@ func _ready() -> void:
 	_make("catch", 0.18, func(t): return (_sine(t, 150.0 - t * 260.0) * 0.6 * exp(-t * 30.0) + _noise() * exp(-t * 95.0) * 0.55) * clampf(t / 0.002, 0.0, 1.0) * 0.55)
 	# Version 235: the Mage letting a charged orb go: a rising whoosh.
 	_make("cast", 0.32, func(t): return (_sweep(t, 260, 980) * 0.35 + _noise() * 0.25 * exp(-t * 12.0)) * _env(t, 0.32) * 0.5)
+	# Version 243: a blizzard's first gust: a rush of wind that swells and falls away.
+	_make("gust", 1.5, func(t): return (_noise() * 0.6 * sin(PI * minf(t / 1.5, 1.0)) * (0.7 + 0.3 * sin(t * 23.0)) + _sweep(t, 180, 520) * 0.12 * exp(-t * 2.0)) * _env(t, 1.5) * 0.5)
 	_make("crack", 0.35, func(t): return (_noise() * exp(-t * 30.0) * 0.9 + _square(t, 220 - t * 300) * 0.3 * exp(-t * 10.0) + _sine(t, 1760) * 0.25 * exp(-t * 12.0)) * _env(t, 0.35) * 0.6)
 	# A heartbeat for low health (code-made on purpose: two soft low thumps).
 	# Water: a wash of noise that dies away with a little rising bloop (the Drowned Vault).

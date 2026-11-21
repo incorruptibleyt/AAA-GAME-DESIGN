@@ -135,6 +135,11 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"h": e = MoonHowler.new()
 		"Q": e = BloodQueen.new()
 		"q": e = QueenShade.new()
+		# The Frostfall event (version 243).
+		"o": e = SnowRoller.new()
+		"n": e = BellRinger.new()
+		"i": e = GiftThief.new()
+		"Y": e = Krampus.new()
 		_: e = SkeletonMinion.new()
 	e.team = Team.UNDEAD
 	parent.add_child(e)

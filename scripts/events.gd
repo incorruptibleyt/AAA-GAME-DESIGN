@@ -22,6 +22,9 @@ const BLOOD_MOON := {
 	"name": "BLOOD MOON",
 	"start": "2026-11-20",
 	"days": 14,
+	"theme": 5,   # Floors.BLOOD_MOON
+	"boss": "Q",
+	"guards": "KL",   # the bosses of the run's floors 1 and 2
 	"color": Color(1.0, 0.24, 0.2),
 	"gold": Color(1.0, 0.78, 0.4),
 	"story": "Once in a hundred years the moon bleeds. Tonight the Blood Moon Queen wakes, and every skeleton in the crypt answers her call.",
@@ -32,8 +35,73 @@ const BLOOD_MOON := {
 	],
 	# Event days (1 = the first) worth double Moon Shards: Saturday and Sunday, Nov 28-29.
 	"double": [9, 10],
+	# Version 243: what this event calls things (word()).
+	"words": {"shard": "Moon Shard", "shards": "Moon Shards", "unit": "shards", "casket": "Moon Casket",
+		"caskets": "Moon Caskets", "hunt": "Queen Hunt", "foe": "the Queen", "Foe": "The Queen",
+		"set": "Blood Moon set", "pass_set": "Silver Moon set", "rule": "Moon Surge", "top": "Blood Eclipse",
+		"music": "queen", "ruler": "Ruler of the Blood Moon", "guardian": "Guardian of the Blood Moon",
+		"down": "Bring her down!", "over": "The Blood Moon has set.", "fallen": "The Blood Moon Queen has fallen!",
+		"kills": "Queen kills"},
 }
-const LIST := [BLOOD_MOON]
+## Version 243 (whole-game review fix 3): the second big event, for midwinter. Its own
+## crypt (Frostfall Hall, Floors.FROSTFALL), rule (the Blizzard), skeletons and boss
+## (Krampus), road and set. Starts the week after the Blood Moon ends, teased in between.
+const FROSTFALL := {
+	"id": "frostfall",
+	"name": "FROSTFALL",
+	"start": "2026-12-11",
+	"days": 14,
+	"theme": 6,   # Floors.FROSTFALL
+	"boss": "Y",
+	"guards": "LK",
+	"color": Color(0.5, 0.85, 1.0),
+	"gold": Color(1.0, 0.8, 0.45),
+	"story": "For twelve nights each midwinter the snow falls into the crypt, and Krampus comes down with it: chains, bells and an empty sack for every gift and every soul he can steal.",
+	"chapters": [
+		{"name": "FIRST SNOW", "day": 1, "text": "The Frostfall run opens, and the Krampus Hunt tiers 1-2.", "tiers": 2},
+		{"name": "THE LONG NIGHT", "day": 6, "text": "Hunt tiers 3-4 open. Double snowflakes on the weekend!", "tiers": 4},
+		{"name": "WHITEOUT", "day": 11, "text": "The great storm comes. Tier 5, Whiteout, opens: Krampus at his worst.", "tiers": 5},
+	],
+	# Saturday and Sunday, Dec 19-20.
+	"double": [9, 10],
+	"words": {"shard": "Snowflake", "shards": "Snowflakes", "unit": "snowflakes", "casket": "Frost Gift",
+		"caskets": "Frost Gifts", "hunt": "Krampus Hunt", "foe": "Krampus", "Foe": "Krampus",
+		"set": "Frostfall set", "pass_set": "Polar Night set", "rule": "Blizzard", "top": "Whiteout",
+		"music": "krampus", "ruler": "Thief of Midwinter", "guardian": "Guardian of the Frostfall Hall",
+		"down": "Bring him down!", "over": "The snow has stopped: Frostfall is over.", "fallen": "Krampus has fallen!",
+		"kills": "Krampus beaten"},
+}
+const LIST := [BLOOD_MOON, FROSTFALL]
+
+## What event `e` calls a thing (its currency, chests, hunt, boss, set): see "words".
+static func word(key: String, e: Dictionary = {}) -> String:
+	if e.is_empty():
+		e = ev()
+	return str(e.get("words", BLOOD_MOON.words).get(key, BLOOD_MOON.words.get(key, key)))
+
+
+static func frost(e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
+	return str(e.id) == "frostfall"
+
+
+## Each event's own road, Pass row, hunt tiers and top hunt prize (version 243).
+static func road(e: Dictionary = {}) -> Array:
+	return FROST_ROAD if frost(e) else ROAD
+
+
+static func pass_road(e: Dictionary = {}) -> Array:
+	return FROST_PASS_ROAD if frost(e) else PASS_ROAD
+
+
+static func tiers(e: Dictionary = {}) -> Array:
+	return FROST_TIERS if frost(e) else TIERS
+
+
+static func top_look(e: Dictionary = {}) -> Array:
+	return ["glow", "whiteout"] if frost(e) else ECLIPSE_LOOK
+
 
 ## Days before the start when the title shows what's coming.
 const TEASE_DAYS := 7
@@ -114,26 +182,84 @@ const PASS_ROAD := [
 	{"at": 2400, "kind": "look", "look": ["aura", "silver_moon"]},
 ]
 
+## Version 243: Frostfall's road. The same pace and prizes as the Blood Moon's (so the economy
+## stays as reviewed), with Frost Gifts for caskets and its own set: the Krampus Coat, the
+## Krampus Horns, the Northern Lights glow and the Snowstorm aura. Its Pass row is the Polar
+## Night set (outfit, glow, aura).
+const FROST_ROAD := [
+	{"at": 40, "kind": "casket", "n": 1},
+	{"at": 85, "kind": "coins", "n": 40},
+	{"at": 130, "kind": "casket", "n": 1},
+	{"at": 180, "kind": "drop", "n": 1},
+	{"at": 230, "kind": "casket", "n": 1},
+	{"at": 285, "kind": "coins", "n": 50},
+	{"at": 340, "kind": "lucky", "n": 1},
+	{"at": 400, "kind": "casket", "n": 1},
+	{"at": 460, "kind": "coins", "n": 60},
+	{"at": 525, "kind": "look", "look": ["outfit", "krampus"]},
+	{"at": 595, "kind": "casket", "n": 1},
+	{"at": 665, "kind": "drop", "n": 2},
+	{"at": 740, "kind": "coins", "n": 75},
+	{"at": 815, "kind": "casket", "n": 2},
+	{"at": 895, "kind": "lucky", "n": 1},
+	{"at": 975, "kind": "coins", "n": 100},
+	{"at": 1060, "kind": "casket", "n": 1},
+	{"at": 1145, "kind": "look", "look": ["head", "krampus_horns"]},
+	{"at": 1235, "kind": "drop", "n": 2},
+	{"at": 1325, "kind": "casket", "n": 2},
+	{"at": 1420, "kind": "coins", "n": 110},
+	{"at": 1520, "kind": "lucky", "n": 2},
+	{"at": 1620, "kind": "casket", "n": 1},
+	{"at": 1725, "kind": "look", "look": ["glow", "northern_lights"]},
+	{"at": 1830, "kind": "coins", "n": 125},
+	{"at": 1940, "kind": "drop", "n": 3},
+	{"at": 2050, "kind": "casket", "n": 2},
+	{"at": 2165, "kind": "coins", "n": 150},
+	{"at": 2280, "kind": "casket", "n": 3},
+	{"at": 2400, "kind": "look", "look": ["aura", "snowstorm"]},
+]
+const FROST_PASS_ROAD := [
+	{"at": 525, "kind": "look", "look": ["outfit", "polar_night"]},
+	{"at": 1725, "kind": "look", "look": ["glow", "polar_night"]},
+	{"at": 2400, "kind": "look", "look": ["aura", "polar_night"]},
+]
+## The Krampus Hunt: the Queen Hunt's tiers, and from tier III up Krampus learns more
+## (krampus.gd: Bell Toll from III, a second avalanche from IV, the storm all fight in
+## WHITEOUT).
+const FROST_TIERS := [
+	{"name": "TIER I", "hp": 0.75, "floor": 2, "gifts": 4, "shards": 35},
+	{"name": "TIER II", "hp": 0.85, "floor": 3, "gifts": 5, "shards": 50},
+	{"name": "TIER III", "hp": 0.8, "floor": 4, "gifts": 6, "shards": 65},
+	{"name": "TIER IV", "hp": 0.65, "floor": 5, "gifts": 7, "shards": 80},
+	{"name": "WHITEOUT", "hp": 0.6, "floor": 6, "gifts": 8, "shards": 100},
+]
 
-static func pass_claimed(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> bool:
-	return bool(cfg.get_value(section(e), "pass_%d" % i, false)) or has_look(cfg, PASS_ROAD[i].look[0], PASS_ROAD[i].look[1])
+
+static func pass_claimed(cfg: ConfigFile, i: int, e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
+	return bool(cfg.get_value(section(e), "pass_%d" % i, false)) or has_look(cfg, pass_road(e)[i].look[0], pass_road(e)[i].look[1])
 
 
 ## Pass row steps reached and not claimed (none without the Crypt Pass).
-static func pass_ready(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+static func pass_ready(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	if not Store.owned():
 		return 0
 	var n := 0
-	for i in PASS_ROAD.size():
-		if shards(cfg, e) >= int(PASS_ROAD[i].at) and not pass_claimed(cfg, i, e):
+	for i in pass_road(e).size():
+		if shards(cfg, e) >= int(pass_road(e)[i].at) and not pass_claimed(cfg, i, e):
 			n += 1
 	return n
 
 
-static func claim_pass(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> Dictionary:
-	if i < 0 or i >= PASS_ROAD.size() or not Store.owned() or pass_claimed(cfg, i, e) or shards(cfg, e) < int(PASS_ROAD[i].at):
+static func claim_pass(cfg: ConfigFile, i: int, e: Dictionary = {}) -> Dictionary:
+	if e.is_empty():
+		e = ev()
+	if i < 0 or i >= pass_road(e).size() or not Store.owned() or pass_claimed(cfg, i, e) or shards(cfg, e) < int(pass_road(e)[i].at):
 		return {}
-	var s: Dictionary = PASS_ROAD[i]
+	var s: Dictionary = pass_road(e)[i]
 	cfg.set_value(section(e), "pass_%d" % i, true)
 	give_look(cfg, s.look[0], s.look[1])
 	return s
@@ -151,8 +277,33 @@ const CASKETS := [
 ## Every casket earned is kept (version 140; before, any past 20 were lost).
 const MAX_CASKETS := 999
 
-## Lab and robot: play this day of the first event (0 = the real date).
-static var forced_day := 0
+## Lab and robot: play this day (0 = the real date) of the event with this id (`eday=N`
+## and `eid=ID`); every other event is then far off.
+static var forced_day := int(_arg("eday=", "0"))
+static var forced_id := _arg("eid=", "blood_moon")
+
+
+## Version 243: read straight from the command line too, so screens built before the robot
+## starts (the HUD) already belong to the event it plays.
+static func _arg(key: String, default: String) -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with(key):
+			return a.substr(key.length())
+	return default
+
+
+## The event the game is about now: the one on, or else the one coming, or else the last
+## one that has started (the Blood Moon before any).
+static func ev() -> Dictionary:
+	var e := current()
+	if e.is_empty():
+		e = coming()
+	if e.is_empty():
+		e = LIST[0]
+		for x: Dictionary in LIST:
+			if day(x) >= 1:
+				e = x
+	return e
 
 
 # ---------------------------------------------------------------- the calendar
@@ -162,9 +313,11 @@ static func _unix(date: String) -> int:
 
 
 ## Day of event `e` today: 1 on its first day, 0 or less before it, past e.days after it.
-static func day(e: Dictionary = BLOOD_MOON) -> int:
+static func day(e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	if forced_day != 0:
-		return forced_day
+		return forced_day if str(e.id) == forced_id else -999
 	return (_unix(Curses.today()) - _unix(e.start)) / 86400 + 1
 
 
@@ -211,7 +364,9 @@ static func time_text(s: int) -> String:
 
 
 ## The chapter on now (0, 1, 2).
-static func chapter(e: Dictionary = BLOOD_MOON) -> int:
+static func chapter(e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	var d := day(e)
 	var c := 0
 	for i in e.chapters.size():
@@ -220,44 +375,60 @@ static func chapter(e: Dictionary = BLOOD_MOON) -> int:
 	return c
 
 
-static func chapter_info(e: Dictionary = BLOOD_MOON) -> Dictionary:
+static func chapter_info(e: Dictionary = {}) -> Dictionary:
+	if e.is_empty():
+		e = ev()
 	return e.chapters[chapter(e)]
 
 
 ## The Eclipse: the last chapter, when the moon goes black.
-static func eclipse(e: Dictionary = BLOOD_MOON) -> bool:
+static func eclipse(e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
 	return chapter(e) == e.chapters.size() - 1
 
 
 ## Days until the next chapter (0 in the last one).
-static func days_to_next_chapter(e: Dictionary = BLOOD_MOON) -> int:
+static func days_to_next_chapter(e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	var c := chapter(e)
 	if c + 1 >= e.chapters.size():
 		return 0
 	return int(e.chapters[c + 1].day) - day(e)
 
 
-static func double_today(e: Dictionary = BLOOD_MOON) -> bool:
+static func double_today(e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
 	return e.double.has(day(e))
 
 
 ## Shards for `n` earned: doubled on double days, half again with the Crypt Pass.
-static func boosted(n: int, owned: bool, e: Dictionary = BLOOD_MOON) -> int:
+static func boosted(n: int, owned: bool, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	var m := (2.0 if double_today(e) else 1.0) * (1.0 + PASS_BONUS if owned else 1.0)
 	return roundi(n * m)
 
 
 # ---------------------------------------------------------------- the save
 
-static func section(e: Dictionary = BLOOD_MOON) -> String:
+static func section(e: Dictionary = {}) -> String:
+	if e.is_empty():
+		e = ev()
 	return "event_" + str(e.id)
 
 
-static func shards(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+static func shards(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	return int(cfg.get_value(section(e), "shards", 0))
 
 
-static func add_shards(cfg: ConfigFile, n: int, e: Dictionary = BLOOD_MOON) -> void:
+static func add_shards(cfg: ConfigFile, n: int, e: Dictionary = {}) -> void:
+	if e.is_empty():
+		e = ev()
 	if n > 0:
 		cfg.set_value(section(e), "shards", shards(cfg, e) + n)
 		# Past the road's end, a bonus Moon Casket for every BONUS_EVERY shards more.
@@ -276,18 +447,23 @@ static func add_shards(cfg: ConfigFile, n: int, e: Dictionary = BLOOD_MOON) -> v
 const BONUS_EVERY := 400
 
 
-static func road_end() -> int:
-	return int(ROAD[ROAD.size() - 1].at)
+static func road_end(e: Dictionary = {}) -> int:
+	var r := road(e)
+	return int(r[r.size() - 1].at)
 
 
 ## Bonus caskets earned past the road's end.
-static func bonus_earned(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
-	return maxi(0, shards(cfg, e) - road_end()) / BONUS_EVERY
+static func bonus_earned(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
+	return maxi(0, shards(cfg, e) - road_end(e)) / BONUS_EVERY
 
 
 ## Shards to the next bonus casket (0 before the road's end).
-static func to_next_bonus(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
-	var over := shards(cfg, e) - road_end()
+static func to_next_bonus(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
+	var over := shards(cfg, e) - road_end(e)
 	if over < 0:
 		return 0
 	return BONUS_EVERY - over % BONUS_EVERY
@@ -295,59 +471,75 @@ static func to_next_bonus(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
 
 ## Version 218: the bonus casket line, true to the one-a-day cap ("in N shards" counted to
 ## a casket that could not come until tomorrow).
-static func bonus_line(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> String:
+static func bonus_line(cfg: ConfigFile, e: Dictionary = {}) -> String:
+	if e.is_empty():
+		e = ev()
 	var due := bonus_earned(cfg, e) - int(cfg.get_value(section(e), "bonus_given", 0))
 	if str(cfg.get_value(section(e), "bonus_day", "")) >= Curses.today():
-		return "next bonus Moon Casket tomorrow"
+		return "next bonus %s tomorrow" % word("casket", e)
 	if due > 0:
-		return "a bonus Moon Casket waits: win any shards"
-	return "next bonus Moon Casket in %d shards" % to_next_bonus(cfg, e)
+		return "a bonus %s waits: win any %s" % [word("casket", e), word("unit", e)]
+	return "next bonus %s in %d %s" % [word("casket", e), to_next_bonus(cfg, e), word("unit", e)]
 
 
-static func caskets(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+static func caskets(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	return int(cfg.get_value(section(e), "caskets", 0))
 
 
-static func add_caskets(cfg: ConfigFile, n: int, e: Dictionary = BLOOD_MOON) -> void:
+static func add_caskets(cfg: ConfigFile, n: int, e: Dictionary = {}) -> void:
+	if e.is_empty():
+		e = ev()
 	cfg.set_value(section(e), "caskets", clampi(caskets(cfg, e) + n, 0, MAX_CASKETS))
 
 
 # ---------------------------------------------------------------- the road
 
-static func claimed(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> bool:
+static func claimed(cfg: ConfigFile, i: int, e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
 	return bool(cfg.get_value(section(e), "got_%d" % i, false))
 
 
-static func ready_count(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+static func ready_count(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	var s := shards(cfg, e)
 	var n := 0
-	for i in ROAD.size():
-		if s >= int(ROAD[i].at) and not claimed(cfg, i, e):
+	for i in road(e).size():
+		if s >= int(road(e)[i].at) and not claimed(cfg, i, e):
 			n += 1
 	return n + pass_ready(cfg, e)
 
 
-## The first step not reached yet (ROAD.size() when the road is done).
-static func next_index(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+## The first step not reached yet (road().size() when the road is done).
+static func next_index(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	var s := shards(cfg, e)
-	for i in ROAD.size():
-		if s < int(ROAD[i].at):
+	var r := road(e)
+	for i in r.size():
+		if s < int(r[i].at):
 			return i
-	return ROAD.size()
+	return r.size()
 
 
-static func progress(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> float:
+static func progress(cfg: ConfigFile, e: Dictionary = {}) -> float:
+	if e.is_empty():
+		e = ev()
 	var i := next_index(cfg, e)
-	if i >= ROAD.size():
+	var r := road(e)
+	if i >= r.size():
 		return 1.0
-	var from := 0 if i == 0 else int(ROAD[i - 1].at)
-	return clampf(float(shards(cfg, e) - from) / float(int(ROAD[i].at) - from), 0.0, 1.0)
+	var from := 0 if i == 0 else int(r[i - 1].at)
+	return clampf(float(shards(cfg, e) - from) / float(int(r[i].at) - from), 0.0, 1.0)
 
 
-static func step_text(s: Dictionary) -> String:
+static func step_text(s: Dictionary, e: Dictionary = {}) -> String:
 	match str(s.kind):
 		"casket":
-			return "Moon Casket" if int(s.n) == 1 else "%d Moon Caskets" % int(s.n)
+			return word("casket", e) if int(s.n) == 1 else "%d %s" % [int(s.n), word("caskets", e)]
 		"drop":
 			return "Bone Drop" if int(s.n) == 1 else "%d Bone Drops" % int(s.n)
 		"lucky":
@@ -363,8 +555,8 @@ const EARLY_LOOK_COINS := 250   # version 213: halved with the other event coins
 
 
 ## What road step `i` pays: the step itself, or coins in place of a look already found.
-static func step_for(cfg: ConfigFile, i: int) -> Dictionary:
-	var s: Dictionary = ROAD[i]
+static func step_for(cfg: ConfigFile, i: int, e: Dictionary = {}) -> Dictionary:
+	var s: Dictionary = road(e)[i]
 	if str(s.kind) == "look" and has_look(cfg, s.look[0], s.look[1]):
 		return {"at": s.at, "kind": "coins", "n": EARLY_LOOK_COINS, "early": s.look}
 	return s
@@ -372,10 +564,12 @@ static func step_for(cfg: ConfigFile, i: int) -> Dictionary:
 
 ## Claims road step `i` into `cfg` (the caller adds coins, which it holds). Returns the
 ## step, or {} if it can't be claimed.
-static func claim(cfg: ConfigFile, i: int, e: Dictionary = BLOOD_MOON) -> Dictionary:
-	if i < 0 or i >= ROAD.size() or claimed(cfg, i, e) or shards(cfg, e) < int(ROAD[i].at):
+static func claim(cfg: ConfigFile, i: int, e: Dictionary = {}) -> Dictionary:
+	if e.is_empty():
+		e = ev()
+	if i < 0 or i >= road(e).size() or claimed(cfg, i, e) or shards(cfg, e) < int(road(e)[i].at):
 		return {}
-	var s := step_for(cfg, i)
+	var s := step_for(cfg, i, e)
 	cfg.set_value(section(e), "got_%d" % i, true)
 	match str(s.kind):
 		"casket":
@@ -404,20 +598,20 @@ static func settle(cfg: ConfigFile) -> Dictionary:
 		cfg.set_value(section(e), "settled", true)
 		var coins := 0
 		var prizes := 0
-		for i in ROAD.size():
+		for i in road(e).size():
 			var st := claim(cfg, i, e)
 			if not st.is_empty():
 				prizes += 1
 				if st.kind == "coins":
 					coins += int(st.n)
-		for i in PASS_ROAD.size():
+		for i in pass_road(e).size():
 			if not claim_pass(cfg, i, e).is_empty():
 				prizes += 1
 		var n := caskets(cfg, e)
 		cfg.set_value(section(e), "caskets", 0)
 		coins += n * 20   # v218: was 50, with the casket coins halved
 		if prizes + n > 0:
-			return {"name": e.name, "coins": coins, "prizes": prizes, "caskets": n}
+			return {"name": e.name, "coins": coins, "prizes": prizes, "caskets": n, "casket": word("casket", e), "casket_n": word("caskets", e)}
 	return {}
 
 
@@ -435,9 +629,9 @@ static func give_look(cfg: ConfigFile, slot: String, key: String) -> void:
 
 
 ## The event set's looks not found yet, in road order: [[slot, key]].
-static func missing_looks(cfg: ConfigFile) -> Array:
+static func missing_looks(cfg: ConfigFile, e: Dictionary = {}) -> Array:
 	var out := []
-	for s: Dictionary in ROAD:
+	for s: Dictionary in road(e):
 		if s.kind == "look" and not has_look(cfg, s.look[0], s.look[1]):
 			out.append(s.look)
 	return out
@@ -447,7 +641,9 @@ static func missing_looks(cfg: ConfigFile) -> Array:
 
 ## Opens one waiting casket: rolls it and writes the prize into `cfg` (the caller adds the
 ## coins). Returns what drop_screen.gd shows: {tier, name, color, coins, kind, text, ...}.
-static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: Dictionary = BLOOD_MOON) -> Dictionary:
+static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: Dictionary = {}) -> Dictionary:
+	if e.is_empty():
+		e = ev()
 	if caskets(cfg, e) <= 0:
 		return {}
 	if rng == null:
@@ -472,7 +668,7 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 		"rare":
 			out.coins = 15
 			add_shards(cfg, 15, e)
-			out.text = "+15 COINS\n+15 MOON SHARDS"
+			out.text = "+15 COINS\n+15 %s" % word("shards", e).to_upper()
 		"super":
 			if rng.randi_range(0, 1) == 0:
 				Drops.add(cfg, 1)
@@ -481,12 +677,12 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 			else:
 				out.coins = 40
 				add_shards(cfg, 25, e)
-				out.text = "+40 COINS\n+25 MOON SHARDS"
+				out.text = "+40 COINS\n+25 %s" % word("shards", e).to_upper()
 		"epic":
 			Drops.add(cfg, 1)
 			out.coins = 55
 			add_shards(cfg, 40, e)
-			out.text = "BONE DROP\n+55 COINS\n+40 MOON SHARDS"
+			out.text = "BONE DROP\n+55 COINS\n+40 %s" % word("shards", e).to_upper()
 		"mythic":
 			Drops.add(cfg, 2)
 			cfg.set_value(Drops.SECTION, "lucky", Drops.lucky(cfg) + 1)
@@ -494,11 +690,11 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 			out.text = "2 BONE DROPS\nLUCKY START\n+90 COINS"
 		"legendary":
 			# The next piece of the event set, early; once all are found, a fortune.
-			var miss := missing_looks(cfg)
+			var miss := missing_looks(cfg, e)
 			if miss.is_empty():
 				out.coins = 400
 				add_shards(cfg, 100, e)
-				out.text = "+400 COINS\n+100 MOON SHARDS"
+				out.text = "+400 COINS\n+100 %s" % word("shards", e).to_upper()
 			else:
 				var look: Array = miss[0]
 				give_look(cfg, look[0], look[1])
@@ -512,14 +708,14 @@ static func open_casket(cfg: ConfigFile, rng: RandomNumberGenerator = null, e: D
 				out.look = look
 				out.preview = HeroStyle.dressed(Heroes.get_hero(id), picks)
 				out.hero = id
-				out.text = "NEW LOOK: %s\nThe Blood Moon set, early!\nWear it in HEROES > STYLE > NEW." % HeroStyle.item_label(id, look[0], look[1])
+				out.text = "NEW LOOK: %s\nThe %s, early!\nWear it in HEROES > STYLE > NEW." % [HeroStyle.item_label(id, look[0], look[1]), word("set", e)]
 	return out
 
 
 ## What a casket can hold, for the "?" on the casket screen: [[name, chance, prize]].
-static func casket_odds() -> Array:
-	var prizes := ["15 coins and 15 shards", "A Bone Drop, or 40 coins", "A Bone Drop and 55 coins",
-		"2 Bone Drops, a Lucky Start and 90 coins", "A Blood Moon look, early"]
+static func casket_odds(e: Dictionary = {}) -> Array:
+	var prizes := ["15 coins and 15 %s" % word("unit", e), "A Bone Drop, or 40 coins", "A Bone Drop and 55 coins",
+		"2 Bone Drops, a Lucky Start and 90 coins", "A %s look, early" % word("set", e).trim_suffix(" set")]
 	var out := []
 	for i in CASKETS.size():
 		out.append([CASKETS[i].name, int(CASKETS[i].weight), prizes[i]])
@@ -529,31 +725,39 @@ static func casket_odds() -> Array:
 # ---------------------------------------------------------------- the Queen Hunt
 
 ## Tiers open now: by chapter, and each needs the one before beaten once.
-static func tiers_open(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+static func tiers_open(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	var n := int(chapter_info(e).tiers)
 	var beaten := best_tier(cfg, e)
 	return mini(n, beaten + 1)
 
 
 ## The highest tier ever beaten (0 = none).
-static func best_tier(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+static func best_tier(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	return int(cfg.get_value(section(e), "best_tier", 0))
 
 
 ## Whether tier `t` (1-5) was beaten today: the day's first win pays a casket too.
 ## Version 213: a win saved on a later date (a clock moved forward, then back) counts too.
-static func won_today(cfg: ConfigFile, t: int, e: Dictionary = BLOOD_MOON) -> bool:
+static func won_today(cfg: ConfigFile, t: int, e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
 	return str(cfg.get_value(section(e), "won_%d" % t, "")) >= Curses.today()
 
 
 ## A hunt won on tier `t`: saves it and returns {shards, casket} (shards before boosts).
-static func record_hunt(cfg: ConfigFile, t: int, e: Dictionary = BLOOD_MOON) -> Dictionary:
+static func record_hunt(cfg: ConfigFile, t: int, e: Dictionary = {}) -> Dictionary:
+	if e.is_empty():
+		e = ev()
 	var first := not won_today(cfg, t, e)
 	if first:
 		cfg.set_value(section(e), "won_%d" % t, Curses.today())
 	cfg.set_value(section(e), "best_tier", maxi(best_tier(cfg, e), t))
 	cfg.set_value(section(e), "hunts", int(cfg.get_value(section(e), "hunts", 0)) + 1)
-	var n := int(TIERS[t - 1].shards)
+	var n := int(tiers(e)[t - 1].shards)
 	var casket := false
 	if not first:
 		n = roundi(n / 3.0)   # version 217: a repeat win on a tier the same day pays a third
@@ -569,12 +773,16 @@ static func record_hunt(cfg: ConfigFile, t: int, e: Dictionary = BLOOD_MOON) -> 
 
 
 ## Version 216: true while today's Moon Casket of `kind` ("hunt" or "run") is still to be had.
-static func casket_ready(cfg: ConfigFile, kind: String, e: Dictionary = BLOOD_MOON) -> bool:
+static func casket_ready(cfg: ConfigFile, kind: String, e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
 	return Curses.today() > str(cfg.get_value(section(e), kind + "_casket_day", ""))
 
 
 ## Version 216: the event run's casket, once a day. Returns true if it was given.
-static func claim_run_casket(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> bool:
+static func claim_run_casket(cfg: ConfigFile, e: Dictionary = {}) -> bool:
+	if e.is_empty():
+		e = ev()
 	if not casket_ready(cfg, "run", e):
 		return false
 	cfg.set_value(section(e), "run_casket_day", Curses.today())
@@ -583,5 +791,7 @@ static func claim_run_casket(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> boo
 
 
 ## Event runs played and the Queen's defeats, for the event screen.
-static func queen_kills(cfg: ConfigFile, e: Dictionary = BLOOD_MOON) -> int:
+static func queen_kills(cfg: ConfigFile, e: Dictionary = {}) -> int:
+	if e.is_empty():
+		e = ev()
 	return int(cfg.get_value(section(e), "queen_kills", 0))

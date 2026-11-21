@@ -50,6 +50,12 @@ static func dress(room: Room, layout: Array) -> void:
 			"fungus":
 				_mesh(n, _mushroom_clump())
 				_glow_pool(n, 2.6)
+			"yule":
+				# Turned so its gifts face the middle of the room. Pine trees in the far
+				# corners; in the near ones (by the camera) a low snowman with a skull for a head.
+				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+				_mesh(n, _pine_tree() if p.z < 0.0 else _snowman())
+				_glow_pool(n, 2.4, Color(1.0, 0.7, 0.35, 0.2))
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
@@ -79,6 +85,10 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_mesh(n, _shelf_fungus())
+				"yule":
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 1.0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_mesh(n, _wreath())
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
@@ -100,6 +110,10 @@ static func dress(room: Room, layout: Array) -> void:
 				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
 				_mesh(n, _shelf_fungus())
+			"yule":
+				var n := _place(room, Vector3(x * 0.62, 1.35, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_mesh(n, _wreath())
 
 
 ## KayKit pieces along the walls (version 134): a banner either side of the door and a few
@@ -114,6 +128,7 @@ const KIT := {
 	"water": {"banner": "banner_patternA_blue", "side": [["rubble_half", 0.5], ["barrel_small", 0.8], ["box_small", 0.6], ["bottle_A_green", 0.4]]},
 	"moon": {"banner": "banner_patternC_red", "side": [["box_small_decorated", 0.62], ["rubble_half", 0.5], ["sword_shield_broken", 0.6], ["barrel_small", 0.8]]},
 	"fungus": {"banner": "banner_patternA_green", "side": [["rubble_half", 0.55], ["box_small", 0.6], ["barrel_small", 0.8], ["bottle_B_brown", 0.4]]},
+	"yule": {"banner": "banner_patternA_red", "side": [["keg", 0.75], ["box_small_decorated", 0.62], ["candle_triple", 0.6], ["barrel_small", 0.8]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
 
@@ -244,6 +259,22 @@ static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, r
 			# Shells: little pale fans.
 			var sz := rng.randf_range(0.1, 0.16)
 			parts.append([_cone(0.0, sz, sz * 0.5, 7), _xf(p + Vector3.UP * sz * 0.15, Vector3(1, 0.6, 1.3), yaw), bone])
+		"yule":
+			var roll := rng.randf()
+			if roll < 0.5:
+				# A clump of snow.
+				var sz := rng.randf_range(0.12, 0.26)
+				parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.12, Vector3(sz, sz * 0.32, sz * 0.8), yaw), _snow_mat()])
+			elif roll < 0.8:
+				# A pine cone.
+				var sz := rng.randf_range(0.06, 0.09)
+				parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.8, Vector3(sz, sz * 0.85, sz * 1.6), yaw * Basis(Vector3.RIGHT, 1.3)), _yule_mat("cone")])
+			else:
+				# A sprig of holly: two dark leaves and three red berries.
+				for side in [-1.0, 1.0]:
+					parts.append([_sphere(), _xf(p + Vector3.UP * 0.03 + yaw * Vector3(side * 0.07, 0, 0), Vector3(0.08, 0.02, 0.035), yaw * Basis(Vector3.UP, side * 0.5)), _yule_mat("pine")])
+				for k in 3:
+					parts.append([_sphere(), _xf(p + Vector3(0, 0.05, 0) + yaw * Vector3((k - 1) * 0.025, 0, 0.02 * (k % 2)), Vector3.ONE * 0.026), _yule_mat("berry")])
 		"fungus":
 			# A tiny mushroom: a stalk and a glowing cap.
 			var h := rng.randf_range(0.13, 0.24)
@@ -596,3 +627,171 @@ static func _glow_pool(n: Node3D, size: float, color := Color(1.0, 0.4, 0.82, 0.
 		_baked[key] = m
 	var q := U.floor_quad(n, Vector2(size, size), _baked[key], Vector3(0, 0.035, 0))
 	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+# ---------------------------------------------------------------- Frostfall Hall
+
+## The winter event's materials, made once: pine, snow, bark, gold, ribbons, lights.
+static func _yule_mat(key: String) -> Material:
+	var k := "yule_" + key
+	if not _baked.has(k):
+		match key:
+			"pine": _baked[k] = U.mat(Color(0.06, 0.19, 0.1), 0.9)
+			"bark": _baked[k] = U.mat(Color(0.2, 0.12, 0.07), 0.95)
+			"cone": _baked[k] = U.mat(Color(0.3, 0.18, 0.09), 0.9)
+			"berry": _baked[k] = U.mat(Color(0.75, 0.06, 0.06), 0.4)
+			"gold": _baked[k] = U.mat(Color(1.0, 0.78, 0.3), 0.35, 1.8)
+			"red": _baked[k] = U.mat(Color(0.62, 0.06, 0.07), 0.6)
+			"green": _baked[k] = U.mat(Color(0.08, 0.34, 0.2), 0.6)
+			"white": _baked[k] = U.mat(Color(0.82, 0.86, 0.92), 0.6)
+			"ribbon": _baked[k] = U.mat(Color(0.95, 0.75, 0.3), 0.3)
+			"lamp_warm": _baked[k] = U.mat(Color(1.0, 0.72, 0.38), 0.5, 3.0)
+			"lamp_red": _baked[k] = U.mat(Color(1.0, 0.28, 0.2), 0.5, 3.0)
+			"lamp_blue": _baked[k] = U.mat(Color(0.5, 0.85, 1.0), 0.5, 3.0)
+	return _baked[k]
+
+
+static func _snow_mat() -> Material:
+	if not _baked.has("snow_mat"):
+		_baked["snow_mat"] = U.mat(Color(0.86, 0.9, 0.97), 0.55)
+	return _baked["snow_mat"]
+
+
+## A pine tree in a corner, snow on every tier, little lights in its branches, a gold star
+## on top and a pile of gifts at its foot.
+static func _pine_tree() -> ArrayMesh:
+	if _baked.has("pine_tree"):
+		return _baked["pine_tree"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 31
+	var parts := []
+	parts.append([_cone(0.11, 0.14, 0.5, 8), _xf(Vector3(0, 0.25, 0), Vector3.ONE), _yule_mat("bark")])
+	var tiers := [[0.95, 0.75, 0.42], [0.78, 0.68, 0.88], [0.6, 0.62, 1.3], [0.42, 0.56, 1.68], [0.24, 0.46, 2.0]]
+	var lamps := ["lamp_warm", "lamp_warm", "lamp_red", "lamp_warm", "lamp_blue"]
+	for i in tiers.size():
+		var t: Array = tiers[i]
+		var r: float = t[0]
+		var h: float = t[1]
+		var y: float = t[2]
+		parts.append([_cone(0.0, r, h, 9), _xf(Vector3(0, y + h * 0.5, 0), Vector3.ONE, Basis(Vector3.UP, i * 0.35)), _yule_mat("pine")])
+		# Snow lying on the tier, seen from above as a white ring.
+		parts.append([_cone(r * 0.25, r * 0.82, h * 0.22, 9), _xf(Vector3(0, y + h * 0.42, 0), Vector3.ONE, Basis(Vector3.UP, i * 0.35)), _snow_mat()])
+		var n := 3 + (tiers.size() - i)
+		for j in n:
+			var a := TAU * j / n + i * 0.9 + rng.randf() * 0.4
+			var rr := r * 0.78
+			parts.append([_sphere(), _xf(Vector3(cos(a) * rr, y + h * 0.12, sin(a) * rr), Vector3.ONE * 0.05), _yule_mat(lamps[(i + j) % lamps.size()])])
+	# The star.
+	for b in [Basis.IDENTITY, Basis(Vector3.UP, PI / 4)]:
+		parts.append([_cone(0.0, 0.17, 0.2, 4), _xf(Vector3(0, 2.6, 0), Vector3.ONE, b), _yule_mat("gold")])
+		parts.append([_cone(0.17, 0.0, 0.2, 4), _xf(Vector3(0, 2.4, 0), Vector3.ONE, b), _yule_mat("gold")])
+	_add_gifts(parts, rng)
+	_baked["pine_tree"] = _bake(parts)
+	return _baked["pine_tree"]
+
+
+## A wreath of pine with a red bow and berries, hung on a wall; +X points out of the wall.
+static func _wreath() -> ArrayMesh:
+	if _baked.has("wreath"):
+		return _baked["wreath"]
+	var parts := []
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.2
+	ring.outer_radius = 0.36
+	ring.rings = 16
+	ring.ring_segments = 8
+	var face := Basis(Vector3.FORWARD, PI / 2)
+	parts.append([ring, _xf(Vector3(0.1, 0, 0), Vector3(1.0, 1.0, 1.0), face), _yule_mat("pine")])
+	for i in 7:
+		var a := TAU * i / 7.0 + 0.3
+		parts.append([_sphere(), _xf(Vector3(0.18, sin(a) * 0.28, cos(a) * 0.28), Vector3.ONE * 0.035), _yule_mat("berry")])
+	for side in [-1.0, 1.0]:
+		parts.append([_sphere(), _xf(Vector3(0.18, -0.26, side * 0.1), Vector3(0.05, 0.07, 0.11), Basis(Vector3.RIGHT, side * 0.5)), _yule_mat("red")])
+		parts.append([_cube(), _xf(Vector3(0.17, -0.4, side * 0.05), Vector3(0.03, 0.2, 0.05), Basis(Vector3.RIGHT, side * 0.35)), _yule_mat("red")])
+	parts.append([_sphere(), _xf(Vector3(0.2, -0.26, 0), Vector3.ONE * 0.045), _yule_mat("red")])
+	_baked["wreath"] = _bake(parts)
+	return _baked["wreath"]
+
+
+## Three wrapped gifts at the foot of a corner piece, on its room side (+X and +Z).
+static func _add_gifts(parts: Array, rng: RandomNumberGenerator) -> void:
+	var gifts := [[Vector3(0.62, 0, 0.18), 0.42, "red"], [Vector3(0.25, 0, 0.66), 0.34, "green"], [Vector3(0.72, 0, 0.66), 0.28, "white"]]
+	for g: Array in gifts:
+		var at: Vector3 = g[0]
+		var sz: float = g[1]
+		var yaw := Basis(Vector3.UP, rng.randf_range(-0.5, 0.5))
+		parts.append([_cube(), _xf(at + Vector3.UP * sz * 0.425, Vector3(sz, sz * 0.85, sz), yaw), _yule_mat(g[2])])
+		parts.append([_cube(), _xf(at + Vector3.UP * sz * 0.425, Vector3(sz * 0.16, sz * 0.87, sz * 1.02), yaw), _yule_mat("ribbon")])
+		parts.append([_cube(), _xf(at + Vector3.UP * sz * 0.425, Vector3(sz * 1.02, sz * 0.87, sz * 0.16), yaw), _yule_mat("ribbon")])
+		for side in [-1.0, 1.0]:
+			parts.append([_sphere(), _xf(at + Vector3.UP * sz * 0.9 + yaw * Vector3(side * sz * 0.13, 0, 0), Vector3(sz * 0.15, sz * 0.09, sz * 0.08), yaw), _yule_mat("ribbon")])
+
+
+## A snowman with a skull for a head, coal buttons, stick arms and a red scarf (the near
+## corners: low, so it never hides the hero from the camera).
+static func _snowman() -> ArrayMesh:
+	if _baked.has("snowman"):
+		return _baked["snowman"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 17
+	var parts := []
+	var snow := _snow_mat()
+	var bone := U.mat(Color(0.86, 0.82, 0.7), 0.85)
+	var dark := U.mat(Color(0.05, 0.04, 0.045), 1.0)
+	parts.append([_sphere(), _xf(Vector3(0, 0.36, 0), Vector3(0.45, 0.4, 0.45)), snow])
+	parts.append([_sphere(), _xf(Vector3(0, 0.88, 0), Vector3(0.32, 0.3, 0.32)), snow])
+	# The skull.
+	parts.append([_sphere(), _xf(Vector3(0, 1.3, 0), Vector3(0.2, 0.19, 0.21)), bone])
+	parts.append([_cube(), _xf(Vector3(0.0, 1.17, 0.1), Vector3(0.2, 0.08, 0.14)), bone])
+	for ex in [-0.075, 0.075]:
+		parts.append([_sphere(), _xf(Vector3(ex, 1.31, 0.17), Vector3.ONE * 0.05), dark])
+	parts.append([_sphere(), _xf(Vector3(0, 1.24, 0.19), Vector3(0.02, 0.03, 0.02)), dark])
+	# Coal buttons down the front (+Z) and the red scarf.
+	for k in 3:
+		parts.append([_sphere(), _xf(Vector3(0, 0.98 - k * 0.13 - (0.2 if k == 2 else 0.0), 0.3 - k * 0.01 + (0.1 if k == 2 else 0.0)), Vector3.ONE * 0.04), dark])
+	parts.append([_cone(0.24, 0.27, 0.09, 12), _xf(Vector3(0, 1.1, 0), Vector3.ONE), _yule_mat("red")])
+	parts.append([_cube(), _xf(Vector3(0.12, 0.95, 0.22), Vector3(0.09, 0.3, 0.03), Basis(Vector3.FORWARD, 0.15)), _yule_mat("red")])
+	# Stick arms.
+	for side in [-1.0, 1.0]:
+		var arm := Basis(Vector3.FORWARD, side * 1.0)
+		parts.append([_cone(0.015, 0.025, 0.6, 5), _xf(Vector3(side * 0.48, 1.0, 0), Vector3.ONE, arm), _yule_mat("bark")])
+	# Turned to look out along the corner's diagonal, into the room.
+	var turn := Transform3D(Basis(Vector3.UP, PI / 4), Vector3.ZERO)
+	for part: Array in parts:
+		part[1] = turn * part[1]
+	_add_gifts(parts, rng)
+	_baked["snowman"] = _bake(parts)
+	return _baked["snowman"]
+
+
+## Frostfall Hall's pillars: a great timber post on a stone foot, bound with iron, a collar
+## of pine with a red bow and snow on top. As wide as the stone pillars it stands in for.
+static func timber_post() -> ArrayMesh:
+	if _baked.has("timber_post"):
+		return _baked["timber_post"]
+	var wood := U.mat(Color(0.24, 0.15, 0.09), 0.85)
+	var stone := U.mat(Color(0.2, 0.2, 0.24), 0.9)
+	var iron := U.mat(Color(0.12, 0.11, 0.12), 0.45)
+	var h := Room.WALL_H + 0.4
+	var parts := []
+	parts.append([_cube(), _xf(Vector3(0, 0.15, 0), Vector3(1.15, 0.3, 1.15)), stone])
+	parts.append([_cube(), _xf(Vector3(0, 0.34, 0), Vector3(0.95, 0.1, 0.95)), stone])
+	parts.append([_cone(0.36, 0.38, h - 0.3, 8), _xf(Vector3(0, 0.3 + (h - 0.3) * 0.5, 0), Vector3.ONE, Basis(Vector3.UP, PI / 8)), wood])
+	for y in [0.75, h - 0.45]:
+		parts.append([_cone(0.4, 0.4, 0.1, 8), _xf(Vector3(0, y, 0), Vector3.ONE, Basis(Vector3.UP, PI / 8)), iron])
+	# The pine collar with lights and a bow.
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.33
+	ring.outer_radius = 0.55
+	ring.rings = 16
+	ring.ring_segments = 8
+	parts.append([ring, _xf(Vector3(0, 1.9, 0), Vector3(1.0, 0.8, 1.0)), _yule_mat("pine")])
+	for i in 8:
+		var a := TAU * i / 8.0 + 0.2
+		parts.append([_sphere(), _xf(Vector3(cos(a) * 0.5, 1.95, sin(a) * 0.5), Vector3.ONE * 0.045), _yule_mat(["lamp_warm", "lamp_red", "lamp_warm", "lamp_blue"][i % 4])])
+	parts.append([_sphere(), _xf(Vector3(0, 1.85, 0.52), Vector3(0.12, 0.08, 0.06)), _yule_mat("red")])
+	# Snow on top: a cap seen from above.
+	parts.append([_cone(0.3, 0.42, 0.14, 8), _xf(Vector3(0, h + 0.07, 0), Vector3.ONE), _snow_mat()])
+	_baked["timber_post"] = _bake(parts)
+	return _baked["timber_post"]
+

@@ -1,5 +1,6 @@
-Version 242: doors to a different kind of room
-- Dark Room: only your lantern lights it. Win it and pick two blessings.
-- Trap Hall: rows of spikes fire across the hall one after another. They hurt skeletons too, so lead them in. Win it for a full heal.
-- Omens of Graves, the Stalker and Night change the rules (v241).
+Version 243: FROSTFALL is coming
+- A new winter event starts Dec 11: a timber hall deep in the snow, three new skeletons and Krampus.
+- The Blizzard: every 20 seconds the cold builds. Stand by a brazier's fire, or freeze and dash free.
+- Krampus learns new moves on every Hunt tier.
+- Dark Room and Trap Hall doors (v242).
 - The Blood Moon is up until Dec 3.

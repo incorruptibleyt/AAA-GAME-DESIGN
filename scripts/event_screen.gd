@@ -16,15 +16,18 @@ signal caskets_pressed
 signal pass_pressed   # v219: the Crypt Pass card, from the run card or the road's Pass row
 signal closed
 
-const CRIMSON := Color(1.0, 0.3, 0.26)
 const GOLD := Color(1.0, 0.8, 0.42)
-const TEXT := Color(0.92, 0.86, 0.88)
-const DIM := Color(0.62, 0.55, 0.6)
 const DONE := Color(0.45, 0.85, 0.5)
 ## Version 222: the cards' near-black, their edge, and the warm white of their headings.
-const CARD := Color(0.075, 0.05, 0.065, 0.95)
-const EDGE := Color(0.3, 0.19, 0.21)
-const HEAD := Color(1.0, 0.87, 0.78)
+## Version 243: each event's own (Frostfall's are night blue and ice), set in _init.
+var CRIMSON := Color(1.0, 0.3, 0.26)
+var TEXT := Color(0.92, 0.86, 0.88)
+var DIM := Color(0.62, 0.55, 0.6)
+var CARD := Color(0.075, 0.05, 0.065, 0.95)
+var EDGE := Color(0.3, 0.19, 0.21)
+var HEAD := Color(1.0, 0.87, 0.78)
+var _hunt_head: Label
+var _hunt_text: Label
 
 var _main: Control
 var _road_page: Control
@@ -60,7 +63,15 @@ var _badges: Array[VBoxContainer] = []
 
 func _init() -> void:
 	color = Color(0.04, 0.01, 0.02, 0.98)
-	Hud.backdrop(self, "blood")
+	if Events.frost():
+		color = Color(0.01, 0.02, 0.05, 0.98)
+		CRIMSON = Color(0.4, 0.78, 1.0)
+		TEXT = Color(0.86, 0.91, 0.97)
+		DIM = Color(0.55, 0.62, 0.72)
+		CARD = Color(0.04, 0.06, 0.11, 0.95)
+		EDGE = Color(0.2, 0.3, 0.45)
+		HEAD = Color(0.85, 0.94, 1.0)
+	Hud.backdrop(self, str(EventArt.pal().menu))
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
@@ -140,6 +151,8 @@ func _build_main() -> void:
 	col.add_child(_casket_note)
 	# The Queen Hunt: the open tiers, then the locked ones in one line.
 	var hunt := _card(col, "QUEEN HUNT", "Straight to the Queen, with blessings to start. Each tier pays in full once a day.")
+	_hunt_head = hunt.get_child(0)
+	_hunt_text = hunt.get_child(1)
 	_tiers = VBoxContainer.new()
 	_tiers.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_tiers.add_theme_constant_override("separation", 6)
@@ -192,9 +205,9 @@ func _build_head(col: VBoxContainer) -> void:
 	_moon.offset_top = 46
 	_moon.offset_bottom = 346
 	head.add_child(_moon)
-	_title = Hud.label("BLOOD MOON", 54, Color(1.0, 0.9, 0.84))
-	_title.label_settings.outline_color = Color(0.3, 0.0, 0.03)
-	_title.label_settings.shadow_color = Color(1.0, 0.1, 0.05, 0.6)
+	_title = Hud.label("BLOOD MOON", 54, Color(1.0, 0.9, 0.84) if not Events.frost() else Color(0.92, 0.97, 1.0))
+	_title.label_settings.outline_color = EventArt.c("ink")
+	_title.label_settings.shadow_color = Color(EventArt.c("shadow"), 0.6)
 	_title.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
 	_title.offset_top = 0
 	_title.offset_bottom = 60
@@ -203,8 +216,8 @@ func _build_head(col: VBoxContainer) -> void:
 	var tag := PanelContainer.new()
 	tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.05, 0.02, 0.035, 0.88)
-	sb.border_color = Color(0.45, 0.3, 0.22)
+	sb.bg_color = Color(0.05, 0.02, 0.035, 0.88) if not Events.frost() else Color(0.02, 0.04, 0.09, 0.88)
+	sb.border_color = Color(0.45, 0.3, 0.22) if not Events.frost() else Color(0.3, 0.45, 0.62)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(14)
 	sb.content_margin_left = 14
@@ -267,7 +280,7 @@ func _fill_set(cfg: ConfigFile) -> void:
 	var found := 0
 	var s := Events.shards(cfg)
 	var k := 0
-	for st: Dictionary in Events.ROAD:
+	for st: Dictionary in Events.road():
 		if str(st.kind) != "look":
 			continue
 		p[str(st.look[0])] = str(st.look[1])
@@ -285,12 +298,12 @@ func _fill_set(cfg: ConfigFile) -> void:
 		badge.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		badge.setup(id, str(st.look[0]), str(st.look[1]), base, got, reached)
 		v.add_child(badge)
-		v.add_child(Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 16, TEXT if got or reached else Color(0.82, 0.74, 0.76)))
+		v.add_child(Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 16, TEXT if got or reached else DIM.lightened(0.2)))
 		var need := Hud.label("FOUND" if got else ("ON THE ROAD!" if reached else Hud.thousands(int(st.at))), 16, GOLD if got or reached else DIM)
 		need.autowrap_mode = TextServer.AUTOWRAP_OFF
 		v.add_child(need)
-	_set_title.text = "BLOOD MOON SET  %d/4  ·  for every hero" % found
-	_set_stage.show_hero(HeroStyle.dressed(Heroes.get_hero(id), p), found >= 4, Color(1.0, 0.3, 0.26))
+	_set_title.text = "%s  %d/4  ·  for every hero" % [Events.word("set").to_upper(), found]
+	_set_stage.show_hero(HeroStyle.dressed(Heroes.get_hero(id), p), found >= 4, CRIMSON)
 	_set_stage.set_active(visible and _main.visible)
 
 
@@ -447,27 +460,32 @@ func refresh(cfg: ConfigFile) -> void:
 	var ready := Events.ready_count(cfg, e)
 	# version 212 (critic fix #6): the whole road on the bar ("0 / 2,400", the set at the end),
 	# not the next step ("0 / 40" read like a 40-step road). The line under it names the next prize.
-	var road_end := int(Events.ROAD[Events.ROAD.size() - 1].at)
-	_road_bar.set_road(s, road_end if ni < Events.ROAD.size() else 0, clampf(float(s) / float(road_end), 0.0, 1.0), ready)
+	var road_end := int(Events.road()[Events.road().size() - 1].at)
+	_road_bar.set_road(s, road_end if ni < Events.road().size() else 0, clampf(float(s) / float(road_end), 0.0, 1.0), ready)
 	var marks := []
-	for st: Dictionary in Events.ROAD:
+	for st: Dictionary in Events.road():
 		if str(st.kind) == "look":
 			marks.append([float(st.at) / float(road_end), s >= int(st.at)])
 	_road_bar.marks = marks
 	if ready > 0:
 		_road_sub.text = "%d prize%s ready to claim. Tap the road!" % [ready, "" if ready == 1 else "s"]
-	elif ni < Events.ROAD.size():
-		_road_sub.text = "Next prize: %s in %s shards" % [Events.step_text(Events.ROAD[ni]), Hud.thousands(int(Events.ROAD[ni].at) - s)]
+	elif ni < Events.road().size():
+		_road_sub.text = "Next prize: %s in %s %s" % [Events.step_text(Events.road()[ni]), Hud.thousands(int(Events.road()[ni].at) - s), Events.word("unit")]
 	else:
 		var bl := Events.bonus_line(cfg)
 		_road_sub.text = "Road walked! " + bl.left(1).to_upper() + bl.substr(1)
 	_fill_set(cfg)
 	_pass_btn.visible = not Store.owned()   # (v219: was the line "Crypt Pass: +50% shards")
 	# version 213 (hardest review fix #3): the measured full run is ~200, ~300 with the Pass
-	_run_sub.text = ("About 300 shards a full run, with your Crypt Pass" if Store.owned() else "About 200 shards a full run") \
+	_run_sub.text = (("About 300 %s a full run, with your Crypt Pass" if Store.owned() else "About 200 %s a full run") % Events.word("unit", e)) \
 		+ ("  ·  double today" if live and Events.double_today(e) else "")
 	_run_btn.disabled = not live
-	_run_btn.text = "PLAY THE BLOOD MOON" if live else "OPENS IN %s" % Events.time_text(Events.seconds_left(e)).to_upper()
+	_run_btn.text = ("PLAY " + ("FROSTFALL" if Events.frost(e) else "THE BLOOD MOON")) if live else "OPENS IN %s" % Events.time_text(Events.seconds_left(e)).to_upper()
+	_title.text = str(e.name)
+	_double.text = "DOUBLE %s TODAY!" % Events.word("shards", e).to_upper()
+	_pass_btn.text = "CRYPT PASS: +50%% %s" % Events.word("unit", e).to_upper()
+	_hunt_head.text = Events.word("hunt", e).to_upper()
+	_hunt_text.text = "Straight to %s, with blessings to start. Each tier pays in full once a day." % Events.word("foe", e)
 	# Tiers: the open ones as rows, the locked ones in one line under them.
 	for c in _tiers.get_children():
 		_tiers.remove_child(c)
@@ -478,7 +496,7 @@ func refresh(cfg: ConfigFile) -> void:
 	_locked.text = _locked_line(e, open_n, live)
 	_locked.visible = _locked.text != ""
 	var n := Events.caskets(cfg, e)
-	_caskets.text = "OPEN MOON CASKET" if n == 1 else "OPEN %d MOON CASKETS" % n
+	_caskets.text = ("OPEN " + Events.word("casket", e) if n == 1 else "OPEN %d %s" % [n, Events.word("caskets", e)]).to_upper()
 	_caskets.visible = n > 0
 	# Version 219 (review 4 fix 18) gave an empty casket button a grey "NO CASKET YET"; version
 	# 222 (critique fix 5): one plain line instead, true to what is left today.
@@ -544,7 +562,7 @@ func _locked_line(e: Dictionary, open_n: int, live: bool) -> String:
 	var beat := []
 	var by_day := {}
 	var days := []
-	for t in range(open_n, Events.TIERS.size()):
+	for t in range(open_n, Events.tiers().size()):
 		var needed := -1
 		for i in e.chapters.size():
 			if int(e.chapters[i].tiers) > t:
@@ -560,7 +578,7 @@ func _locked_line(e: Dictionary, open_n: int, live: bool) -> String:
 			beat.append(t)
 	if not beat.is_empty():
 		var first := int(beat[0])
-		var line := "Beat %s to open %s" % [str(Events.TIERS[first - 1].name), str(Events.TIERS[first].name)]
+		var line := "Beat %s to open %s" % [str(Events.tiers()[first - 1].name), str(Events.tiers()[first].name)]
 		if beat.size() > 1:
 			line += ", then %s" % _tier_span(beat.slice(1))
 		parts.append(line)
@@ -575,11 +593,11 @@ func _tier_span(ts: Array) -> String:
 	var numbered := []
 	var named := []
 	for t: int in ts:
-		var n := str(Events.TIERS[t].name)
+		var n := str(Events.tiers()[t].name)
 		if n.begins_with("TIER "):
 			numbered.append(n.trim_prefix("TIER "))
 		else:
-			named.append(n + (" (Blood Eclipse glow)" if t == Events.TIERS.size() - 1 else ""))
+			named.append(n + ((" (%s glow)" % Events.word("top")) if t == Events.tiers().size() - 1 else ""))
 	var parts := []
 	if numbered.size() == 1:
 		parts.append("TIER " + str(numbered[0]))
@@ -597,26 +615,30 @@ func _casket_line(cfg: ConfigFile, e: Dictionary, live: bool) -> String:
 		return ""
 	var hunt := Events.casket_ready(cfg, "hunt", e)
 	var run := Events.casket_ready(cfg, "run", e)
+	var one := Events.word("casket", e)
+	var two := Events.word("caskets", e)
+	var foe := Events.word("foe", e)
 	if hunt and run:
-		return "2 Moon Caskets today: beat the Queen in a run and in a Hunt"
+		return "2 %s today: beat %s in a run and in a Hunt" % [two, foe]
 	if run:
-		return "1 more Moon Casket today: beat the Queen in a run"
+		return "1 more %s today: beat %s in a run" % [one, foe]
 	if hunt:
-		return "1 more Moon Casket today: win a Queen Hunt"
-	return "Today's 2 Moon Caskets are won. 2 more tomorrow"
+		return "1 more %s today: win a %s" % [one, Events.word("hunt", e)]
+	return "Today's 2 %s are won. 2 more tomorrow" % two
 
 
 func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) -> Control:
-	var tier: Dictionary = Events.TIERS[t]
+	var tier: Dictionary = Events.tiers()[t]
 	var open := t < open_n
 	var won := live and Events.won_today(cfg, t + 1, e)
 	var beaten := Events.best_tier(cfg, e) > t
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	var eclipse := t == Events.TIERS.size() - 1
-	sb.bg_color = Color(0.13, 0.08, 0.09, 0.97) if open else Color(0.06, 0.045, 0.055, 0.9)
-	sb.border_color = (Color(1.0, 0.45, 0.2) if eclipse else Color(0.5, 0.32, 0.26)) if open else Color(0.22, 0.17, 0.2)
+	var eclipse := t == Events.tiers().size() - 1
+	var fr := Events.frost(e)
+	sb.bg_color = (Color(0.13, 0.08, 0.09, 0.97) if not fr else Color(0.06, 0.1, 0.17, 0.97)) if open else CARD.darkened(0.2)
+	sb.border_color = ((Color(1.0, 0.45, 0.2) if not fr else Color(0.75, 0.92, 1.0)) if eclipse else EDGE.lightened(0.25)) if open else EDGE.darkened(0.25)
 	sb.set_border_width_all(2)
 	sb.set_corner_radius_all(12)
 	sb.content_margin_left = 10
@@ -634,19 +656,20 @@ func _tier_row(cfg: ConfigFile, e: Dictionary, t: int, open_n: int, live: bool) 
 	texts.add_theme_constant_override("separation", 0)
 	h.add_child(texts)
 	var name_text := str(tier.name) + ("  ·  BEATEN" if beaten else "")
-	texts.add_child(Hud.label(name_text, 22, (Color(1.0, 0.6, 0.3) if eclipse else Color(1.0, 0.9, 0.84)) if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+	texts.add_child(Hud.label(name_text, 22, ((Color(1.0, 0.6, 0.3) if not fr else Color(0.75, 0.95, 1.0)) if eclipse else HEAD) if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	var shards := int(tier.shards)
 	# (Version 192: "Queen health x0.6" on the hardest tier read as the easiest. The number
 	# is a factor on health that already grows with the floor. Say how hard it is instead,
 	# and name the Eclipse tier's own prize, which nothing on this screen mentioned.)
-	var line := "Like floor %d  ·  %d blessings  ·  %d shards" % [int(tier.floor), int(tier.gifts), shards]
+	var unit := Events.word("unit", e)
+	var line := "Like floor %d  ·  %d blessings  ·  %d %s" % [int(tier.floor), int(tier.gifts), shards, unit]
 	if eclipse:
-		var gk: Array = Events.ECLIPSE_LOOK
-		line += "\nPrize: Blood Eclipse glow" + ("  ·  OWNED" if Events.has_look(cfg, str(gk[0]), str(gk[1])) else "")
+		var gk: Array = Events.top_look(e)
+		line += "\nPrize: %s glow" % Events.word("top", e) + ("  ·  OWNED" if Events.has_look(cfg, str(gk[0]), str(gk[1])) else "")
 	texts.add_child(Hud.label(line, 14, TEXT if open else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	var note := ""
 	if open:
-		note = ("Won today  ·  pays %d shards again" % roundi(shards / 3.0)) if won else ("First win today: +50% shards" + (" and a Moon Casket" if Events.casket_ready(cfg, "hunt", e) else ""))
+		note = ("Won today  ·  pays %d %s again" % [roundi(shards / 3.0), unit]) if won else ("First win today: +50%% %s" % unit + ((" and a " + Events.word("casket", e)) if Events.casket_ready(cfg, "hunt", e) else ""))
 	elif not live:
 		note = "Opens with the event"
 	texts.add_child(Hud.label(note, 14, GOLD if open and not won else DIM, HORIZONTAL_ALIGNMENT_LEFT))
@@ -681,21 +704,21 @@ func _fill_road(cfg: ConfigFile) -> void:
 	_track.clear()
 	var s := Events.shards(cfg)
 	_track.shards = s
-	_road_count.text = "%s Moon Shards" % Hud.thousands(s)
+	_road_count.text = "%s %s" % [Hud.thousands(s), Events.word("shards")]
 	var ready := Events.ready_count(cfg)
 	var ni := Events.next_index(cfg)
 	if ready > 0:
 		_road_note.text = "%d prize%s ready to claim!" % [ready, "" if ready == 1 else "s"]
-	elif ni < Events.ROAD.size():
-		_road_note.text = "Next prize: %s in %s shards" % [Events.step_text(Events.ROAD[ni]), Hud.thousands(int(Events.ROAD[ni].at) - s)]
+	elif ni < Events.road().size():
+		_road_note.text = "Next prize: %s in %s %s" % [Events.step_text(Events.road()[ni]), Hud.thousands(int(Events.road()[ni].at) - s), Events.word("unit")]
 	else:
 		var bl := Events.bonus_line(cfg)
 		_road_note.text = "Road walked! " + bl.left(1).to_upper() + bl.substr(1)
 	var id := Heroes.selected(cfg)
 	var base := Heroes.get_hero(id)
 	var focus: Control = null
-	for i in Events.ROAD.size():
-		var st: Dictionary = Events.ROAD[i]
+	for i in Events.road().size():
+		var st: Dictionary = Events.road()[i]
 		var got := Events.claimed(cfg, i)
 		var row := _road_row(cfg, i, s, id, base)
 		_road_list.add_child(row)
@@ -703,17 +726,17 @@ func _fill_road(cfg: ConfigFile) -> void:
 			"state": "got" if got else ("ready" if s >= int(st.at) else "next")})
 		if focus == null and (i == ni or (s >= int(st.at) and not got)):
 			focus = row
-		for j in Events.PASS_ROAD.size():
-			if int(Events.PASS_ROAD[j].at) == int(st.at):
+		for j in Events.pass_road().size():
+			if int(Events.pass_road()[j].at) == int(st.at):
 				var pr := _pass_row(cfg, j, s, id, base)
 				_road_list.add_child(pr)
 				var pgot := Events.pass_claimed(cfg, j)
 				_track.branches.append({"row": pr, "state": "got" if pgot else ("ready" if Store.owned() and s >= int(st.at) else "next")})
-				if focus == null and Store.owned() and s >= int(Events.PASS_ROAD[j].at) and not pgot:
+				if focus == null and Store.owned() and s >= int(Events.pass_road()[j].at) and not pgot:
 					focus = pr
 	# The bonus caskets after the road, once, at its end (they were a second line of the
 	# header, which wrapped to a lone "day).").
-	var after := Hud.label("After the road: a bonus Moon Casket every %d shards, one a day." % Events.BONUS_EVERY, 16, DIM)
+	var after := Hud.label("After the road: a bonus %s every %d %s, one a day." % [Events.word("casket"), Events.BONUS_EVERY, Events.word("unit")], 16, DIM)
 	_road_list.add_child(after)
 	_track.queue_redraw()
 	if focus:
@@ -737,7 +760,7 @@ func _scroll_to(row: Control) -> void:
 ## green DONE edges outshone the prizes still to come); a step reached glows gold with its
 ## CLAIM; a piece of the set is a big row with its picture.
 func _road_row(cfg: ConfigFile, i: int, s: int, id: String, base: Dictionary) -> Control:
-	var st: Dictionary = Events.ROAD[i]
+	var st: Dictionary = Events.road()[i]
 	var reached := s >= int(st.at)
 	var got := Events.claimed(cfg, i)
 	var look := str(st.kind) == "look"
@@ -775,7 +798,7 @@ func _road_row(cfg: ConfigFile, i: int, s: int, id: String, base: Dictionary) ->
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	h.add_theme_constant_override("separation", 10)
 	panel.add_child(h)
-	var to_go := "%s shards to go" % Hud.thousands(int(st.at) - s)
+	var to_go := "%s %s to go" % [Hud.thousands(int(st.at) - s), Events.word("unit")]
 	if big:
 		var badge := EventArt.SetBadge.new(88.0)
 		badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -787,7 +810,7 @@ func _road_row(cfg: ConfigFile, i: int, s: int, id: String, base: Dictionary) ->
 		texts.alignment = BoxContainer.ALIGNMENT_CENTER
 		texts.add_theme_constant_override("separation", 0)
 		h.add_child(texts)
-		texts.add_child(Hud.label("BLOOD MOON SET  ·  %s" % Hud.thousands(int(st.at)), 16, Color(1.0, 0.62, 0.5) if not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
+		texts.add_child(Hud.label("%s  ·  %s" % [Events.word("set").to_upper(), Hud.thousands(int(st.at))], 16, CRIMSON.lightened(0.3) if not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 		texts.add_child(Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 24, GOLD if not got else TEXT, HORIZONTAL_ALIGNMENT_LEFT))
 		texts.add_child(Hud.label("Claimed" if got else ("Ready!" if reached else to_go + "  ·  every hero"), 16, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 		if reached and not got:
@@ -830,7 +853,7 @@ const PASS_INDEX := 1000
 const SILVER := Color(0.8, 0.88, 1.0)
 
 func _pass_row(cfg: ConfigFile, j: int, s: int, id: String, base: Dictionary) -> Control:
-	var st: Dictionary = Events.PASS_ROAD[j]
+	var st: Dictionary = Events.pass_road()[j]
 	var owned := Store.owned()
 	var reached := s >= int(st.at)
 	var got := Events.pass_claimed(cfg, j)
@@ -869,7 +892,7 @@ func _pass_row(cfg: ConfigFile, j: int, s: int, id: String, base: Dictionary) ->
 	h.add_child(texts)
 	texts.add_child(Hud.label("CRYPT PASS", 16, SILVER.darkened(0.2) if not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	texts.add_child(Hud.label(HeroStyle.item_label(id, str(st.look[0]), str(st.look[1])), 20, SILVER if not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
-	var need := ("Claimed" if got else ("Ready!" if owned else "Reached: claim it with the Pass")) if reached else "%s shards to go" % Hud.thousands(int(st.at) - s)
+	var need := ("Claimed" if got else ("Ready!" if owned else "Reached: claim it with the Pass")) if reached else "%s %s to go" % [Hud.thousands(int(st.at) - s), Events.word("unit")]
 	texts.add_child(Hud.label(need, 16, Hud.GOLD if owned and reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if got:
 		pass

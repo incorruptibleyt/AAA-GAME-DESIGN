@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21l"
+const BUILD := "2026-11-21m"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -523,6 +523,7 @@ func _ready() -> void:
 	add_child(Sfx.new())
 	add_child(Music.new())
 	add_child(Ambience.new())
+	add_child(Blizzard.new())   # version 243: Frostfall's rule
 	var clock := TrustClock.new()   # version 212: Google's time for the event days
 	_clock = clock
 	add_child(clock)
@@ -1686,7 +1687,7 @@ func _build_run() -> void:
 	_run.clear()
 	_run_ids.clear()
 	if event == "hunt":
-		floor_num = int(Events.TIERS[event_tier - 1].floor)
+		floor_num = int(Events.tiers()[event_tier - 1].floor)
 		_run.append(Layouts.BOSS)
 		_run_ids.append("Boss")
 		return
@@ -1734,12 +1735,12 @@ func _build_run() -> void:
 ## Grotto (floor 4, 10, 15...) the Sporemother; elsewhere the Skeleton King and the Lich
 ## take turns (the King on odd floors).
 func boss_kind() -> String:
-	# The Blood Moon event: the King and the Lich guard floors 1 and 2, the Queen floor 3;
-	# the Queen Hunt is her alone.
+	# An event: its own boss on floor 3 and alone in its hunt (the Blood Moon Queen, Krampus);
+	# two of the crypt's bosses guard floors 1 and 2 (events.gd "guards").
 	if event == "hunt" or (event == "run" and floor_num >= Events.RUN_FLOORS):
-		return "Q"
+		return str(Events.ev().get("boss", "Q"))
 	if event == "run":
-		return "K" if floor_num == 1 else "L"
+		return str(Events.ev().get("guards", "KL"))[clampi(floor_num - 1, 0, 1)]
 	if Floors.ember() and not first_run:
 		return "C"
 	if Floors.drowned() and not first_run:
@@ -1752,13 +1753,14 @@ func boss_kind() -> String:
 ## The skeletons only this floor's theme has, one letter each: Frost Wraiths on the Frozen
 ## Ossuary ("f"), Cinder Skeletons in the Ember Catacomb ("e"), Drowned Skeletons in the
 ## Drowned Vault ("d"), Sporelings and Rootbinders in the Glowcap Grotto ("pr"), none in
-## the Bone Crypt.
+## the Bone Crypt. The events' crypts: Bloodbats and Moon Howlers ("bh"); in Frostfall Hall
+## Snow Rollers, Bell Ringers and a Gift Thief ("noi").
 func theme_enemy() -> String:
 	if first_run:
 		return ""
 	if Floors.remixed(floor_num):
 		return str(Floors.PASS_REMIX[Floors.index(floor_num)].guests)   # v219: the Pass's own mix
-	return ["", "f", "e", "d", "pr", "bh"][Floors.index(floor_num)]
+	return ["", "f", "e", "d", "pr", "bh", "noi"][Floors.index(floor_num)]
 
 
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
@@ -1851,7 +1853,7 @@ func _start_run() -> void:
 	_daily_requested = false
 	_daily_done = false
 	event = _event_requested if not first_run and Events.active() else ""
-	event_tier = clampi(_event_tier_requested, 1, Events.TIERS.size())
+	event_tier = clampi(_event_tier_requested, 1, Events.tiers().size())
 	_event_requested = ""
 	_event_done = false
 	if event != "" or race:
@@ -1954,9 +1956,12 @@ func _mode_banner() -> void:
 	if race:
 		hud.tip("CRYPT RACE  ·  vs %s\nRace Kit: %s" % [_race.rival.name, Race.kit_text(_race.kit)], 4.0, 0.3)
 	elif event == "run":
-		hud.tip("BLOOD MOON  ·  %s\nKill skeletons during a Moon Surge for bonus shards!" % str(Events.chapter_info().name), 5.0, 1.8)
+		if Floors.frostfall():
+			hud.tip("FROSTFALL  ·  %s\nKill skeletons in a Blizzard for bonus snowflakes.\nStand in a brazier's ring to stay warm!" % str(Events.chapter_info().name), 5.5, 1.8)
+		else:
+			hud.tip("BLOOD MOON  ·  %s\nKill skeletons during a Moon Surge for bonus shards!" % str(Events.chapter_info().name), 5.0, 1.8)
 	elif event == "hunt":
-		hud.tip("QUEEN HUNT  ·  %s\n%d blessings to start. Bring her down!" % [str(Events.TIERS[event_tier - 1].name), int(Events.TIERS[event_tier - 1].gifts)], 4.5, 1.8)
+		hud.tip("%s  ·  %s\n%d blessings to start. %s" % [Events.word("hunt").to_upper(), str(Events.tiers()[event_tier - 1].name), int(Events.tiers()[event_tier - 1].gifts), Events.word("down")], 4.5, 1.8)
 	elif daily:
 		hud.tip("DAILY CRYPT #%d%s  ·  Score x%s\n%s" % [Curses.day_number(_daily_date), "  ·  Practice" if _daily_practice else "",
 			_mult_text(_score_mult), Curses.names(curses)], 5.0, 1.8)
@@ -2197,7 +2202,7 @@ func _apply_armory() -> void:
 	# The Queen Hunt starts with a handful of blessings, more on higher tiers.
 	if event == "hunt":
 		var names := []
-		for i in int(Events.TIERS[event_tier - 1].gifts):
+		for i in int(Events.tiers()[event_tier - 1].gifts):
 			var g := Upgrades.roll(_taken, 4, false, "", false, null).filter(func(x: Dictionary):
 				return x.rarity != "synergy" and not str(x.id) in Events.HUNT_NO_GIFT)
 			if g.is_empty():
@@ -2650,6 +2655,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	_hourglass_left = Curses.HOURGLASS_BOSS if index == _run.size() - 1 else Curses.HOURGLASS_ROOM
 	hud.set_timer(_hourglass_left if spawn_enemies and curses.has("hourglass") else -1.0)
 	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
+	if event != "" and Floors.frostfall():
+		Blizzard.dress(room)   # version 243: two braziers against the Blizzard
 	var look := Floors.current()
 	_light_room(look)
 	# Version 143: every room gets its own mood (gold treasure, the champion's ring, the lit
@@ -2694,7 +2701,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	else:
 		# Version 148: only in a player's first few runs (it showed on every floor 1 forever).
 		hud.show_hint("Drag to move. Lift to shoot.\nFlick your thumb to dash!" if floor_num == 1 and index == 0 and _newcomer else "")
-	Music.play(("queen" if boss_kind() == "Q" else "boss") if _in_boss_room() else "dungeon")
+	var boss_track := Events.word("music") if event != "" and boss_kind() == str(Events.ev().get("boss", "Q")) else "boss"
+	Music.play((boss_track if Music.TRACKS.has(boss_track) else "boss") if _in_boss_room() else "dungeon")
 	if race and _race and not _race.over and _in_boss_room():
 		Sfx.play("race_final", 0.9)   # the last leg (version 155)
 	if not _start_blessing.is_empty():
@@ -2768,7 +2776,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 				b.health = b.max_health
 	# The Queen Hunt's tiers: the Queen's health by tier (her toughness by floor is already in).
 	if event == "hunt" and is_instance_valid(boss):
-		boss.max_health *= float(Events.TIERS[event_tier - 1].hp)
+		boss.max_health *= float(Events.tiers()[event_tier - 1].hp)
 		boss.health = boss.max_health
 	# Champion's Door: a purple elite is waiting.
 	if _door.get("kind", "") == "champion":
@@ -2862,7 +2870,7 @@ func continue_text() -> String:
 	if _save_needs_pass(s):
 		where += " · Crypt Pass"
 	if str(s.get("event", "")) != "":
-		return "Blood Moon · " + where
+		return str(Events.ev().name).capitalize() + " · " + where
 	return ("Daily Crypt · " if s.daily else "") + where
 
 
@@ -2902,7 +2910,7 @@ func _continue_run() -> void:
 		# The event ended while the title was up: its run can't go on.
 		RunSave.clear()
 		hud._title_continue.visible = false
-		hud.tip("The Blood Moon has set. That run ended with the event.", 4.0)
+		hud.tip("%s That run ended with the event." % Events.word("over"), 4.0)
 		return
 	Sfx.play("click")
 	Floors.lobby = false
@@ -2980,7 +2988,7 @@ func _continue_run() -> void:
 	else:
 		_go_to_room(int(s.room))
 		_show_gifts()
-		hud.tip(("Blood Moon run continued: floor %d" if event != "" else "Run continued: floor %d") % floor_num, 3.0, 1.2)
+		hud.tip(((str(Events.ev().name).capitalize() + " run continued: floor %d") if event != "" else "Run continued: floor %d") % floor_num, 3.0, 1.2)
 	print("[run] continued floor %d room %d hp %d/%d score %d omens %s door %s" % [floor_num, int(s.room) + 1, hero.health, hero.max_health, score, Loops.names(omens), Doors.describe(_door).get("title", "none")])
 
 
@@ -3033,9 +3041,9 @@ func _boss_intro() -> void:
 	hud.flash(Color(1, 0.3, 0.2), 0.3)
 	var sub := "Ruler of floor %d" % floor_num
 	if event == "hunt":
-		sub = "Queen Hunt  ·  %s" % str(Events.TIERS[event_tier - 1].name)
+		sub = "%s  ·  %s" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name)]
 	elif event != "":
-		sub = "Ruler of the Blood Moon" if boss_kind() == "Q" else "Guardian of the Blood Moon"
+		sub = Events.word("ruler") if boss_kind() == str(Events.ev().get("boss", "Q")) else Events.word("guardian")
 	# Version 238: a boss met again brings an attack it never used before, and says so.
 	if b.encore_name() != "":
 		sub = "Back with a new attack: %s" % b.encore_name()
@@ -3109,6 +3117,12 @@ func _kill_points(e: Enemy) -> float:
 	return p
 
 
+## A skeleton that got away (a Gift Thief): the room stops waiting for it, but it is no kill.
+func enemy_escaped(_e: Enemy) -> void:
+	alive_enemies = maxi(0, alive_enemies - 1)
+	note_progress()
+
+
 func on_enemy_died(e: Enemy) -> void:
 	alive_enemies = maxi(0, alive_enemies - 1)
 	note_progress()
@@ -3123,8 +3137,11 @@ func on_enemy_died(e: Enemy) -> void:
 		GraveSpikes.mark(e.global_position, _omen("graves"))   # v241: the Omen of Graves
 	if race and not e.is_boss:
 		_race_kill(e)
+	if event != "" and e is GiftThief:
+		_add_shards(GiftThief.SHARDS)   # its sack of stolen gifts (Frostfall)
+		EventArt.shard_pop(e.global_position + Vector3(0, 1.2, 0), GiftThief.SHARDS)
 	if event != "" and not e.is_boss:
-		var in_surge := surge > 0.5
+		var in_surge := surge > 0.5 or Blizzard.blowing()   # v243: a Blizzard pays like a Surge
 		var n := (Events.ELITE_SHARDS if e.elite else 0) + (Events.SURGE_SHARDS if in_surge else 0)
 		if in_surge and hero and hero.perks.has("shardhunter"):
 			n += 2   # Shard Hunter
@@ -3574,13 +3591,13 @@ func _win() -> void:
 	var hunt := {}
 	_event_done = event == "hunt" or (event == "run" and floor_num >= Events.RUN_FLOORS)
 	if event != "":
-		if boss_kind() == "Q":
+		if boss_kind() == str(Events.ev().get("boss", "Q")):
 			cfg.set_value(Events.section(), "queen_kills", Events.queen_kills(cfg) + 1)
 		if event == "hunt":
 			hunt = Events.record_hunt(cfg, event_tier)
 			_add_shards(int(hunt.shards))
-			var el: Array = Events.ECLIPSE_LOOK
-			if event_tier == Events.TIERS.size() and not Events.has_look(cfg, el[0], el[1]):
+			var el: Array = Events.top_look()
+			if event_tier == Events.tiers().size() and not Events.has_look(cfg, el[0], el[1]):
 				Events.give_look(cfg, el[0], el[1])
 				hunt.eclipse_look = true
 			if hunt.casket:
@@ -3647,11 +3664,11 @@ func _win() -> void:
 	elif _daily_done:
 		extra += "\n\nDaily Crypt #%d cleared!%s" % [Curses.day_number(_daily_date), " (Practice)" if _daily_practice else ""]
 	elif event == "hunt":
-		extra += "\n\nQueen Hunt %s won!%s" % [str(Events.TIERS[event_tier - 1].name), "  +1 Moon Casket (today's Hunt casket)" if hunt.get("casket", false) else ""]
+		extra += "\n\n%s %s won!%s" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name), ("  +1 %s (today's Hunt %s)" % [Events.word("casket"), Events.word("casket").get_slice(" ", 1).to_lower()]) if hunt.get("casket", false) else ""]
 		if hunt.get("eclipse_look", false):
-			extra += "\nNew glow: Blood Eclipse! Wear it in Style."
+			extra += "\nNew glow: %s! Wear it in Style." % Events.word("top")
 	elif _event_done:
-		extra += "\n\nThe Blood Moon Queen has fallen!" + ("  +1 Moon Casket (today's)" if _caskets_run > 0 else "")
+		extra += "\n\n" + Events.word("fallen") + (("  +1 %s (today's)" % Events.word("casket")) if _caskets_run > 0 else "")
 	elif _loop_choice:
 		extra += "\n\n" + _loop_text()
 	for m: Dictionary in rewards:
@@ -3666,7 +3683,7 @@ func _win() -> void:
 	if _event_done and Events.active():
 		tap = Hud.EVENT_TAP   # v221: a green BACK TO EVENT (the road and the next Hunt)
 	if shards > 0:
-		extra = "\nMoon Shards  +%d" % shards + extra
+		extra = "\n%s  +%d" % [Events.word("shards"), shards] + extra
 	var fallen := "%s has fallen." % boss_name if event == "hunt" else "%s of floor %d has fallen." % [boss_name, floor_num]
 	# Version 213 (hardest review fix #18): at the end of the free game, what the Pass opens
 	# comes first (it was the last line, ~3.6 s after the counts).
@@ -3702,9 +3719,9 @@ func _win() -> void:
 	_state_time = 0.0
 	var won := "Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")]
 	if event == "hunt":
-		won = "Won the Queen Hunt %s (event day %d)" % [str(Events.TIERS[event_tier - 1].name), Events.day()]
+		won = "Won the %s %s (event day %d)" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name), Events.day()]
 	elif event != "":
-		won = "Blood Moon run: beat floor %d of %d (event day %d)" % [floor_num, Events.RUN_FLOORS, Events.day()]
+		won = "%s run: beat floor %d of %d (event day %d)" % [str(Events.ev().name).capitalize(), floor_num, Events.RUN_FLOORS, Events.day()]
 	_last_report = run_report(won, was_first)
 	print("[report]\n" + _last_report)
 	Telemetry.instance.send("run", _last_report)
@@ -3754,7 +3771,7 @@ func on_hero_died() -> void:
 		_finish_first_run()
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
 	if event == "hunt":
-		where = "the Queen Hunt (%s)" % str(Events.TIERS[event_tier - 1].name).capitalize()
+		where = "the %s (%s)" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name).capitalize()]
 	elif floor_num > 1:
 		where += " on floor %d" % floor_num
 	# (The brave-try top-up has its own line below, so "Coins kept" is what the run found.)
@@ -3766,7 +3783,7 @@ func on_hero_died() -> void:
 	if bones > 0:
 		coin_line += "\nBone Road  +%d bones" % bones
 	if shards > 0:
-		coin_line += "\nMoon Shards  +%d" % shards
+		coin_line += "\n%s  +%d" % [Events.word("shards"), shards]
 	if tutorial_again:
 		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nYou start again in this room." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
@@ -4009,10 +4026,10 @@ func _event_goal() -> String:
 	var i := Events.next_index(cfg)
 	if Events.ready_count(cfg) > 0:
 		return "Event road: %d prize%s to claim!" % [Events.ready_count(cfg), "" if Events.ready_count(cfg) == 1 else "s"]
-	if i >= Events.ROAD.size():
+	if i >= Events.road().size():
 		var bl := Events.bonus_line(cfg)   # v218: says "tomorrow" once today's is paid
 		return "Event road complete! " + bl.left(1).to_upper() + bl.substr(1)
-	return "Event road: %d more shards to %s" % [int(Events.ROAD[i].at) - Events.shards(cfg), Events.step_text(Events.ROAD[i])]
+	return "Event road: %d more %s to %s" % [int(Events.road()[i].at) - Events.shards(cfg), Events.word("unit"), Events.step_text(Events.road()[i])]
 
 
 ## Starts the Blood Moon run ("run") or the Queen Hunt ("hunt") on tier `tier`, from the
@@ -4065,7 +4082,7 @@ func _settle_events() -> void:
 	if int(r.prizes) > 0:
 		parts.append("%d road prize%s" % [r.prizes, "" if int(r.prizes) == 1 else "s"])
 	if int(r.caskets) > 0:
-		parts.append("%d Moon Casket%s" % [r.caskets, "" if int(r.caskets) == 1 else "s"])
+		parts.append("%d %s" % [r.caskets, r.casket if int(r.caskets) == 1 else r.casket_n])
 	hud.tip("The %s is over.\nYou hadn't claimed %s: +%d coins" % [str(r.name).capitalize(), " and ".join(parts), int(r.coins)], 6.0, 1.2)
 	hud.set_drops(Drops.waiting(_load_save()))
 
@@ -4093,7 +4110,7 @@ func _claim_event_road(i: int) -> void:
 	Sfx.play("upgrade")
 	if s.kind == "look":
 		Sfx.play("sting", 0.9)
-		hud.callout(("SILVER MOON SET: %s!" if on_pass else "BLOOD MOON SET: %s!") % Events.step_text(s), Color(0.8, 0.88, 1.0) if on_pass else Color(1.0, 0.45, 0.35))
+		hud.callout("%s: %s!" % [Events.word("pass_set" if on_pass else "set").to_upper(), Events.step_text(s)], Color(0.8, 0.88, 1.0) if on_pass else Events.ev().color.lightened(0.15))
 		hud.refresh_looks_badge()   # (Version 192: the new look shows on the Style button)
 	else:
 		Sfx.play("coin", 0.6, 1.2)
