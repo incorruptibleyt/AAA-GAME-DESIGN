@@ -1,6 +1,6 @@
-Version 233: the Knight fights like a knight
-- Up close he swings his sword: one wide arc hits every skeleton in front of him and knocks their shots out of the air.
-- Farther off he still throws sword waves.
-- Standing still, his shield blocks shots from the front. A faint arc shows where it covers, and each block charges Shield Slam.
-- Broad Swing now makes his swings reach further too.
+Version 234: the Barbarian's axes come back
+- His axes fly out, swing round and come back to his hand, cutting skeletons on the way out and again on the way back.
+- Each axe cuts through 2 skeletons each way. Piercing Shot adds one more.
+- Axes hit harder, throws are a little slower, and twin axes loop out to both sides.
+- The Knight swings his sword up close and blocks shots with his shield.
 - The Blood Moon is up until Dec 3: hunt the Queen.

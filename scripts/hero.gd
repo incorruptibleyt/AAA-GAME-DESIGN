@@ -116,6 +116,14 @@ const SWING_ARC := 65.0   # degrees either side of straight ahead (+15 for each 
 const GUARD_COS := 0.5    # the shield stops shots from within 60 degrees of straight ahead
 static var _arc_meshes := {}
 
+## Version 234 (fix 2, the Barbarian). His axes are boomerangs: each flies out a little past
+## its target (boomerang = the least it flies, in metres), or until it runs out of cuts or
+## hits a wall, then turns and flies back to his hand, cutting skeletons on the way back
+## too. Piercing Shot means one more cut each way.
+var boomerang := 0.0
+var caught := 0   # axes caught this run
+var _throw_reach := 0.0
+
 
 static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	var cfg := Game._load_save()
@@ -141,6 +149,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.heal_on_kill = def.get("heal_on_kill", 0.0)
 	h.melee_reach = def.get("melee", 0.0)
 	h.guard = def.get("guard", false)
+	h.boomerang = def.get("boomerang", 0.0)
 	parent.add_child(h)
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
@@ -441,7 +450,7 @@ func _whirlwind(delta: float) -> void:
 		var hit_any := false
 		for a: Actor in Actor.all.duplicate():
 			if a.team == Team.UNDEAD and a.can_be_hit() and a.global_position.distance_to(global_position) < 2.8 + a.radius:
-				_special_hit(a, damage * 0.8, global_position, 5.0)
+				_special_hit(a, damage * 0.75, global_position, 5.0)   # (0.8 of 16 before version 234)
 				hit_any = true
 		# One heal per spin tick, not one per enemy caught (a big crowd healed to full).
 		if hit_any:
@@ -596,6 +605,13 @@ func _shoot(fwd: Vector3) -> void:
 		_finish_ms = Time.get_ticks_msec()
 		Fx.sparks(origin, _finish_col)
 	var col := Color(1.0, 0.55, 0.2) if burn_dps > 0.0 else bolt_color
+	if boomerang > 0.0:
+		# Axes fly 2.5 m past the target (never short of `boomerang`), so a miss still turns
+		# behind it and can cut it from behind on the way back.
+		var far := 0.0
+		if is_instance_valid(_target):
+			far = Vector2(_target.global_position.x - global_position.x, _target.global_position.z - global_position.z).length()
+		_throw_reach = clampf(far + 2.5, boomerang, 14.0)
 	var share := front_share()
 	for i in front_bolts:
 		var offset := (i - (front_bolts - 1) * 0.5) * 0.35
@@ -808,6 +824,17 @@ func _fire(origin: Vector3, d: Vector3, col: Color, share := 1.0) -> void:
 	p.crit_mult = crit_mult
 	p.burn_dps = burn_dps
 	p.frost = frost
+	if boomerang > 0.0:
+		p.boomerang = _throw_reach
+		p._cuts = pierce
+		p.life = 6.0
+
+
+## A returning axe is back in the Barbarian's hand.
+func catch_axe(at: Vector3) -> void:
+	caught += 1
+	Sfx.play("catch", 0.35, randf_range(0.9, 1.1))
+	Fx.impact(at, Color(1.0, 0.8, 0.5), 0.5)
 
 
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:

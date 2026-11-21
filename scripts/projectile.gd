@@ -29,6 +29,16 @@ var _age := 0.0
 var _col := Color.WHITE
 ## The Barbarian's axe turns on this.
 var spin: Node3D
+## Version 234: the Barbarian's axes fly out this far (or until they run out of cuts or hit
+## a wall), then turn and fly back to his hand, cutting again on the way. 0 = a normal shot.
+var boomerang := 0.0
+var _out := 0.0
+var _back := false
+var _blunt := false   # flying home with no cuts left
+var _cuts := 0   # pierce at the throw: the cuts each way
+var _back_t := 0.0
+var _side := 1.0   # which way it swings round to come home
+static var _flip := 1.0   # (axes take turns, so twin axes loop out to both sides)
 
 ## Undead shots share one look on every floor (see ShotLook).
 const DANGER := ShotLook.DANGER
@@ -117,6 +127,10 @@ func _reset() -> void:
 	frost = false
 	splash = 0.0
 	life = 4.0
+	boomerang = 0.0
+	_out = 0.0
+	_back = false
+	_blunt = false
 	_hit.clear()
 	_first_frame = true
 	_age = 0.0
@@ -203,6 +217,8 @@ func _process(delta: float) -> void:
 			_glow.scale = Vector3(g, g, 1.0)
 	if spin:
 		spin.rotation.y -= delta * 22.0
+	if _back and not _home():
+		return
 	var next := global_position + dir * speed * delta
 	# Hero bolts check the whole stretch they flew this frame. The first frame starts back at
 	# the hero (bolts appear a little in front), so a skeleton pressed right up against the
@@ -211,7 +227,14 @@ func _process(delta: float) -> void:
 	if _first_frame and owner_team == Actor.Team.HERO:
 		from -= dir * 0.6
 	_first_frame = false
-	if life <= 0.0 or (Room.current and Room.current.blocks_shot(next, radius * 0.5)):
+	if boomerang > 0.0 and not _back:
+		_out += speed * delta
+		if _out >= boomerang or (Room.current and Room.current.blocks_shot(next, radius * 0.5)):
+			if _out < boomerang:
+				Fx.sparks(global_position, Color(1, 0.85, 0.5))   # off the wall and back
+			_turn(null)
+			return
+	if life <= 0.0 or (not _back and Room.current and Room.current.blocks_shot(next, radius * 0.5)):
 		Fx.sparks(global_position, Color(1, 0.85, 0.5) if owner_team == Actor.Team.HERO else DANGER)
 		Fx.impact(global_position, _col, radius * 3.0)
 		finish()
@@ -250,7 +273,15 @@ func _process(delta: float) -> void:
 		Fx.impact(Vector3(next.x, global_position.y, next.z), Color.WHITE.lerp(_col, 0.5) if crit else _col, radius * (6.0 if crit else 4.0))
 		if a is Hero:
 			Game.hit_source = source
-		a.take_damage(damage * crit_mult if crit else damage, dir, push, crit)
+		if _back:
+			# On the way back the axe cuts from behind: a small knock away from the hero, not
+			# a shove into his arms.
+			var away := a.global_position - global_position if not Game.hero else a.global_position - Game.hero.global_position
+			away.y = 0.0
+			a.take_damage(damage * crit_mult if crit else damage, away.normalized() if away.length_squared() > 0.01 else -dir, push * 0.3, crit)
+			Game._teach("barbarian_axe", "AXES come back to your hand: skeletons in the way get cut again!")
+		else:
+			a.take_damage(damage * crit_mult if crit else damage, dir, push, crit)
 		if burn_dps > 0.0 and not a.dead:
 			Burning.apply(a, burn_dps, 2.5)
 		elif crit and owner_team == Actor.Team.HERO and not a.dead and Game.hero and Game.hero.perks.has("flashfire"):
@@ -265,12 +296,58 @@ func _process(delta: float) -> void:
 		if not (crit and owner_team == Actor.Team.HERO and Game.hero and Game.hero.perks.has("deadeye")):
 			pierce -= 1
 		if pierce < 0:
-			finish()
+			if boomerang <= 0.0:
+				finish()
+				return
+			if _back:
+				_blunt = true   # out of cuts: just flies home
+				return
+			_turn(a)   # bounces off the last skeleton it cut and comes back
 			return
 
 
+## The axe turns for home: every skeleton can be cut once more (but not the one it just
+## bounced off), with as many cuts as it was thrown with.
+func _turn(bounced: Actor) -> void:
+	_back = true
+	_back_t = 0.0
+	_flip = -_flip
+	_side = _flip
+	_hit.clear()
+	if bounced:
+		_hit[bounced] = true
+	pierce = _cuts
+	speed *= 1.2
+
+
+## Steers a returning axe at the Barbarian's hand; false once it is caught (or he is gone).
+## It can't turn on the spot: it swings round in a tight loop (to its own side) and comes
+## home along a curve, so the way back sweeps a lane beside the way out, like a boomerang.
+## The turn tightens the longer it flies, so it can't circle him for ever.
+func _home() -> bool:
+	var h := Game.hero
+	if h == null or not is_instance_valid(h) or h.dead:
+		finish()
+		return false
+	var delta := get_process_delta_time()
+	var to := h.global_position + Vector3.UP * 1.1 - global_position
+	to.y = 0.0
+	if to.length() < maxf(0.75, speed * delta):
+		h.catch_axe(global_position)
+		finish()
+		return false
+	_back_t += delta
+	var turn := (17.0 + 20.0 * _back_t) * delta
+	var ang := dir.signed_angle_to(to.normalized(), Vector3.UP)
+	if absf(ang) > PI - 0.35:
+		ang = PI * _side   # still heading away: keep swinging round on this axe's side
+	dir = dir.rotated(Vector3.UP, clampf(ang, -turn, turn)).normalized()
+	rotation.y = atan2(-dir.x, -dir.z)
+	return true
+
+
 func _touches(a: Actor, target: int, from: Vector3, next: Vector3) -> bool:
-	if a.team != target or not a.can_be_hit() or _hit.has(a):
+	if _blunt or a.team != target or not a.can_be_hit() or _hit.has(a):
 		return false
 	var reach := a.radius + radius
 	var dist_sq := _flat_dist_sq(a.global_position, from, next) if owner_team == Actor.Team.HERO \
