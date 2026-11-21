@@ -39,6 +39,8 @@ var _cuts := 0   # pierce at the throw: the cuts each way
 var _back_t := 0.0
 var _side := 1.0   # which way it swings round to come home
 static var _flip := 1.0   # (axes take turns, so twin axes loop out to both sides)
+## Version 235: the Mage's charged orb (0 = a plain one, up to 1): its blast booms.
+var charged := 0.0
 
 ## Undead shots share one look on every floor (see ShotLook).
 const DANGER := ShotLook.DANGER
@@ -128,6 +130,7 @@ func _reset() -> void:
 	splash = 0.0
 	life = 4.0
 	boomerang = 0.0
+	charged = 0.0
 	_out = 0.0
 	_back = false
 	_blunt = false
@@ -358,6 +361,10 @@ func _touches(a: Actor, target: int, from: Vector3, next: Vector3) -> bool:
 func _explode(at: Vector3, target: int, already: Actor) -> void:
 	Fx.magic(at + Vector3.UP * 0.4, Color(0.8, 0.45, 1.0), 22)
 	Fx.shockwave(at, Color(0.7, 0.4, 1.0), splash)
+	if charged > 0.0:
+		Sfx.play("boom", 0.3 + 0.35 * charged)
+		Game.shake(0.06 + 0.1 * charged)
+		Fx.magic(at + Vector3.UP * 0.6, Color(1.0, 0.85, 1.0), int(10 + 16 * charged))
 	for a: Actor in Actor.all.duplicate():
 		if a == already or a.team != target or not a.can_be_hit():
 			continue

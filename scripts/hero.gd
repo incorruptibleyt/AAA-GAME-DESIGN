@@ -124,6 +124,18 @@ var boomerang := 0.0
 var caught := 0   # axes caught this run
 var _throw_reach := 0.0
 
+## Version 235 (fix 2, the Mage). Moving (or dashing) in a fight builds arcane charge, full
+## after CHARGE_TIME seconds; the first orb after stopping carries it: a big, slower orb that
+## hits up to 2.2x as hard with a blast up to 1.7x as wide. Standing still doesn't charge.
+## So the Mage plays a dance: dodge, stop, BOOM.
+var charges := false
+var arcane := 0.0
+var charged_shots := 0   # big orbs thrown this run
+var _charge_orb: MeshInstance3D
+var _charge_full := false
+const CHARGE_TIME := 1.2
+const CHARGE_MIN := 0.25   # less than this and the next orb is a plain one
+
 
 static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	var cfg := Game._load_save()
@@ -150,6 +162,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.melee_reach = def.get("melee", 0.0)
 	h.guard = def.get("guard", false)
 	h.boomerang = def.get("boomerang", 0.0)
+	h.charges = def.get("charge", false)
 	parent.add_child(h)
 	h.global_position = pos
 	h.make_visual(Heroes.look(def))
@@ -169,6 +182,8 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h._build_dash_ring()
 	if h.guard:
 		h._build_guard_mark()
+	if h.charges:
+		h._build_charge_orb()
 	# Curse mastery rewards (curses.gd): a red lantern, a grave aura, golden bolts.
 	var mastery := Curses.mastery(cfg, def.id)
 	if mastery >= 10 and HeroStyle.worn(cfg, def.id, "glow") == "":
@@ -483,6 +498,7 @@ func _process(delta: float) -> void:
 	_update_ward_bubble()
 	_update_dash_ring()
 	_update_guard_mark(delta)
+	_update_charge(delta)
 	if is_instance_valid(_aura_fx):
 		_aura_fx.rotation.y = -rotation.y
 	_dash_cooldown -= delta
@@ -613,9 +629,20 @@ func _shoot(fwd: Vector3) -> void:
 			far = Vector2(_target.global_position.x - global_position.x, _target.global_position.z - global_position.z).length()
 		_throw_reach = clampf(far + 2.5, boomerang, 14.0)
 	var share := front_share()
+	# The Mage's charged orb: the volley straight ahead carries the charge (in quarter steps,
+	# so the orb looks stay few and pooled).
+	var boost := 0.0
+	if charges and arcane >= CHARGE_MIN:
+		boost = snappedf(arcane, 0.25)
+		arcane = 0.0
+		_charge_full = false
+		charged_shots += 1
+		Sfx.play("cast", 0.4 + 0.3 * boost, 1.15 - 0.2 * boost)
+		Fx.magic(origin, bolt_color, int(8 + 14 * boost))
+		Game._teach("mage_charge", "CHARGE: moving charges your magic. Stop, and the first orb is a big blast!")
 	for i in front_bolts:
 		var offset := (i - (front_bolts - 1) * 0.5) * 0.35
-		_fire(origin + right * offset, fwd, col, share)
+		_fire(origin + right * offset, fwd, col, share, boost)
 	for i in diagonal_bolts:
 		var angle := deg_to_rad(30.0 + i * 15.0)
 		_fire(origin, fwd.rotated(Vector3.UP, angle), col)
@@ -780,6 +807,38 @@ func _update_guard_mark(delta: float) -> void:
 	_guard_mark.scale = Vector3(k, 1.0, k)
 
 
+## The Mage's charge: a magic orb over the hat that swells with moving, and pulses once
+## it is full.
+func _build_charge_orb() -> void:
+	_charge_orb = MeshInstance3D.new()
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	_charge_orb.mesh = q
+	_charge_orb.material_override = ShotLook.hero_mat(ShotLook.K_ORB, Color(bolt_color.r * 0.8, bolt_color.g * 0.6, bolt_color.b, 1.0), true)
+	_charge_orb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_charge_orb.position = Vector3(0, 3.0, 0)
+	_charge_orb.visible = false
+	add_child(_charge_orb)
+
+
+func _update_charge(delta: float) -> void:
+	if not charges:
+		return
+	if (_moving or _dash_left > 0.0) and Game.state == Game.State.PLAYING and Game.alive_enemies > 0:
+		arcane = minf(arcane + delta / CHARGE_TIME, 1.0)
+		if arcane >= 1.0 and not _charge_full:
+			_charge_full = true
+			Fx.magic(global_position + Vector3.UP * 3.0, bolt_color, 10)
+	if _charge_orb == null:
+		return
+	_charge_orb.visible = arcane >= CHARGE_MIN and not dead
+	if _charge_orb.visible:
+		var k := 0.5 + 0.8 * arcane
+		if _charge_full:
+			k *= 1.0 + 0.12 * sin(Time.get_ticks_msec() * 0.012)
+		_charge_orb.scale = Vector3(k, k, k)
+
+
 ## Whether the shield is up: the Knight standing still in a fight (not dashing, spinning
 ## or knocked down).
 func guarding() -> bool:
@@ -815,11 +874,12 @@ func front_share() -> float:
 	return pow(TWIN_GAIN, front_bolts - 1) / front_bolts
 
 
-func _fire(origin: Vector3, d: Vector3, col: Color, share := 1.0) -> void:
-	var p := Projectile.fire(Team.HERO, origin, d, damage * share * Game.chain_damage(), bolt_speed, col, bolt_size)
+func _fire(origin: Vector3, d: Vector3, col: Color, share := 1.0, boost := 0.0) -> void:
+	var p := Projectile.fire(Team.HERO, origin, d, damage * share * (1.0 + 1.2 * boost) * Game.chain_damage(), bolt_speed * (1.0 - 0.25 * boost), col, bolt_size * (1.0 + 0.9 * boost))
 	p.pierce = pierce
-	p.push = bolt_push
-	p.splash = splash
+	p.push = bolt_push * (1.0 + boost)
+	p.splash = splash * (1.0 + 0.7 * boost)
+	p.charged = boost
 	p.crit_chance = crit_chance
 	p.crit_mult = crit_mult
 	p.burn_dps = burn_dps

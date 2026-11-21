@@ -1,6 +1,6 @@
-Version 234: the Barbarian's axes come back
-- His axes fly out, swing round and come back to his hand, cutting skeletons on the way out and again on the way back.
-- Each axe cuts through 2 skeletons each way. Piercing Shot adds one more.
-- Axes hit harder, throws are a little slower, and twin axes loop out to both sides.
-- The Knight swings his sword up close and blocks shots with his shield.
+Version 235: the Mage charges up
+- Moving in a fight charges the Mage's magic: an orb grows over the hat.
+- The first orb after stopping carries the charge: bigger, up to 2.2x the damage and a 1.7x wider blast, with a boom.
+- So the Mage dances: dodge, stop, blast.
+- The Barbarian's axes fly back to his hand. The Knight swings his sword and blocks with his shield.
 - The Blood Moon is up until Dec 3: hunt the Queen.
