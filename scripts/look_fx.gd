@@ -68,6 +68,7 @@ static func set_ring(m: ShaderMaterial, col: Color, col2: Variant, style: String
 	m.set_shader_parameter("col2", c2)
 	m.set_shader_parameter("style", int(STYLES.get(style, 0)))
 	m.set_shader_parameter("tier", tier)
+	m.set_shader_parameter("two", 1.0 if col2 is Color else 0.0)
 
 
 ## An aura's column of light: `kind` 0 = flames of light rising, 1 = bands winding up.
@@ -316,6 +317,7 @@ uniform vec4 col : source_color = vec4(1.0);
 uniform vec4 col2 : source_color = vec4(1.0);
 uniform int style = 0;
 uniform int tier = 0;
+uniform float two = 0.0;
 uniform float r0 = 0.48;
 uniform float power = 1.0;
 """ + NOISE + """
@@ -326,10 +328,12 @@ void fragment() {
 	float a = ang / 6.2831853 + 0.5;
 	float t = TIME;
 	// The ring, a soft halo either side of it, and two arcs of brighter light running round.
-	float flow = pow(0.5 + 0.5 * sin(ang * 2.0 - t * 2.4), 3.0);
+	// (Version 232: a glow with a second colour of its own, "two", shows it on wide arcs, a
+	// good third of the ring, so two glows of one main colour are told apart by the second.)
+	float flow = pow(0.5 + 0.5 * sin(ang * 2.0 - t * 2.4), mix(3.0, 1.3, two));
 	float core = smoothstep(0.05, 0.02, abs(r - r0));
 	float halo = exp(-abs(r - r0) * 10.0) * 0.5;
-	vec3 c = mix(col.rgb, col2.rgb, flow * 0.8);
+	vec3 c = mix(col.rgb, col2.rgb, clamp(flow * mix(0.8, 1.15, two), 0.0, 1.0));
 	float alpha = core * (0.82 + 0.18 * flow) + halo * (0.45 + 0.55 * flow);
 	float extra = 0.0;
 	vec3 ec = col2.rgb;

@@ -1,7 +1,5 @@
-Version 231: every special weapon is now a whole new weapon
-- Rogue: icicle crossbow, flame daggers, sun-wing crossbow, rift crossbow with a portal for limbs.
-- Knight: glacier sword and frost shield, magma cleaver, sun hammer, floating rift blade.
-- Barbarian: icicle axes, magma maul, ram's head mace, moon axe.
-- Mage: glacier staff, sun scepter, reaper's scythe, burning grimoire.
-- Soft fire and glows; big weapons fit on the Style screen.
+Version 232: no more lookalike looks
+- Silver Moon outfit now has its own night blue and silver (it drew exactly like Blood Moon).
+- Glows with a second colour show it on wide arcs, and no two glows look alike: Inferno, Mythic, Diamond, Sulfur, Abyss, Photon and more got their own colours.
+- Mythic, Diamond, Toxic and Thunder outfits no longer look like Shadow, Frost, Forest and Midnight.
 - The Blood Moon is up until Dec 3: hunt the Queen.

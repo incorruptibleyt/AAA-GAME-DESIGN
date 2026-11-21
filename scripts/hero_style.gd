@@ -52,8 +52,8 @@ const OUTFITS := {
 	"bone": {"name": "Bone", "a": Color(0.86, 0.83, 0.74), "b": Color(0.2, 0.2, 0.23), "armor": Color(0.84, 0.8, 0.68), "leather": Color(0.2, 0.19, 0.2), "pat": 32},
 	# Version 132, the Legend road (Mastery 12, 17 and 19): outfits with their own moving
 	# pattern, like Feat outfits ("pat", the outfit shader).
-	"diamond": {"name": "Diamond", "a": Color(0.82, 0.92, 1.0), "b": Color(0.45, 0.7, 1.0), "armor": Color(0.68, 0.83, 1.0), "leather": Color(0.36, 0.5, 0.7), "pat": 11},
-	"mythic": {"name": "Mythic", "a": Color(0.2, 0.1, 0.36), "b": Color(0.4, 0.9, 1.0), "armor": Color(0.32, 0.18, 0.55), "leather": Color(0.16, 0.1, 0.24), "pat": 12},
+	"diamond": {"name": "Diamond", "a": Color(0.86, 0.88, 0.94), "b": Color(0.55, 0.62, 0.8), "armor": Color(0.8, 0.83, 0.9), "leather": Color(0.4, 0.44, 0.56), "pat": 11},
+	"mythic": {"name": "Mythic", "a": Color(0.04, 0.18, 0.22), "b": Color(0.4, 0.9, 1.0), "armor": Color(0.06, 0.24, 0.28), "leather": Color(0.08, 0.12, 0.14), "pat": 12},
 	"legend": {"name": "Legend", "a": Color(0.22, 0.08, 0.05), "b": Color(1.0, 0.8, 0.35), "armor": Color(0.3, 0.12, 0.07), "leather": Color(0.3, 0.12, 0.08), "pat": 13},
 }
 
@@ -124,6 +124,15 @@ const GRAND := {
 ## blood orange-red, Rose is a rose-gold peach, and the Blood Eclipse shots are gold.)
 ## Glow: the ring at the hero's feet, the glow on their edges and their shots. None is
 ## red-pink, which is what danger looks like (ShotLook.DANGER).
+## Version 232 (whole-game review, fix 9): no two glows look alike any more. Each glow has
+## its own main colour, or its own second colour where two share one; a second colour now
+## shows on wide arcs of the ring (LookFx "two"). Inferno burns purple and orange (it was
+## Ember again), Silver Moon is night blue and silver like its outfit (it was Silver), Mythic
+## orchid with cyan (Violet), Diamond white with cyan (Frost), Sulfur yellow with blue (Lime),
+## Abyss deep blue with sea green (Azure), Candlelight gold with white flames (Gold). The
+## glows that were near-twins of a free one got a second colour too: Aurora green and violet,
+## Eclipse indigo and cyan, Venom lime and purple, Mirage aqua and sand, Glacier ice and deep
+## blue, Spectral pale green and white, Sapphire blue and gold, Photon white and orchid.
 const GLOWS := {
 	"emerald": {"name": "Emerald", "fx": "flow", "ring": Color(0.3, 1.0, 0.55), "bolt": Color(0.55, 1.0, 0.7)},
 	"azure": {"name": "Azure", "fx": "wave", "ring": Color(0.4, 0.68, 1.0), "bolt": Color(0.62, 0.84, 1.0)},
@@ -135,8 +144,8 @@ const GLOWS := {
 	"lime": {"name": "Lime", "fx": "storm", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
 	# Version 132, the Legend road (Mastery 11, 16 and 18): glows that shimmer between two
 	# colours on the hero's edges ("ring2"), bright like Feat glows.
-	"diamond": {"name": "Diamond", "fx": "frost", "ring": Color(0.8, 0.97, 1.0), "ring2": Color(0.4, 0.78, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
-	"mythic": {"name": "Mythic", "fx": "runes", "ring": Color(0.6, 0.42, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.88, 0.7, 1.0)},
+	"diamond": {"name": "Diamond", "fx": "flow", "ring": Color(0.95, 0.97, 1.0), "ring2": Color(0.3, 0.9, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
+	"mythic": {"name": "Mythic", "fx": "storm", "ring": Color(0.92, 0.4, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.92, 0.7, 1.0)},
 	"legend": {"name": "Legend", "fx": "rays", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
 }
 
@@ -211,17 +220,17 @@ const EXTRA := {
 		"frostbite": {"name": "Frostbite", "a": Color(0.3, 0.6, 0.95), "b": Color(0.95, 0.98, 1.0), "pat": 4, "feat": "halfway"},
 		"magma": {"name": "Cinder Ice", "a": Color(0.12, 0.15, 0.22), "b": Color(0.62, 0.84, 1.0), "pat": 2, "feat": "laststand"},
 		"ghostwalk": {"name": "Ghostwalk", "a": Color(0.27, 0.3, 0.33), "b": Color(0.82, 1.0, 0.95), "pat": 1, "feat": "cleankill"},
-		"thunder": {"name": "Thunder", "a": Color(0.22, 0.24, 0.36), "b": Color(1.0, 0.86, 0.3), "pat": 5, "feat": "highscore"},
+		"thunder": {"name": "Thunder", "a": Color(0.32, 0.33, 0.36), "b": Color(1.0, 0.86, 0.3), "pat": 5, "feat": "highscore"},
 		"shadowflame": {"name": "Shadowflame", "a": Color(0.06, 0.07, 0.13), "b": Color(0.25, 0.58, 1.0), "pat": 7, "feat": "faithful"},
 		"starweave": {"name": "Starweave", "a": Color(0.34, 0.38, 0.8), "b": Color(0.95, 0.8, 0.35), "pat": 3, "feat": "flawless"},
-		"toxic": {"name": "Toxic", "a": Color(0.28, 0.66, 0.16), "b": Color(0.24, 0.08, 0.34), "pat": 8, "drop": 3},
+		"toxic": {"name": "Toxic", "a": Color(0.55, 0.78, 0.08), "b": Color(0.24, 0.08, 0.34), "pat": 8, "drop": 3},
 		"prism": {"name": "Prism", "a": Color(0.92, 0.92, 0.96), "b": Color(0.36, 0.3, 0.62), "pat": 9, "drop": 3},
 		"abyssal": {"name": "Abyssal", "a": Color(0.05, 0.17, 0.32), "b": Color(0.2, 0.86, 0.8), "pat": 10, "drop": 3},
 		# The Blood Moon event set (events.gd, version 134): "event" is the event's id.
 		"blood_moon": {"name": "Blood Moon", "a": Color(0.2, 0.12, 0.42), "b": Color(1.0, 0.76, 0.38), "pat": 14, "event": "blood_moon"},
 		# Version 219 (review 4 fix 26): the Silver Moon set, the event road's Crypt Pass row
 		# ("passroad"). Night blue and moon silver, so it never reads as a red danger mark.
-		"silver_moon": {"name": "Silver Moon", "a": Color(0.06, 0.16, 0.4), "b": Color(0.84, 0.9, 1.0), "pat": 14, "event": "blood_moon", "passroad": true},
+		"silver_moon": {"name": "Silver Moon", "a": Color(0.06, 0.16, 0.4), "b": Color(0.84, 0.9, 1.0), "pat": 14, "own": true, "event": "blood_moon", "passroad": true},
 		# The Bone Bazaar (bazaar.gd, version 152): "bazaar" is the price in coins.
 		"tidecaller": {"name": "Tidecaller", "a": Color(0.93, 0.7, 0.38), "b": Color(0.08, 0.66, 0.72), "pat": 33, "own": true, "bazaar": 900},
 		"sunforged": {"name": "Sunforged", "a": Color(0.8, 0.42, 0.08), "b": Color(1.0, 0.72, 0.2), "pat": 34, "own": true, "bazaar": 900},
@@ -242,25 +251,26 @@ const EXTRA := {
 		"moon_crown": {"name": "Moon Crown", "hat": false, "extras": ["moon_crown"], "event": "blood_moon"},
 	},
 	"glow": {
-		"mirage": {"name": "Mirage", "fx": "storm", "ring": Color(0.35, 1.0, 0.95), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
-		"inferno": {"name": "Inferno", "fx": "flame", "ring": Color(1.0, 0.42, 0.08), "bolt": Color(1.0, 0.95, 0.6), "feat": "linked"},
-		"glacier": {"name": "Glacier", "fx": "rays", "ring": Color(0.7, 0.85, 1.0), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
-		"aurora": {"name": "Aurora", "fx": "wave", "ring": Color(0.35, 1.0, 0.6), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
-		"eclipse": {"name": "Eclipse", "fx": "eclipse", "ring": Color(0.45, 0.28, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
-		"venom": {"name": "Venom", "fx": "beads", "ring": Color(0.7, 1.0, 0.15), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
-		"abyss": {"name": "Abyss", "fx": "wave", "ring": Color(0.12, 0.32, 1.0), "bolt": Color(0.4, 1.0, 1.0), "drop": 2},
+		"mirage": {"name": "Mirage", "fx": "storm", "ring": Color(0.35, 1.0, 0.95), "ring2": Color(1.0, 0.8, 0.45), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
+		"inferno": {"name": "Inferno", "fx": "flame", "ring": Color(0.6, 0.22, 1.0), "ring2": Color(1.0, 0.55, 0.15), "bolt": Color(0.85, 0.6, 1.0), "feat": "linked"},
+		"glacier": {"name": "Glacier", "fx": "rays", "ring": Color(0.72, 0.88, 1.0), "ring2": Color(0.15, 0.3, 0.95), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
+		"aurora": {"name": "Aurora", "fx": "wave", "ring": Color(0.35, 1.0, 0.6), "ring2": Color(0.55, 0.45, 1.0), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
+		"eclipse": {"name": "Eclipse", "fx": "eclipse", "ring": Color(0.42, 0.28, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
+		"venom": {"name": "Venom", "fx": "beads", "ring": Color(0.7, 1.0, 0.15), "ring2": Color(0.8, 0.3, 1.0), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
+		"abyss": {"name": "Abyss", "fx": "wave", "ring": Color(0.1, 0.22, 0.85), "ring2": Color(0.35, 1.0, 0.55), "bolt": Color(0.5, 1.0, 0.7), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
-		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.84, 0.5), "ring2": Color(1.0, 0.52, 0.14), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
-		"silver_moon": {"name": "Silver Moon", "fx": "beads", "ring": Color(0.78, 0.86, 1.0), "ring2": Color(0.42, 0.56, 1.0), "bolt": Color(0.9, 0.95, 1.0), "event": "blood_moon", "passroad": true},
-		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A black-red ring
-		# with a gold corona, blood-red shots.
-		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(1.0, 0.78, 0.3), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
-		"candle": {"name": "Candlelight", "fx": "stars", "ring": Color(1.0, 0.86, 0.55), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
-		"sulfur": {"name": "Sulfur", "fx": "storm", "ring": Color(1.0, 0.95, 0.2), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
-		"spectral": {"name": "Spectral", "fx": "runes", "ring": Color(0.45, 1.0, 0.85), "ring2": Color(0.9, 1.0, 1.0), "bolt": Color(0.75, 1.0, 0.95), "bazaar": 600},
-		"sapphire": {"name": "Sapphire", "fx": "beads", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(0.6, 0.85, 1.0), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
-		# Crypt Race glows: Photon (electric white-cyan), Afterburn (flame orange to jet blue).
-		"photon": {"name": "Photon", "fx": "storm", "ring": Color(0.35, 0.95, 1.0), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.75, 1.0, 1.0), "race": 100},
+		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.9, 0.65), "ring2": Color(1.0, 0.48, 0.12), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
+		"silver_moon": {"name": "Silver Moon", "fx": "eclipse", "ring": Color(0.22, 0.32, 0.95), "ring2": Color(0.9, 0.93, 1.0), "bolt": Color(0.9, 0.95, 1.0), "event": "blood_moon", "passroad": true},
+		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A dark blood-orange
+		# ring with a night-violet crescent (version 232; it was gold, the Legend glow's colours).
+		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(0.5, 0.22, 0.95), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
+		"candle": {"name": "Candlelight", "fx": "flame", "ring": Color(1.0, 0.76, 0.32), "ring2": Color(1.0, 0.97, 0.88), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
+		"sulfur": {"name": "Sulfur", "fx": "runes", "ring": Color(1.0, 0.93, 0.2), "ring2": Color(0.3, 0.5, 1.0), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
+		"spectral": {"name": "Spectral", "fx": "runes", "ring": Color(0.75, 1.0, 0.62), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.85, 1.0, 0.8), "bazaar": 600},
+		"sapphire": {"name": "Sapphire", "fx": "beads", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(1.0, 0.82, 0.35), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
+		# Crypt Race glows: Photon (white light with orchid lightning, version 232; it was the
+		# blue of Azure and Sapphire), Afterburn (flame orange to jet blue).
+		"photon": {"name": "Photon", "fx": "storm", "ring": Color(0.95, 0.95, 1.0), "ring2": Color(0.85, 0.4, 1.0), "bolt": Color(0.95, 0.85, 1.0), "race": 100},
 		"afterburn": {"name": "Afterburn", "fx": "wave", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
 	},
 	# Weapon finishes sold in the Bone Bazaar (version 172): the hero's grandest weapon in
@@ -1475,8 +1485,9 @@ void fragment() {
 			float d = length(fract(r) - 0.5);
 			float bub = (1.0 - smoothstep(0.0, 0.05, abs(d - (0.08 + 0.28 * ph)))) * (1.0 - ph) * step(0.45, h);
 			float slime = smoothstep(0.45, 0.7, fbm(q * 1.5 + vec3(0.0, TIME * 0.2, 0.0)));
-			al = mix(al, mix(vec3(0.5, 1.0, 0.25), own_b, own), slime * 0.35);
-			em = mix(vec3(0.45, 1.0, 0.2), own_b, own) * (bub * 1.8 + slime * 0.25 + edge * 0.45) * 0.6;   // 60%: it glared
+			// (Version 232, fix 9: acid yellow-green, not leaf green: it was Forest's twin.)
+			al = mix(al, mix(vec3(0.78, 1.0, 0.12), own_b, own), slime * 0.45);
+			em = mix(vec3(0.72, 1.0, 0.1), own_b, own) * (bub * 1.8 + slime * 0.25 + edge * 0.45) * 0.6;   // 60%: it glared
 		} else if (pat == 9) {
 			// Prism: bands of colour running over pearly cloth (never red-pink: that's danger).
 			float t = 0.5 + 0.5 * sin(q.y * 2.4 + q.x * 1.2 - TIME * 1.6);
@@ -1500,7 +1511,7 @@ void fragment() {
 			float sweep = pow(max(0.0, sin(q.y * 1.5 + q.x * 0.8 - TIME * 2.0)), 12.0);
 			vec3 fire = hsv2rgb(vec3(fract(facet * 1.7 + TIME * 0.15), 0.45, 1.0));
 			float sp = twinkle(q * 8.0 + floor(TIME * 3.0) * 0.21, 0.07, 7.0);
-			al = mix(al, vec3(0.5, 0.74, 1.0), 0.4);   // (bluer in version 176: it was plain white from above)
+			al = mix(al, vec3(0.72, 0.76, 0.86), 0.4);   // (v176 bluer, it was plain white from above; v232 silver, the ice blue was Frost again)
 			al = mix(al, vec3(1.0), line * 0.6);
 			em = fire * (line * 0.5 + edge * 0.35) + vec3(0.8, 0.92, 1.0) * sweep * 0.9 + vec3(1.0) * sp * 2.5;
 		} else if (pat == 12) {
@@ -1513,9 +1524,14 @@ void fragment() {
 			float band = 1.0 - smoothstep(0.08, 0.13, d);
 			float glyph = step(0.62, fract(ang * 4.0 + floor(y) * 0.37 + TIME * 0.15)) * band * (1.0 - ring);
 			float n = fbm(q * 1.4 + vec3(0.0, -TIME * 0.3, 0.0));
-			vec3 c = mix(vec3(0.62, 0.3, 1.0), vec3(0.3, 0.9, 1.0), n);
-			al = mix(al, vec3(0.14, 0.07, 0.28), 0.75);
-			em = vec3(0.55, 0.25, 1.0) * (0.1 + n * 0.25 + edge * 0.8) + c * (ring * 0.9 + glyph * 0.45);
+			// (Version 232, fix 9: deep teal-black under orchid light. Violet cloth made it a
+			// twin of Shadow and Royal.)
+			// The cloth's edge glows cyan and the rings orchid, so it reads as teal and orchid
+			// from the run camera, never as Shadow's violet.
+			float ring2 = 1.0 - smoothstep(0.06, 0.1, d);
+			vec3 c = mix(vec3(0.72, 0.32, 1.0), vec3(0.3, 0.9, 1.0), n * 0.3);
+			al = mix(al, vec3(0.03, 0.15, 0.18), 0.75);
+			em = vec3(0.2, 0.8, 0.9) * (0.06 + n * 0.14 + edge * 0.55) + c * (ring2 * 1.25 + glyph * 0.55);
 		} else if (pat == 13) {
 			// Legend (Mastery 19): a sun's rays turning round the hero in red-gold, embers
 			// rising through them.
@@ -1540,17 +1556,29 @@ void fragment() {
 			vec3 r = q * 2.3 + vec3(0.0, -TIME * 0.3, 0.0);
 			vec2 f = fract(r.xy + r.z * 0.5) - 0.5;
 			float h = hash3(floor(r));
-			float moon = (1.0 - smoothstep(0.16, 0.2, length(f))) * smoothstep(0.13, 0.18, length(f - vec2(0.08, 0.07)));
+			float mr = 0.2 + 0.06 * own;   // (v232) Silver Moon's moons are bigger
+			float moon = (1.0 - smoothstep(mr - 0.04, mr, length(f))) * smoothstep(mr - 0.07, mr - 0.02, length(f - vec2(0.08, 0.07) * (1.0 + own * 0.3)));
 			moon *= step(0.5, h) * (0.6 + 0.4 * sin(TIME * 2.0 + h * 30.0));
 			// (Version 182: night-purple cloth and amber veins, not black-crimson and red. Red
 			// is the colour of danger in this game.)
 			// (Version 192: indigo, not near-black, with bigger moons, and the hem burns
 			// blood-orange like a moonrise. The outfit was a dark lump with a speck on it.)
-			float hem = (1.0 - calm) * (1.0 - smoothstep(0.16, 0.9, wpos.y));   // (v196) height above the floor: a cape or hat has its own origin, and was all hem
-			al = mix(al, vec3(0.15, 0.09, 0.32), 0.75);
-			al = mix(al, vec3(0.85, 0.3, 0.06), hem * 0.75);
-			em = vec3(1.0, 0.58, 0.14) * vein * (0.3 + 1.0 * hb) + vec3(1.0, 0.62, 0.2) * edge * (0.45 + 0.35 * hb) + vec3(1.0, 0.8, 0.45) * moon * 1.9
-				+ vec3(1.0, 0.4, 0.08) * hem * (0.35 + 0.25 * hb);
+			float hem = (1.0 - calm) * (1.0 - smoothstep(0.16, 0.9 + 0.35 * own, wpos.y));   // (v196) height above the floor: a cape or hat has its own origin, and was all hem
+			// (Version 232: the Silver Moon set, "own", takes its own night blue and silver here.
+			// Every pat-14 outfit was painted indigo and amber, so the Crypt Pass's Silver Moon
+			// outfit looked exactly like the free Blood Moon one.)
+			vec3 cloth = mix(vec3(0.15, 0.09, 0.32), own_a, own);
+			vec3 hem_col = mix(vec3(0.85, 0.3, 0.06), own_b * 0.9, own);
+			vec3 vein_col = mix(vec3(1.0, 0.58, 0.14), own_b, own);
+			vec3 edge_col = mix(vec3(1.0, 0.62, 0.2), own_b, own);
+			vec3 moon_col = mix(vec3(1.0, 0.8, 0.45), vec3(0.95, 0.97, 1.0), own);
+			vec3 hem_glow = mix(vec3(1.0, 0.4, 0.08), own_b * 0.85, own);
+			al = mix(al, cloth, 0.75);
+			al = mix(al, hem_col, hem * 0.75);
+			// (Silver Moon also wears a bright silver outline and stronger veins, so from the
+			// run camera it is night blue edged in silver, never plain Midnight blue.)
+			em = vein_col * vein * (0.3 + 1.0 * hb) * (1.0 - own * 0.35) + edge_col * edge * (0.45 + 0.35 * hb + own * 0.6) + moon_col * moon * 1.9
+				+ hem_glow * hem * (0.35 + 0.25 * hb);
 		} else if (pat == 33) {
 			// Tidecaller (Bone Bazaar, version 183): sand-gold cloth with teal waves rolling
 			// round the hero, a line of white foam riding each crest.
