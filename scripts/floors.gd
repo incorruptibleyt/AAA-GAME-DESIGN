@@ -166,7 +166,11 @@ const THEMES := [
 		# Dust turning in the candlelight, and a few teal sparks of whispering.
 		"motes": [Color(1.0, 0.88, 0.65, 0.5), Color(0.45, 1.0, 0.85, 0.35)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.55, 0.42, 0.32), "guests": "fe",
-		"banner": Color(0.5, 1.0, 0.85), "floor_style": 9, "props": "library", "pillar": "shelf", "light": [1.35, 1.65, 0.0, 0.0]},
+		"banner": Color(0.5, 1.0, 0.85),
+		# Version 262: its own cover (props.gd add_cover): dead scribes' desks heaped with
+		# books for crates, great hourglasses of glowing green sand for barrels.
+		"cover": "library",
+		"floor_style": 9, "props": "library", "pillar": "shelf", "light": [1.35, 1.65, 0.0, 0.0]},
 	# Version 250 (review fix 4): the Clockwork Foundry, floor 9 (the Crypt Pass), the Cinder
 	# Colossus's floor, which until now was the Ember Catacomb relit ("Ashen Catacomb"). The
 	# works where the dead forge their iron giant: riveted iron floor plates with the furnaces'

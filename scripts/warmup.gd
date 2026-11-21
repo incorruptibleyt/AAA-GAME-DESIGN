@@ -327,10 +327,12 @@ static func run(core := false, from := 0) -> bool:
 		Props._add_monolith(stone)
 		Props._add_star_brazier(stone))
 	# Version 256, each floor its own cover: the Frozen Ossuary's block of clear ice with a
-	# skeleton frozen inside and its frosted urn of skulls (see-through ice).
+	# skeleton frozen inside and its frosted urn of skulls (see-through ice); version 262, the
+	# Whispering Library's hourglass (see-through glass).
 	if not core: steps.append(func():
 		Props._mesh(holder, Props._ice_block()).position = spots[25] + Vector3(0.6, 0, 0.6)
-		Props._mesh(holder, Props._frost_urn()).position = spots[28] + Vector3(0.6, 0, 0.6))
+		Props._mesh(holder, Props._frost_urn()).position = spots[28] + Vector3(0.6, 0, 0.6)
+		Props._mesh(holder, Props._hourglass()).position = spots[29] + Vector3(0.6, 0, 0.6))
 	# The Glowcap Grotto (version 128): its mushrooms and shelf fungus, the glow under them,
 	# a spore cloud, crawling roots and the Sporemother's pod.
 	if core: steps.append(func():

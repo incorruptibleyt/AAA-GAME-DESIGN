@@ -1,5 +1,5 @@
-Version 261: the Amethyst Mine has its own cover
-- On floor 7 the crates are now great geodes the miners split open: one half standing with its purple crystals glowing, the other lying rough side up.
-- The barrels are now heaps of broken ore with a pickaxe driven in, a lantern hung from it and a shovel stuck in the side.
+Version 262: the Whispering Library has its own cover
+- On floor 8 the crates are now the desks of dead scribes: books stacked high, an open book with a skull resting on the pages, candles still burning and loose pages on the floor.
+- The barrels are now great hourglasses in oak and brass, running with glowing green sand.
 - They block movement and shots just like before.
-- Floors 2 to 6 got their own cover in versions 256 to 260. The rest follow, one at a time.
+- Floors 2 to 7 got their own cover in versions 256 to 261. Floors 9, 10 and 1 follow.

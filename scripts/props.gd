@@ -2268,6 +2268,10 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 			n.rotation.y = randf_range(-0.6, 0.6)   # the standing half's crystals towards the camera
 			_mesh(n, _split_geode())
 		"mine:b": _mesh(n, _ore_heap())
+		"library:c":
+			n.rotation.y = randf_range(-0.5, 0.5)   # the scribe's open book towards the camera
+			_mesh(n, _scribe_desk())
+		"library:b": _mesh(n, _hourglass())
 		"wreck:b":
 			n.rotation.y = randf_range(-0.8, 0.8)   # its front porthole turned towards the camera
 			_mesh(n, _diving_helmet())
@@ -2973,4 +2977,98 @@ static func _ore_heap() -> ArrayMesh:
 	parts.append([_cube(), _xf(blade - (top - blade).normalized() * 0.08, Vector3(0.16, 0.2, 0.02), Basis(Quaternion(Vector3.UP, (top - blade).normalized()))), iron])
 	_baked["ore_heap"] = _bake(parts)
 	return _baked["ore_heap"]
+
+
+## The Whispering Library's crates: a scribe's desk where someone wrote until they died, an
+## open book in front of the chair (+Z), books stacked high at the back, two candles burning,
+## an inkwell and quill, a skull resting on the pages and loose pages dropped on the floor.
+static func _scribe_desk() -> ArrayMesh:
+	if _baked.has("scribe_desk"):
+		return _baked["scribe_desk"]
+	var parts := []
+	var oak := _lib_mat("oak")
+	var dark := _lib_mat("oak_dark")
+	var brass := _lib_mat("brass")
+	var paper := _lib_mat("paper")
+	# The desk: a thick top, turned legs, and a pedestal of drawers on one side.
+	parts.append([_cube(), _xf(Vector3(0, 0.7, 0), Vector3(1.12, 0.06, 0.72)), oak])
+	parts.append([_cube(), _xf(Vector3(0, 0.66, 0), Vector3(1.04, 0.04, 0.64)), dark])
+	for x in [-0.5, 0.5]:
+		for z in [-0.3, 0.3]:
+			if x > 0.0:
+				continue
+			parts.append([_cone(0.035, 0.045, 0.64, 6), _xf(Vector3(x, 0.32, z), Vector3.ONE), dark])
+	parts.append([_cube(), _xf(Vector3(0.36, 0.33, 0), Vector3(0.36, 0.66, 0.62)), oak])
+	for k in 3:
+		var y := 0.14 + k * 0.2
+		parts.append([_cube(), _xf(Vector3(0.36, y, 0.315), Vector3(0.3, 0.15, 0.01)), dark])
+		parts.append([_sphere(), _xf(Vector3(0.36, y, 0.325), Vector3.ONE * 0.022), brass])
+	# The open book, its pages lifting a little, and a skull resting on it.
+	var tilt := Basis(Vector3.RIGHT, -0.08)
+	parts.append([_cube(), _xf(Vector3(0, 0.735, 0.08), Vector3(0.62, 0.012, 0.42), tilt), _lib_mat("red")])
+	for side in [-1.0, 1.0]:
+		parts.append([_cube(), _xf(Vector3(side * 0.15, 0.755, 0.08), Vector3(0.29, 0.03, 0.38), tilt * Basis(Vector3.FORWARD, side * -0.08)), paper])
+	for k in 4:
+		parts.append([_cube(), _xf(Vector3(-0.16 + (k % 2) * 0.3, 0.774, 0.0 + (k / 2) * 0.14), Vector3(0.2, 0.004, 0.012), tilt), _lib_mat("dark")])
+	_skull(parts, Vector3(0.2, 0.84, 0.14), 0.13, Vector3(-0.3, 0.3, 1), _lib_mat("bone"), _lib_mat("dark"))
+	# Books stacked high at the back, two candles, the inkwell and quill.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 97
+	_book_stack(parts, Vector3(-0.34, 0.73, -0.2), 6, rng, 1.15)
+	_book_stack(parts, Vector3(0.0, 0.73, -0.24), 3, rng, 1.0)
+	_candle(parts, Vector3(0.38, 0.73, -0.2), 0.22)
+	_candle(parts, Vector3(0.46, 0.73, -0.06), 0.14)
+	parts.append([_cone(0.04, 0.05, 0.07, 8), _xf(Vector3(0.36, 0.765, 0.18), Vector3.ONE), _lib_mat("dark")])
+	parts.append([_cone(0.0, 0.03, 0.3, 4), _xf(Vector3(0.4, 0.88, 0.16), Vector3(1, 1, 0.3), Basis(Vector3.FORWARD, -0.45)), paper])
+	# Loose pages dropped round its feet.
+	for k in 4:
+		var a := k * 1.7 + 0.4
+		parts.append([_cube(), _xf(Vector3(cos(a) * 0.62, 0.008, sin(a) * 0.46 + 0.12), Vector3(0.16, 0.004, 0.2), Basis(Vector3.UP, a * 1.3)), paper])
+	_baked["scribe_desk"] = _bake(parts)
+	return _baked["scribe_desk"]
+
+
+## Glass for the hourglass: clear, faintly green.
+static func _glass_mat() -> StandardMaterial3D:
+	if not _baked.has("glass_mat"):
+		var m := StandardMaterial3D.new()
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		m.albedo_color = Color(0.7, 0.9, 0.85, 0.22)
+		m.roughness = 0.05
+		m.metallic_specular = 0.9
+		_baked["glass_mat"] = m
+	return _baked["glass_mat"]
+
+
+## The Whispering Library's barrels: a great hourglass in a frame of dark oak and brass, its
+## sand the library's own ghostly green, glowing as it runs down; a skull among the sand below.
+static func _hourglass() -> ArrayMesh:
+	if _baked.has("hourglass"):
+		return _baked["hourglass"]
+	var parts := []
+	var oak := _lib_mat("oak")
+	var dark := _lib_mat("oak_dark")
+	var brass := _lib_mat("brass")
+	var sand := _lib_mat("ghost")
+	for y in [0.05, 0.97]:
+		parts.append([_cone(0.36, 0.36, 0.08, 6), _xf(Vector3(0, y, 0), Vector3.ONE), oak])
+		_band(parts, 0.37, 0.025, y + (0.05 if y < 0.5 else -0.05), brass, 6)
+	parts.append([_sphere(), _xf(Vector3(0, 1.03, 0), Vector3(0.08, 0.05, 0.08)), brass])
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.5
+		var at := Vector3(cos(a) * 0.29, 0.51, sin(a) * 0.29)
+		parts.append([_cone(0.03, 0.03, 0.86, 6), _xf(at, Vector3.ONE), dark])
+		for y in [-0.25, 0.0, 0.25]:
+			parts.append([_sphere(), _xf(at + Vector3(0, y, 0), Vector3(0.045, 0.03, 0.045)), dark])
+	# The sand: a heap below with a skull half buried, what is left above, the thread falling.
+	parts.append([_cone(0.02, 0.17, 0.14, 10), _xf(Vector3(0, 0.16, 0), Vector3.ONE), sand])
+	_skull(parts, Vector3(0.06, 0.2, 0.05), 0.07, Vector3(0.6, 0.3, 1), _lib_mat("bone"), _lib_mat("dark"))
+	parts.append([_cone(0.13, 0.02, 0.1, 10), _xf(Vector3(0, 0.66, 0), Vector3.ONE), sand])
+	parts.append([_cone(0.008, 0.008, 0.36, 4), _xf(Vector3(0, 0.42, 0), Vector3.ONE), sand])
+	# The glass: two bulbs meeting at a narrow waist (drawn see-through, over the sand).
+	parts.append([_sphere(), _xf(Vector3(0, 0.29, 0), Vector3(0.22, 0.22, 0.22)), _glass_mat()])
+	parts.append([_sphere(), _xf(Vector3(0, 0.72, 0), Vector3(0.22, 0.22, 0.22)), _glass_mat()])
+	parts.append([_cone(0.05, 0.05, 0.06, 8), _xf(Vector3(0, 0.505, 0), Vector3.ONE), brass])
+	_baked["hourglass"] = _bake(parts)
+	return _baked["hourglass"]
 
