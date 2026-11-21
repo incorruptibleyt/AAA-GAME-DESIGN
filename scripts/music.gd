@@ -24,9 +24,12 @@ const TRACKS := {
 	# The Sandfall Tomb (version 247): the tune on a shehnai and an oboe over strings and
 	# harp, with hand drums and a tambourine.
 	"tomb": [preload("res://audio/music/bc_tomb.ogg"), preload("res://audio/music/bc_tomb_fight.ogg")],
+	# The Amethyst Mine (version 248): the tune on a harmonica and a banjo over a guitar,
+	# with a xylophone, a tuba bass and the clink of picks.
+	"mine": [preload("res://audio/music/bc_mine.ogg"), preload("res://audio/music/bc_mine_fight.ogg")],
 }
 ## One track per floor theme, in the order of Floors.THEMES.
-const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb"]
+const THEMES := ["crypt", "ice", "ember", "drowned", "grotto", "moon", "frost", "tomb", "mine"]
 const VOLUME_DB := -6.0
 ## Seconds of overlap when one track hands over to the next.
 const FADE := 1.5

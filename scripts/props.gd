@@ -62,6 +62,15 @@ static func dress(room: Room, layout: Array) -> void:
 				# of jars, one tipped over and spilling sand. Both look into the room.
 				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
 				_mesh(n, _obelisk() if p.z < 0.0 else _jars())
+			"mine":
+				# A great amethyst cluster glowing in each far corner; in the near ones a mine
+				# cart heaped with crystals (low, so it never hides the hero).
+				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+				if p.z < 0.0:
+					_mesh(n, _crystal_cluster())
+					_glow_pool(n, 2.8, Color(0.7, 0.35, 1.0, 0.24))
+				else:
+					_mesh(n, _mine_cart())
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
@@ -99,6 +108,12 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_add_sandfall(n)
+				"mine":
+					# Crystals breaking out of the rock between the timber posts (which stand
+					# every 3 m, under the torches).
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z * 1.5), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_mesh(n, _wall_crystals())
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
 	# Two more on the far wall, either side of the door.
@@ -130,6 +145,11 @@ static func dress(room: Room, layout: Array) -> void:
 				n.rotation.y = -PI / 2
 				_mesh(n, _sarcophagus())
 				room._add_obstacle(Vector3(x * 0.75, 0, -Room.HALF_L), 0.5)
+			"mine":
+				# Old tunnels, boarded up, a lantern hung on each frame.
+				var n := _place(room, Vector3(x * 1.22, 0, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_mesh(n, _boarded_tunnel())
 
 
 ## KayKit pieces along the walls (version 134): a banner either side of the door and a few
@@ -147,6 +167,7 @@ const KIT := {
 	"yule": {"banner": "banner_patternA_red", "side": [["keg", 0.75], ["box_small_decorated", 0.62], ["candle_triple", 0.6], ["barrel_small", 0.8]]},
 	# The Sandfall Tomb: no KayKit banners; its own jars ("@jar", made below) and fallen stone.
 	"sand": {"banner": "", "side": [["@jar", 0.0], ["rubble_half", 0.5], ["@jar", 0.0], ["rubble_half", 0.55]]},
+	"mine": {"banner": "", "side": [["box_small", 0.6], ["@ore", 0.0], ["barrel_small", 0.8], ["@ore", 0.0]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
 
@@ -180,7 +201,7 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 			if not room.leaves_gap(Vector3(side * Room.HALF_W, 0, z), 0.7):
 				continue
 			if own:
-				_no_shadow(_mesh(_place(room, at), _jar()))
+				_no_shadow(_mesh(_place(room, at), _jar() if pick[0] == "@jar" else _ore_pile()))
 			else:
 				_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
 			room._add_obstacle(Vector3(side * Room.HALF_W, 0, z), 0.7)
@@ -321,6 +342,28 @@ static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, r
 				parts.append([_cone(0.04, 0.04, bl, 6), Transform3D(flat, p + Vector3.UP * 0.03), bone])
 				parts.append([_sphere(), _xf(p + Vector3.UP * 0.04 + yaw * Vector3(0, 0, -0.5 * bl), Vector3.ONE * 0.068), bone])
 				parts.append([_sphere(), _xf(p + Vector3.UP * 0.02 + yaw * Vector3(0, 0, 0.42 * bl), Vector3(0.16, 0.05, 0.12), yaw), _tomb_mat("sand")])
+		"mine":
+			var roll := rng.randf()
+			if roll < 0.45:
+				# A shard of amethyst lying in the gravel (dim, so it never looks like a pickup).
+				var ln := rng.randf_range(0.12, 0.22)
+				var tilt := yaw * Basis(Vector3.RIGHT, rng.randf_range(1.1, 1.45))
+				parts.append([_cone(0.035, 0.035, ln, 6), Transform3D(tilt, p + Vector3.UP * 0.04), _mine_mat("crystal_dim")])
+				parts.append([_cone(0.0, 0.035, 0.06, 6), Transform3D(tilt, p + Vector3.UP * 0.04 + tilt * Vector3(0, ln * 0.5 + 0.03, 0)), _mine_mat("crystal_dim")])
+			elif roll < 0.8:
+				# A lump of ore: dark rock with violet specks.
+				var sz := rng.randf_range(0.09, 0.16)
+				parts.append([_sphere(), _xf(p + Vector3.UP * sz * 0.5, Vector3(sz, sz * 0.75, sz * 0.9), yaw), _mine_mat("rock_dark")])
+				for k in 3:
+					var a := k * 2.1 + rng.randf()
+					parts.append([_sphere(), _xf(p + Vector3(cos(a) * sz * 0.8, sz * 0.7, sin(a) * sz * 0.8), Vector3.ONE * 0.022), _mine_mat("crystal_dim")])
+			else:
+				# A pick someone dropped.
+				var flat := yaw * Basis(Vector3.RIGHT, PI / 2)
+				parts.append([_cone(0.018, 0.022, 0.62, 6), Transform3D(flat, p + Vector3.UP * 0.03), _mine_mat("wood")])
+				var head := p + Vector3.UP * 0.04 + yaw * Vector3(0, 0, -0.31)
+				for sd in [-1.0, 1.0]:
+					parts.append([_cone(0.004, 0.025, 0.24, 5), Transform3D(yaw * Basis(Vector3.FORWARD, sd * PI / 2 * 0.85), head + yaw * Vector3(sd * 0.11, 0, 0)), _mine_mat("iron")])
 		"fungus":
 			# A tiny mushroom: a stalk and a glowing cap.
 			var h := rng.randf_range(0.13, 0.24)
@@ -1084,3 +1127,167 @@ void fragment() {
 	m.shader = sh
 	_baked["sand_fall_mat"] = m
 	return m
+
+
+
+# ---------------------------------------------------------------- the Amethyst Mine (v248)
+
+static func _mine_mat(key: String) -> Material:
+	var k := "mine_" + key
+	if not _baked.has(k):
+		match key:
+			"rock": _baked[k] = U.mat(Color(0.21, 0.19, 0.23), 0.95)
+			"rock_dark": _baked[k] = U.mat(Color(0.13, 0.12, 0.15), 0.95)
+			"wood": _baked[k] = U.mat(Color(0.27, 0.17, 0.095), 0.85)
+			"iron": _baked[k] = U.mat(Color(0.15, 0.15, 0.17), 0.4)
+			"crystal": _baked[k] = U.mat(Color(0.55, 0.22, 0.92), 0.2, 1.0)
+			"crystal_pale": _baked[k] = U.mat(Color(0.74, 0.48, 1.0), 0.2, 0.6)
+			"crystal_dim": _baked[k] = U.mat(Color(0.34, 0.15, 0.52), 0.3, 0.35)
+			"lamp": _baked[k] = U.mat(Color(1.0, 0.7, 0.35), 0.5, 3.0)
+			"hole": _baked[k] = U.mat(Color(0.018, 0.014, 0.024), 1.0)
+	return _baked[k]
+
+
+## One crystal: a six-sided prism `ln` long and `r` thick with a pointed tip, growing from
+## `base` along `dir`.
+static func _prism(parts: Array, base: Vector3, dir: Vector3, ln: float, r: float, mat: Material) -> void:
+	var up := dir.normalized()
+	var side := up.cross(Vector3.FORWARD if absf(up.z) < 0.9 else Vector3.RIGHT).normalized()
+	var b := Basis(side, up, side.cross(up)).orthonormalized()
+	parts.append([_cone(r, r * 1.05, ln, 6), Transform3D(b, base + up * ln * 0.5), mat])
+	parts.append([_cone(0.0, r, r * 1.8, 6), Transform3D(b, base + up * (ln + r * 0.9)), mat])
+
+
+## A great cluster of amethyst in a far corner: crystals of every size bursting out of a
+## heap of dark rock, leaning out into the room (+X and +Z), the biggest taller than a man.
+static func _crystal_cluster() -> ArrayMesh:
+	if _baked.has("crystal_cluster"):
+		return _baked["crystal_cluster"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 41
+	var parts := []
+	for k in 4:
+		var a := k * 1.7
+		parts.append([_sphere(), _xf(Vector3(cos(a) * 0.3, 0.15, sin(a) * 0.3), Vector3(0.45, 0.32, 0.4), Basis(Vector3.UP, a)), _mine_mat("rock" if k % 2 == 0 else "rock_dark")])
+	var big := [[Vector3(0, 0.2, 0), Vector3(0.15, 1, 0.15), 1.6, 0.17], [Vector3(0.2, 0.2, -0.1), Vector3(0.6, 1, 0.1), 1.1, 0.13],
+		[Vector3(-0.1, 0.2, 0.25), Vector3(0.1, 1, 0.6), 1.15, 0.13], [Vector3(0.3, 0.15, 0.3), Vector3(0.7, 0.8, 0.7), 0.8, 0.11],
+		[Vector3(-0.2, 0.2, -0.2), Vector3(-0.2, 1, -0.1), 0.95, 0.12]]
+	for c: Array in big:
+		_prism(parts, c[0], c[1], c[2], c[3], _mine_mat("crystal"))
+	for i in 7:
+		var a := rng.randf_range(-0.3, 1.9)
+		var base := Vector3(cos(a) * 0.5, 0.08, sin(a) * 0.5)
+		_prism(parts, base, Vector3(cos(a) * 1.2, rng.randf_range(0.5, 1.0), sin(a) * 1.2), rng.randf_range(0.2, 0.45), rng.randf_range(0.04, 0.07), _mine_mat("crystal_pale" if i % 3 == 0 else "crystal"))
+	_baked["crystal_cluster"] = _bake(parts)
+	return _baked["crystal_cluster"]
+
+
+## A mine cart on its wheels, heaped with crystals and ore, standing along the wall.
+static func _mine_cart() -> ArrayMesh:
+	if _baked.has("mine_cart"):
+		return _baked["mine_cart"]
+	var parts := []
+	var at := Vector3(0.35, 0, 0.1)
+	parts.append([_cube(), _xf(at + Vector3(0, 0.5, 0), Vector3(0.95, 0.42, 0.62)), _mine_mat("wood")])
+	for y in [0.32, 0.68]:
+		parts.append([_cube(), _xf(at + Vector3(0, y, 0), Vector3(0.98, 0.06, 0.65)), _mine_mat("iron")])
+	for x in [-0.47, 0.47]:
+		parts.append([_cube(), _xf(at + Vector3(x, 0.5, 0), Vector3(0.05, 0.44, 0.66)), _mine_mat("iron")])
+	parts.append([_cube(), _xf(at + Vector3(0, 0.3, 0), Vector3(0.7, 0.08, 0.5)), _mine_mat("iron")])
+	for x in [-0.3, 0.3]:
+		for z in [-0.33, 0.33]:
+			parts.append([_cone(0.13, 0.13, 0.07, 10), _xf(at + Vector3(x, 0.14, z), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2)), _mine_mat("iron")])
+	parts.append([_sphere(), _xf(at + Vector3(0, 0.72, 0), Vector3(0.44, 0.14, 0.28)), _mine_mat("rock_dark")])
+	var tips := [[Vector3(-0.2, 0.7, 0.05), Vector3(-0.3, 1, 0.1), 0.35], [Vector3(0.1, 0.72, -0.05), Vector3(0.1, 1, -0.2), 0.42],
+		[Vector3(0.25, 0.7, 0.1), Vector3(0.4, 1, 0.3), 0.3], [Vector3(-0.05, 0.72, 0.15), Vector3(0, 1, 0.5), 0.26]]
+	for t: Array in tips:
+		_prism(parts, at + t[0], t[1], t[2], 0.06, _mine_mat("crystal"))
+	# A pick leaning on it.
+	parts.append([_cone(0.02, 0.024, 0.85, 6), _xf(at + Vector3(0.62, 0.42, 0.2), Vector3.ONE, Basis(Vector3.FORWARD, 0.35)), _mine_mat("wood")])
+	for sd in [-1.0, 1.0]:
+		parts.append([_cone(0.005, 0.028, 0.26, 5), _xf(at + Vector3(0.48 + sd * 0.12, 0.82 - sd * 0.04, 0.2), Vector3.ONE, Basis(Vector3.FORWARD, sd * 1.2)), _mine_mat("iron")])
+	_baked["mine_cart"] = _bake(parts)
+	return _baked["mine_cart"]
+
+
+## Crystals breaking out of a side wall over a fall of rock; +X points out of the wall.
+static func _wall_crystals() -> ArrayMesh:
+	if _baked.has("wall_crystals"):
+		return _baked["wall_crystals"]
+	var parts := []
+	parts.append([_sphere(), _xf(Vector3(0.1, 0.12, 0), Vector3(0.35, 0.22, 0.6)), _mine_mat("rock_dark")])
+	parts.append([_sphere(), _xf(Vector3(0.05, 0.75, 0.05), Vector3(0.2, 0.35, 0.42)), _mine_mat("rock")])
+	var cs := [[Vector3(0.1, 0.8, 0), Vector3(1, 0.5, 0), 0.55, 0.1], [Vector3(0.1, 0.7, 0.2), Vector3(1, 0.2, 0.6), 0.4, 0.08],
+		[Vector3(0.1, 0.9, -0.2), Vector3(1, 0.9, -0.5), 0.45, 0.08], [Vector3(0.15, 0.2, 0.15), Vector3(0.8, 1, 0.3), 0.35, 0.07],
+		[Vector3(0.12, 0.2, -0.2), Vector3(0.7, 1, -0.4), 0.28, 0.06]]
+	for c: Array in cs:
+		_prism(parts, c[0], c[1], c[2], c[3], _mine_mat("crystal" if c[3] > 0.07 else "crystal_pale"))
+	_baked["wall_crystals"] = _bake(parts)
+	return _baked["wall_crystals"]
+
+
+## An old tunnel in the far wall, boarded up: a black opening in a timber frame, planks
+## nailed across it and a lantern on a hook; +X points out of the wall.
+static func _boarded_tunnel() -> ArrayMesh:
+	if _baked.has("boarded_tunnel"):
+		return _baked["boarded_tunnel"]
+	var parts := []
+	parts.append([_cube(), _xf(Vector3(0.02, 0.85, 0), Vector3(0.03, 1.7, 1.2)), _mine_mat("hole")])
+	for z in [-0.66, 0.66]:
+		parts.append([_cube(), _xf(Vector3(0.08, 0.92, z), Vector3(0.14, 1.84, 0.14)), _mine_mat("wood")])
+	parts.append([_cube(), _xf(Vector3(0.09, 1.86, 0), Vector3(0.16, 0.16, 1.6)), _mine_mat("wood")])
+	var planks := [[0.45, 0.18], [0.95, -0.12], [1.38, 0.22]]
+	for pl: Array in planks:
+		parts.append([_cube(), _xf(Vector3(0.1, pl[0], 0), Vector3(0.04, 0.17, 1.42), Basis(Vector3.RIGHT, pl[1])), _mine_mat("wood")])
+	# The lantern: an iron cage round a warm light.
+	parts.append([_cube(), _xf(Vector3(0.22, 1.73, 0.66), Vector3(0.16, 0.025, 0.025)), _mine_mat("iron")])
+	parts.append([_sphere(), _xf(Vector3(0.32, 1.48, 0.66), Vector3(0.11, 0.14, 0.11)), _mine_mat("lamp")])
+	parts.append([_cone(0.08, 0.13, 0.07, 6), _xf(Vector3(0.32, 1.65, 0.66), Vector3.ONE), _mine_mat("iron")])
+	parts.append([_cone(0.13, 0.1, 0.05, 6), _xf(Vector3(0.32, 1.32, 0.66), Vector3.ONE), _mine_mat("iron")])
+	for k in 3:
+		var a := TAU * k / 3.0
+		parts.append([_cube(), _xf(Vector3(0.32 + cos(a) * 0.11, 1.48, 0.66 + sin(a) * 0.11), Vector3(0.018, 0.3, 0.018)), _mine_mat("iron")])
+	_baked["boarded_tunnel"] = _bake(parts)
+	return _baked["boarded_tunnel"]
+
+
+## A pile of ore against a side wall, a few crystals in it.
+static func _ore_pile() -> ArrayMesh:
+	if _baked.has("ore_pile"):
+		return _baked["ore_pile"]
+	var parts := []
+	var rocks := [[Vector3(0, 0.14, 0), 0.26], [Vector3(0.22, 0.1, 0.2), 0.18], [Vector3(-0.15, 0.1, 0.25), 0.16], [Vector3(0.05, 0.32, 0.08), 0.16]]
+	for i in rocks.size():
+		var rk: Array = rocks[i]
+		parts.append([_sphere(), _xf(rk[0], Vector3(1.0, 0.75, 0.9) * float(rk[1]), Basis(Vector3.UP, i * 1.3)), _mine_mat("rock" if i % 2 == 0 else "rock_dark")])
+	_prism(parts, Vector3(0.05, 0.3, 0.1), Vector3(0.3, 1, 0.4), 0.22, 0.05, _mine_mat("crystal"))
+	_prism(parts, Vector3(0.2, 0.15, 0.25), Vector3(0.8, 0.7, 0.5), 0.14, 0.04, _mine_mat("crystal_pale"))
+	_baked["ore_pile"] = _bake(parts)
+	return _baked["ore_pile"]
+
+
+## The Amethyst Mine's pillars: a column of raw rock left standing to hold the roof, ragged
+## and uneven, with amethyst growing out of it. As wide as the stone pillars it stands in for.
+static func rock_column() -> ArrayMesh:
+	if _baked.has("rock_column"):
+		return _baked["rock_column"]
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 57
+	var parts := []
+	var h := Room.WALL_H + 0.4
+	# A ragged core, flaring at the foot and where it meets the roof, knobbed with lumps.
+	parts.append([_cone(0.42, 0.46, h, 7), _xf(Vector3(0, h * 0.5, 0), Vector3.ONE), _mine_mat("rock_dark")])
+	parts.append([_cone(0.48, 0.62, 0.45, 7), _xf(Vector3(0, 0.22, 0), Vector3.ONE, Basis(Vector3.UP, 0.4)), _mine_mat("rock")])
+	parts.append([_cone(0.6, 0.44, 0.5, 7), _xf(Vector3(0, h - 0.25, 0), Vector3.ONE, Basis(Vector3.UP, 0.9)), _mine_mat("rock")])
+	for i in 11:
+		var a := rng.randf() * TAU
+		var y := rng.randf_range(0.35, h - 0.35)
+		var sz := rng.randf_range(0.2, 0.34)
+		parts.append([_sphere(), _xf(Vector3(cos(a) * 0.36, y, sin(a) * 0.36), Vector3(sz, sz * rng.randf_range(0.9, 1.5), sz), Basis(Vector3.UP, a)), _mine_mat("rock" if i % 2 == 0 else "rock_dark")])
+	var cs := [[Vector3(0.42, 1.0, 0.2), Vector3(1, 0.6, 0.4), 0.55, 0.09], [Vector3(0.38, 0.95, -0.22), Vector3(0.8, 0.9, -0.6), 0.42, 0.08],
+		[Vector3(-0.42, 0.35, 0.3), Vector3(-0.7, 0.8, 0.7), 0.45, 0.08], [Vector3(0.12, 1.85, 0.44), Vector3(0.2, 0.5, 1), 0.4, 0.07],
+		[Vector3(0.46, 1.1, 0.0), Vector3(1, 0.3, 0.0), 0.3, 0.06]]
+	for c: Array in cs:
+		_prism(parts, c[0], c[1], c[2], c[3], _mine_mat("crystal"))
+	_baked["rock_column"] = _bake(parts)
+	return _baked["rock_column"]

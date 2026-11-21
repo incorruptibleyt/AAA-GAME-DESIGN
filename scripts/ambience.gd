@@ -8,7 +8,9 @@ extends Node
 ## (the winter event, version 243): a storm howling outside, a fire crackling close by, and
 ## now and then Krampus's bells jingling somewhere far off. The Sandfall Tomb (version 247):
 ## a dry desert wind moaning over the tomb, sand hissing as it pours in, and now and then a
-## slide of sand somewhere in the walls.
+## slide of sand somewhere in the walls. The Amethyst Mine (version 248): the deep rumble
+## of the mountain, timbers creaking, crystals humming faintly, and now and then the clink
+## of a pick far off down a tunnel.
 ## All of it is made in code. The draught loops play on the Music bus, so they muffle with
 ## the music when the game is paused; the drips and pops go through the Effects echo. It
 ## follows the Sounds setting, and is silent on the title screen.
@@ -23,13 +25,13 @@ const FADE := 1.2            # seconds to fade between floors, in and out
 ## 150 Hz, so each loop also has some sound higher up.
 const VOLUME_DB := -19.0
 ## The bed of each theme, then its one-off sound and how often that comes (seconds).
-const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0)]
+const EVERY := [Vector2(3.0, 8.0), Vector2(4.0, 9.0), Vector2(1.2, 3.5), Vector2(2.0, 5.5), Vector2(3.5, 8.0), Vector2(2.5, 5.0), Vector2(5.0, 11.0), Vector2(3.0, 7.0), Vector2(4.0, 9.0)]
 
 static var _instance: Ambience
 ## Version 243: Frostfall's Blizzard turns the storm up (0..1, blizzard.gd).
 static var gust := 0.0
-var _beds: Array = [null, null, null, null, null, null, null, null]
-var _ones: Array = [null, null, null, null, null, null, null, null]
+var _beds: Array = [null, null, null, null, null, null, null, null, null]
+var _ones: Array = [null, null, null, null, null, null, null, null, null]
 var _task := -1
 var _player: AudioStreamPlayer
 var _theme := -1
@@ -104,6 +106,8 @@ func _build_all() -> void:
 	_ones[6] = _one(1.1, _bells)
 	_beds[7] = _loop(_sand_bed)
 	_ones[7] = _one(1.3, _sand_slide)
+	_beds[8] = _loop(_mine_bed)
+	_ones[8] = _one(1.6, _clink)
 
 
 ## A seamless loop: makes a little more than LOOP_SECONDS and fades the extra into the start.
@@ -394,4 +398,39 @@ func _sand_slide(n: int) -> PackedFloat32Array:
 			var t := float(i) / Sfx.RATE - start
 			if t >= 0.0:
 				x[i] += sin(TAU * hz * t) * exp(-t * 60.0) * minf(t / 0.001, 1.0) * 0.18 * (1.0 - k * 0.15)
+	return x
+
+
+## The Amethyst Mine: the low rumble of the rock above, a timber creaking now and then (a
+## slow, rough rising tone), and a faint hum from the crystals (two close high notes beating).
+func _mine_bed(n: int) -> PackedFloat32Array:
+	var x := _wind(n, 60.0, 200.0, 6.0, 2.3, 101)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 102
+	var creak_at := [0.8, 3.9]
+	for i in n:
+		var t := float(i) / RATE
+		var hum := (sin(TAU * 988.0 * t) + sin(TAU * 990.0 * t)) * 0.5
+		x[i] += hum * 0.008 * (0.6 + 0.4 * sin(TAU * t / 3.0))
+		for c: float in creak_at:
+			var ct := t - c
+			if ct > 0.0 and ct < 0.7:
+				var hz := 95.0 + 60.0 * ct
+				var buzz := signf(sin(TAU * hz * ct)) * (0.6 + 0.4 * rng.randf())
+				x[i] += buzz * 0.025 * sin(PI * ct / 0.7)
+	return x
+
+
+## A pick striking rock far off down a tunnel: three ringing clinks, each with its echo.
+func _clink(n: int) -> PackedFloat32Array:
+	var x := PackedFloat32Array()
+	x.resize(n)
+	for k in 3:
+		for e in 2:
+			var start := k * 0.45 + e * 0.16
+			var amp := (0.32 - k * 0.04) * (1.0 if e == 0 else 0.3)
+			for i in n:
+				var t := float(i) / Sfx.RATE - start
+				if t >= 0.0:
+					x[i] += (sin(TAU * 2350.0 * t) + 0.6 * sin(TAU * 3910.0 * t) + 0.4 * sin(TAU * 1270.0 * t)) * exp(-t * 26.0) * minf(t / 0.001, 1.0) * amp
 	return x

@@ -114,6 +114,8 @@ static var _floor_shaders := {}
 ##    in along the walls and a crimson runner with gold trim down the middle.
 ## 7. The Sandfall Tomb (floor 5): sandstone blocks carved with signs, a processional way
 ##    between turquoise borders, a winged sun inlaid in the middle and rippled sand dunes.
+## 8. The Amethyst Mine (floor 7): bare rock slabs, gravel and dust, glowing amethyst veins
+##    and glints, and mine-cart tracks on timber sleepers with a spur curving to the side.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -229,6 +231,27 @@ vec2 cells(vec2 p, out vec2 id) {
 		}
 	}
 	return vec2(d1, d2);
+}
+
+// A mine-cart track (the Amethyst Mine): tp.x across it (0 in the middle) and tp.y along it,
+// in metres. Timber sleepers every 0.7 m and two iron rails with a bright worn top. Returns
+// the colour and how much of the point it covers.
+vec4 track(vec2 tp, float fine) {
+	float au = abs(tp.x);
+	float sv = (fract(tp.y / 0.7) - 0.5) * 0.7;
+	float sw = fwidth(sv) + 0.004;
+	float sleeper = (1.0 - smoothstep(0.11 - sw, 0.11 + sw, abs(sv))) * (1.0 - smoothstep(0.74, 0.78, au));
+	vec3 col = vec3(0.22, 0.14, 0.085) * (0.75 + 0.45 * fine) * (0.8 + 0.35 * h(vec2(floor(tp.y / 0.7), 3.0)));
+	col *= 0.8 + 0.25 * smoothstep(0.11, 0.0, abs(sv));
+	float rd = abs(au - 0.48);
+	float rw = fwidth(au) + 0.003;
+	float rail = 1.0 - smoothstep(0.036 - rw, 0.036 + rw, rd);
+	float shine = 1.0 - smoothstep(0.004, 0.016 + rw, rd);
+	vec3 rc = mix(vec3(0.09, 0.085, 0.1), vec3(0.34, 0.33, 0.36), shine);
+	// The rail's shadow on the sleeper beside it.
+	col *= 1.0 - 0.45 * (1.0 - smoothstep(0.03, 0.07, au - 0.48)) * step(0.48, au);
+	col = mix(col, rc, rail);
+	return vec4(col, max(sleeper, rail));
 }
 
 void vertex() {
@@ -693,6 +716,69 @@ void fragment() {
 	// Greyer and darker, so heroes, skeletons and their shots stand out (the first try was
 	// twice as bright as the other floors and glowed orange).
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.72) * 0.8;
+#elif STYLE == 8
+	// The Amethyst Mine (floor 7, version 248): no laid floor but the bare rock of a mine,
+	// broken into rough slabs worn smooth, gravel and dust between them and in drifts, thin
+	// veins of amethyst glowing in the rock and crystal glints by the walls, and the tracks of
+	// the mine carts: iron rails on timber sleepers down the middle of the room, and a spur
+	// curving away to a buffer by the right-hand wall.
+	vec2 id;
+	vec2 vd = cells(pos / 1.6, id);
+	r = h(id);
+	float pe = (vd.y - vd.x) * 1.6;
+	c = vec3(0.25, 0.245, 0.255) * (0.8 + 0.35 * r) * (0.9 + 0.2 * fine) * tint.rgb;
+	c *= mix(vec3(1.0), vec3(1.08, 1.02, 0.92), step(0.6, h(id + 4.0)));
+	c *= 0.86 + 0.22 * smoothstep(0.0, 0.5, pe);
+	float ga = fwidth(pe);
+	gap = 1.0 - smoothstep(0.03 - ga, 0.06 + ga, pe);
+	rough = 0.85;
+	float dust = smoothstep(0.62, 0.85, big2) * grime_amount + (1.0 - smoothstep(0.3, 1.4 + big, wall)) * 0.8;
+	vec3 grav = grime.rgb * (0.7 + 0.55 * texture(grain, pos * 1.3).r);
+	c = mix(c, grav, clamp(max(gap * 0.85, dust * 0.75), 0.0, 1.0));
+	rough = mix(rough, 0.95, dust);
+	// Amethyst veins in a few places, glowing softly and slowly.
+	float vn = texture(blobs_a, pos * 0.09 + vec2(0.3, 0.7)).r;
+	float vein = (1.0 - smoothstep(0.0, 0.008 + fwidth(vn), abs(vn - 0.5))) * smoothstep(0.66, 0.78, big) * (1.0 - dust * 0.8);
+	c = mix(c, spores.rgb * 0.3, vein * 0.8);
+	em += spores.rgb * vein * (0.25 + 0.2 * sin(TIME * 0.9 + pos.x * 0.7 + pos.y * 0.3)) * spores.a;
+	// Crystal glints in the gravel by the walls.
+	vec2 gq = pos * 2.4;
+	vec2 gqc = floor(gq);
+	float gs = h(gqc + 2.7);
+	float gd = length(gq - gqc - 0.5 - (vec2(h(gqc + 1.3), h(gqc + 8.1)) - 0.5) * 0.6);
+	float glint = (1.0 - smoothstep(0.05, 0.1 + fwidth(gd), gd)) * step(0.82, gs) * (1.0 - smoothstep(0.6, 1.8, wall));
+	c = mix(c, spores.rgb * 0.6, glint);
+	em += spores.rgb * glint * (0.6 + 0.4 * sin(TIME * (1.5 + gs * 2.0) + gs * 40.0)) * spores.a;
+	// The tracks: the main line, and the spur round a circle (centre C, radius 4.1) from the
+	// main line at z = -3 to its buffer by the right-hand wall.
+	vec4 tk = vec4(0.0);
+	float ballast = 0.0;
+	if (abs(pos.x) < 1.1) {
+		tk = track(pos, fine);
+		ballast = 1.0 - smoothstep(0.85, 1.05, abs(pos.x));
+	}
+	vec2 sc0 = pos - vec2(4.6, -3.0);
+	float sR = length(sc0);
+	if (sc0.y > -0.1 && sc0.x < 0.3 && abs(sR - 4.1) < 1.1) {
+		float th = atan(sc0.y, sc0.x);
+		vec4 t2 = track(vec2(sR - 4.1, (3.1415927 - th) * 4.1), fine);
+		t2.a *= step(-0.1, sc0.y);
+		ballast = max(ballast, (1.0 - smoothstep(0.85, 1.05, abs(sR - 4.1))) * step(0.0, sc0.y));
+		if (t2.a > tk.a) tk = t2;
+		// The buffer at its end: a heavy timber beam across the track.
+		float endb = step(0.12, sc0.x) * (1.0 - step(0.34, sc0.x)) * (1.0 - smoothstep(0.82, 0.86, abs(sR - 4.1)));
+		vec3 bw = vec3(0.26, 0.16, 0.09) * (0.8 + 0.4 * fine) * (0.8 + 0.4 * smoothstep(0.34, 0.2, sc0.x));
+		tk = mix(tk, vec4(bw, 1.0), endb);
+		tk.a *= 1.0 - step(0.34, sc0.x);
+	}
+	c = mix(c, grav * 0.75, ballast * 0.7);
+	c = mix(c, tk.rgb, tk.a);
+	rough = mix(rough, 0.55, tk.a);
+	gap *= 1.0 - max(ballast, tk.a);
+	dust *= 1.0 - tk.a;
+	n = normalize(vec3((r - 0.5) * 0.12, 1.0, (h(id + 1.7) - 0.5) * 0.12));
+	// A little greyer and darker, so heroes, skeletons and their shots stand out.
+	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.7);
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -825,6 +911,8 @@ static var _wall_shaders := {}
 ##    snow banked at the foot.
 ## 7. The Sandfall Tomb (floor 5): sandstone courses, a painted frieze of carved signs in
 ##    gold on turquoise, and sand banked at the foot.
+## 8. The Amethyst Mine (floor 7): rough rock with glowing amethyst veins, timber posts and
+##    beams, gravel at the foot.
 ## The pattern follows where the point is in the world, so walls built from several boxes
 ## join up, and a box's top takes the pattern seen from above.
 static func _wall_material(look: Dictionary, base: Material) -> Material:
@@ -1061,6 +1149,32 @@ void fragment() {
 	float bank = clamp(1.0 - smoothstep(0.0, 0.3 + 0.45 * texture(blobs, vec2(uv.x * 0.25, 0.3)).r, height), 0.0, 1.0) * (1.0 - top);
 	c = mix(c, vec3(0.56, 0.43, 0.27) * (0.85 + 0.3 * fine), bank);
 	rough = mix(0.85, 0.95, bank);
+#elif STYLE == 8
+	// The Amethyst Mine: rough rock hewn by picks, streaked, with veins of amethyst glowing
+	// in it; timber props every three metres (posts under a beam), so the wall torches hang
+	// on posts; gravel heaped at the foot.
+	float rk = texture(blobs, uv * vec2(0.6, 0.9)).r;
+	c = vec3(0.18, 0.175, 0.19) * (0.7 + 0.55 * rk) * (0.85 + 0.3 * fine);
+	float pm = fract(uv.x * 2.6 + uv.y * 1.5 + rk * 2.0);
+	c *= 0.88 + 0.16 * smoothstep(0.3, 0.45, pm) * (1.0 - smoothstep(0.45, 0.6, pm));
+	float vn = texture(blobs, uv * 0.5 + vec2(3.1, 0.0)).r;
+	float vein = (1.0 - smoothstep(0.0, 0.012 + fwidth(vn), abs(vn - 0.5))) * step(0.62, rk) * (1.0 - top);
+	c = mix(c, spores.rgb * 0.4, vein);
+	em += spores.rgb * vein * (0.35 + 0.2 * sin(TIME * 1.1 + uv.x * 1.7)) * spores.a;
+	float px = (fract(uv.x / 3.0 + 0.5) - 0.5) * 3.0;
+	float post = (1.0 - smoothstep(0.12, 0.14, abs(px))) * (1.0 - top);
+	float beam = smoothstep(2.12, 2.14, height) * (1.0 - smoothstep(2.42, 2.44, height)) * (1.0 - top);
+	float gr = texture(grain, vec2(uv.x * 0.25, uv.y * 2.2) + vec2(0.0, px)).r;
+	vec3 wood = vec3(0.25, 0.155, 0.09) * (0.75 + 0.45 * gr);
+	wood *= mix(1.0, 0.75 + 0.35 * smoothstep(0.13, 0.0, abs(px)), post);
+	wood *= mix(1.0, 0.75 + 0.3 * smoothstep(2.12, 2.3, height), beam * (1.0 - post));
+	c = mix(c, wood, max(post, beam));
+	if (top > 0.5) {
+		c = vec3(0.15, 0.13, 0.16) * (0.8 + 0.4 * fine);
+	}
+	float heap = clamp(1.0 - smoothstep(0.0, 0.25 + 0.35 * texture(blobs, vec2(uv.x * 0.3, 0.6)).r, height), 0.0, 1.0) * (1.0 - top) * (1.0 - post);
+	c = mix(c, vec3(0.3, 0.27, 0.29) * (0.7 + 0.5 * fine), heap);
+	rough = 0.9;
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
@@ -1164,11 +1278,12 @@ func _read_layout(layout: Array) -> void:
 				"#":
 					_add_obstacle(p, 0.6)
 					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts
-					# and the Sandfall Tomb's lotus columns are made in code (props.gd).
+					# the Sandfall Tomb's lotus columns and the Amethyst Mine's rock columns are
+					# made in code (props.gd).
 					var kind := str(Floors.current().get("pillar", ""))
-					if kind == "timber" or kind == "lotus":
+					if kind == "timber" or kind == "lotus" or kind == "rock":
 						var post := MeshInstance3D.new()
-						post.mesh = Props.timber_post() if kind == "timber" else Props.lotus_column()
+						post.mesh = Props.timber_post() if kind == "timber" else (Props.lotus_column() if kind == "lotus" else Props.rock_column())
 						_anchor(p).add_child(post)
 					else:
 						_add_pillar(p, stone)

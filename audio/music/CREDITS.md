@@ -19,6 +19,7 @@ by Frank Wen), so there is nothing to credit beyond that.
 | bc_frost.ogg | Frostfall event (hall and title): glockenspiel and celesta over slow strings, harp, a tuba counter line, sleigh bells |
 | bc_krampus.ogg | Krampus: the boss arrangement led by French horns, tubular bells doubling the tune |
 | bc_tomb.ogg | Sandfall Tomb (floor 5): shehnai and oboe tune, sitar broken chords, slow strings, clarinet counter line, kalimba, hand drums and tambourine |
+| bc_mine.ogg | Amethyst Mine (floor 7): harmonica and banjo tune, nylon guitar broken chords, halo pad, tuba counter line, xylophone, pick clinks and low toms |
 | bc_*_fight.ogg | Each crypt's fight layer (low strings, cello rhythm, war drums), in sync with its track; the game fades it in while enemies are alive |
 
 Every file is a seamless loop: the piece is rendered twice through and the second pass kept,

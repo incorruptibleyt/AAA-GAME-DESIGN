@@ -112,6 +112,22 @@ const THEMES := [
 		"motes": [Color(1.0, 0.86, 0.6, 0.6), Color(0.92, 0.72, 0.48, 0.28)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.9, 0.68, 0.45),   # the colour of loose stones on the floor (props.gd)
 		"banner": Color(1.0, 0.8, 0.42), "floor_style": 7, "props": "sand", "pillar": "lotus", "light": [1.05, 1.45, 0.1, 0.0]},
+	# Version 248 (review fix 4): the Amethyst Mine, floor 7 (the Crypt Pass), which until
+	# now was the Bone Crypt relit ("Moonlit Crypt"). An old mine the dead dug for crystals:
+	# bare rock in broken slabs, mine-cart rails on timber sleepers down the middle with a spur
+	# curving off to the side, amethyst glowing in the cracks, timber props holding up the
+	# walls, crystal clusters, carts of crystals and boarded-up tunnels. Violet in the dark,
+	# warm lanterns, dust falling from the roof.
+	{"name": "Amethyst Mine", "wisp": Color(0.72, 0.9, 1.0), "floor": Color(1.0, 1.0, 1.0),
+		"grout": Color(0.04, 0.035, 0.05), "grime": Color(0.3, 0.29, 0.29), "grime_amount": 0.7,
+		"patch_tint": Color(0.9, 0.88, 0.95), "patch_rough": 0.8, "spores": Color(0.72, 0.32, 1.0, 1.0),   # (the amethyst glow, room.gd)
+		"wall": Color(0.16, 0.14, 0.18), "trim": Color(0.26, 0.17, 0.1),
+		"ambient": Color(0.2, 0.21, 0.27), "fog": Color(0.04, 0.035, 0.06), "background": Color(0.016, 0.012, 0.03),
+		"moon": Color(0.82, 0.84, 1.0), "torch": Color(1.0, 0.64, 0.34), "torch_energy": 1.5, "pool": 0.6,
+		# Dust sifting down from the roof, and a few violet glints.
+		"motes": [Color(0.85, 0.8, 0.9, 0.45), Color(0.8, 0.55, 1.0, 0.35)], "motes_fall": true, "motes_size": 0.4,
+		"pebble": Color(0.62, 0.58, 0.66), "guests": "dr",
+		"banner": Color(0.82, 0.6, 1.0), "floor_style": 8, "props": "mine", "pillar": "rock", "light": [1.3, 1.6, 0.0, 0.0]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
@@ -123,10 +139,13 @@ const BLOOD_MOON := 5
 const FROSTFALL := 6
 ## The Sandfall Tomb: floor 5 (version 247).
 const SANDFALL := 7
+## The Amethyst Mine: floor 7, the second floor of each Crypt Pass loop (version 248).
+const MINE := 8
 ## The free floors (1-5) in order: Bone, Frozen, Ember, Grotto, and the Sandfall Tomb.
 const FREE_ORDER := [0, 1, 2, GROTTO, SANDFALL]
-## Each loop of the Crypt Pass (5 floors, see Loops) shows all five, the Drowned Vault first.
-const PASS_ORDER := [DROWNED, 0, 1, 2, GROTTO]
+## Each loop of the Crypt Pass (5 floors, see Loops): the Drowned Vault first, then (version
+## 248) the Amethyst Mine where the Bone Crypt came back relit.
+const PASS_ORDER := [DROWNED, MINE, 1, 2, GROTTO]
 
 
 ## Which entry of THEMES a floor uses: floors 1-5 go Bone, Frozen, Ember, Grotto, Sandfall

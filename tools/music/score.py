@@ -127,6 +127,13 @@ def perc(s, style, b, d, sec):
             if pos == 3: s.note("perc", t, 63, .2, 44)
             if sec in ("B", "A2"): s.note("perc", t, 54, .2, 40 if k % 2 else 50)
             if pos == 0 and t % 8 == 0: s.note("perc", t, 80, 1, 46)
+        elif style == "mine":
+            # The Amethyst Mine: the clink of a pick on every second beat, a low tom like a
+            # hammer on rock, a shaker in the busier sections.
+            if pos in (1, 3): s.note("perc", t, 56, .2, 42)
+            if pos in (0, 2.5): s.note("perc", t, 41, .3, 60 if pos == 0 else 48)
+            if pos == 3.5: s.note("perc", t, 75, .2, 46)
+            if sec in ("B", "A2"): s.note("perc", t, 82, .2, 38 if k % 2 else 48)
         elif style == "grotto":
             if pos in (0, 2.5): s.note("perc", t, 77, .2, 64)
             if pos in (1, 3): s.note("perc", t, 76, .2, 50)
@@ -216,6 +223,11 @@ TRACKS = {
     # the broken chords, slow strings, a clarinet counter line, kalimba sparkles and hand drums.
     "tomb": ("calm", dict(bpm=98, tr=-4, lead=111, dbl=68, pad=48, arp=104, ctr=71, perc="tomb",
                           spark=108, seed=27)),
+    # The Amethyst Mine (version 248): the tune on a harmonica doubled by a banjo, a nylon
+    # guitar for the broken chords, a halo pad, a tuba counter line, xylophone sparkles and
+    # the clink of picks.
+    "mine": ("calm", dict(bpm=104, tr=-1, lead=22, dbl=105, pad=94, arp=24, ctr=58, perc="mine",
+                          spark=13, seed=33)),
 }
 REVERB = dict(room=0.7, level=0.55, damp=0.45)
 

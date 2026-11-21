@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21q"
+const BUILD := "2026-11-21r"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1756,12 +1756,14 @@ func boss_kind() -> String:
 ## the Bone Crypt. The events' crypts: Bloodbats and Moon Howlers ("bh"); in Frostfall Hall
 ## Snow Rollers, Bell Ringers and a Gift Thief ("noi"). The Sandfall Tomb (floor 5, version
 ## 247) keeps floor 5's Frost Wraiths (tomb spirits) and adds the scorched Cinder Skeletons.
+## The Pass's own places name theirs ("guests", floors.gd): the Amethyst Mine keeps the
+## Drowned Skeletons and Rootbinders its floor had before.
 func theme_enemy() -> String:
 	if first_run:
 		return ""
 	if Floors.remixed(floor_num):
 		return str(Floors.PASS_REMIX[Floors.index(floor_num)].guests)   # v219: the Pass's own mix
-	return ["", "f", "e", "d", "pr", "bh", "noi", "fe"][Floors.index(floor_num)]
+	return str(Floors.current().get("guests", ["", "f", "e", "d", "pr", "bh", "noi", "fe"][mini(Floors.index(floor_num), 7)]))
 
 
 ## Deeper floors don't replay rooms exactly: from floor 2 a room may take its right-hand side
