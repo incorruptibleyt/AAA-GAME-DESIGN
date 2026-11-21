@@ -74,7 +74,11 @@ const THEMES := [
 		"moon": Color(0.74, 0.86, 0.8), "torch": Color(1.0, 0.6, 0.85), "torch_energy": 1.5,
 		# Spores drifting up: small and pale, so they never look like shots or coins.
 		"motes": [Color(1.0, 0.6, 0.9, 0.45), Color(0.8, 1.0, 0.5, 0.25)], "motes_fall": false, "motes_size": 0.45,
-		"banner": Color(1.0, 0.6, 0.9), "floor_style": 4, "props": "fungus", "pillar": "wall_pillar", "light": [1.25, 1.7, 0.3, 0.2]},
+		"banner": Color(1.0, 0.6, 0.9),
+		# Version 258: its own cover (props.gd add_cover): fallen hollow trunks, mossy and
+		# sprouting glowcaps, for crates; hollow stumps with glowing shelf fungus for barrels.
+		"cover": "grotto",
+		"floor_style": 4, "props": "fungus", "pillar": "wall_pillar", "light": [1.25, 1.7, 0.3, 0.2]},
 	# Version 134: the Blood Moon crypt, only in the Blood Moon event (events.gd). Black
 	# marble and gold under the red light of the moon, blood veins in the stone throbbing
 	# like a heart, pale wisps high up, petals falling. Warnings turn ice white here (telegraph.gd),

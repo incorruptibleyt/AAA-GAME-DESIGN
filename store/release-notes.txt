@@ -1,5 +1,5 @@
-Version 257: the Ember Catacomb has its own cover
-- On floor 3 the crates you hide behind are now funeral pyres: charred logs stacked crosswise, glowing at every end, with the dead laid on top and burning.
-- The barrels are now iron fire cages with a skull burning inside on a heap of coals.
+Version 258: the Glowcap Grotto has its own cover
+- On floor 4 the crates are now fallen hollow trunks, mossy and sprouting glowing mushrooms, with a skull looking out of one end and a bony hand reaching out of the other.
+- The barrels are now hollow tree stumps with glowing shelf fungus and a skull peering out.
 - They block movement and shots just like before.
-- Floor 2's ice blocks and frosted urns came in version 256. The other floors follow, one at a time.
+- Floors 2 and 3 got their own cover in versions 256 and 257. The other floors follow, one at a time.

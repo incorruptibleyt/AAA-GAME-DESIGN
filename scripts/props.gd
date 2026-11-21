@@ -2250,6 +2250,12 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 		"ember:b":
 			_mesh(n, _fire_cage())
 			Fx.flame(n, Vector2(0.4, 0.5), Vector3(0, 0.52, 0))
+		"grotto:c":
+			_mesh(n, _mossy_logs())
+			_glow_pool(n, 1.6)
+		"grotto:b":
+			_mesh(n, _hollow_stump())
+			_glow_pool(n, 1.2)
 		_:
 			return false
 	return true
@@ -2493,4 +2499,122 @@ static func _fire_cage() -> ArrayMesh:
 	parts.append([hook, Transform3D(Basis(Vector3.RIGHT, PI / 2), Vector3(0, 1.1, 0)), iron])
 	_baked["fire_cage"] = _bake(parts)
 	return _baked["fire_cage"]
+
+
+## Mossy stone, old roots and bark for the Glowcap Grotto's cover.
+static func _grotto_mat(k: String) -> StandardMaterial3D:
+	var key := "grotto_" + k
+	if not _baked.has(key):
+		match k:
+			"stone": _baked[key] = U.mat(Color(0.25, 0.28, 0.25), 0.9)
+			"moss": _baked[key] = U.mat(Color(0.16, 0.28, 0.12), 0.95)
+			"root": _baked[key] = U.mat(Color(0.3, 0.2, 0.12), 0.85)
+			"bark": _baked[key] = U.mat(Color(0.22, 0.16, 0.11), 0.9)
+			"heart": _baked[key] = U.mat(Color(0.12, 0.08, 0.05), 1.0)
+			"rings": _baked[key] = U.mat(Color(0.5, 0.38, 0.26), 0.85)
+			"bone": _baked[key] = U.mat(Color(0.78, 0.76, 0.66), 0.85)
+	return _baked[key]
+
+
+## The Glowcap Grotto's crates: two fallen trunks, one across the other, rotten hollow, mossy
+## and sprouting glowcaps along their backs; a skull looks out of one hollow end and a bony
+## arm reaches out of another (add_cover puts the caps' pink glow on the floor). (A boulder
+## gripped by roots was tried first: from above, roots round a lump read as a spider's legs.)
+static func _mossy_logs() -> ArrayMesh:
+	if _baked.has("mossy_logs"):
+		return _baked["mossy_logs"]
+	var parts := []
+	var bark := _grotto_mat("bark")
+	var heart := _grotto_mat("heart")
+	var rings := _grotto_mat("rings")
+	var moss := _grotto_mat("moss")
+	var bone := _grotto_mat("bone")
+	var rim := TorusMesh.new()
+	rim.inner_radius = 0.7
+	rim.outer_radius = 1.0
+	rim.rings = 9
+	rim.ring_segments = 4
+	# [middle, radius, length, turn about Y]
+	var logs := [[Vector3(0, 0.3, 0.06), 0.3, 1.26, 0.15], [Vector3(-0.04, 0.74, -0.04), 0.21, 1.02, 1.35]]
+	for lg in logs:
+		var mid: Vector3 = lg[0]
+		var r: float = lg[1]
+		var ln: float = lg[2]
+		var turn := Basis(Vector3.UP, lg[3]) * Basis(Vector3.FORWARD, PI / 2)   # its length along X
+		parts.append([_cone(r, r * 1.04, ln, 9), _xf(mid, Vector3.ONE, turn), bark])
+		for e in [-1.0, 1.0]:
+			var end_at: Vector3 = mid + turn * Vector3(0, e * ln * 0.5, 0)
+			parts.append([_cone(r * 0.72, r * 0.72, 0.02, 9), _xf(end_at, Vector3.ONE, turn), heart])
+			parts.append([rim, _xf(end_at, Vector3(r, 0.06, r), turn), rings])
+		# Moss along its back.
+		for k in 3:
+			var at: Vector3 = mid + turn * Vector3(-r * 0.85, (k - 1) * ln * 0.3, 0)   # (-X of the turned trunk is up)
+			parts.append([_sphere(), _xf(at, Vector3(ln * 0.14, r * 0.25, r * 0.5), Basis(Vector3.UP, lg[3])), moss])
+	# A skull looking out of the bottom trunk's hollow end, a bony arm reaching out of the other.
+	var low := Basis(Vector3.UP, 0.15)
+	_skull(parts, Vector3(0, 0.27, 0.06) + low * Vector3(0.6, 0, 0), 0.16, low * Vector3(1, 0.15, 0), bone, heart)
+	var wrist := Vector3(0, 0.0, 0.06) + low * Vector3(-0.86, 0.05, 0.12)
+	_rod_part(parts, Vector3(0, 0.22, 0.06) + low * Vector3(-0.5, 0, 0.04), wrist, 0.026, bone)
+	for f in 4:
+		var spread := (f - 1.5) * 0.4
+		_rod_part(parts, wrist, wrist + low * Vector3(-cos(spread) * 0.12, -0.02, sin(spread) * 0.12), 0.014, bone)
+	# Glowcaps along the top trunk and a shelf fungus on the lower one.
+	parts.append_array(FungalLook.mushroom_parts(0.42, 0.2, 0.15, Vector3(-0.04, 0.92, -0.04) + Basis(Vector3.UP, 1.35) * Vector3(0.22, 0, 0), 0.4, 4))
+	parts.append_array(FungalLook.mushroom_parts(0.26, 0.12, 0.45, Vector3(-0.04, 0.9, -0.04) + Basis(Vector3.UP, 1.35) * Vector3(-0.2, 0, 0.06), 2.6, 3))
+	parts.append_array(FungalLook.mushroom_parts(0.22, 0.1, 0.5, Vector3(0, 0.56, 0.06) + low * Vector3(0.34, 0, -0.12), 4.2, 2))
+	_baked["mossy_logs"] = _bake(parts)
+	return _baked["mossy_logs"]
+
+
+## The Glowcap Grotto's barrels: the stump of a great tree, its roots spread over the floor,
+## hollow inside with a skull looking out of the dark, glowing shelf fungus up one side and
+## a ring of tiny glowcaps round its broken rim.
+static func _hollow_stump() -> ArrayMesh:
+	if _baked.has("hollow_stump"):
+		return _baked["hollow_stump"]
+	var parts := []
+	var bark := _grotto_mat("bark")
+	parts.append([_cone(0.3, 0.38, 0.8, 9), _xf(Vector3(0, 0.4, 0), Vector3.ONE), bark])
+	# The broken rim: a jagged crown of bark, the hollow dark inside.
+	for k in 9:
+		var a := TAU * k / 9.0
+		var h := 0.12 + 0.14 * float((k * 5) % 3) / 2.0
+		parts.append([_cone(0.0, 0.07, h, 4), _xf(Vector3(cos(a) * 0.27, 0.8 + h * 0.5, sin(a) * 0.27), Vector3.ONE, Basis(Vector3(-sin(a), 0, cos(a)), -0.15)), bark])
+	parts.append([_cone(0.25, 0.25, 0.02, 9), _xf(Vector3(0, 0.79, 0), Vector3.ONE), _grotto_mat("heart")])
+	var rim := TorusMesh.new()
+	rim.inner_radius = 0.23
+	rim.outer_radius = 0.31
+	rim.rings = 9
+	rim.ring_segments = 4
+	parts.append([rim, _xf(Vector3(0, 0.8, 0), Vector3(1, 0.3, 1)), _grotto_mat("rings")])
+	# Roots spreading out over the floor.
+	for k in 5:
+		var a := TAU * k / 5.0 + 0.3
+		var out := Vector3(cos(a), 0, sin(a))
+		_rod_part(parts, out * 0.3 + Vector3(0, 0.3, 0), out * 0.52 + Vector3(0, 0.08, 0), 0.08, bark)
+		_rod_part(parts, out * 0.52 + Vector3(0, 0.08, 0), out * 0.72 + Vector3(0, 0.02, 0), 0.05, bark)
+	# A skull peering out of a split in the trunk.
+	parts.append([_cube(), _xf(Vector3(0, 0.38, 0.3), Vector3(0.2, 0.32, 0.1)), _grotto_mat("heart")])
+	_skull(parts, Vector3(0, 0.38, 0.27), 0.13, Vector3(0, 0.05, 1), _grotto_mat("bone"), _grotto_mat("heart"))
+	# Shelf fungus up one side, glowing at the rim.
+	var mats := FungalLook.cap_materials()
+	var half := SphereMesh.new()
+	half.radius = 1.0
+	half.height = 1.0
+	half.is_hemisphere = true
+	half.radial_segments = 10
+	half.rings = 3
+	for t in [[0.62, 0.2, -1.6], [0.42, 0.16, -1.1], [0.5, 0.13, -2.2]]:
+		var a: float = t[2]
+		var r: float = t[1]
+		var out := Vector3(cos(a), 0, sin(a))
+		var turn := Basis(Vector3.UP, -a)
+		parts.append([half, Transform3D(turn * Basis.from_scale(Vector3(r * 1.1, r * 0.3, r * 1.4)), out * 0.32 + Vector3(0, t[0], 0)), mats[0]])
+		parts.append([_cone(r, r, 0.04, 10), Transform3D(turn * Basis.from_scale(Vector3(1.1, 1, 1.4)), out * 0.32 + Vector3(0, t[0] - 0.02, 0)), mats[1]])
+	# Tiny glowcaps round the rim.
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.4
+		parts.append_array(FungalLook.mushroom_parts(0.18, 0.07, 0.4, Vector3(cos(a) * 0.3, 0.78, sin(a) * 0.3), -a, 2))
+	_baked["hollow_stump"] = _bake(parts)
+	return _baked["hollow_stump"]
 
