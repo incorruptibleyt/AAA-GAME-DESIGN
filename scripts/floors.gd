@@ -18,6 +18,9 @@ const THEMES := [
 		"ambient": Color(0.2, 0.19, 0.28), "fog": Color(0.03, 0.03, 0.06), "background": Color(0.02, 0.02, 0.035),
 		"moon": Color(0.55, 0.6, 0.9), "torch": Color(1.0, 0.62, 0.3), "torch_energy": 1.4,
 		"motes": [Color(1.0, 0.55, 0.2, 0.9), Color(0.7, 0.6, 1.0, 0.35)], "motes_fall": false, "banner": Color(1, 0.7, 0.4),
+		# Version 265: its own cover (props.gd add_cover): blocks of ossuary wall, thigh bones and
+		# rows of skulls stacked the old way, for crates; bone totems for barrels.
+		"cover": "bone",
 		"floor_style": 1, "props": "bone", "pillar": "pillar_decorated", "light": [1.1, 2.0, 0.85, 1.0]},
 	# Version 213 (hardest review fix #15): dark slate stone with the frost in the patches, so a
 	# blue hero and blue shots stand out (the pale blue floor hid them).

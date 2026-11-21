@@ -1,5 +1,5 @@
-Version 264: the Starfall Abyss has its own cover
-- On floor 10 the crates are now open moonstone coffins whose lids float above them. Inside, a star-gazer lies in the night sky holding a fallen star.
-- The barrels are now great bronze bells fallen out of the dark, cracked, with starlight shining through.
+Version 265: the Bone Crypt has its own cover
+- On floor 1 the crates are now blocks of ossuary wall: thigh bones stacked ends out between rows of skulls, with candles burning on top.
+- The barrels are now bone totems: thigh bones bound in iron, a red rag and a big skull with a candle on its crown.
 - They block movement and shots just like before.
-- Floors 2 to 9 got their own cover in versions 256 to 263. Floor 1 is next.
+- With this every floor, 1 to 10, has cover of its own.

@@ -2262,6 +2262,12 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 			n.rotation.y = PI + randf_range(-0.7, 0.7)   # its face turned towards the camera
 			_mesh(n, _fallen_head())
 		"sand:b": _mesh(n, _scarab_statue())
+		"bone:c":
+			n.rotation.y = randf_range(-0.4, 0.4)   # the rows of skulls towards the camera
+			_mesh(n, _ossuary_block())
+		"bone:b":
+			n.rotation.y = randf_range(-0.5, 0.5)
+			_mesh(n, _bone_totem())
 		"abyss:c":
 			n.rotation.y = randf_range(-0.35, 0.35)   # the carved side and the tipped lid towards the camera
 			_mesh(n, _star_coffin())
@@ -3395,3 +3401,108 @@ static func _fallen_bell() -> ArrayMesh:
 		parts.append([link, Transform3D(b, chain[i] + Vector3.UP * (0.02 if i % 2 == 1 else 0.0)), iron])
 	_baked["fallen_bell"] = _bake(parts)
 	return _baked["fallen_bell"]
+
+
+## The Bone Crypt's crates: a block of ossuary wall, the way the old crypts stacked their dead:
+## layers of thigh bones laid ends out, two rows of skulls looking at you between them, long
+## bones and loose skulls on top and candles burning down among them. Its front is +Z.
+static func _ossuary_block() -> ArrayMesh:
+	if _baked.has("ossuary_block"):
+		return _baked["ossuary_block"]
+	var parts := []
+	var bone := U.mat(Color(0.86, 0.82, 0.7), 0.85)
+	var old := U.mat(Color(0.72, 0.66, 0.54), 0.9)
+	var dark := U.mat(Color(0.07, 0.05, 0.06), 1.0)
+	var packed := U.mat(Color(0.3, 0.26, 0.22), 1.0)
+	parts.append([_cube(), _xf(Vector3(0, 0.04, 0), Vector3(1.18, 0.08, 0.68)), U.mat(Color(0.22, 0.21, 0.26), 0.8)])
+	parts.append([_cube(), _xf(Vector3(0, 0.5, 0), Vector3(1.04, 0.86, 0.52)), packed])
+	# Two layers of thigh bones, ends out (each end a double knob), front and back.
+	for row_y in [0.14, 0.25, 0.56, 0.67]:
+		for k in 10:
+			var x := -0.45 + k * 0.1 + (0.025 if int(row_y * 100) % 2 == 0 else -0.025)
+			for z in [0.27, -0.27]:
+				var bone_mat := old if (k + int(row_y * 10)) % 3 == 0 else bone
+				parts.append([_sphere(), _xf(Vector3(x - 0.02, row_y, z), Vector3(0.034, 0.04, 0.03)), bone_mat])
+				parts.append([_sphere(), _xf(Vector3(x + 0.022, row_y + 0.008, z), Vector3(0.03, 0.036, 0.03)), bone_mat])
+	# The ends of the block: more bone ends, in rows across.
+	for row_y in [0.14, 0.25, 0.4, 0.56, 0.67, 0.79]:
+		for k in 5:
+			var z := -0.2 + k * 0.1
+			for x in [0.53, -0.53]:
+				parts.append([_sphere(), _xf(Vector3(x, row_y, z - 0.02), Vector3(0.03, 0.04, 0.034)), old if k % 2 == 0 else bone])
+				parts.append([_sphere(), _xf(Vector3(x, row_y + 0.008, z + 0.022), Vector3(0.03, 0.036, 0.03)), old if k % 2 == 0 else bone])
+	# Two rows of skulls looking out at the room.
+	for row in 2:
+		var y := 0.4 + row * 0.39
+		for k in 6:
+			var x := -0.44 + k * 0.176
+			_skull(parts, Vector3(x, y, 0.25), 0.083, Vector3(sin(k * 1.7 + row) * 0.12, 0.18, 1), old if (k + row) % 4 == 0 else bone, dark)
+	# On top: long bones laid along it, loose skulls and candles.
+	for z in [-0.18, -0.06, 0.06]:
+		var a := Vector3(-0.44, 0.95, z)
+		var b := Vector3(0.44, 0.95, z + 0.03)
+		_rod_part(parts, a, b, 0.032, bone)
+		for e in [a, b]:
+			parts.append([_sphere(), _xf(e + Vector3(0, 0, -0.022), Vector3.ONE * 0.042), bone])
+			parts.append([_sphere(), _xf(e + Vector3(0, 0, 0.022), Vector3.ONE * 0.042), bone])
+	_skull(parts, Vector3(-0.3, 1.06, -0.04), 0.1, Vector3(-0.3, 0.3, 1), bone, dark)
+	_skull(parts, Vector3(0.22, 1.05, -0.12), 0.1, Vector3(0.4, 0.25, 1), old, dark)
+	_candle(parts, Vector3(-0.3, 1.15, -0.04), 0.14)
+	_candle(parts, Vector3(0.02, 0.97, -0.08), 0.22)
+	_candle(parts, Vector3(0.4, 0.97, 0.06), 0.1)
+	# Wax run down over the front.
+	parts.append([_sphere(), _xf(Vector3(0.4, 0.9, 0.27), Vector3(0.025, 0.07, 0.02)), _lib_mat("wax")])
+	for i in parts.size():   # a size up, to stand as tall as the crates it replaces
+		parts[i][1] = parts[i][1].scaled(Vector3(1.08, 1.15, 1.08))
+	_baked["ossuary_block"] = _bake(parts)
+	return _baked["ossuary_block"]
+
+
+## The Bone Crypt's barrels: a bone totem, a bundle of thigh bones stood on end and bound with
+## iron bands, a red rag tied round it, skulls ringed round its foot and a big skull on top
+## with a candle burning on its crown. Its front is +Z.
+static func _bone_totem() -> ArrayMesh:
+	if _baked.has("bone_totem"):
+		return _baked["bone_totem"]
+	var parts := []
+	var bone := U.mat(Color(0.86, 0.82, 0.7), 0.85)
+	var old := U.mat(Color(0.72, 0.66, 0.54), 0.9)
+	var dark := U.mat(Color(0.07, 0.05, 0.06), 1.0)
+	var iron := U.mat(Color(0.13, 0.13, 0.15), 0.5)
+	parts.append([_cone(0.34, 0.4, 0.1, 10), _xf(Vector3(0, 0.05, 0), Vector3.ONE), U.mat(Color(0.22, 0.21, 0.26), 0.8)])
+	for k in 5:
+		var a := TAU * k / 5.0 + 0.3
+		var at := Vector3(sin(a) * 0.29, 0.17, cos(a) * 0.29)
+		_skull(parts, at, 0.085, Vector3(sin(a), 0.2, cos(a)), old if k % 2 == 0 else bone, dark)
+	# The bundle: one bone in the middle and six round it, splaying a little at the top.
+	var ends := [[Vector3(0, 0.12, 0), Vector3(0, 0.86, 0)]]
+	for k in 6:
+		var a := TAU * k / 6.0
+		var d := Vector3(cos(a), 0, sin(a))
+		ends.append([d * 0.085 + Vector3(0, 0.1, 0), d * 0.12 + Vector3(0, 0.84 - (k % 2) * 0.06, 0)])
+	for i in ends.size():
+		var lo: Vector3 = ends[i][0]
+		var hi: Vector3 = ends[i][1]
+		var m := old if i % 3 == 1 else bone
+		_rod_part(parts, lo, hi, 0.034, m)
+		for e in [lo, hi]:
+			parts.append([_sphere(), _xf(e + Vector3(0.018, 0, 0), Vector3.ONE * 0.043), m])
+			parts.append([_sphere(), _xf(e + Vector3(-0.018, 0, 0), Vector3.ONE * 0.043), m])
+	for y in [0.3, 0.64]:
+		var band := TorusMesh.new()
+		band.inner_radius = 0.13
+		band.outer_radius = 0.165
+		band.rings = 14
+		band.ring_segments = 4
+		parts.append([band, _xf(Vector3(0, y, 0), Vector3(1, 1.4, 1)), iron])
+	# A red rag tied on the top band, hanging down the front.
+	var red := U.mat(Color(0.55, 0.1, 0.08), 0.9)
+	parts.append([_cube(), _xf(Vector3(0.05, 0.5, 0.165), Vector3(0.1, 0.28, 0.012), Basis(Vector3.BACK, 0.12) * Basis(Vector3.RIGHT, -0.08)), red])
+	parts.append([_cube(), _xf(Vector3(-0.05, 0.54, 0.165), Vector3(0.07, 0.2, 0.012), Basis(Vector3.BACK, -0.2) * Basis(Vector3.RIGHT, -0.08)), red])
+	# The big skull on top, a candle on its crown with wax run down over the brow.
+	_skull(parts, Vector3(0, 0.98, 0.02), 0.15, Vector3(0, 0.25, 1), bone, dark)
+	_candle(parts, Vector3(0.0, 1.11, -0.01), 0.16)
+	parts.append([_sphere(), _xf(Vector3(0.06, 1.08, 0.1), Vector3(0.025, 0.05, 0.02)), _lib_mat("wax")])
+	parts.append([_sphere(), _xf(Vector3(-0.05, 1.09, 0.08), Vector3(0.02, 0.04, 0.02)), _lib_mat("wax")])
+	_baked["bone_totem"] = _bake(parts)
+	return _baked["bone_totem"]
