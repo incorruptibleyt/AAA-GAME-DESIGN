@@ -1261,6 +1261,7 @@ static func _mine_mat(key: String) -> Material:
 			"crystal_dim": _baked[k] = U.mat(Color(0.34, 0.15, 0.52), 0.3, 0.35)
 			"lamp": _baked[k] = U.mat(Color(1.0, 0.7, 0.35), 0.5, 3.0)
 			"hole": _baked[k] = U.mat(Color(0.018, 0.014, 0.024), 1.0)
+			"shell": _baked[k] = U.mat(Color(0.42, 0.38, 0.4), 0.95)
 	return _baked[k]
 
 
@@ -2263,6 +2264,10 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 		"wreck:c":
 			n.rotation.y = PI / 2 + randf_range(-0.6, 0.6)   # the stern (and the legs) towards the camera
 			_mesh(n, _upturned_boat())
+		"mine:c":
+			n.rotation.y = randf_range(-0.6, 0.6)   # the standing half's crystals towards the camera
+			_mesh(n, _split_geode())
+		"mine:b": _mesh(n, _ore_heap())
 		"wreck:b":
 			n.rotation.y = randf_range(-0.8, 0.8)   # its front porthole turned towards the camera
 			_mesh(n, _diving_helmet())
@@ -2872,4 +2877,100 @@ static func _diving_helmet() -> ArrayMesh:
 		prev = at
 	_baked["diving_helmet"] = _bake(parts)
 	return _baked["diving_helmet"]
+
+
+## One half of a split geode: a rough dome of rock bulging along -Y, its cut face at y = 0
+## facing +Y, lined with amethyst crystals that glow brightest in the middle.
+static func _geode_half(parts: Array, at: Vector3, b: Basis, r: float) -> void:
+	var dome := SphereMesh.new()
+	dome.radius = 1.0
+	dome.height = 1.0
+	dome.is_hemisphere = true
+	dome.radial_segments = 9
+	dome.rings = 3
+	parts.append([dome, Transform3D(b * Basis(Vector3.RIGHT, PI) * Basis.from_scale(Vector3(r, r * 0.9, r)), at), _mine_mat("rock")])
+	parts.append([_cone(r * 0.9, r * 0.9, 0.03, 12), Transform3D(b, at + b * Vector3(0, 0.005, 0)), _mine_mat("crystal_dim")])
+	# The shell where it split: a thick rough ring of paler rock round the crystals.
+	var rim := TorusMesh.new()
+	rim.inner_radius = 0.76
+	rim.outer_radius = 1.06
+	rim.rings = 9
+	rim.ring_segments = 5
+	parts.append([rim, Transform3D(b * Basis.from_scale(Vector3(r, r * 0.55, r)), at), _mine_mat("shell")])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(r * 1000.0)
+	for i in 14:
+		var a := TAU * i / 14.0 + rng.randf() * 0.3
+		var d := (0.2 + 0.5 * float(i % 3) / 2.0) * r
+		var base := Vector3(cos(a) * d, 0.0, sin(a) * d)
+		var dir := (Vector3(0, 1, 0) - base.normalized() * 0.35).normalized()
+		_prism(parts, at + b * base, b * dir, rng.randf_range(0.12, 0.22) * (1.4 - d / r), rng.randf_range(0.035, 0.055), _mine_mat("crystal") if i % 3 == 0 else _mine_mat("crystal_pale") if i % 3 == 1 else _mine_mat("crystal_dim"))
+	_prism(parts, at, b * Vector3.UP, 0.26, 0.065, _mine_mat("crystal_pale"))
+
+
+## The Amethyst Mine's crates: a great geode the miners split open, one half standing with
+## its crystal heart facing out, the other lying rough side up in front of it, its crystals
+## showing along the edge. The standing half faces +Z.
+static func _split_geode() -> ArrayMesh:
+	if _baked.has("split_geode"):
+		return _baked["split_geode"]
+	var parts := []
+	_geode_half(parts, Vector3(-0.04, 0.6, -0.2), Basis(Vector3.RIGHT, PI / 2 - 0.3), 0.6)
+	# The other half lies rough side up, tipped so its crystals show along the near edge.
+	_geode_half(parts, Vector3(0.14, 0.34, 0.4), Basis(Vector3.UP, 0.5) * Basis(Vector3.RIGHT, PI - 0.75), 0.46)
+	# Chips knocked off where it split.
+	_rock(parts, Vector3(0.46, 0.06, -0.12), Vector3(0.1, 0.07, 0.09), Basis(Vector3.UP, 0.7), _mine_mat("rock"))
+	_prism(parts, Vector3(-0.42, 0.0, 0.3), Vector3(-0.4, 0.3, 1), 0.14, 0.035, _mine_mat("crystal"))
+	_prism(parts, Vector3(0.5, 0.0, 0.26), Vector3(0.6, 0.4, 0.5), 0.1, 0.03, _mine_mat("crystal_dim"))
+	_baked["split_geode"] = _bake(parts)
+	return _baked["split_geode"]
+
+
+## The Amethyst Mine's barrels: a heap of broken ore, amethyst glinting in it, a pickaxe
+## driven into the top with a lantern hung from its handle and a shovel stuck in the side.
+static func _ore_heap() -> ArrayMesh:
+	if _baked.has("ore_heap"):
+		return _baked["ore_heap"]
+	var parts := []
+	var rock := _mine_mat("shell")
+	var wood := _mine_mat("wood")
+	var iron := _mine_mat("iron")
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 83
+	_rock(parts, Vector3(0, 0.14, 0), Vector3(0.46, 0.34, 0.44), Basis(Vector3.UP, 0.3), _mine_mat("shell"))
+	for i in 9:
+		var a := TAU * i / 9.0 + rng.randf() * 0.4
+		var d := rng.randf_range(0.12, 0.34)
+		var at := Vector3(cos(a) * d, 0.3 - d * 0.5 + rng.randf() * 0.05, sin(a) * d)
+		_rock(parts, at, Vector3.ONE * rng.randf_range(0.08, 0.13), Basis(Vector3.UP, rng.randf() * TAU), rock)
+		if i % 2 == 0:
+			_prism(parts, at, Vector3(cos(a), 1.2, sin(a)), rng.randf_range(0.14, 0.22), 0.045, _mine_mat("crystal") if i % 4 == 0 else _mine_mat("crystal_pale"))
+	# A cluster of amethyst breaking out of the top of the heap.
+	for k in 4:
+		var a := TAU * k / 4.0 + 0.6
+		_prism(parts, Vector3(-0.1, 0.36, 0.08), Vector3(cos(a) * 0.5, 1, sin(a) * 0.5), 0.26 - k * 0.03, 0.055, _mine_mat("crystal") if k % 2 == 0 else _mine_mat("crystal_pale"))
+	# The pickaxe driven into the top, its handle up and leaning.
+	var grip := Vector3(0.2, 1.02, 0.12)
+	var head := Vector3(-0.02, 0.38, -0.02)
+	_rod_part(parts, head, grip, 0.025, wood)
+	var along := (grip - head).normalized()
+	var across := along.cross(Vector3.FORWARD).normalized()
+	parts.append([_cone(0.0, 0.035, 0.22, 5), _xf(head + across * 0.11 - along * 0.02, Vector3.ONE, Basis(Quaternion(Vector3.UP, (across - along * 0.5).normalized()))), iron])
+	parts.append([_cone(0.0, 0.035, 0.2, 5), _xf(head - across * 0.1 - along * 0.02, Vector3.ONE, Basis(Quaternion(Vector3.UP, (-across - along * 0.6).normalized()))), iron])
+	parts.append([_cube(), _xf(head, Vector3(0.07, 0.07, 0.07)), iron])
+	# A lantern hung from the handle, lit.
+	var hook := grip - along * 0.12
+	_rod_part(parts, hook, hook + Vector3(0, -0.12, 0), 0.008, iron)
+	var lamp := hook + Vector3(0, -0.24, 0)
+	parts.append([_cone(0.075, 0.075, 0.15, 6), _xf(lamp, Vector3.ONE), _mine_mat("lamp")])
+	parts.append([_cone(0.03, 0.095, 0.06, 6), _xf(lamp + Vector3(0, 0.1, 0), Vector3.ONE), iron])
+	parts.append([_cone(0.095, 0.085, 0.03, 6), _xf(lamp + Vector3(0, -0.09, 0), Vector3.ONE), iron])
+	# A shovel stuck in the side of the heap.
+	var blade := Vector3(-0.3, 0.16, 0.12)
+	var top := Vector3(-0.52, 0.82, 0.26)
+	_rod_part(parts, blade, top, 0.022, wood)
+	parts.append([_cube(), _xf(top + (top - blade).normalized() * 0.03, Vector3(0.12, 0.03, 0.03), Basis(Vector3.UP, -0.55)), wood])
+	parts.append([_cube(), _xf(blade - (top - blade).normalized() * 0.08, Vector3(0.16, 0.2, 0.02), Basis(Quaternion(Vector3.UP, (top - blade).normalized()))), iron])
+	_baked["ore_heap"] = _bake(parts)
+	return _baked["ore_heap"]
 

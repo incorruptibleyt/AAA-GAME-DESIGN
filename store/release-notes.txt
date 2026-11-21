@@ -1,5 +1,5 @@
-Version 260: the Drowned Vault has its own cover
-- On floor 6 the crates are now rowboats lying keel up, crusted with barnacles, with a drowned sailor's bony legs sticking out from under them.
-- The barrels are now old brass diving helmets, green with age, with a skull looking out of the porthole.
+Version 261: the Amethyst Mine has its own cover
+- On floor 7 the crates are now great geodes the miners split open: one half standing with its purple crystals glowing, the other lying rough side up.
+- The barrels are now heaps of broken ore with a pickaxe driven in, a lantern hung from it and a shovel stuck in the side.
 - They block movement and shots just like before.
-- Floors 2 to 5 got their own cover in versions 256 to 259. The other floors follow, one at a time.
+- Floors 2 to 6 got their own cover in versions 256 to 260. The rest follow, one at a time.

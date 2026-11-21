@@ -146,7 +146,11 @@ const THEMES := [
 		# Dust sifting down from the roof, and a few violet glints.
 		"motes": [Color(0.85, 0.8, 0.9, 0.45), Color(0.8, 0.55, 1.0, 0.35)], "motes_fall": true, "motes_size": 0.4,
 		"pebble": Color(0.62, 0.58, 0.66), "guests": "dr",
-		"banner": Color(0.82, 0.6, 1.0), "floor_style": 8, "props": "mine", "pillar": "rock", "light": [1.3, 1.6, 0.0, 0.0]},
+		"banner": Color(0.82, 0.6, 1.0),
+		# Version 261: its own cover (props.gd add_cover): great geodes split open, amethyst
+		# glowing inside, for crates; heaps of ore with a pickaxe and a lantern for barrels.
+		"cover": "mine",
+		"floor_style": 8, "props": "mine", "pillar": "rock", "light": [1.3, 1.6, 0.0, 0.0]},
 	# Version 249 (review fix 4): the Whispering Library, floor 8 (the Crypt Pass), the Lich's
 	# own floor, which until now was the Frozen Ossuary relit ("Aurora Ossuary"). The Lich's
 	# library of forbidden books: a herringbone parquet floor with worn rugs and a brass circle
