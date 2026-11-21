@@ -32,17 +32,25 @@ const DRY := ["click", "upgrade", "victory", "vo_prepare", "vo_win", "vo_lose", 
 
 
 static func play(sound: String, volume := 1.0, pitch := 1.0) -> void:
-	if not enabled or _instance == null or not _instance._clips.has(sound):
+	if not enabled or _instance == null:
 		return
-	if PER_FRAME.has(sound):
+	if not _instance._clips.has(sound):
+		# Version 251: a skeleton family's own death ("die_frost") or a boss's own roar
+		# ("roar_lich") falls back to the shared one when it has no files.
+		var base := sound.get_slice("_", 0)
+		if (base != "die" and base != "roar") or not _instance._clips.has(base):
+			return
+		sound = base
+	var group := "die" if sound.begins_with("die") else sound   # every death shares the cap of 3
+	if PER_FRAME.has(group):
 		var f := Engine.get_process_frames()
 		if f != _frame:
 			_frame = f
 			_started.clear()
-		var n: int = _started.get(sound, 0)
-		if n >= PER_FRAME[sound]:
+		var n: int = _started.get(group, 0)
+		if n >= PER_FRAME[group]:
 			return
-		_started[sound] = n + 1
+		_started[group] = n + 1
 	var clip = _instance._clips[sound]
 	_instance._start(clip.pick_random() if clip is Array else clip, &"Master" if sound in DRY else &"Effects", volume, pitch)
 
@@ -157,7 +165,12 @@ func _load_samples() -> void:
 			# Version 137: the Bone Drop chest's own sounds (tools/audio/chest.py).
 			"chest_rattle", "chest_snap", "chest_lid", "chest_coins", "chest_tick",
 			# Version 155: the Crypt Race's own sounds (tools/audio/race.py).
-			"race_count", "race_go", "race_lead", "race_lost", "race_surge", "race_hit", "race_final", "race_win", "race_lose"]:
+			"race_count", "race_go", "race_lead", "race_lost", "race_surge", "race_hit", "race_final", "race_win", "race_lose",
+			# Version 251: each skeleton family's own death and each boss's own roar
+			# (tools/audio/voices.py; see Enemy.die_sound and roar_sound).
+			"die_armour", "die_archer", "die_mage", "die_spider", "die_frost", "die_cinder", "die_drowned",
+			"die_spore", "die_root", "die_bat", "die_howler", "die_shade", "die_snow", "die_bell", "die_thief",
+			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]

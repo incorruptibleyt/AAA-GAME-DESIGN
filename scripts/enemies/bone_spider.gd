@@ -12,6 +12,7 @@ var _zig_t := 0.0
 
 
 func _setup() -> void:
+	die_sound = "die_spider"
 	init_health(24.0)
 	move_speed = 4.4
 	contact_damage = 8.0

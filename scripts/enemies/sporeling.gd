@@ -12,6 +12,7 @@ var _cap: Node3D
 
 
 func _setup() -> void:
+	die_sound = "die_spore"
 	init_health(26.0)
 	move_speed = 2.8
 	contact_damage = 10.0

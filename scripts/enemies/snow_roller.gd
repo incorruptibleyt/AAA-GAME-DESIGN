@@ -17,6 +17,7 @@ var _ball: MeshInstance3D
 
 
 func _setup() -> void:
+	die_sound = "die_snow"
 	init_health(48.0)
 	move_speed = 1.9
 	contact_damage = 10.0

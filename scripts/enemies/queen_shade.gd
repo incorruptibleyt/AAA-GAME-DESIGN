@@ -10,6 +10,7 @@ var _cast := 0.0
 
 
 func _setup() -> void:
+	die_sound = "die_shade"
 	init_health(55.0)
 	move_speed = 0.9
 	contact_damage = 0.0

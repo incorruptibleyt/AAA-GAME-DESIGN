@@ -17,6 +17,7 @@ var _bell: Node3D
 
 
 func _setup() -> void:
+	die_sound = "die_bell"
 	init_health(36.0)
 	move_speed = 1.7
 	contact_damage = 8.0

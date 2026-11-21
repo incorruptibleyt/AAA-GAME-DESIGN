@@ -17,6 +17,7 @@ static var _cloak_mesh: ArrayMesh
 
 
 func _setup() -> void:
+	die_sound = "die_frost"
 	init_health(40.0)
 	move_speed = 2.0
 	contact_damage = 8.0

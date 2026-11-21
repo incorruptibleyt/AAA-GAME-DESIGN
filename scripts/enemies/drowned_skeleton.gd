@@ -23,6 +23,7 @@ var _touch_damage := 10.0
 
 
 func _setup() -> void:
+	die_sound = "die_drowned"
 	init_health(34.0)
 	move_speed = 2.2
 	contact_damage = _touch_damage

@@ -10,6 +10,12 @@ var knockback_scale := 1.0
 var drop_chance := 0.09
 ## Bosses use the big bar at the top of the screen instead of a little one.
 var is_boss := false
+## Version 251 (review fix 11): each skeleton family dies with its own sound and each boss
+## roars in its own voice (audio/sfx/die_<family>_N.ogg and roar_<boss>_N.ogg, made by
+## tools/audio/voices.py). Set in a kind's _setup; a name with no files falls back to the
+## shared bone crunch ("die") and roar ("roar") in Sfx.play.
+var die_sound := "die"
+var roar_sound := "roar"
 ## Elite skeletons are purple, bigger and tougher, and drop more coins.
 var elite := false
 ## Version 237 (whole-game review fix 7): an elite used to be only x2.2 health and a purple
@@ -625,7 +631,7 @@ func phase_two(col: Color, move := "", move_name := "") -> void:
 	_roar_left = 1.0
 	Game.buzz(70)
 	_flinch_left = maxf(_flinch_left, 1.0)   # stands still while it roars
-	Sfx.play("roar")
+	Sfx.play(roar_sound)
 	Game.shake(0.5)
 	Game.hit_stop(0.12)
 	Fx.magic(center(), col, 40)
@@ -925,7 +931,7 @@ func _on_death() -> void:
 	Fx.bones(global_position)
 	# The crunch climbs as the chain grows (x3 is about two semitones up), so a good streak
 	# sounds like one.
-	Sfx.play("die", 0.8, 1.0 + 0.065 * clampf(Game.chain - 1.0, 0.0, 3.0))
+	Sfx.play(die_sound, 0.8, 1.0 + 0.065 * clampf(Game.chain - 1.0, 0.0, 3.0))
 	Game.hit_stop(0.035)
 	Game.shake(0.12)
 	if _bar:

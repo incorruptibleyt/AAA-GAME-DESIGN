@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21t"
+const BUILD := "2026-11-21u"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3049,7 +3049,7 @@ func _boss_intro() -> void:
 	if not is_instance_valid(b) or state != State.TRANSITION:
 		_intro_focus = false
 		return
-	Sfx.play("roar")
+	Sfx.play(b.roar_sound)   # each boss in its own voice (version 251)
 	Sfx.play("slam")
 	get_tree().create_timer(0.7, true, false, true).timeout.connect(func(): Sfx.play("vo_prepare", 0.8))
 	shake(0.5)

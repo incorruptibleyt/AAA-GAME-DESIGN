@@ -15,6 +15,7 @@ static var _crown_baked: ArrayMesh
 
 
 func _setup() -> void:
+	die_sound = "die_root"
 	init_health(36.0)
 	move_speed = 2.1
 	contact_damage = 8.0

@@ -19,6 +19,7 @@ var _weave := randf() * TAU
 
 
 func _setup() -> void:
+	die_sound = "die_bat"
 	init_health(14.0)
 	move_speed = 3.6
 	contact_damage = 0.0

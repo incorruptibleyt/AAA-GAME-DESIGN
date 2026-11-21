@@ -38,6 +38,7 @@ func _tier() -> int:
 
 func _setup() -> void:
 	is_boss = true
+	roar_sound = "roar_queen"
 	init_health(620.0)
 	drop_chance = 0.0
 	move_speed = 1.4
@@ -106,7 +107,7 @@ func _process(delta: float) -> void:
 func _think(hero: Hero, delta: float) -> void:
 	if not _started:
 		_started = true
-		Sfx.play("roar")
+		Sfx.play(roar_sound)
 		Sfx.play("wraith", 0.6, 0.6)
 		Game.shake(0.5)
 		_brain()
@@ -386,7 +387,7 @@ func _rain() -> void:
 	if hero == null:
 		return
 	visual.attack(true)
-	Sfx.play("roar", 0.4, 1.4)
+	Sfx.play(roar_sound, 0.4, 1.4)
 	var count := 8 if _enraged else 6
 	for i in count:
 		if not _alive() or Game.hero == null:
@@ -438,7 +439,7 @@ func _eclipse_move() -> void:
 	contact_damage = 0.0
 	if not visual.play_named("Spellcast_Raise"):
 		visual.attack(true)
-	Sfx.play("roar", 0.9, 0.7)
+	Sfx.play(roar_sound, 0.9, 0.7)
 	Game.shake(0.4)
 	Game.set_eclipse(true)
 	Game.hud.callout("ECLIPSE!", Color(1.0, 0.35, 0.3))
@@ -546,7 +547,7 @@ func _ghost(k: float) -> void:
 
 
 func _on_death() -> void:
-	Sfx.play("roar", 0.8, 0.8)
+	Sfx.play(roar_sound, 0.8, 0.8)
 	Sfx.play("wraith", 0.8, 0.5)
 	Game.set_eclipse(false)
 	Game.hit_stop(0.3)

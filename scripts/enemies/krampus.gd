@@ -45,6 +45,7 @@ func _tier() -> int:
 
 func _setup() -> void:
 	is_boss = true
+	roar_sound = "roar_krampus"
 	init_health(640.0)
 	drop_chance = 0.0
 	move_speed = 1.6
@@ -340,7 +341,7 @@ void fragment() {
 func _think(hero: Hero, delta: float) -> void:
 	if not _started:
 		_started = true
-		Sfx.play("roar", 1.0, 0.8)
+		Sfx.play(roar_sound, 1.0, 0.8)
 		Game.shake(0.5)
 		_brain()
 	# WHITEOUT, the Hunt's top tier: the storm blows all fight long, and he turns sooner.
@@ -541,7 +542,7 @@ func _sack_lands(spot: Vector3) -> void:
 ## growing as they come. The lanes leave gaps to stand in.
 func _avalanche() -> void:
 	visual.attack(true)
-	Sfx.play("roar", 0.6, 0.9)
+	Sfx.play(roar_sound, 0.6, 0.9)
 	await _wait(0.5)
 	if not _alive():
 		return
@@ -597,7 +598,7 @@ func _bell_toll() -> void:
 ## Krampusnacht's own move: he howls and the Blizzard sweeps the hall straight away.
 func _call_blizzard() -> void:
 	visual.attack(true)
-	Sfx.play("roar", 0.8, 0.7)
+	Sfx.play(roar_sound, 0.8, 0.7)
 	Game.shake(0.4)
 	Fx.shockwave(global_position, ICE, 7.0)
 	Blizzard.call_now()
@@ -607,7 +608,7 @@ func _call_blizzard() -> void:
 
 
 func _on_death() -> void:
-	Sfx.play("roar", 0.8, 0.7)
+	Sfx.play(roar_sound, 0.8, 0.7)
 	Game.hit_stop(0.25)
 	Game.shake(0.8)
 	for i in 6:

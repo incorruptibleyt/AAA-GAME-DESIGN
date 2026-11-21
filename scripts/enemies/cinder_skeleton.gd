@@ -13,6 +13,7 @@ static var _shaders: Array[Shader] = []
 
 
 func _setup() -> void:
+	die_sound = "die_cinder"
 	init_health(30.0)
 	move_speed = 3.1
 	contact_damage = 10.0
@@ -127,7 +128,7 @@ func _think(hero: Hero, delta: float) -> void:
 
 func _on_death() -> void:
 	super._on_death()
-	Sfx.play("ignite", 0.8)
+	Sfx.play("ignite", 0.55)   # (v251: under its own death, embers hissing out)
 	if _flame:
 		_flame.create_tween().tween_property(_flame, "scale", Vector3.ZERO, 0.4)
 	Fx.magic(center(), Color(1, 0.55, 0.15), 24)

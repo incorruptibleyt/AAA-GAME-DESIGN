@@ -27,3 +27,11 @@ The extra packs are fetched by `.github/workflows/fetch-audio-extra.yml` to the
   (metalLatch, metalClick, beltHandle, creak, chop, handleCoins) and Impact Sounds (metal and
   wood), with made rumbles, thumps and chimes. The game uses option B; A and C come from the
   same script.
+- Version 251: each skeleton family's own death (`die_armour_*`, `die_archer_*`, `die_mage_*`,
+  `die_spider_*`, `die_frost_*`, `die_cinder_*`, `die_drowned_*`, `die_spore_*`, `die_root_*`,
+  `die_bat_*`, `die_howler_*`, `die_shade_*`, `die_snow_*`, `die_bell_*`, `die_thief_*`) and
+  each boss's own roar (`roar_king_*`, `roar_lich_*`, `roar_colossus_*`, `roar_tide_*`,
+  `roar_spore_*`, `roar_queen_*`, `roar_krampus_*`) are made by `tools/audio/voices.py`,
+  layering the game's bone crunch and old roars, Kenney's Impact Sounds, RPG Audio and Sci-Fi
+  Sounds, rubberduck's creature sounds and LEGIT Audio's fire staff with made sounds (ice
+  tinkles, bubbles, embers, bat squeaks, a ghostly chord, a whale moan, little bells).

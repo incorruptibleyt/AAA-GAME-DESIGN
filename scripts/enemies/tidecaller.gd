@@ -32,6 +32,7 @@ var _staff_glow: MeshInstance3D
 
 func _setup() -> void:
 	is_boss = true
+	roar_sound = "roar_tide"
 	init_health(820.0)
 	drop_chance = 0.0
 	move_speed = 1.5
@@ -89,7 +90,7 @@ func can_be_hit() -> bool:
 func _think(hero: Hero, delta: float) -> void:
 	if not _started:
 		_started = true
-		Sfx.play("roar")
+		Sfx.play(roar_sound)
 		Sfx.play("splash", 0.9, 0.7)
 		Game.shake(0.5)
 		_brain()
@@ -229,7 +230,7 @@ func _wave() -> void:
 		return
 	if not visual.play_named("Spellcast_Raise"):
 		visual.attack(true)
-	Sfx.play("roar", 0.5, 0.8)
+	Sfx.play(roar_sound, 0.5, 0.8)
 	var gap := 2.0 if _enraged else 2.6
 	var wind := 1.15 if _enraged else 1.45
 	var w := Room.HALF_W
@@ -405,7 +406,7 @@ func _erupt(at: Vector3, r: float, source: String) -> void:
 func _call() -> void:
 	if not visual.play_named("Spellcast_Summon"):
 		visual.attack(true)
-	Sfx.play("roar", 0.6)
+	Sfx.play(roar_sound, 0.6)
 	Sfx.play("splash", 0.8)
 	var n := 2 if _enraged else 1
 	for i in n:
@@ -420,7 +421,7 @@ func _call() -> void:
 
 func _on_death() -> void:
 	_surface()
-	Sfx.play("roar", 0.8)
+	Sfx.play(roar_sound, 0.8)
 	Sfx.play("splash", 1.0, 0.6)
 	Game.hit_stop(0.25)
 	Game.shake(0.8)

@@ -8,6 +8,7 @@ var _casting := 0.0
 
 
 func _setup() -> void:
+	die_sound = "die_mage"
 	init_health(34.0)
 	move_speed = 1.6
 	contact_damage = 8.0

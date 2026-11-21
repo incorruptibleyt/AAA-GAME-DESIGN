@@ -21,6 +21,7 @@ func _gentle() -> bool:
 
 func _setup() -> void:
 	is_boss = true
+	roar_sound = "roar_lich"
 	init_health(590.0 if _gentle() else 650.0)
 	move_speed = 0.0
 	contact_damage = 14.0
@@ -48,7 +49,7 @@ func display_name() -> String:
 func _think(hero: Hero, delta: float) -> void:
 	if not _started:
 		_started = true
-		Sfx.play("roar")
+		Sfx.play(roar_sound)
 		Game.shake(0.5)
 		_brain()
 	if not _enraged and health < max_health * 0.5:
@@ -228,7 +229,7 @@ func _volleys() -> void:
 
 func _raise() -> void:
 	visual.attack(true)
-	Sfx.play("roar", 0.6)
+	Sfx.play(roar_sound, 0.6)
 	var kinds := ["a", "m", "m"] if _enraged else ["a", "m"]
 	for i in kinds.size():
 		if Game.alive_enemies >= 7:
@@ -241,7 +242,7 @@ func _raise() -> void:
 
 func _on_death() -> void:
 	visual.visible = true
-	Sfx.play("roar", 0.8)
+	Sfx.play(roar_sound, 0.8)
 	Game.hit_stop(0.25)
 	Game.shake(0.8)
 	Fx.magic(center(), Color(0.4, 0.9, 1.0), 60)

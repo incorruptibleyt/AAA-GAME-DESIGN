@@ -14,6 +14,7 @@ var _hop := 0.0
 
 func _setup() -> void:
 	is_boss = true
+	roar_sound = "roar_king"
 	init_health(750.0)
 	drop_chance = 0.0
 	move_speed = 1.8
@@ -39,7 +40,7 @@ func _think(hero: Hero, delta: float) -> void:
 	visual.position.y = _hop
 	if not _started:
 		_started = true
-		Sfx.play("roar")
+		Sfx.play(roar_sound)
 		Game.shake(0.5)
 		_brain()
 	if not _enraged and health < max_health * 0.5:
@@ -113,7 +114,7 @@ func _bone_ring() -> void:
 const RUSH_REST := 0.35
 const RUSH_HIT := 20.0
 func _royal_rush() -> void:
-	Sfx.play("roar", 0.7)
+	Sfx.play(roar_sound, 0.7)
 	var tutorial: bool = Game.first_run and Game.floor_num == 1
 	for i in (2 if tutorial else 3):
 		if not _alive():
@@ -187,7 +188,7 @@ func _meteors() -> void:
 
 func _summon() -> void:
 	visual.attack(true)
-	Sfx.play("roar", 0.6)
+	Sfx.play(roar_sound, 0.6)
 	var n := 4 if _enraged else 2
 	for i in n:
 		if Game.alive_enemies >= 7:
@@ -212,7 +213,7 @@ func _kings_leap() -> void:
 	var spot: Vector3 = Room.current.resolve_move(hero.global_position, Vector3.ZERO, radius) if Room.current else hero.global_position
 	var warn := 0.85 if _enraged else 1.05
 	visual.attack(true)
-	Sfx.play("roar", 0.5, 1.25)
+	Sfx.play(roar_sound, 0.5, 1.25)
 	track(Telegraph.circle(spot, LEAP_R, warn, Callable()))
 	var from := global_position
 	var t := 0.0
@@ -263,7 +264,7 @@ func _spikes(o: Vector3, d: Vector3) -> void:
 
 
 func _on_death() -> void:
-	Sfx.play("roar", 0.8)
+	Sfx.play(roar_sound, 0.8)
 	Game.hit_stop(0.25)
 	Game.shake(0.8)
 	for i in 4:

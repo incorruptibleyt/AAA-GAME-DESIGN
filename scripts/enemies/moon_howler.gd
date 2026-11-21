@@ -20,6 +20,7 @@ var _again := false
 
 
 func _setup() -> void:
+	die_sound = "die_howler"
 	init_health(46.0)
 	move_speed = 3.3
 	contact_damage = 8.0

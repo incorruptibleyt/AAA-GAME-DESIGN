@@ -25,6 +25,7 @@ var _flame: MeshInstance3D
 
 func _setup() -> void:
 	is_boss = true
+	roar_sound = "roar_colossus"
 	init_health(540.0)
 	drop_chance = 0.0
 	move_speed = 1.6
@@ -67,7 +68,7 @@ func display_name() -> String:
 func _think(hero: Hero, delta: float) -> void:
 	if not _started:
 		_started = true
-		Sfx.play("roar")
+		Sfx.play(roar_sound)
 		Sfx.play("ignite", 0.8)
 		Game.shake(0.5)
 		_brain()
@@ -193,7 +194,7 @@ func _rush() -> void:
 	d = d.normalized()
 	var wind := 0.65 if _enraged else 0.9
 	track(Telegraph.line(global_position, d, 12.0, radius * 2.2, wind, Callable()))
-	Sfx.play("roar", 0.5)
+	Sfx.play(roar_sound, 0.5)
 	var t := 0.0
 	while t < wind:
 		if not _alive():
@@ -234,7 +235,7 @@ func _flame_wheel() -> void:
 	var source := kind_name()
 	var here := global_position
 	visual.attack(true)
-	Sfx.play("roar", 0.6, 0.9)
+	Sfx.play(roar_sound, 0.6, 0.9)
 	Fx.shockwave(here, FIRE, WHEEL_LEN)
 	await _wait(0.3)
 	var arms := 3 if _enraged else 2
@@ -307,7 +308,7 @@ func _slam(at: Vector3, r: float, source: String) -> void:
 func _kindle() -> void:
 	if not visual.play_named("Spellcast_Summon"):
 		visual.attack(true)
-	Sfx.play("roar", 0.6)
+	Sfx.play(roar_sound, 0.6)
 	Sfx.play("ignite", 0.7)
 	var n := 2 if _enraged else 1
 	for i in n:
@@ -321,7 +322,7 @@ func _kindle() -> void:
 
 
 func _on_death() -> void:
-	Sfx.play("roar", 0.8)
+	Sfx.play(roar_sound, 0.8)
 	Sfx.play("ignite", 0.9)
 	Game.hit_stop(0.25)
 	Game.shake(0.8)

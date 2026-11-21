@@ -12,6 +12,7 @@ var _lunge_dir := Vector3.FORWARD
 
 
 func _setup() -> void:
+	die_sound = "die_armour"
 	init_health(60.0)
 	move_speed = 2.1
 	contact_damage = 9.0 if _gentle() else 12.0

@@ -11,6 +11,7 @@ const MAX_AIMING := 2
 
 
 func _setup() -> void:
+	die_sound = "die_archer"
 	init_health(28.0)
 	move_speed = 2.4
 	contact_damage = 8.0

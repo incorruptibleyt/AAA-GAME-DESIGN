@@ -36,6 +36,7 @@ func _gentle() -> bool:
 
 func _setup() -> void:
 	is_boss = true
+	roar_sound = "roar_spore"
 	init_health(560.0 if _gentle() else 640.0)
 	drop_chance = 0.0
 	move_speed = 1.3
@@ -114,7 +115,7 @@ func display_name() -> String:
 func _think(hero: Hero, delta: float) -> void:
 	if not _started:
 		_started = true
-		Sfx.play("roar")
+		Sfx.play(roar_sound)
 		Sfx.play("spore", 1.0, 0.7)
 		Game.shake(0.5)
 		_brain()
@@ -344,7 +345,7 @@ func _ring() -> void:
 	if hero == null:
 		return
 	visual.attack(true)
-	Sfx.play("roar", 0.4, 1.3)
+	Sfx.play(roar_sound, 0.4, 1.3)
 	var at := hero.global_position
 	at.x = clampf(at.x, -Room.HALF_W + 1.0, Room.HALF_W - 1.0)
 	at.z = clampf(at.z, -Room.HALF_L + 1.0, Room.HALF_L - 1.0)
@@ -398,7 +399,7 @@ func _ring_bursts(at: Vector3, r: float) -> void:
 func _brood() -> void:
 	if not visual.play_named("Spellcast_Summon"):
 		visual.attack(true)
-	Sfx.play("roar", 0.6)
+	Sfx.play(roar_sound, 0.6)
 	Sfx.play("spore", 0.8, 0.9)
 	var n := 2
 	var cap := 4 if _enraged else 3   # herself and at most two (three when angry) Sporelings
@@ -419,7 +420,7 @@ func _brood() -> void:
 func _bloom() -> void:
 	if not visual.play_named("Spellcast_Raise"):
 		visual.attack(true)
-	Sfx.play("roar", 0.8, 0.8)
+	Sfx.play(roar_sound, 0.8, 0.8)
 	Game.shake(0.35)
 	var centre := global_position
 	var radii := [2.4, 4.3, 6.2]
@@ -454,7 +455,7 @@ func _bloom_burst(at: Vector3) -> void:
 
 
 func _on_death() -> void:
-	Sfx.play("roar", 0.8)
+	Sfx.play(roar_sound, 0.8)
 	Sfx.play("spore", 1.0, 0.6)
 	Game.hit_stop(0.25)
 	Game.shake(0.8)

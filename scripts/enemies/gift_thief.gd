@@ -16,6 +16,7 @@ var _swerve := 0.0
 
 
 func _setup() -> void:
+	die_sound = "die_thief"
 	init_health(26.0)
 	move_speed = 3.7      # the hero walks 5.2: it can be caught, not without trying
 	contact_damage = 0.0  # it only runs
