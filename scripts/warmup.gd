@@ -176,7 +176,12 @@ static func run(core := false, from := 0) -> bool:
 			for kind in 4:
 				var fx := LookFx.aura_fx({"ink": Color.CYAN, "shine": true, "motif": ["wisps", "motes", "stars", "storm"][kind]})
 				holder.add_child(fx)
-				fx.position = at + Vector3(kind - 1.5, 0, 3.2))
+				fx.position = at + Vector3(kind - 1.5, 0, 3.2)
+			# Version 252: the level-20 auras' own shapes (blades, mane, lightning, orrery).
+			for kind in 4:
+				var mo := Fx.motif(["blades", "mane", "lightning", "orrery"][kind], Color.CYAN, 1.4)
+				holder.add_child(mo)
+				mo.position = at + Vector3(kind - 1.5, 0.3, 4.2))
 
 	# The Heroes/Style pedestal and the Bone Drop chest: each has its own little 3D world with
 	# its own lights, so their shaders differ from the room's (version 119: the first reveal

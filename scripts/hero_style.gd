@@ -155,34 +155,40 @@ const GLOWS := {
 ## gives the hero their own trail of light (MOTIFS): the Rogue's shadow wisps, the Knight's
 ## rising motes, the Barbarian's embers, the Mage's stars. All of it reads from the top-down
 ## camera, where hats and outfits are small.
+## Version 252 (whole-game review fix 6): the level-20 auras, the top Mastery prize, each have
+## a colour and a shape of their own (they were all one orange-gold column): the Rogue's
+## Nightlord shadow daggers circling him (violet and silver), the Knight's Lionheart mane of
+## gold flame round his head, the Barbarian's Worldbreaker lightning striking the floor
+## round him (electric cyan and violet), the Mage's Starsage gold stars running round two
+## turning green rings. Their "motif" names the shape (Fx.motif).
 const AURAS := {
 	"rogue": {
 		"nightshade": {"name": "Nightshade", "level": 8, "shell": 0, "ink": Color(0.52, 0.34, 1.0), "spark": Color(0.68, 0.56, 1.0)},
 		"venom": {"name": "Venom", "level": 9, "shell": 4, "ink": Color(0.42, 1.0, 0.22), "spark": Color(0.66, 1.0, 0.36)},
 		"shadow_king": {"name": "Shadow King", "level": 10, "shell": 1, "ink": Color(1.0, 0.76, 0.22), "ink2": Color(0.58, 0.24, 1.0), "spark": Color(1.0, 0.84, 0.4)},
 		"duskblade": {"name": "Duskblade", "level": 15, "shell": 2, "ink": Color(0.7, 0.3, 1.0), "ink2": Color(0.3, 0.95, 1.0), "spark": Color(0.75, 0.6, 1.0)},
-		"nightlord": {"name": "Nightlord", "level": 20, "shell": 0, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"nightlord": {"name": "Nightlord", "level": 20, "shell": 0, "ink": Color(0.6, 0.3, 1.0), "ink2": Color(0.9, 0.93, 1.0), "shine": true, "spark": Color(0.86, 0.84, 1.0), "motif": "blades"},
 	},
 	"knight": {
 		"sunguard": {"name": "Sunguard", "level": 8, "shell": 1, "ink": Color(1.0, 0.64, 0.16), "spark": Color(1.0, 0.8, 0.4)},
 		"stormplate": {"name": "Stormplate", "level": 9, "shell": 3, "ink": Color(0.3, 0.64, 1.0), "spark": Color(0.72, 0.88, 1.0)},
 		"paladin": {"name": "Paladin", "level": 10, "shell": 4, "ink": Color(1.0, 0.97, 0.86), "ink2": Color(1.0, 0.72, 0.2), "spark": Color(1.0, 0.86, 0.45)},
 		"dawnshield": {"name": "Dawnshield", "level": 15, "shell": 2, "ink": Color(0.85, 0.97, 1.0), "ink2": Color(0.4, 0.75, 1.0), "spark": Color(0.85, 0.95, 1.0)},
-		"lionheart": {"name": "Lionheart", "level": 20, "shell": 1, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"lionheart": {"name": "Lionheart", "level": 20, "shell": 1, "ink": Color(1.0, 0.58, 0.12), "ink2": Color(1.0, 0.93, 0.62), "shine": true, "spark": Color(1.0, 0.82, 0.4), "motif": "mane"},
 	},
 	"barbarian": {
 		"wildfire": {"name": "Wildfire", "level": 8, "shell": 0, "ink": Color(1.0, 0.46, 0.08), "spark": Color(1.0, 0.62, 0.22)},
 		"thunder": {"name": "Thunder", "level": 9, "shell": 4, "ink": Color(1.0, 0.94, 0.25), "spark": Color(1.0, 1.0, 0.62)},
 		"warlord": {"name": "Warlord", "level": 10, "shell": 1, "ink": Color(1.0, 0.42, 0.06), "ink2": Color(0.35, 0.85, 1.0), "spark": Color(1.0, 0.72, 0.3)},
 		"stormrage": {"name": "Stormrage", "level": 15, "shell": 3, "ink": Color(0.35, 0.6, 1.0), "ink2": Color(0.95, 0.95, 1.0), "spark": Color(0.7, 0.85, 1.0)},
-		"worldbreaker": {"name": "Worldbreaker", "level": 20, "shell": 0, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"worldbreaker": {"name": "Worldbreaker", "level": 20, "shell": 3, "ink": Color(0.3, 0.95, 1.0), "ink2": Color(0.72, 0.45, 1.0), "shine": true, "spark": Color(0.3, 0.95, 1.0), "motif": "lightning"},
 	},
 	"mage": {
 		"starfire": {"name": "Starfire", "level": 8, "shell": 2, "ink": Color(0.48, 0.5, 1.0), "spark": Color(0.72, 0.76, 1.0)},
 		"arcane_frost": {"name": "Arcane Frost", "level": 9, "shell": 4, "ink": Color(0.4, 0.95, 1.0), "spark": Color(0.82, 1.0, 1.0)},
 		"archmage": {"name": "Archmage", "level": 10, "shell": 1, "ink": Color(0.58, 0.46, 1.0), "cycle": true, "spark": Color(0.76, 0.7, 1.0)},
 		"voidweave": {"name": "Voidweave", "level": 15, "shell": 0, "ink": Color(0.25, 0.3, 1.0), "ink2": Color(0.85, 0.45, 1.0), "spark": Color(0.6, 0.6, 1.0)},
-		"starsage": {"name": "Starsage", "level": 20, "shell": 2, "ink": Color(1.0, 0.45, 0.2), "ink2": Color(1.0, 0.86, 0.35), "shine": true, "spark": Color(1.0, 0.75, 0.35)},
+		"starsage": {"name": "Starsage", "level": 20, "shell": 2, "ink": Color(0.25, 1.0, 0.6), "ink2": Color(1.0, 0.86, 0.4), "shine": true, "spark": Color(1.0, 0.86, 0.45), "motif": "orrery"},
 	},
 }
 ## Each hero's own trail of light for their auras (Fx.motif).

@@ -159,9 +159,10 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 	var p := sparkle_trail(color)
 	# Round sparks for the Rogue's wisps and the Barbarian's embers, four-pointed glints for
 	# the Knight's motes and the Mage's stars.
-	var shape := "dot" if kind in ["wisps", "embers", "souls", "snow", "fireflies"] else ("soft" if kind == "bubbles" else "glint")
+	var shape := "dot" if kind in ["wisps", "embers", "souls", "snow", "fireflies", "blades"] else ("soft" if kind == "bubbles" else "glint")
 	p.mesh = _shaped(shape)
-	p.color = Color(color, 0.85 if kind in ["wisps", "snow"] else (0.45 if kind == "souls" else (0.8 if kind == "bubbles" else 1.0)))
+	p.color = Color(color, 0.85 if kind in ["wisps", "snow", "blades"] else (0.45 if kind == "souls" else (0.8 if kind == "bubbles" else 1.0)))
+	var run := size > 1.2   # (hero.gd draws a run's aura at 1.4: seen from far above, kept fainter)
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_RING
 	match kind:
 		"wisps":
@@ -388,6 +389,68 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.emission_ring_inner_radius = 0.8
 			p.position = Vector3(0, 1.2, 0)
 			p.add_child(curtains(Color(0.3, 1.0, 0.65), Color(0.7, 0.45, 1.0), 5, 0.95 * size, 1.25 * size))
+		# Version 252 (whole-game review fix 6): the four level-20 Mastery auras, each a shape
+		# of its own (until then all four were one orange-gold column of light).
+		"blades":
+			# Nightlord, the Rogue: three shadow daggers circling him, edged in silver, each
+			# leaving two fading ghosts of itself (Fx.blades), over dark sparks hanging behind.
+			p.amount = 14
+			p.lifetime = 0.8
+			p.spread = 180.0
+			p.initial_velocity_min = 0.1
+			p.initial_velocity_max = 0.25
+			p.gravity = Vector3(0, 0.25, 0)
+			p.scale_amount_min = 0.12
+			p.scale_amount_max = 0.2
+			p.emission_ring_radius = 0.75
+			p.emission_ring_inner_radius = 0.55
+			p.position = Vector3(0, 0.3, 0)
+			p.add_child(blades(Color(0.14, 0.06, 0.28), Color(color, 1.0), 3, 0.95 * size, 0.45, 0.62 * size, 2.4))
+		"mane":
+			# Lionheart, the Knight: a lion's mane of light, tongues of gold flame round his
+			# head (Fx.mane), and gold glints rising.
+			p.amount = 12
+			p.lifetime = 1.0
+			p.spread = 10.0
+			p.initial_velocity_min = 0.5
+			p.initial_velocity_max = 0.9
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.35
+			p.scale_amount_max = 0.55
+			p.emission_ring_radius = 0.8
+			p.emission_ring_inner_radius = 0.6
+			p.position = Vector3(0, 0.05, 0)
+			p.add_child(mane(Color(1.0, 0.48, 0.08), Color(1.0, 0.93, 0.62), 0.95 * size, 1.35, 0.55 if run else 1.0))
+		"lightning":
+			# Worldbreaker, the Barbarian: lightning leaping off him to strike the floor round
+			# him (Fx.lightning), and sparks crackling.
+			p.amount = 14
+			p.lifetime = 0.3
+			p.spread = 180.0
+			p.initial_velocity_min = 1.4
+			p.initial_velocity_max = 2.8
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.25
+			p.scale_amount_max = 0.45
+			p.emission_ring_radius = 0.55
+			p.emission_ring_inner_radius = 0.3
+			p.position = Vector3(0, 0.6, 0)
+			p.add_child(lightning(Color(0.88, 1.0, 1.0), Color(color, 1.0), Color(0.68, 0.42, 1.0), 4, 1.3 * size, 0.57, 0.75, 0.6 * size))
+		"orrery":
+			# Starsage, the Mage: gold stars running round two tilted rings that turn round
+			# her, like the planets in an orrery (Fx.orrery).
+			p.amount = 8
+			p.lifetime = 1.4
+			p.spread = 180.0
+			p.initial_velocity_min = 0.1
+			p.initial_velocity_max = 0.3
+			p.gravity = Vector3.ZERO
+			p.scale_amount_min = 0.4
+			p.scale_amount_max = 0.6
+			p.emission_ring_radius = 0.9
+			p.emission_ring_inner_radius = 0.7
+			p.position = Vector3(0, 0.9, 0)
+			p.add_child(orrery(Color(0.25, 1.0, 0.6), Color(color, 1.0), 0.95 * size, 0.32 * size, 0.55 if run else 1.0))
 		"stars":
 			p.amount = 10
 			p.lifetime = 1.4
@@ -736,6 +799,383 @@ static func curtains(foot: Color, top: Color, count: int, radius: float, height:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.extra_cull_margin = radius + height + 2.0
 	return mi
+
+
+## Version 252, the Nightlord aura: `count` curved shadow daggers circling the hero at
+## `radius` and `height`, each pointing the way it flies and edged in `edge`, with two fading
+## ghosts of itself behind (BLADE_CODE). One MultiMesh.
+static var _blade_shader: Shader
+static func blades(body: Color, edge: Color, count: int, radius: float, height: float, size: float, speed := 2.4) -> MultiMeshInstance3D:
+	if _blade_shader == null:
+		_blade_shader = Shader.new()
+		_blade_shader.code = BLADE_CODE
+	var m := ShaderMaterial.new()
+	m.shader = _blade_shader
+	m.set_shader_parameter("tint", body)
+	m.set_shader_parameter("edge", edge)
+	m.set_shader_parameter("size", size)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	mm.mesh = q
+	mm.instance_count = count * 3
+	for i in count * 3:
+		var b := i % count
+		var ghost := i / count   # 0 the blade, 1 and 2 its fading ghosts
+		mm.set_instance_transform(i, Transform3D())
+		# phase, radius, height + ghost * 10 (read back in the shader), angular speed
+		mm.set_instance_custom_data(i, Color(float(b) / count, radius, height + 0.12 * (b % 2) + ghost * 10.0, speed))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = radius + 2.0
+	return mi
+
+
+## Version 252, the Lionheart aura: a lion's mane of light, two layers of flame tongues
+## (`root` colour at the hero, `tip` at their points) round the hero's head, always facing
+## the camera and set back behind the hero so the hero stands in front of it (MANE_CODE).
+static var _mane_shader: Shader
+static func mane(tip: Color, root: Color, radius: float, height: float, power := 1.0) -> MeshInstance3D:
+	if _mane_shader == null:
+		_mane_shader = Shader.new()
+		_mane_shader.code = MANE_CODE
+	var m := ShaderMaterial.new()
+	m.shader = _mane_shader
+	m.set_shader_parameter("tip", tip)
+	m.set_shader_parameter("root", root)
+	m.set_shader_parameter("radius", radius)
+	m.set_shader_parameter("height", height)
+	m.set_shader_parameter("power", power)
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	var mi := MeshInstance3D.new()
+	mi.mesh = q
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = radius * 2.0 + height + 2.0
+	return mi
+
+
+## Version 252, the Worldbreaker aura: `count` bolts of lightning, each leaping from the
+## hero (`rise` above its parent) to strike the floor (`drop` below it) up to `reach` out,
+## a few times a second each and somewhere new each time, forking on the way (BOLT_CODE).
+static var _bolt_shader: Shader
+static func lightning(core: Color, glow: Color, fork: Color, count: int, reach: float, drop: float, rise: float, width: float) -> MultiMeshInstance3D:
+	if _bolt_shader == null:
+		_bolt_shader = Shader.new()
+		_bolt_shader.code = BOLT_CODE
+	var m := ShaderMaterial.new()
+	m.shader = _bolt_shader
+	m.set_shader_parameter("core", core)
+	m.set_shader_parameter("glow", glow)
+	m.set_shader_parameter("fork", fork)
+	m.set_shader_parameter("reach", reach)
+	m.set_shader_parameter("drop", drop)
+	m.set_shader_parameter("rise", rise)
+	m.set_shader_parameter("width", width)
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	mm.mesh = q
+	mm.instance_count = count
+	for i in count:
+		mm.set_instance_transform(i, Transform3D())
+		mm.set_instance_custom_data(i, Color(float(i) / count, 0.0, 0.0, 1.7 + 0.45 * i))   # own offset, strikes a second
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = reach + 2.0
+	return mi
+
+
+## Version 252, the Starsage aura: two thin rings tilted different ways round the hero,
+## turning slowly round them like the paths of planets, with `star` coloured stars running
+## along them (ORBIT_CODE, ORBIT_STAR_CODE). Two ring meshes and one MultiMesh.
+const ORBITS := [[0.55, 0.32, 1.0], [-0.75, -0.24, 1.28]]   # tilt, turn speed, radius (x radius)
+static var _orbit_shader: Shader
+static var _orbit_star_shader: Shader
+static func orrery(ring: Color, star: Color, radius: float, size: float, power := 1.0) -> Node3D:
+	if _orbit_shader == null:
+		_orbit_shader = Shader.new()
+		_orbit_shader.code = ORBIT_CODE
+		_orbit_star_shader = Shader.new()
+		_orbit_star_shader.code = ORBIT_STAR_CODE
+	var root := Node3D.new()
+	var t := TorusMesh.new()
+	t.inner_radius = 0.97
+	t.outer_radius = 1.03
+	t.rings = 64
+	t.ring_segments = 6
+	for o: Array in ORBITS:
+		var m := ShaderMaterial.new()
+		m.shader = _orbit_shader
+		m.set_shader_parameter("col", Color(ring, 0.8 * power))
+		m.set_shader_parameter("orbit", Vector3(o[0], o[1], o[2] * radius))
+		var mi := MeshInstance3D.new()
+		mi.mesh = t
+		mi.material_override = m
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.extra_cull_margin = radius * 1.5 + 2.0
+		root.add_child(mi)
+	var sm := ShaderMaterial.new()
+	sm.shader = _orbit_star_shader
+	sm.set_shader_parameter("tint", star)
+	sm.set_shader_parameter("size", size)
+	sm.set_shader_parameter("orbit0", Vector3(ORBITS[0][0], ORBITS[0][1], ORBITS[0][2] * radius))
+	sm.set_shader_parameter("orbit1", Vector3(ORBITS[1][0], ORBITS[1][1], ORBITS[1][2] * radius))
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	mm.mesh = q
+	mm.instance_count = 6
+	for i in 6:
+		mm.set_instance_transform(i, Transform3D())
+		var which := i % 2
+		# phase round its ring, which ring, speed along it, how big
+		mm.set_instance_custom_data(i, Color(float(i / 2) / 3.0 + 0.17 * which, float(which), 1.25 if which == 0 else -0.95, 1.0 if i < 2 else 0.7))
+	var smi := MultiMeshInstance3D.new()
+	smi.multimesh = mm
+	smi.material_override = sm
+	smi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	smi.extra_cull_margin = radius * 1.5 + 2.0
+	root.add_child(smi)
+	return root
+
+
+const BLADE_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 tint : source_color = vec4(0.14, 0.06, 0.28, 1.0);
+uniform vec4 edge : source_color = vec4(0.9, 0.9, 1.0, 1.0);
+uniform float size = 0.5;
+varying vec2 dir2;
+varying float glint;
+varying float ghost;
+void vertex() {
+	vec4 c = INSTANCE_CUSTOM;
+	ghost = floor(c.z / 10.0);
+	float h = c.z - ghost * 10.0;
+	float ang = TIME * c.w + c.x * 6.2831853 - ghost * 0.2 * sign(c.w);
+	float r = c.y * (1.0 + 0.08 * sin(TIME * 1.7 + c.x * 9.0));
+	vec3 at = MODEL_MATRIX[3].xyz + vec3(cos(ang) * r, h + 0.1 * sin(TIME * 2.1 + c.x * 7.0), sin(ang) * r);
+	// the way it flies, as the camera sees it: the blade points along it
+	vec3 tng = vec3(-sin(ang), 0.0, cos(ang)) * sign(c.w);
+	vec2 s = (VIEW_MATRIX * vec4(tng, 0.0)).xy;
+	dir2 = length(s) > 0.0001 ? normalize(s) : vec2(1.0, 0.0);
+	glint = pow(0.5 + 0.5 * sin(TIME * 3.0 + c.x * 13.0), 8.0);
+	vec2 v = VERTEX.xy * (1.0 - 0.12 * ghost);
+	vec3 w = at + (INV_VIEW_MATRIX[0].xyz * v.x + INV_VIEW_MATRIX[1].xyz * v.y) * size;
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+// A curved dagger pointing along +x: the point at x = 0.95, a cross-guard and grip behind.
+float blade(vec2 q, float g) {
+	float x = q.x;
+	float cy = 0.22 * (x - 0.2) * (x - 0.2) - 0.1;
+	float t = clamp((x + 0.35) / 1.3, 0.0, 1.0);
+	float hw = 0.19 * (1.0 - t * t) + g;
+	float body = (1.0 - smoothstep(hw - 0.025, hw, abs(q.y - cy))) * step(-0.35 - g, x) * step(x, 0.95 + g);
+	float guard = step(abs(x + 0.4), 0.045 + g) * step(abs(q.y), 0.22 + g);
+	float grip = step(-0.72 - g, x) * step(x, -0.4) * step(abs(q.y), 0.045 + g);
+	return max(body, max(guard, grip));
+}
+void fragment() {
+	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	vec2 q = vec2(dot(p, dir2), dot(p, vec2(-dir2.y, dir2.x)));
+	float outer = blade(q, 0.05);
+	if (outer < 0.05) { discard; }
+	float inner = blade(q, 0.0);
+	if (ghost > 0.5) {
+		// the ghosts: only the silver edge's light, fading
+		ALBEDO = edge.rgb;
+		ALPHA = outer * (ghost > 1.5 ? 0.18 : 0.38);
+	} else {
+		float shine = smoothstep(0.45, 0.95, q.x) * glint;
+		ALBEDO = mix(edge.rgb * 1.25, tint.rgb + edge.rgb * 0.1, inner) + edge.rgb * shine * 0.8;
+		ALPHA = outer;
+	}
+}
+"""
+
+
+const MANE_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 tip : source_color = vec4(1.0, 0.48, 0.08, 1.0);
+uniform vec4 root : source_color = vec4(1.0, 0.93, 0.62, 1.0);
+uniform float radius = 1.0;
+uniform float height = 1.35;
+uniform float power = 1.0;
+void vertex() {
+	// round the head, facing the camera, set back behind the hero
+	vec3 at = MODEL_MATRIX[3].xyz + vec3(0.0, height, 0.0) - INV_VIEW_MATRIX[2].xyz * 0.6;
+	vec2 v = VERTEX.xy * 2.0 * radius;
+	vec3 w = at + INV_VIEW_MATRIX[0].xyz * v.x + INV_VIEW_MATRIX[1].xyz * v.y;
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+float h1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+// One ring of flame tongues: n of them reaching from r0 out to about len (0-1 of the
+// quad's half width), each swaying and flickering. x: how much, y: how far out.
+vec2 tongues(float r, float a, float n, float len, float off, float sd) {
+	float cell = a / 6.2831853 * n + off;
+	float id = floor(cell);
+	float f = fract(cell) - 0.5;
+	float l = len * (0.82 + 0.18 * h1(id + sd)) + 0.05 * sin(TIME * 3.3 + id * 1.9 + sd);
+	float r0 = 0.3;
+	float t = (r - r0) / (l - r0);
+	float sway = 0.2 * sin(TIME * 2.6 + id * 2.3 + r * 7.0) * t;
+	float w = 0.5 * (1.0 - t * t);
+	float m = step(0.0, t) * step(t, 1.0) * (1.0 - smoothstep(w - 0.14, w, abs(f + sway)));
+	return vec2(m, t);
+}
+void fragment() {
+	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	float r = length(p);
+	float a = atan(p.y, p.x) + 0.1 * sin(TIME * 0.7);
+	vec2 back = tongues(r, a, 11.0, 0.98, 0.5, 31.0);   // the long outer tongues
+	vec2 front = tongues(r, a, 15.0, 0.74, 0.0, 7.0);   // the shorter, brighter inner ones
+	vec3 col = mix(root.rgb, tip.rgb, smoothstep(0.15, 0.95, back.y)) * 0.95;
+	float alpha = back.x * 0.75 * (1.0 - 0.5 * smoothstep(0.7, 1.0, back.y));
+	vec3 fc = mix(root.rgb * 1.1, tip.rgb, smoothstep(0.3, 1.0, front.y));
+	float fa = front.x * (1.0 - 0.4 * smoothstep(0.7, 1.0, front.y));
+	col = mix(col, fc, fa);
+	alpha = max(alpha, fa);
+	float glow = exp(-pow((r - 0.42) / 0.2, 2.0)) * 0.3;
+	ALBEDO = col * 1.2 + root.rgb * glow * (1.0 - alpha);
+	ALPHA = clamp(alpha + glow, 0.0, 1.0) * power;
+}
+"""
+
+
+const BOLT_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 core : source_color = vec4(0.88, 1.0, 1.0, 1.0);
+uniform vec4 glow : source_color = vec4(0.3, 0.95, 1.0, 1.0);
+uniform vec4 fork : source_color = vec4(0.68, 0.42, 1.0, 1.0);
+uniform float reach = 1.3;
+uniform float drop = 0.57;
+uniform float rise = 0.55;
+uniform float width = 0.55;
+// (flat: one bolt per instance. Blended between corners, each pixel drew a bolt of its own.)
+varying flat float seed;
+varying flat float live;
+float h1(float n) { return fract(sin(n * 127.1) * 43758.5453); }
+void vertex() {
+	vec4 c = INSTANCE_CUSTOM;
+	float k = TIME * c.w + c.x * 5.0;
+	float strike = mod(floor(k), 61.0);   // kept small: the hash goes coarse on big numbers
+	float ph = fract(k);
+	seed = strike * 1.37 + c.x * 17.0;
+	// on for the first part of each strike, flickering
+	live = (1.0 - smoothstep(0.32, 0.45, ph)) * (0.65 + 0.35 * step(0.5, fract(TIME * 23.0 + c.x * 3.0)));
+	float ang = h1(seed) * 6.2831853;
+	vec3 d = vec3(cos(ang), 0.0, sin(ang));
+	vec3 o = MODEL_MATRIX[3].xyz;
+	vec3 A = o + vec3(0.0, rise, 0.0) + d * 0.25;
+	vec3 B = o + vec3(0.0, 0.03 - drop, 0.0) + d * reach * (0.7 + 0.3 * h1(seed + 3.1));
+	vec3 ax = B - A;
+	vec3 side = cross(ax, INV_VIEW_MATRIX[2].xyz);
+	side = length(side) > 0.0001 ? normalize(side) : INV_VIEW_MATRIX[0].xyz;
+	vec3 w = (A + B) * 0.5 + ax * VERTEX.x + side * VERTEX.y * width;
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+// The bolt's line across the ribbon (-1 to 1) at u along it: jagged, pinned at both ends.
+float path(float u, float s) {
+	float x = u * 7.0;
+	float i = floor(x);
+	float f = fract(x);
+	float y0 = (h1(s + i) - 0.5) * (i < 0.5 ? 0.0 : 1.0);
+	float y1 = (h1(s + i + 1.0) - 0.5) * (i > 5.5 ? 0.0 : 1.0);
+	return mix(y0, y1, f) * 0.8;
+}
+void fragment() {
+	if (live < 0.02) { discard; }
+	float u = UV.x;
+	float y = 1.0 - UV.y * 2.0;
+	float d1 = abs(y - path(u, seed * 7.3));
+	float side = h1(seed + 5.0) > 0.5 ? 1.0 : -1.0;
+	float yf = path(u, seed * 3.1 + 9.0) * 0.5 + max(u - 0.38, 0.0) * 1.1 * side;
+	float d2 = abs(y - yf) + (1.0 - step(0.38, u)) * 9.0;
+	float main_l = 1.0 - smoothstep(0.06, 0.12, d1);
+	float fork_l = (1.0 - smoothstep(0.04, 0.085, d2)) * (1.0 - smoothstep(0.7, 0.9, u));
+	float halo = exp(-min(d1, d2) * 6.0) * 0.7;
+	float hit = smoothstep(0.84, 1.0, u) * exp(-abs(y) * 2.5) * 0.8;   // the flash where it strikes
+	vec3 col = mix(glow.rgb, core.rgb, main_l);
+	col = mix(col, mix(fork.rgb, core.rgb, 0.35), fork_l * (1.0 - main_l));
+	ALBEDO = col * 1.5 + glow.rgb * hit;
+	ALPHA = clamp(max(main_l, fork_l) + halo + hit, 0.0, 1.0) * live;
+}
+"""
+
+
+const ORBIT_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.25, 1.0, 0.6, 0.8);
+uniform vec3 orbit = vec3(0.55, 0.32, 1.0);   // tilt, turn speed, radius
+varying float ang;
+void vertex() {
+	vec3 v = VERTEX;   // a ring of radius 1 lying flat
+	ang = atan(v.z, v.x);
+	float c = cos(orbit.x);
+	float s = sin(orbit.x);
+	v = vec3(v.x, v.y * c - v.z * s, v.y * s + v.z * c);
+	float pr = TIME * orbit.y;
+	v = vec3(v.x * cos(pr) + v.z * sin(pr), v.y, -v.x * sin(pr) + v.z * cos(pr));
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(MODEL_MATRIX[3].xyz + v * orbit.z, 1.0)).xyz;
+}
+void fragment() {
+	// dashes running round it
+	float dash = 0.35 + 0.65 * smoothstep(0.25, 0.6, abs(fract(ang / 6.2831853 * 18.0 - TIME * 0.6) - 0.5) * 2.0);
+	ALBEDO = col.rgb * 1.3;
+	ALPHA = col.a * dash;
+}
+"""
+
+
+const ORBIT_STAR_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 tint : source_color = vec4(1.0, 0.88, 0.5, 1.0);
+uniform float size = 0.32;
+uniform vec3 orbit0 = vec3(0.55, 0.32, 1.0);
+uniform vec3 orbit1 = vec3(-0.75, -0.24, 1.28);
+varying float tw;
+void vertex() {
+	vec4 c = INSTANCE_CUSTOM;   // phase, which ring, speed along it, how big
+	vec3 o = c.y < 0.5 ? orbit0 : orbit1;
+	float th = TIME * c.z + c.x * 6.2831853;
+	vec3 v = vec3(cos(th), 0.0, sin(th));
+	float cs = cos(o.x);
+	float sn = sin(o.x);
+	v = vec3(v.x, v.y * cs - v.z * sn, v.y * sn + v.z * cs);
+	float pr = TIME * o.y;
+	v = vec3(v.x * cos(pr) + v.z * sin(pr), v.y, -v.x * sin(pr) + v.z * cos(pr));
+	vec3 at = MODEL_MATRIX[3].xyz + v * o.z;
+	tw = 0.75 + 0.25 * sin(TIME * 5.0 + c.x * 19.0);
+	vec2 q = VERTEX.xy * size * c.w * (0.85 + 0.3 * tw);
+	vec3 w = at + INV_VIEW_MATRIX[0].xyz * q.x + INV_VIEW_MATRIX[1].xyz * q.y;
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+void fragment() {
+	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0);
+	float star = exp(-abs(p.x) * 14.0) * exp(-abs(p.y) * 2.2) + exp(-abs(p.y) * 14.0) * exp(-abs(p.x) * 2.2);
+	float core = exp(-length(p) * 6.0);
+	float m = clamp(star + core * 1.2, 0.0, 1.0);
+	if (m < 0.03) { discard; }
+	ALBEDO = mix(tint.rgb, vec3(1.0), core * 0.7) * 1.4 * tw;
+	ALPHA = m;
+}
+"""
 
 
 const FLAKE_CODE := """

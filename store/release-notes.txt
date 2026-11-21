@@ -1,3 +1,6 @@
-Version 251: every skeleton dies in its own way, every boss roars in its own voice
-- Warriors' armour clatters down, archers' bowstrings snap, mages' magic fizzles out, spiders chitter, Frost Wraiths shatter like ice, Cinder Skeletons hiss out, Drowned Skeletons gurgle, Sporelings squelch and Rootbinders split like wood.
-- New roars for the Skeleton King, the Lich, the Cinder Colossus, the Tidecaller, the Sporemother, the Blood Queen and Krampus.
+Version 252: every hero's level-20 aura has its own colour and shape
+- Rogue (Nightlord): three violet shadow daggers circle you, leaving ghosts behind.
+- Knight (Lionheart): a lion's mane of gold flame burns round your head.
+- Barbarian (Worldbreaker): cyan lightning leaps off you and strikes the floor.
+- Mage (Starsage): gold stars run round two green rings turning round you.
+Before, all four were the same orange-gold column of light.
