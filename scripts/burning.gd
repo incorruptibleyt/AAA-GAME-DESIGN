@@ -16,7 +16,7 @@ static func apply(a: Actor, damage_per_second: float, seconds: float) -> void:
 		b.name = "Burning"
 		a.add_child(b)
 	b.dps = maxf(b.dps, damage_per_second)
-	b.remaining = seconds
+	b.remaining = maxf(b.remaining, seconds)   # (v239: a short burn never cuts a longer one short)
 
 
 func _process(delta: float) -> void:

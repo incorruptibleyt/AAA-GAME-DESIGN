@@ -1,9 +1,7 @@
-Version 238: bosses that come back have a new attack
-- Meet a boss again and it brings an attack you have never seen:
-- Skeleton King: King's Leap, then bone spikes in a cross.
-- Lich: Seeking Souls that hunt you down.
-- Cinder Colossus: Flame Wheel, arms of fire sweeping round.
-- Sporemother: Deep Breath pulls you in, then blasts spores.
-- Tidecaller: Geyser Chase, keep moving!
-- Elites have moves of their own (Version 237).
-- The Blood Moon is up until Dec 3: hunt the Queen.
+Version 239: hero blessings that change how you fight
+- Knight: Riposte sends blocked shots back. Cutting Wind adds a wave to every swing.
+- Barbarian: Thunder Catch slams the ground as you catch. Buzzsaw axes grind at the far end.
+- Mage: Burning Ground leaves fire under charged orbs. Frost Orbit spins ice round you.
+- Rogue: Shadow Step leaves a knife-throwing shadow. Ricochet bolts bounce on.
+- Returning bosses bring a new attack (v238).
+- The Blood Moon is up until Dec 3.

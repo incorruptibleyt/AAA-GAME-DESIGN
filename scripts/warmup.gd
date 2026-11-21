@@ -131,6 +131,16 @@ static func run(core := false, from := 0) -> bool:
 			if def.has("aura") and def.aura.get("sigil", false):
 				CryptSigil.make(v)
 			heroes.append(v)
+		# Version 239: the Rogue's Shadow Step shadow (its see-through glass on a moving body).
+		if not core or hero.hero_id == "rogue":
+			var sv := CharacterVisual.new()
+			holder.add_child(sv)
+			sv.position = spots[spots.size() - 1] + Vector3(1.3, 0, 0)
+			sv.build(Heroes.look(Heroes.get_hero("rogue")))
+			var sm := ShadowStep.material()
+			for g: GeometryInstance3D in sv._meshes:
+				if is_instance_valid(g):
+					g.material_override = sm
 		DamageNumber.healed(hero, 9876543210.0))
 
 	# Every Feat and Bone Drop look: the headwear's flame, ghost and glow materials, the

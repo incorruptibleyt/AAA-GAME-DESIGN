@@ -46,18 +46,21 @@ const LIST := [
 	{"id": "ward", "family": "bone", "rarity": "rare", "title": "Bone Ward", "text": "Block the first hit in every room", "max": 2},
 	{"id": "links", "family": "bone", "rarity": "rare", "title": "Long Links", "text": "Bone Chain lasts 1 second longer", "max": 1},
 	{"id": "marrow", "family": "bone", "rarity": "epic", "title": "Marrow", "text": "Bone Chain can climb to x4, and shots pierce 1 more enemy", "max": 1},
-	# Hero blessings: only the named hero is offered these.
-	{"id": "nimble", "hero": "rogue", "family": "bone", "rarity": "rare", "title": "Nimble", "text": "Dash recharges 40% faster", "max": 1},
-	{"id": "backstab", "hero": "rogue", "family": "bolt", "rarity": "rare", "title": "Backstab", "text": "Critical hits deal triple damage", "max": 1},
+	# Hero blessings: only the named hero is offered these. Version 239 (whole-game review fix
+	# 8): two of each hero's three were plain number bumps (Nimble, Backstab, Bulwark, Broad
+	# Swing, Bloodlust, Heavy Axes, Volatile Orbs, Arcane Flow). Now each one changes how that
+	# hero's own attack works (see hero.gd and projectile.gd).
+	{"id": "shadowstep", "hero": "rogue", "family": "bone", "rarity": "rare", "title": "Shadow Step", "text": "Dashing leaves your shadow behind: it throws knives for 2 seconds", "max": 1},
+	{"id": "ricochet", "hero": "rogue", "family": "bolt", "rarity": "rare", "title": "Ricochet", "text": "Knives and bolts bounce on to 1 more skeleton", "max": 2},
 	{"id": "quiver", "hero": "rogue", "family": "bolt", "rarity": "epic", "title": "Shadow Quiver", "text": "Shadow Volley fires 5 rings instead of 3", "max": 1},
-	{"id": "bulwark", "hero": "knight", "family": "bone", "rarity": "rare", "title": "Bulwark", "text": "Take 10% less damage", "max": 2},
-	{"id": "broad", "hero": "knight", "family": "bolt", "rarity": "common", "title": "Broad Swing", "text": "Swings reach 15% further, waves 25% wider, both 10% harder", "max": 2},
+	{"id": "riposte", "hero": "knight", "family": "bone", "rarity": "rare", "title": "Riposte", "text": "Shots your shield blocks fly back as sword waves", "max": 1},
+	{"id": "cutting_wind", "hero": "knight", "family": "bolt", "rarity": "common", "title": "Cutting Wind", "text": "Every swing also throws a wide wave through the skeletons behind", "max": 1},
 	{"id": "aftershock", "hero": "knight", "family": "bone", "rarity": "epic", "title": "Aftershock", "text": "Shield Slam reaches 40% further and freezes longer", "max": 1},
-	{"id": "bloodlust", "hero": "barbarian", "family": "bone", "rarity": "rare", "title": "Bloodlust", "text": "Heal 2 more per kill, up to 8% more of your health each room", "max": 2},
-	{"id": "heavy", "hero": "barbarian", "family": "bolt", "rarity": "common", "title": "Heavy Axes", "text": "Axes hit 10% harder and knock skeletons further", "max": 2},
+	{"id": "thunder_catch", "hero": "barbarian", "family": "bone", "rarity": "rare", "title": "Thunder Catch", "text": "Catching an axe slams the ground, throwing back skeletons near you", "max": 1},
+	{"id": "buzzsaw", "hero": "barbarian", "family": "bolt", "rarity": "common", "title": "Buzzsaw", "text": "Axes stop and spin at the far end, grinding skeletons, then fly back", "max": 1},
 	{"id": "whirl", "hero": "barbarian", "family": "bolt", "rarity": "epic", "title": "Endless Whirl", "text": "Whirlwind lasts twice as long", "max": 1},
-	{"id": "volatile", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Volatile Orbs", "text": "Orb blasts are 35% wider", "max": 2},
-	{"id": "flow", "hero": "mage", "family": "frost", "rarity": "common", "title": "Arcane Flow", "text": "Orbs fly 20% faster, cast 10% faster", "max": 2},
+	{"id": "burning_ground", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Burning Ground", "text": "Charged orbs leave a pool of fire that burns skeletons", "max": 1},
+	{"id": "frost_orbit", "hero": "mage", "family": "frost", "rarity": "common", "title": "Frost Orbit", "text": "While you move, ice orbs circle you, chilling skeletons they touch", "max": 1},
 	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Meteor hits 3 more skeletons", "max": 1},
 	# Blood Moon blessings (version 134): only offered in the event's runs and hunts.
 	{"id": "bloodpact", "event": true, "family": "moon", "rarity": "rare", "title": "Blood Pact", "text": "+30% damage, but 15% less max health", "max": 1},
@@ -217,24 +220,11 @@ static func apply(id: String, h: Hero) -> void:
 			h.ward += 1
 		"ossuary":
 			h.ward = h.ward_max
-		"nimble": h.dash_cooldown_time *= 0.6
-		"backstab": h.crit_mult = 3.0
 		"quiver": h.volley_rings = 5
-		"bulwark": h.armor += 0.1
-		"broad":
-			h.bolt_size *= 1.25
-			h.damage *= 1.1
-			h.melee_reach += 0.4   # (version 233: the sword swing reaches further too)
 		"aftershock": h.slam_reach *= 1.4
-		"bloodlust": h.heal_on_kill += 2.0
-		"heavy":
-			h.damage *= 1.1
-			h.bolt_push *= 1.5
 		"whirl": h.whirl_time *= 2.0
-		"volatile": h.splash *= 1.35
-		"flow":
-			h.bolt_speed *= 1.2
-			h.shots_per_second *= 1.1
+		# (Version 239's hero blessings work from h.perks: hero.gd and projectile.gd look
+		# them up, so a saved run brings them back with no number of their own to save.)
 		"meteors": h.meteor_count += 3
 		"bloodpact":
 			h.damage *= 1.3

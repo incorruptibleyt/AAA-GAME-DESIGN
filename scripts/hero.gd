@@ -14,9 +14,9 @@ var rear_bolts := 0
 var pierce := 0
 var crit_chance := 0.05
 var burn_dps := 0.0
-## Healing per kill (the Barbarian, Bloodlust), up to 4% of max health per point in each
-## room: 8% for the Barbarian, 16% and 24% with Bloodlust (uncapped, it healed back most of
-## the damage taken on floors 1-4).
+## Healing per kill (the Barbarian), up to 4% of max health per point in each
+## room: 8% for the Barbarian (uncapped, it healed back most of the damage taken on
+## floors 1-4). (Version 239: the Bloodlust blessing that raised it became Thunder Catch.)
 var heal_on_kill := 0.0
 var kill_heal_left := 0.0
 ## From Bone Harvest: only heals while the Bone Chain is x2 or higher, and only up to 4% of
@@ -145,6 +145,34 @@ var knives := 0   # thrown this run
 var _knife_timer := 0.35
 const KNIFE_SHARE := 0.6
 
+## Version 239 (whole-game review fix 8): each hero's own blessings change how that hero
+## attacks. They are looked up in `perks` (so a saved run brings them back by itself).
+##   Knight:    Riposte (blocked shots fly back as sword waves), Cutting Wind (a swing
+##              also throws a wide wave through the skeletons behind).
+##   Barbarian: Thunder Catch (catching an axe slams the ground), Buzzsaw (axes hang
+##              and grind at the far end: Projectile.hang).
+##   Mage:      Burning Ground (charged orbs leave fire: Projectile._explode), Frost
+##              Orbit (ice orbs circle the Mage while moving).
+##   Rogue:     Shadow Step (a dash leaves a knife-throwing shadow: shadow_step.gd),
+##              Ricochet (shots bounce on: Projectile.bounce).
+const WIND_SHARE := 0.8      # Cutting Wind's wave, of a sword wave's damage
+const WIND_LIFE := 0.5       # seconds it flies (about 7.5 m)
+const RIPOSTE_COL := Color(1.0, 0.97, 0.82)
+const THUNDER_R := 2.6       # Thunder Catch reaches this far round him
+const THUNDER_SHARE := 0.6
+var _thunder_cd := 0.0
+const BUZZ_HANG := 0.6       # Buzzsaw: seconds an axe hangs at the far end
+const ORBIT_N := 3
+const ORBIT_R := 1.7
+const ORBIT_SPIN := 4.2      # radians a second
+const ORBIT_SHARE := 0.45
+const ORBIT_COL := Color(0.62, 0.92, 1.0)
+var _orbit: Node3D
+var _orbit_a := 0.0
+var _orbit_on := 0.0
+var _orbit_next := {}        # skeleton's instance id -> when an ice orb may hit it again (ms)
+var _shadow: ShadowStep
+
 
 static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	var cfg := Game._load_save()
@@ -225,6 +253,8 @@ func place_at(pos: Vector3) -> void:
 	_safe_left = 0.0
 	if visual:
 		visual.rotation.y = 0.0
+	if is_instance_valid(_shadow):
+		_shadow.vanish()
 
 
 func can_be_hit() -> bool:
@@ -262,6 +292,8 @@ func dash(dir: Vector3) -> void:
 			_dash_wanted_t = DASH_BUFFER + 0.02
 		return
 	_dash_wanted_t = 0.0
+	if perks.has("shadowstep"):
+		_shadow_step()
 	_dash_dir = dir.normalized()
 	_dash_left = DASH_TIME
 	if snare_left > 0.0:
@@ -509,6 +541,9 @@ func _process(delta: float) -> void:
 	_update_dash_ring()
 	_update_guard_mark(delta)
 	_update_charge(delta)
+	_thunder_cd -= delta
+	if perks.has("frost_orbit"):
+		_update_orbit(delta)
 	if is_instance_valid(_aura_fx):
 		_aura_fx.rotation.y = -rotation.y
 	_dash_cooldown -= delta
@@ -690,6 +725,7 @@ func _run_knives(delta: float) -> void:
 	p.crit_mult = crit_mult
 	p.burn_dps = burn_dps
 	p.frost = frost
+	p.bounce = int(perks.get("ricochet", 0))
 	Sfx.play("swing", 0.25, 1.6)
 	Game._teach("rogue_knives", "KNIVES: the Rogue throws knives while running. Stand still for the crossbow!")
 
@@ -725,6 +761,7 @@ func _swing(fwd: Vector3) -> void:
 	var dmg := damage * SWING_MULT * pow(TWIN_GAIN, front_bolts - 1) * Game.chain_damage()
 	var cos_half := cos(half)
 	var hits := 0
+	var cut: Array[Actor] = []
 	for a: Actor in Actor.all.duplicate():
 		if a.team != Team.UNDEAD or not a.can_be_hit():
 			continue
@@ -742,6 +779,7 @@ func _swing(fwd: Vector3) -> void:
 		Fx.impact(a.center(), Color.WHITE.lerp(col, 0.5) if crit else col, 1.6 if crit else 1.1)
 		a.take_damage(dmg * crit_mult if crit else dmg, dn, bolt_push * 1.4, crit)
 		hits += 1
+		cut.append(a)
 		if burn_dps > 0.0 and not a.dead:
 			Burning.apply(a, burn_dps, 2.5)
 		elif crit and perks.has("flashfire") and not a.dead:
@@ -759,8 +797,28 @@ func _swing(fwd: Vector3) -> void:
 		d.y = 0.0
 		if d.length() < reach + 0.4 and (d.length() < 0.9 or d.normalized().dot(fwd) >= cos_half):
 			p.shatter()
+	if perks.has("cutting_wind"):
+		_cutting_wind(fwd, col, cut)
 	_bone_storm(fwd, global_position + Vector3.UP * 1.1 + fwd * 0.6)
 	Game._teach("knight_swing", "SWORD: up close, one swing cuts every skeleton in front!")
+
+
+## Cutting Wind: the swing's arc flies on as a wide sword wave through every skeleton behind
+## the ones the blade cut (those it already cut are skipped).
+func _cutting_wind(fwd: Vector3, col: Color, cut: Array[Actor]) -> void:
+	var origin := global_position + Vector3.UP * 1.1 + fwd * 0.9
+	var w := Projectile.fire(Team.HERO, origin, fwd, damage * WIND_SHARE * pow(TWIN_GAIN, front_bolts - 1) * Game.chain_damage(),
+		bolt_speed * 1.15, col.lerp(Color.WHITE, 0.25), bolt_size * 1.7)
+	w.radius = bolt_size * 3.2   # it hits as wide as it looks (a plain wave is a narrow one)
+	w.pierce = 99
+	w.life = WIND_LIFE
+	w.push = bolt_push * 0.6
+	w.crit_chance = crit_chance
+	w.crit_mult = crit_mult
+	w.burn_dps = burn_dps
+	w.frost = frost
+	for a in cut:
+		w._hit[a] = true
 
 
 ## A bright arc of the blade's path, swept round and faded in a fifth of a second.
@@ -907,6 +965,37 @@ func on_block(at: Vector3) -> void:
 	Sfx.play("block", 0.75, randf_range(0.94, 1.08))
 	add_charge(0.03)   # every blocked shot builds a little toward Shield Slam
 	Game._teach("knight_shield", "SHIELD: stand still and shots from the front clang off!")
+	if perks.has("riposte"):
+		_riposte(at)
+
+
+## Riposte: the blocked shot flies back as a bright sword wave, at the nearest skeleton in
+## front of the shield (or straight ahead if there is none).
+func _riposte(at: Vector3) -> void:
+	var fwd := -global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized()
+	var aim := fwd
+	var best := 16.0 * 16.0
+	for a: Actor in Actor.all:
+		if a.team != Team.UNDEAD or not a.can_be_hit():
+			continue
+		var d := a.global_position - global_position
+		d.y = 0.0
+		var l2 := d.length_squared()
+		if l2 < best and l2 > 0.01 and d.normalized().dot(fwd) > GUARD_COS:
+			best = l2
+			aim = d.normalized()
+	var origin := Vector3(at.x, global_position.y + 1.1, at.z) + aim * 0.3
+	var p := Projectile.fire(Team.HERO, origin, aim, damage * pow(TWIN_GAIN, front_bolts - 1) * Game.chain_damage(), bolt_speed * 1.3, RIPOSTE_COL, bolt_size * 1.15)
+	p.pierce = pierce
+	p.push = bolt_push
+	p.crit_chance = crit_chance
+	p.crit_mult = crit_mult
+	p.burn_dps = burn_dps
+	p.frost = frost
+	Fx.sparks(origin, RIPOSTE_COL)
+	Game._teach("knight_riposte", "RIPOSTE: shots your shield blocks fly straight back!")
 
 
 ## Twin Shots: each pick adds a forward shot and 40% to the forward volley, shared between
@@ -926,10 +1015,13 @@ func _fire(origin: Vector3, d: Vector3, col: Color, share := 1.0, boost := 0.0) 
 	p.crit_mult = crit_mult
 	p.burn_dps = burn_dps
 	p.frost = frost
+	p.bounce = int(perks.get("ricochet", 0))
 	if boomerang > 0.0:
 		p.boomerang = _throw_reach
 		p._cuts = pierce
 		p.life = 6.0
+		if perks.has("buzzsaw"):
+			p.hang = BUZZ_HANG
 
 
 ## A returning axe is back in the Barbarian's hand.
@@ -937,7 +1029,102 @@ func catch_axe(at: Vector3) -> void:
 	caught += 1
 	Sfx.play("catch", 0.35, randf_range(0.9, 1.1))
 	Fx.impact(at, Color(1.0, 0.8, 0.5), 0.5)
+	if perks.has("thunder_catch") and _thunder_cd <= 0.0:
+		_thunder_catch()
 
+
+## Thunder Catch: the caught axe comes down on the floor. Skeletons close round him are hurt
+## and thrown back (only when there are some: an empty slam would just be noise).
+func _thunder_catch() -> void:
+	var near: Array[Actor] = []
+	for a: Actor in Actor.all:
+		if a.team == Team.UNDEAD and a.can_be_hit() and a.global_position.distance_to(global_position) < THUNDER_R + a.radius:
+			near.append(a)
+	if near.is_empty() or dead or Game.state != Game.State.PLAYING:
+		return
+	_thunder_cd = 0.35
+	visual.attack()
+	Fx.shockwave(global_position, Color(1.0, 0.72, 0.38), THUNDER_R + 0.4)
+	Fx.shockwave(global_position, Color(1.0, 0.95, 0.8), THUNDER_R * 0.6)
+	Fx.impact(global_position + Vector3.UP * 0.2, Color(1.0, 0.8, 0.5), 1.8)
+	Fx.dust(global_position, 18)
+	Sfx.play("slam", 0.45, 1.25)
+	Game.shake(0.08)
+	var dmg := damage * THUNDER_SHARE * Game.chain_damage()
+	for a in near:
+		var d := a.global_position - global_position
+		d.y = 0.0
+		a.take_damage(dmg, d.normalized() if d.length_squared() > 0.01 else -global_transform.basis.z, 12.0)
+		Fx.sparks(a.center(), Color(1.0, 0.85, 0.55))
+	Game._teach("barbarian_thunder", "THUNDER CATCH: catch your axe close to skeletons to slam them back!")
+
+
+## Shadow Step: the shadow stands where this dash began.
+func _shadow_step() -> void:
+	if not is_instance_valid(_shadow):
+		_shadow = ShadowStep.make(self)
+	_shadow.appear(global_position, rotation.y)
+	Game._teach("rogue_shadow", "SHADOW STEP: every dash leaves a shadow that throws knives!")
+
+
+## Frost Orbit: while the Mage moves in a fight, ice orbs circle round, chilling and hurting
+## every skeleton they pass through (each skeleton at most twice a second).
+func _update_orbit(delta: float) -> void:
+	var on := (_moving or _dash_left > 0.0) and not dead and down_left <= 0.0 and Game.state == Game.State.PLAYING and Game.alive_enemies > 0
+	_orbit_on = move_toward(_orbit_on, 1.0 if on else 0.0, delta * (5.0 if on else 3.0))
+	if _orbit == null:
+		if not on:
+			return
+		_build_orbit()
+	_orbit.visible = _orbit_on > 0.02
+	if not _orbit.visible:
+		return
+	_orbit_a = fmod(_orbit_a + ORBIT_SPIN * delta, TAU)
+	_orbit.global_rotation = Vector3(0, _orbit_a, 0)
+	var k := 0.4 + 0.6 * _orbit_on
+	_orbit.scale = Vector3(k, 1.0, k)
+	if _orbit_on < 0.6:
+		return
+	var now := Time.get_ticks_msec()
+	var dmg := damage * ORBIT_SHARE * Game.chain_damage()
+	for m: Node3D in _orbit.get_children():
+		var at := m.global_position
+		for a: Actor in Actor.all:
+			if a.team != Team.UNDEAD or not a.can_be_hit():
+				continue
+			var d := a.global_position - at
+			d.y = 0.0
+			if d.length() > 0.45 + a.radius:
+				continue
+			var key := a.get_instance_id()
+			if int(_orbit_next.get(key, 0)) > now:
+				continue
+			_orbit_next[key] = now + 500
+			var away := a.global_position - global_position
+			away.y = 0.0
+			a.take_damage(dmg, away.normalized() if away.length_squared() > 0.01 else d, 2.5)
+			if not a.dead and a is Enemy:
+				(a as Enemy).chill(1.2)
+			Fx.sparks(at, ORBIT_COL)
+			Game._teach("mage_orbit", "FROST ORBIT: keep moving, and your ice orbs chill skeletons!")
+			break   # (an orb can't spend itself on one crowd in a single frame)
+
+
+func _build_orbit() -> void:
+	_orbit = Node3D.new()
+	_orbit.name = "FrostOrbit"
+	_orbit.position = Vector3(0, 1.0, 0)
+	add_child(_orbit)
+	var orb := ShotLook.hero_mat(ShotLook.K_ORB, ORBIT_COL, true)
+	var tail := ShotLook.hero_mat(ShotLook.K_TAIL, Color(ORBIT_COL.r, ORBIT_COL.g, ORBIT_COL.b, 0.65))
+	for i in ORBIT_N:
+		var a := TAU * i / ORBIT_N
+		var m := Node3D.new()
+		_orbit.add_child(m)
+		m.position = Vector3(cos(a), 0, sin(a)) * ORBIT_R
+		m.rotation.y = -a   # its tail trails round the circle behind it
+		ShotLook._put(m, ShotLook._card, orb, Vector3(0.62, 0.62, 1.0))
+		ShotLook._put(m, ShotLook._flat, tail, Vector3(0.34, 1.0, 1.3), Vector3(0, 0, 0.62))
 
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():
@@ -1185,8 +1372,9 @@ func can_be_snared() -> bool:
 func new_room() -> void:
 	ward = ward_max
 	harvest_left = max_health * 0.02 * harvest_heal   # harvest_heal is 2 per pick
-	kill_heal_left = max_health * 0.04 * heal_on_kill   # heal_on_kill: 2 for the Barbarian, +2 per Bloodlust
+	kill_heal_left = max_health * 0.04 * heal_on_kill   # heal_on_kill: 2 for the Barbarian
 	siphon_left = max_health * 0.12 * perks.get("siphon", 0)
+	_orbit_next.clear()
 
 
 ## A faint bubble around the hero while Bone Ward is up.

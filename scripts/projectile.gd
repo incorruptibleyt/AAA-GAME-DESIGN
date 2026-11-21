@@ -10,7 +10,7 @@ var radius := 0.2
 var pierce := 0
 var push := 4.0
 var crit_chance := 0.0
-## How much a critical hit multiplies the damage (Backstab makes it 3).
+## How much a critical hit multiplies the damage.
 var crit_mult := 2.0
 var burn_dps := 0.0
 var frost := false
@@ -44,6 +44,19 @@ var charged := 0.0
 ## Version 238: an undead shot that turns toward the hero, up to this many radians a second
 ## (the returning Lich's Seeking Souls). 0 flies straight.
 var seek := 0.0
+## Version 239 (whole-game review fix 8, hero blessings that change the attack):
+## Ricochet: after its last hit the shot flies on at the nearest other skeleton, this many times.
+var bounce := 0
+const BOUNCE_RANGE := 7.0
+## Buzzsaw: where an axe turns for home it first hangs this long, spinning and grinding
+## every skeleton beside it (each tick a share of its damage).
+var hang := 0.0
+var _hang_left := 0.0
+var _hang_from: Actor
+var _grind_t := 0.0
+const GRIND_EVERY := 0.15
+const GRIND_SHARE := 0.3
+const GRIND_R := 1.0
 
 ## Undead shots share one look on every floor (see ShotLook).
 const DANGER := ShotLook.DANGER
@@ -135,6 +148,10 @@ func _reset() -> void:
 	boomerang = 0.0
 	charged = 0.0
 	seek = 0.0
+	bounce = 0
+	hang = 0.0
+	_hang_left = 0.0
+	_hang_from = null
 	_out = 0.0
 	_back = false
 	_blunt = false
@@ -224,6 +241,9 @@ func _process(delta: float) -> void:
 			_glow.scale = Vector3(g, g, 1.0)
 	if spin:
 		spin.rotation.y -= delta * 22.0
+	if _hang_left > 0.0:
+		_grind(delta)
+		return
 	if _back and not _home():
 		return
 	if seek > 0.0 and Game.hero and not Game.hero.dead:
@@ -311,6 +331,8 @@ func _process(delta: float) -> void:
 			pierce -= 1
 		if pierce < 0:
 			if boomerang <= 0.0:
+				if bounce > 0 and _ricochet(a):
+					return
 				finish()
 				return
 			if _back:
@@ -323,6 +345,14 @@ func _process(delta: float) -> void:
 ## The axe turns for home: every skeleton can be cut once more (but not the one it just
 ## bounced off), with as many cuts as it was thrown with.
 func _turn(bounced: Actor) -> void:
+	if hang > 0.0:
+		# Buzzsaw: hang here first (_grind turns it for home after).
+		_hang_left = hang
+		hang = 0.0
+		_hang_from = bounced
+		_grind_t = 0.0
+		Sfx.play("swing", 0.35, 0.7)
+		return
 	_back = true
 	_back_t = 0.0
 	_flip = -_flip
@@ -332,6 +362,75 @@ func _turn(bounced: Actor) -> void:
 		_hit[bounced] = true
 	pierce = _cuts
 	speed *= 1.2
+
+
+## Buzzsaw: the axe hangs where it turned, spinning hard, and cuts every skeleton beside it
+## a few times before it flies home.
+func _grind(delta: float) -> void:
+	_hang_left -= delta
+	if spin:
+		spin.rotation.y -= delta * 26.0   # (on top of its usual spin: a blur)
+	_grind_t -= delta
+	if _grind_t <= 0.0:
+		_grind_t = GRIND_EVERY
+		var hits := 0
+		for a: Actor in Actor.all.duplicate():
+			if a.team != Actor.Team.UNDEAD or not a.can_be_hit():
+				continue
+			var d := a.global_position - global_position
+			d.y = 0.0
+			if d.length() > GRIND_R + a.radius:
+				continue
+			var crit := randf() < crit_chance
+			a.take_damage(damage * GRIND_SHARE * (crit_mult if crit else 1.0), d.normalized() if d.length_squared() > 0.01 else dir, push * 0.15, crit)
+			if burn_dps > 0.0 and not a.dead:
+				Burning.apply(a, burn_dps, 2.5)
+			if frost and not a.dead and a is Enemy:
+				(a as Enemy).chill(Game.hero.frost_time if Game.hero else 1.5)
+			hits += 1
+		if hits > 0:
+			Fx.sparks(global_position, Color(1.0, 0.85, 0.55))
+			Sfx.play("hit", 0.4, 1.25)
+		else:
+			Fx.sparks(global_position, Color(1.0, 0.75, 0.45) if randf() < 0.5 else _col)
+	if _hang_left <= 0.0:
+		_hang_left = 0.0
+		var from: Actor = _hang_from if is_instance_valid(_hang_from) else null
+		_hang_from = null
+		_turn(from)
+
+
+## Ricochet: the shot turns to the nearest other skeleton it can see (within BOUNCE_RANGE)
+## instead of stopping. False if there is none.
+func _ricochet(from: Actor) -> bool:
+	var near: Array = []
+	for b: Actor in Actor.all:
+		if b == from or b.team != Actor.Team.UNDEAD or not b.can_be_hit() or _hit.has(b):
+			continue
+		var d2 := Vector2(b.global_position.x - global_position.x, b.global_position.z - global_position.z).length_squared()
+		if d2 < BOUNCE_RANGE * BOUNCE_RANGE:
+			near.append([d2, b])
+	if near.is_empty():
+		return false
+	near.sort_custom(func(x, y): return x[0] < y[0])
+	var to_b: Actor = null
+	for i in mini(near.size(), 3):
+		if Room.current == null or Room.current.clear_shot(global_position, near[i][1].global_position):
+			to_b = near[i][1]
+			break
+	if to_b == null:
+		return false
+	bounce -= 1
+	pierce = 0
+	var to := to_b.global_position - global_position
+	to.y = 0.0
+	dir = to.normalized()
+	rotation.y = atan2(-dir.x, -dir.z)
+	life = maxf(life, 1.2)
+	Fx.sparks(global_position, _col.lerp(Color.WHITE, 0.4))
+	Sfx.play("block", 0.18, 1.6)
+	Game._teach("rogue_ricochet", "RICOCHET: your knives and bolts bounce on to the next skeleton!")
+	return true
 
 
 ## Steers a returning axe at the Barbarian's hand; false once it is caught (or he is gone).
@@ -376,6 +475,12 @@ func _explode(at: Vector3, target: int, already: Actor) -> void:
 		Sfx.play("boom", 0.3 + 0.35 * charged)
 		Game.shake(0.06 + 0.1 * charged)
 		Fx.magic(at + Vector3.UP * 0.6, Color(1.0, 0.85, 1.0), int(10 + 16 * charged))
+		var h := Game.hero
+		if owner_team == Actor.Team.HERO and h and h.perks.has("burning_ground"):
+			# Version 239: Burning Ground. A bigger charge leaves a wider pool.
+			FirePatch.spawn_hero(at, 1.0 + 0.8 * charged, 3.0, maxf(h.burn_dps, 6.0 + h.damage * 0.4))
+			Sfx.play("ignite", 0.35)
+			Game._teach("mage_ground", "BURNING GROUND: your charged orbs leave fire behind!")
 	for a: Actor in Actor.all.duplicate():
 		if a == already or a.team != target or not a.can_be_hit():
 			continue
