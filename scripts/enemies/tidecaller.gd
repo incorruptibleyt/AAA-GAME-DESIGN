@@ -126,6 +126,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	var bags := 0
 	while _alive():
 		await roar_done()
@@ -137,6 +138,8 @@ func _brain() -> void:
 			moves.append("call")
 		if _enraged:
 			moves.append("riptide")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # Geyser Chase (version 238)
 		var m := next_move(moves)
 		if _bag.is_empty():
 			bags += 1
@@ -147,6 +150,7 @@ func _brain() -> void:
 			"call":
 				await _call()
 			"riptide": await _riptide()
+			"encore": await _geyser_chase()
 		_busy = false
 		await _wait(0.9 if _enraged else 1.4)
 
@@ -157,6 +161,41 @@ func _riptide() -> void:
 	await _wave()
 	if _alive():
 		await _spray()
+
+
+## Version 238, the returning Tidecaller's own attack: it raises its staff and geysers chase
+## the hero. Every third of a second a circle opens where the hero stands, and bursts a moment
+## later: keep moving and never double back.
+const GEYSER_R := 1.25
+func _geyser_chase() -> void:
+	face((Game.hero.global_position - global_position) if Game.hero else Vector3.FORWARD, 30.0, 0.1)
+	visual.attack(true)
+	Sfx.play("splash", 0.9, 0.7)
+	Fx.magic(center() + Vector3.UP * 1.0, WATER, 24)
+	await _wait(0.3)
+	var n := 12 if _enraged else 9
+	for i in n:
+		var hero := Game.hero
+		if not _alive() or hero == null:
+			return
+		var spot: Vector3 = Room.current.resolve_move(hero.global_position, Vector3.ZERO, 0.6) if Room.current else hero.global_position
+		track(Telegraph.circle(spot, GEYSER_R, 0.8, func(): _geyser(spot), 0.3 if i % 3 == 0 else 0.0))
+		await _wait(0.32)
+	await _wait(1.0)
+
+
+func _geyser(at: Vector3) -> void:
+	Sfx.play("splash", 0.55, randf_range(0.9, 1.15))
+	Fx.magic(at + Vector3.UP * 0.6, WATER, 26)
+	Fx.shockwave(at, WATER, GEYSER_R + 0.3)
+	var hero := Game.hero
+	if hero == null or dead:
+		return
+	var d := hero.global_position - at
+	d.y = 0.0
+	if d.length() < GEYSER_R + hero.radius * 0.5:
+		Game.hit_source = DISPLAY_NAME
+		hero.take_damage(14.0, d, 8.0)
 
 
 ## Fans of water bolts aimed at the hero.

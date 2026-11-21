@@ -105,6 +105,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	var bags := 0
 	while _alive():
 		await roar_done()
@@ -117,6 +118,8 @@ func _brain() -> void:
 			moves.append("kindle")
 		if _enraged:
 			moves.append("firestorm")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # Flame Wheel (version 238)
 		var m := next_move(moves)
 		if _bag.is_empty():
 			bags += 1
@@ -127,6 +130,7 @@ func _brain() -> void:
 			"kindle":
 				await _kindle()
 			"firestorm": await _firestorm()
+			"encore": await _flame_wheel()
 		_busy = false
 		await _wait(1.0 if _enraged else 1.6)
 
@@ -217,6 +221,47 @@ func _rush() -> void:
 	Game.shake(0.3)
 	Fx.dust(global_position, 25)
 	await _wait(0.7)
+
+
+## Version 238, the returning Colossus's own attack: it plants its axes and two arms of fire
+## (three when angry) wheel round it like the hands of a clock, each a run of strips that
+## fill one after another. Stand further out than the arms reach, or dash through an arm
+## (the Grave Dash can't be hurt) into the ground it has already burned.
+const WHEEL_LEN := 6.5
+const WHEEL_W := 1.3
+const WHEEL_STEPS := 14
+func _flame_wheel() -> void:
+	var source := kind_name()
+	var here := global_position
+	visual.attack(true)
+	Sfx.play("roar", 0.6, 0.9)
+	Fx.shockwave(here, FIRE, WHEEL_LEN)
+	await _wait(0.3)
+	var arms := 3 if _enraged else 2
+	var length := WHEEL_LEN + (0.8 if _enraged else 0.0)
+	var start := randf() * TAU
+	if Game.hero:
+		var to := Game.hero.global_position - here
+		start = atan2(-to.x, -to.z) + PI / 2.0   # the first strips land beside the hero, not on them
+	var way := 1.0 if randf() < 0.5 else -1.0
+	var step := TAU / arms / WHEEL_STEPS
+	for k in WHEEL_STEPS:
+		if not _alive():
+			return
+		for a in arms:
+			var d := Vector3.FORWARD.rotated(Vector3.UP, start + way * k * step + a * TAU / arms)
+			var o := here + d * 0.8
+			track(Telegraph.line(o, d, length, WHEEL_W, 0.75, func(): _wheel_burn(o, d, length, source), 0.5 if k == 0 and a == 0 else 0.0))
+		if k % 3 == 0:
+			Sfx.play("ignite", 0.35)
+		await _wait(0.13)
+	await _wait(1.1)
+
+
+func _wheel_burn(o: Vector3, d: Vector3, length: float, source: String) -> void:
+	CinderColossus.strike_strip(o, d, length, WHEEL_W, 14.0, source)
+	for i in 3:
+		Fx.impact(o + d * (1.2 + i * length / 3.0) + Vector3.UP * 0.3, FIRE, 0.8)
 
 
 ## A circle fills around it, it slams the floor, and rings of slow fireballs roll outward.

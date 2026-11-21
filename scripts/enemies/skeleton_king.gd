@@ -8,6 +8,8 @@ const DISPLAY_NAME := "The Skeleton King"
 var _enraged := false
 var _started := false
 var _busy := false
+## How high the body is in the air (the King's Leap); _think puts it there each frame.
+var _hop := 0.0
 
 
 func _setup() -> void:
@@ -34,6 +36,7 @@ func display_name() -> String:
 
 
 func _think(hero: Hero, delta: float) -> void:
+	visual.position.y = _hop
 	if not _started:
 		_started = true
 		Sfx.play("roar")
@@ -61,6 +64,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	while _alive():
 		await roar_done()
 		if not _alive():
@@ -69,12 +73,15 @@ func _brain() -> void:
 		var moves := ["ring", "charge", "meteors", "summon"]
 		if _enraged:
 			moves.append("rush")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # King's Leap (version 238)
 		match next_move(moves):
 			"ring": await _bone_ring()
 			"charge": await _charge()
 			"meteors": await _meteors()
 			"summon": await _summon()
 			"rush": await _royal_rush()
+			"encore": await _kings_leap()
 		_busy = false
 		await _wait(1.0 if _enraged else 1.6)
 
@@ -189,6 +196,70 @@ func _summon() -> void:
 		var spot := Room.current.resolve_move(global_position + off, Vector3.ZERO, 0.4)
 		Game.spawn_enemy("m", spot)
 	await _wait(1.0)
+
+
+## Version 238, the returning King's own attack: a circle marks where he will land, he leaps
+## over everything onto it and slams, and bone spikes burst out of the floor in a cross from
+## where he landed (one arm at the hero). Angry, a second cross follows, turned halfway.
+const LEAP_R := 2.3
+const LEAP_AIR := 0.5
+const SPIKE_LEN := 9.0
+const SPIKE_W := 1.0
+func _kings_leap() -> void:
+	var hero := Game.hero
+	if hero == null:
+		return
+	var spot: Vector3 = Room.current.resolve_move(hero.global_position, Vector3.ZERO, radius) if Room.current else hero.global_position
+	var warn := 0.85 if _enraged else 1.05
+	visual.attack(true)
+	Sfx.play("roar", 0.5, 1.25)
+	track(Telegraph.circle(spot, LEAP_R, warn, Callable()))
+	var from := global_position
+	var t := 0.0
+	while t < warn:
+		if not _alive():
+			_hop = 0.0
+			return
+		var dt := get_process_delta_time()
+		var k := clampf((t - (warn - LEAP_AIR)) / LEAP_AIR, 0.0, 1.0)
+		if k > 0.0:
+			contact_damage = 0.0   # in the air: only the landing hurts
+			global_position = from.lerp(spot, k)
+			_hop = sin(k * PI) * 3.2
+		face(spot - from, 12.0, dt)
+		await get_tree().process_frame
+		t += dt
+	global_position = spot
+	_hop = 0.0
+	contact_damage = 18.0
+	SkeletonMage.explode(spot, LEAP_R, 22.0, DISPLAY_NAME)
+	Sfx.play("slam", 0.9)
+	Game.shake(0.5)
+	Fx.dust(spot, 30)
+	Fx.shockwave(spot, Color(1, 0.85, 0.6), LEAP_R + 1.0)
+	await _wait(0.15)
+	var aim := Vector3.FORWARD
+	if Game.hero:
+		aim = Game.hero.global_position - spot
+		aim.y = 0.0
+		aim = aim.normalized() if aim.length_squared() > 0.01 else Vector3.FORWARD
+	for cross in (2 if _enraged else 1):
+		if not _alive():
+			return
+		for i in 4:
+			var d := aim.rotated(Vector3.UP, i * PI / 2.0 + cross * PI / 4.0)
+			var o := spot + d * 0.6
+			track(Telegraph.line(o, d, SPIKE_LEN, SPIKE_W, 0.65, func(): _spikes(o, d), 0.6 if i == 0 else 0.0))
+		await _wait(0.4)
+	await _wait(0.9)
+
+
+## Bone spikes burst along a strip.
+func _spikes(o: Vector3, d: Vector3) -> void:
+	SkeletonKing.strike_strip(o, d, SPIKE_LEN, SPIKE_W, 16.0, DISPLAY_NAME)
+	for i in 4:
+		Fx.bones(o + d * (1.2 + i * 2.2))
+	Sfx.play("crack", 0.35)
 
 
 func _on_death() -> void:

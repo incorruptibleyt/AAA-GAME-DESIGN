@@ -41,6 +41,9 @@ var _side := 1.0   # which way it swings round to come home
 static var _flip := 1.0   # (axes take turns, so twin axes loop out to both sides)
 ## Version 235: the Mage's charged orb (0 = a plain one, up to 1): its blast booms.
 var charged := 0.0
+## Version 238: an undead shot that turns toward the hero, up to this many radians a second
+## (the returning Lich's Seeking Souls). 0 flies straight.
+var seek := 0.0
 
 ## Undead shots share one look on every floor (see ShotLook).
 const DANGER := ShotLook.DANGER
@@ -131,6 +134,7 @@ func _reset() -> void:
 	life = 4.0
 	boomerang = 0.0
 	charged = 0.0
+	seek = 0.0
 	_out = 0.0
 	_back = false
 	_blunt = false
@@ -222,6 +226,13 @@ func _process(delta: float) -> void:
 		spin.rotation.y -= delta * 22.0
 	if _back and not _home():
 		return
+	if seek > 0.0 and Game.hero and not Game.hero.dead:
+		var to := Game.hero.global_position - global_position
+		to.y = 0.0
+		if to.length_squared() > 0.04:
+			var turn := dir.signed_angle_to(to.normalized(), Vector3.UP)
+			dir = dir.rotated(Vector3.UP, clampf(turn, -seek * delta, seek * delta))
+			rotation.y = atan2(-dir.x, -dir.z)
 	var next := global_position + dir * speed * delta
 	# Hero bolts check the whole stretch they flew this frame. The first frame starts back at
 	# the hero (bolts appear a little in front), so a skeleton pressed right up against the

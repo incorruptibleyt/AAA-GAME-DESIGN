@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21g"
+const BUILD := "2026-11-21h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3023,12 +3023,17 @@ func _boss_intro() -> void:
 		sub = "Queen Hunt  ·  %s" % str(Events.TIERS[event_tier - 1].name)
 	elif event != "":
 		sub = "Ruler of the Blood Moon" if boss_kind() == "Q" else "Guardian of the Blood Moon"
+	# Version 238: a boss met again brings an attack it never used before, and says so.
+	if b.encore_name() != "":
+		sub = "Back with a new attack: %s" % b.encore_name()
 	var title := b.display_name()
 	if _bosses.size() > 1 and not curses.has("twin"):
 		var other: Enemy = _bosses[1] if _bosses[0] == b else _bosses[0]
 		if is_instance_valid(other):
 			title = "%s & %s" % [b.display_name(), other.display_name()]
 			sub = "Together, on floor %d" % floor_num
+			if b.encore_name() != "":
+				sub = "Together  ·  new attack: %s" % b.encore_name()
 			hud.set_boss_name(title)
 	hud.show_boss_card(title, sub)
 	await get_tree().create_timer(1.8, true, false, true).timeout

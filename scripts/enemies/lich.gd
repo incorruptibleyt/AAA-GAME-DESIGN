@@ -71,6 +71,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	while _alive():
 		await roar_done()
 		if not _alive():
@@ -78,13 +79,45 @@ func _brain() -> void:
 		var moves := ["spiral", "teleport", "volleys", "raise"]
 		if _enraged:
 			moves.append("blink")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # Seeking Souls (version 238)
 		match next_move(moves):
 			"spiral": await _spiral()
 			"teleport": await _teleport()
 			"volleys": await _volleys()
 			"raise": await _raise()
 			"blink": await _blink_volley()
+			"encore": await _seeking_souls()
 		await _wait(0.9 if _enraged else 1.4)
+
+
+## Version 238, the returning Lich's own attack: big pale souls drift out of it and then
+## hunt the hero, turning toward them all the time (Projectile.seek) for a few seconds. They
+## are slower than the hero: keep running and turn sharply, or dash through them.
+const SOUL := Color(0.75, 1.0, 0.95)
+const SOUL_SPEED := 4.0
+const SOUL_TURN := 2.0
+func _seeking_souls() -> void:
+	await _volley_glow()
+	var n := 4 if _enraged else 3
+	var aim := Vector3.FORWARD
+	if Game.hero:
+		aim = Game.hero.global_position - global_position
+		aim.y = 0.0
+		aim = aim.normalized() if aim.length_squared() > 0.01 else Vector3.FORWARD
+	for i in n:
+		if not _alive():
+			return
+		visual.attack(true)
+		# A wide fan toward the hero: the outer souls swing in from the sides.
+		var d := aim.rotated(Vector3.UP, (i - (n - 1) * 0.5) * 0.95)
+		var p := Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.2, d, 12.0, SOUL_SPEED, SOUL, 0.36, "Lich")
+		p.seek = SOUL_TURN
+		p.life = 5.0
+		Fx.magic(global_position + Vector3.UP * 1.2 + d * 1.2, SOUL, 14)
+		Sfx.play("cast", 0.5, 0.7)
+		await _wait(0.35)
+	await _wait(1.4)
 
 
 ## Phase 2: vanish, come back, and fire twin fans from both hands at once.

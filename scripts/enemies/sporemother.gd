@@ -154,6 +154,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	var bags := 0
 	while _alive():
 		await roar_done()
@@ -165,6 +166,8 @@ func _brain() -> void:
 			moves.append("brood")
 		if _enraged:
 			moves.append("bloom")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # Deep Breath (version 238)
 		var m := next_move(moves)
 		if _bag.is_empty():
 			bags += 1
@@ -174,8 +177,76 @@ func _brain() -> void:
 			"ring": await _ring()
 			"brood": await _brood()
 			"bloom": await _bloom()
+			"encore": await _deep_breath()
 		_busy = false
 		await _wait(0.9 if _enraged else 1.4)
+
+
+## Version 238, the returning Sporemother's own attack: she breathes in. A big circle round
+## her fills while the air drags the hero toward her (slower than the hero can walk away);
+## when it fills she breathes out a blast of spores over the whole circle and leaves a cloud.
+## Walk out against the pull, or dash.
+const BREATH_R := 3.4
+const BREATH_TIME := 2.3
+const BREATH_PULL := 2.1
+func _deep_breath() -> void:
+	var at := global_position
+	var r := BREATH_R + (0.5 if _enraged else 0.0)
+	visual.attack(true)
+	Sfx.play("spore", 0.9, 0.55)
+	track(Telegraph.circle(at, r, BREATH_TIME, func(): _breathe_out(at, r)))
+	var t := 0.0
+	var puff := 0.0
+	while t < BREATH_TIME:
+		if not _alive():
+			return
+		var dt := get_process_delta_time()
+		var hero := Game.hero
+		if hero and not hero.dead and not hero.is_dashing():
+			var d := at - hero.global_position
+			d.y = 0.0
+			if d.length() > 0.6 and d.length() < r + 6.0:
+				var step := d.normalized() * BREATH_PULL * dt
+				hero.global_position = Room.current.resolve_move(hero.global_position, step, hero.radius) if Room.current else hero.global_position + step
+		puff -= dt
+		if puff <= 0.0:
+			# Motes drawn in from all round toward her mouth.
+			puff = 0.08
+			var from := at + Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU) * (r + randf() * 2.5) + Vector3.UP * 0.6
+			_drift(from, center() + Vector3.UP * 1.0, 0.5)
+		await get_tree().process_frame
+		t += dt
+	await _wait(0.8)
+
+
+## A pink mote that floats from `from` to `to` over `seconds` (the breath drawing in).
+func _drift(from: Vector3, to: Vector3, seconds: float) -> void:
+	if _pod_mat == null:
+		_pod_mat = U.mat(Color(1.0, 0.42, 0.82), 0.4, 0.7)
+	var parent: Node = Room.current if Room.current else Game.world
+	var mote := U.sphere(parent, 0.1, _pod_mat)
+	mote.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mote.global_position = from
+	var tw := mote.create_tween()
+	tw.tween_property(mote, "global_position", to, seconds).set_ease(Tween.EASE_IN).set_trans(Tween.TRANS_QUAD)
+	tw.tween_callback(mote.queue_free)
+
+
+func _breathe_out(at: Vector3, r: float) -> void:
+	Sfx.play("spore", 1.0, 0.8)
+	Sfx.play("boom", 0.6)
+	Game.shake(0.4)
+	Fx.shockwave(at, PINK, r + 0.5)
+	Fx.magic(at + Vector3.UP * 0.6, PINK, 40)
+	SporeCloud.spawn(at, r * 0.6, 3.0, 5.0)
+	var hero := Game.hero
+	if hero == null or dead:
+		return
+	var d := hero.global_position - at
+	d.y = 0.0
+	if d.length() < r + hero.radius * 0.5:
+		Game.hit_source = DISPLAY_NAME
+		hero.take_damage(16.0, d, 14.0)
 
 
 ## Lobs glowing pods high over the room; a circle shows where each will land, at you and

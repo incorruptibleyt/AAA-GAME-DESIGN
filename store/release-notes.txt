@@ -1,9 +1,9 @@
-Version 237: elites have moves of their own
-- Every purple elite now has one move, named over its head.
-- SPLITTER: breaks into 2 skeletons when it dies.
-- BURST: shoots bone darts down warning lines as it dies.
-- FURY: turns red and fast at half health.
-- MENDER: heals the skeletons near it. Kill it first!
-- WARDED: a bubble stops 3 hits, then grows back.
-- Every hero fights their own way (Knight, Barbarian, Mage, Rogue).
+Version 238: bosses that come back have a new attack
+- Meet a boss again and it brings an attack you have never seen:
+- Skeleton King: King's Leap, then bone spikes in a cross.
+- Lich: Seeking Souls that hunt you down.
+- Cinder Colossus: Flame Wheel, arms of fire sweeping round.
+- Sporemother: Deep Breath pulls you in, then blasts spores.
+- Tidecaller: Geyser Chase, keep moving!
+- Elites have moves of their own (Version 237).
 - The Blood Moon is up until Dec 3: hunt the Queen.

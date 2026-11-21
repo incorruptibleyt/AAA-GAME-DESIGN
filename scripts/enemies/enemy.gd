@@ -517,6 +517,60 @@ func _process(delta: float) -> void:
 	_hide_watch(hero, delta)
 
 
+## Version 238 (whole-game review fix 5): ten floors share five bosses, so the King came back
+## on floors 5 and 7, the Lich on 5 and 8, the Colossus on 9, the Sporemother on 10 and the
+## Tidecaller on 11, each the very same fight. A boss met again (past the floor it is first
+## met on in a normal run; never in an event) brings an attack of its own that it never used
+## before (ENCORES): its first move, then one more in its shuffled bag.
+const BOSS_FIRST := {"SkeletonKing": 1, "Lich": 2, "CinderColossus": 3, "Sporemother": 4, "Tidecaller": 6}
+const ENCORES := {"SkeletonKing": "King's Leap", "Lich": "Seeking Souls", "CinderColossus": "Flame Wheel",
+	"Sporemother": "Deep Breath", "Tidecaller": "Geyser Chase"}
+
+
+func returning() -> bool:
+	if not is_boss or Game.event != "" or Game.first_run:
+		return false
+	# Two bosses at once (floor 5, or Twin Wardens): only the first brings its new attack,
+	# or the hardest free fight got both at once (the robot lasted 20 s there, was 34 s).
+	if is_instance_valid(Game.boss) and Game.boss != self:
+		return false
+	var first: int = BOSS_FIRST.get(str(get_script().get_global_name()), 0)
+	return first > 0 and Game.floor_num > first
+
+
+## The new attack's name when this boss is back (for its title card), or "".
+func encore_name() -> String:
+	return str(ENCORES.get(str(get_script().get_global_name()), "")) if returning() else ""
+
+
+## A returning boss opens with its new attack (call at the start of its brain).
+func encore_first() -> void:
+	if returning():
+		_bag = ["encore"]
+
+
+## Is `p` (radius `r`) on a strip from `origin` going `length` along `dir`, `width` wide?
+static func in_strip(p: Vector3, origin: Vector3, dir: Vector3, length: float, width: float, r: float) -> bool:
+	var d := p - origin
+	d.y = 0.0
+	dir.y = 0.0
+	dir = dir.normalized()
+	var along := d.dot(dir)
+	if along < -r or along > length + r:
+		return false
+	return absf(d.dot(dir.cross(Vector3.UP))) <= width * 0.5 + r
+
+
+## A strip warning has filled in: the hero standing on it is hit.
+static func strike_strip(origin: Vector3, dir: Vector3, length: float, width: float, dmg: float, source: String) -> void:
+	var hero := Game.hero
+	if hero == null or hero.dead:
+		return
+	if in_strip(hero.global_position, origin, dir, length, width, hero.radius * 0.6):
+		Game.hit_source = source
+		hero.take_damage(dmg, dir, 7.0)
+
+
 ## Bosses (version 119): the next move comes from a shuffled bag instead of a fixed loop,
 ## so the order changes every fight, and never the same move twice in a row.
 var _bag: Array = []

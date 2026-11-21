@@ -963,6 +963,19 @@ func _drive(delta: float) -> void:
 					_dashes += 1
 					if _dashes == 1:
 						print("[autoplay] first dash")
+				# Version 238: big circles and long strips (the returning bosses' attacks) are
+				# left the short way: out of a circle from its middle, off a strip sideways,
+				# with a dash when it is about to land.
+				var tg := t as Telegraph
+				if not tg._fired and not tg.harmless and tg._covers(hero.global_position, hero.radius + 0.3):
+					var out := d.normalized() if d.length() > 0.1 else Vector3.RIGHT
+					if tg._is_line:
+						var side := (-tg.global_basis.z).cross(Vector3.UP).normalized()
+						var off := d.dot(side)
+						out = side * (signf(off) if absf(off) > 0.05 else 1.0)
+					move += out * 2.5
+					if tg.duration - tg.elapsed < 0.3 and hero.dash_ready():
+						hero.dash(out)
 		# Glowcap Grotto: keep out of spore clouds and away from crawling roots, and dash
 		# free when held.
 		for c in SporeCloud.all:
