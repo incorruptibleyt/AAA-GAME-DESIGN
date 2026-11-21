@@ -1,5 +1,5 @@
-Version 263: the Clockwork Foundry has its own cover
-- On floor 9 the crates are now great anvils on riveted iron blocks, with a blade still glowing on them, the hammer, the tongs and a bucket of coals.
-- The barrels are now steam valves with red handwheels, pressure gauges and copper pipes.
+Version 264: the Starfall Abyss has its own cover
+- On floor 10 the crates are now open moonstone coffins whose lids float above them. Inside, a star-gazer lies in the night sky holding a fallen star.
+- The barrels are now great bronze bells fallen out of the dark, cracked, with starlight shining through.
 - They block movement and shots just like before.
-- Floors 2 to 8 got their own cover in versions 256 to 262. Floors 10 and 1 follow.
+- Floors 2 to 9 got their own cover in versions 256 to 263. Floor 1 is next.

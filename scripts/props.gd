@@ -2262,6 +2262,12 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 			n.rotation.y = PI + randf_range(-0.7, 0.7)   # its face turned towards the camera
 			_mesh(n, _fallen_head())
 		"sand:b": _mesh(n, _scarab_statue())
+		"abyss:c":
+			n.rotation.y = randf_range(-0.35, 0.35)   # the carved side and the tipped lid towards the camera
+			_mesh(n, _star_coffin())
+		"abyss:b":
+			n.rotation.y = (1.0 if randf() < 0.5 else -1.0) * randf_range(0.95, 1.25)   # its outline to the camera, the mouth a little towards it
+			_mesh(n, _fallen_bell())
 		"wreck:c":
 			n.rotation.y = PI / 2 + randf_range(-0.6, 0.6)   # the stern (and the legs) towards the camera
 			_mesh(n, _upturned_boat())
@@ -3161,3 +3167,231 @@ static func _valve_stand() -> ArrayMesh:
 	_baked["valve_stand"] = _bake(parts)
 	return _baked["valve_stand"]
 
+
+
+## A slab in the shape of `poly` (corners on the floor plan, x and z, round either way), from
+## `y0` up to `y1`; given `hole` (as many corners, inside it) it is a wall round that hole.
+## Flat-shaded and indexed, so _bake can merge it with the primitive shapes.
+static func _poly_slab(poly: Array, y0: float, y1: float, hole := []) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := poly.size()
+	var c := Vector2.ZERO
+	for p: Vector2 in poly:
+		c += p / float(n)
+	for i in n:
+		var a: Vector2 = poly[i]
+		var b: Vector2 = poly[(i + 1) % n]
+		var out := Vector3(b.y - a.y, 0, a.x - b.x).normalized()
+		if out.dot(Vector3((a.x + b.x) * 0.5 - c.x, 0, (a.y + b.y) * 0.5 - c.y)) < 0.0:
+			out = -out
+		_quad(st, Vector3(a.x, y0, a.y), Vector3(b.x, y0, b.y), Vector3(b.x, y1, b.y), Vector3(a.x, y1, a.y), out)
+		if hole.is_empty():
+			_tri(st, Vector3(c.x, y1, c.y), Vector3(a.x, y1, a.y), Vector3(b.x, y1, b.y), Vector3.UP)
+			_tri(st, Vector3(c.x, y0, c.y), Vector3(a.x, y0, a.y), Vector3(b.x, y0, b.y), Vector3.DOWN)
+		else:
+			var ha: Vector2 = hole[i]
+			var hb: Vector2 = hole[(i + 1) % n]
+			var inward := Vector3(hb.y - ha.y, 0, ha.x - hb.x).normalized()
+			if inward.dot(Vector3((ha.x + hb.x) * 0.5 - c.x, 0, (ha.y + hb.y) * 0.5 - c.y)) > 0.0:
+				inward = -inward
+			_quad(st, Vector3(ha.x, y0, ha.y), Vector3(hb.x, y0, hb.y), Vector3(hb.x, y1, hb.y), Vector3(ha.x, y1, ha.y), inward)
+			_quad(st, Vector3(a.x, y1, a.y), Vector3(b.x, y1, b.y), Vector3(hb.x, y1, hb.y), Vector3(ha.x, y1, ha.y), Vector3.UP)
+	st.index()
+	return st.commit()
+
+
+## One flat triangle facing `n` (wound whichever way makes it face there).
+static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, n: Vector3) -> void:
+	var p := [a, b, c] if (b - a).cross(c - a).dot(n) <= 0.0 else [a, c, b]
+	for q: Vector3 in p:
+		st.set_normal(n)
+		st.add_vertex(q)
+
+
+static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3) -> void:
+	_tri(st, a, b, c, n)
+	_tri(st, a, c, d, n)
+
+
+## The Starfall Abyss's crates: a moonstone coffin, broad at the shoulders and narrow at the
+## feet, whose lid has floated off and hangs over it, bobbing, tipped towards you so you see
+## the star carved on it; a silver constellation on its side, and inside, the night sky,
+## where a star-gazer lies holding a fallen star to their chest while little stars rise out
+## of the open coffin. Head to -X, its carved side to +Z.
+static func _star_coffin() -> ArrayMesh:
+	if _baked.has("star_coffin"):
+		return _baked["star_coffin"]
+	var parts := []
+	var stone := _abyss_mat("stone")
+	var dark := _abyss_mat("stone_dark")
+	var silver := _abyss_mat("silver")
+	var star := _abyss_mat("star")
+	var gold := _abyss_mat("gold")
+	var bone := U.mat(Color(0.86, 0.88, 0.94), 0.7, 0.2)
+	var socket := U.mat(Color(0.03, 0.04, 0.09), 1.0)
+	var outline := [Vector2(-0.66, -0.17), Vector2(-0.4, -0.31), Vector2(0.64, -0.18), Vector2(0.64, 0.18), Vector2(-0.4, 0.31), Vector2(-0.66, 0.17)]
+	var inside := [Vector2(-0.58, -0.12), Vector2(-0.39, -0.23), Vector2(0.56, -0.12), Vector2(0.56, 0.12), Vector2(-0.39, 0.23), Vector2(-0.58, 0.12)]
+	var wide := []
+	for q: Vector2 in outline:
+		wide.append(q * 1.08)
+	# The plinth, the walls and a silver rim.
+	parts.append([_poly_slab(wide, 0.0, 0.1), Transform3D.IDENTITY, dark])
+	parts.append([_poly_slab(outline, 0.1, 0.5, inside), Transform3D.IDENTITY, stone])
+	var rim := []
+	for q: Vector2 in outline:
+		rim.append(q * 1.025)
+	parts.append([_poly_slab(rim, 0.5, 0.53, inside), Transform3D.IDENTITY, silver])
+	# Inside: the night sky, scattered with stars.
+	parts.append([_poly_slab(inside, 0.26, 0.29), Transform3D.IDENTITY, U.mat(Color(0.02, 0.025, 0.07), 1.0)])
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1077
+	for k in 16:
+		var p := Vector3(rng.randf_range(-0.5, 0.5), 0.3, rng.randf_range(-0.1, 0.1))
+		parts.append([_sphere(), _xf(p, Vector3.ONE * rng.randf_range(0.014, 0.028)), gold if k % 5 == 0 else star])
+	# The star-gazer, face turned up to you, arms folded over a fallen star.
+	_skull(parts, Vector3(-0.47, 0.38, 0.0), 0.11, Vector3(0.25, 1, 0.55), bone, socket)
+	_rod_part(parts, Vector3(-0.37, 0.33, 0), Vector3(0.08, 0.32, 0), 0.02, bone)
+	for k in 4:
+		var torus := TorusMesh.new()
+		torus.inner_radius = 0.1 - k * 0.008
+		torus.outer_radius = 0.118 - k * 0.008
+		torus.rings = 10
+		torus.ring_segments = 4
+		parts.append([torus, Transform3D(Basis(Vector3.BACK, PI / 2), Vector3(-0.32 + k * 0.06, 0.29, 0)), bone])
+	parts.append([_sphere(), _xf(Vector3(0.1, 0.32, 0), Vector3(0.08, 0.04, 0.09)), bone])
+	for s in [-1.0, 1.0]:
+		_rod_part(parts, Vector3(0.12, 0.31, s * 0.05), Vector3(0.5, 0.31, s * 0.06), 0.019, bone)
+		_rod_part(parts, Vector3(-0.35, 0.34, s * 0.12), Vector3(-0.19, 0.37, s * 0.15), 0.016, bone)
+		_rod_part(parts, Vector3(-0.19, 0.37, s * 0.15), Vector3(-0.24, 0.43, s * 0.04), 0.014, bone)
+	parts.append([_sphere(), _xf(Vector3(-0.23, 0.45, 0), Vector3.ONE * 0.05), gold])
+	for k in 6:
+		var dir := Basis(Vector3.UP, TAU * k / 6.0 + 0.3) * Vector3(0, 0.35, 0.94)
+		parts.append([_cone(0.0, 0.026, 0.1, 4), _xf(Vector3(-0.23, 0.45, 0) + dir * 0.06, Vector3.ONE, Basis(Quaternion(Vector3.UP, dir.normalized()))), gold])
+	# A constellation carved on the side that faces the room: stars joined by silver lines.
+	var ea := Vector3(-0.4, 0, 0.31)
+	var eb := Vector3(0.64, 0, 0.18)
+	var face_out := Vector3(0.13, 0, 1.04).normalized() * 0.01
+	var pts := [Vector2(0.05, 0.4), Vector2(0.18, 0.33), Vector2(0.32, 0.37), Vector2(0.45, 0.28), Vector2(0.49, 0.17), Vector2(0.7, 0.19), Vector2(0.74, 0.33)]
+	var prev := Vector3.ZERO
+	for i in pts.size():
+		var p := ea.lerp(eb, pts[i].x) + Vector3(0, pts[i].y, 0) + face_out
+		parts.append([_sphere(), _xf(p, Vector3.ONE * 0.026), star])
+		if i > 0:
+			_rod_part(parts, prev, p, 0.007, silver)
+		prev = p
+	# The lid, coffin-shaped too, floating above and behind, tipped to you, a silver star on it.
+	var lid := Basis(Vector3.RIGHT, 0.45) * Basis(Vector3.BACK, 0.07)
+	var lid_at := Vector3(0.02, 1.08, -0.36)
+	var lid_xf := Transform3D(lid, lid_at)
+	var lid_shape := []
+	var lid_panel := []
+	for q: Vector2 in outline:
+		lid_shape.append(Vector2(q.x * 1.04, q.y * 1.3))
+		lid_panel.append(Vector2(q.x * 0.86, q.y * 1.02))
+	parts.append([_poly_slab(lid_shape, -0.045, 0.045), lid_xf, _drift_mat("stone", 0.08, 1.1)])
+	parts.append([_poly_slab(lid_panel, 0.045, 0.06), lid_xf, _drift_mat("stone_dark", 0.08, 1.1)])
+	var lsilver := _drift_mat("silver", 0.08, 1.1)
+	var lstar := _drift_mat("star", 0.08, 1.1)
+	var mid := Vector3(-0.08, 0.075, 0)
+	for k in 8:
+		var a := TAU * k / 8.0
+		var ln := 0.26 if k % 2 == 0 else 0.14
+		var dir := Vector3(cos(a), 0, sin(a))
+		parts.append([_cone(0.0, 0.055 if k % 2 == 0 else 0.038, ln, 4), lid_xf * _xf(mid + dir * ln * 0.5, Vector3(0.35, 1, 1), Basis(Vector3.UP, -a) * Basis(Vector3.BACK, -PI / 2)), lsilver])
+	parts.append([_sphere(), lid_xf * _xf(mid, Vector3(0.06, 0.03, 0.06)), lstar])
+	for q: Vector2 in lid_panel:
+		parts.append([_sphere(), lid_xf * _xf(Vector3(q.x * 0.92, 0.07, q.y * 0.85), Vector3.ONE * 0.024), lstar])
+	# Little stars rising out of the coffin, each on its own beat.
+	parts.append([_sphere(), _xf(Vector3(0.24, 0.64, 0.04), Vector3.ONE * 0.03), _drift_mat("star", 0.12, 1.7)])
+	parts.append([_sphere(), _xf(Vector3(-0.22, 0.74, -0.05), Vector3.ONE * 0.024), _drift_mat("star", 0.14, 1.3)])
+	parts.append([_sphere(), _xf(Vector3(0.05, 0.84, 0.08), Vector3.ONE * 0.02), _drift_mat("gold", 0.1, 2.1)])
+	for i in parts.size():   # a size up and a little taller, to stand as cover beside the hero
+		parts[i][1] = parts[i][1].scaled(Vector3(1.1, 1.2, 1.1))
+	_baked["star_coffin"] = _bake(parts)
+	return _baked["star_coffin"]
+
+
+## The Starfall Abyss's barrels: a great bronze bell fallen out of the dark, lying on its side
+## (mouth to +Z, which add_cover turns to one side so you see its outline), cracked, starlight shining out of the crack, its clapper
+## lolling out of its mouth and its broken chain heaped on the floor behind it.
+static func _fallen_bell() -> ArrayMesh:
+	if _baked.has("fallen_bell"):
+		return _baked["fallen_bell"]
+	var parts := []
+	var bronze := U.mat(Color(0.44, 0.35, 0.2), 0.3)
+	var green := U.mat(Color(0.34, 0.54, 0.48), 0.65)
+	var iron := _abyss_mat("iron")
+	var star := _abyss_mat("star")
+	# The bell, built along +Z (crown at -Z, mouth at +Z): a round crown, a straight waist and
+	# the lip flaring out like a trumpet, made of rings (z, radius) joined by cones.
+	var ax := Basis(Vector3.RIGHT, PI / 2)
+	var prof := [Vector2(-0.36, 0.2), Vector2(-0.2, 0.212), Vector2(0.0, 0.222), Vector2(0.12, 0.25), Vector2(0.22, 0.3), Vector2(0.29, 0.36), Vector2(0.33, 0.41)]
+	parts.append([_sphere(), _xf(Vector3(0, 0, -0.36), Vector3(0.2, 0.2, 0.13)), green])
+	for i in range(1, prof.size()):
+		var lo: Vector2 = prof[i - 1]
+		var hi: Vector2 = prof[i]
+		parts.append([_cone(hi.y, lo.y, hi.x - lo.x, 18), _xf(Vector3(0, 0, (lo.x + hi.x) * 0.5), Vector3.ONE, ax), bronze])
+	var lip := TorusMesh.new()
+	lip.inner_radius = 0.37
+	lip.outer_radius = 0.44
+	lip.rings = 20
+	lip.ring_segments = 6
+	parts.append([lip, _xf(Vector3(0, 0, 0.33), Vector3.ONE, ax), bronze])
+	for z in [-0.3, -0.08, 0.1]:
+		var r: float = 0.2 + (z + 0.36) / 0.48 * 0.035
+		var band := TorusMesh.new()
+		band.inner_radius = r - 0.01
+		band.outer_radius = r + 0.026
+		band.rings = 18
+		band.ring_segments = 4
+		parts.append([band, _xf(Vector3(0, 0, z), Vector3.ONE, ax), green])
+	# The mouth: dark inside, a few stars, and the clapper fallen out over the lower lip.
+	parts.append([_cone(0.39, 0.39, 0.01, 18), _xf(Vector3(0, 0, 0.335), Vector3.ONE, ax), U.mat(Color(0.015, 0.015, 0.04), 1.0)])
+	for p in [Vector3(0.12, 0.14, 0.342), Vector3(-0.17, 0.05, 0.342), Vector3(0.05, -0.04, 0.342), Vector3(-0.06, 0.2, 0.342)]:
+		parts.append([_sphere(), _xf(p, Vector3(0.018, 0.018, 0.006)), star])
+	_rod_part(parts, Vector3(0, 0.0, 0.2), Vector3(0, -0.22, 0.42), 0.022, iron)
+	parts.append([_sphere(), _xf(Vector3(0, -0.24, 0.46), Vector3.ONE * 0.075), iron])
+	# The crack along the top, starlight in it.
+	var crack := [Vector3(0.02, 0.0, -0.36), Vector3(-0.04, 0.0, -0.22), Vector3(0.03, 0.0, -0.08), Vector3(-0.03, 0.0, 0.06), Vector3(0.04, 0.0, 0.17), Vector3(0.0, 0.0, 0.26)]
+	for i in crack.size():
+		var c: Vector3 = crack[i]
+		var r := 0.2
+		for k in range(1, prof.size()):
+			var lo: Vector2 = prof[k - 1]
+			var hi: Vector2 = prof[k]
+			if c.z >= lo.x and c.z <= hi.x:
+				r = lerpf(lo.y, hi.y, (c.z - lo.x) / (hi.x - lo.x))
+		c.y = r + 0.006
+		crack[i] = c
+	for i in range(1, crack.size()):
+		_rod_part(parts, crack[i - 1], crack[i], 0.018, star)
+	# The canons (the loop it hung by) out of the crown.
+	var loop := TorusMesh.new()
+	loop.inner_radius = 0.06
+	loop.outer_radius = 0.095
+	loop.rings = 12
+	loop.ring_segments = 5
+	parts.append([loop, _xf(Vector3(0, 0, -0.55), Vector3(1.3, 1.3, 1.3), Basis(Vector3.BACK, PI / 2)), iron])
+	# Lay it down on its lip and crown (the mouth tipped up), a size up.
+	var lay := Transform3D(Basis(Vector3.RIGHT, -0.3) * Basis.from_scale(Vector3.ONE * 1.12), Vector3(0, 0.36, 0.0))
+	for i in parts.size():
+		parts[i][1] = lay * parts[i][1]
+	# Sparks of starlight rising out of the crack.
+	parts.append([_sphere(), _xf(Vector3(0.05, 0.78, -0.05), Vector3.ONE * 0.022), _drift_mat("star", 0.1, 1.5)])
+	parts.append([_sphere(), _xf(Vector3(-0.06, 0.92, 0.12), Vector3.ONE * 0.016), _drift_mat("star", 0.12, 2.0)])
+	# The broken chain heaped behind it, links lying flat and on edge by turns.
+	var chain := [Vector3(0.0, 0.04, -0.66), Vector3(0.12, 0.04, -0.72), Vector3(0.25, 0.04, -0.7), Vector3(0.35, 0.04, -0.6), Vector3(0.4, 0.04, -0.47), Vector3(0.48, 0.04, -0.36)]
+	for i in chain.size():
+		var d: Vector3 = (chain[mini(i + 1, chain.size() - 1)] - chain[maxi(i - 1, 0)]).normalized()
+		var link := TorusMesh.new()
+		link.inner_radius = 0.035
+		link.outer_radius = 0.058
+		link.rings = 10
+		link.ring_segments = 4
+		var b := Basis(Vector3.UP, atan2(d.x, d.z)) * Basis.from_scale(Vector3(1, 1, 1.5))
+		if i % 2 == 1:
+			b = Basis(Vector3.UP, atan2(d.x, d.z)) * Basis(Vector3.BACK, PI / 2) * Basis.from_scale(Vector3(1, 1, 1.5))
+		parts.append([link, Transform3D(b, chain[i] + Vector3.UP * (0.02 if i % 2 == 1 else 0.0)), iron])
+	_baked["fallen_bell"] = _bake(parts)
+	return _baked["fallen_bell"]

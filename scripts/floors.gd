@@ -209,7 +209,11 @@ const THEMES := [
 		# Star dust drifting down out of the dark, a little of it gold.
 		"motes": [Color(0.85, 0.9, 1.0, 0.6), Color(1.0, 0.85, 0.55, 0.35)], "motes_fall": true, "motes_size": 0.35,
 		"pebble": Color(0.46, 0.47, 0.55), "guests": "pr", "boss": "S",
-		"banner": Color(0.7, 0.75, 1.0), "floor_style": 11, "props": "abyss", "pillar": "drift", "light": [1.3, 1.6, 0.0, 0.0]},
+		"banner": Color(0.7, 0.75, 1.0),
+		# Version 264: its own cover (props.gd add_cover): open moonstone coffins with their
+		# lids floating over them for crates, great bells fallen out of the dark for barrels.
+		"cover": "abyss",
+		"floor_style": 11, "props": "abyss", "pillar": "drift", "light": [1.3, 1.6, 0.0, 0.0]},
 ]
 
 ## Where the Drowned Vault and the Glowcap Grotto sit in THEMES.
