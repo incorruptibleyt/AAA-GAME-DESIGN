@@ -2260,6 +2260,12 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 			n.rotation.y = PI + randf_range(-0.7, 0.7)   # its face turned towards the camera
 			_mesh(n, _fallen_head())
 		"sand:b": _mesh(n, _scarab_statue())
+		"wreck:c":
+			n.rotation.y = PI / 2 + randf_range(-0.6, 0.6)   # the stern (and the legs) towards the camera
+			_mesh(n, _upturned_boat())
+		"wreck:b":
+			n.rotation.y = randf_range(-0.8, 0.8)   # its front porthole turned towards the camera
+			_mesh(n, _diving_helmet())
 		_:
 			return false
 	return true
@@ -2711,4 +2717,159 @@ static func _scarab_statue() -> ArrayMesh:
 	parts.append([_cone(0.12, 0.12, 0.06, 16), _xf(Vector3(0, 0.78, -0.3), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2 - 0.35)), _tomb_mat("clay")])
 	_baked["scarab_statue"] = _bake(parts)
 	return _baked["scarab_statue"]
+
+
+## Sea-soaked wood, barnacles, weed and shell for the Drowned Vault's cover.
+static func _wreck_mat(k: String) -> StandardMaterial3D:
+	var key := "wreck_" + k
+	if not _baked.has(key):
+		match k:
+			"wood": _baked[key] = U.mat(Color(0.42, 0.35, 0.25), 0.75)
+			"wood_dark": _baked[key] = U.mat(Color(0.17, 0.16, 0.12), 0.75)
+			"barnacle": _baked[key] = U.mat(Color(0.72, 0.74, 0.66), 0.8)
+			"weed": _baked[key] = U.mat(Color(0.13, 0.32, 0.17), 0.6)
+			"paint": _baked[key] = U.mat(Color(0.5, 0.17, 0.12), 0.7)
+			"brass": _baked[key] = U.mat(Color(0.66, 0.48, 0.24), 0.35)
+			"patina": _baked[key] = U.mat(Color(0.24, 0.5, 0.42), 0.6)
+			"glass": _baked[key] = U.mat(Color(0.12, 0.3, 0.3), 0.08, 0.35)
+			"hose": _baked[key] = U.mat(Color(0.2, 0.18, 0.16), 0.7)
+			"bone": _baked[key] = U.mat(Color(0.74, 0.76, 0.68), 0.8)
+			"dark": _baked[key] = U.mat(Color(0.03, 0.05, 0.05), 1.0)
+	return _baked[key]
+
+
+## A point on the outside of an upturned rowboat's hull. `u` runs stern (-1) to bow (1) along
+## X, `v` from one gunwale on the floor (-PI/2) over the keel (0) to the other (PI/2). The bow
+## comes to a point; the stern stays broad for its flat transom.
+static func _hull_at(u: float, v: float, out := 0.0) -> Vector3:
+	var w := 0.4 * (pow(maxf(0.0, 1.0 - u * u), 0.55) if u > 0.0 else 1.0 - 0.35 * u * u)
+	var h := 0.5 - 0.06 * u * u
+	return Vector3(u * 0.68, (h + out) * cos(v) + 0.02, (w + out) * sin(v))
+
+
+## The Drowned Vault's crates: a rowboat lying keel up where the flood left it, its planks
+## crusted with barnacles and hung with weed, a faded red stripe below the gunwale, an oar
+## beside it and a drowned sailor's bony legs sticking out from beneath. Length along X.
+static func _upturned_boat() -> ArrayMesh:
+	if _baked.has("upturned_boat"):
+		return _baked["upturned_boat"]
+	var parts := []
+	var wood := _wreck_mat("wood")
+	var dark := _wreck_mat("wood_dark")
+	# The hull, built as its own surface (flat-shaded planks show as facets).
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var nu := 12
+	var nv := 8
+	for i in nu:
+		for j in nv:
+			var u0 := -1.0 + 2.0 * i / nu
+			var u1 := -1.0 + 2.0 * (i + 1) / nu
+			var v0 := -PI / 2 + PI * j / nv
+			var v1 := -PI / 2 + PI * (j + 1) / nv
+			var a := _hull_at(u0, v0)
+			var b := _hull_at(u1, v0)
+			var c := _hull_at(u1, v1)
+			var d := _hull_at(u0, v1)
+			for q in [a, b, c, a, c, d]:   # (wound so the outside faces out)
+				st.add_vertex(q)
+	# The transom: the flat stern board, closing the hull at u = -1.
+	for j in nv:
+		var v0 := -PI / 2 + PI * j / nv
+		var v1 := -PI / 2 + PI * (j + 1) / nv
+		for q in [Vector3(-0.68, 0.02, 0.0), _hull_at(-1.0, v1), _hull_at(-1.0, v0)]:
+			st.add_vertex(q)
+	st.generate_normals()
+	st.index()   # (_bake merges it with indexed shapes: unindexed triangles would be dropped)
+	parts.append([st.commit(), Transform3D.IDENTITY, wood])
+	# Plank seams along the hull, the keel, and a faded red stripe below the gunwales.
+	for v in [-1.15, -0.7, -0.3, 0.3, 0.7, 1.15]:
+		for i in 8:
+			_rod_part(parts, _hull_at(-1.0 + i / 4.0, v, 0.005), _hull_at(-1.0 + (i + 1) / 4.0, v, 0.005), 0.012, dark)
+	for i in 8:
+		_rod_part(parts, _hull_at(-1.0 + i / 4.0, 0.0, 0.02), _hull_at(-1.0 + (i + 1) / 4.0, 0.0, 0.02), 0.035, dark)
+	for v in [-1.42, 1.42]:
+		for i in 8:
+			_rod_part(parts, _hull_at(-1.0 + i / 4.0, v, 0.005), _hull_at(-1.0 + (i + 1) / 4.0, v, 0.005), 0.03, _wreck_mat("paint"))
+	# Barnacles crusted on, weed hanging over the keel.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 71
+	for i in 18:
+		var u := rng.randf_range(-0.9, 0.7)
+		var v := rng.randf_range(-1.3, 1.3)
+		var p := _hull_at(u, v)
+		var up := (_hull_at(u, v, 0.1) - p).normalized()
+		parts.append([_cone(0.014, 0.04, 0.04, 5), _xf(p + up * 0.01, Vector3.ONE, Basis(Quaternion(Vector3.UP, up))), _wreck_mat("barnacle")])
+	for k in 3:
+		var u := -0.55 + k * 0.5
+		var side := 1.0 if k % 2 == 0 else -1.0
+		var prev := _hull_at(u, 0.0, 0.03)
+		for m in 4:
+			var at := _hull_at(u + 0.06 * sin(m * 1.7), side * (0.35 + m * 0.38), 0.03)
+			_rod_part(parts, prev, at, 0.03 - m * 0.004, _wreck_mat("weed"))
+			prev = at
+	# An oar lying beside it.
+	_rod_part(parts, Vector3(-0.3, 0.035, 0.5), Vector3(0.42, 0.035, 0.66), 0.025, wood)
+	parts.append([_cube(), _xf(Vector3(0.54, 0.03, 0.69), Vector3(0.24, 0.02, 0.11), Basis(Vector3.UP, -0.2)), wood])
+	# The drowned sailor's legs sticking out from under the stern.
+	var bone := _wreck_mat("bone")
+	for side in [-1.0, 1.0]:
+		var hip := Vector3(-0.56, 0.06, side * 0.1)
+		var knee := Vector3(-0.82, 0.16, side * 0.15)
+		var foot := Vector3(-1.02, 0.04, side * 0.2)
+		_rod_part(parts, hip, knee, 0.028, bone)
+		_rod_part(parts, knee, foot, 0.024, bone)
+		parts.append([_cube(), _xf(foot + Vector3(-0.04, 0.0, 0), Vector3(0.11, 0.035, 0.06)), bone])
+	_baked["upturned_boat"] = _bake(parts)
+	return _baked["upturned_boat"]
+
+
+## The Drowned Vault's barrels: an old brass diving helmet sunk on its collar, green with
+## age, portholes all round and a drowned diver's skull looking out of the front one, its
+## air hose trailing over the floor. Its face looks along +Z.
+static func _diving_helmet() -> ArrayMesh:
+	if _baked.has("diving_helmet"):
+		return _baked["diving_helmet"]
+	var parts := []
+	var brass := _wreck_mat("brass")
+	var green := _wreck_mat("patina")
+	var glass := _wreck_mat("glass")
+	# The collar plate and the dome.
+	parts.append([_cone(0.36, 0.4, 0.12, 14), _xf(Vector3(0, 0.06, 0), Vector3.ONE), green])
+	for k in 8:
+		var a := TAU * k / 8.0
+		parts.append([_sphere(), _xf(Vector3(cos(a) * 0.36, 0.12, sin(a) * 0.36), Vector3.ONE * 0.03), brass])
+	parts.append([_cone(0.3, 0.33, 0.14, 14), _xf(Vector3(0, 0.19, 0), Vector3.ONE), brass])
+	parts.append([_sphere(), _xf(Vector3(0, 0.52, 0), Vector3(0.34, 0.36, 0.34)), brass])
+	# Green creeping over it in patches.
+	parts.append([_sphere(), _xf(Vector3(-0.12, 0.75, -0.08), Vector3(0.2, 0.1, 0.18)), green])
+	parts.append([_sphere(), _xf(Vector3(0.22, 0.38, -0.14), Vector3(0.13, 0.12, 0.12)), green])
+	# Portholes: the big one in front with the skull behind it, small ones either side and on top.
+	# (The front port has no glass: the skull's face fills it, behind three thin bars.)
+	var front := Vector3(0, 0.5, 0.32)
+	parts.append([_cone(0.13, 0.13, 0.06, 14), _xf(front, Vector3.ONE, Basis(Vector3.RIGHT, PI / 2)), _wreck_mat("dark")])
+	_skull(parts, Vector3(0, 0.49, 0.25), 0.15, Vector3(0, 0.1, 1), _wreck_mat("bone"), _wreck_mat("dark"))
+	var rim := TorusMesh.new()
+	rim.inner_radius = 0.13
+	rim.outer_radius = 0.17
+	rim.rings = 14
+	rim.ring_segments = 4
+	parts.append([rim, _xf(front + Vector3(0, 0, 0.04), Vector3(1, 1.4, 1), Basis(Vector3.RIGHT, PI / 2)), green])
+	for k in 3:
+		parts.append([_cube(), _xf(front + Vector3((k - 1) * 0.075, 0, 0.1), Vector3(0.012, 0.26, 0.012)), brass])
+	for side in [-1.0, 1.0]:
+		var at := Vector3(side * 0.33, 0.52, 0.04)
+		var b := Basis(Vector3.FORWARD, side * PI / 2)
+		parts.append([_cone(0.1, 0.1, 0.05, 12), _xf(at, Vector3.ONE, b), green])
+		parts.append([_cone(0.075, 0.075, 0.06, 12), _xf(at + Vector3(side * 0.005, 0, 0), Vector3.ONE, b), glass])
+	parts.append([_cone(0.08, 0.09, 0.06, 12), _xf(Vector3(0, 0.88, 0), Vector3.ONE), green])
+	parts.append([_cone(0.06, 0.06, 0.065, 12), _xf(Vector3(0, 0.89, 0), Vector3.ONE), glass])
+	# The air hose: out of the back and in loops over the floor.
+	var prev := Vector3(0, 0.5, -0.33)
+	for at in [Vector3(0.02, 0.4, -0.5), Vector3(0.1, 0.12, -0.62), Vector3(0.3, 0.04, -0.66), Vector3(0.5, 0.04, -0.5), Vector3(0.62, 0.04, -0.24)]:
+		_rod_part(parts, prev, at, 0.04, _wreck_mat("hose"))
+		parts.append([_sphere(), _xf(at, Vector3.ONE * 0.04), _wreck_mat("hose")])
+		prev = at
+	_baked["diving_helmet"] = _bake(parts)
+	return _baked["diving_helmet"]
 

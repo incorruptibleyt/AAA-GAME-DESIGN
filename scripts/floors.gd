@@ -59,7 +59,11 @@ const THEMES := [
 		"moon": Color(0.55, 0.85, 0.82), "torch": Color(0.6, 1.0, 0.85), "torch_energy": 1.5,
 		# Bubbles drifting up, pale so they never look like shots.
 		"motes": [Color(0.75, 1.0, 0.95, 0.45), Color(0.45, 0.8, 0.85, 0.2)], "motes_fall": false, "motes_size": 0.6,
-		"banner": Color(0.5, 0.95, 0.88), "props": "water", "light": [1.3, 1.7, 0.35, 0.2]},
+		"banner": Color(0.5, 0.95, 0.88),
+		# Version 260: its own cover (props.gd add_cover): rowboats lying keel up with a
+		# drowned sailor under them for crates, sunken diving helmets for barrels.
+		"cover": "wreck",
+		"props": "water", "light": [1.3, 1.7, 0.35, 0.2]},
 	# Version 128: a cave grown over with glowing mushrooms. Mossy green stone under cool
 	# green light, with pink and lime fungus glowing in the moss ("spores", room.gd), so it
 	# looks like none of the other four (and pink isn't used by hearts, coins or warnings).

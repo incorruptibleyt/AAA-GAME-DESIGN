@@ -1,5 +1,5 @@
-Version 259: the Sandfall Tomb has its own cover
-- On floor 5 the crates are now the heads of fallen giant statues, sunk to the chin in sand, in striped headdresses of blue and gold with painted eyes.
-- The barrels are now glazed scarab statues on carved stone drums, holding up a golden sun.
+Version 260: the Drowned Vault has its own cover
+- On floor 6 the crates are now rowboats lying keel up, crusted with barnacles, with a drowned sailor's bony legs sticking out from under them.
+- The barrels are now old brass diving helmets, green with age, with a skull looking out of the porthole.
 - They block movement and shots just like before.
-- Floors 2, 3 and 4 got their own cover in versions 256 to 258. The other floors follow, one at a time.
+- Floors 2 to 5 got their own cover in versions 256 to 259. The other floors follow, one at a time.
