@@ -2846,7 +2846,7 @@ func _build_pass() -> void:
 	grid.add_theme_constant_override("v_separation", 10)
 	col.add_child(_centered(grid))
 	# The Crypt King set first: the one thing you can see on your hero, everywhere.
-	for tile in [["looks", "Crypt King set"], ["floors", "The Drowned Vault"], ["daily", "Daily practice"], ["curses", "All %d Curses" % Curses.LIST.size()]]:
+	for tile in [["looks", "Crypt King set"], ["floors", "5 new places"], ["daily", "Daily practice"], ["curses", "All %d Curses" % Curses.LIST.size()]]:
 		grid.add_child(_pass_tile(tile[0], tile[1]))
 	_pass_more = label("", 16, Color(0.88, 0.85, 0.78))
 	col.add_child(_pass_more)
@@ -2979,7 +2979,9 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_tiles[0].text = "The grandest looks, for\nevery hero: try them on!"
 	# v220 (v219 review): it says what this version's Pass holds, and the event perks while
 	# an event runs.
-	_pass_tiles[1].text = "The Drowned Vault, 3 remixed\ncrypts, then endless loops"
+	# v267 (hard review fix 1): the Pass holds five places of its own since v255, none of them
+	# remixed: say so, and the picture (art/ui/pass_floors.png) shows all five.
+	_pass_tiles[1].text = "Vault, Mine, Library, Foundry\nand Abyss, then endless loops"
 	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
 	if not Events.current().is_empty():
 		_pass_tiles[0].text = "Grand looks for every hero,\n%s, +50%% %s" % [Events.word("pass_set"), Events.word("unit")]

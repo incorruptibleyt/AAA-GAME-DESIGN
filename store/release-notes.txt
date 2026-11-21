@@ -1,3 +1,2 @@
-Version 266: lighter cover on floor 1
-- The ossuary walls and bone totems on floor 1 now take a quarter of the drawing work they did in version 265, with the same look, so older phones keep up.
-- Small skull eye sockets everywhere use simpler shapes too.
+Version 267: the Crypt Pass says what it holds
+- The Crypt Pass screen now shows and names its five places, the Drowned Vault, Amethyst Mine, Whispering Library, Clockwork Foundry and Starfall Abyss, instead of the old "3 remixed crypts".

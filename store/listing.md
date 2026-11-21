@@ -15,7 +15,7 @@ Dash through danger. Chain your kills. Break the crypt.
 Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb to fire, and fight down through a crypt full of skeletons one room at a time. Every run is different, and every floor is harder than the last.
 
 ★ WHY YOU'LL KEEP PLAYING
-• Short floors and a quick Queen Hunt that fit any break
+• Short floors that fit any break
 • A new build every run from dozens of blessings
 • Perfect dodges that slow time and fire back for you
 • Progress you never lose: gold, upgrades, Mastery and 60+ looks
@@ -23,13 +23,11 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 
 ★ GRAVE DASH
 • Flick your thumb to dash.
-• Dash through a shot just before it hits and time slows.
-• Nearby bullets shatter and your hero fires a ring of bolts back.
+• Dash through a shot just before it hits: time slows, bullets shatter and your hero fires back.
 
 ★ MASTER THE CHAIN
 • Kills close together build your Bone Chain.
 • The higher it climbs, the more gold you earn and the harder you hit (up to 70% more). A full chain gives back half your special.
-• Keep moving from fight to fight to keep the chain alive.
 
 ★ A NEW BUILD EVERY RUN
 • After each room, choose one of three blessings.
@@ -37,48 +35,42 @@ Bone Chain is a fast, one-thumb dungeon roguelite. Drag to move, lift your thumb
 • Pair the right blessings to unlock synergies like Shatter and Bone Storm.
 • Pick your door after every room: treasure, a healing spring, a champion fight, or a path to the blessings you want.
 
-★ FOUR HEROES, FOUR SPECIAL MOVES
-• Rogue: quick crossbow bolts and the Shadow Volley.
-• Knight: armoured sword waves and a stunning Shield Slam.
-• Barbarian: heavy thrown axes and a healing Whirlwind.
-• Mage: exploding magic orbs and a rain of Meteors.
+★ FOUR HEROES, FOUR WAYS TO FIGHT
+• Knight: a sword swing and a shield that blocks shots.
+• Barbarian: axes that fly back to the hand, and a healing Whirlwind.
+• Mage: a charged orb and a rain of Meteors.
+• Rogue: knives thrown on the run and the Shadow Volley.
 
 ★ MASTER YOUR HEROES
 • Every room and boss gives your hero Mastery that is never lost.
-• Twenty Mastery levels per hero bring coins, Bone Drops and titles (Adept, Veteran, Master).
+• Twenty Mastery levels per hero bring coins, Bone Drops and titles.
 • Unlock 30 Mastery looks per hero: outfits, hats, weapons, glows and auras.
-• Reach Master for a golden crown and a trail of gold sparkles.
+• Level 20 brings each hero an aura of their own.
 
 ★ 20 FEATS, LOOKS NO ONE CAN BUY
 • Twenty skill challenges: dodge, chain, rush and break bosses.
-• Each Feat wins a look every hero can wear: Storm Halo, Flame Horns, Skull Helm, Starweave and more.
+• Each Feat wins a look every hero can wear, like the Storm Halo and Skull Helm.
 • Bone Drops hold 12 rare looks found nowhere else, with a new look guaranteed after a dry streak and the odds shown.
 
 ★ A CRYPT THAT FIGHTS BACK
-• Skeleton warriors, archers, mages, bombers, spitters, bone spiders and purple elites.
-• Giant bosses that change at half health: the Skeleton King, the Lich and the Cinder Colossus.
-• Crypts to descend: the Bone Crypt, the Frozen Ossuary, the Ember Catacomb and the Glowcap Grotto, plus the Blood Moon Crypt during the event.
-• Each crypt has its own skeletons, like Frost Wraiths that fire ice beams and Cinder Skeletons that leave fire behind them.
-
-★ GET STRONGER BETWEEN RUNS
-• Keep your gold and spend it on upgrades, blessings and heroes.
-• Each death makes the next dive deeper.
+• Skeleton warriors, archers, mages, bombers, spitters, bone spiders and elites with their own moves.
+• Giant bosses that change at half health: the Skeleton King, the Lich, the Cinder Colossus, the Sporemother and the Tidecaller.
+• Five free places to descend: the Bone Crypt, the Frozen Ossuary, the Ember Catacomb, the Glowcap Grotto and the Sandfall Tomb, each with its own ground, light, music and cover.
+• Skeletons with their own tricks, like Frost Wraiths that fire ice beams and Cinder Skeletons that leave fire behind them.
 
 ★ A NEW CRYPT EVERY DAY
-• Everyone gets one Daily Crypt run a day: the same three floors for every player.
-• Share how deep you went.
+• One Daily Crypt run a day: the same three floors for every player. Share how deep you went.
 
-★ BLOOD MOON EVENT (NOV 20 - DEC 3)
-• A 14-day event with its own red crypt and the Blood Moon Queen to hunt on five tiers that open over the 14 days.
-• Collect Moon Shards to walk the Blood Moon road and win the Blood Moon set and Moon Crown.
-• Double shards on the weekend of Nov 28-29.
+★ EVENTS
+• Blood Moon (Nov 20 - Dec 3): a red crypt, the Blood Moon Queen to hunt on five tiers, and Moon Shards to win the Blood Moon set and Moon Crown.
+• Frostfall (Dec 11 - 24): a frozen hall where Blizzards sweep through, Krampus to hunt, and Snowflakes to win the Frostfall set.
 
 ★ FREE TO TRY, ONE OPTIONAL PASS
-The first five floors of this dungeon roguelite are free, with no ads. The one-time Crypt Pass opens the rest:
-• The Crypt King set for every hero: obsidian armour veined with molten gold, a floating Crypt Crown, and a turning gold sigil under your feet. Try it on for free in the Style screen.
-• The Drowned Vault: a flooded floor where Drowned Skeletons swim under the water, ruled by the Tidecaller.
-• Endless loops below floor 5. After every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
-• Daily Crypt practice: replay the day's floors as often as you like after your official run.
+The first five floors are free, with no ads. The one-time Crypt Pass opens the rest:
+• The Crypt King set for every hero: try it on for free in the Style screen.
+• Five more places, floors 6 to 10: the flooded Drowned Vault, the Amethyst Mine, the Whispering Library, the Clockwork Foundry and the Starfall Abyss, each with its own music.
+• Endless loops: after every fifth boss, bank your coins and leave, or pick an Omen and go deeper for a bigger score.
+• Daily Crypt practice: replay the day's floors as often as you like.
 • All 11 Curses (two are free) that stack into a Curse Level for bigger scores, with hero rewards to earn.
 • Every hero, ready to play.
 
@@ -88,15 +80,13 @@ The first five floors of this dungeon roguelite are free, with no ads. The one-t
 • No account needed.
 • High, Medium and Low graphics settings for older phones.
 
-Love roguelike action and bullet dodging? Bone Chain is the dungeon roguelite for you.
-
 How deep can you go?
 
 ## In-app product (Monetize with Play > Products > One-time products)
 
 - Product ID: `crypt_pass` (must be exactly this; the game asks Google Play for it)
 - Name: Crypt Pass
-- Description: The Drowned Vault, endless floors, Daily Crypt practice runs, all 11 Curses with hero rewards, and every hero. One-time purchase.
+- Description: Five more places (floors 6-10), endless floors, the Crypt King set, Daily Crypt practice, all 11 Curses and every hero. One-time purchase.
 - Price: $4.99 (US), let Play convert it for other countries
 
 ## Category and tags
