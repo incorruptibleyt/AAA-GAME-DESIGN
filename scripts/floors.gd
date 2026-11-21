@@ -122,7 +122,11 @@ const THEMES := [
 		# Grains of sand drifting in the light: small and pale, never the shape of a shot.
 		"motes": [Color(1.0, 0.86, 0.6, 0.6), Color(0.92, 0.72, 0.48, 0.28)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.9, 0.68, 0.45),   # the colour of loose stones on the floor (props.gd)
-		"banner": Color(1.0, 0.8, 0.42), "floor_style": 7, "props": "sand", "pillar": "lotus", "light": [1.05, 1.45, 0.1, 0.0]},
+		"banner": Color(1.0, 0.8, 0.42),
+		# Version 259: its own cover (props.gd add_cover): the heads of fallen colossi sunk in
+		# the sand for crates, glazed scarab statues holding up the sun for barrels.
+		"cover": "sand",
+		"floor_style": 7, "props": "sand", "pillar": "lotus", "light": [1.05, 1.45, 0.1, 0.0]},
 	# Version 248 (review fix 4): the Amethyst Mine, floor 7 (the Crypt Pass), which until
 	# now was the Bone Crypt relit ("Moonlit Crypt"). An old mine the dead dug for crystals:
 	# bare rock in broken slabs, mine-cart rails on timber sleepers down the middle with a spur

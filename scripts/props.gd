@@ -2256,6 +2256,10 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 		"grotto:b":
 			_mesh(n, _hollow_stump())
 			_glow_pool(n, 1.2)
+		"sand:c":
+			n.rotation.y = PI + randf_range(-0.7, 0.7)   # its face turned towards the camera
+			_mesh(n, _fallen_head())
+		"sand:b": _mesh(n, _scarab_statue())
 		_:
 			return false
 	return true
@@ -2617,4 +2621,94 @@ static func _hollow_stump() -> ArrayMesh:
 		parts.append_array(FungalLook.mushroom_parts(0.18, 0.07, 0.4, Vector3(cos(a) * 0.3, 0.78, sin(a) * 0.3), -a, 2))
 	_baked["hollow_stump"] = _bake(parts)
 	return _baked["hollow_stump"]
+
+
+## The Sandfall Tomb's crates: the head of a fallen colossus sunk to the chin in a drift of
+## sand, in a striped headdress of lapis and gold with a cobra on the brow, painted eyes,
+## and a plaited beard. Its face looks along -Z.
+static func _fallen_head() -> ArrayMesh:
+	if _baked.has("fallen_head"):
+		return _baked["fallen_head"]
+	var parts := []
+	var stone := _tomb_mat("stone")
+	var dark := _tomb_mat("dark")
+	var gold := _tomb_mat("gold")
+	var lapis := _tomb_mat("lapis")
+	var tilt := Basis(Vector3.RIGHT, -0.08) * Basis(Vector3.FORWARD, 0.06)
+	var at := Vector3(0, 0.12, 0)
+	# The drift of sand it sank into.
+	parts.append([_sphere(), _xf(Vector3(0.04, 0.0, 0.06), Vector3(0.7, 0.17, 0.66)), _tomb_mat("sand")])
+	parts.append([_sphere(), _xf(Vector3(-0.26, 0.0, 0.3), Vector3(0.36, 0.12, 0.3)), _tomb_mat("sand")])
+	var sand_parts := parts.size()
+	# The face: a block rounded at the cheeks, brow, nose, lips and chin.
+	parts.append([_cube(), _xf(at + tilt * Vector3(0, 0.42, 0.02), Vector3(0.56, 0.66, 0.56), tilt), stone])
+	parts.append([_sphere(), _xf(at + tilt * Vector3(0, 0.4, -0.08), Vector3(0.3, 0.33, 0.24), tilt), stone])
+	parts.append([_cube(), _xf(at + tilt * Vector3(0, 0.58, -0.29), Vector3(0.46, 0.05, 0.06), tilt), stone])
+	parts.append([_cube(), _xf(at + tilt * Vector3(0, 0.44, -0.33), Vector3(0.08, 0.16, 0.1), tilt * Basis(Vector3.RIGHT, -0.25)), stone])
+	parts.append([_cube(), _xf(at + tilt * Vector3(0, 0.29, -0.31), Vector3(0.16, 0.04, 0.05), tilt), _tomb_mat("clay")])
+	for side in [-1.0, 1.0]:
+		# Painted eyes: dark almonds outlined in gold, a long line out to the temple.
+		parts.append([_sphere(), _xf(at + tilt * Vector3(side * 0.12, 0.52, -0.29), Vector3(0.07, 0.03, 0.02), tilt), dark])
+		parts.append([_cube(), _xf(at + tilt * Vector3(side * 0.13, 0.5, -0.295), Vector3(0.17, 0.014, 0.01), tilt), gold])
+		parts.append([_cube(), _xf(at + tilt * Vector3(side * 0.22, 0.51, -0.285), Vector3(0.08, 0.014, 0.01), tilt * Basis(Vector3.FORWARD, side * 0.25)), lapis])
+	# The plaited beard, banded gold and lapis, going down into the sand.
+	for k in 4:
+		parts.append([_cone(0.055, 0.06, 0.06, 6), _xf(at + tilt * Vector3(0, 0.17 - k * 0.065, -0.27), Vector3.ONE, tilt), gold if k % 2 == 0 else lapis])
+	# The headdress: a striped cap over the top and lappets falling either side of the face.
+	var cap := Vector3(0.68, 0.18, 0.62)
+	for k in 7:
+		var x := -cap.x * 0.5 + cap.x * (k + 0.5) / 7.0
+		var lift := 0.02 * (1.0 - absf(x) / cap.x * 2.0)
+		parts.append([_cube(), _xf(at + tilt * Vector3(x, 0.8 + lift, 0.04), Vector3(cap.x / 7.0 + 0.005, cap.y, cap.z), tilt), gold if k % 2 == 0 else lapis])
+	parts.append([_cube(), _xf(at + tilt * Vector3(0, 0.72, -0.27), Vector3(0.66, 0.06, 0.05), tilt), gold])
+	for side in [-1.0, 1.0]:
+		var lap := tilt * Basis(Vector3.FORWARD, side * -0.22)
+		for k in 6:
+			var y := 0.66 - k * 0.1
+			parts.append([_cube(), _xf(at + tilt * Vector3(side * (0.36 + (0.66 - y) * 0.22), y, -0.1), Vector3(0.1, 0.1, 0.32), lap), gold if k % 2 == 0 else lapis])
+	# The cobra rearing on the brow.
+	parts.append([_cone(0.025, 0.04, 0.16, 6), _xf(at + tilt * Vector3(0, 0.82, -0.3), Vector3.ONE, tilt), gold])
+	parts.append([_sphere(), _xf(at + tilt * Vector3(0, 0.92, -0.31), Vector3(0.06, 0.05, 0.03), tilt), gold])
+	# A colossus: the head a little bigger than a man is tall, rising out of the drift.
+	for i in range(sand_parts, parts.size()):
+		parts[i][1] = (parts[i][1] as Transform3D).scaled(Vector3.ONE * 1.2)
+	_baked["fallen_head"] = _bake(parts)
+	return _baked["fallen_head"]
+
+
+## The Sandfall Tomb's barrels: a great scarab of blue-green glaze on a carved sandstone drum,
+## its legs gripping the rim and a golden sun held up over its head.
+static func _scarab_statue() -> ArrayMesh:
+	if _baked.has("scarab_statue"):
+		return _baked["scarab_statue"]
+	var parts := []
+	var stone := _tomb_mat("stone")
+	var glaze := _tomb_mat("turq")
+	var dark := _tomb_mat("dark")
+	var gold := _tomb_mat("gold")
+	parts.append([_cone(0.36, 0.42, 0.08, 12), _xf(Vector3(0, 0.04, 0), Vector3.ONE), _tomb_mat("stone_dark")])
+	parts.append([_cone(0.34, 0.36, 0.3, 12), _xf(Vector3(0, 0.23, 0), Vector3.ONE), stone])
+	_band(parts, 0.365, 0.04, 0.3, _tomb_mat("lapis"))
+	_band(parts, 0.38, 0.04, 0.38, stone)
+	# The beetle: a domed back split down the middle, a head plate with a toothed edge.
+	parts.append([_sphere(), _xf(Vector3(0, 0.46, 0.04), Vector3(0.24, 0.12, 0.3)), glaze])
+	parts.append([_cube(), _xf(Vector3(0, 0.555, 0.08), Vector3(0.012, 0.03, 0.4)), dark])
+	parts.append([_cube(), _xf(Vector3(0, 0.53, -0.13), Vector3(0.36, 0.02, 0.012)), dark])
+	parts.append([_sphere(), _xf(Vector3(0, 0.45, -0.27), Vector3(0.15, 0.07, 0.1)), glaze])
+	for k in 5:
+		parts.append([_cone(0.0, 0.025, 0.05, 4), _xf(Vector3((k - 2) * 0.05, 0.45, -0.36), Vector3.ONE, Basis(Vector3.RIGHT, -PI / 2)), glaze])
+	# Legs gripping the rim of the drum.
+	for side in [-1.0, 1.0]:
+		for k in 3:
+			var z := -0.1 + k * 0.14
+			var knee := Vector3(side * 0.3, 0.46, z)
+			_rod_part(parts, Vector3(side * 0.16, 0.42, z), knee, 0.022, glaze)
+			_rod_part(parts, knee, Vector3(side * 0.38, 0.37, z + 0.04), 0.02, glaze)
+	# Its front legs hold up the sun: a gold disc standing over the head.
+	_rod_part(parts, Vector3(-0.08, 0.46, -0.28), Vector3(-0.1, 0.62, -0.32), 0.02, glaze)
+	_rod_part(parts, Vector3(0.08, 0.46, -0.28), Vector3(0.1, 0.62, -0.32), 0.02, glaze)
+	parts.append([_cone(0.2, 0.2, 0.05, 16), _xf(Vector3(0, 0.78, -0.3), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2 - 0.35)), gold])
+	parts.append([_cone(0.12, 0.12, 0.06, 16), _xf(Vector3(0, 0.78, -0.3), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2 - 0.35)), _tomb_mat("clay")])
+	_baked["scarab_statue"] = _bake(parts)
+	return _baked["scarab_statue"]
 
