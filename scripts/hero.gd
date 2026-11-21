@@ -350,6 +350,8 @@ var _rings: Array[Node3D] = []
 ## The aura's circling lights and sunburst: kept from turning with the hero (a dash turns
 ## the hero's node, and they jumped round with it).
 var _aura_fx: Node3D
+var _chain_mat: ShaderMaterial   # the Bone Chain aura's links (version 254), lit by the run's chain
+var _chain_lit := 0.0
 
 
 func _check_perfect(window: float) -> void:
@@ -564,6 +566,8 @@ func _process(delta: float) -> void:
 		_update_orbit(delta)
 	if is_instance_valid(_aura_fx):
 		_aura_fx.rotation.y = -rotation.y
+	if _chain_mat:
+		_update_chain_aura(delta)
 	_dash_cooldown -= delta
 	if _dash_wanted_t > 0.0:
 		_dash_wanted_t -= delta
@@ -1307,6 +1311,9 @@ func _build_motif() -> void:
 	var p := Fx.motif(str(_master_aura.get("motif", "wisps")), _master_aura.get("spark", Color.WHITE), 1.4)   # bigger: seen from far above
 	add_child(p)
 	_rings.append(p)
+	for c in p.get_children():
+		if c is MultiMeshInstance3D and str(_master_aura.get("motif", "")) == "bonechain":
+			_chain_mat = (c as MultiMeshInstance3D).material_override as ShaderMaterial
 	# Versions 172-174: the aura's light round the hero, grander with its grade (LookFx.aura_fx).
 	var fx := LookFx.aura_fx(_master_aura)
 	add_child(fx)
@@ -1314,6 +1321,16 @@ func _build_motif() -> void:
 	_aura_fx = fx
 	# (Version 182: no second floor shape here. LookFx.aura_fx's mark() is the aura's shape;
 	# both drawn on the same spot cost twice the drawing and flickered.)
+
+
+## Version 254: the Bone Chain aura burns as far as the run's Bone Chain has climbed (gold,
+## then red-hot, like the spine on the screen). Off a run (the title) it lights link by link.
+func _update_chain_aura(delta: float) -> void:
+	var playing := Game.state == Game.State.PLAYING
+	_chain_mat.set_shader_parameter("demo", 0.0 if playing else 1.0)
+	var want := clampf((Game.chain - 1.0) / maxf(Game.chain_max() - 1.0, 0.01), 0.0, 1.0) if playing else 0.0
+	_chain_lit = move_toward(_chain_lit, want, delta * (3.0 if want > _chain_lit else 1.5))
+	_chain_mat.set_shader_parameter("lit", _chain_lit)
 
 
 ## The dash trail: the aura's colour (as its outline is drawing it right now), gold for a

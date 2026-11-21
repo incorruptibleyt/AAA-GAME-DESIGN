@@ -159,7 +159,7 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 	var p := sparkle_trail(color)
 	# Round sparks for the Rogue's wisps and the Barbarian's embers, four-pointed glints for
 	# the Knight's motes and the Mage's stars.
-	var shape := "dot" if kind in ["wisps", "embers", "souls", "snow", "fireflies", "blades"] else ("soft" if kind == "bubbles" else "glint")
+	var shape := "dot" if kind in ["wisps", "embers", "souls", "snow", "fireflies", "blades", "bonechain"] else ("soft" if kind == "bubbles" else "glint")
 	p.mesh = _shaped(shape)
 	p.color = Color(color, 0.85 if kind in ["wisps", "snow", "blades"] else (0.45 if kind == "souls" else (0.8 if kind == "bubbles" else 1.0)))
 	var run := size > 1.2   # (hero.gd draws a run's aura at 1.4: seen from far above, kept fainter)
@@ -436,6 +436,26 @@ static func motif(kind: String, color: Color, size := 1.0) -> CPUParticles3D:
 			p.emission_ring_inner_radius = 0.3
 			p.position = Vector3(0, 0.6, 0)
 			p.add_child(lightning(Color(0.88, 1.0, 1.0), Color(color, 1.0), Color(0.68, 0.42, 1.0), 4, 1.3 * size, 0.57, 0.75, 0.6 * size))
+		"bonechain":
+			# Version 254 (whole-game review fix 14), the Bone Road's last prize: a chain of bone
+			# vertebrae circling the hero (Fx.bone_chain). In a run its links light up gold,
+			# then red-hot, with the run's Bone Chain (hero.gd sets "lit"); anywhere else they
+			# light up one by one, again and again. Bone dust drifting off it.
+			p.amount = 10
+			p.lifetime = 1.2
+			p.spread = 180.0
+			p.initial_velocity_min = 0.05
+			p.initial_velocity_max = 0.2
+			p.gravity = Vector3(0, 0.2, 0)
+			p.scale_amount_min = 0.12
+			p.scale_amount_max = 0.2
+			p.emission_ring_radius = 0.95
+			p.emission_ring_inner_radius = 0.8
+			p.position = Vector3(0, 0.5, 0)
+			var ch := bone_chain(0.92 * size, 0.6, 0.52 * size, 12)
+			ch.position = Vector3(0, -0.5, 0)
+			ch.material_override.set_shader_parameter("demo", 0.0 if run else 1.0)
+			p.add_child(ch)
 		"orrery":
 			# Starsage, the Mage: gold stars running round two tilted rings that turn round
 			# her, like the planets in an orrery (Fx.orrery).
@@ -901,6 +921,39 @@ static func lightning(core: Color, glow: Color, fork: Color, count: int, reach: 
 const ORBITS := [[0.55, 0.32, 1.0], [-0.75, -0.24, 1.28]]   # tilt, turn speed, radius (x radius)
 static var _orbit_shader: Shader
 static var _orbit_star_shader: Shader
+## Version 254, the Bone Chain aura (the Bone Road's last prize): `count` bone vertebrae linked
+## in a ring of `radius` round the hero at `height`, turning, each `size` across (CHAIN_CODE).
+## Its "lit" (0-1) burns that much of the chain, gold and then red-hot like the Bone Chain on
+## the screen; "demo" 1 lights it link by link on its own. One MultiMesh, its own material.
+static var _chain_shader: Shader
+static func bone_chain(radius: float, height: float, size: float, count: int) -> MultiMeshInstance3D:
+	if _chain_shader == null:
+		_chain_shader = Shader.new()
+		_chain_shader.code = CHAIN_CODE
+	var m := ShaderMaterial.new()
+	m.shader = _chain_shader
+	m.set_shader_parameter("radius", radius)
+	m.set_shader_parameter("height", height)
+	m.set_shader_parameter("size", size)
+	m.set_shader_parameter("count", float(count))
+	var mm := MultiMesh.new()
+	mm.transform_format = MultiMesh.TRANSFORM_3D
+	mm.use_custom_data = true
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE
+	mm.mesh = q
+	mm.instance_count = count
+	for i in count:
+		mm.set_instance_transform(i, Transform3D())
+		mm.set_instance_custom_data(i, Color(float(i), 0.0, 0.0, 0.0))
+	var mi := MultiMeshInstance3D.new()
+	mi.multimesh = mm
+	mi.material_override = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = radius + 2.0
+	return mi
+
+
 static func orrery(ring: Color, star: Color, radius: float, size: float, power := 1.0) -> Node3D:
 	if _orbit_shader == null:
 		_orbit_shader = Shader.new()
@@ -1138,6 +1191,65 @@ void fragment() {
 	float dash = 0.35 + 0.65 * smoothstep(0.25, 0.6, abs(fract(ang / 6.2831853 * 18.0 - TIME * 0.6) - 0.5) * 2.0);
 	ALBEDO = col.rgb * 1.3;
 	ALPHA = col.a * dash;
+}
+"""
+
+
+const CHAIN_CODE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 bone : source_color = vec4(0.95, 0.9, 0.78, 1.0);
+uniform vec4 hot : source_color = vec4(1.0, 0.8, 0.3, 1.0);
+uniform vec4 fire : source_color = vec4(1.0, 0.45, 0.1, 1.0);
+uniform float radius = 0.92;
+uniform float height = 0.05;
+uniform float size = 0.3;
+uniform float count = 14.0;
+uniform float lit = 0.0;
+uniform float demo = 0.0;
+varying vec2 dir2;
+varying flat float k;
+varying flat float level;
+void vertex() {
+	float i = INSTANCE_CUSTOM.x;
+	float a = i / count * 6.2831853 + TIME * 0.45;
+	vec3 at = MODEL_MATRIX[3].xyz + vec3(cos(a) * radius, height + 0.06 * sin(a * 3.0 + TIME * 1.7), sin(a) * radius);
+	// the way the chain runs, as the camera sees it: each link lies along it
+	vec2 s = (VIEW_MATRIX * vec4(-sin(a), 0.0, cos(a), 0.0)).xy;
+	dir2 = length(s) > 0.0001 ? normalize(s) : vec2(1.0, 0.0);
+	level = demo > 0.5 ? clamp(fract(TIME * 0.2) * 1.4, 0.0, 1.0) : lit;
+	k = clamp(level * count - i, 0.0, 1.0);
+	vec3 w = at + (INV_VIEW_MATRIX[0].xyz * VERTEX.x + INV_VIEW_MATRIX[1].xyz * VERTEX.y) * size * (1.0 + 0.18 * k);
+	VERTEX = (inverse(MODEL_MATRIX) * vec4(w, 1.0)).xyz;
+}
+float box(vec2 q, vec2 b, float r) {
+	vec2 d = abs(q) - b;
+	return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - r;
+}
+// A vertebra lying along +x: a rounded body, wings across it, knobs joining the next links.
+float vert(vec2 q) {
+	float body = box(q, vec2(0.26, 0.13), 0.08);
+	float y = clamp(q.y, -0.46, 0.46);
+	float wing = length(q - vec2(-0.06 * abs(y), y)) - mix(0.11, 0.05, abs(y) / 0.46);
+	float knob = length(vec2(abs(q.x) - 0.47, q.y)) - 0.08;
+	return min(min(body, wing), knob);
+}
+void fragment() {
+	vec2 p = vec2(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0) * 0.7;
+	vec2 q = vec2(dot(p, dir2), dot(p, vec2(-dir2.y, dir2.x)));
+	float d = vert(q);
+	float inside = 1.0 - smoothstep(-0.01, 0.02, d);
+	float rim = (1.0 - smoothstep(0.03, 0.07, d)) * (1.0 - inside);
+	vec3 burn = mix(hot.rgb, fire.rgb, smoothstep(0.55, 1.0, level));
+	vec3 c = mix(bone.rgb, burn * 1.35, k * 0.8);
+	c = mix(c, vec3(0.1, 0.07, 0.05), (1.0 - smoothstep(0.05, 0.08, length(q))) * 0.8);   // the hole the spine runs through
+	vec3 dark = vec3(0.1, 0.07, 0.05);
+	float solid = clamp(inside + rim, 0.0, 1.0);
+	vec3 sc = mix(dark, c, inside / max(solid, 0.001));
+	float glow = k * exp(-max(d, 0.0) * 9.0) * 0.6 * (1.0 - solid);
+	ALBEDO = mix(burn * 1.4, sc, solid);
+	ALPHA = clamp(solid + glow, 0.0, 1.0);
+	if (ALPHA < 0.02) { discard; }
 }
 """
 

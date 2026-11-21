@@ -15,6 +15,7 @@ const TEXT := Color(0.88, 0.87, 0.92)
 const DIM := Color(0.6, 0.58, 0.66)
 const BAZAAR := Color(1.0, 0.62, 0.3)   # Bone Bazaar looks (version 152)
 const RACE := Color(0.4, 0.92, 1.0)   # Crypt Race looks (version 153)
+const ROAD := Color(1.0, 0.85, 0.55)   # the Bone Road's last prize (version 254)
 ## The pedestal's height; on short (16:9) screens it shrinks so the looks keep their room.
 const STAGE_H := 300.0
 const STAGE_MIN := 190.0
@@ -278,6 +279,10 @@ func _show_preview() -> void:
 				_note.text = "Trying on: %s  ·  %s" % [HeroStyle.item_label(_id, slot, key), how]
 				_note.label_settings.font_color = (e.color as Color).lerp(Color.WHITE, 0.25)
 				return
+			if x.has("road"):
+				_note.text = "Trying on: %s  ·  the Bone Road's last prize, at %s bones" % [HeroStyle.item_label(_id, slot, key), Hud.thousands(int(BoneRoad.STEPS[-1].at))]
+				_note.label_settings.font_color = ROAD
+				return
 			if x.has("race"):
 				_note.text = "Trying on: %s  ·  Crypt Race: Race Road at %d trophies" % [HeroStyle.item_label(_id, slot, key), int(x.race)]
 				_note.label_settings.font_color = RACE
@@ -443,6 +448,8 @@ func _card(it: Dictionary) -> Button:
 		v.add_child(Hud.label("BAZAAR" if got else "BAZAAR  ·  %d" % int(it.bazaar), 14, BAZAAR))
 	elif it.has("race"):
 		v.add_child(Hud.label("CRYPT RACE", 14, RACE))
+	elif it.has("road"):
+		v.add_child(Hud.label("BONE ROAD", 14, ROAD))
 	var state := "WEARING" if worn else ("TAP TO WEAR" if got else ("TAP TO TRY ON" if paid or special else "LEVEL %d" % it.level))
 	v.add_child(Hud.label(state, 15, Hud.GOLD if worn else (Color(0.45, 0.85, 0.5) if got else (Color(1.0, 0.8, 0.5) if paid else DIM))))
 	# Version 226: a card with more lines than fit grows taller instead of letting the last
@@ -873,7 +880,17 @@ class Swatch extends Control:
 		draw_colored_polygon(fat, ink)
 		draw_circle(head, r * 0.28, body)
 		draw_colored_polygon(torso, body)
-		if not aura.is_empty():
+		if str(aura.get("motif", "")) == "bonechain":
+			# v254: the Bone Chain's links circling the figure, lighting up one by one
+			var lit := fmod(_t * 0.2, 1.0) * 1.4
+			for i in 10:
+				var ang := _t * 0.5 + i * TAU / 10.0
+				var at := c + Vector2(cos(ang), sin(ang) * 0.45) * r * 0.92 + Vector2(0, r * 0.2)
+				var col := Color(0.95, 0.9, 0.78).lerp(Color(1.0, 0.72, 0.25), clampf(lit * 10.0 - i, 0.0, 1.0))
+				var nn := Vector2(-cos(ang) * 0.45, -sin(ang)).normalized()
+				draw_line(at - nn * r * 0.13, at + nn * r * 0.13, col, r * 0.05)
+				draw_circle(at, r * 0.075, col)
+		elif not aura.is_empty():
 			for i in 5:
 				var ang := _t * 0.8 + i * TAU / 5.0
 				draw_circle(c + Vector2(cos(ang), sin(ang)) * r * 0.86, r * (0.07 + 0.03 * sin(_t * 3.0 + i)), b)

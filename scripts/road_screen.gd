@@ -14,6 +14,8 @@ var _count: Label
 var _sub: Label
 var _scroll: ScrollContainer
 var _list: VBoxContainer
+var _prize_stage: HeroStage
+var _prize_state: Label
 
 
 func _init() -> void:
@@ -38,6 +40,7 @@ func _init() -> void:
 	col.add_child(_count)
 	_sub = Hud.label("", 17, TEXT)
 	col.add_child(_sub)
+	col.add_child(_prize_panel())
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -58,10 +61,55 @@ func _init() -> void:
 	col.add_child(box)
 
 
+## Version 254 (whole-game review fix 14): the road's last prize at the top, on a turning hero.
+## The road used to end in 1,000 coins, with nothing to walk it for.
+func _prize_panel() -> Control:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.13, 0.09, 0.05, 0.96)
+	sb.border_color = Hud.GOLD
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(16)
+	sb.content_margin_left = 6
+	sb.content_margin_right = 12
+	sb.content_margin_top = 4
+	sb.content_margin_bottom = 4
+	panel.add_theme_stylebox_override("panel", sb)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 8)
+	panel.add_child(h)
+	_prize_stage = HeroStage.new(Vector2(170, 196))
+	_prize_stage.custom_minimum_size = Vector2(170, 196)
+	_prize_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(_prize_stage)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 2)
+	h.add_child(v)
+	var pname := str(HeroStyle.extra(BoneRoad.prize()[0], BoneRoad.prize()[1]).name)
+	v.add_child(Hud.label("FINAL PRIZE", 16, Hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT))
+	v.add_child(Hud.label("%s aura" % pname, 28, Color(1, 0.9, 0.7), HORIZONTAL_ALIGNMENT_LEFT))
+	v.add_child(Hud.label("Only on the Bone Road. In a run its bones burn gold, then red-hot, as your Bone Chain grows.", 15, TEXT, HORIZONTAL_ALIGNMENT_LEFT))
+	_prize_state = Hud.label("", 16, Hud.GOLD, HORIZONTAL_ALIGNMENT_LEFT)
+	v.add_child(_prize_state)
+	visibility_changed.connect(func(): _prize_stage.set_active(visible))
+	return panel
+
+
 ## Fills the screen from the save and shows it, scrolled to the first step to claim (or the
 ## next one to reach), also after a claim.
 func open_road(cfg: ConfigFile) -> void:
 	visible = true
+	var last := int(BoneRoad.STEPS[-1].at)
+	var b0 := BoneRoad.bones(cfg)
+	_prize_state.text = "Yours! Wear it on the Style screen." if BoneRoad.has_prize(cfg) else \
+		("Ready to claim!" if b0 >= last else "At %s bones  ·  %s to go" % [Hud.thousands(last), Hud.thousands(last - b0)])
+	_prize_stage.show_hero(HeroStyle.dressed(Heroes.get_hero(Heroes.selected(cfg)), {"aura": BoneRoad.prize()[1]}))
+	_prize_stage.set_active(true)
 	# (queue_free: this runs inside a CLAIM button's own press, which must not be freed then)
 	for c in _list.get_children():
 		_list.remove_child(c)

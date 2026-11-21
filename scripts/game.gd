@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21w"
+const BUILD := "2026-11-21x"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -4364,6 +4364,8 @@ func _claim_road(i: int) -> void:
 	hud.set_coins(coins)
 	Sfx.play("upgrade")
 	Sfx.play("coin", 0.6, 1.2)
+	if s.has("prize"):   # (v254: the road's last prize, a look found nowhere else)
+		hud.callout("NEW %s AURA!" % str(HeroStyle.extra(s.prize[0], s.prize[1]).name).to_upper(), Color(1.0, 0.85, 0.55))
 	print("[road] claimed %d: %s" % [i, BoneRoad.reward_text(s)])
 	hud.open_road(_load_save())
 

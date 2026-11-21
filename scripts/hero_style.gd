@@ -322,6 +322,10 @@ const EXTRA := {
 		# King league's own, violet and gold, with the shine.
 		"comet": {"name": "Comet", "ink": Color(0.3, 0.9, 1.0), "ink2": Color(0.9, 1.0, 1.0), "spark": Color(0.55, 0.95, 1.0), "motif": "comet", "race": 500},
 		"bone_comet": {"name": "Bone King Comet", "ink": Color(0.86, 0.52, 1.0), "ink2": Color(1.0, 0.82, 0.35), "spark": Color(1.0, 0.85, 0.5), "motif": "comet", "shine": true, "race": 1400},
+		# Version 254 (whole-game review fix 14): the Bone Road's last prize, found nowhere else.
+		# A chain of bone vertebrae circling the hero that burns gold, then red-hot, with the
+		# run's Bone Chain (Fx.motif "bonechain").
+		"bone_chain": {"name": "Bone Chain", "ink": Color(0.55, 0.42, 0.9), "ink2": Color(1.0, 0.78, 0.3), "spark": Color(1.0, 0.9, 0.7), "motif": "bonechain", "shine": true, "road": true},
 	},
 }
 ## Each hero's own head (hidden under a Skull Helm).
@@ -409,6 +413,8 @@ static func items(id: String) -> Array:
 				it.bazaar = int(e.bazaar)
 			elif e.has("race"):
 				it.race = int(e.race)
+			elif e.has("road"):
+				it.road = true
 			else:
 				it.drop = int(e.drop)
 			out.append(it)
@@ -424,7 +430,7 @@ static func is_mastery(it: Dictionary) -> bool:
 
 ## A Feat, Bone Drop, event or Bone Bazaar look: won or bought, not a Mastery level.
 static func is_special(it: Dictionary) -> bool:
-	return it.has("feat") or it.has("drop") or it.has("event") or it.has("bazaar") or it.has("race")
+	return it.has("feat") or it.has("drop") or it.has("event") or it.has("bazaar") or it.has("race") or it.has("road")
 
 
 ## How much there is to a glow's ring (LookFx.set_ring): 0 a Mastery glow, 1 a Feat, Bone
@@ -474,6 +480,8 @@ static func has_look(cfg: ConfigFile, id: String, slot: String, key: String) -> 
 		return Bazaar.owns(cfg, slot, key)
 	if e.has("race"):
 		return Race.has_look(cfg, slot, key)
+	if e.has("road"):
+		return BoneRoad.has_prize(cfg)
 	if e.has("event"):
 		# v220 (v219 review): the Silver Moon set from the Pass row goes with the Pass (a
 		# refund used to leave it on).

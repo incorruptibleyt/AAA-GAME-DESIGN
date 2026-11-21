@@ -1,5 +1,4 @@
-Version 253: the Crypt King's arms are whole new weapons
-- Knight: the Kingsbane, a black greatsword split by a channel of soul fire, a crowned skull for its guard.
-- Barbarian: the Skull Crusher, a crowned skull for an axe head with soul fire in its eyes.
-- Mage: the Spine, a staff of bones with the Crypt Crown floating over it.
-- Rogue: a ribcage crossbow with a skull at its nose, and the Crown Fang knife.
+Version 254: the Bone Road ends in a prize of its own
+- The last step of the Bone Road, at 1,000 bones, now gives the Bone Chain aura to every hero, found nowhere else.
+- It is a ring of vertebrae round your hero. In a run its bones light up one by one, gold then red-hot, as your Bone Chain grows.
+- The Bone Road screen shows the prize on your hero, with how many bones are left.

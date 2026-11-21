@@ -11,6 +11,8 @@ const ROOM_BONES := 1
 const BOSS_BONES := 4
 
 ## at: bones needed. kind: "coins" (n coins), "drop" (n Bone Drops), "lucky" (n Lucky Starts).
+## "prize": the last step's look, [slot, key] in HeroStyle.EXTRA (version 254, review fix 14:
+## the road ended in 1,000 coins and nothing of its own).
 const STEPS := [
 	{"at": 3, "kind": "coins", "n": 25},
 	{"at": 8, "kind": "drop", "n": 1},
@@ -43,7 +45,7 @@ const STEPS := [
 	{"at": 832, "kind": "coins", "n": 360},
 	{"at": 890, "kind": "lucky", "n": 3},
 	{"at": 950, "kind": "drop", "n": 5},
-	{"at": 1000, "kind": "coins", "n": 1000},
+	{"at": 1000, "kind": "coins", "n": 1000, "prize": ["aura", "bone_chain"]},
 ]
 
 
@@ -88,7 +90,19 @@ static func progress(cfg: ConfigFile) -> float:
 	return clampf(float(bones(cfg) - from) / float(int(STEPS[i].at) - from), 0.0, 1.0)
 
 
+## The Bone Chain aura: the last step claimed.
+static func has_prize(cfg: ConfigFile) -> bool:
+	return claimed(cfg, STEPS.size() - 1)
+
+
+## The last step's look, [slot, key].
+static func prize() -> Array:
+	return STEPS[STEPS.size() - 1].prize
+
+
 static func reward_text(s: Dictionary) -> String:
+	if s.has("prize"):
+		return "%s aura + %d coins" % [str(HeroStyle.extra(s.prize[0], s.prize[1]).name), int(s.n)]
 	match str(s.kind):
 		"drop":
 			return "Bone Drop" if int(s.n) == 1 else "%d Bone Drops" % int(s.n)

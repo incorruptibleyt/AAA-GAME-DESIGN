@@ -38,7 +38,7 @@ const MARKS := {
 	"Quickstep": [3, 3], "Arcane": [0, 8], "Stormcaller": [6, 5], "Phantom": [4, 4], "Sunflare": [3, 12],
 	"Snowfall": [5, 6], "Bubbles": [5, 3], "Fireflies": [5, 4], "Blood Moon": [4, 1], "Will-o'-Wisp": [2, 1],
 	"Golden Souls": [6, 9], "Comet": [2, 5], "Bone King Comet": [1, 3],
-	"Snow Globe": [7, 6], "Polar Night": [8, 4],
+	"Snow Globe": [7, 6], "Polar Night": [8, 4], "Bone Chain": [5, 14],
 }
 static var _weapon_mats := {}
 static var _shell_mesh: CylinderMesh
