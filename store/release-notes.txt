@@ -1,3 +1,3 @@
-Version 270: the Clockwork Foundry has its own skeleton
-- Clockwork Skeletons now march through the Foundry with its Cinder Skeletons, instead of the Grotto's Sporelings.
-- Its key whirs and its path lights up: through you to the wall, then the bounce. It charges the whole path, then stands run down for a moment, taking extra damage. Step off both strips, then hit it hard.
+Version 271: the Whispering Library has its own skeleton
+- Hush Keepers now haunt the Library: skeleton librarians with a candle on the skull, a floating book and a quill.
+- It writes a circle of letters round you. When the ring closes, your weapon goes silent while you stand inside. Step out, or kill the Keeper.

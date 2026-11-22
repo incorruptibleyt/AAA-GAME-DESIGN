@@ -403,3 +403,32 @@ if WHICH in ("all", "clock"):
                 (load("k1/impact-sounds/impactMetal_light_00%d.ogg" % (i + 2), 1.35), 0.17, 0.35),
                 (spring, 0.08, 0.4), (rattle, 0.12, 0.5), (hiss(0.5, 0.18, 3000), 0.25, 0.2))
         save(a, "die_clock_%d" % i, cap=1.1)
+if WHICH in ("all", "hush"):
+    # The Hush Keeper (version 271, the Whispering Library's own skeleton). "quill": its pen
+    # scratching the circle of letters round the floor (quick dry scratches, a page turning);
+    # "hush": the long whispered "shhh" as the circle closes, with a soft page flip in a small
+    # echo; "die_hush": the crunch, its book slamming shut and the loose pages fluttering
+    # down, and the last of the hush. (python3 ... hush)
+    for i in range(3):
+        out = np.zeros(int(1.0 * R))
+        k = 0.0
+        while k < 0.9:
+            ln = rng.uniform(0.03, 0.08)
+            s = highpass(noise(ln), 2600 + 300 * i, 2) * env(int(ln * R), 0.004, ln * 0.6)
+            p = int(k * R); out[p:p + len(s)] += s[: len(out) - p] * rng.uniform(0.4, 1.0)
+            k += ln + rng.uniform(0.01, 0.05)
+        a = mix((out, 0, 0.6), (load("k1/rpg-audio/bookFlip%d.ogg" % (i + 1), 1.1), 0.0, 0.5))
+        save(a, "quill_%d" % i, mean_db=-22.0, cap=1.0)
+    for i in range(3):
+        sec = 0.85 + 0.1 * i
+        tt = t(sec)
+        sh = bandpass(noise(sec), 3600 + 400 * i, 1.4) + 0.4 * bandpass(noise(sec), 2200, 1.0)
+        sh = sh * env(len(tt), 0.12, sec * 0.45) * (0.85 + 0.15 * np.sin(2 * np.pi * 6 * tt))
+        a = mix((sh, 0, 1.0), (load("k1/rpg-audio/bookFlip%d.ogg" % (i + 1), 0.9), 0.02, 0.35))
+        save(verb(a, 0.7, 0.3, 6000), "hush_%d" % i, mean_db=-20.0, cap=1.3)
+    for i in range(3):
+        sh = bandpass(noise(0.7), 3800, 1.4) * env(int(0.7 * R), 0.05, 0.3)
+        a = mix((game(CRUNCH[i], 1.05), 0, 0.7), (load("k1/rpg-audio/bookClose.ogg", 1.0 + 0.08 * i), 0.04, 0.8),
+                (flutter(0.6, 26 + 4 * i), 0.12, 0.45), (load("k1/rpg-audio/bookFlip%d.ogg" % (i + 1), 1.2), 0.2, 0.35),
+                (sh, 0.3, 0.3))
+        save(verb(a, 0.7, 0.25, 5000), "die_hush_%d" % i, cap=1.2)

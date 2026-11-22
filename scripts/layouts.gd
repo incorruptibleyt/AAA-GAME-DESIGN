@@ -21,6 +21,8 @@ class_name Layouts
 ##      Abyss swaps one in)
 ##   u  clockwork skeleton (winds up, charges and bounces off a wall; the Clockwork Foundry
 ##      swaps one in)
+##   l  hush keeper (writes a circle of letters round you that silences your weapon; the
+##      Whispering Library swaps one in)
 ##   ^  spike trap (glows red, then spikes shoot up)
 ##   K  the boss (the Skeleton King, the Lich, the Cinder Colossus, the Tidecaller, the
 ##      Sporemother or the Star Eater: see Game.boss_kind)

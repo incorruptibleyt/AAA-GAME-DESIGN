@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21zn"
+const BUILD := "2026-11-21zo"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -367,6 +367,7 @@ const MEET_LINES := {
 	"Rootbinder": "ROOTBINDER: roots crawl after you. Step aside!",
 	"VoidWalker": "VOID WALKER: steps out of a rift by you. Get away from it!",
 	"ClockworkSkeleton": "CLOCKWORK SKELETON: charges and bounces off a wall. Hit it when it runs down!",
+	"HushKeeper": "HUSH KEEPER: its circle of letters silences your weapon. Step out to fight!",
 	"Bloodbat": "BLOODBATS: swoop along a strip. Dash through!",
 	"MoonHowler": "MOON HOWLER: pounces along a strip. Step aside!",
 }
@@ -1765,8 +1766,9 @@ func boss_kind() -> String:
 ## Snow Rollers, Bell Ringers and a Gift Thief ("noi"). The Sandfall Tomb (floor 5, version
 ## 247) keeps floor 5's Frost Wraiths (tomb spirits) and adds the scorched Cinder Skeletons.
 ## The Pass's own places name theirs ("guests", floors.gd): the Amethyst Mine keeps the
-## Drowned Skeletons and Rootbinders its floor had before, the Whispering Library its
-## Frost Wraiths (the ghosts of its readers) and Cinder Skeletons (book burners), and the
+## Drowned Skeletons and Rootbinders its floor had before, the Whispering Library its own
+## Hush Keepers (version 271) and the Frost Wraiths (the ghosts of its readers; until then
+## beside Cinder Skeletons, book burners, both borrowed), and the
 ## Clockwork Foundry its own Clockwork Skeletons (version 270) and the Cinder Skeletons (its
 ## stokers; until then beside the Sporelings its floor had before),
 ## and the Starfall Abyss its own Void Walkers (version 269; from version 255 it borrowed the

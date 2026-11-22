@@ -59,6 +59,10 @@ var snare_left := 0.0
 ## After the roots let go (or a dash tears free), a moment when roots can't take hold again,
 ## so two crawls in a row can't keep the hero pinned under the next attack.
 var snare_guard := 0.0
+## Version 271: inside a Hush Keeper's circle of letters (the Whispering Library) the weapon
+## is silent: seconds left, topped up while the hero stays inside. Step out to fight again.
+var hush_left := 0.0
+var _hush_said := 0.0
 ## Version 243, Frostfall's Blizzard (blizzard.gd): how cold the hero is (0..1; slower as it
 ## rises), and the block of ice they are frozen in (held like roots; a dash breaks it).
 var cold := 0.0
@@ -606,6 +610,11 @@ func _process(delta: float) -> void:
 		chill_left -= delta
 		if randf() < delta * 8.0:
 			Fx.magic(center(), Color(0.6, 0.9, 1.0), 2)
+	_hush_said -= delta
+	if hush_left > 0.0:
+		hush_left -= delta
+		if randf() < delta * 7.0:
+			Fx.magic(global_position + Vector3.UP * 1.6, HushCircle.TEAL, 1)
 	if snare_guard > 0.0:
 		snare_guard -= delta
 	if snare_left > 0.0:
@@ -649,6 +658,11 @@ func _auto_attack(delta: float) -> void:
 		return
 	var to := target.global_position - global_position
 	face(to, 30.0, delta)
+	if hush_left > 0.0:
+		# Hushed (version 271): it still turns to its target but can't fire, and fires
+		# almost at once after stepping out.
+		_shot_timer = maxf(_shot_timer, 0.15)
+		return
 	if _shot_timer > 0.0:
 		return
 	# The time left over this frame counts toward the next shot (at most 0.1 s of it, so a
@@ -726,6 +740,8 @@ func _shoot(fwd: Vector3) -> void:
 ## hand is ready. The body keeps facing the way it runs.
 func _run_knives(delta: float) -> void:
 	_knife_timer -= delta
+	if hush_left > 0.0:
+		return
 	if _knife_timer > 0.0:
 		return
 	var t := _pick_target()
@@ -1387,6 +1403,19 @@ func chill(seconds: float) -> void:
 		Fx.magic(center(), Color(0.6, 0.9, 1.0), 16)
 		Game.hud.callout("CHILLED!", Color(0.6, 0.9, 1.0), true)
 	chill_left = maxf(chill_left, seconds)
+
+
+## Silenced inside a Hush Keeper's circle (version 271): no shots or swings while
+## `hush_left` lasts. The circle tops it up every frame the hero is inside.
+func hush(seconds: float) -> void:
+	if dead:
+		return
+	if hush_left <= 0.0:
+		Fx.magic(global_position + Vector3.UP * 1.3, HushCircle.TEAL, 10)
+		if _hush_said <= 0.0:
+			Game.hud.callout("HUSHED! STEP OUT!", HushCircle.TEAL, true)
+		_hush_said = 3.0
+	hush_left = maxf(hush_left, seconds)
 
 
 ## Held in place by roots for a moment (Rootbinders and the Sporemother). A dash tears free.

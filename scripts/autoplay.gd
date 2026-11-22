@@ -940,6 +940,9 @@ func _gallery_step(delta: float) -> void:
 		get_tree().quit()
 
 
+var _hush_told := false
+
+
 func _drive(delta: float) -> void:
 	var hero := Game.hero
 	if hero == null:
@@ -1041,6 +1044,17 @@ func _drive(delta: float) -> void:
 		# Drift back towards the middle when idle so the hero doesn't get cornered.
 		if move.length() > 0.05:
 			move += (Vector3(0, 0, 4) - hero.global_position) * 0.08
+	# v271: walk out of a Hush Keeper's circle of letters, which silences the weapon (even in
+	# god mode, or the robot would stand there unable to shoot).
+	if not room.door_open:
+		for c in HushCircle.all:
+			if is_instance_valid(c) and c.covers(hero.global_position, hero.radius + 0.25):
+				var d: Vector3 = hero.global_position - c.global_position
+				d.y = 0
+				move += (d.normalized() if d.length() > 0.1 else Vector3.RIGHT) * 3.0
+				if hero.hush_left > 0.0 and not _hush_told:
+					_hush_told = true
+					print("[autoplay] hushed: stepping out of a hush circle")
 	if move.length() < 0.05 and not room.door_open:
 		# No clear shot at anything? Walk towards the target until there is one.
 		var target := hero._pick_target()

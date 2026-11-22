@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "u", "b", "h", "Q", "q", "o", "n", "i", "Y"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "u", "l", "b", "h", "Q", "q", "o", "n", "i", "Y"]
 
 ## Version 165: the skeletons, floor and effects of the first floor. A new player's first
 ## launch warms only these (with the hero they play), and the rest waits for the black
@@ -346,6 +346,9 @@ static func run(core := false, from := 0) -> bool:
 		RootCrawl._burst(spots[23] + Vector3(0.5, 0, 0), 1.0, 0.2)
 		var pod := U.sphere(holder, 0.28, U.mat(Color(1.0, 0.42, 0.82), 0.4, 0.7))
 		pod.position = spots[24] + Vector3(0, 1, 0))
+	# Version 271: the Hush Keeper's circle of letters, sealed, with its curtain of light.
+	if not core: steps.append(func():
+		HushCircle.warm(holder, spots[22] + Vector3(0, 0.035, 0)))
 
 	# Draw each batch for two frames. Frames, not frame_post_draw: that signal never comes
 	# without a screen (robot test runs).
