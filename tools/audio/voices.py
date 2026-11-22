@@ -570,3 +570,50 @@ if WHICH in ("all", "tyrant"):
         squeal = np.sin(2 * np.pi * (3100 + 120 * i + 60 * np.sin(2 * np.pi * 3 * tt)) * tt) * env(len(tt), 0.3, 0.25) * 0.12
         a = mix((rumble, 0, 0.9), (clacks, 0, 0.8), (squeal, 0.2, 1.0))
         save(a, "cart_%d" % i, mean_db=-18.0, cap=1.3)
+if WHICH in ("all", "archivist"):
+    # The Archivist (version 276, the Whispering Library's own boss). "roar_archivist": a great
+    # book slammed shut, a slowed roar under a choir of whispers ("shhh", "sss") that swell and
+    # die away, pages riffling, in a tall library's wooden echo; "flutter": a book flapping its
+    # covers like wings, pages riffling; "burn_word": the written word catching fire, a rush
+    # of flame over crackling paper and a hiss; "ink": a wet splat of ink with a little
+    # bubbling; "tear": a page torn out of a book, a long dry rip ending in a flick.
+    # (python3 ... archivist)
+    def whisper(sec, f, wob):
+        tt = t(sec)
+        w = bandpass(noise(sec), f, 1.5) + 0.35 * bandpass(noise(sec), f * 0.6, 1.0)
+        return w * env(len(tt), sec * 0.3, sec * 0.35) * (0.8 + 0.2 * np.sin(2 * np.pi * wob * tt))
+
+    def tear_noise(sec, rate, f=3200):
+        out = np.zeros(int(sec * R))
+        k = 0.0
+        while True:
+            k += rng.exponential(1.0 / rate)
+            if k >= sec:
+                break
+            p = bandpass(noise(0.004), f * rng.uniform(0.7, 1.4), 1.0) * np.exp(-t(0.004) / 0.001)
+            s = int(k * R); out[s:s + len(p)] += p[: len(out) - s] * rng.uniform(0.3, 1.0)
+        return out * env(len(out), 0.01, sec * 0.7)
+
+    for i, (src, sp) in enumerate([("monster_16", 0.68), ("monster_17", 0.66), ("monster_19", 0.7)]):
+        v = lowpass(load("k2/creatures-2/%s.ogg" % src, sp), 2400)
+        choir = mix(*[(whisper(rng.uniform(0.7, 1.1), rng.uniform(2600, 4600), rng.uniform(4, 8)), 0.1 + k * 0.16, 0.5) for k in range(7)])
+        a = mix((load("k1/rpg-audio/bookClose.ogg", 0.7), 0, 0.9), (thump(90, 40, 0.4), 0, 0.5), (v, 0.08, 1.0),
+                (choir, 0.05, 0.6), (flutter(1.0, 22), 0.3, 0.35), (load("k1/rpg-audio/bookFlip%d.ogg" % (i + 1), 0.8), 0.9, 0.35))
+        save(verb(a, 1.4, 0.4, 4200), "roar_archivist_%d" % i, mean_db=-14.0, cap=2.4)
+    for i in range(3):
+        a = mix((flutter(0.45, 17 + 3 * i), 0, 1.0), (load("k1/rpg-audio/bookFlip%d.ogg" % (i + 1), 1.35), 0.02, 0.55),
+                (whoosh(0.3, 400, 1500, 1.0, 0.05), 0.0, 0.3))
+        save(a, "flutter_%d" % i, mean_db=-20.0, cap=0.6)
+    for i in range(3):
+        fire = load("k2/fire-staff/LEGIT_FIR_Fire_Staff %d-Audio.wav" % (i + 4), 0.9, 1.0)
+        a = mix((whoosh(0.5, 300, 2600, 0.9, 0.04), 0, 0.6), (fire, 0.02, 0.8), (crackle(0.9, 140, 0.4), 0.05, 0.5),
+                (whisper(0.6, 3800, 6), 0.0, 0.35), (thump(120, 55, 0.25), 0, 0.4))
+        save(verb(a, 0.8, 0.3, 5000), "burn_word_%d" % i, mean_db=-16.5, cap=1.2)
+    for i in range(3):
+        a = mix((load("k2/creatures-2/slime_0%d.ogg" % (i + 2), 1.15, 0.5), 0, 0.9), (bubbles(0.35, 5, 300, 650), 0.04, 0.4),
+                (thump(150, 70, 0.15), 0, 0.4))
+        save(a, "ink_%d" % i, mean_db=-19.5, cap=0.6)
+    for i in range(3):
+        a = mix((tear_noise(0.45 + 0.05 * i, 900 - 150 * i), 0, 1.0), (load("k1/rpg-audio/bookFlip%d.ogg" % (3 - i), 1.1), 0.35, 0.5),
+                (whoosh(0.2, 1200, 4000, 1.0, 0.02), 0.4, 0.25))
+        save(verb(a, 0.5, 0.25, 6000), "tear_%d" % i, mean_db=-18.0, cap=0.9)

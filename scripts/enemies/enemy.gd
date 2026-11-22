@@ -144,6 +144,8 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"y": e = TombMummy.new()   # the Sandfall Tomb's own skeleton (version 273)
 		"P": e = SandPharaoh.new()   # the Sandfall Tomb's own boss (version 274)
 		"M": e = CrystalTyrant.new()   # the Amethyst Mine's own boss (version 275)
+		"B": e = Archivist.new()   # the Whispering Library's own boss (version 276)
+		"k": e = InkDouble.new()   # the Archivist's Mirror Page: the hero's ink double (version 276)
 		# The Blood Moon event (events.gd, version 134).
 		"b": e = Bloodbat.new()
 		"h": e = MoonHowler.new()

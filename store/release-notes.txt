@@ -1,4 +1,4 @@
-Version 275: the Amethyst Mine has its own boss
-- Meet the Crystal Tyrant, the new floor 7 boss: a giant skeleton with amethyst grown through its bones and a crown of crystals.
-- Spires of crystal burst up round you (hide behind them!), mine carts come thundering across the room, and a ring of crystals runs out across the floor.
-- At half health it builds a crystal prison round you: get out before it shuts!
+Version 276: the Whispering Library has its own boss
+- Meet the Archivist, the new floor 8 boss: a skeleton scholar with page wings, glowing spectacles and a tome on a chain.
+- It writes burning words across the floor, makes the footprints you left behind burst, and throws books off the shelves.
+- At half health your own ink double climbs out of a page and copies your every step!

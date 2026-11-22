@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-22c"
+const BUILD := "2026-11-22d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -370,6 +370,7 @@ const MEET_LINES := {
 	"HushKeeper": "HUSH KEEPER: its circle of letters silences your weapon. Step out to fight!",
 	"GeodeGuard": "GEODE GUARD: its geode blocks shots from the front. Hit its side or back!",
 	"TombMummy": "TOMB MUMMY: throws its bandage down the strip to reel you in. DASH to snap it!",
+	"InkDouble": "INK DOUBLE: copies your steps like a mirror. Keep off the middle, and break it!",
 	"Bloodbat": "BLOODBATS: swoop along a strip. Dash through!",
 	"MoonHowler": "MOON HOWLER: pounces along a strip. Step aside!",
 }
@@ -419,6 +420,10 @@ func death_tip() -> String:
 		tip = "Step off a strip before it FILLS IN."
 	elif "Spike" in name or "fire" in name or "Spore" in name:
 		tip = "Watch the floor: don't stand in traps or flames."
+	elif "Archivist" in name:
+		tip = "Its words and footprints burn when they FILL IN. Keep moving, and don't turn back."
+	elif "Ink Double" in name:
+		tip = "Your double throws when you stand still. Break it, or keep moving."
 	elif "King" in name or "Warrior" in name or "Minion" in name or "Skeleton" in name:
 		tip = "A circle or strip hits when it FILLS IN. Step or dash out."
 	return "%s hurt you most.\n%s" % [name, tip]
@@ -1740,7 +1745,8 @@ func _build_run() -> void:
 ## Grotto (floor 4) the Sporemother, the Starfall Abyss (floor 10, 15...; its "boss" key) the
 ## Star Eater (version 268; it had the Sporemother before), the Sandfall Tomb (floor 5) the
 ## Sand Pharaoh (version 274; the King and the Lich together before), the Amethyst Mine
-## (floor 7) the Crystal Tyrant (version 275; the King before);
+## (floor 7) the Crystal Tyrant (version 275; the King before), the Whispering Library
+## (floor 8) the Archivist (version 276; the Lich before);
 ## elsewhere the Skeleton King and the Lich take turns (the King on odd floors).
 func boss_kind() -> String:
 	# An event: its own boss on floor 3 and alone in its hunt (the Blood Moon Queen, Krampus);

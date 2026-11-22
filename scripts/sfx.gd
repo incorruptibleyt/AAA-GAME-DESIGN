@@ -181,7 +181,10 @@ func _load_samples() -> void:
 			# Version 275: the Crystal Tyrant: spires of crystal bursting up, crystal smashing,
 			# its runaway mine carts.
 			"crystal_rise", "shatter", "cart",
-			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star", "roar_pharaoh", "roar_tyrant"]:
+			# Version 276: the Archivist: its books flapping, its written words burning, ink
+			# splashing (its retold footprints, its ink double), a page torn out.
+			"flutter", "burn_word", "ink", "tear",
+			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star", "roar_pharaoh", "roar_tyrant", "roar_archivist"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]

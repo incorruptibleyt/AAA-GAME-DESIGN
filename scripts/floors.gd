@@ -175,6 +175,8 @@ const THEMES := [
 		# Dust turning in the candlelight, and a few teal sparks of whispering.
 		"motes": [Color(1.0, 0.88, 0.65, 0.5), Color(0.45, 1.0, 0.85, 0.35)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.55, 0.42, 0.32), "guests": "lf",   # v271: its own Hush Keepers (were "fe")
+		# v276: its own boss, the Archivist (until then the Lich from floor 2).
+		"boss": "B",
 		"banner": Color(0.5, 1.0, 0.85),
 		# Version 262: its own cover (props.gd add_cover): dead scribes' desks heaped with
 		# books for crates, great hourglasses of glowing green sand for barrels.
