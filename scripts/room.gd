@@ -97,9 +97,9 @@ static var _floor_shaders := {}
 ##    staggered rows, grime in patches and along the walls, cracked and chipped slabs, now
 ##    and then an iron drain grate. A floor with "water" has shallow water in the low places
 ##    and the gaps, rippling and lit from below.
-## 1. The Bone Crypt is an ossuary: polished dark stone panels framed by bands of bones laid
-##    end to end like the links of a chain, a bone rosette where bands cross and a great
-##    bone wheel in the middle of the room.
+## 1. The Bone Crypt (version 277) is an old crypt: dark slate flagstones in courses, two
+##    rows of carved grave slabs down the sides and, in the middle, the Bone Chain: a ring of
+##    links made of bone round the Skeleton King's crowned skull, candlelight in its eyes.
 ## 2. The Frozen Ossuary is thick dark ice in big plates with pale cracks between them,
 ##    frost drifting in from the walls, and old bones frozen deep inside, which slide as the
 ##    camera moves because they lie under the surface.
@@ -262,6 +262,25 @@ vec4 track(vec2 tp, float fine) {
 	return vec4(col, max(sleeper, rail));
 }
 
+#if STYLE == 1
+// The Bone Crypt's carvings (floor style 1): a rounded box (p from its centre, b its half
+// size, rr how round its corners are), a smooth join of two shapes, and a crown's point
+// (base half width w at y = 0, tip at y = ht). Below 0 is inside.
+float sd_box(vec2 p, vec2 b, float rr) {
+	vec2 d = abs(p) - b + rr;
+	return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0) - rr;
+}
+
+float smin(float a, float b, float k) {
+	float t = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+	return mix(b, a, t) - k * t * (1.0 - t);
+}
+
+float spike(vec2 p, float w, float ht) {
+	return max(-p.y, (abs(p.x) * ht + p.y * w - w * ht) / length(vec2(ht, w)));
+}
+#endif
+
 void vertex() {
 	up = NORMAL.y;
 	pos = (ledge > 0.5 && abs(NORMAL.y) < 0.5) ? VERTEX.xy : VERTEX.xz;
@@ -286,66 +305,166 @@ void fragment() {
 	vec3 em = vec3(0.0);
 
 #if STYLE == 1
-	const float P = 3.0;
-	// Version 160: narrower bands in a softer mortar (were 0.19 wide in 0.1/0.085/0.08), so
-	// the bone grid reads as texture under the fight, not as bright lines across it.
-	const float BW = 0.14;
-	const vec3 MORTAR = vec3(0.15, 0.13, 0.125);
-	const vec3 BRASS = vec3(0.5, 0.4, 0.25);
-	vec2 q = pos / P + 0.5;
-	vec2 cell = floor(q);
-	vec2 f = fract(q) - 0.5;
-	vec2 e = (0.5 - abs(f)) * P;
+	// Version 277 (hard review of build 267, fix 6): the Bone Crypt, the first place every
+	// player sees, was the plainest floor in the game (3 m panels in a faint grid of bones
+	// under a flat orange light). Now it is an old crypt floor: dark slate flagstones laid in
+	// courses, two rows of carved grave slabs down the sides (a skull and crossbones, lines
+	// of worn writing, some of them cracked), and in the middle the Bone Chain: a ring of
+	// links made of bone round the Skeleton King's crowned skull, its crown inlaid in gold
+	// and candlelight glowing in its eyes.
+	// The flagstones: courses 1.05 m deep, slabs 1.1 to 1.7 m long, each course its own.
+	const float ROW = 1.05;
+	float rowi = floor(pos.y / ROW);
+	float sw = 1.1 + 0.6 * h(vec2(rowi, 3.1));
+	float sx = pos.x / sw + h(vec2(rowi, 8.3));
+	vec2 cell = vec2(floor(sx), rowi);
+	vec2 f = vec2(fract(sx) - 0.5, fract(pos.y / ROW) - 0.5);
+	vec2 e = (0.5 - abs(f)) * vec2(sw, ROW);
 	r = h(cell);
-	// Polished stone with faint pale veins, each panel a little different.
-	float vn = texture(grain, pos * 0.09 + vec2(r * 3.0, r)).r;
-	float vein = 1.0 - smoothstep(0.0, 0.03 + fwidth(vn), abs(vn - 0.5));
-	c = vec3(0.265, 0.25, 0.285) * (0.9 + 0.2 * r) * (0.95 + 0.1 * fine);
-	c = mix(c, vec3(0.38, 0.36, 0.4), vein * 0.22);
-	rough = 0.62;
+	float r2 = h(cell + 7.7);
+	c = vec3(0.205, 0.2, 0.198) * (0.78 + 0.44 * r) * (0.9 + 0.2 * fine) * tint.rgb;
+	// Old stone: a few slabs browner, a few greener.
+	c *= mix(vec3(1.0), r2 > 0.5 ? vec3(1.07, 1.0, 0.9) : vec3(0.93, 1.0, 1.0), abs(r2 - 0.5) * 1.6);
+	rough = 0.8;
+	float ed = min(e.x, e.y);
+	gap = 1.0 - smoothstep(0.012, 0.028 + fwidth(ed), ed);
+	c *= 0.8 + 0.2 * smoothstep(0.0, 0.1, ed);   // worn, rounded edges
+	float cn = texture(blobs_a, pos * 0.3 + vec2(r * 5.0, r2 * 3.0)).r;
+	crack = step(0.72, r2) * (1.0 - smoothstep(0.0, 0.012 + fwidth(cn), abs(cn - 0.5))) * smoothstep(0.03, 0.1, ed);
 	// Dust along the walls and in patches.
 	float g = smoothstep(0.62, 0.9, big + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.35) * grime_amount;
-	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), g * 0.6);
-	rough = mix(rough, 0.9, g);
-	// The bands of bones between the panels, sunk a little (a dark lip on the panel).
-	float ed = min(e.x, e.y);
-	float al = e.y < e.x ? pos.x : pos.y;
-	float band = 1.0 - smoothstep(BW - 0.01, BW + 0.01, ed);
-	c *= 1.0 - 0.16 * (1.0 - smoothstep(BW, BW + 0.07, ed));
-	float slot = floor(al / 0.5);
-	float bd = bone(vec2((fract(al / 0.5) - 0.5) * 0.5, ed), 0.31, 0.032);
-	float bone_in = (1.0 - smoothstep(-0.006, 0.006, bd)) * band;
-	// Version 159: the bones in the bands are a duller, darker ivory and the brass trim only
-	// a third as strong, so the floor's grid stops competing with skeletons and shots.
-	vec3 ivory = vec3(0.4, 0.365, 0.3) * (0.86 + 0.22 * h(vec2(slot, cell.x * 3.0 + cell.y)));
-	ivory *= 0.72 + 0.38 * smoothstep(0.0, -0.035, bd);
-	float trim = 1.0 - smoothstep(0.01, 0.02, abs(ed - BW + 0.015));
-	c = mix(c, MORTAR, band);
-	c = mix(c, ivory, bone_in);
-	c = mix(c, BRASS, trim * 0.3);
-	rough = mix(rough, 0.75, band);
-	rough = mix(rough, 0.3, trim);
-	// A rosette where four panels meet: a brass ring round a bone disc.
-	vec2 lc = (q - floor(q + 0.5)) * P;
-	float rd = length(lc);
-	float aa = fwidth(rd);
-	c = mix(c, MORTAR, 1.0 - smoothstep(0.22, 0.22 + aa, rd));
-	c = mix(c, BRASS, (1.0 - smoothstep(0.01, 0.02, abs(rd - 0.2))) * 0.4);
-	c = mix(c, vec3(0.4, 0.365, 0.3) * (0.7 + 0.4 * smoothstep(0.14, 0.0, rd)), 1.0 - smoothstep(0.12, 0.12 + aa, rd));
-	c = mix(c, MORTAR, 1.0 - smoothstep(0.04, 0.04 + aa, rd));
-	// The great wheel of bones in the middle of the room.
+	c = mix(c, grime.rgb * (0.7 + 0.35 * fine), g * 0.5);
+	rough = mix(rough, 0.92, g);
+	vec2 bevel = sign(f) * (1.0 - smoothstep(0.0, 0.08, e)) * 0.5;
+	n = normalize(vec3(bevel.x + (r - 0.5) * 0.08, 1.0, bevel.y + (r2 - 0.5) * 0.08));
+
+	// The grave slabs: two rows, 3.05 m out from the middle, one every 3.3 m (now and then one
+	// is missing), each sunk a little crooked. Their heads point away from the camera.
+	float gk = clamp(floor(pos.y / 3.3 + 0.5), -2.0, 2.0);
+	vec2 gid = vec2(sign(pos.x), gk);
+	float gr = h(gid + 21.0);
+	float gr2 = h(gid + 33.0);
+	vec2 lp = vec2(abs(pos.x) - 3.05, pos.y - gk * 3.3 - (gr - 0.5) * 0.35);
+	float ga = (gr2 - 0.5) * 0.07;
+	lp = mat2(vec2(cos(ga), sin(ga)), vec2(-sin(ga), cos(ga))) * lp;
+	const vec2 GH = vec2(0.6, 1.02);
+	float gd = sd_box(lp, GH, 0.03);
+	if (gr > 0.14 && gd < 0.05) {
+		float gaa = fwidth(gd);
+		float inside = 1.0 - smoothstep(-gaa, gaa, gd);
+		float joint = 1.0 - smoothstep(0.0, 0.025 + gaa, abs(gd + 0.006));
+		vec3 lime = vec3(0.33, 0.315, 0.29) * (0.86 + 0.22 * gr2) * (0.8 + 0.4 * fine) * (0.88 + 0.24 * big2);
+		vec2 u = vec2(lp.x, -lp.y);
+		// A border cut round it.
+		float carve = 1.0 - smoothstep(0.008, 0.02 + gaa, abs(gd + 0.1));
+		// A skull and crossbones at its head.
+		vec2 sp = u - vec2(0.0, 0.56);
+		float skull = smin(length(sp - vec2(0.0, 0.04)) - 0.15, sd_box(sp - vec2(0.0, -0.11), vec2(0.08, 0.05), 0.03), 0.05);
+		vec2 b1 = mat2(vec2(0.7071, 0.7071), vec2(-0.7071, 0.7071)) * sp;
+		vec2 b2 = mat2(vec2(0.7071, -0.7071), vec2(0.7071, 0.7071)) * sp;
+		float xb = min(bone(b1, 0.52, 0.026), bone(b2, 0.52, 0.026));
+		float emblem = min(skull, xb);
+		float saa = fwidth(emblem);
+		carve = max(carve, 1.0 - smoothstep(0.006, 0.016 + saa, abs(emblem)));
+		float sockets = min(length(vec2(abs(sp.x) - 0.06, sp.y - 0.03)) - 0.042, length(sp - vec2(0.0, -0.05)) - 0.02);
+		float hollow = (1.0 - smoothstep(-saa, saa, sockets)) * (1.0 - smoothstep(-saa, saa, skull));
+		float raised = 1.0 - smoothstep(-saa, saa, emblem);
+		// Lines of worn writing: words cut in rows under the skull.
+		float text = 0.0;
+		for (int i = 0; i < 4; i++) {
+			float ly = 0.16 - float(i) * 0.18;
+			float hw = i == 3 ? 0.18 : 0.4 - 0.1 * h(gid + float(i) * 3.7);
+			float row_in = (1.0 - smoothstep(0.024, 0.034, abs(u.y - ly))) * (1.0 - smoothstep(hw - 0.02, hw, abs(u.x)));
+			float wx = u.x / 0.17 + h(gid + float(i));
+			float wl = 0.55 + 0.3 * h(vec2(floor(wx), float(i) + gr * 9.0));
+			text = max(text, row_in * (1.0 - smoothstep(wl - 0.06, wl, fract(wx))));
+		}
+		// A crack right across some of them.
+		float gc = 0.0;
+		if (gr2 > 0.6) {
+			float wig = (texture(grain, lp * 0.8 + gr).r - 0.5) * 0.16;
+			float cl = lp.y - (gr - 0.5) * 1.1 - lp.x * (gr2 - 0.8) * 1.6 + wig;
+			gc = 1.0 - smoothstep(0.0, 0.012 + fwidth(cl), abs(cl));
+		}
+		vec3 gcol = lime * (1.0 + 0.1 * raised);
+		gcol *= 1.0 - 0.32 * carve;
+		gcol *= 1.0 - 0.38 * text;
+		gcol *= 0.8 + 0.2 * smoothstep(0.0, 0.07, -gd);   // its edges worn round
+		gcol = mix(gcol, vec3(0.05, 0.045, 0.045), hollow * 0.85);
+		gcol *= 1.0 - 0.6 * gc;
+		gcol = mix(gcol, grime.rgb * (0.7 + 0.35 * fine), g * 0.35);
+		c = mix(c, gcol, inside);
+		c = mix(c, grout.rgb * 0.7, joint);
+		gap *= 1.0 - inside;
+		crack *= 1.0 - inside;
+		rough = mix(rough, 0.72, inside);
+		n = normalize(mix(n, vec3((gr - 0.5) * 0.08, 1.0, (gr2 - 0.5) * 0.08), inside));
+	}
+
+	// The Bone Chain in the middle of the room: a round dais of dark polished stone edged in
+	// brass, a ring of chain links made of bone (oval rings, and bones seen edge-on joining
+	// them) and the Skeleton King's crowned skull in relief.
 	float R = length(pos);
-	if (R < 1.3) {
+	if (R < 2.1) {
+		float raa = fwidth(R);
+		float dais = 1.0 - smoothstep(1.98 - raa, 1.98 + raa, R);
+		c = mix(c, vec3(0.13, 0.122, 0.145) * (0.9 + 0.2 * fine), dais);
+		gap *= 1.0 - dais;
+		crack *= 1.0 - dais;
+		n = normalize(mix(n, vec3(0.0, 1.0, 0.0), dais));
+		rough = mix(rough, 0.42, dais);
+		const vec3 GOLD = vec3(0.7, 0.52, 0.2);
+		float brass = max(1.0 - smoothstep(0.012, 0.026 + raa, abs(R - 1.96)), 1.0 - smoothstep(0.01, 0.022 + raa, abs(R - 1.2)));
+		c = mix(c, GOLD * 0.8 * (0.8 + 0.3 * fine), brass);
+		rough = mix(rough, 0.3, brass);
+		// The chain: 8 oval links and 8 bones in turn, round R = 1.58.
 		float a = atan(pos.y, pos.x);
-		const float N = 18.0;
-		float sa = (fract(a / 6.2831853 * N) - 0.5) * 6.2831853 / N;
-		float wb = bone(vec2(R - 0.9, R * sa), 0.34, 0.038);
-		float ring = smoothstep(0.6, 0.61, R) * (1.0 - smoothstep(1.2, 1.21, R));
-		c = mix(c, MORTAR, ring);
-		c = mix(c, vec3(0.66, 0.6, 0.49) * (0.72 + 0.38 * smoothstep(0.0, -0.035, wb)), (1.0 - smoothstep(-0.006, 0.006, wb)) * ring);
-		c = mix(c, BRASS, max(1.0 - smoothstep(0.012, 0.024, abs(R - 1.22)), 1.0 - smoothstep(0.012, 0.024, abs(R - 0.6))));
-		c = mix(c, BRASS, (1.0 - smoothstep(0.01, 0.02, abs(R - 0.32))) * 0.8);
-		rough = mix(rough, 0.7, ring);
+		const float ST = 6.2831853 / 8.0;
+		float af = floor(a / ST + 0.5) * ST;
+		float ae = (floor(a / ST) + 0.5) * ST;
+		vec2 pf = vec2(R * sin(a - af), R * cos(a - af) - 1.58);
+		vec2 pe = vec2(R * sin(a - ae), R * cos(a - ae) - 1.58);
+		float fl = abs(length(vec2(max(abs(pf.x) - 0.17, 0.0), pf.y)) - 0.12) - 0.04;
+		float el = bone(pe, 0.62, 0.047);
+		float laa = fwidth(fl) + fwidth(el);
+		vec3 ivory = vec3(0.6, 0.55, 0.44) * (0.9 + 0.2 * fine);
+		c *= 1.0 - 0.55 * (1.0 - smoothstep(0.0, 0.07, min(fl, el))) * dais;
+		float fm = 1.0 - smoothstep(-laa, laa, fl);
+		c = mix(c, ivory * (0.68 + 0.42 * smoothstep(0.0, -0.03, fl)), fm);
+		// The bones lie over the rings they join: a dark edge round them, then the bone.
+		c *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.03, el)) * fm;
+		float em_ = 1.0 - smoothstep(-laa, laa, el);
+		c = mix(c, ivory * (0.68 + 0.42 * smoothstep(0.0, -0.035, el)), em_);
+		rough = mix(rough, 0.6, max(fm, em_));
+		// The crowned skull, carved in relief and a little raised, looking at the camera.
+		vec2 u = vec2(pos.x, -pos.y) / 1.25 + vec2(0.0, 0.18);
+		float sk = smin(length(u - vec2(0.0, 0.1)) - 0.36, sd_box(u - vec2(0.0, -0.25), vec2(0.21, 0.13), 0.06), 0.1);
+		float eye = length(vec2(abs(u.x) - 0.145, u.y - 0.04)) - 0.095;
+		float nose = sd_box(u - vec2(0.0, -0.12), vec2(0.03, 0.045), 0.02);
+		float mouth = sd_box(u - vec2(0.0, -0.3), vec2(0.16, 0.045), 0.01);
+		float teeth = (1.0 - smoothstep(0.004, 0.011, abs(fract(u.x / 0.064) - 0.5) * 0.064)) * (1.0 - smoothstep(-0.004, 0.004, mouth));
+		vec2 cp = u - vec2(0.0, 0.47);
+		float crown = min(sd_box(u - vec2(0.0, 0.43), vec2(0.33, 0.06), 0.012),
+			min(spike(cp, 0.12, 0.32), spike(vec2(abs(cp.x) - 0.24, cp.y), 0.1, 0.24)));
+		float gems = min(length(u - vec2(0.0, 0.81)) - 0.04, length(vec2(abs(u.x) - 0.24, u.y - 0.73)) - 0.034);
+		float kaa = fwidth(sk) * 1.25;
+		float skin = 1.0 - smoothstep(-kaa, kaa, sk);
+		float holes = max(1.0 - smoothstep(-kaa, kaa, eye), 1.0 - smoothstep(-kaa, kaa, nose));
+		float cin = 1.0 - smoothstep(-kaa, kaa, crown);
+		float gin = 1.0 - smoothstep(-kaa, kaa, gems);
+		c *= 1.0 - 0.5 * (1.0 - smoothstep(0.0, 0.05, min(sk, crown))) * (1.0 - max(skin, cin));
+		c = mix(c, vec3(0.47, 0.43, 0.36) * (0.75 + 0.35 * smoothstep(0.0, -0.12, sk)) * (0.9 + 0.2 * fine), skin);
+		c = mix(c, vec3(0.04, 0.035, 0.04), max(holes, teeth * 0.7) * skin);
+		c = mix(c, GOLD * (0.75 + 0.4 * smoothstep(0.0, -0.04, crown)), cin);
+		c = mix(c, vec3(0.45, 0.06, 0.05), gin);
+		rough = mix(rough, 0.55, skin);
+		rough = mix(rough, 0.25, cin);
+		// Candlelight in its eyes, flickering, and a glint on its gems.
+		float eg = (1.0 - smoothstep(-0.03, 0.03, eye + 0.03)) * skin;
+		float flick = 0.75 + 0.25 * sin(TIME * 5.3) * sin(TIME * 2.1 + 1.3);
+		em += vec3(1.0, 0.55, 0.18) * eg * flick * 0.7;
+		em += vec3(0.9, 0.12, 0.08) * gin * 0.25;
+		em += GOLD * cin * 0.06;
 	}
 #elif STYLE == 2
 	vec2 id;

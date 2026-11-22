@@ -224,7 +224,9 @@ static func dress(room: Room, layout: Array) -> void:
 ## with a small collision circle. [model, height] pairs; the sides take them in a different
 ## order, so the two walls don't mirror each other.
 const KIT := {
-	"bone": {"banner": "banner_patternA_red", "side": [["barrel_small", 0.8], ["box_small_decorated", 0.62], ["sword_shield_broken", 0.6], ["rubble_half", 0.5]]},
+	# Version 277 (floor 1's new look): its own candles and bones (the Blood Moon crypt keeps
+	# its KayKit pieces, under "moon").
+	"bone": {"banner": "banner_patternA_red", "side": [["@candles", 0.0], ["@bones", 0.0], ["@candles", 0.0], ["rubble_half", 0.5]]},
 	"ice": {"banner": "banner_patternB_white", "side": [["box_small", 0.6], ["rubble_half", 0.5], ["barrel_small", 0.8], ["sword_shield_broken", 0.6]]},
 	"ember": {"banner": "banner_patternC_red", "side": [["rubble_half", 0.55], ["barrel_small", 0.8], ["coin_stack_small", 0.35], ["box_small", 0.6]]},
 	"water": {"banner": "banner_patternA_blue", "side": [["rubble_half", 0.5], ["barrel_small", 0.8], ["box_small", 0.6], ["bottle_A_green", 0.4]]},
@@ -277,8 +279,15 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 					"@books": own_mesh = _wall_books()
 					"@float": own_mesh = _floating_rocks()
 					"@star": own_mesh = _fallen_star()
+					"@candles": own_mesh = _crypt_candles()
+					"@bones": own_mesh = _crypt_bones()
 					_: own_mesh = _wall_cogs()
-				_no_shadow(_mesh(_place(room, at), own_mesh))
+				var own_node := _place(room, at)
+				if str(pick[0]) in ["@candles", "@bones"]:
+					own_node.rotation.y = 0.0 if side < 0 else PI   # along the wall
+				_no_shadow(_mesh(own_node, own_mesh))
+				if str(pick[0]) == "@candles":
+					_glow_pool(own_node, 2.3, Color(1.0, 0.6, 0.25, 0.2))
 			else:
 				_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
 			room._add_obstacle(Vector3(side * Room.HALF_W, 0, z), 0.7)
@@ -3519,3 +3528,73 @@ static func _bone_totem() -> ArrayMesh:
 	parts.append([_sphere(), _xf(Vector3(-0.05, 1.09, 0.08), Vector3(0.02, 0.04, 0.02)), _lib_mat("wax")])
 	_baked["bone_totem"] = _bake(parts)
 	return _baked["bone_totem"]
+
+
+## Version 277 (floor 1's new look): the Bone Crypt's own pieces along its side walls, where
+## KayKit barrels, boxes and a broken shield stood. Candles burnt down on a worn stone step,
+## thick and thin, wax run over the edge and pooled on the floor, a skull with a candle on
+## its crown among them (the "@candles" piece of the KIT; a warm pool of light goes under it).
+## Seen from either side, so nothing on it faces one way only.
+static func _crypt_candles() -> ArrayMesh:
+	if _baked.has("crypt_candles"):
+		return _baked["crypt_candles"]
+	var parts := []
+	var stone := U.mat(Color(0.3, 0.29, 0.28), 0.9)
+	var wax := _lib_mat("wax")
+	var old_wax := U.mat(Color(0.74, 0.68, 0.52), 0.75)
+	var bone := U.mat(Color(0.86, 0.82, 0.7), 0.85)
+	var dark := U.mat(Color(0.07, 0.05, 0.06), 1.0)
+	parts.append([_cube(), _xf(Vector3(0, 0.08, 0), Vector3(0.5, 0.16, 0.9)), stone])
+	parts.append([_cube(), _xf(Vector3(0.04, 0.2, -0.05), Vector3(0.34, 0.08, 0.52)), stone])
+	# Wax pooled on the step and run down onto the floor.
+	for w: Array in [[Vector3(0.0, 0.24, -0.08), Vector3(0.16, 0.02, 0.2)], [Vector3(0.2, 0.17, 0.25), Vector3(0.1, 0.012, 0.13)],
+			[Vector3(0.3, 0.01, 0.3), Vector3(0.14, 0.012, 0.2)], [Vector3(-0.28, 0.01, -0.3), Vector3(0.12, 0.01, 0.16)],
+			[Vector3(0.25, 0.1, 0.32), Vector3(0.03, 0.08, 0.03)]]:
+		parts.append([_sphere(), _xf(w[0], w[1]), old_wax])
+	# Thick church candles on the step and the floor beside it, each burnt to its own height.
+	for c: Array in [[Vector3(0.05, 0.24, -0.16), 0.42, 0.055], [Vector3(-0.06, 0.24, 0.05), 0.28, 0.05],
+			[Vector3(0.12, 0.24, 0.1), 0.18, 0.045], [Vector3(0.14, 0.16, 0.36), 0.22, 0.042],
+			[Vector3(-0.05, 0.16, -0.38), 0.14, 0.04], [Vector3(0.36, 0.0, -0.1), 0.3, 0.05],
+			[Vector3(0.4, 0.0, 0.18), 0.12, 0.04]]:
+		_thick_candle(parts, c[0], c[1], c[2], wax if int(c[1] * 100) % 3 != 0 else old_wax)
+	# A skull among them, a stub of candle on its crown.
+	_skull(parts, Vector3(-0.08, 0.3, 0.33), 0.1, Vector3(0.5, 0.1, 0.3), bone, dark)
+	_candle(parts, Vector3(-0.08, 0.38, 0.33), 0.07)
+	_baked["crypt_candles"] = _bake(parts)
+	return _baked["crypt_candles"]
+
+
+## A thick candle standing at `at`, `h` tall and `rad` round: a melted lip of wax round its
+## top, a drip down its side, the wick and its flame.
+static func _thick_candle(parts: Array, at: Vector3, h: float, rad: float, wax: Material) -> void:
+	parts.append([_cone(rad, rad * 1.08, h, 8), _xf(at + Vector3(0, h * 0.5, 0), Vector3.ONE), wax])
+	parts.append([_knob(), _xf(at + Vector3(0, h - 0.005, 0), Vector3(rad * 1.12, 0.018, rad * 1.12)), wax])
+	parts.append([_knob(), _xf(at + Vector3(rad * 0.8, h * 0.72, rad * 0.3), Vector3(0.016, h * 0.25, 0.016)), wax])
+	parts.append([_sphere(), _xf(at + Vector3(0, h + 0.05, 0), Vector3(0.024, 0.055, 0.024)), _lib_mat("flame")])
+
+
+## Bones heaped against a side wall: long bones fallen across each other and two skulls, all
+## low enough never to hide anyone (the "@bones" piece of the KIT).
+static func _crypt_bones() -> ArrayMesh:
+	if _baked.has("crypt_bones"):
+		return _baked["crypt_bones"]
+	var parts := []
+	var bone := U.mat(Color(0.84, 0.8, 0.68), 0.85)
+	var old := U.mat(Color(0.7, 0.64, 0.52), 0.9)
+	var dark := U.mat(Color(0.07, 0.05, 0.06), 1.0)
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 277
+	for i in 9:
+		var a := rng.randf() * TAU
+		var l := rng.randf_range(0.36, 0.56)
+		var c := Vector3(rng.randf_range(-0.25, 0.25), 0.04 + 0.05 * (i % 3), rng.randf_range(-0.42, 0.42))
+		var d := Vector3(cos(a), rng.randf_range(-0.12, 0.12), sin(a)) * l * 0.5
+		var m := old if i % 3 == 0 else bone
+		_rod_part(parts, c - d, c + d, 0.026, m)
+		for end in [c - d, c + d]:
+			parts.append([_knob(), _xf(end + Vector3(0, 0, -0.02), Vector3.ONE * 0.036), m])
+			parts.append([_knob(), _xf(end + Vector3(0, 0, 0.02), Vector3.ONE * 0.036), m])
+	_skull(parts, Vector3(-0.05, 0.16, -0.12), 0.11, Vector3(0.6, 0.2, 0.4), bone, dark)
+	_skull(parts, Vector3(0.12, 0.12, 0.26), 0.1, Vector3(0.3, 0.15, -0.6), old, dark)
+	_baked["crypt_bones"] = _bake(parts)
+	return _baked["crypt_bones"]

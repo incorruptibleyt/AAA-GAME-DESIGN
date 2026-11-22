@@ -15,13 +15,17 @@ const THEMES := [
 		"grout": Color(0.07, 0.06, 0.07), "grime": Color(0.3, 0.29, 0.21), "grime_amount": 0.55,
 		"patch_tint": Color(0.86, 0.87, 0.92), "patch_rough": 0.45,
 		"wall": Color(0.15, 0.14, 0.19), "trim": Color(0.27, 0.25, 0.31),
-		"ambient": Color(0.2, 0.19, 0.28), "fog": Color(0.03, 0.03, 0.06), "background": Color(0.02, 0.02, 0.035),
+		"ambient": Color(0.2, 0.195, 0.25), "fog": Color(0.03, 0.03, 0.06), "background": Color(0.02, 0.02, 0.035),
 		"moon": Color(0.55, 0.6, 0.9), "torch": Color(1.0, 0.62, 0.3), "torch_energy": 1.4,
-		"motes": [Color(1.0, 0.55, 0.2, 0.9), Color(0.7, 0.6, 1.0, 0.35)], "motes_fall": false, "banner": Color(1, 0.7, 0.4),
+		# Version 277 (floor 1's new look): a few small candle sparks and dust, where big
+		# orange embers hazed the whole room.
+		"motes": [Color(1.0, 0.66, 0.32, 0.5), Color(0.8, 0.76, 0.9, 0.25)], "motes_fall": false, "motes_size": 0.35, "banner": Color(1, 0.7, 0.4),
 		# Version 265: its own cover (props.gd add_cover): blocks of ossuary wall, thigh bones and
 		# rows of skulls stacked the old way, for crates; bone totems for barrels.
 		"cover": "bone",
-		"floor_style": 1, "props": "bone", "pillar": "pillar_decorated", "light": [1.1, 2.0, 0.85, 1.0]},
+		# Version 277: cooler and darker (it was the brightest floor by far, washed orange), so
+		# the candlelight pools by the walls and the Bone Chain in the middle show.
+		"floor_style": 1, "props": "bone", "pillar": "pillar_decorated", "light": [1.1, 1.6, 0.45, 0.45]},
 	# Version 213 (hardest review fix #15): dark slate stone with the frost in the patches, so a
 	# blue hero and blue shots stand out (the pale blue floor hid them).
 	{"name": "Frozen Ossuary", "wisp": Color(0.8, 0.62, 1.0), "floor": Color(0.5, 0.53, 0.58),
