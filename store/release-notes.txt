@@ -1,4 +1,4 @@
-Version 274: the Sandfall Tomb has its own boss
-- Meet the Sand Pharaoh, the new floor 5 boss: a giant mummy king with a striped headcloth, a crook and flail, and a sun over its head.
-- Its bandages lash out to reel you in (dash to snap them), sand pours from the ceiling and piles up to slow you, and scarabs swarm out of it.
-- At half health its sun burns a beam across the room!
+Version 275: the Amethyst Mine has its own boss
+- Meet the Crystal Tyrant, the new floor 7 boss: a giant skeleton with amethyst grown through its bones and a crown of crystals.
+- Spires of crystal burst up round you (hide behind them!), mine carts come thundering across the room, and a ring of crystals runs out across the floor.
+- At half health it builds a crystal prison round you: get out before it shuts!

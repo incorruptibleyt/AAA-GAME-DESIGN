@@ -523,3 +523,50 @@ if WHICH in ("all", "pharaoh"):
         clicks *= (0.55 + 0.45 * np.sin(np.pi * t(sec) / sec)) * (0.7 + 0.3 * np.sin(2 * np.pi * (7 + i) * t(sec)))
         a = mix((clicks, 0, 1.0), (load("k2/creatures-2/bug_%02d.ogg" % (6 + i), 1.5, 0.5), 0.05, 0.25))
         save(a, "scarab_%d" % i, mean_db=-21.0, cap=0.7)
+if WHICH in ("all", "tyrant"):
+    # The Crystal Tyrant (version 275, the Amethyst Mine's own boss). "roar_tyrant": a huge
+    # roar slowed down, rock grinding under it and a ringing chord of crystal (glassy notes
+    # that clash and shimmer) left hanging in a cave's echo; "crystal_rise": rock cracking as a
+    # spire of crystal bursts up, with a glassy shimmer rising; "shatter": crystal smashing,
+    # a heavy knock and a shower of glass pings; "cart": a mine cart thundering down iron
+    # rails, wheels clacking over the joints, iron rattling and a squeal.
+    # (python3 ... tyrant)
+    def chime(sec, freqs, dec):
+        tt = t(sec)
+        return sum(np.sin(2 * np.pi * f * tt + 0.2 * np.sin(2 * np.pi * 6.3 * tt + k)) * g * np.exp(-tt / dec)
+                   for k, (f, g) in enumerate(freqs))
+
+    for i, (src, sp) in enumerate([("monster_10", 0.66), ("monster_11", 0.64), ("monster_12", 0.68)]):
+        v = lowpass(load("k2/creatures-2/%s.ogg" % src, sp), 2600)
+        grind = mix(*[(load("k1/impact-sounds/impactMining_00%d.ogg" % ((i + k) % 5), 0.5), 0.05 + k * 0.2, 0.3) for k in range(5)])
+        ring = chime(2.0, [(1318, 0.35), (1397, 0.3), (1976, 0.22), (2637, 0.15), (3136, 0.1)], 0.7) * env(int(2.0 * R), 0.25, 5.0)
+        a = mix((thump(70, 38, 0.6), 0, 0.6), (v, 0.05, 1.0), (grind, 0.0, 0.55), (ring, 0.25, 0.22),
+                (tinkle(1.2, 18, 2200, 6000, 0.18), 0.45, 0.25))
+        save(verb(a, 1.5, 0.45, 5000), "roar_tyrant_%d" % i, mean_db=-14.0, cap=2.4)
+    for i in range(3):
+        rise = chime(0.6, [(900 + 120 * i, 0.4), (1350 + 150 * i, 0.3), (2100 + 200 * i, 0.2)], 0.25)
+        tt = t(0.6)
+        sweep = np.sin(2 * np.pi * np.cumsum(np.geomspace(700, 2400 + 200 * i, len(tt))) / R) * env(len(tt), 0.02, 0.12) * 0.5
+        a = mix((load("k1/impact-sounds/impactMining_00%d.ogg" % (i + 1), 1.3), 0, 0.8), (thump(140, 60, 0.25), 0, 0.5),
+                (sweep, 0.0, 0.4), (rise, 0.04, 0.5), (tinkle(0.35, 6, 2500, 5500, 0.1), 0.06, 0.3))
+        save(verb(a, 0.6, 0.25, 5000), "crystal_rise_%d" % i, mean_db=-18.5, cap=0.8)
+    for i in range(3):
+        a = mix((load("k1/impact-sounds/impactGlass_heavy_00%d.ogg" % (i + 2), 0.95), 0, 0.9),
+                (load("k1/impact-sounds/impactGlass_medium_00%d.ogg" % i, 1.1), 0.03, 0.5),
+                (thump(110, 50, 0.3), 0, 0.5), (tinkle(0.6, 26, 2000, 7000, 0.14), 0.02, 0.55))
+        save(verb(a, 0.6, 0.25, 6000), "shatter_%d" % i, mean_db=-17.5, cap=1.0)
+    for i in range(3):
+        sec = 1.3
+        tt = t(sec)
+        rumble = lowpass(noise(sec), 180) * 3.0 * env(len(tt), 0.08, 0.9)
+        clacks = np.zeros(len(tt))
+        for k in range(int(sec * 7.5)):
+            s = int((k / 7.5 + 0.03 * (k % 2)) * R)
+            if s >= len(clacks):
+                break
+            c = load("k1/impact-sounds/impactMetal_light_00%d.ogg" % ((k + i) % 5), 1.4, 0.15)
+            clacks[s:s + len(c)] += c[: len(clacks) - s] * 0.5
+        clacks *= env(len(tt), 0.05, 1.0)
+        squeal = np.sin(2 * np.pi * (3100 + 120 * i + 60 * np.sin(2 * np.pi * 3 * tt)) * tt) * env(len(tt), 0.3, 0.25) * 0.12
+        a = mix((rumble, 0, 0.9), (clacks, 0, 0.8), (squeal, 0.2, 1.0))
+        save(a, "cart_%d" % i, mean_db=-18.0, cap=1.3)

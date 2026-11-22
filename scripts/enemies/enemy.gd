@@ -143,6 +143,7 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"z": e = GeodeGuard.new()   # the Amethyst Mine's own skeleton (version 272)
 		"y": e = TombMummy.new()   # the Sandfall Tomb's own skeleton (version 273)
 		"P": e = SandPharaoh.new()   # the Sandfall Tomb's own boss (version 274)
+		"M": e = CrystalTyrant.new()   # the Amethyst Mine's own boss (version 275)
 		# The Blood Moon event (events.gd, version 134).
 		"b": e = Bloodbat.new()
 		"h": e = MoonHowler.new()

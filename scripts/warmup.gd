@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "u", "l", "z", "y", "P", "b", "h", "Q", "q", "o", "n", "i", "Y"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "u", "l", "z", "y", "P", "M", "b", "h", "Q", "q", "o", "n", "i", "Y"]
 
 ## Version 165: the skeletons, floor and effects of the first floor. A new player's first
 ## launch warms only these (with the hero they play), and the rest waits for the black
@@ -356,6 +356,9 @@ static func run(core := false, from := 0) -> bool:
 	if not core: steps.append(func():
 		SandMound.warm(holder, spots[21] + Vector3(0, 0, 0.6))
 		SandPharaoh.warm(holder, spots[23] + Vector3(0, 0, 0.6)))
+	# Version 275: the Crystal Tyrant's spires (standing and cracking), ripple and cart.
+	if not core: steps.append(func():
+		CrystalTyrant.warm(holder, spots[22] + Vector3(0, 0, 0.6)))
 
 	# Draw each batch for two frames. Frames, not frame_post_draw: that signal never comes
 	# without a screen (robot test runs).

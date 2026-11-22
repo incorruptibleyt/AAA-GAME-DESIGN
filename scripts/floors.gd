@@ -153,6 +153,8 @@ const THEMES := [
 		# Dust sifting down from the roof, and a few violet glints.
 		"motes": [Color(0.85, 0.8, 0.9, 0.45), Color(0.8, 0.55, 1.0, 0.35)], "motes_fall": true, "motes_size": 0.4,
 		"pebble": Color(0.62, 0.58, 0.66), "guests": "zd",   # v272: its own Geode Guards (were "dr")
+		# v275: its own boss, the Crystal Tyrant (until then the Skeleton King from floor 1).
+		"boss": "M",
 		"banner": Color(0.82, 0.6, 1.0),
 		# Version 261: its own cover (props.gd add_cover): great geodes split open, amethyst
 		# glowing inside, for crates; heaps of ore with a pickaxe and a lantern for barrels.
