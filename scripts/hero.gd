@@ -814,6 +814,10 @@ func _swing(fwd: Vector3) -> void:
 		# (Anything pressed right against him is hit whichever side it is on.)
 		if dist > a.radius + radius + 0.2 and ahead < cos_half and not (rear_bolts > 0 and ahead < -back_cos):
 			continue
+		# Version 272: a Geode Guard's shield turns the blade from the front too.
+		if a is Enemy and (a as Enemy).blocks_shot(dn):
+			(a as Enemy).on_block(a.center() - dn * a.radius)
+			continue
 		var crit := randf() < crit_chance
 		Fx.impact(a.center(), Color.WHITE.lerp(col, 0.5) if crit else col, 1.6 if crit else 1.1)
 		a.take_damage(dmg * crit_mult if crit else dmg, dn, bolt_push * 1.4, crit)

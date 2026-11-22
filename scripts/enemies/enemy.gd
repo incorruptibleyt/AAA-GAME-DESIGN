@@ -140,6 +140,7 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"v": e = VoidWalker.new()   # the Starfall Abyss's own skeleton (version 269)
 		"u": e = ClockworkSkeleton.new()   # the Clockwork Foundry's own skeleton (version 270)
 		"l": e = HushKeeper.new()   # the Whispering Library's own skeleton (version 271)
+		"z": e = GeodeGuard.new()   # the Amethyst Mine's own skeleton (version 272)
 		# The Blood Moon event (events.gd, version 134).
 		"b": e = Bloodbat.new()
 		"h": e = MoonHowler.new()
@@ -490,6 +491,17 @@ static func bones(key: String, height: float, eyes: Color) -> Dictionary:
 
 func ready_to_fight() -> bool:
 	return _spawn_timer <= 0.0
+
+
+## Version 272: whether a shot (or the Knight's sword) travelling along `dir` is stopped
+## before it hurts: the Geode Guard's shield. Most skeletons block nothing.
+func blocks_shot(_dir: Vector3) -> bool:
+	return false
+
+
+## A blocked shot's spark and sound (see blocks_shot).
+func on_block(_at: Vector3) -> void:
+	pass
 
 
 ## Can't be hit (or targeted) while still climbing out of the floor.

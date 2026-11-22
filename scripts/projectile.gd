@@ -302,6 +302,12 @@ func _process(delta: float) -> void:
 			(a as Hero).on_block(Vector3(next.x, global_position.y, next.z))
 			finish()
 			return
+		# Version 272: a Geode Guard's shield stops a shot that hits it from the front (the
+		# way the shot is going this frame, so an axe on its way back can cut its back).
+		if a is Enemy and (a as Enemy).blocks_shot(next - from):
+			(a as Enemy).on_block(Vector3(next.x, global_position.y, next.z))
+			finish()
+			return
 		_hit[a] = true
 		var crit := randf() < crit_chance
 		Fx.impact(Vector3(next.x, global_position.y, next.z), Color.WHITE.lerp(_col, 0.5) if crit else _col, radius * (6.0 if crit else 4.0))

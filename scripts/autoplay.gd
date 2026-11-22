@@ -941,6 +941,7 @@ func _gallery_step(delta: float) -> void:
 
 
 var _hush_told := false
+var _flank_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1055,6 +1056,22 @@ func _drive(delta: float) -> void:
 				if hero.hush_left > 0.0 and not _hush_told:
 					_hush_told = true
 					print("[autoplay] hushed: stepping out of a hush circle")
+	# v272: a Geode Guard facing the hero blocks its shots: walk round it to its side (even
+	# in god mode, or the robot would plink at its geode forever).
+	if not room.door_open:
+		var gg := hero._pick_target()
+		if gg is GeodeGuard:
+			var to: Vector3 = gg.global_position - hero.global_position
+			to.y = 0
+			if to.length() > 0.1 and (gg as GeodeGuard).blocks_shot(to):
+				# Round the side towards the middle of the room, so it doesn't circle into a corner.
+				var side := to.normalized().cross(Vector3.UP)
+				if side.dot(Vector3(0, 0, 2) - hero.global_position) < 0.0:
+					side = -side
+				move += side * 3.0 + to.normalized() * (1.0 if to.length() > 5.0 else -0.6)
+				if not _flank_told:
+					_flank_told = true
+					print("[autoplay] geode guard blocks: walking round it")
 	if move.length() < 0.05 and not room.door_open:
 		# No clear shot at anything? Walk towards the target until there is one.
 		var target := hero._pick_target()

@@ -1,3 +1,3 @@
-Version 271: the Whispering Library has its own skeleton
-- Hush Keepers now haunt the Library: skeleton librarians with a candle on the skull, a floating book and a quill.
-- It writes a circle of letters round you. When the ring closes, your weapon goes silent while you stand inside. Step out, or kill the Keeper.
+Version 272: the Amethyst Mine has its own skeleton
+- Geode Guards now stand watch in the Mine: miner skeletons with a helmet lamp, a pick and half a geode for a shield.
+- Shots that hit its geode from the front clink off. Walk round it and hit its side or back, or step aside when it slams its pick and hit it while it's open.

@@ -9,7 +9,7 @@ class_name Warmup
 ## the wait happens there instead. The first launch after an install or update takes
 ## longest; run reports say how long the last one took ("warm-up").
 
-const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "u", "l", "b", "h", "Q", "q", "o", "n", "i", "Y"]
+const FOES := ["m", "w", "a", "g", "x", "t", "s", "f", "e", "d", "p", "r", "L", "K", "C", "T", "S", "A", "v", "u", "l", "z", "b", "h", "Q", "q", "o", "n", "i", "Y"]
 
 ## Version 165: the skeletons, floor and effects of the first floor. A new player's first
 ## launch warms only these (with the hero they play), and the rest waits for the black
@@ -78,7 +78,10 @@ static func run(core := false, from := 0) -> bool:
 	room.add_child(holder)   # skeletons only stand still on the title screen
 	var at := hero.global_position
 	var spots: Array[Vector3] = []
-	for i in 30:   # (version 243: 6 rows, for the Frostfall skeletons)
+	# (Version 243: 6 rows, for the Frostfall skeletons. Version 272: enough for every kind of
+	# skeleton and then every hero; from version 269 the new skeletons pushed the last heroes
+	# past the end, and their step stopped before warming them.)
+	for i in maxi(30, FOES.size() + Heroes.LIST.size() + 1):
 		spots.append(at + Vector3((i % 5 - 2) * 1.3, 0, (i / 5 - 1) * 1.3))
 	var tree := Game.get_tree()
 	var made: Array = []

@@ -172,6 +172,8 @@ func _load_samples() -> void:
 			"die_spore", "die_root", "die_bat", "die_howler", "die_shade", "die_snow", "die_bell", "die_thief", "die_void", "die_clock", "die_hush",
 			# Version 271: the Hush Keeper's quill writing its circle, and the hush as it closes.
 			"quill", "hush",
+			# Version 272: the Geode Guard: shots clinking off its geode, and its death.
+			"clink", "die_geode",
 			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star"]:
 		var found := []
 		for i in 10:

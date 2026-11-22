@@ -432,3 +432,21 @@ if WHICH in ("all", "hush"):
                 (flutter(0.6, 26 + 4 * i), 0.12, 0.45), (load("k1/rpg-audio/bookFlip%d.ogg" % (i + 1), 1.2), 0.2, 0.35),
                 (sh, 0.3, 0.3))
         save(verb(a, 0.7, 0.25, 5000), "die_hush_%d" % i, cap=1.2)
+if WHICH in ("all", "geode"):
+    # The Geode Guard (version 272, the Amethyst Mine's own skeleton). "clink": a shot
+    # glancing off its geode, a bright glassy ring over a little knock of stone; "die_geode":
+    # the crunch, the geode thudding down and cracking, and its crystals shattering and
+    # tinkling over the rock. (python3 ... geode)
+    for i in range(3):
+        tt = t(0.45)
+        f = [2350, 2620, 2210][i]
+        ring = sum(np.sin(2 * np.pi * f * k * tt) * g for k, g in [(1.0, 0.6), (1.52, 0.35), (2.31, 0.2), (3.1, 0.1)]) * np.exp(-tt / 0.09)
+        a = mix((ring, 0, 0.7), (load("k1/impact-sounds/impactGlass_light_00%d.ogg" % i, 1.2), 0.0, 0.5),
+                (load("k1/impact-sounds/impactPlank_medium_00%d.ogg" % i, 1.4), 0.0, 0.25))
+        save(a, "clink_%d" % i, mean_db=-19.0, cap=0.5)
+    for i in range(3):
+        a = mix((game(CRUNCH[(i + 1) % 5], 0.95), 0, 0.7),
+                (lowpass(load("k1/impact-sounds/impactPlank_medium_00%d.ogg" % (i + 1), 0.7), 1500), 0.08, 0.6),
+                (load("k1/impact-sounds/impactGlass_heavy_00%d.ogg" % (i + 1), 0.9), 0.12, 0.55),
+                (tinkle(0.7, 16, 1800, 5200, 0.2), 0.16, 0.35))
+        save(a, "die_geode_%d" % i, cap=1.1)
