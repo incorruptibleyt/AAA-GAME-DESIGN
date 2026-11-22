@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-22e"
+const BUILD := "2026-11-22f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -373,6 +373,10 @@ const MEET_LINES := {
 	"InkDouble": "INK DOUBLE: copies your steps like a mirror. Keep off the middle, and break it!",
 	"Bloodbat": "BLOODBATS: swoop along a strip. Dash through!",
 	"MoonHowler": "MOON HOWLER: pounces along a strip. Step aside!",
+	# Version 278: Frostfall's own skeletons had no line (the Blood Moon's two did).
+	"SnowRoller": "SNOW ROLLER: rolls a snowball down its strip. Step aside!",
+	"BellRinger": "BELL RINGER: its bell sends out a ring of frost. Dash through it!",
+	"GiftThief": "GIFT THIEF: runs off with gifts. Catch it before it vanishes!",
 }
 var _meet_queue: Array[String] = []
 
@@ -424,6 +428,28 @@ func death_tip() -> String:
 		tip = "Its words and footprints burn when they FILL IN. Keep moving, and don't turn back."
 	elif "Ink Double" in name:
 		tip = "Your double throws when you stand still. Break it, or keep moving."
+	# Version 278: the places' own bosses and skeletons (versions 268 to 275) each get their
+	# own lesson; they all fell to the general one, or to "a circle or strip".
+	elif "Pharaoh" in name or "Mummy" in name:
+		tip = "When a bandage catches you, DASH to snap it. Wade out of the sand fast."
+	elif "Tyrant" in name:
+		tip = "Crystals rise where their marks FILL IN. Step off the cart lanes."
+	elif "Star Eater" in name:
+		tip = "Stand inside the constellation, not on its lines. Dash out of the star's pull."
+	elif "Geode" in name:
+		tip = "Its geode blocks shots from the front. Walk round it and hit its side or back."
+	elif "Hush" in name:
+		tip = "You can't attack inside its circle of letters. Step out first, then fight."
+	elif "Clockwork" in name:
+		tip = "It charges in a straight line. Step aside, then hit it while it winds down."
+	elif "Void Walker" in name:
+		tip = "It steps out of a rift beside you. When a rift opens, move away."
+	elif "Wraith" in name:
+		tip = "Its ice beam fills in along a line first. Step off the line."
+	elif "Snow Roller" in name:
+		tip = "Its snowball rolls down the strip it shows. Step off the strip."
+	elif "Bell Ringer" in name:
+		tip = "Its ring of frost can't be walked round. Dash through it, or get far away."
 	elif "King" in name or "Warrior" in name or "Minion" in name or "Skeleton" in name:
 		tip = "A circle or strip hits when it FILLS IN. Step or dash out."
 	return "%s hurt you most.\n%s" % [name, tip]
@@ -3077,7 +3103,8 @@ func _boss_intro() -> void:
 	get_tree().create_timer(0.7, true, false, true).timeout.connect(func(): Sfx.play("vo_prepare", 0.8))
 	shake(0.5)
 	hud.flash(Color(1, 0.3, 0.2), 0.3)
-	var sub := "Ruler of floor %d" % floor_num
+	# Version 278: the card names the boss's place too, now that each place has its own.
+	var sub := "Ruler of the %s  ·  floor %d" % [str(Floors.current().get("name", "Crypt")), floor_num]
 	if event == "hunt":
 		sub = "%s  ·  %s" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name)]
 	elif event != "":

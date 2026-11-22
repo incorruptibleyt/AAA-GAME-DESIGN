@@ -20,6 +20,10 @@ const MAX_LIVE := 10
 const CLUSTER := 1.6
 ## ...for this long after it first showed, so a long brawl still shows fresh numbers.
 const CLUSTER_TIME := 0.8
+## Version 278: a number adds up for at most this long, then lets go and fades while the
+## next hit starts a fresh one. A boss under steady fire (the Rogue's knives and bolts)
+## kept one number growing to 1,700 and more over its head for the whole fight.
+const MERGE_SPAN := 1.2
 
 var _age := 0.0
 var _shown := 0.0   # seconds since it first showed (never reset by a merge)
@@ -62,6 +66,9 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 	var n: DamageNumber = got if is_instance_valid(got) else null
 	var foe := kind == "hit" and who.team != Actor.Team.HERO
 	var merge := FOE_MERGE if foe else MERGE
+	if is_instance_valid(n) and n._shown >= MERGE_SPAN:
+		n._age = maxf(n._age, LIFE * 0.6)   # it fades out now, under the fresh one
+		n = null
 	if foe and not (is_instance_valid(n) and n._age < merge):
 		n = _nearby(who.center())
 	if is_instance_valid(n) and n._age < merge:

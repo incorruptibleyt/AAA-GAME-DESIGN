@@ -1059,11 +1059,17 @@ class Swatch extends Control:
 						_shard(tips[i], Vector2(sd, -0.35), r * 0.45, r * 0.1, ice)
 					_shard(c + Vector2(0, r * 0.3), Vector2.UP, r * 1.25, r * 0.08, ice)
 				elif finish == "gold":
+					# Version 278: the sun wings fan out from the front of the stock, as on the
+					# crossbow itself, inside the swatch (they sat on the old limb tips and spilled
+					# out of the card as two gold blobs).
+					var front := c + Vector2(0, -r * 0.5)
+					draw_line(c + Vector2(0, r * 0.8), c + Vector2(0, -r * 0.62), Color(1.0, 0.95, 0.78), r * 0.15)
 					for i in 2:
 						var sd := -1.0 if i == 0 else 1.0
 						for k in 4:
-							_leaf(tips[i], Vector2(sd, 0).rotated(-sd * deg_to_rad(5.0 + k * 22.0)), r * (0.62 - k * 0.09), r * 0.11, gold)
-					draw_circle(c + Vector2(0, r * 0.25), r * 0.1, Color(1.0, 0.97, 0.85))
+							_leaf(front + Vector2(sd * r * 0.06, 0), Vector2(sd, 0).rotated(-sd * deg_to_rad(8.0 + k * 20.0)), r * (0.74 - k * 0.1), r * 0.12, gold.lerp(Color(1.0, 0.97, 0.85), k * 0.12))
+					draw_line(c + Vector2(0, r * 0.55), c + Vector2(0, -r * 0.95), gold, r * 0.06)
+					draw_circle(front, r * 0.13, Color(1.0, 0.97, 0.85))
 				elif finish == "void":
 					var g := c + Vector2(0, -r * 0.82)
 					draw_circle(g, r * 0.3, Color(0.4, 0.15, 0.7, 0.55))

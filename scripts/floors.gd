@@ -103,7 +103,8 @@ const THEMES := [
 		"moon": Color(0.95, 0.74, 0.8), "torch": Color(1.0, 0.62, 0.32), "torch_energy": 1.2,
 		# Petals falling: deep red and pale rose, small, so they never look like shots.
 		"motes": [Color(1.0, 0.18, 0.18, 0.75), Color(1.0, 0.6, 0.6, 0.35)], "motes_fall": true, "motes_size": 0.55,
-		"banner": Color(1.0, 0.32, 0.26), "floor_style": 5, "props": "moon", "pillar": "pillar_decorated", "light": [1.25, 1.75, 0.1, 0.3]},
+		"banner": Color(1.0, 0.32, 0.26), "floor_style": 5, "props": "moon", "pillar": "pillar_decorated", "light": [1.25, 1.75, 0.1, 0.3],
+		"cover": "moon"},   # version 278: blood altars and moon lanterns instead of the KayKit crates and barrels
 	# Version 243: Frostfall Hall, only in the Frostfall event (events.gd). The one crypt
 	# with no stone floor: a great hall of dark timber under deep snow, a pine-green carpet
 	# with gold snowflakes down the middle, log walls hung with garlands of little lights,
@@ -117,7 +118,8 @@ const THEMES := [
 		"moon": Color(0.62, 0.74, 1.0), "torch": Color(1.0, 0.6, 0.28), "torch_energy": 1.7, "pool": 1.2,
 		# Big soft snowflakes falling (white, slow, never the shape or speed of a shot).
 		"motes": [Color(0.96, 0.98, 1.0, 0.9), Color(0.78, 0.86, 1.0, 0.45)], "motes_fall": true, "motes_size": 0.85,
-		"banner": Color(1.0, 0.35, 0.3), "floor_style": 6, "props": "yule", "pillar": "timber", "light": [1.2, 1.45, 0.0, 0.0]},
+		"banner": Color(1.0, 0.35, 0.3), "floor_style": 6, "props": "yule", "pillar": "timber", "light": [1.2, 1.45, 0.0, 0.0],
+		"cover": "yule"},   # version 278: Krampus's sleigh and sack instead of the KayKit crates and barrels
 	# Version 247 (whole-game review fix 4): the Sandfall Tomb, floor 5, where the free game
 	# ends with the King and the Lich. Until now floor 5 was the Frozen Ossuary again. A royal
 	# tomb under the desert: great sandstone blocks carved with signs, turquoise and gold

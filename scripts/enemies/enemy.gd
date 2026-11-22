@@ -60,6 +60,7 @@ const WARD_REGROW := 5.0
 var _tag: Label3D
 var _furious := false
 var _mend_left := MEND_EVERY
+var _mended_at := -100.0   # (Game._run_time of the last mend it got: menders don't stack)
 var _ward_hits := 0
 var _ward_left := 0.0
 var _bubble: MeshInstance3D
@@ -246,6 +247,14 @@ func _pick_move() -> String:
 	var bag := ELITE_MOVES.keys()
 	if self is Bloodbat:
 		bag.erase("split")
+	# Version 278: a move already on the field is drawn last, so the elites of a wave differ
+	# (floor 10's 30% elites drew four Menders at once in the review run).
+	var fresh := bag.duplicate()
+	for a: Actor in Actor.all:
+		if a != self and a is Enemy and not a.dead:
+			fresh.erase((a as Enemy).elite_move)
+	if not fresh.is_empty():
+		bag = fresh
 	return bag[Game._room_rng.randi() % bag.size()]
 
 
@@ -256,6 +265,8 @@ func _elite_tick(delta: float) -> void:
 		if _bubble and _ward_hits > 0:
 			_bubble.visible = true
 		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0)
+	if _tag:
+		_fade_tag(delta)
 	match elite_move:
 		"fury":
 			if not _furious and health < max_health * FURY_AT:
@@ -275,6 +286,18 @@ func _elite_tick(delta: float) -> void:
 			elif _bubble:
 				var s := 1.0 + sin(Time.get_ticks_msec() * 0.004 + get_instance_id()) * 0.04
 				_bubble.scale = Vector3(s, s, s)
+
+
+## Version 278: the name tag fades out while it is up under the top bar (health, room and
+## chain), so elites at the far wall don't write over the Bone Chain; it comes back as
+## they walk down the room.
+func _fade_tag(delta: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or Game.hud == null:
+		return
+	var under := cam.unproject_position(_tag.global_position).y < Game.hud.top_band()
+	_tag.modulate.a = move_toward(_tag.modulate.a, 0.0 if under else 1.0, delta * 6.0)
+	_tag.outline_modulate.a = _tag.modulate.a
 
 
 ## Fury: half health. It stops to roar, turns red and from then on runs FURY_SPEED times as
@@ -298,19 +321,25 @@ func _fury() -> void:
 
 ## Mender: heals each hurt skeleton within MEND_RANGE (never a boss, never itself) by
 ## MEND_SHARE of its health, with a green ring out of the mender so you can see who did it.
+## Version 278: never another mender, and a skeleton is mended once a beat however many
+## menders stand near it. Before, two or more menders healed each other faster than a
+## hero could hurt them and the wave never ended (floor 10 review run, 7 minutes in room 1).
 func _mend() -> void:
 	var col: Color = ELITE_MOVES.mender.col
 	var healed := 0
 	for a: Actor in Actor.all:
 		if a == self or a.team != team or a.dead or not (a is Enemy) or (a as Enemy).is_boss or not a.can_be_hit():
 			continue
-		if a.health >= a.max_health - 0.5:
+		if a.health >= a.max_health - 0.5 or (a as Enemy).elite_move == "mender":
+			continue
+		if Game._run_time - (a as Enemy)._mended_at < MEND_EVERY * 0.9:
 			continue
 		var d := a.global_position - global_position
 		d.y = 0.0
 		if d.length() > MEND_RANGE + a.radius:
 			continue
 		a.heal(a.max_health * MEND_SHARE)
+		(a as Enemy)._mended_at = Game._run_time
 		Fx.magic(a.center(), col, 10)
 		healed += 1
 	if healed == 0:

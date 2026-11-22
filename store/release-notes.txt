@@ -1,4 +1,9 @@
-Version 277: floor 1 has a new look
-- The Bone Crypt, the first floor, is now an old crypt of dark flagstones and carved grave slabs, lit by candles.
-- In the middle of every room lies the Bone Chain: a ring of bone links round the Skeleton King's crowned skull, with candlelight in its eyes.
-- Candles and heaps of bones along the walls instead of barrels and boxes.
+Version 278: a check of everything
+- Fixed: Menders healed each other forever, so deep waves never ended.
+- A wave's elites now have different moves.
+- The Blood Moon crypt and Frostfall Hall have their own cover: blood altars, moon lanterns, Krampus's sleigh and sack.
+- Boss cards name the boss's own place.
+- No more giant damage number over a boss.
+- Elite name tags fade under the top bar.
+- Every new boss and skeleton has its own death tip.
+- The Rogue's Gilded arms picture is fixed.

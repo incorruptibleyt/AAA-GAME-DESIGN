@@ -2312,6 +2312,16 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 		"wreck:b":
 			n.rotation.y = randf_range(-0.8, 0.8)   # its front porthole turned towards the camera
 			_mesh(n, _diving_helmet())
+		"moon:c":
+			n.rotation.y = randf_range(-0.3, 0.3)   # the carved moon towards the camera
+			_mesh(n, _blood_altar())
+		"moon:b": _mesh(n, _moon_lantern())
+		"yule:c":
+			n.rotation.y = randf_range(-0.35, 0.35) + (PI if randf() < 0.5 else 0.0)   # the rider and the curl to one side or the other
+			_mesh(n, _sleigh())
+		"yule:b":
+			n.rotation.y = randf_range(-0.6, 0.6)   # the patch and the skull towards the camera
+			_mesh(n, _krampus_sack())
 		_:
 			return false
 	return true
@@ -3598,3 +3608,205 @@ static func _crypt_bones() -> ArrayMesh:
 	_skull(parts, Vector3(0.12, 0.12, 0.26), 0.1, Vector3(0.3, 0.15, -0.6), old, dark)
 	_baked["crypt_bones"] = _bake(parts)
 	return _baked["crypt_bones"]
+
+
+## Version 278: Frostfall Hall's own cover (it had the KayKit crates and barrels of every
+## crypt). The crates: Krampus's sleigh, red lacquer with gold trim on curled runners, loaded
+## with gifts under fresh snow, a skull in a knit cap riding among them. As long as the
+## circle that stops you is wide; its front curl turned to the side.
+static func _sleigh() -> ArrayMesh:
+	if _baked.has("sleigh"):
+		return _baked["sleigh"]
+	var parts := []
+	var red := _yule_mat("red")
+	var gold := U.mat(Color(0.78, 0.56, 0.2), 0.3)
+	var iron := U.mat(Color(0.14, 0.13, 0.15), 0.45)
+	var snow := _snow_mat()
+	var bone := U.mat(Color(0.86, 0.82, 0.7), 0.85)
+	var dark := U.mat(Color(0.05, 0.04, 0.045), 1.0)
+	# Runners along X, curling up at the front (+X) into a scroll.
+	for z: float in [-0.27, 0.27]:
+		parts.append([_cube(), _xf(Vector3(-0.04, 0.035, z), Vector3(1.04, 0.05, 0.06)), iron])
+		var bend := [[0.5, 0.07, 0.5], [0.58, 0.15, 1.05], [0.6, 0.25, 1.6]]
+		for b: Array in bend:
+			parts.append([_cube(), _xf(Vector3(b[0], b[1], z), Vector3(0.14, 0.05, 0.06), Basis(Vector3.BACK, b[2])), iron])
+		parts.append([_sphere(), _xf(Vector3(0.55, 0.32, z), Vector3(0.06, 0.06, 0.04)), gold])
+		for x: float in [-0.42, -0.05, 0.3]:
+			parts.append([_cube(), _xf(Vector3(x, 0.13, z), Vector3(0.05, 0.16, 0.05)), iron])
+	# The body: a floor, low sides, a tall curved back and a low dash at the front.
+	parts.append([_cube(), _xf(Vector3(-0.04, 0.23, 0), Vector3(1.0, 0.06, 0.66)), red])
+	for z: float in [-0.33, 0.33]:
+		parts.append([_cube(), _xf(Vector3(-0.04, 0.39, z), Vector3(1.0, 0.3, 0.05)), red])
+		parts.append([_cube(), _xf(Vector3(-0.04, 0.55, z), Vector3(1.02, 0.035, 0.07)), gold])
+		parts.append([_sphere(), _xf(Vector3(-0.04, 0.38, z * 1.08), Vector3(0.09, 0.09, 0.02)), gold])
+	parts.append([_cube(), _xf(Vector3(-0.54, 0.5, 0), Vector3(0.06, 0.6, 0.7)), red])
+	parts.append([_cone(0.07, 0.07, 0.72, 10), _xf(Vector3(-0.54, 0.82, 0), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2)), gold])
+	parts.append([_cube(), _xf(Vector3(0.47, 0.37, 0), Vector3(0.06, 0.26, 0.7)), red])
+	parts.append([_cone(0.05, 0.05, 0.72, 8), _xf(Vector3(0.47, 0.51, 0), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2)), gold])
+	# Gifts heaped in it, above the sides so the camera sees them, snow on the top ones.
+	var gifts := [[Vector3(-0.3, 0.26, -0.12), 0.34, "green", 0.2], [Vector3(-0.28, 0.26, 0.17), 0.28, "white", -0.3],
+		[Vector3(0.05, 0.26, -0.1), 0.3, "red_bright", 0.5], [Vector3(0.18, 0.26, 0.15), 0.26, "green", -0.1],
+		[Vector3(-0.18, 0.56, 0.0), 0.26, "gold", 0.35], [Vector3(0.3, 0.26, -0.16), 0.2, "white", 0.8]]
+	for g: Array in gifts:
+		var at: Vector3 = g[0]
+		var sz: float = g[1]
+		var yaw := Basis(Vector3.UP, float(g[3]))
+		var wrap: Material = U.mat(Color(0.85, 0.12, 0.12), 0.55) if g[2] == "red_bright" else (U.mat(Color(0.95, 0.75, 0.28), 0.4, 0.25) if g[2] == "gold" else _yule_mat(g[2]))
+		var ribbon: Material = _yule_mat("red") if g[2] == "gold" or g[2] == "white" else _yule_mat("ribbon")
+		parts.append([_cube(), _xf(at + Vector3.UP * sz * 0.45, Vector3(sz, sz * 0.9, sz), yaw), wrap])
+		parts.append([_cube(), _xf(at + Vector3.UP * sz * 0.45, Vector3(sz * 0.16, sz * 0.92, sz * 1.02), yaw), ribbon])
+		parts.append([_cube(), _xf(at + Vector3.UP * sz * 0.45, Vector3(sz * 1.02, sz * 0.92, sz * 0.16), yaw), ribbon])
+		for side in [-1.0, 1.0]:
+			parts.append([_sphere(), _xf(at + Vector3.UP * sz * 0.95 + yaw * Vector3(side * sz * 0.14, 0, 0), Vector3(sz * 0.16, sz * 0.1, sz * 0.09), yaw), ribbon])
+	parts.append([_sphere(), _xf(Vector3(-0.3, 0.6, -0.12), Vector3(0.15, 0.035, 0.13)), snow])
+	parts.append([_sphere(), _xf(Vector3(-0.18, 0.83, 0.0), Vector3(0.12, 0.03, 0.11)), snow])
+	parts.append([_sphere(), _xf(Vector3(0.05, 0.55, -0.1), Vector3(0.13, 0.03, 0.12)), snow])
+	parts.append([_cube(), _xf(Vector3(-0.54, 0.83, 0), Vector3(0.12, 0.04, 0.68)), snow])
+	# The rider: a skull in a red knit cap with a white bobble, peering over the gifts.
+	_skull(parts, Vector3(0.24, 0.64, 0.12), 0.12, Vector3(0.5, 0.1, 1.0), bone, dark)
+	parts.append([_cone(0.0, 0.12, 0.22, 10), _xf(Vector3(0.23, 0.82, 0.1), Vector3.ONE, Basis(Vector3.BACK, -0.35)), _yule_mat("red")])
+	parts.append([_cone(0.125, 0.125, 0.05, 10), _xf(Vector3(0.24, 0.73, 0.11), Vector3.ONE), _yule_mat("white")])
+	parts.append([_sphere(), _xf(Vector3(0.3, 0.92, 0.09), Vector3.ONE * 0.05), _yule_mat("white")])
+	_baked["sleigh"] = _bake(parts)
+	return _baked["sleigh"]
+
+
+## Frostfall Hall's barrels: Krampus's sack. Bulging old sackcloth, a patch sewn on, an iron
+## chain wound round it and a rope at its neck, a gift and a skull spilling out of its mouth
+## and snow on its shoulders.
+static func _krampus_sack() -> ArrayMesh:
+	if _baked.has("krampus_sack"):
+		return _baked["krampus_sack"]
+	var parts := []
+	var sack := U.mat(Color(0.5, 0.42, 0.3), 0.95)
+	var patch := U.mat(Color(0.32, 0.24, 0.16), 0.95)
+	var rope := U.mat(Color(0.62, 0.5, 0.3), 0.9)
+	var iron := U.mat(Color(0.16, 0.15, 0.17), 0.4)
+	var snow := _snow_mat()
+	var bone := U.mat(Color(0.86, 0.82, 0.7), 0.85)
+	var dark := U.mat(Color(0.05, 0.04, 0.045), 1.0)
+	# The body, one sagging bulge, wide at the bottom, corners where a box pushes at the cloth.
+	parts.append([_sphere(), _xf(Vector3(0, 0.44, 0), Vector3(0.42, 0.46, 0.4)), sack])
+	parts.append([_cube(), _xf(Vector3(0.16, 0.36, 0.17), Vector3(0.36, 0.36, 0.3), Basis(Vector3.UP, 0.5) * Basis(Vector3.BACK, 0.1)), sack])
+	parts.append([_cube(), _xf(Vector3(-0.12, 0.34, 0.37), Vector3(0.16, 0.14, 0.03), Basis(Vector3.RIGHT, -0.25) * Basis(Vector3.BACK, 0.2)), patch])
+	# The neck, tied with rope, and the mouth flaring open.
+	parts.append([_cone(0.11, 0.24, 0.16, 10), _xf(Vector3(0.02, 0.86, 0), Vector3.ONE), sack])
+	parts.append([_cone(0.13, 0.13, 0.05, 10), _xf(Vector3(0.02, 0.9, 0), Vector3.ONE), rope])
+	parts.append([_cube(), _xf(Vector3(0.13, 0.81, 0.12), Vector3(0.03, 0.18, 0.03), Basis(Vector3.FORWARD, 0.4)), rope])
+	parts.append([_cone(0.22, 0.1, 0.12, 10), _xf(Vector3(0.02, 0.99, 0), Vector3.ONE), sack])
+	# Out of its mouth: a gift tipped over the edge and a skull looking out.
+	var yaw := Basis(Vector3.UP, 0.5) * Basis(Vector3.BACK, 0.45)
+	var at := Vector3(0.1, 1.08, 0.02)
+	parts.append([_cube(), _xf(at, Vector3(0.2, 0.18, 0.2), yaw), _yule_mat("green")])
+	parts.append([_cube(), _xf(at, Vector3(0.04, 0.19, 0.21), yaw), _yule_mat("ribbon")])
+	parts.append([_cube(), _xf(at, Vector3(0.21, 0.19, 0.04), yaw), _yule_mat("ribbon")])
+	_skull(parts, Vector3(-0.07, 1.06, 0.06), 0.11, Vector3(-0.3, 0.3, 1.0), bone, dark)
+	# An iron chain wound round it, a little tilted, link after link close to the cloth.
+	var tilt := Basis(Vector3.BACK, 0.2) * Basis(Vector3.RIGHT, -0.1)
+	var link := TorusMesh.new()
+	link.inner_radius = 0.018
+	link.outer_radius = 0.04
+	link.rings = 6
+	link.ring_segments = 4
+	for k in 24:
+		var a := TAU * k / 24.0
+		var p := tilt * Vector3(cos(a) * 0.425, 0.0, sin(a) * 0.405) + Vector3(0, 0.44, 0)
+		var along := Basis(Vector3.UP, -a) * Basis(Vector3.RIGHT, PI / 2 if k % 2 == 0 else 0.0)
+		parts.append([link, _xf(p, Vector3(1.0, 1.0, 1.5), tilt * along), iron])
+	# Snow on its shoulders.
+	parts.append([_sphere(), _xf(Vector3(-0.1, 0.83, -0.08), Vector3(0.2, 0.05, 0.18)), snow])
+	parts.append([_sphere(), _xf(Vector3(0.17, 0.76, -0.13), Vector3(0.13, 0.04, 0.11)), snow])
+	_baked["krampus_sack"] = _bake(parts)
+	return _baked["krampus_sack"]
+
+
+## Version 278: the Blood Moon crypt's own cover (it had the KayKit crates and barrels of
+## every crypt). The crates: a blood altar. A slab of dark stone on a stepped foot, the full
+## moon carved in its face and glowing, a red cloth hung over it, a stone bowl of moonlit
+## blood on top beside a skull, and red candles burnt down at its corners.
+static func _blood_altar() -> ArrayMesh:
+	if _baked.has("blood_altar"):
+		return _baked["blood_altar"]
+	var parts := []
+	var stone := U.mat(Color(0.16, 0.12, 0.14), 0.85)
+	var edge := U.mat(Color(0.26, 0.2, 0.22), 0.8)
+	var cloth := U.mat(Color(0.42, 0.04, 0.06), 0.9)
+	var trim := U.mat(Color(0.85, 0.6, 0.3), 0.35, 0.3)
+	var moon := U.mat(Color(0.95, 0.24, 0.12), 0.5, 1.2)
+	var blood := U.mat(Color(0.36, 0.02, 0.04), 0.12, 0.25)
+	var wax := U.mat(Color(0.55, 0.08, 0.1), 0.7)
+	var bone := U.mat(Color(0.84, 0.8, 0.7), 0.85)
+	var dark := U.mat(Color(0.05, 0.02, 0.03), 1.0)
+	# The stepped foot and the block.
+	parts.append([_cube(), _xf(Vector3(0, 0.05, 0), Vector3(1.12, 0.1, 0.84)), edge])
+	parts.append([_cube(), _xf(Vector3(0, 0.14, 0), Vector3(1.02, 0.08, 0.74)), stone])
+	parts.append([_cube(), _xf(Vector3(0, 0.36, 0), Vector3(0.9, 0.38, 0.62)), stone])
+	parts.append([_cube(), _xf(Vector3(0, 0.58, 0), Vector3(1.04, 0.08, 0.76)), edge])
+	# The moon carved in its face (+Z, towards the camera), in a ring of stone.
+	parts.append([_cone(0.17, 0.17, 0.03, 16), _xf(Vector3(0, 0.36, 0.31), Vector3.ONE, Basis(Vector3.RIGHT, PI / 2)), moon])
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.18
+	ring.outer_radius = 0.22
+	ring.rings = 16
+	ring.ring_segments = 4
+	parts.append([ring, _xf(Vector3(0, 0.36, 0.315), Vector3(1, 0.4, 1), Basis(Vector3.RIGHT, PI / 2)), edge])
+	for k in 3:
+		parts.append([_sphere(), _xf(Vector3(-0.06 + k * 0.07, 0.4 - k * 0.05, 0.325), Vector3.ONE * (0.03 - k * 0.006)), U.mat(Color(0.7, 0.14, 0.08), 0.6, 0.8)])
+	# The red cloth across it, hanging down the back and the sides, a gold edge.
+	parts.append([_cube(), _xf(Vector3(-0.28, 0.625, 0), Vector3(0.3, 0.015, 0.78)), cloth])
+	parts.append([_cube(), _xf(Vector3(-0.28, 0.46, -0.385), Vector3(0.3, 0.32, 0.015)), cloth])
+	parts.append([_cube(), _xf(Vector3(-0.28, 0.31, -0.39), Vector3(0.3, 0.02, 0.02)), trim])
+	# The bowl of blood, a skull, two candles.
+	parts.append([_cone(0.17, 0.1, 0.1, 12), _xf(Vector3(0.18, 0.67, 0.02), Vector3.ONE), edge])
+	parts.append([_cone(0.15, 0.15, 0.012, 12), _xf(Vector3(0.18, 0.715, 0.02), Vector3.ONE), blood])
+	_skull(parts, Vector3(-0.27, 0.72, 0.08), 0.1, Vector3(0.2, 0.1, 1.0), bone, dark)
+	_thick_candle(parts, Vector3(0.44, 0.62, -0.28), 0.22, 0.045, wax)
+	_thick_candle(parts, Vector3(0.38, 0.62, -0.18), 0.13, 0.04, wax)
+	_thick_candle(parts, Vector3(-0.44, 0.62, -0.3), 0.17, 0.045, wax)
+	_baked["blood_altar"] = _bake(parts)
+	return _baked["blood_altar"]
+
+
+## The Blood Moon crypt's barrels: a moon lantern. A stone post on a round foot, five bone
+## fingers rising from it to cradle the blood moon, glowing, in a cage of iron hoops with a
+## crown of spikes on top.
+static func _moon_lantern() -> ArrayMesh:
+	if _baked.has("moon_lantern"):
+		return _baked["moon_lantern"]
+	var parts := []
+	var stone := U.mat(Color(0.16, 0.12, 0.14), 0.85)
+	var edge := U.mat(Color(0.26, 0.2, 0.22), 0.8)
+	var bone := U.mat(Color(0.84, 0.8, 0.7), 0.85)
+	var iron := U.mat(Color(0.13, 0.1, 0.11), 0.4)
+	var moon := U.mat(Color(0.92, 0.22, 0.1), 0.5, 1.2)
+	var crater := U.mat(Color(0.55, 0.08, 0.05), 0.6, 0.6)
+	parts.append([_cone(0.3, 0.38, 0.14, 10), _xf(Vector3(0, 0.07, 0), Vector3.ONE), edge])
+	parts.append([_cone(0.13, 0.17, 0.44, 8), _xf(Vector3(0, 0.36, 0), Vector3.ONE), stone])
+	parts.append([_cone(0.2, 0.14, 0.08, 8), _xf(Vector3(0, 0.6, 0), Vector3.ONE), edge])
+	# Five bone fingers curling up round the moon.
+	for k in 5:
+		var a := TAU * k / 5.0 + 0.3
+		var out := Vector3(cos(a), 0, sin(a))
+		var base := Vector3(0, 0.62, 0) + out * 0.1
+		var mid := Vector3(0, 0.76, 0) + out * 0.24
+		var tip := Vector3(0, 0.94, 0) + out * 0.2
+		_rod_part(parts, base, mid, 0.03, bone)
+		_rod_part(parts, mid, tip, 0.024, bone)
+		parts.append([_sphere(), _xf(mid, Vector3.ONE * 0.035), bone])
+	# The moon, a few darker craters on it.
+	parts.append([_sphere(), _xf(Vector3(0, 0.9, 0), Vector3.ONE * 0.2), moon])
+	for c: Array in [[Vector3(0.07, 0.97, 0.15), 0.05], [Vector3(-0.1, 0.86, 0.15), 0.04], [Vector3(0.02, 1.06, 0.06), 0.035], [Vector3(-0.12, 1.0, -0.08), 0.045]]:
+		parts.append([_sphere(), _xf(c[0], Vector3(1, 0.9, 1) * float(c[1])), crater])
+	# Its cage: hoops crossing over it, a band round it and a crown of spikes.
+	for k in 3:
+		var hoop := TorusMesh.new()
+		hoop.inner_radius = 0.255
+		hoop.outer_radius = 0.28
+		hoop.rings = 16
+		hoop.ring_segments = 4
+		parts.append([hoop, _xf(Vector3(0, 0.9, 0), Vector3.ONE, Basis(Vector3.UP, PI * k / 3.0) * Basis(Vector3.RIGHT, PI / 2)), iron])
+	for k in 6:
+		var a := TAU * k / 6.0
+		parts.append([_cone(0.0, 0.025, 0.12, 4), _xf(Vector3(cos(a) * 0.07, 1.22, sin(a) * 0.07), Vector3.ONE, Basis(Vector3(-sin(a), 0, cos(a)), 0.35)), iron])
+	_baked["moon_lantern"] = _bake(parts)
+	return _baked["moon_lantern"]
