@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-22f"
+const BUILD := "2026-11-22g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -208,6 +208,7 @@ var _score_mult := 1.0
 var _daily_requested := false
 ## The free game ends after the boss of floor Store.FREE_FLOORS; this is that screen.
 var _free_end := false
+var _deal_checked := ""   # version 279: the deal pop-up already handled this session
 ## This run's hero when it isn't the chosen one: the Daily Crypt's hero, or a free trial.
 var _run_hero_id := ""
 ## A locked hero picked on the Heroes screen for one free trial run, used by the next run.
@@ -892,6 +893,10 @@ static func _added_text(a: Dictionary, b: Dictionary) -> String:
 
 func _process(delta: float) -> void:
 	_state_time += delta
+	# Version 279: the deal's pop-up waits for the bare title (Play's answer often comes while
+	# the splash still shows).
+	if state == State.TITLE and fmod(_state_time, 1.0) < delta and _deal_checked != _deal_key():
+		_deal_pop()
 	if not _meet_queue.is_empty():
 		_meet_tick()   # version 170: one new-skeleton line at a time
 	var now := Time.get_ticks_usec()
@@ -5330,6 +5335,35 @@ func pass_hero_def() -> Dictionary:
 	return HeroStyle.dressed(Heroes.get_hero(id), p)
 
 
+## Version 279: the Early Access Deal opens the Pass screen by itself once when it starts and
+## once more on its last day: only over the bare title, and only for a player who has
+## already been shown the Pass button (never in the first runs).
+func _deal_pop() -> void:
+	var key := _deal_key()
+	if key == "" or key == _deal_checked or state != State.TITLE or not hud.title_visible() or hud.title_covered():
+		return
+	_deal_checked = key   # (the save is read once per key and launch, not every second)
+	var cfg := _load_save()
+	if unlock_stage(cfg) < 2:
+		return
+	if bool(cfg.get_value("shown", key, false)):
+		return
+	cfg.set_value("shown", key, true)
+	write_save(cfg)
+	_open_pass()
+
+
+## The save key of the deal's next pop-up ("" without a deal): one for its start, one for its
+## last day.
+func _deal_key() -> String:
+	var d := Store.deal_now()
+	if d.is_empty():
+		return ""
+	var end := int(d.get("end_ms", 0))
+	var last := end > 0 and float(end) - Time.get_unix_time_from_system() * 1000.0 < 86400000.0
+	return "deal_%d%s" % [end, "_last" if last else ""]
+
+
 func _open_pass() -> void:
 	if state != State.TITLE and state != State.DEAD and state != State.VICTORY:
 		return
@@ -5958,6 +5992,7 @@ func _on_store_changed() -> void:
 		_show_curses()
 	if hud.daily_visible():
 		_show_daily()
+	_deal_pop.call_deferred()
 	# v219 review: bought from the event road's PASS button, the event screen shows the Pass row as owned.
 	hud.refresh_event()
 	if Store.owned() and hud.end_visible():

@@ -48,6 +48,13 @@ const MISS_HOURS := 72
 var price := ""
 ## A short line for the Pass screen: what's happening, or what went wrong.
 var status := ""
+## Version 279: the Early Access Deal, a discounted offer running on the Pass in Play
+## Console: {pct, price, full, end_ms, option, offer}, empty when none runs. Everything in it
+## comes from Google Play (the percent, both prices, the end time), so the game never shows
+## a sale that isn't on. Read it with deal_now().
+var deal := {}
+## Set by the menu lab to picture the deal screens (no Google Play there).
+static var test_deal := {}
 
 var _play: Object   # the plugin's JNI singleton, only in the Play build
 var _have_details := false
@@ -56,6 +63,7 @@ var _last_check := -100000
 var _connecting := false
 var _restoring := false
 var _wait_token := 0
+var _details_at := -10000000   # (ticks of the last price answer: asked again after an hour)
 
 
 static func owned(cfg: ConfigFile = null) -> bool:
@@ -78,6 +86,38 @@ static func note_saved(cfg: ConfigFile) -> void:
 ## True when this copy of the game can buy things (installed from Google Play).
 static func can_buy() -> bool:
 	return Engine.has_singleton(PLUGIN)
+
+
+## Version 279: the Early Access Deal while it runs and the Pass isn't owned, else {}.
+static func deal_now() -> Dictionary:
+	if instance == null or owned():
+		return {}
+	var d: Dictionary = instance.deal if instance._play != null else test_deal
+	if d.is_empty():
+		return {}
+	var end := int(d.get("end_ms", 0))
+	if end > 0 and Time.get_unix_time_from_system() * 1000.0 >= float(end):
+		return {}
+	return d
+
+
+## How long the deal has left: "13 days", "1 day 4 h", "5 h 07 min", "12 min 03 s"
+## ("" when Play gave it no end).
+static func deal_left(d: Dictionary) -> String:
+	var end := int(d.get("end_ms", 0))
+	if end <= 0:
+		return ""
+	var s := maxi(0, int((float(end) - Time.get_unix_time_from_system() * 1000.0) / 1000.0))
+	var days := s / 86400
+	var h := (s % 86400) / 3600
+	var m := (s % 3600) / 60
+	if days >= 2:
+		return "%d days" % days if days >= 7 else "%d days %d h" % [days, h]
+	if days == 1:
+		return "1 day %d h" % h
+	if h >= 1:
+		return "%d h %02d min" % [h, m]
+	return "%d min %02d s" % [m, s % 60]
 
 
 func _ready() -> void:
@@ -114,7 +154,8 @@ func refresh() -> void:
 		return
 	if not _play.isReady():
 		_connect()
-	elif not _have_details:
+	elif not _have_details or Time.get_ticks_msec() - _details_at > 3600000:
+		# (asked again after an hour, so a deal that starts or ends while the game runs shows)
 		_play.queryProductDetails(PackedStringArray([PASS_ID]), "inapp")
 
 
@@ -136,7 +177,12 @@ func buy() -> void:
 		return
 	_buy_when_ready = false
 	_set_status("")
-	var r: Dictionary = _play.purchase(PASS_ID, "", "", false)
+	# Version 279: during the Early Access Deal, its own offer (at its price).
+	var d := deal_now()
+	var r: Dictionary = _play.purchase(PASS_ID, str(d.get("option", "")), str(d.get("offer", "")), false)
+	if int(r.get("response_code", OK)) != OK and not d.is_empty():
+		print("[store] deal offer wouldn't start (%s), buying at the full price" % r.get("debug_message", ""))
+		r = _play.purchase(PASS_ID, "", "", false)
 	if int(r.get("response_code", OK)) != OK:
 		_set_status("Google Play couldn't start the purchase. Try again in a moment.")
 
@@ -172,6 +218,8 @@ func recheck() -> void:
 	_last_check = Time.get_ticks_msec()
 	if _play.isReady():
 		_play.queryPurchases("inapp", false)
+		if Time.get_ticks_msec() - _details_at > 3600000:
+			_play.queryProductDetails(PackedStringArray([PASS_ID]), "inapp")
 	else:
 		_connect()
 
@@ -200,9 +248,8 @@ func _on_details(r: Dictionary) -> void:
 		if str(p.get("product_id", "")) != PASS_ID:
 			continue
 		_have_details = true
-		var offers: Array = p.get("one_time_purchase_offer_details_list", [])
-		if not offers.is_empty():
-			price = str((offers[0] as Dictionary).get("formatted_price", ""))
+		_details_at = Time.get_ticks_msec()
+		_read_offers(p.get("one_time_purchase_offer_details_list", []))
 	if not _have_details:
 		print("[store] '%s' isn't set up in Play Console yet" % PASS_ID)
 		if _buy_when_ready:
@@ -213,6 +260,71 @@ func _on_details(r: Dictionary) -> void:
 	if _buy_when_ready and Game.hud and Game.hud.pass_visible():
 		buy()
 	_buy_when_ready = false
+
+
+## Version 279: the Pass's offers from Google Play. The plain one sets `price`; a
+## discounted one (the Early Access Deal, set up in Play Console with an end date) sets
+## `deal`, and `price` becomes the deal's price.
+func _read_offers(offers: Array) -> void:
+	var base := {}
+	var best := {}
+	for o in offers:
+		if not o is Dictionary:
+			continue
+		var cut := _offer_cut(o)
+		if cut > 0:
+			if best.is_empty() or int(o.get("price_amount_micros", 0)) < int(best.get("price_amount_micros", 0)):
+				best = o
+		elif base.is_empty():
+			base = o
+	if base.is_empty() and best.is_empty() and not offers.is_empty() and offers[0] is Dictionary:
+		base = offers[0]
+	price = str(base.get("formatted_price", ""))
+	deal = {}
+	if best.is_empty():
+		return
+	var full := str(base.get("formatted_price", ""))
+	if full == "" and best.get("full_price_micros") != null:
+		full = _with_amount(str(best.get("formatted_price", "")), int(best.full_price_micros))
+	var end := 0
+	var w = best.get("valid_time_window")
+	if w is Dictionary and w.get("end_time_millis") != null:
+		end = int(w.end_time_millis)
+	deal = {"pct": _offer_cut(best), "price": str(best.get("formatted_price", "")), "full": full,
+		"end_ms": end, "option": str(best.get("purchase_option_id", "")) if best.get("purchase_option_id") != null else "",
+		"offer": str(best.get("offer_id", "")) if best.get("offer_id") != null else ""}
+	price = str(deal.price)
+	print("[store] Early Access Deal: %d%% off, %s (was %s), ends %d" % [deal.pct, deal.price, full, end])
+
+
+## The percent an offer takes off (0 for the plain price): Play's own figure, else worked out
+## from the full price.
+static func _offer_cut(o: Dictionary) -> int:
+	var info = o.get("discount_display_info")
+	if info is Dictionary and info.get("percentage_discount") != null and int(info.percentage_discount) > 0:
+		return int(info.percentage_discount)
+	if o.get("full_price_micros") != null:
+		var full := float(o.full_price_micros)
+		var now := float(o.get("price_amount_micros", 0))
+		if full > 0.0 and now < full:
+			return maxi(1, roundi(100.0 * (1.0 - now / full)))
+	return 0
+
+
+## `formatted` ("$2.99", "2,99 €") with its number swapped for `micros` in the same style.
+static func _with_amount(formatted: String, micros: int) -> String:
+	var re := RegEx.create_from_string("[0-9][0-9.,\\s]*[0-9]|[0-9]")
+	var m := re.search(formatted)
+	if m == null:
+		return ""
+	var num := m.get_string()
+	var comma := num.length() >= 3 and num[num.length() - 3] == ","
+	var decimals := 2 if (num.length() >= 3 and num[num.length() - 3] in [",", "."]) else 0
+	var v := float(micros) / 1000000.0
+	var txt := ("%." + str(decimals) + "f") % v
+	if comma:
+		txt = txt.replace(".", ",")
+	return formatted.substr(0, m.get_start()) + txt + formatted.substr(m.get_end())
 
 
 ## Everything this account owns. Also takes the Pass away again if it was refunded.

@@ -372,6 +372,15 @@ var _pass_box: Control
 var _pass_buy: Button
 var _pass_status: Label
 var _pass_restore: Button
+var _pass_col: VBoxContainer   # v279: shrunk to fit on short phones
+var _pass_deal: PanelContainer   # v279: the Early Access Deal ribbon
+var _pass_was: Control   # v279: "Normally $4.99", struck through
+var _pass_was_price: Label
+var _deal_ribbons: Array[PanelContainer] = []   # v279: every deal ribbon, beating while shown
+var _deal_tick := 0.0
+var _title_pass_badge: Label   # v279: "40% OFF · 13 DAYS LEFT" on the title's CRYPT PASS
+var _end_pass_badge: Label
+var _end_deal: PanelContainer   # v279: the deal over the end-of-free-game offer
 var _shop_curses := false
 var _title_free: Label
 var _title_play: Button
@@ -1928,6 +1937,8 @@ func _build_title() -> void:
 	var pass_button := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	pass_button.custom_minimum_size = Vector2(222, 74)
 	pass_button.pressed.connect(func(): pass_pressed.emit())
+	_title_pass_badge = _deal_pill()
+	pass_button.add_child(_title_pass_badge)
 	_title_pass_row = pass_button
 	_title_modes_row = _pair(modes, pass_button)
 	col.add_child(_title_modes_row)
@@ -2324,6 +2335,8 @@ func _build_end() -> void:
 	buttons.add_child(_pair(heroes, armory))
 	var end_pass := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	end_pass.pressed.connect(func(): pass_pressed.emit())
+	_end_pass_badge = _deal_pill()
+	end_pass.add_child(_end_pass_badge)
 	_end_pass = _centered(end_pass)
 	_end_pass.visible = false
 	buttons.add_child(_end_pass)
@@ -2342,6 +2355,8 @@ func _build_end() -> void:
 	offer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	offer.add_theme_constant_override("separation", 18)
 	col.add_child(offer)
+	_end_deal = _deal_ribbon(26)   # version 279
+	offer.add_child(_centered(_end_deal))
 	var get_pass := button("GET THE CRYPT PASS", 28, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	get_pass.custom_minimum_size = Vector2(340, 86)
 	_end_get_pass = get_pass
@@ -2822,8 +2837,10 @@ func _shop_tap(b: Button, act: Callable) -> void:
 			act.call())
 
 
-## The Crypt Pass screen: four picture tiles for what it gives, the price, and buy / restore.
-## The pictures are in art/ui (taken from the game by the test robot).
+## The Crypt Pass screen. Version 279: the Early Access Deal ribbon on top while a sale runs
+## in Play Console, the Pass's four own bosses in their own places (the biggest thing it
+## opens, which the old screen never showed), three smaller tiles, then the price (the full
+## one struck through during the deal) and buy / restore. Pictures in art/ui.
 func _build_pass() -> void:
 	_pass_box = overlay(Color(0.03, 0.02, 0.05, 0.97), "gold")
 	add_child(_pass_box)
@@ -2837,19 +2854,45 @@ func _build_pass() -> void:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.add_theme_constant_override("separation", 10)
 	_pass_box.add_child(col)
-	col.add_child(label("CRYPT PASS", 50, GOLD))
+	_pass_col = col
+	_pass_deal = _deal_ribbon(28)
+	col.add_child(_centered(_pass_deal))
+	col.add_child(label("CRYPT PASS", 48, GOLD))
 	col.add_child(label("One-time purchase. No ads. No subscription.\nYours forever.", 18, Color(0.88, 0.85, 0.78)))
-	var grid := GridContainer.new()
-	grid.columns = 2
-	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.add_theme_constant_override("h_separation", 10)
-	grid.add_theme_constant_override("v_separation", 10)
-	col.add_child(_centered(grid))
-	# The Crypt King set first: the one thing you can see on your hero, everywhere.
-	for tile in [["looks", "Crypt King set"], ["floors", "5 new places"], ["daily", "Daily practice"], ["curses", "All %d Curses" % Curses.LIST.size()]]:
-		grid.add_child(_pass_tile(tile[0], tile[1]))
+	col.add_child(_centered(_pass_bosses()))
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	col.add_child(row)
+	for tile in [["looks", "Crypt King set"], ["daily", "Daily practice"], ["curses", "All %d Curses" % Curses.LIST.size()]]:
+		row.add_child(_pass_tile(tile[0], tile[1]))
 	_pass_more = label("", 16, Color(0.88, 0.85, 0.78))
 	col.add_child(_pass_more)
+	# During the deal: "Normally $4.99", the price struck through in red.
+	var was := HBoxContainer.new()
+	was.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	was.alignment = BoxContainer.ALIGNMENT_CENTER
+	was.add_theme_constant_override("separation", 10)
+	var normally := label("Normally", 20, Color(0.8, 0.78, 0.74))
+	normally.autowrap_mode = TextServer.AUTOWRAP_OFF
+	was.add_child(normally)
+	_pass_was_price = label("", 24, Color(0.85, 0.83, 0.8))
+	_pass_was_price.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var strike := ColorRect.new()
+	strike.color = Color(1.0, 0.25, 0.2)
+	strike.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strike.anchor_right = 1.0
+	strike.anchor_top = 0.5
+	strike.anchor_bottom = 0.5
+	strike.offset_left = -4
+	strike.offset_right = 4
+	strike.offset_top = -2
+	strike.offset_bottom = 2
+	_pass_was_price.add_child(strike)
+	was.add_child(_pass_was_price)
+	_pass_was = was
+	col.add_child(was)
 	_pass_buy = button("UNLOCK", 32, Color(0.45, 0.3, 0.08, 0.98), GOLD)
 	_pass_buy.custom_minimum_size = Vector2(320, 86)
 	_pass_buy.pressed.connect(func(): pass_buy.emit())
@@ -2866,6 +2909,146 @@ func _build_pass() -> void:
 	_pass_restore.pressed.connect(func(): pass_restore.emit())
 	col.add_child(_centered(_pass_back))
 	col.add_child(_pair(_pass_restore, privacy_button()))
+
+
+## Version 279: the Early Access Deal's ribbon: deep red with a gold edge and glow, the deal
+## on top ("EARLY ACCESS DEAL · 40% OFF") and the time left under it (filled in by
+## _show_deal). It beats gently while it shows (_beat_deals).
+func _deal_ribbon(size: int) -> PanelContainer:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.6, 0.07, 0.09, 0.98)
+	sb.border_color = GOLD
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 8
+	sb.shadow_color = Color(1.0, 0.7, 0.2, 0.45)
+	sb.shadow_size = 12
+	panel.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 0)
+	panel.add_child(v)
+	var t := label("EARLY ACCESS DEAL", size, Color(1.0, 0.92, 0.55))
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(t)
+	var left := label("", maxi(15, size - 10), Color(1, 0.96, 0.9))
+	left.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(left)
+	panel.visible = false
+	_deal_ribbons.append(panel)
+	return panel
+
+
+## Fills a deal ribbon from Store.deal_now() (hidden when no deal runs).
+func _show_deal(panel: PanelContainer) -> void:
+	var d := Store.deal_now()
+	panel.visible = not d.is_empty()
+	if d.is_empty():
+		return
+	var v := panel.get_child(0)
+	(v.get_child(0) as Label).text = "EARLY ACCESS DEAL  ·  %d%% OFF" % int(d.pct)
+	var left := Store.deal_left(d)
+	(v.get_child(1) as Label).text = ("Ends in " + left) if left != "" else "For a short time only"
+
+
+## Version 279: the deal ribbons beat gently, their countdowns tick, and when the deal ends
+## while one shows, the screens under it are filled again (prices back to normal).
+func _beat_deals(delta: float) -> void:
+	_deal_tick += delta
+	# The title's CRYPT PASS button beats with its deal tag too.
+	if _title_pass_badge.visible and _title_pass_row.is_visible_in_tree():
+		_title_pass_row.pivot_offset = _title_pass_row.size * 0.5
+		var kb := 1.0 + 0.04 * maxf(0.0, sin(_deal_tick * 4.2))
+		_title_pass_row.scale = Vector2(kb, kb)
+	elif _title_pass_row.scale != Vector2.ONE:
+		_title_pass_row.scale = Vector2.ONE
+	var any := false
+	for r: PanelContainer in _deal_ribbons:
+		if r.is_visible_in_tree():
+			any = true
+			r.pivot_offset = r.size * 0.5
+			var k := 1.0 + 0.035 * maxf(0.0, sin(_deal_tick * 4.2))
+			r.scale = Vector2(k, k)
+	if not any or fmod(_deal_tick, 0.5) > delta:
+		return
+	var d := Store.deal_now()
+	if d.is_empty():
+		# It just ended: the ribbons go and every screen shows the plain price again.
+		for r: PanelContainer in _deal_ribbons:
+			r.visible = false
+		for l: Label in [_title_pass_badge, _end_pass_badge]:
+			l.visible = false
+		if Store.instance:
+			Store.instance.changed.emit()
+		return
+	for r: PanelContainer in _deal_ribbons:
+		if r.is_visible_in_tree():
+			_show_deal(r)
+
+
+## Version 279: the four bosses only the Pass opens, each in its own place (pictures taken
+## in the game, art/ui/pass_boss_*.png), under "5 NEW PLACES, 4 NEW BOSSES".
+func _pass_bosses() -> Control:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.11, 0.08, 0.13, 1)
+	sb.set_corner_radius_all(14)
+	sb.set_border_width_all(2)
+	sb.border_color = Color(1, 0.8, 0.3, 0.55)
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 4)
+	panel.add_child(v)
+	v.add_child(label("5 NEW PLACES, 4 NEW BOSSES", 26, GOLD))
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 8)
+	v.add_child(row)
+	for b in [["tidecaller", "Tidecaller", "Drowned Vault"], ["tyrant", "Crystal Tyrant", "Amethyst Mine"],
+			["archivist", "Archivist", "Library"], ["star_eater", "Star Eater", "Starfall Abyss"]]:
+		var cell := VBoxContainer.new()
+		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		cell.add_theme_constant_override("separation", 0)
+		var frame := PanelContainer.new()
+		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var fs := StyleBoxFlat.new()
+		fs.bg_color = Color(0.05, 0.04, 0.06)
+		fs.border_color = Color(1, 0.8, 0.3, 0.8)
+		fs.set_border_width_all(2)
+		fs.set_corner_radius_all(10)
+		fs.set_content_margin_all(2)
+		frame.add_theme_stylebox_override("panel", fs)
+		var img := TextureRect.new()
+		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		img.custom_minimum_size = Vector2(110, 110)
+		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		var path := "res://art/ui/pass_boss_%s.png" % b[0]
+		if ResourceLoader.exists(path):
+			img.texture = load(path)
+		frame.add_child(img)
+		cell.add_child(frame)
+		var n := label(b[1], 15, Color(1, 0.93, 0.8))
+		n.autowrap_mode = TextServer.AUTOWRAP_OFF
+		cell.add_child(n)
+		var where := label(b[2], 13, Color(0.72, 0.72, 0.8))
+		where.autowrap_mode = TextServer.AUTOWRAP_OFF
+		cell.add_child(where)
+		row.add_child(cell)
+	v.add_child(label("Plus 5 new skeletons, then endless loops", 16, Color(0.85, 0.85, 0.9)))
+	return panel
 
 
 ## Version 122: the Crypt Pass on the end screen is a card with your own hero wearing the
@@ -2923,23 +3106,27 @@ func show_pass_card(v: bool, def := {}) -> void:
 	if _pass_card.visible:
 		_pass_card_stage.show_hero(def)
 		_pass_card_line.text = "%s in the\nCrypt King set.\nEndless floors, every\nhero and more." % Heroes.hero_name(def)
+		var deal := Store.deal_now()
+		if not deal.is_empty():   # version 279
+			_pass_card_line.text += "\n%d%% OFF for a short time!" % int(deal.pct)
 	_fit_end_soon()
 
 
 ## One picture tile: the picture, a title and a line of text (filled in by show_pass).
+## Version 279: three in a row under the bosses (two rows of two before).
 func _pass_tile(pic: String, title: String) -> Control:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	panel.custom_minimum_size = Vector2(246, 0)
+	panel.custom_minimum_size = Vector2(164, 0)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.11, 0.08, 0.13, 1)
 	sb.set_corner_radius_all(12)
 	sb.set_border_width_all(2)
 	sb.border_color = Color(1, 0.8, 0.3, 0.45)
-	sb.content_margin_left = 6
-	sb.content_margin_right = 6
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 8
+	sb.content_margin_left = 5
+	sb.content_margin_right = 5
+	sb.content_margin_top = 5
+	sb.content_margin_bottom = 7
 	panel.add_theme_stylebox_override("panel", sb)
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2947,18 +3134,18 @@ func _pass_tile(pic: String, title: String) -> Control:
 	panel.add_child(v)
 	var img := TextureRect.new()
 	img.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	img.custom_minimum_size = Vector2(234, 112)
+	img.custom_minimum_size = Vector2(154, 74)
 	img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	var path := "res://art/ui/pass_%s.png" % pic
 	if ResourceLoader.exists(path):
 		img.texture = load(path)
 	v.add_child(img)
-	var t := label(title, 20, Color(1, 0.93, 0.8))
+	var t := label(title, 17, Color(1, 0.93, 0.8))
 	t.autowrap_mode = TextServer.AUTOWRAP_OFF
 	v.add_child(t)
-	var d := label("", 14, Color(0.78, 0.78, 0.84))
-	d.custom_minimum_size = Vector2(234, 0)
+	var d := label("", 13, Color(0.78, 0.78, 0.84))
+	d.custom_minimum_size = Vector2(154, 0)
 	v.add_child(d)
 	_pass_tiles.append(d)
 	return panel
@@ -2976,28 +3163,52 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	var coins_of_heroes := 0
 	for h: Dictionary in Heroes.LIST:
 		coins_of_heroes += int(h.cost)
-	_pass_tiles[0].text = "The grandest looks, for\nevery hero: try them on!"
-	# v220 (v219 review): it says what this version's Pass holds, and the event perks while
-	# an event runs.
-	# v267 (hard review fix 1): the Pass holds five places of its own since v255, none of them
-	# remixed: say so, and the picture (art/ui/pass_floors.png) shows all five.
-	_pass_tiles[1].text = "Vault, Mine, Library, Foundry\nand Abyss, then endless loops"
-	_pass_tiles[2].text = "Replay today's Daily\nCrypt as often as you like"
-	if not Events.current().is_empty():
-		_pass_tiles[0].text = "Grand looks for every hero,\n%s, +50%% %s" % [Events.word("pass_set"), Events.word("unit")]
-	_pass_tiles[3].text = "Curse Level up to %d,\nplus hero rewards" % Curses.max_level()
+	_pass_tiles[0].text = "The grandest looks,\nfor every hero"
+	_pass_tiles[1].text = "Play today's Daily\nagain and again"
+	_pass_tiles[2].text = "Curse Level %d,\nplus hero rewards" % Curses.max_level()
 	_pass_more.text = "Plus all 4 heroes now (no need to spend %d coins)." % coins_of_heroes
+	# v220 (v219 review): the event perks while an event runs.
+	if not Events.current().is_empty():
+		_pass_more.text = "Plus all 4 heroes now, and while the event runs:\n%s, +50%% %s." % [Events.word("pass_set"), Events.word("unit")]
 	_pass_buy.disabled = owned
 	# On a Play install the button waits for Play's price in the player's own currency;
 	# elsewhere (the test build, which can't buy) it shows the US price.
+	# Version 279: during the Early Access Deal, the deal's price.
+	var d := Store.deal_now()
 	var shown_price := price if price != "" else ("" if Store.can_buy() else Store.FALLBACK_PRICE)
+	if not d.is_empty():
+		shown_price = str(d.price)
 	_pass_buy.text = "OWNED - THANK YOU!" if owned else ("UNLOCK  " + shown_price).strip_edges()
 	_pass_buy.add_theme_font_size_override("font_size", 26 if owned else 32)
+	_show_deal(_pass_deal)
+	_pass_was.visible = not owned and not d.is_empty() and str(d.get("full", "")) != ""
+	_pass_was_price.text = str(d.get("full", ""))
 	_pass_status.text = status
 	_pass_status.visible = status != ""
 	_pass_dev.visible = not owned
 	_pass_back.text = "BACK" if owned else "NOT NOW"
 	_pass_restore.visible = not owned
+	_fit_pass.call_deferred()
+
+
+## Version 279: short phones (16:9) shrink the whole Pass screen a little so its last row of
+## buttons stays on screen (it grew with the bosses and the deal).
+func _fit_pass() -> void:
+	if not _pass_box.visible:
+		return
+	_pass_col.scale = Vector2.ONE
+	_pass_col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_pass_col.offset_left = 16
+	_pass_col.offset_right = -16
+	_pass_col.offset_top = 16
+	_pass_col.offset_bottom = -16
+	var room := _pass_box.size.y - 32.0
+	var need := _pass_col.get_combined_minimum_size().y
+	var k := minf(1.0, room / maxf(need, 1.0))
+	_pass_col.pivot_offset = Vector2(_pass_col.size.x * 0.5, 0.0)
+	_pass_col.scale = Vector2(k, k)
+	if k < 1.0:
+		_pass_col.position.y = 16.0 + (room - need * k) * 0.5
 
 
 ## The Daily Crypt screen: today's theme, hero and three rules, and START.
@@ -3565,6 +3776,7 @@ func _on_card(i: int) -> void:
 
 func _process(delta: float) -> void:
 	_event_process(delta)
+	_beat_deals(delta)
 	_cards_age += delta
 	# Version 158: "SURGE READY!" (or PERFECT!) caught by the pause menu, the cards or an end
 	# screen stayed on top of it, frozen.
@@ -4307,6 +4519,37 @@ func _badge_pill(text: String) -> Label:
 	return l
 
 
+## Version 279: the Early Access Deal's tag on a CRYPT PASS button: red with gold letters
+## ("40% OFF · 13 DAYS LEFT"), filled in by _fill_deal_pill.
+func _deal_pill() -> Label:
+	var l := _badge_pill("")
+	l.label_settings.font_color = Color(1.0, 0.92, 0.55)
+	l.label_settings.font_size = 16
+	var pill := (l.get_theme_stylebox("normal") as StyleBoxFlat).duplicate() as StyleBoxFlat
+	pill.bg_color = Color(0.7, 0.08, 0.1)
+	pill.border_color = GOLD
+	pill.set_border_width_all(2)
+	l.add_theme_stylebox_override("normal", pill)
+	l.offset_left = -170
+	l.offset_top = -16
+	l.offset_bottom = 12
+	l.visible = false
+	return l
+
+
+func _fill_deal_pill(l: Label) -> void:
+	var d := Store.deal_now()
+	l.visible = not d.is_empty()
+	if d.is_empty():
+		return
+	var end := int(d.get("end_ms", 0))
+	var left := ""
+	if end > 0:
+		var days := int((float(end) - Time.get_unix_time_from_system() * 1000.0) / 86400000.0)
+		left = "  ·  ENDS TODAY" if days < 1 else ("  ·  1 DAY LEFT" if days == 1 else "  ·  %d DAYS LEFT" % days)
+	l.text = "%d%% OFF%s" % [int(d.pct), left]
+
+
 ## The title's NEW LOOKS tag: shown while any hero has looks the Style screen hasn't shown.
 func refresh_looks_badge() -> void:
 	var cfg := Game._load_save()
@@ -4563,6 +4806,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	# Version 218 (review 4): the Pass shows from the second run (it hid until the fourth),
 	# and a Pass owner always reaches the Daily Crypt and Curses they bought (MODES).
 	_title_pass_row.visible = stage >= 2 and not has_pass
+	_fill_deal_pill(_title_pass_badge)
 	_title_modes_row.visible = stage >= 3 or has_pass
 	_title_records.visible = stage >= 3
 	_title_road.visible = stage >= 2
@@ -4618,6 +4862,11 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 
 func title_visible() -> bool:
 	return _title_box.visible
+
+
+## Version 279: true while another screen (or the splash) covers the title.
+func title_covered() -> bool:
+	return not _title_box.get_child(0).visible
 
 
 ## The free space on the title screen between the words at the top and the buttons at the
@@ -5194,7 +5443,12 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 		# v218 (review 4): one priced button ("GET THE CRYPT PASS" had no price).
 		# Play's own price in the player's currency; the US price only on the test build.
 		var pr := Store.instance.price if Store.instance.price != "" else ("" if Store.can_buy() else Store.FALLBACK_PRICE)
+		var deal := Store.deal_now()
+		if not deal.is_empty():
+			pr = str(deal.price)   # version 279: the Early Access Deal's price, its ribbon above
 		_end_get_pass.text = ("UNLOCK FLOOR 6+  " + pr).strip_edges()
+	_show_deal(_end_deal)
+	_end_deal.visible = _end_deal.visible and v and offer
 	_end_loop.visible = false
 	if not v:
 		_drops.visible = false   # (never left over a run that's starting)
@@ -5699,6 +5953,7 @@ func show_share(v: bool, rows := [], caption := "") -> void:
 ## A CRYPT PASS button among the death-screen buttons (after a deep death, once a session).
 func show_end_pass(v: bool) -> void:
 	_end_pass.visible = v
+	_fill_deal_pill(_end_pass_badge)
 	_fit_end_soon()
 
 

@@ -1,9 +1,4 @@
-Version 278: a check of everything
-- Fixed: Menders healed each other forever, so deep waves never ended.
-- A wave's elites now have different moves.
-- The Blood Moon crypt and Frostfall Hall have their own cover: blood altars, moon lanterns, Krampus's sleigh and sack.
-- Boss cards name the boss's own place.
-- No more giant damage number over a boss.
-- Elite name tags fade under the top bar.
-- Every new boss and skeleton has its own death tip.
-- The Rogue's Gilded arms picture is fixed.
+Version 279: a better Crypt Pass screen
+- The Crypt Pass screen now shows the four bosses only the Pass opens, each in its own place.
+- Early Access Deal: while the Pass is on sale, a ribbon shows the percent off, the old price crossed out and a live countdown to the end of the sale.
+- The deal also shows on the title's Crypt Pass button, at the end of the free floors and on the Pass card after a boss win.
