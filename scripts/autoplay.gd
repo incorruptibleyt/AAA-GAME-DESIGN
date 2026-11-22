@@ -942,6 +942,7 @@ func _gallery_step(delta: float) -> void:
 
 var _hush_told := false
 var _flank_told := false
+var _snap_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1072,6 +1073,21 @@ func _drive(delta: float) -> void:
 				if not _flank_told:
 					_flank_told = true
 					print("[autoplay] geode guard blocks: walking round it")
+	# v273: held on a Tomb Mummy's bandage, dash to snap it (even in god mode, or the robot
+	# would be reeled in every time).
+	if not room.door_open and hero.dash_ready():
+		for a: Actor in Actor.all:
+			if a is TombMummy and (a as TombMummy).holding():
+				var away: Vector3 = hero.global_position - a.global_position
+				away.y = 0
+				var side := away.normalized().cross(Vector3.UP)
+				if side.dot(Vector3(0, 0, 2) - hero.global_position) < 0.0:
+					side = -side
+				hero.dash(side + away.normalized() * 0.5)
+				if not _snap_told:
+					_snap_told = true
+					print("[autoplay] caught by a tomb mummy's bandage: dashing to snap it")
+				break
 	if move.length() < 0.05 and not room.door_open:
 		# No clear shot at anything? Walk towards the target until there is one.
 		var target := hero._pick_target()

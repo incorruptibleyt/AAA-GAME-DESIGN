@@ -450,3 +450,39 @@ if WHICH in ("all", "geode"):
                 (load("k1/impact-sounds/impactGlass_heavy_00%d.ogg" % (i + 1), 0.9), 0.12, 0.55),
                 (tinkle(0.7, 16, 1800, 5200, 0.2), 0.16, 0.35))
         save(a, "die_geode_%d" % i, cap=1.1)
+if WHICH in ("all", "mummy"):
+    # The Tomb Mummy (version 273, the Sandfall Tomb's own skeleton). "lash": its bandage
+    # thrown, a quick rising swish of cloth that cracks at the end like a whip; "snap": the
+    # bandage torn by a dash, a dry rip of linen fibres over a flap of cloth; "die_mummy": the
+    # crunch, its wrappings tearing, a dry sigh going out of it and sand pouring out of the
+    # bones, in a small tomb echo. (python3 ... mummy)
+    def rip(sec, rate, f=2600):
+        out = np.zeros(int(sec * R))
+        k = 0.0
+        while True:
+            k += rng.exponential(1.0 / rate)
+            if k >= sec:
+                break
+            p = bandpass(noise(0.005), f * rng.uniform(0.8, 1.25), 1.0) * np.exp(-t(0.005) / 0.0012)
+            s = int(k * R); out[s:s + len(p)] += p[: len(out) - s] * rng.uniform(0.3, 1.0)
+        return out * env(len(out), 0.006, sec * 0.55)
+
+    def pour(sec):
+        grains = crackle(sec, 900, sec * 2.0)
+        bed = bandpass(noise(sec), 2200, 0.7) * env(int(sec * R), sec * 0.25, sec * 0.5)
+        return mix((grains, 0, 0.5), (bed, 0, 0.6))
+
+    for i in range(3):
+        sw = whoosh(0.3, 500 + 80 * i, 3800, 1.1, 0.2)
+        crack = bandpass(noise(0.03), 3000, 0.9) * np.exp(-t(0.03) / 0.006)
+        a = mix((sw, 0, 0.7), (load("k1/rpg-audio/cloth%d.ogg" % (i + 1), 1.3), 0.02, 0.6), (crack, 0.27, 0.8))
+        save(a, "lash_%d" % i, mean_db=-19.0, cap=0.55)
+    for i in range(3):
+        a = mix((rip(0.28 + 0.04 * i, 420 - 60 * i), 0, 0.9), (load("k1/rpg-audio/clothBelt%s.ogg" % ("" if i % 2 == 0 else "2"), 1.2 + 0.1 * i), 0.0, 0.45),
+                (load("k1/rpg-audio/cloth%d.ogg" % (4 - i), 1.1), 0.08, 0.35))
+        save(a, "snap_%d" % i, mean_db=-18.0, cap=0.6)
+    for i in range(3):
+        sigh = bandpass(noise(0.75), np.geomspace(700, 260, int(0.75 * R)), 2.2) * env(int(0.75 * R), 0.08, 0.3)
+        a = mix((game(CRUNCH[(i + 3) % 5], 0.9), 0, 0.65), (rip(0.35, 300, 2200), 0.03, 0.5),
+                (sigh, 0.1, 0.45), (pour(0.9), 0.18, 0.55), (load("k1/rpg-audio/cloth%d.ogg" % (i + 2), 0.9), 0.05, 0.3))
+        save(verb(a, 0.8, 0.3, 4000), "die_mummy_%d" % i, cap=1.3)

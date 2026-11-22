@@ -130,6 +130,8 @@ const THEMES := [
 		"motes": [Color(1.0, 0.86, 0.6, 0.6), Color(0.92, 0.72, 0.48, 0.28)], "motes_fall": false, "motes_size": 0.4,
 		"pebble": Color(0.9, 0.68, 0.45),   # the colour of loose stones on the floor (props.gd)
 		"banner": Color(1.0, 0.8, 0.42),
+		# v273: its own Tomb Mummies, and Frost Wraiths for the tomb's spirits (were "fe", one a room).
+		"guests": "yf",
 		# Version 259: its own cover (props.gd add_cover): the heads of fallen colossi sunk in
 		# the sand for crates, glazed scarab statues holding up the sun for barrels.
 		"cover": "sand",

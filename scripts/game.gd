@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-21zp"
+const BUILD := "2026-11-22a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -369,6 +369,7 @@ const MEET_LINES := {
 	"ClockworkSkeleton": "CLOCKWORK SKELETON: charges and bounces off a wall. Hit it when it runs down!",
 	"HushKeeper": "HUSH KEEPER: its circle of letters silences your weapon. Step out to fight!",
 	"GeodeGuard": "GEODE GUARD: its geode blocks shots from the front. Hit its side or back!",
+	"TombMummy": "TOMB MUMMY: throws its bandage down the strip to reel you in. DASH to snap it!",
 	"Bloodbat": "BLOODBATS: swoop along a strip. Dash through!",
 	"MoonHowler": "MOON HOWLER: pounces along a strip. Step aside!",
 }
@@ -1764,9 +1765,10 @@ func boss_kind() -> String:
 ## Ossuary ("f"), Cinder Skeletons in the Ember Catacomb ("e"), Drowned Skeletons in the
 ## Drowned Vault ("d"), Sporelings and Rootbinders in the Glowcap Grotto ("pr"), none in
 ## the Bone Crypt. The events' crypts: Bloodbats and Moon Howlers ("bh"); in Frostfall Hall
-## Snow Rollers, Bell Ringers and a Gift Thief ("noi"). The Sandfall Tomb (floor 5, version
-## 247) keeps floor 5's Frost Wraiths (tomb spirits) and adds the scorched Cinder Skeletons.
-## The Pass's own places name theirs ("guests", floors.gd): the Amethyst Mine its own Geode
+## Snow Rollers, Bell Ringers and a Gift Thief ("noi"). The places past floor 4 name theirs
+## ("guests", floors.gd): the Sandfall Tomb (floor 5) its own Tomb Mummies (version 273) and
+## floor 5's Frost Wraiths (its spirits; from version 247 they took turns with scorched Cinder
+## Skeletons, both borrowed), the Amethyst Mine its own Geode
 ## Guards (version 272) and the Drowned Skeletons (from its flooded shafts; until then beside
 ## the Rootbinders its floor had before), the Whispering Library its own
 ## Hush Keepers (version 271) and the Frost Wraiths (the ghosts of its readers; until then
@@ -2743,8 +2745,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	# room with a single minion still meets both over a floor.
 	if theme_kind.length() > 1 and index % 2 == 1:
 		theme_kind = theme_kind.reverse()
-	# The Sandfall Tomb's two (version 247) take turns, one a room, as floor 5 had one before.
-	if Floors.sandfall():
+	# The Sandfall Tomb's two took turns, one a room (version 247), as floor 5 had one before.
+	# Version 273: its own Tomb Mummy comes to every room, its Frost Wraiths every other one.
+	if Floors.sandfall() and index % 2 == 0:
 		theme_kind = theme_kind.left(1)
 	# The tutorial teaches the basics first: bone spiders and bombers wait for floor 2. They
 	# are left out (they used to turn into extra minions, a bigger pack for a new player),

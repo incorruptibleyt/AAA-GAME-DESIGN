@@ -174,6 +174,8 @@ func _load_samples() -> void:
 			"quill", "hush",
 			# Version 272: the Geode Guard: shots clinking off its geode, and its death.
 			"clink", "die_geode",
+			# Version 273: the Tomb Mummy: its bandage lashing out, torn by a dash, and its death.
+			"lash", "snap", "die_mummy",
 			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star"]:
 		var found := []
 		for i in 10:

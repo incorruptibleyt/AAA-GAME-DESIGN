@@ -141,6 +141,7 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 		"u": e = ClockworkSkeleton.new()   # the Clockwork Foundry's own skeleton (version 270)
 		"l": e = HushKeeper.new()   # the Whispering Library's own skeleton (version 271)
 		"z": e = GeodeGuard.new()   # the Amethyst Mine's own skeleton (version 272)
+		"y": e = TombMummy.new()   # the Sandfall Tomb's own skeleton (version 273)
 		# The Blood Moon event (events.gd, version 134).
 		"b": e = Bloodbat.new()
 		"h": e = MoonHowler.new()

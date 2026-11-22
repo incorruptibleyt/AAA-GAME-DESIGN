@@ -25,6 +25,8 @@ class_name Layouts
 ##      Whispering Library swaps one in)
 ##   z  geode guard (its geode blocks shots from the front; it slams crystals up a strip,
 ##      then is open for a moment; the Amethyst Mine swaps one in)
+##   y  tomb mummy (throws its bandage down a strip and reels you in; a dash snaps it; the
+##      Sandfall Tomb swaps one in)
 ##   ^  spike trap (glows red, then spikes shoot up)
 ##   K  the boss (the Skeleton King, the Lich, the Cinder Colossus, the Tidecaller, the
 ##      Sporemother or the Star Eater: see Game.boss_kind)
