@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-22h"
+const BUILD := "2026-11-22i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -446,6 +446,8 @@ func death_tip() -> String:
 		tip = "When a bandage catches you, DASH to snap it. Wade out of the sand fast."
 	elif "Tyrant" in name:
 		tip = "Crystals rise where their marks FILL IN. Step off the cart lanes."
+	elif "Forgemaster" in name:
+		tip = "Presses stamp one colour of tiles, then the other: step onto a stamped tile."
 	elif "Star Eater" in name:
 		tip = "Stand inside the constellation, not on its lines. Dash out of the star's pull."
 	elif "Geode" in name:
@@ -1797,7 +1799,8 @@ func _build_run() -> void:
 ## Star Eater (version 268; it had the Sporemother before), the Sandfall Tomb (floor 5) the
 ## Sand Pharaoh (version 274; the King and the Lich together before), the Amethyst Mine
 ## (floor 7) the Crystal Tyrant (version 275; the King before), the Whispering Library
-## (floor 8) the Archivist (version 276; the Lich before);
+## (floor 8) the Archivist (version 276; the Lich before), the Clockwork Foundry (floor 9)
+## the Forgemaster (version 281; the Cinder Colossus before);
 ## elsewhere the Skeleton King and the Lich take turns (the King on odd floors).
 func boss_kind() -> String:
 	# An event: its own boss on floor 3 and alone in its hunt (the Blood Moon Queen, Krampus);
@@ -1807,7 +1810,8 @@ func boss_kind() -> String:
 	if event == "run":
 		return str(Events.ev().get("guards", "KL"))[clampi(floor_num - 1, 0, 1)]
 	# Version 250: a place can name its own boss ("boss" in Floors.THEMES): the Clockwork
-	# Foundry (floor 9) is the Cinder Colossus's, as the Ember Catacomb relit was before it.
+	# Foundry (floor 9) was the Cinder Colossus's, as the Ember Catacomb relit was before it;
+	# from version 281 it has its own, the Forgemaster.
 	var own := str(Floors.current().get("boss", ""))
 	if own != "" and not first_run:
 		return own

@@ -617,3 +617,64 @@ if WHICH in ("all", "archivist"):
         a = mix((tear_noise(0.45 + 0.05 * i, 900 - 150 * i), 0, 1.0), (load("k1/rpg-audio/bookFlip%d.ogg" % (3 - i), 1.1), 0.35, 0.5),
                 (whoosh(0.2, 1200, 4000, 1.0, 0.02), 0.4, 0.25))
         save(verb(a, 0.5, 0.25, 6000), "tear_%d" % i, mean_db=-18.0, cap=0.9)
+if WHICH in ("all", "forge"):
+    # The Forgemaster (version 281, the Clockwork Foundry's own boss). "roar_forge": a slowed
+    # roar through an iron mask, an anvil ringing under a hammer blow, a furnace roaring and
+    # steam hissing out, a big clock ticking on; "press": a steam press stamping, the hiss of
+    # its piston, a heavy iron thud and a ringing clank; "saw": a cog saw spinning up, a
+    # metal whine climbing over the grind of its teeth and sparks; "belt": a conveyor belt
+    # clanking into motion, rollers rattling; "pendulum": a great blade swinging past, a
+    # rushing whoosh and the creak of its iron arm. (python3 ... forge)
+    def anvil(sec, f0):
+        tt = t(sec)
+        return sum(np.sin(2 * np.pi * f0 * m * tt) * g * np.exp(-tt / d)
+                   for m, g, d in [(1.0, 0.5, 0.9), (2.76, 0.35, 0.5), (5.4, 0.25, 0.25), (8.9, 0.15, 0.12)])
+
+    def ticks(sec, rate, f=2600):
+        out = np.zeros(int(sec * R))
+        for k in range(int(sec * rate)):
+            p = bandpass(noise(0.01), f * (1.0 if k % 2 == 0 else 0.8), 3.0) * np.exp(-t(0.01) / 0.002)
+            s = int(k / rate * R); out[s:s + len(p)] += p[: len(out) - s]
+        return out
+
+    for i, (src, sp) in enumerate([("monster_13", 0.62), ("monster_14", 0.6), ("monster_15", 0.64)]):
+        v = lowpass(load("k2/creatures-2/%s.ogg" % src, sp), 1900)
+        v = mix((v, 0, 1.0), (bandpass(v, 700, 1.2), 0.0, 0.5))   # boxy, through the mask
+        furnace = lowpass(noise(2.0), 260) * 2.5 * env(int(2.0 * R), 0.3, 1.0)
+        steam = hiss(1.2, 0.6, 3000) * 0.5
+        a = mix((load("k1/impact-sounds/impactMetal_heavy_00%d.ogg" % i, 0.8), 0, 0.9), (anvil(1.6, 330 + 20 * i), 0.0, 0.35),
+                (thump(80, 36, 0.5), 0, 0.6), (v, 0.08, 1.0), (furnace, 0.0, 0.55), (steam, 0.5, 0.45),
+                (ticks(1.4, 4.0), 0.9, 0.35))
+        save(verb(a, 1.4, 0.4, 3600), "roar_forge_%d" % i, mean_db=-14.0, cap=2.4)
+    for i in range(3):
+        a = mix((whoosh(0.22, 5000, 1800, 0.8, 0.02), 0, 0.45), (hiss(0.5, 0.25, 2500), 0.0, 0.4),
+                (load("k1/impact-sounds/impactPlate_heavy_00%d.ogg" % (i + 1), 0.75), 0.2, 1.0),
+                (thump(110 - 10 * i, 40, 0.35), 0.2, 0.8), (anvil(0.6, 520 + 40 * i), 0.21, 0.18),
+                (hiss(0.6, 0.4, 3500), 0.28, 0.35))
+        save(verb(a, 0.6, 0.25, 4000), "press_%d" % i, mean_db=-17.0, cap=1.0)
+    for i in range(3):
+        sec = 0.9
+        tt = t(sec)
+        f = np.geomspace(500 + 60 * i, 1500 + 120 * i, len(tt))
+        whine = np.sin(2 * np.pi * np.cumsum(f) / R)
+        whine = (whine + 0.35 * np.sign(np.sin(2 * np.pi * np.cumsum(f * 1.5) / R))) * env(len(tt), 0.1, 0.4) * 0.35
+        grind = bandpass(noise(sec), f * 2.2, 2.0) * (0.6 + 0.4 * np.sin(2 * np.pi * 38 * tt)) * env(len(tt), 0.05, 0.4)
+        a = mix((whine, 0, 0.6), (grind, 0, 0.8), (crackle(sec, 90, 0.6), 0.1, 0.5),
+                (load("k2/sci-fi-sounds/impactMetal_00%d.ogg" % i, 1.3, 0.2), 0.0, 0.3))
+        save(a, "saw_%d" % i, mean_db=-19.0, cap=1.0)
+    for i in range(3):
+        sec = 1.0
+        tt = t(sec)
+        rattle = np.zeros(len(tt))
+        for k in range(int(sec * 11)):
+            s = int((k / 11.0) * R)
+            c = load("k1/impact-sounds/impactMetal_light_00%d.ogg" % ((k + i) % 5), 1.6, 0.08)
+            rattle[s:s + len(c)] += c[: len(rattle) - s] * 0.35
+        hum = lowpass(np.sign(np.sin(2 * np.pi * (55 + 5 * i) * tt)), 400) * 0.3 * env(len(tt), 0.15, 0.7)
+        a = mix((load("k1/impact-sounds/impactMetal_heavy_00%d.ogg" % (i + 2), 0.9), 0, 0.8), (rattle * env(len(tt), 0.1, 0.8), 0.05, 0.9),
+                (hum, 0.0, 0.7), (load("k1/rpg-audio/metalLatch.ogg", 0.8), 0.0, 0.4))
+        save(a, "belt_%d" % i, mean_db=-19.0, cap=1.1)
+    for i in range(3):
+        a = mix((whoosh(0.75, 160 + 30 * i, 900, 1.4, 0.35), 0, 1.0), (whoosh(0.5, 900, 300, 1.0, 0.25), 0.25, 0.5),
+                (load("k1/rpg-audio/creak%d.ogg" % (i + 1), 0.7), 0.05, 0.4), (thump(60, 45, 0.6), 0.3, 0.3))
+        save(verb(a, 0.8, 0.3, 3000), "pendulum_%d" % i, mean_db=-18.0, cap=1.1)

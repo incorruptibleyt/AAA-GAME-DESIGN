@@ -3010,8 +3010,9 @@ func _beat_deals(delta: float) -> void:
 			_show_deal(r)
 
 
-## Version 279: the four bosses only the Pass opens, each in its own place (pictures taken
-## in the game, art/ui/pass_boss_*.png), under "5 NEW PLACES, 4 NEW BOSSES".
+## Version 279: the bosses only the Pass opens, each in its own place (pictures taken in the
+## game, art/ui/pass_boss_*.png), under "5 NEW PLACES, 5 NEW BOSSES" (version 281: the
+## Forgemaster made it five; it was four while the Foundry borrowed the Cinder Colossus).
 func _pass_bosses() -> Control:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3020,8 +3021,8 @@ func _pass_bosses() -> Control:
 	sb.set_corner_radius_all(14)
 	sb.set_border_width_all(2)
 	sb.border_color = Color(1, 0.8, 0.3, 0.55)
-	sb.content_margin_left = 10
-	sb.content_margin_right = 10
+	sb.content_margin_left = 6
+	sb.content_margin_right = 6
 	sb.content_margin_top = 6
 	sb.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", sb)
@@ -3029,17 +3030,21 @@ func _pass_bosses() -> Control:
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.add_theme_constant_override("separation", 4)
 	panel.add_child(v)
-	v.add_child(label("5 NEW PLACES, 4 NEW BOSSES", 26, GOLD))
+	v.add_child(label("5 NEW PLACES, 5 NEW BOSSES", 26, GOLD))
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 8)
+	row.add_theme_constant_override("separation", 2)
 	v.add_child(row)
-	for b in [["tidecaller", "Tidecaller", "Drowned Vault"], ["tyrant", "Crystal Tyrant", "Amethyst Mine"],
-			["archivist", "Archivist", "Library"], ["star_eater", "Star Eater", "Starfall Abyss"]]:
+	for b in [["tidecaller", "Tidecaller", "Vault"], ["tyrant", "Crystal Tyrant", "Mine"],
+			["archivist", "Archivist", "Library"], ["forgemaster", "Forgemaster", "Foundry"],
+			["star_eater", "Star Eater", "Abyss"]]:
 		var cell := VBoxContainer.new()
 		cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		cell.add_theme_constant_override("separation", 0)
+		# Five across (version 281): each as wide as its picture, a two-word name on two lines
+		# (every name gets room for two, so the places line up), the place in one word.
+		cell.custom_minimum_size.x = 95
 		var frame := PanelContainer.new()
 		frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		var fs := StyleBoxFlat.new()
@@ -3051,7 +3056,7 @@ func _pass_bosses() -> Control:
 		frame.add_theme_stylebox_override("panel", fs)
 		var img := TextureRect.new()
 		img.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		img.custom_minimum_size = Vector2(110, 110)
+		img.custom_minimum_size = Vector2(95, 95)
 		img.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		img.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 		var path := "res://art/ui/pass_boss_%s.png" % b[0]
@@ -3059,10 +3064,13 @@ func _pass_bosses() -> Control:
 			img.texture = load(path)
 		frame.add_child(img)
 		cell.add_child(frame)
-		var n := label(b[1], 15, Color(1, 0.93, 0.8))
-		n.autowrap_mode = TextServer.AUTOWRAP_OFF
+		var n := label(b[1], 16, Color(1, 0.93, 0.8))
+		n.custom_minimum_size = Vector2(95, 50)
+		if not " " in str(b[1]):
+			n.autowrap_mode = TextServer.AUTOWRAP_OFF   # one word is never broken
+		n.add_theme_constant_override("line_spacing", -4)
 		cell.add_child(n)
-		var where := label(b[2], 13, Color(0.72, 0.72, 0.8))
+		var where := label(b[2], 16, Color(0.72, 0.72, 0.8))
 		where.autowrap_mode = TextServer.AUTOWRAP_OFF
 		cell.add_child(where)
 		row.add_child(cell)

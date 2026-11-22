@@ -1,5 +1,4 @@
-Version 280: the Free Dive
-- Not sure about the Crypt Pass? Dive into floor 6 once for free: the Drowned Vault, its own skeletons and its boss, the Tidecaller, with 5 blessings to start.
-- Find FREE DIVE on the Crypt Pass screen (the title's Crypt Pass button says TRY FLOOR 6 FREE).
-- The dive counts once you reach the Tidecaller, so a fall before that lets you try again.
-- The dive never touches your saved run, records or score.
+Version 281: the Forgemaster
+- Floor 9, the Clockwork Foundry, has its own boss: the Forgemaster, a giant smith with a furnace in its ribs and a great clock behind its head.
+- Dodge its presses in time with its clock, its saw blades that bounce off the walls and its conveyor belts of red-hot ingots.
+- Below half health it swings giant pendulums and calls its Clockwork Skeletons.

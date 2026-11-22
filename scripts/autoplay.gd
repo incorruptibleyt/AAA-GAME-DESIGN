@@ -1034,6 +1034,16 @@ func _drive(delta: float) -> void:
 					move += r.dir.cross(Vector3.UP) * signf(d.dot(r.dir.cross(Vector3.UP)) + 0.01) * (3.0 - d.length())
 		if hero.snare_left > 0.0 and hero.dash_ready():
 			hero.dash(Vector3.RIGHT if randf() < 0.5 else Vector3.LEFT)
+		# v281, the Forgemaster: keep out of a swinging pendulum's strip, and step off its
+		# running belts into the gaps between them.
+		for z in Forgemaster.swings:
+			var dz: float = hero.global_position.z - float(z)
+			if absf(dz) < Forgemaster.PEND_WIDTH * 0.5 + 1.0:
+				move += Vector3(0, 0, signf(dz) if absf(dz) > 0.05 else 1.0) * 3.0
+		for l in Forgemaster.belts:
+			var bz: float = hero.global_position.z - float(l.z)
+			if absf(bz) < float(l.w) * 0.5 + 0.3:
+				move += Vector3(0, 0, signf(bz) if absf(bz) > 0.05 else 1.0) * 2.0
 		# v243, Frostfall's Blizzard: getting cold, head for the nearest brazier's warm ring.
 		var bz := Blizzard.instance
 		if bz and bz.cold > 0.35 and bz.k > 0.3 and not bz.warm(hero.global_position):

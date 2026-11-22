@@ -184,7 +184,10 @@ func _load_samples() -> void:
 			# Version 276: the Archivist: its books flapping, its written words burning, ink
 			# splashing (its retold footprints, its ink double), a page torn out.
 			"flutter", "burn_word", "ink", "tear",
-			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star", "roar_pharaoh", "roar_tyrant", "roar_archivist"]:
+			# Version 281: the Forgemaster: its presses stamping, its saw blades, its conveyor
+			# belts, its pendulum swinging.
+			"press", "saw", "belt", "pendulum",
+			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star", "roar_pharaoh", "roar_tyrant", "roar_archivist", "roar_forge"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]
