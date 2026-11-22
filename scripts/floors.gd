@@ -132,6 +132,8 @@ const THEMES := [
 		"banner": Color(1.0, 0.8, 0.42),
 		# v273: its own Tomb Mummies, and Frost Wraiths for the tomb's spirits (were "fe", one a room).
 		"guests": "yf",
+		# v274: its own boss, the Sand Pharaoh (until then the King and the Lich together).
+		"boss": "P",
 		# Version 259: its own cover (props.gd add_cover): the heads of fallen colossi sunk in
 		# the sand for crates, glazed scarab statues holding up the sun for barrels.
 		"cover": "sand",

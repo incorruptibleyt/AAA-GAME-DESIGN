@@ -176,7 +176,9 @@ func _load_samples() -> void:
 			"clink", "die_geode",
 			# Version 273: the Tomb Mummy: its bandage lashing out, torn by a dash, and its death.
 			"lash", "snap", "die_mummy",
-			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star"]:
+			# Version 274: the Sand Pharaoh: sand pouring down, its scarab swarm skittering.
+			"sandfall", "scarab",
+			"roar_king", "roar_lich", "roar_colossus", "roar_tide", "roar_spore", "roar_queen", "roar_krampus", "roar_star", "roar_pharaoh"]:
 		var found := []
 		for i in 10:
 			var path := "res://audio/sfx/%s_%d.ogg" % [sound, i]

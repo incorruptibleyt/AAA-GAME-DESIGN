@@ -341,7 +341,11 @@ func _hand() -> Vector3:
 ## Draws the bandage from `a` to `b` as a ribbon lying flat to the camera above, sagging and
 ## rippling, twisting a little along its length.
 func _draw_rope(a: Vector3, b: Vector3, slack: float) -> void:
-	var im := _rope.mesh as ImmediateMesh
+	TombMummy.ribbon(_rope.mesh as ImmediateMesh, a, b, slack, _t)
+
+
+## The bandage ribbon itself (the Sand Pharaoh throws them too): `t` drives its ripple.
+static func ribbon(im: ImmediateMesh, a: Vector3, b: Vector3, slack: float, t: float, half_width := 0.15) -> void:
 	im.clear_surfaces()
 	var axis := b - a
 	var length := axis.length()
@@ -355,8 +359,8 @@ func _draw_rope(a: Vector3, b: Vector3, slack: float) -> void:
 		var k := float(i) / n
 		var p := a.lerp(b, k)
 		p.y -= slack * 4.0 * k * (1.0 - k)
-		p += side * sin(k * PI * 3.0 - _t * 9.0) * 0.08 * (1.0 - k * 0.6)
-		var w := side.rotated(axis / length, sin(k * 5.0 + _t * 2.0) * 0.2) * 0.15
+		p += side * sin(k * PI * 3.0 - t * 9.0) * 0.08 * (1.0 - k * 0.6)
+		var w := side.rotated(axis / length, sin(k * 5.0 + t * 2.0) * 0.2) * half_width
 		im.surface_set_normal(Vector3.UP)
 		im.surface_set_uv(Vector2(0.0, k * length / 0.32))
 		im.surface_add_vertex(p - w)

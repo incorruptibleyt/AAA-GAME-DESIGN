@@ -63,6 +63,10 @@ var snare_guard := 0.0
 ## is silent: seconds left, topped up while the hero stays inside. Step out to fight again.
 var hush_left := 0.0
 var _hush_said := 0.0
+## Version 274: wading through the Sand Pharaoh's sand (SandMound): seconds left, topped up
+## while the hero stands in it. Slower until out.
+var mired_left := 0.0
+var _mired_said := 0.0
 ## Version 243, Frostfall's Blizzard (blizzard.gd): how cold the hero is (0..1; slower as it
 ## rises), and the block of ice they are frozen in (held like roots; a dash breaks it).
 var cold := 0.0
@@ -264,6 +268,7 @@ func place_at(pos: Vector3) -> void:
 	# into the next one (the spin used to start the new room by itself, half a turn round).
 	_spin_left = 0.0
 	chill_left = 0.0
+	mired_left = 0.0
 	snare_left = 0.0
 	snare_guard = 0.0
 	cold = 0.0
@@ -610,6 +615,11 @@ func _process(delta: float) -> void:
 		chill_left -= delta
 		if randf() < delta * 8.0:
 			Fx.magic(center(), Color(0.6, 0.9, 1.0), 2)
+	_mired_said -= delta
+	if mired_left > 0.0:
+		mired_left -= delta
+		if _moving and randf() < delta * 10.0:
+			Fx.dust(global_position, 2)
 	_hush_said -= delta
 	if hush_left > 0.0:
 		hush_left -= delta
@@ -628,7 +638,7 @@ func _process(delta: float) -> void:
 			_moving = false
 			visual.set_moving(false)
 	if _moving:
-		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * (1.0 - Blizzard.SLOW * cold) * delta, delta)
+		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * (SandMound.SLOW if mired_left > 0.0 else 1.0) * (1.0 - Blizzard.SLOW * cold) * delta, delta)
 		face(move, 18.0, delta)
 		# The reload keeps counting while you move (it used to wait), and firing resumes
 		# shortly after you stop.
@@ -1420,6 +1430,17 @@ func hush(seconds: float) -> void:
 			Game.hud.callout("HUSHED! STEP OUT!", HushCircle.TEAL, true)
 		_hush_said = 3.0
 	hush_left = maxf(hush_left, seconds)
+
+
+## Wading in the Sand Pharaoh's sand (version 274): slower while `mired_left` lasts. The
+## sand tops it up every frame the hero is in it.
+func mire(seconds: float) -> void:
+	if dead:
+		return
+	if mired_left <= 0.0 and _mired_said <= 0.0:
+		Game.hud.callout("SINKING IN SAND! GET OUT!", SandMound.SAND, true)
+		_mired_said = 4.0
+	mired_left = maxf(mired_left, seconds)
 
 
 ## Held in place by roots for a moment (Rootbinders and the Sporemother). A dash tears free.

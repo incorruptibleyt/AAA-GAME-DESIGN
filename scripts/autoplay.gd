@@ -943,6 +943,7 @@ func _gallery_step(delta: float) -> void:
 var _hush_told := false
 var _flank_told := false
 var _snap_told := false
+var _sand_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1075,18 +1076,29 @@ func _drive(delta: float) -> void:
 					print("[autoplay] geode guard blocks: walking round it")
 	# v273: held on a Tomb Mummy's bandage, dash to snap it (even in god mode, or the robot
 	# would be reeled in every time).
+	# v274: the Sand Pharaoh's bandages the same way, and wade out of its mounds of sand
+	# (even in god mode, or the robot would wade through them at half speed).
+	if not room.door_open:
+		for m in SandMound.all:
+			if is_instance_valid(m) and m.covers(hero.global_position, hero.radius + 0.2):
+				var d: Vector3 = hero.global_position - m.global_position
+				d.y = 0
+				move += (d.normalized() if d.length() > 0.1 else Vector3.RIGHT) * 2.5
+				if not _sand_told:
+					_sand_told = true
+					print("[autoplay] in the sand pharaoh's sand: wading out")
 	if not room.door_open and hero.dash_ready():
 		for a: Actor in Actor.all:
-			if a is TombMummy and (a as TombMummy).holding():
+			if (a is TombMummy and (a as TombMummy).holding()) or (a is SandPharaoh and (a as SandPharaoh).holding()):
 				var away: Vector3 = hero.global_position - a.global_position
 				away.y = 0
 				var side := away.normalized().cross(Vector3.UP)
 				if side.dot(Vector3(0, 0, 2) - hero.global_position) < 0.0:
 					side = -side
 				hero.dash(side + away.normalized() * 0.5)
-				if not _snap_told:
+				if not _snap_told or a is SandPharaoh:
 					_snap_told = true
-					print("[autoplay] caught by a tomb mummy's bandage: dashing to snap it")
+					print("[autoplay] caught by a %s's bandage: dashing to snap it" % ("sand pharaoh" if a is SandPharaoh else "tomb mummy"))
 				break
 	if move.length() < 0.05 and not room.door_open:
 		# No clear shot at anything? Walk towards the target until there is one.

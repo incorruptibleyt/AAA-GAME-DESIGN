@@ -29,7 +29,7 @@ class_name Layouts
 ##      Sandfall Tomb swaps one in)
 ##   ^  spike trap (glows red, then spikes shoot up)
 ##   K  the boss (the Skeleton King, the Lich, the Cinder Colossus, the Tidecaller, the
-##      Sporemother or the Star Eater: see Game.boss_kind)
+##      Sporemother, the Star Eater or the Sand Pharaoh: see Game.boss_kind)
 ##
 ## Rooms are drawn the same on both sides. From floor 2 a room may take its right-hand side
 ## from another room, and from floor 3 the far half of one room may be joined to the near

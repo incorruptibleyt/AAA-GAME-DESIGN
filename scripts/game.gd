@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-22a"
+const BUILD := "2026-11-22b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1738,7 +1738,8 @@ func _build_run() -> void:
 ## Who rules this floor: the Ember Catacomb (floor 3, then every Ember floor) has the
 ## Cinder Colossus, the Drowned Vault (floor 6, 11, 16...) the Tidecaller, the Glowcap
 ## Grotto (floor 4) the Sporemother, the Starfall Abyss (floor 10, 15...; its "boss" key) the
-## Star Eater (version 268; it had the Sporemother before);
+## Star Eater (version 268; it had the Sporemother before), the Sandfall Tomb (floor 5) the
+## Sand Pharaoh (version 274; the King and the Lich together before);
 ## elsewhere the Skeleton King and the Lich take turns (the King on odd floors).
 func boss_kind() -> String:
 	# An event: its own boss on floor 3 and alone in its hunt (the Blood Moon Queen, Krampus);
@@ -2793,7 +2794,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_wave_kinds.append(kind)
 		# Twin Wardens: a second boss beside the first, each with 35% less health.
 		# Version 164: the last free floor ends with the King and the Lich together (floor 5
-		# had the same theme and boss as floor 1 and 2), the same way.
+		# had the same theme and boss as floor 1 and 2), the same way. Since version 274 the
+		# Sandfall Tomb has its own boss (the Sand Pharaoh), so this is only for a floor 5
+		# without a place's own boss.
 		var duo := e.is_boss and kind == "K" and floor_num == Store.FREE_FLOORS and not first_run \
 			and event == "" and not race and not daily and not curses.has("twin")
 		if e.is_boss and (curses.has("twin") or duo):

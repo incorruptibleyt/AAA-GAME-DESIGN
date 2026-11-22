@@ -1,3 +1,4 @@
-Version 273: the Sandfall Tomb has its own skeleton
-- Tomb Mummies now shamble through the Tomb: wrapped in old linen, with a gold circlet, a turquoise scarab and a roll of bandage.
-- It throws its bandage down a strip on the floor. Step aside! If it catches you, it reels you in to strike. Dash to snap the bandage and it staggers back.
+Version 274: the Sandfall Tomb has its own boss
+- Meet the Sand Pharaoh, the new floor 5 boss: a giant mummy king with a striped headcloth, a crook and flail, and a sun over its head.
+- Its bandages lash out to reel you in (dash to snap them), sand pours from the ceiling and piles up to slow you, and scarabs swarm out of it.
+- At half health its sun burns a beam across the room!

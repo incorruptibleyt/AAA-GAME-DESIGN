@@ -486,3 +486,40 @@ if WHICH in ("all", "mummy"):
         a = mix((game(CRUNCH[(i + 3) % 5], 0.9), 0, 0.65), (rip(0.35, 300, 2200), 0.03, 0.5),
                 (sigh, 0.1, 0.45), (pour(0.9), 0.18, 0.55), (load("k1/rpg-audio/cloth%d.ogg" % (i + 2), 0.9), 0.05, 0.3))
         save(verb(a, 0.8, 0.3, 4000), "die_mummy_%d" % i, cap=1.3)
+if WHICH in ("all", "pharaoh"):
+    # The Sand Pharaoh (version 274, the Sandfall Tomb's own boss). "roar_pharaoh": an old
+    # king's roar slowed and dry as dust, a rasping breath, sand hissing down and a low
+    # droning chord (two notes a half step apart, beating), in a great stone hall's echo;
+    # "sandfall": a soft thud of sand landing and the pour running on after it; "scarab": a
+    # swarm of beetles skittering over stone, thousands of tiny clicks rising and falling.
+    # (python3 ... pharaoh)
+    def sand(sec, rate=900):
+        grains = crackle(sec, rate, sec * 2.0)
+        bed = bandpass(noise(sec), 2400, 0.7) * env(int(sec * R), sec * 0.08, sec * 0.45)
+        return mix((grains, 0, 0.5), (bed, 0, 0.6))
+
+    for i, (src, sp) in enumerate([("roar_01", 0.62), ("roar_02", 0.6), ("roar_03", 0.64)]):
+        v = lowpass(load("k2/creatures-1/%s.ogg" % src, sp), 2200)
+        v *= 1.0 + 0.25 * np.sin(2 * np.pi * 9 * np.arange(len(v)) / R)
+        tt = t(2.0)
+        drone = sum(np.sin(2 * np.pi * f * tt + 0.3 * np.sin(2 * np.pi * 0.4 * tt + k)) * g
+                    for k, (f, g) in enumerate([(73.4, 0.6), (77.8, 0.45), (110.0, 0.3), (146.8, 0.15)])) * env(len(tt), 0.3, 1.0)
+        breath = bandpass(noise(0.9), np.geomspace(1600, 700, int(0.9 * R)), 1.6) * env(int(0.9 * R), 0.15, 0.35)
+        a = mix((drone, 0, 0.5), (breath, 0.0, 0.35), (v, 0.12, 1.0), (sand(1.4, 700), 0.3, 0.4))
+        save(verb(a, 1.6, 0.45, 3800), "roar_pharaoh_%d" % i, mean_db=-14.0, cap=2.4)
+    for i in range(3):
+        a = mix((thump(120 - 10 * i, 48, 0.35), 0, 0.8), (sand(0.75 + 0.05 * i, 1100), 0.0, 0.9),
+                (whoosh(0.3, 3000, 600, 0.9, 0.02), 0.0, 0.35))
+        save(verb(a, 0.6, 0.25, 4000), "sandfall_%d" % i, mean_db=-19.0, cap=0.95)
+    for i in range(3):
+        sec = 0.65
+        clicks = np.zeros(int(sec * R)); k = 0.0
+        while True:
+            k += rng.exponential(1.0 / 520)
+            if k >= sec:
+                break
+            p = bandpass(noise(0.004), rng.uniform(2600, 5200), 1.4) * np.exp(-t(0.004) / 0.001)
+            s = int(k * R); clicks[s:s + len(p)] += p[: len(clicks) - s] * rng.uniform(0.2, 1.0)
+        clicks *= (0.55 + 0.45 * np.sin(np.pi * t(sec) / sec)) * (0.7 + 0.3 * np.sin(2 * np.pi * (7 + i) * t(sec)))
+        a = mix((clicks, 0, 1.0), (load("k2/creatures-2/bug_%02d.ogg" % (6 + i), 1.5, 0.5), 0.05, 0.25))
+        save(a, "scarab_%d" % i, mean_db=-21.0, cap=0.7)
