@@ -35,7 +35,7 @@ func display_name() -> String:
 
 
 func coin_value() -> int:
-	return 6 + Game.floor_num
+	return 6 + Game.strength_floor()
 
 
 static var _sack_mesh: ArrayMesh

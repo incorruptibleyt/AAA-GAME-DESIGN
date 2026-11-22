@@ -188,6 +188,13 @@ func _ready() -> void:
 		elif a == "daily":
 			Game._daily_requested = true
 			_skip_first_run()
+		elif a == "dive":   # version 280: the Free Dive (floor 6 at floor 3's strength)
+			Game._dive_requested = true
+			_skip_first_run()
+			var dcfg := Game._load_save()
+			if Game.record(dcfg, "runs") < 2:   # (FREE DIVE shows from the second run on)
+				dcfg.set_value(Game.RECORDS, "runs", 2)
+				Game.write_save(dcfg)
 		elif a.begins_with("curses="):
 			var cfg := Game._load_save()
 			for id in a.substr(7).split(","):
@@ -727,6 +734,11 @@ func _process(delta: float) -> void:
 			if Game._state_time > 2.5:
 				if Game.hud._end_goal.visible:
 					print("[autoplay] end goal: " + Game.hud._end_goal.text)
+				if Game.dive:
+					var dcfg := Game._load_save()
+					print("[autoplay] free dive %s: used=%s ready=%s best_floor=%d best_score=%d saved run=%s" % ["WON" if Game.state == Game.State.VICTORY else "LOST",
+						dcfg.get_value("pass", "dive_used", false), Game.dive_ready(dcfg), int(dcfg.get_value("stats", "best_floor", 1)),
+						int(dcfg.get_value("stats", "best_score", 0)), Game.continue_text()])
 				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
 				runs -= 1
 				if runs <= 0:

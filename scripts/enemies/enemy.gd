@@ -165,7 +165,8 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	# Deeper floors make skeletons tougher and a little quicker.
 	# Bosses get an extra 30% per floor on top, up to 2.2x from floor 5 (version 124: uncapped,
 	# the floor 20 King took 18 minutes). The tutorial's King has 50% (version 169, was 70%).
-	var boss_scale := minf(2.2, 1.0 + 0.3 * (Game.floor_num - 1)) * (0.5 if Game.first_run else 1.0)
+	# (Game.strength_floor(): floor 3's strength in the Free Dive's floor 6, version 280.)
+	var boss_scale := minf(2.2, 1.0 + 0.3 * (Game.strength_floor() - 1)) * (0.5 if Game.first_run else 1.0)
 	e.init_health(e.max_health * Game.health_scale() * (boss_scale if e.is_boss else 1.0))
 	e.move_speed *= Game.speed_scale()
 	e._bar = HealthBar.attach(e)
@@ -509,9 +510,9 @@ const FIRST_RUN_HEARTS := 4.0 / 3.0
 ## Coins dropped when destroyed. Deeper floors pay a little more.
 func coin_value() -> int:
 	if elite:
-		return 4 + Game.floor_num
+		return 4 + Game.strength_floor()
 	if is_boss:
-		return 15 + 5 * (Game.floor_num - 1)
+		return 15 + 5 * (Game.strength_floor() - 1)
 	return 1
 
 

@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-22g"
+const BUILD := "2026-11-22h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -209,6 +209,17 @@ var _daily_requested := false
 ## The free game ends after the boss of floor Store.FREE_FLOORS; this is that screen.
 var _free_end := false
 var _deal_checked := ""   # version 279: the deal pop-up already handled this session
+## Version 280: the Free Dive. A player without the Crypt Pass can play floor 6 (the Drowned
+## Vault, its own skeletons and the Tidecaller) once, at floor 3's strength and with
+## DIVE_GIFTS blessings to start. It is used up once the Tidecaller's room is reached (a fall
+## before that keeps it), and it never touches a saved run, records or the leaderboard.
+var dive := false
+var _dive_requested := false
+var _dive_done := false   # the Tidecaller fell: the end screen offers the Pass, then the title
+const DIVE_FLOOR := 6
+const DIVE_STRENGTH := 3
+const DIVE_GIFTS := 5
+const DIVE_BOSS_HP := 0.85
 ## This run's hero when it isn't the chosen one: the Daily Crypt's hero, or a free trial.
 var _run_hero_id := ""
 ## A locked hero picked on the Heroes screen for one free trial run, used by the next run.
@@ -686,6 +697,7 @@ func _ready() -> void:
 	hud.curses_pressed.connect(_open_curses)
 	hud.curse_toggled.connect(_toggle_curse)
 	hud.title_pressed.connect(_end_to_title)
+	hud.pass_dive.connect(_start_dive)   # version 280: the Free Dive
 	hud.continue_pressed.connect(_continue_run)
 	hud.hero_trial.connect(_try_hero)
 	hud.share_pressed.connect(_share)
@@ -1188,9 +1200,16 @@ const SHARE_FLOORS := 3
 ## (Version 124, audit fix 1: the damage blessings stop at 10 picks each, so a hero's damage
 ## stops growing around floor 13; at 45% a floor forever, floor 20 skeletons took 13 s each.)
 func health_scale() -> float:
-	return heroic_mult() * pow(1.55, mini(floor_num, 4) - 1) * pow(1.6, clampi(floor_num - 4, 0, 1)) \
-		* pow(1.45, clampi(floor_num - 5, 0, 5)) * pow(1.25, clampi(floor_num - 10, 0, 5)) \
-		* pow(1.35, maxi(floor_num - 15, 0)) * pow(1.25, _omen("bones"))   # v219 (fix 30): steeper past floor 15
+	var f := strength_floor()
+	return heroic_mult() * pow(1.55, mini(f, 4) - 1) * pow(1.6, clampi(f - 4, 0, 1)) \
+		* pow(1.45, clampi(f - 5, 0, 5)) * pow(1.25, clampi(f - 10, 0, 5)) \
+		* pow(1.35, maxi(f - 15, 0)) * pow(1.25, _omen("bones"))   # v219 (fix 30): steeper past floor 15
+
+
+## The floor whose strength skeletons, bosses and coins have: the floor itself, or floor 3
+## in the Free Dive (version 280), whose floor 6 is a taste, not a wall.
+func strength_floor() -> int:
+	return DIVE_STRENGTH if dive else floor_num
 
 
 ## Skeletons hit 35% harder per floor, and 50% per floor below floor 5 (the endless loops).
@@ -1199,7 +1218,8 @@ func health_scale() -> float:
 ## The very first run's floor hits a quarter softer: a brand-new player who hadn't found
 ## the dash yet could fall in the first room in 17 seconds.
 func damage_scale() -> float:
-	return (1.0 + 0.35 * (floor_num - 1) + 0.15 * maxi(floor_num - 5, 0)) * (1.25 if _hourglass_out else 1.0) \
+	var f := strength_floor()
+	return (1.0 + 0.35 * (f - 1) + 0.15 * maxi(f - 5, 0)) * (1.25 if _hourglass_out else 1.0) \
 		* pow(1.25, _omen("blades")) * newcomer_mult() * heroic_mult()
 
 
@@ -1315,7 +1335,7 @@ func _note_floor_one(cfg: ConfigFile, won: bool) -> void:
 
 
 func speed_scale() -> float:
-	return minf(1.3, 1.0 + 0.05 * (floor_num - 1)) * (1.2 if curses.has("restless") else 1.0) * (1.25 if curses.has("frenzy") else 1.0)
+	return minf(1.3, 1.0 + 0.05 * (strength_floor() - 1)) * (1.2 if curses.has("restless") else 1.0) * (1.25 if curses.has("frenzy") else 1.0)
 
 
 ## Daily Crypt rules and Omens that change coins and hearts.
@@ -1870,7 +1890,12 @@ func _on_screen_tapped() -> void:
 		State.VICTORY:
 			if _state_time > 1.5 and not _loop_choice and not _celebrating:   # the end of a loop has its own buttons
 				Sfx.play("click")
-				if _daily_done or _event_done:
+				if _dive_done:
+					# Version 280: the Free Dive's win has the offer's own buttons; once the Pass is
+					# bought there, a tap goes back to the title.
+					if Store.owned():
+						_back_to_title(true)
+				elif _daily_done or _event_done:
 					_to_event = _event_done and Events.active()   # v221: BACK TO EVENT
 					_back_to_title()
 				else:
@@ -1896,7 +1921,10 @@ func _start_run() -> void:
 	Floors.lobby = false
 	race = _race_requested and _race != null and not first_run_pending()
 	_race_requested = false
-	if not race:   # (a Crypt Race leaves a saved run alone: CONTINUE is still there after it)
+	dive = _dive_requested and not race and not first_run_pending()
+	_dive_requested = false
+	_dive_done = false
+	if not race and not dive:   # (a Crypt Race or the Free Dive leaves a saved run alone: CONTINUE is still there after it)
 		var held := RunSave.held()
 		if held > 0:
 			coins += held   # giving up the saved run gives its held-back coins back
@@ -1912,10 +1940,10 @@ func _start_run() -> void:
 		var scfg := _load_save()
 		scfg.set_value("taught", "stage_seen", mini(stage_now, 3))
 		write_save(scfg)
-	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run
+	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run and not dive
 	_daily_requested = false
 	_daily_done = false
-	event = _event_requested if not first_run and Events.active() else ""
+	event = _event_requested if not first_run and not dive and Events.active() else ""
 	event_tier = clampi(_event_tier_requested, 1, Events.tiers().size())
 	_event_requested = ""
 	_event_done = false
@@ -1927,7 +1955,7 @@ func _start_run() -> void:
 	_run_hero_id = ""
 	if daily:
 		_begin_daily()
-	elif _trial_hero != "" and not first_run and not race:
+	elif _trial_hero != "" and not first_run and not race and not dive:
 		_run_hero_id = _trial_hero
 		var cfg := _load_save()
 		cfg.set_value(TRIAL_SECTION, _trial_hero, true)
@@ -1939,6 +1967,9 @@ func _start_run() -> void:
 	hud.show_daily(false)
 	hud.show_hud(true)
 	_reset_run_stats()
+	if dive:
+		floor_num = DIVE_FLOOR
+		Telemetry.step("dive_start")
 	record_add("runs", 1)
 	if race:
 		Telemetry.step("race1")
@@ -1951,8 +1982,8 @@ func _start_run() -> void:
 	_pick_curses()
 	# Version 169: the tutorial too. The run built for the title had 5 rooms (medium and hard
 	# ones too), so a first launch played that instead of the tutorial's own easy rooms.
-	if daily or event != "" or race or first_run:
-		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt; the tutorial
+	if daily or event != "" or race or first_run or dive:
+		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt; the tutorial; the Drowned Vault
 	_use_run_hero()
 	_apply_armory()
 	_go_to_room(0)
@@ -2001,7 +2032,7 @@ func _swap_hero(id: String, again := false) -> bool:
 
 ## Curses chosen on the Curses screen, or the day's rules in the Daily Crypt.
 func _pick_curses() -> void:
-	if first_run or event != "" or race:
+	if first_run or event != "" or race or dive:
 		curses = []
 	elif daily:
 		curses = Curses.daily_rules(_daily_date)
@@ -2032,6 +2063,8 @@ func _mode_banner() -> void:
 		var others := curses.filter(func(c): return c != "heroic")
 		hud.tip("%sCURSE LEVEL %d  ·  Score x%s\n%s" % ["HEROIC  ·  " if curses.has("heroic") else "", Curses.level_of(curses), _mult_text(_score_mult),
 			Curses.names(others) if others else "Tougher skeletons, +50% coins"], 4.0, 1.8)
+	elif dive:
+		hud.tip("FREE DIVE  ·  THE DROWNED VAULT\n%d blessings to start. Find the Tidecaller!" % DIVE_GIFTS, 4.5, 1.8)
 	elif _run_hero_id != "":
 		hud.tip("FREE TRIAL RUN  ·  %s" % Heroes.full_name(Heroes.get_hero(_run_hero_id)), 4.0, 1.8)
 
@@ -2263,9 +2296,9 @@ func _apply_armory() -> void:
 			_taken[id] = _taken.get(id, 0) + 1
 			Upgrades.apply(id, hero)
 	# The Queen Hunt starts with a handful of blessings, more on higher tiers.
-	if event == "hunt":
+	if event == "hunt" or dive:
 		var names := []
-		for i in int(Events.tiers()[event_tier - 1].gifts):
+		for i in (DIVE_GIFTS if dive else int(Events.tiers()[event_tier - 1].gifts)):
 			var g := Upgrades.roll(_taken, 4, false, "", false, null).filter(func(x: Dictionary):
 				return x.rarity != "synergy" and not str(x.id) in Events.HUNT_NO_GIFT)
 			if g.is_empty():
@@ -2287,7 +2320,7 @@ func _apply_armory() -> void:
 			Upgrades.apply(u.id, hero)
 			_start_blessing = u
 	# A Lucky Start from a Bone Drop: one more blessing, in the next normal run.
-	if not daily and not first_run and Drops.lucky(cfg) > 0:
+	if not daily and not first_run and not dive and Drops.lucky(cfg) > 0:
 		var lucky := Upgrades.roll(_taken, 2, false, "", false, null) \
 				.filter(func(x: Dictionary): return x.rarity != "synergy")
 		if not lucky.is_empty():
@@ -2311,6 +2344,9 @@ func _apply_armory() -> void:
 
 
 func _restart() -> void:
+	if dive and not dive_ready():
+		_back_to_title(true)   # version 280: the Free Dive is used up, so no second one
+		return
 	_after_tutorial = false
 	_gift_names = []
 	_set_state(State.TRANSITION)
@@ -2326,6 +2362,8 @@ func _restart() -> void:
 		hero.queue_free()
 		hero = null
 	_reset_run_stats()
+	if dive:
+		floor_num = DIVE_FLOOR   # the Free Dive again (the Tidecaller wasn't reached)
 	record_add("runs", 1)
 	if event != "" and not Events.active():
 		event = ""   # the event ended while on the end screen: a normal run
@@ -2481,7 +2519,7 @@ func _back_to_title(keep_run := false) -> void:
 	_set_state(State.TRANSITION)
 	_save_coins()
 	var mastery_note := _give_mastery_on_title()   # before the hero is made again, in a new color
-	if not keep_run:
+	if not keep_run and not dive:
 		RunSave.clear()
 	_free_end = false
 	await _fade(0.0, 1.0, 0.4)
@@ -2493,6 +2531,8 @@ func _back_to_title(keep_run := false) -> void:
 	event = ""
 	_event_done = false
 	race = false
+	dive = false
+	_dive_done = false
 	_race = null
 	_race_live = false
 	hud.race_bar.visible = false
@@ -2549,7 +2589,7 @@ func _back_to_title(keep_run := false) -> void:
 ## After beating the king: keep your blessings and go one floor deeper, where it's harder.
 ## Every new floor brings a free reroll; a new loop gives full health and two more.
 func _descend() -> void:
-	if _free_end:
+	if _free_end or _dive_done:
 		return
 	_set_state(State.TRANSITION)
 	await _fade(0.0, 1.0, 0.5)
@@ -2677,6 +2717,42 @@ func _resume_loop_end() -> void:
 
 func _free_end_text() -> String:
 	return "You beat the free crypt!\nBelow lies the Drowned Vault.\nThe Crypt Pass opens floor %d and beyond.\nThis run stays saved until you get it." % (floor_num + 1)
+
+
+## Version 280: true while this save can still take its one Free Dive (no Crypt Pass, past
+## the first runs, and the Tidecaller's room not reached in a dive yet).
+func dive_ready(cfg: ConfigFile = null) -> bool:
+	if cfg == null:
+		cfg = _load_save()
+	return not Store.owned(cfg) and unlock_stage(cfg) >= 2 and not bool(cfg.get_value("pass", "dive_used", false))
+
+
+## FREE DIVE on the Crypt Pass screen (or on the title's Pass button's card): floor 6 now.
+func _start_dive() -> void:
+	if state != State.TITLE or not dive_ready():
+		return
+	hud.show_pass(false)
+	_dive_requested = true
+	_start_run()
+
+
+## The Tidecaller's room uses the Free Dive up (a fall before it leaves it for another go).
+func _use_dive() -> void:
+	var cfg := _load_save()
+	if bool(cfg.get_value("pass", "dive_used", false)):
+		return
+	cfg.set_value("pass", "dive_used", true)
+	write_save(cfg)
+	Telemetry.step("dive_boss")
+
+
+## The Free Dive's end-screen words: after the Tidecaller fell (`won`), or after a fall.
+func _dive_text(won: bool) -> String:
+	if won:
+		return "The Tidecaller has fallen!\nThat was the Drowned Vault, floor 6.\nThe Crypt Pass opens it for good,\nand 4 more places, each with its own boss."
+	if dive_ready():
+		return "Your Free Dive is still there:\nit counts once you reach the Tidecaller."
+	return "That was your Free Dive.\nThe Crypt Pass opens the Drowned Vault\nfor good, plus 4 more places and bosses."
 
 
 func _loop_text() -> String:
@@ -2847,6 +2923,11 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if event == "hunt" and is_instance_valid(boss):
 		boss.max_health *= float(Events.tiers()[event_tier - 1].hp)
 		boss.health = boss.max_health
+	# Version 280: the Free Dive's Tidecaller has 85% of its health (as the Hunt's Tier II), so a
+	# player who got there has a fair go: the robot won its first dive with 15 health of 100.
+	if dive and is_instance_valid(boss):
+		boss.max_health *= DIVE_BOSS_HP
+		boss.health = boss.max_health
 	# Champion's Door: a purple elite is waiting.
 	if _door.get("kind", "") == "champion":
 		for a: Actor in Actor.all:
@@ -2887,6 +2968,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		Stalker.rise_in(room, _omen("stalker"), _in_boss_room())   # v241: the Omen of the Stalker
 	if _door.get("kind", "") == "traps" and alive_enemies > 0:
 		TrapHall.lay(room)   # v242: the Trap Hall door
+	if dive and _in_boss_room():
+		_use_dive()
 	_checkpoint()
 	note_spot()
 
@@ -2895,7 +2978,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 ## so it can be continued if the game is closed. Not during the first run or the Queen Hunt.
 ## `loop_end`: saved on the end-of-loop screen, which CONTINUE comes back to.
 func _checkpoint(next_floor := false, loop_end := false) -> void:
-	if first_run or race or event == "hunt" or hero == null or hero.dead:
+	if first_run or race or dive or event == "hunt" or hero == null or hero.dead:
 		return
 	var h := RunSave.hero_state(hero)
 	if next_floor:
@@ -3171,7 +3254,7 @@ func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 func _roll_elite(e: Enemy, room_index: int) -> bool:
 	if e.is_boss or e is SkeletonBomber or (floor_num == 1 and room_index == 0):
 		return false
-	var chance := minf(0.3, 0.07 + 0.05 * (floor_num - 1))
+	var chance := minf(0.3, 0.07 + 0.05 * (strength_floor() - 1))
 	if curses.has("gilded") or curses.has("hunt"):
 		chance *= 2.0
 	return _room_rng.randf() < minf(0.6, chance * pow(2.0, _omen("gold")))
@@ -3662,9 +3745,9 @@ func _win() -> void:
 	# A floor's boss beaten for the first time (not in the Daily Crypt): worth sharing,
 	# unless it's the tutorial.
 	var prev_boss := _best_boss(cfg)
-	_share_reason = "boss" if not daily and event == "" and not first_run and floor_num > prev_boss else ""
+	_share_reason = "boss" if not daily and event == "" and not first_run and not dive and floor_num > prev_boss else ""
 	_note_floor_one(cfg, true)
-	if not daily and event == "" and floor_num > prev_boss:
+	if not daily and event == "" and not dive and floor_num > prev_boss:
 		cfg.set_value("stats", "best_boss", floor_num)
 	# The event: shards for the boss, the Queen's fall counted, a hunt's win saved (the day's
 	# first on a tier pays a Moon Casket too), and a casket for every Blood Moon run cleared.
@@ -3725,11 +3808,16 @@ func _win() -> void:
 	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
 	Music.play("dungeon")
 	_daily_done = daily and floor_num >= Curses.DAILY_FLOORS
-	_free_end = not daily and event == "" and floor_num >= Store.FREE_FLOORS and not Store.owned()
+	_free_end = not daily and event == "" and not dive and floor_num >= Store.FREE_FLOORS and not Store.owned()
 	if _free_end:
 		Telemetry.step("free_end_seen")   # v219 (review 4 fix 22): how many reach the Pass offer
-	_loop_choice = not daily and event == "" and not _free_end and Loops.loop_end(floor_num)
-	if _daily_done or _event_done:
+	_dive_done = dive
+	if _dive_done:
+		Telemetry.step("dive_won")
+	_loop_choice = not daily and event == "" and not dive and not _free_end and Loops.loop_end(floor_num)
+	if dive:
+		pass   # the Free Dive saves nothing, and a saved run stays as it was
+	elif _daily_done or _event_done:
 		RunSave.clear()
 	elif _loop_choice or _free_end:
 		# At the free end the run is kept too: a Pass bought later (a pending payment, or
@@ -3759,7 +3847,7 @@ func _win() -> void:
 		extra += "\n\nHEROIC unlocked! Harder runs, +50% coins.\nTurn it on in MODES, then CURSES."
 	_celebrating = false
 	hud.hero_quiet()   # the bubble would show through the end screen
-	var tap := "Tap to return to the title" if _daily_done or _event_done else "Tap to descend to floor %d" % (floor_num + 1)
+	var tap := "Tap to return to the title" if _daily_done or _event_done or _dive_done else "Tap to descend to floor %d" % (floor_num + 1)
 	if _event_done and Events.active():
 		tap = Hud.EVENT_TAP   # v221: a green BACK TO EVENT (the road and the next Hunt)
 	if shards > 0:
@@ -3769,8 +3857,14 @@ func _win() -> void:
 	# comes first (it was the last line, ~3.6 s after the counts).
 	if _free_end:
 		fallen = _free_end_text() + "\n\n" + fallen
+	elif _dive_done:
+		fallen = _dive_text(true)
+	var offer := _free_end or (_dive_done and not Store.owned())
+	hud.end_hide_best = dive
 	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, _heroic_tag(), bones, extra],
-		tap, false, score, best, _free_end)
+		tap, false, score, best, offer)
+	if _dive_done:
+		hud.set_offer_back("BACK TO TITLE")   # (nothing of the dive is saved)
 	# The hero and the rings at their feet would show between the end screen's buttons
 	# (as YOU DIED hides them); they come back as the next room starts (place_at).
 	if hero:
@@ -3780,7 +3874,7 @@ func _win() -> void:
 	# hero in the Crypt King set (a win is when the set means most).
 	# Version 213 (hardest review fix #18): the end of the free game always shows the card (it
 	# was hidden exactly there).
-	if _free_end:
+	if _free_end or (_dive_done and not Store.owned()):
 		hud.show_pass_card(true, pass_hero_def())
 	elif not Store.owned() and not was_first and not daily and event == "":
 		var pcfg := _load_save()
@@ -3788,7 +3882,7 @@ func _win() -> void:
 			pcfg.set_value("shown", "pass_card_win", true)
 			write_save(pcfg)
 			hud.show_pass_card(true, pass_hero_def())
-	hud.show_end_title(not _daily_done and not _free_end and not _event_done, "TITLE  (RUN SAVED)")
+	hud.show_end_title(not _daily_done and not _free_end and not _event_done and not _dive_done, "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
 		hud.set_end_goal(_daily_goal())
@@ -3797,7 +3891,7 @@ func _win() -> void:
 	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
 	_state_time = 0.0
-	var won := "Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else "")]
+	var won := "Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else (" (the Free Dive)" if dive else ""))]
 	if event == "hunt":
 		won = "Won the %s %s (event day %d)" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name), Events.day()]
 	elif event != "":
@@ -3820,7 +3914,8 @@ func on_hero_died() -> void:
 		_race_end(false)   # (a racer is knocked down, not killed: this is only a safety net)
 		return
 	_set_state(State.DEAD)
-	RunSave.clear()
+	if not dive:
+		RunSave.clear()
 	var brave := _brave_coins()
 	if brave > 0:
 		add_coins(brave)
@@ -3832,7 +3927,8 @@ func on_hero_died() -> void:
 	# A Bone Drop for getting somewhere: room 3 or further, or any deeper floor. Not in the
 	# tutorial (its win gives the first one). Never for losing a Queen Hunt (version 218: the
 	# Hunt sets floor_num to its tier's floor, so every quick loss paid a drop).
-	if not first_run and event != "hunt" and (_room_index >= 2 or floor_num > 1):
+	# (Version 280: in the Free Dive only room 3 or further, or a fall in room 1 paid one each time.)
+	if not first_run and event != "hunt" and (_room_index >= 2 or (floor_num > 1 and not dive)):
 		_earn_drop(cfg)
 	var bones := _bank_bones(cfg)
 	var shards := _bank_shards(cfg)
@@ -3844,7 +3940,7 @@ func on_hero_died() -> void:
 	var was_first := first_run
 	if was_first and not bool(cfg.get_value("stats", "first_run_done", false)):
 		Telemetry.step("died%d_%s" % [int(cfg.get_value("stats", "tutorial_deaths", 0)) + 1, _step_room()])
-	_share_reason = "best" if not daily and event == "" and not was_first and score > best and score > 0 else ""
+	_share_reason = "best" if not daily and event == "" and not dive and not was_first and score > best and score > 0 else ""
 	var day_bonus := _claim_day_bonus()
 	var tutorial_again := first_run and _tutorial_retry()
 	if not tutorial_again:
@@ -3867,15 +3963,20 @@ func on_hero_died() -> void:
 	if tutorial_again:
 		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nYou start again in this room." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
-	var note := not Store.owned() and floor_num >= 3 and event == "" and not _pass_note_shown
+	var note := not Store.owned() and floor_num >= 3 and event == "" and (not _pass_note_shown or dive)
 	if note:
 		_pass_note_shown = true
 	var why := death_tip()
 	print("[death tip] " + why.replace("\n", " / "))
 	if why != "":
 		why = "\n\n" + why
+	var again := not tutorial_again
+	if dive:
+		why = "\n\n" + _dive_text(false) + why
+		again = dive_ready()   # TRY AGAIN only while the Free Dive is still there
+	hud.end_hide_best = dive
 	hud.show_end(true, false, "You fell in %s.%s\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, why, _format_time(_run_time), _kills, coin_line],
-		"Tap to try again", not tutorial_again, score, best)
+		"Tap to try again" if again or not dive else "Tap to return to the title", again, score, best)
 	hud.show_mastery(mastery)
 	hud.show_end_title(true)
 	hud.set_end_goal(_daily_goal() if daily else (_event_goal() if event != "" else next_goal()))
@@ -4471,7 +4572,8 @@ func _feat_check() -> void:
 		return
 	# Version 218: the floor Feats need a real floor. The Queen Hunt sets floor_num to its
 	# tier's floor (2-6), so Quick Feet and Chain Lord came from one Hunt fight.
-	var fl := floor_num if event == "" else 0
+	# (Version 280: the Free Dive's floor 6 counts as the floor 3 it is as strong as.)
+	var fl := strength_floor() if event == "" else 0
 	if int(_rep.perfect) >= 15 and fl >= 3:
 		_feat("dodger")
 	if int(_rep.perfect) >= 40:
@@ -4499,7 +4601,7 @@ func _boss_feats() -> void:
 	var no_hit := int(_rep.hits) == _room_hits
 	# Version 217 (review 3 fix #3): the floor Feats need a normal run. The Queen Hunt sets
 	# floor_num to its tier's floor, so one Hunt fight gave "Beat the boss of floor 5".
-	var normal := event == ""
+	var normal := event == "" and not dive   # (v280: the Free Dive's floor 6 isn't one reached)
 	if normal and floor_num >= 3 and _run_time - float(_rep.room_start) < 30.0:
 		_feat("bossbreaker", cfg)
 	var specials := int(_rep.special) - _room_special
@@ -4527,7 +4629,7 @@ func _boss_feats() -> void:
 ## best counts towards the counted Feats, for the Feats screen. Into `cfg` (saved by the caller).
 func _feat_bests(cfg: ConfigFile) -> void:
 	if not _rep.is_empty() and not first_run:
-		var fl := floor_num if event == "" else 0   # v218: see _feat_check
+		var fl := strength_floor() if event == "" else 0   # v218 (and v280's Free Dive): see _feat_check
 		Feats.note_best(cfg, "perfect", int(_rep.perfect))
 		if fl >= 3:
 			Feats.note_best(cfg, "perfect3", int(_rep.perfect))
@@ -4614,8 +4716,8 @@ func _save_coins() -> void:
 	if _perfect_total >= 0:
 		cfg.set_value("stats", "perfect_total", _perfect_total)
 	write_save(cfg)
-	if state != State.TITLE:
-		RunSave.bank(run_coins)
+	if state != State.TITLE and not race and not dive:
+		RunSave.bank(run_coins)   # (v280: a race or the Free Dive set a saved run's coins to its own)
 
 
 func _set_music(on: bool, save := true) -> void:
@@ -5997,6 +6099,9 @@ func _on_store_changed() -> void:
 	hud.refresh_event()
 	if Store.owned() and hud.end_visible():
 		hud.show_pass_card(false)   # version 123: bought from the card, it no longer offers the Pass
+	if Store.owned() and _dive_done and state == State.VICTORY:
+		hud.set_end_stats("Crypt Pass unlocked. Thank you!\n\nThe Drowned Vault and 4 more places are open:\nfind them below floor 5.")
+		hud.end_offer_done("Tap to return to the title")
 	if Store.owned() and _free_end and state == State.VICTORY:
 		_free_end = false
 		if Loops.loop_end(floor_num):
@@ -6158,9 +6263,11 @@ func _save_score(cfg: ConfigFile) -> int:
 		if _daily_date == Curses.today():   # a run that went past midnight missed its day's board
 			_submit_score("daily")
 		return day_best
+	var best := int(cfg.get_value("stats", "best_score", 0))
+	if dive:
+		return best   # version 280: the Free Dive's score is no best and goes on no board
 	if event == "" and not first_run:
 		_submit_score("best")
-	var best := int(cfg.get_value("stats", "best_score", 0))
 	if score > best:
 		cfg.set_value("stats", "best_score", score)
 	return best
@@ -6174,6 +6281,9 @@ func _submit_score(key: String) -> void:
 
 
 func _save_best(cfg: ConfigFile, room_reached: int) -> void:
+	if dive:
+		write_save(cfg)   # version 280: the Free Dive's floor 6 is no record
+		return
 	if floor_num > int(cfg.get_value("stats", "best_floor", 1)):
 		cfg.set_value("stats", "best_floor", floor_num)
 	if room_reached > int(cfg.get_value("stats", "best_room", 0)):

@@ -57,6 +57,7 @@ signal dash_flicked(dir: Vector2)
 signal pass_pressed
 signal pass_buy
 signal pass_restore
+signal pass_dive   # version 280: FREE DIVE on the Crypt Pass screen
 signal daily_pressed
 signal curses_pressed
 signal curse_toggled(id: String)
@@ -296,6 +297,8 @@ var _end_best: Label
 var _end_target := 0
 var _end_count := -1.0
 var _end_best_value := 0
+## Version 280: the Free Dive's score is no best, so its end screen shows no "Best" line.
+var end_hide_best := false
 ## Version 122: the run's numbers fill in one line at a time after the score, each counting
 ## up with ticks and a little buzz, the way Archero and Brawl Stars hand out rewards.
 var _tally: PackedStringArray = []
@@ -365,6 +368,7 @@ var _mode_curses_line: Label
 var _modes_tutorial: Button
 var _heroes_box: HeroScreen
 var _end_offer: Control
+var _end_offer_back: Button   # version 280: its words change for the Free Dive
 var _end_get_pass: Button   # v218: shows the price
 var _pass_card_btn: Control
 var _pass_more: Label
@@ -407,6 +411,7 @@ var _daily_open := false
 var _pass_tiles: Array[Label] = []
 var _pass_dev: Label
 var _pass_back: Button
+var _pass_dive: Button   # version 280
 var _end_loop: Control
 var _loop_deeper_button: Button
 var _loop_bank_button: Button
@@ -2365,6 +2370,7 @@ func _build_end() -> void:
 	var to_title := button("BACK TO TITLE  (RUN SAVED)", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	to_title.pressed.connect(func(): title_pressed.emit())
 	offer.add_child(_centered(to_title))
+	_end_offer_back = to_title
 	_end_offer = offer
 	# End of an endless loop: go deeper, or leave with a coin bonus.
 	var loop := VBoxContainer.new()
@@ -2907,7 +2913,20 @@ func _build_pass() -> void:
 	_pass_restore = button("Restore purchase", 18, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_pass_restore.custom_minimum_size = Vector2(220, 64)
 	_pass_restore.pressed.connect(func(): pass_restore.emit())
-	col.add_child(_centered(_pass_back))
+	# Version 280: FREE DIVE beside NOT NOW, while this save can still take it (Game.dive_ready).
+	_pass_dive = button("FREE DIVE", 26)
+	paint(_pass_dive, "green")   # a way in (as PLAY); NOT NOW goes quiet beside it
+	_pass_dive.custom_minimum_size = Vector2(240, 70)
+	_pass_dive.pressed.connect(func():
+		Sfx.play("click")
+		pass_dive.emit())
+	var last := HBoxContainer.new()
+	last.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	last.alignment = BoxContainer.ALIGNMENT_CENTER
+	last.add_theme_constant_override("separation", 14)
+	last.add_child(_pass_dive)
+	last.add_child(_pass_back)
+	col.add_child(last)
 	col.add_child(_pair(_pass_restore, privacy_button()))
 
 
@@ -3186,6 +3205,13 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_status.text = status
 	_pass_status.visible = status != ""
 	_pass_dev.visible = not owned
+	# Version 280: the Free Dive, from the title only (an end screen's run is still on).
+	var dive := not owned and Game.state == Game.State.TITLE and Game.dive_ready()
+	_pass_dive.visible = dive
+	_pass_back.custom_minimum_size.x = 240 if dive else 320
+	paint(_pass_back, "slate" if dive else "blue")
+	_pass_dev.text = "Not sure yet? Dive into floor 6 once for free:\nthe Drowned Vault and its Tidecaller." if dive \
+		else "Bone Chain is made by one developer.\nThank you for keeping it going!"
 	_pass_back.text = "BACK" if owned else "NOT NOW"
 	_pass_restore.visible = not owned
 	_fit_pass.call_deferred()
@@ -4541,6 +4567,10 @@ func _fill_deal_pill(l: Label) -> void:
 	var d := Store.deal_now()
 	l.visible = not d.is_empty()
 	if d.is_empty():
+		# Version 280: without a deal, the title's tag points at the Free Dive while it's there.
+		if l == _title_pass_badge and Game.dive_ready():
+			l.text = "TRY FLOOR 6 FREE"
+			l.visible = true
 		return
 	var end := int(d.get("end_ms", 0))
 	var left := ""
@@ -5439,6 +5469,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 		_hide_phase()
 		refresh_looks_badge()   # NEW LOOKS and UPGRADE, with this run's coins counted
 	_end_offer.visible = v and offer
+	_end_offer_back.text = "BACK TO TITLE  (RUN SAVED)"   # (the Free Dive's says set_offer_back)
 	if offer and Store.instance:
 		# v218 (review 4): one priced button ("GET THE CRYPT PASS" had no price).
 		# Play's own price in the player's currency; the US price only on the test build.
@@ -5451,6 +5482,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_deal.visible = _end_deal.visible and v and offer
 	_end_loop.visible = false
 	if not v:
+		end_hide_best = false
 		_drops.visible = false   # (never left over a run that's starting)
 		if _pass_card.visible:
 			show_pass_card(false)
@@ -5496,6 +5528,8 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 		_end_count = -1.0
 		_end_score.text = "SCORE  " + thousands(score)
 		_end_best.text = "Best  " + thousands(maxi(best, score))
+	if end_hide_best:
+		_end_best.visible = false
 	_start_tally(stats, score >= 0 and victory and not offer)
 	_end_goal.visible = false
 	_end_mastery.visible = false
@@ -5948,6 +5982,11 @@ func show_share(v: bool, rows := [], caption := "") -> void:
 	_share_button.add_theme_font_size_override("font_size", 20)
 	_copy_button.custom_minimum_size.x = 240.0 if v else 300.0
 	_fit_end_soon()
+
+
+## Version 280: the words on the offer's way back to the title (the Free Dive saves no run).
+func set_offer_back(text: String) -> void:
+	_end_offer_back.text = text
 
 
 ## A CRYPT PASS button among the death-screen buttons (after a deep death, once a session).

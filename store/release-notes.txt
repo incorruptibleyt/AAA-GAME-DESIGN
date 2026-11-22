@@ -1,4 +1,5 @@
-Version 279: a better Crypt Pass screen
-- The Crypt Pass screen now shows the four bosses only the Pass opens, each in its own place.
-- Early Access Deal: while the Pass is on sale, a ribbon shows the percent off, the old price crossed out and a live countdown to the end of the sale.
-- The deal also shows on the title's Crypt Pass button, at the end of the free floors and on the Pass card after a boss win.
+Version 280: the Free Dive
+- Not sure about the Crypt Pass? Dive into floor 6 once for free: the Drowned Vault, its own skeletons and its boss, the Tidecaller, with 5 blessings to start.
+- Find FREE DIVE on the Crypt Pass screen (the title's Crypt Pass button says TRY FLOOR 6 FREE).
+- The dive counts once you reach the Tidecaller, so a fall before that lets you try again.
+- The dive never touches your saved run, records or score.
