@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23c"
+const BUILD := "2026-11-23d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -444,6 +444,8 @@ func death_tip() -> String:
 		tip = "Step off a strip before it FILLS IN."
 	elif "Spike" in name or "fire" in name or "Spore" in name:
 		tip = "Watch the floor: don't stand in traps or flames."
+	elif "Mine gas" in name:
+		tip = "Mine gas blows up when a shot flies through it. Step out when it flares orange."
 	elif "Quicksand" in name:
 		tip = "Quicksand drags you in: walk or dash out, and lead skeletons across it."
 	elif "Archivist" in name:
@@ -2992,6 +2994,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		TrapHall.lay(room)   # v242: the Trap Hall door
 	elif Floors.sandfall() and not _in_boss_room() and alive_enemies > 0:
 		Quicksand.lay(room)  # v284 (hard review fix 5): the Sandfall Tomb's quicksand pits
+	elif Floors.index(floor_num) == Floors.MINE and not _in_boss_room() and alive_enemies > 0:
+		MineGas.lay(room)    # v285 (hard review fix 5): the Amethyst Mine's firedamp
 	if dive and _in_boss_room():
 		_use_dive()
 	_checkpoint()

@@ -359,6 +359,9 @@ static func run(core := false, from := 0) -> bool:
 	# Version 284: the Sandfall Tomb's quicksand pits.
 	if not core: steps.append(func():
 		Quicksand.warm(holder, spots[24] + Vector3(0, 0, 0.6)))
+	# Version 285: the Amethyst Mine's gas vent and cloud.
+	if not core: steps.append(func():
+		MineGas.warm(holder, spots[23] + Vector3(0, 0, 0.6)))
 	# Version 275: the Crystal Tyrant's spires (standing and cracking), ripple and cart.
 	if not core: steps.append(func():
 		CrystalTyrant.warm(holder, spots[22] + Vector3(0, 0, 0.6)))

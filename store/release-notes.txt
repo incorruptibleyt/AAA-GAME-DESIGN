@@ -1,4 +1,4 @@
-Version 284: quicksand in the Sandfall Tomb
-- Floor 5's rooms now have pits of quicksand. The sand drags you towards the middle: walk out, or dash across.
-- Reach the middle and you sink, get hurt and are thrown out. Skeletons too: lead them across a pit and the sand takes a third of their health.
-- Fixes for the test robot.
+Version 285: mine gas in the Amethyst Mine
+- Floor 7's rooms now have cracks in the walls that breathe out clouds of green mine gas.
+- A shot through the gas lights it: the cloud flares orange, then blows up, hurting everyone in it. Shoot it when skeletons crowd in, and step out when it flares.
+- Floor 5's quicksand is still there (version 284).

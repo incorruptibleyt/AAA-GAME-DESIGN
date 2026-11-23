@@ -961,6 +961,7 @@ var _flank_told := false
 var _snap_told := false
 var _sand_told := false
 var _quick_told := false
+var _gas_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1114,6 +1115,16 @@ func _drive(delta: float) -> void:
 				if not _sand_told:
 					_sand_told = true
 					print("[autoplay] in the sand pharaoh's sand: wading out")
+	# v285: step out of mine gas that is about to blow up.
+	if not room.door_open:
+		var gas := MineGas.flaring(hero.global_position, hero.radius + 0.3)
+		if gas:
+			var d: Vector3 = hero.global_position - gas.global_position
+			d.y = 0
+			move += (d.normalized() if d.length() > 0.1 else Vector3.RIGHT) * 4.0
+			if not _gas_told:
+				_gas_told = true
+				print("[autoplay] mine gas flaring: stepping out")
 	# v284: walk straight out of a pit of quicksand (the Sandfall Tomb's own danger).
 	if not room.door_open:
 		for q in Quicksand.all:

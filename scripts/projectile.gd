@@ -280,6 +280,8 @@ func _process(delta: float) -> void:
 		finish()
 		return
 	global_position = next
+	if not MineGas.all.is_empty():
+		MineGas.touch(next)   # v285: a shot through the Amethyst Mine's gas lights it
 
 	var target := Actor.Team.UNDEAD if owner_team == Actor.Team.HERO else Actor.Team.HERO
 	# Version 126 (audit #4): an undead shot can only hit the hero, so it checks just the
