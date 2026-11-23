@@ -21,7 +21,8 @@ static var all: Array[FallingPlates] = []
 static var _hole_mat: ShaderMaterial
 
 var _plate: Node3D
-var _crack_mat: StandardMaterial3D
+var _crack_mat: ShaderMaterial
+static var _crack_shader: Shader
 var _hole: MeshInstance3D
 var _state := 0             # 0 firm, 1 giving, 2 gone, 3 rising
 var _t := 0.0
@@ -109,16 +110,22 @@ func _build() -> void:
 	_hole.visible = false
 	_plate = Node3D.new()
 	add_child(_plate)
-	var stone := U.mat(Color(0.3, 0.3, 0.4), 0.6)
+	var stone := U.mat(Color(0.24, 0.23, 0.32), 0.6)
 	var slab := U.box(_plate, Vector3(CELL * 0.96, 0.08, CELL * 0.96), stone, Vector3(0, 0.0, 0))
 	slab.rotation.y = randf_range(-0.04, 0.04)
-	# Cracks of starlight across it: a few thin glowing bars, crossed.
-	_crack_mat = U.unlit(Color(STAR.r, STAR.g, STAR.b, 0.8)).duplicate() as StandardMaterial3D
-	_crack_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	var a0 := randf() * PI
-	for k in 3:
-		var bar := U.box(_plate, Vector3(CELL * randf_range(0.55, 0.95), 0.012, 0.06), _crack_mat, Vector3(randf_range(-0.2, 0.2), 0.046, randf_range(-0.2, 0.2)))
-		bar.rotation.y = a0 + k * randf_range(0.7, 1.3)
+	# Cracks of starlight across it (version 288b, Jesse: "better cracks"): a shatter of
+	# jagged, branching cracks spreading from a point where it was struck, dark-edged with
+	# starlight glowing in them, drawn by CRACKS on a sheet over the plate.
+	if _crack_shader == null:
+		_crack_shader = Shader.new()
+		_crack_shader.code = CRACKS
+	_crack_mat = ShaderMaterial.new()
+	_crack_mat.shader = _crack_shader
+	_crack_mat.set_shader_parameter("seed", randf() * 100.0)
+	_crack_mat.set_shader_parameter("hit", Vector2(randf_range(-0.35, 0.35), randf_range(-0.35, 0.35)))
+	_crack_mat.set_shader_parameter("heat", 0.0)
+	var sheet := U.floor_quad(_plate, Vector2(CELL * 0.96, CELL * 0.96), _crack_mat, Vector3(0, 0.043, 0))
+	sheet.rotation.y = randi_range(0, 3) * PI / 2
 	# A dark edge all round, where it has come loose from its neighbours.
 	var edge := U.mat(Color(0.05, 0.06, 0.1), 0.9)
 	for s: float in [-1.0, 1.0]:
@@ -137,7 +144,7 @@ func _process(delta: float) -> void:
 	var playing := Game.state == Game.State.PLAYING
 	match _state:
 		0:
-			_crack_mat.albedo_color.a = 0.7 + 0.2 * sin(Time.get_ticks_msec() * 0.002 + position.x)
+			_crack_mat.set_shader_parameter("heat", 0.0)
 			if playing and Game.fight_on() and _stepped():
 				_state = 1
 				_t = 0.0
@@ -149,7 +156,7 @@ func _process(delta: float) -> void:
 			_t += delta
 			var k := _t / GIVE
 			_plate.position = Vector3(randf_range(-1, 1) * 0.03 * k, -0.04 * k, randf_range(-1, 1) * 0.03 * k)
-			_crack_mat.albedo_color = Color(1.0, 1.0, 1.0, 0.6 + 0.4 * k)
+			_crack_mat.set_shader_parameter("heat", k)
 			if _t >= GIVE:
 				_state = 2
 				_t = 0.0
@@ -167,7 +174,7 @@ func _process(delta: float) -> void:
 				_state = 3
 				_t = 0.0
 				_plate.rotation = Vector3.ZERO
-				_crack_mat.albedo_color = Color(STAR.r, STAR.g, STAR.b, 0.9)
+				_crack_mat.set_shader_parameter("heat", 0.0)
 		3:
 			_t += delta
 			var k := minf(_t / RISE, 1.0)
@@ -236,5 +243,61 @@ void fragment() {
 	float edge = min(min(UV.x, 1.0 - UV.x), min(UV.y, 1.0 - UV.y));
 	vec3 deep = mix(vec3(0.0, 0.0, 0.02), vec3(0.08, 0.06, 0.2), smoothstep(0.0, 0.5, edge));
 	ALBEDO = deep + vec3(0.8, 0.88, 1.0) * star * (0.6 + 0.4 * sin(TIME * 3.0 + h * 40.0));
+}
+"""
+
+
+## Cracks on a loose plate: Voronoi cell borders, warped by noise so they run jagged, only
+## where the plate was struck and fading out towards its edge, plus a few straight splits
+## running out from that point. Each crack is a dark gash with starlight glowing down its
+## middle; `heat` (the plate giving way) widens them and burns them white.
+const CRACKS := """
+shader_type spatial;
+render_mode unshaded, blend_mix, cull_back, depth_draw_never;
+uniform float seed = 0.0;
+uniform vec2 hit = vec2(0.0);
+uniform float heat = 0.0;
+vec2 h2(vec2 p) { p += seed; return fract(sin(vec2(dot(p, vec2(127.1, 311.7)), dot(p, vec2(269.5, 183.3)))) * 43758.5453); }
+float n1(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p); f = f * f * (3.0 - 2.0 * f);
+	float a = h2(i).x; float b = h2(i + vec2(1.0, 0.0)).x; float c = h2(i + vec2(0.0, 1.0)).x; float d = h2(i + vec2(1.0)).x;
+	return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+// Distance to the nearest border between Voronoi cells.
+float border(vec2 p) {
+	vec2 i = floor(p); vec2 f = fract(p);
+	vec2 mg; vec2 mr; float md = 8.0;
+	for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
+		vec2 g = vec2(float(x), float(y)); vec2 r = g + h2(i + g) - f;
+		float d = dot(r, r); if (d < md) { md = d; mr = r; mg = g; }
+	}
+	md = 8.0;
+	for (int y = -2; y <= 2; y++) for (int x = -2; x <= 2; x++) {
+		vec2 g = mg + vec2(float(x), float(y)); vec2 r = g + h2(i + g) - f;
+		if (dot(mr - r, mr - r) > 0.00001) md = min(md, dot(0.5 * (mr + r), normalize(r - mr)));
+	}
+	return md;
+}
+void fragment() {
+	vec2 p = (UV - 0.5) * 2.0;                                  // -1..1 over the plate
+	vec2 w = p + 0.09 * vec2(n1(p * 7.0) - 0.5, n1(p * 7.0 + 13.0) - 0.5) + 0.03 * vec2(n1(p * 23.0) - 0.5, n1(p * 23.0 + 5.0) - 0.5);
+	float r = length(w - hit);
+	// The shatter: small cells near the blow, bigger further out, fading before the edge.
+	float b = border((w - hit) * mix(3.2, 1.7, smoothstep(0.0, 1.0, r)));
+	float reach = 1.0 - smoothstep(0.9 + 0.4 * heat, 1.45 + 0.3 * heat, r);
+	// Splits running straight out from the blow.
+	float a = atan(w.y - hit.y, w.x - hit.x);
+	float rays = abs(sin(a * 1.5 + seed + n1(vec2(r * 3.0, seed)) * 1.2));
+	float ray = (1.0 - smoothstep(0.0, 0.035 + 0.04 * heat, rays * r)) * (1.0 - smoothstep(0.9, 1.3, r)) * smoothstep(0.08, 0.2, r);
+	float width = 0.03 + 0.035 * heat;
+	float gash = max((1.0 - smoothstep(width, width + 0.03, b)) * reach, ray);
+	float core = max((1.0 - smoothstep(0.0, width * 0.8, b)) * reach, (1.0 - smoothstep(0.0, 0.025 + 0.025 * heat, rays * r)) * (1.0 - smoothstep(0.85, 1.25, r)) * smoothstep(0.08, 0.2, r));
+	float pulse = 0.8 + 0.2 * sin(TIME * 2.0 + seed);
+	vec3 star = mix(vec3(0.6, 0.85, 1.0), vec3(1.0), heat);
+	vec3 col = mix(vec3(0.02, 0.02, 0.07), star * (1.8 + 1.5 * heat) * pulse, smoothstep(0.0, 0.6, core));
+	// A faint glow where the cracks are thickest, round the blow.
+	float glow = (1.0 - smoothstep(0.0, 0.45, r)) * (0.3 + 0.6 * heat);
+	ALBEDO = col + star * glow * 0.4;
+	ALPHA = clamp(max(gash * 0.92, glow * 0.35), 0.0, 1.0);
 }
 """

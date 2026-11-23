@@ -1,4 +1,3 @@
-Version 288: the floor gives way in the Starfall Abyss
-- Floor 10 has cracked plates with starlight in them. Step on one and it shakes, then falls into the void for a few seconds.
-- Fall in and you are hurt. Skeletons fall too. Dash over the holes.
-- Every new place now has its own danger: quicksand, mine gas, rolling shelves, magnets and the falling floor.
+Version 289: better cracks in the Starfall Abyss
+- The loose floor plates of floor 10 now show jagged, branching cracks with starlight glowing inside them, and the cracks widen and burn white as a plate gives way.
+- Every new place has its own danger: quicksand, mine gas, rolling shelves, magnets and the falling floor.
