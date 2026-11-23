@@ -967,6 +967,7 @@ var _magnet_told := false
 var _plate_told := false
 var _seam_told := false
 var _cap_told := false
+var _tide_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1152,6 +1153,21 @@ func _drive(delta: float) -> void:
 	elif hero.fling_left > 0.0 and not _cap_told:
 		_cap_told = true
 		print("[autoplay] thrown by a bounce cap")
+	# v293: the Drowned Vault's tide: dash through the crest as it reaches the robot, or, with
+	# the dash still recharging, get behind the nearest cover.
+	if not room.door_open and TideSurge.current != null and is_instance_valid(TideSurge.current):
+		var tide := TideSurge.current
+		var gap := hero.global_position.z - tide.front
+		if tide.front != INF and gap > 0.0 and gap < 4.0 and not tide.sheltered(hero.global_position):
+			if gap < 1.4 and hero.dash_ready():
+				hero.dash(Vector3.FORWARD)
+				if not _tide_told:
+					_tide_told = true
+					print("[autoplay] tide: dashing through the wave")
+			elif not hero.dash_ready():
+				var spot := tide.refuge(hero.global_position)
+				if spot != Vector3.INF and spot.distance_to(hero.global_position) < 3.0:
+					move = (spot - hero.global_position).normalized() * 3.0
 	# v287: walk away from a foundry magnet that is on and close.
 	if not room.door_open:
 		var away := ElectroMagnet.near(hero.global_position)

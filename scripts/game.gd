@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23k"
+const BUILD := "2026-11-23l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -444,6 +444,8 @@ func death_tip() -> String:
 		tip = "Step off a strip before it FILLS IN."
 	elif "Spike" in name or "fire" in name or "Spore" in name:
 		tip = "Watch the floor: don't stand in traps or flames."
+	elif "The tide" in name:
+		tip = "When the tide rumbles, get right behind a pillar or crate, or dash through the wave."
 	elif "Fire seam" in name:
 		tip = "When a crack in the floor glows, a wall of fire is coming. Step off it, or dash through. The fire stops shots too."
 	elif "Fall into the void" in name:
@@ -3016,6 +3018,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		FireSeam.lay(room)   # v291: the Ember Catacomb's fire seams
 	elif Floors.grotto() and not _in_boss_room() and alive_enemies > 0 and not first_run:
 		BounceCap.lay(room)   # v292: the Glowcap Grotto's bounce caps
+	elif Floors.drowned() and not _in_boss_room() and alive_enemies > 0:
+		TideSurge.lay(room)   # v293: the Drowned Vault's tide
 	if dive and _in_boss_room():
 		_use_dive()
 	_checkpoint()

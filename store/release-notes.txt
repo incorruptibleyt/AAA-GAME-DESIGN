@@ -1,4 +1,4 @@
-Version 292: bounce caps in the Glowcap Grotto
-- Floor 4 now has giant springy mushrooms. Step on one and it throws you across the room the way its arrows point.
-- You land with a stamp that knocks skeletons back. Skeletons that step on one get thrown too.
-- Floor 3 has fire seams and floor 2 has black ice.
+Version 293: the tide in the Drowned Vault
+- On floor 6 the sea breaks in: a wave rolls down the room every few seconds and carries off anyone it hits.
+- Get right behind a pillar or crate, or dash through the wave. Skeletons get swept away too.
+- Floor 4 has bounce caps, floor 3 fire seams and floor 2 black ice.
