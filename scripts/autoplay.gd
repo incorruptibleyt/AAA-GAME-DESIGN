@@ -964,6 +964,7 @@ var _quick_told := false
 var _gas_told := false
 var _rails_told := false
 var _magnet_told := false
+var _plate_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1117,6 +1118,17 @@ func _drive(delta: float) -> void:
 				if not _sand_told:
 					_sand_told = true
 					print("[autoplay] in the sand pharaoh's sand: wading out")
+	# v288: step off a loose plate of the Abyss that is giving way, or out of its hole.
+	if not room.door_open:
+		for fp in FallingPlates.all:
+			if is_instance_valid(fp) and fp.unsafe() and fp.covers(hero.global_position, hero.radius + 0.2):
+				var d: Vector3 = hero.global_position - fp.global_position
+				d.y = 0
+				move += (d.normalized() if d.length() > 0.1 else Vector3.BACK) * 3.5
+				if not _plate_told:
+					_plate_told = true
+					print("[autoplay] abyss floor giving way: stepping off")
+				break
 	# v287: walk away from a foundry magnet that is on and close.
 	if not room.door_open:
 		var away := ElectroMagnet.near(hero.global_position)

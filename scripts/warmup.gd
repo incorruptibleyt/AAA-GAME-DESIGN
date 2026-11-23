@@ -368,6 +368,9 @@ static func run(core := false, from := 0) -> bool:
 	# Version 287: the Clockwork Foundry's magnet coil, lit.
 	if not core: steps.append(func():
 		ElectroMagnet.warm(holder, spots[24] + Vector3(0, 0, 0.6)))
+	# Version 288: the Starfall Abyss's loose plate and the void under it.
+	if not core: steps.append(func():
+		FallingPlates.warm(holder, spots[21] + Vector3(0, 0, 0.6)))
 	# Version 275: the Crystal Tyrant's spires (standing and cracking), ripple and cart.
 	if not core: steps.append(func():
 		CrystalTyrant.warm(holder, spots[22] + Vector3(0, 0, 0.6)))

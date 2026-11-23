@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23f"
+const BUILD := "2026-11-23g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -444,6 +444,8 @@ func death_tip() -> String:
 		tip = "Step off a strip before it FILLS IN."
 	elif "Spike" in name or "fire" in name or "Spore" in name:
 		tip = "Watch the floor: don't stand in traps or flames."
+	elif "Fall into the void" in name:
+		tip = "Cracked plates with starlight in them fall away when stood on. Keep moving, or dash over the holes."
 	elif "Magnet" in name:
 		tip = "When a magnet hums, it is about to pull you in. Keep walking away from it, or dash."
 	elif "Rolling shelves" in name:
@@ -3004,6 +3006,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		RollingStacks.lay(room)   # v286 (hard review fix 5): the Whispering Library's rolling bookcases
 	elif Floors.index(floor_num) == Floors.FOUNDRY and not _in_boss_room() and alive_enemies > 0:
 		ElectroMagnet.lay(room)   # v287 (hard review fix 5): the Clockwork Foundry's magnets
+	elif Floors.index(floor_num) == Floors.ABYSS and not _in_boss_room() and alive_enemies > 0:
+		FallingPlates.lay(room)   # v288 (hard review fix 5): the Starfall Abyss's loose plates
 	if dive and _in_boss_room():
 		_use_dive()
 	_checkpoint()

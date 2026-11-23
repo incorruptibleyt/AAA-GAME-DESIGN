@@ -1,4 +1,4 @@
-Version 287: magnets in the Clockwork Foundry
-- Floor 9's rooms now have two great copper magnets that take turns switching on.
-- When one hums, it is about to pull: shots curve towards it and you are dragged in. Touch it and you are shocked, skeletons too.
-- Mine gas (floor 7) and rolling shelves (floor 8) hurt you less.
+Version 288: the floor gives way in the Starfall Abyss
+- Floor 10 has cracked plates with starlight in them. Step on one and it shakes, then falls into the void for a few seconds.
+- Fall in and you are hurt. Skeletons fall too. Dash over the holes.
+- Every new place now has its own danger: quicksand, mine gas, rolling shelves, magnets and the falling floor.
