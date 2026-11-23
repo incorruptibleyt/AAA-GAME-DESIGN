@@ -19,6 +19,10 @@ extends Enemy
 ##   of its gaps, dash through it, or keep a pillar between you and it.
 ## - Crystal Prison (phase 2's own move): pillars of crystal rise round you one by one,
 ##   closing towards the last gap. Get out before it shuts: then the prison bursts inwards.
+## - Rolling Geode (version 301, its encore in the endless loops): it hurls a great geode
+##   bristling with amethyst that rolls after you, slowly turning your way and bouncing off
+##   the walls. Lead it into a pillar or a crystal spire, or dash aside: it smashes on cover,
+##   on you, or after its third bounce, and bursts into shards along strips.
 ## Below half health its crystals grow and blaze, two Geode Guards climb out of the rock, and
 ## it attacks harder: more spires, a second wave of carts, a second ring.
 
@@ -387,6 +391,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	while _alive():
 		await roar_done()
 		if not _alive():
@@ -395,11 +400,14 @@ func _brain() -> void:
 		var moves := ["garden", "carts", "ripple", "garden"]
 		if _enraged:
 			moves.append("prison")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # Rolling Geode (version 301)
 		match next_move(moves):
 			"garden": await _garden()
 			"carts": await _run_carts()
 			"ripple": await _ripple()
 			"prison": await _prison()
+			"encore": await _geode()
 		_busy = false
 		_face_to = Vector3.ZERO
 		await _wait(1.0 if _enraged else 1.5)
@@ -642,6 +650,184 @@ func _clear_carts() -> void:
 		if is_instance_valid(c.node):
 			(c.node as Node).queue_free()
 	_carts.clear()
+
+
+# Rolling Geode ----------------------------------------------------------------------------------
+
+const GEODE_R := 0.8
+const GEODE_SPEED := 4.0       # the hero runs at 5.2
+const GEODE_SPEED_MAD := 4.6
+const GEODE_TURN := 1.0        # radians a second towards the hero
+const GEODE_BOUNCES := 3
+const GEODE_LIFE := 8.0
+const GEODE_DAMAGE := 20.0
+const SHARD_DAMAGE := 10.0
+var _geode_node: Node3D
+
+## A geode rolls after the hero until it smashes: on cover, on the hero, or after its bounces.
+func _geode() -> void:
+	var hero := Game.hero
+	if hero == null:
+		return
+	var to := hero.global_position - global_position
+	to.y = 0.0
+	var dir := to.normalized() if to.length() > 0.1 else Vector3.BACK
+	_face_to = dir
+	_cast()
+	Sfx.play(roar_sound, 0.5, 1.1)
+	var at := _in_room(global_position + dir * (radius + GEODE_R + 0.3), GEODE_R)
+	track(Telegraph.line(at, dir, 6.0, GEODE_R * 2.0, 0.8, Callable()))
+	_geode_node = _geode_mesh()
+	_room().add_child(_geode_node)
+	_geode_node.global_position = at + Vector3.UP * GEODE_R
+	_geode_node.scale = Vector3.ONE * 0.2
+	_geode_node.create_tween().tween_property(_geode_node, "scale", Vector3.ONE, 0.6).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Fx.magic(at + Vector3.UP, AMETHYST, 20)
+	await _wait(0.8)
+	if not _alive():
+		_drop_geode()
+		return
+	_busy = false   # it walks again while the geode rolls
+	Sfx.play("cart", 0.7, 0.7)
+	var source := kind_name()
+	var speed := GEODE_SPEED_MAD if _enraged else GEODE_SPEED
+	var bounces := 0
+	var t := 0.0
+	var pos := at
+	while _alive() and is_instance_valid(_geode_node):
+		var dt := get_physics_process_delta_time()
+		await get_tree().physics_frame
+		if not _alive() or not is_instance_valid(_geode_node):
+			break
+		t += dt
+		hero = Game.hero
+		# Turn slowly towards the hero.
+		if hero and not hero.dead:
+			var want := hero.global_position - pos
+			want.y = 0.0
+			if want.length() > 0.2:
+				var ang := dir.signed_angle_to(want.normalized(), Vector3.UP)
+				dir = dir.rotated(Vector3.UP, clampf(ang, -GEODE_TURN * dt, GEODE_TURN * dt))
+		pos += dir * speed * dt
+		# Walls: bounce back off them.
+		var hit_wall := false
+		var lim := Vector2(Room.HALF_W - GEODE_R - 0.2, Room.HALF_L - GEODE_R - 0.2)
+		if absf(pos.x) > lim.x:
+			pos.x = signf(pos.x) * lim.x
+			dir.x = -dir.x
+			hit_wall = true
+		if absf(pos.z) > lim.y:
+			pos.z = signf(pos.z) * lim.y
+			dir.z = -dir.z
+			hit_wall = true
+		if hit_wall:
+			bounces += 1
+			Sfx.play("crack", 0.5, 0.8)
+			Fx.dust(pos, 10)
+			Game.shake(0.1)
+			if bounces >= GEODE_BOUNCES:
+				_burst_geode(pos, dir, source)
+				break
+		# Cover (pillars, crystal spires) smashes it.
+		var smashed := false
+		if is_instance_valid(Room.current):
+			for o: Dictionary in Room.current.obstacles:
+				var d: Vector3 = pos - (o.pos as Vector3)
+				d.y = 0.0
+				if d.length() < GEODE_R + float(o.r):
+					smashed = true
+					break
+		if smashed or t > GEODE_LIFE:
+			_burst_geode(pos, dir, source)
+			break
+		# The hero: struck and thrown.
+		if hero and hero.can_be_hit():
+			var d := hero.global_position - pos
+			d.y = 0.0
+			if d.length() < GEODE_R + hero.radius * 0.8:
+				Game.hit_source = source
+				hero.take_damage(GEODE_DAMAGE, d if d.length() > 0.05 else dir, 9.0)
+				_burst_geode(pos, dir, source)
+				break
+		# Skeletons in its way are bowled aside.
+		for a: Actor in Actor.all:
+			if a is Enemy and a != self and not (a as Enemy).is_boss and not a.dead:
+				var d := a.global_position - pos
+				d.y = 0.0
+				if d.length() < GEODE_R + a.radius:
+					a.global_position += d.normalized() * 0.15
+		_geode_node.global_position = pos + Vector3.UP * GEODE_R
+		var axis := Vector3.UP.cross(dir).normalized()
+		_geode_node.rotate(axis, speed * dt / GEODE_R)
+		if randf() < dt * 6.0:
+			Fx.dust(pos, 3)
+	_busy = true
+
+
+## It cracks open: shards fly out along six strips.
+func _burst_geode(at: Vector3, dir: Vector3, source: String) -> void:
+	Sfx.play("shatter", 0.8, 0.8)
+	Fx.impact(at + Vector3.UP * 0.8, AMETHYST, 1.4)
+	Fx._burst(at + Vector3.UP * 0.8, 30, Color(0.8, 0.55, 1.0, 0.9), 0.35, 5.0, 0.7, 9.0)
+	Fx.shockwave(at, AMETHYST, 2.2)
+	Game.shake(0.25)
+	_drop_geode()
+	var n := 8 if _enraged else 6
+	var start := atan2(dir.x, dir.z) + PI / n
+	for i in n:
+		var a := start + TAU * i / n
+		var d := Vector3(sin(a), 0.0, cos(a))
+		var o := at
+		track(Telegraph.line(o, d, 4.2, 0.6, 0.6, func():
+			Fx._burst(o + d * 2.0 + Vector3.UP * 0.4, 8, Color(0.8, 0.55, 1.0, 0.9), 0.2, 3.0, 0.4, 6.0)
+			Enemy.strike_strip(o, d, 4.2, 0.6, SHARD_DAMAGE, source), 0.0 if i > 0 else 0.5))
+
+
+func _drop_geode() -> void:
+	if is_instance_valid(_geode_node):
+		_geode_node.queue_free()
+	_geode_node = null
+
+
+## A round grey stone, split to show the amethyst inside, bristling with crystals.
+func _geode_mesh() -> Node3D:
+	var n := Node3D.new()
+	var rock := MeshInstance3D.new()
+	var sm := SphereMesh.new()
+	sm.radius = GEODE_R
+	sm.height = GEODE_R * 2.0
+	sm.radial_segments = 14
+	sm.rings = 8
+	rock.mesh = sm
+	rock.material_override = _mat("rock")
+	n.add_child(rock)
+	var core := MeshInstance3D.new()
+	var cm := SphereMesh.new()
+	cm.radius = GEODE_R * 0.86
+	cm.height = GEODE_R * 1.72
+	core.mesh = cm
+	core.material_override = _mat("crystal")
+	core.scale = Vector3(1.08, 1.08, 1.08)
+	core.position = Vector3(0, 0, 0)
+	# The crystal shows through a wide band round the middle.
+	core.scale = Vector3(1.05, 0.55, 1.05)
+	n.add_child(core)
+	for i in 9:
+		var s := MeshInstance3D.new()
+		s.mesh = _spike_mesh()
+		var a := TAU * i / 9.0
+		var up := Vector3(cos(a), (float(i % 3) - 1.0) * 0.6, sin(a)).normalized()
+		s.position = up * GEODE_R * 0.7
+		s.basis = Basis(Quaternion(Vector3.UP, up))
+		s.scale = Vector3.ONE * 0.75
+		n.add_child(s)
+	var glow := OmniLight3D.new()
+	glow.light_color = AMETHYST
+	glow.light_energy = 1.4
+	glow.omni_range = 3.0
+	glow.shadow_enabled = false
+	n.add_child(glow)
+	return n
 
 
 # Crystal Ripple ---------------------------------------------------------------------------------
@@ -940,6 +1126,7 @@ func _open_spot(side: Vector3) -> Vector3:
 func _clear_all() -> void:
 	_clear_carts()
 	_clear_rings()
+	_drop_geode()
 
 
 func _exit_tree() -> void:

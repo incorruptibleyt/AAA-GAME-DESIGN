@@ -1,2 +1,2 @@
-Version 300: boss encores begin
-- The Sand Pharaoh, back in the endless loops, has a new attack: Hourglass. Sand floods the room from the walls inwards and only three gold sun plates stay clear. Get on one before it fills!
+Version 301: boss encores
+- The Crystal Tyrant, back in the endless loops, has a new attack: Rolling Geode. A huge crystal geode chases you and bounces off the walls. Lead it into a pillar to smash it, then dodge the shards!
