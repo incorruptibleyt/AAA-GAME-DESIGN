@@ -27,7 +27,7 @@ const HOT := Color(1.0, 0.9, 0.65)
 
 ## Tick-Tock Press: the chequer's tiles, the presses' circles and how long each beat warns.
 const CELL := 1.8
-const PRESS_R := 0.82
+const PRESS_R := 1.08   # v283 (Tweaks report #6): was 0.82, which left the point between four tiles never hit
 const PRESS_FIRST := 0.9
 const PRESS_BEAT := 0.72
 const PRESS_DAMAGE := 15.0

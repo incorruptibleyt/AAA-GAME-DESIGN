@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23a"
+const BUILD := "2026-11-23b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -345,10 +345,18 @@ func taught(key: String) -> bool:
 	return _taught_cache.has(key)
 
 
+var _taught_unsaved: Array[String] = []
+
+
 func mark_taught(key: String) -> void:
 	if taught(key):
 		return
 	_taught_cache[key] = true
+	if state == State.PLAYING:
+		# Version 283 (Tweaks report #4): not a whole save in the middle of a fight; it goes
+		# with the next one (_save_coins: the room's end, pause, death; or leaving the app).
+		_taught_unsaved.append(key)
+		return
 	var cfg := _load_save()
 	cfg.set_value("taught", key, true)
 	write_save(cfg)
@@ -1028,7 +1036,7 @@ func _notification(what: int) -> void:
 		if what == NOTIFICATION_APPLICATION_PAUSED:
 			_report_left()
 			PhoneReminders.refresh(_load_save())
-			if not _feats_unsaved.is_empty():
+			if not _feats_unsaved.is_empty() or not _taught_unsaved.is_empty():
 				var fcfg := _load_save()
 				_flush_feats(fcfg)
 				write_save(fcfg)
@@ -1205,7 +1213,10 @@ func health_scale() -> float:
 	var f := strength_floor()
 	return heroic_mult() * pow(1.55, mini(f, 4) - 1) * pow(1.6, clampi(f - 4, 0, 1)) \
 		* pow(1.45, clampi(f - 5, 0, 5)) * pow(1.25, clampi(f - 10, 0, 5)) \
-		* pow(1.35, maxi(f - 15, 0)) * pow(1.25, _omen("bones"))   # v219 (fix 30): steeper past floor 15
+		* pow(1.12, maxi(f - 15, 0)) * pow(1.25, _omen("bones"))
+	# (v219 fix 30 made it 35% a floor past 15. Version 283, Tweaks report #2: with the damage
+	# cards maxed by then, that made floor 20 skeletons take 21 s each, a slog, not a danger.
+	# Now 12% a floor, and damage_scale makes them hit harder instead.)
 
 
 ## The floor whose strength skeletons, bosses and coins have: the floor itself, or floor 3
@@ -1221,7 +1232,9 @@ func strength_floor() -> int:
 ## the dash yet could fall in the first room in 17 seconds.
 func damage_scale() -> float:
 	var f := strength_floor()
-	return (1.0 + 0.35 * (f - 1) + 0.15 * maxi(f - 5, 0)) * (1.25 if _hourglass_out else 1.0) \
+	# (Version 283, Tweaks report #2: +30% a floor more past floor 15, so the deep end stays
+	# deadly through danger instead of long fights.)
+	return (1.0 + 0.35 * (f - 1) + 0.15 * maxi(f - 5, 0) + 0.3 * maxi(f - 15, 0)) * (1.25 if _hourglass_out else 1.0) \
 		* pow(1.25, _omen("blades")) * newcomer_mult() * heroic_mult()
 
 
@@ -4707,6 +4720,9 @@ func _flush_feats(cfg: ConfigFile) -> void:
 	for id in _feats_unsaved:
 		Feats.complete(cfg, id)
 	_feats_unsaved.clear()
+	for k in _taught_unsaved:   # (version 283: tips learned mid-fight, mark_taught)
+		cfg.set_value("taught", k, true)
+	_taught_unsaved.clear()
 
 
 func _save_coins() -> void:
