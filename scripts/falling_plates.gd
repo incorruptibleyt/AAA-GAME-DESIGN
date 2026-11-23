@@ -32,12 +32,15 @@ var _said := false
 
 ## Lays loose plates on open floor in `room`: six to nine, alone or in pairs.
 static func lay(room: Room) -> void:
-	var want := randi_range(6, 9)
+	# Version 297 (deep review fix 5): fewer loose plates in the floor's first room, more later.
+	var want: int = [randi_range(4, 5), randi_range(6, 8), randi_range(8, 10)][mini(Game.danger_step(), 2)]
 	var placed: Array[Vector3] = []
 	for attempt in 120:
 		if placed.size() >= want:
 			break
 		var p := Vector3(randi_range(-3, 3) * CELL, 0, randi_range(-5, 3) * CELL)
+		if Game.near_hero(p, 1.6):   # v297: may be laid mid-fight (a boss's phase 2)
+			continue
 		if not _open(room, p, placed):
 			continue
 		placed.append(p)

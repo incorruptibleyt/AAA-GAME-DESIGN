@@ -150,7 +150,7 @@ func _process(delta: float) -> void:
 		for o in seams:
 			o._calm()
 		return
-	_t += delta
+	_t += delta * Game.danger_pace()   # v297: quicker later in the floor
 	if _t < CALM:
 		s._calm()
 	elif _t < CALM + WARN:

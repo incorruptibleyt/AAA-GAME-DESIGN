@@ -159,7 +159,7 @@ func _process(delta: float) -> void:
 		glow.albedo_color.a = 0.4 + 0.15 * sin(Time.get_ticks_msec() * 0.003 + i)
 		if not fighting:
 			continue
-		v.t += delta
+		v.t += delta * Game.danger_pace()   # v297: quicker later in the floor
 		if v.t >= EVERY:
 			v.t = 0.0
 			var mine := 0

@@ -29,12 +29,15 @@ var _said := false
 ## Lays two (sometimes three) pits on open floor in `room`, clear of cover, of where the
 ## skeletons rise, of the door and of where the hero walks in.
 static func lay(room: Room) -> void:
-	var count := 3 if randf() < 0.3 else 2
+	# Version 297 (deep review fix 5): one pit in the floor's first room, more later.
+	var count: int = [1, 3 if randf() < 0.3 else 2, 3][mini(Game.danger_step(), 2)]
 	var placed: Array[Vector3] = []
 	for attempt in 80:
 		if placed.size() >= count:
 			break
 		var p := Vector3(randf_range(-Room.HALF_W + RADIUS + 0.4, Room.HALF_W - RADIUS - 0.4), 0.0, randf_range(-6.8, 4.4))
+		if Game.near_hero(p, Quicksand.RADIUS + 1.2):   # v297: may be laid mid-fight (a boss's phase 2)
+			continue
 		if not _open(room, p, placed):
 			continue
 		placed.append(p)

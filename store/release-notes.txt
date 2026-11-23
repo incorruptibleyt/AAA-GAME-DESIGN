@@ -1,5 +1,3 @@
-Version 296: see the fight better
-- Your hero now shows through bosses, crowds and pillars, so you never lose them.
-- In boss fights the camera keeps the boss below the top bar.
-- Each kind of elite has its own sign over its head.
-- Clearer dangers: brighter ice edges and gas clouds, and blue mushrooms in the Grotto so pink skeleton shots stand out.
+Version 297: floors that build up
+- Each floor's danger starts gentle in the first room and grows stronger towards the end of the floor.
+- At half health, every boss from floor 2 on calls in its floor's danger: fight the Tidecaller in the tide, the Pharaoh over quicksand, and more.

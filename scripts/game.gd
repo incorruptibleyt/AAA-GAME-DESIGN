@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23o"
+const BUILD := "2026-11-23p"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -367,6 +367,76 @@ func mark_taught(key: String) -> void:
 ## at most once a room for each danger (no more mid-screen sentences every room, or one for
 ## every plate of the Abyss).
 var _danger_said := {}
+
+## The floor's own danger (hard review fix 5, versions 284-293): quicksand, mine gas, rolling
+## shelves, magnets, loose plates, black ice, fire seams, bounce caps or the tide.
+func _lay_floor_danger(room: Room) -> void:
+	if Floors.sandfall():
+		Quicksand.lay(room)  # v284: the Sandfall Tomb's quicksand pits
+	elif Floors.index(floor_num) == Floors.MINE:
+		MineGas.lay(room)    # v285: the Amethyst Mine's firedamp
+	elif Floors.index(floor_num) == Floors.LIBRARY:
+		RollingStacks.lay(room)   # v286: the Whispering Library's rolling bookcases
+	elif Floors.index(floor_num) == Floors.FOUNDRY:
+		ElectroMagnet.lay(room)   # v287: the Clockwork Foundry's magnets
+	elif Floors.index(floor_num) == Floors.ABYSS:
+		FallingPlates.lay(room)   # v288: the Starfall Abyss's loose plates
+	elif Floors.index(floor_num) == 1 and not first_run:
+		IcePatch.lay(room)   # v290: the Frozen Ossuary's black ice
+	elif Floors.ember() and not first_run:
+		FireSeam.lay(room)   # v291: the Ember Catacomb's fire seams
+	elif Floors.grotto() and not first_run:
+		BounceCap.lay(room)   # v292: the Glowcap Grotto's bounce caps
+	elif Floors.drowned():
+		TideSurge.lay(room)   # v293: the Drowned Vault's tide
+
+
+## Version 297 (deep review fix 5): each floor builds up. Its danger is gentle in the first
+## room (step 0: fewer pieces, a slower beat), as before in the middle rooms (1), stronger
+## in the last two (2), and the boss calls it in when it turns at half health (3).
+var _boss_turned := false
+var _boss_danger := false
+
+func danger_step() -> int:
+	if _in_boss_room():
+		return 3 if _boss_turned else 2
+	if _room_index == 0:
+		return 0
+	return 2 if _room_index >= _run.size() - 3 else 1
+
+
+## How fast the danger's beat runs at this step (its waits between eruptions, waves, rolls).
+func danger_pace() -> float:
+	return float([0.75, 1.0, 1.15, 1.3][danger_step()])
+
+
+## Whether `p` is within `r` metres of the hero (a danger laid mid-fight keeps clear of them).
+func near_hero(p: Vector3, r: float) -> bool:
+	if hero == null or not is_instance_valid(hero):
+		return false
+	var d := hero.global_position - p
+	d.y = 0.0
+	return d.length() < r
+
+
+## A boss has reached half health (Enemy.phase_two): on floors with a danger of their own it
+## calls it in, laid at full strength around the fight, so the last test of the floor uses
+## what the floor has taught.
+func boss_turned() -> void:
+	if not _in_boss_room() or _boss_danger or race or Room.current == null:
+		return
+	_boss_turned = true
+	_boss_danger = true
+	_danger_said.clear()
+	var before := Room.current.get_child_count()
+	_lay_floor_danger(Room.current)
+	if Room.current.get_child_count() > before:
+		print("[run] the floor's danger joins the boss fight")
+		# After the PHASE 2 banner has had its moment.
+		get_tree().create_timer(1.6, false).timeout.connect(func():
+			if state == State.PLAYING:
+				hud.callout("THE FLOOR FIGHTS BACK!", Color(1.0, 0.75, 0.35)))
+
 
 func danger_warn(key: String, word: String, lesson: String, col: Color) -> void:
 	if state != State.PLAYING or _danger_said.has(key):
@@ -3075,26 +3145,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if _omen("stalker") > 0 and alive_enemies > 0:
 		Stalker.rise_in(room, _omen("stalker"), _in_boss_room())   # v241: the Omen of the Stalker
 	_danger_said.clear()
+	_boss_turned = false
+	_boss_danger = false
 	if _door.get("kind", "") == "traps" and alive_enemies > 0:
 		TrapHall.lay(room)   # v242: the Trap Hall door
-	elif Floors.sandfall() and not _in_boss_room() and alive_enemies > 0:
-		Quicksand.lay(room)  # v284 (hard review fix 5): the Sandfall Tomb's quicksand pits
-	elif Floors.index(floor_num) == Floors.MINE and not _in_boss_room() and alive_enemies > 0:
-		MineGas.lay(room)    # v285 (hard review fix 5): the Amethyst Mine's firedamp
-	elif Floors.index(floor_num) == Floors.LIBRARY and not _in_boss_room() and alive_enemies > 0:
-		RollingStacks.lay(room)   # v286 (hard review fix 5): the Whispering Library's rolling bookcases
-	elif Floors.index(floor_num) == Floors.FOUNDRY and not _in_boss_room() and alive_enemies > 0:
-		ElectroMagnet.lay(room)   # v287 (hard review fix 5): the Clockwork Foundry's magnets
-	elif Floors.index(floor_num) == Floors.ABYSS and not _in_boss_room() and alive_enemies > 0:
-		FallingPlates.lay(room)   # v288 (hard review fix 5): the Starfall Abyss's loose plates
-	elif Floors.index(floor_num) == 1 and not _in_boss_room() and alive_enemies > 0 and not first_run:
-		IcePatch.lay(room)   # v290: the Frozen Ossuary's black ice
-	elif Floors.ember() and not _in_boss_room() and alive_enemies > 0 and not first_run:
-		FireSeam.lay(room)   # v291: the Ember Catacomb's fire seams
-	elif Floors.grotto() and not _in_boss_room() and alive_enemies > 0 and not first_run:
-		BounceCap.lay(room)   # v292: the Glowcap Grotto's bounce caps
-	elif Floors.drowned() and not _in_boss_room() and alive_enemies > 0:
-		TideSurge.lay(room)   # v293: the Drowned Vault's tide
+	elif not _in_boss_room() and alive_enemies > 0:
+		_lay_floor_danger(room)
 	if dive and _in_boss_room():
 		_use_dive()
 	_checkpoint()

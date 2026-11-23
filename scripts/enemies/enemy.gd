@@ -767,6 +767,8 @@ func phase_two(col: Color, move := "", move_name := "") -> void:
 		visual.enrage(col)
 		_punch_scale(1.15, 0.12, 0.35)
 	Game.hud.phase_banner(move_name, col)
+	if is_boss:
+		Game.boss_turned()   # v297: the floor's danger joins the fight
 
 
 var _big_hit_at := -10000

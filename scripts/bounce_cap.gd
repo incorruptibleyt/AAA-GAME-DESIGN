@@ -34,13 +34,16 @@ var _glow: StandardMaterial3D
 ## Grows three or four caps on open floor in `room`, each aimed at open floor inside the room.
 static func lay(room: Room) -> void:
 	_said = false
-	var count := 4 if randf() < 0.4 else 3
+	# Version 297 (deep review fix 5): two caps in the floor's first room, more later.
+	var count: int = [2, 4 if randf() < 0.4 else 3, 4][mini(Game.danger_step(), 2)]
 	var placed: Array[Vector3] = []
 	var lands: Array[Vector3] = []   # where each placed cap throws to
 	for attempt in 120:
 		if placed.size() >= count:
 			break
 		var p := Vector3(randf_range(-3.2, 3.2), 0, randf_range(-6.5, 3.0))
+		if Game.near_hero(p, 2.0):   # v297: may be laid mid-fight (a boss's phase 2)
+			continue
 		if not _clear(room, p, 1.1):
 			continue
 		var ok := true

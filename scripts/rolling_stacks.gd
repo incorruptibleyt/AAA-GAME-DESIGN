@@ -42,7 +42,7 @@ static func lay(room: Room) -> void:
 		z += 0.5
 	cands.shuffle()
 	for c in cands:
-		if lanes.size() >= (2 if randf() < 0.4 else 1):
+		if lanes.size() >= int([1, 2 if randf() < 0.4 else 1, 2][mini(Game.danger_step(), 2)]):   # v297
 			break
 		if _lane_open(room, c, lanes):
 			lanes.append(c)
@@ -149,7 +149,7 @@ func _process(delta: float) -> void:
 		_case.rotation.z = 0.0
 		return
 	if not _rolling:
-		_t += delta
+		_t += delta * Game.danger_pace()   # v297: quicker later in the floor
 		var warn := _t - (REST - RATTLE)
 		_arrow_mat.albedo_color.a = 0.15
 		if warn > 0.0:

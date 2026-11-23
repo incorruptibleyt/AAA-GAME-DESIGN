@@ -20,13 +20,16 @@ var half := Vector2(2.0, 1.4)   # the ellipse's half sizes (x, z)
 
 ## Lays two or three sheets of ice on open floor in `room`, clear of where the hero walks in.
 static func lay(room: Room) -> void:
-	var count := 3 if randf() < 0.4 else 2
+	# Version 297 (deep review fix 5): fewer sheets in the floor's first room, more later.
+	var count: int = [2, 3 if randf() < 0.4 else 2, 3][mini(Game.danger_step(), 2)]
 	var placed: Array[Vector3] = []
 	for attempt in 60:
 		if placed.size() >= count:
 			break
 		var h := Vector2(randf_range(1.6, 2.4), randf_range(1.2, 1.8))
 		var p := Vector3(randf_range(-Room.HALF_W + h.x * 0.6, Room.HALF_W - h.x * 0.6), 0, randf_range(-7.0, 4.0))
+		if Game.near_hero(p, maxf(h.x, h.y) + 0.8):   # v297: may be laid mid-fight (a boss's phase 2)
+			continue
 		var ok := true
 		for q in placed:
 			if q.distance_to(p) < 4.0:

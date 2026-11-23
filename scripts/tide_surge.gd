@@ -96,7 +96,7 @@ func _process(delta: float) -> void:
 	if front != INF:
 		_roll(delta)
 		return
-	_t += delta
+	_t += delta * Game.danger_pace()   # v297: quicker later in the floor
 	if _t >= EVERY - WARN and not _warned:
 		_warned = true
 		Sfx.play("splash", 0.7, 0.5)

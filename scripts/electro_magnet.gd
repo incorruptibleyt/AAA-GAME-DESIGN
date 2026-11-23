@@ -126,7 +126,7 @@ func _process(delta: float) -> void:
 	if not (Game.state == Game.State.PLAYING and Game.fight_on()):
 		_switch_off(c)
 		return
-	_t += delta
+	_t += delta * Game.danger_pace()   # v297: quicker later in the floor
 	if not _on:
 		var warn := _t - (OFF - HUM)
 		if warn > 0.0:
