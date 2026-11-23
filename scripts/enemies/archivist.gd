@@ -657,7 +657,7 @@ func _words() -> void:
 		if scratch <= 0.0:
 			scratch = 0.12
 			Sfx.play("quill", 0.45, randf_range(0.8, 0.95))
-		await get_tree().process_frame
+		await frame()
 		el += get_process_delta_time()
 	await _wait(maxf(total - el, 0.0) + 0.4)
 
@@ -936,7 +936,7 @@ func _bookstorm() -> void:
 	var guard := 0.0
 	while _alive() and not _books.is_empty() and guard < 4.0:
 		guard += get_process_delta_time()
-		await get_tree().process_frame
+		await frame()
 	await _wait(0.2)
 
 

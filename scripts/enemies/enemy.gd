@@ -546,6 +546,7 @@ func can_be_hit() -> bool:
 
 
 func _process(delta: float) -> void:
+	delta = minf(delta, MAX_STEP)   # v282 (Tweaks report #7): a long frame is a short slow-down, never a jump
 	if dead:
 		return
 	if _spawn_timer > 0.0:
@@ -714,6 +715,16 @@ func _punch_scale(k: float, up: float, down: float) -> void:
 ## A boss's brain waits here before choosing a move, so nothing new starts during the roar.
 func roar_done() -> void:
 	while is_instance_valid(self) and not dead and _roar_left > 0.0:
+		await get_tree().process_frame
+
+
+## Version 282 (Tweaks report #1): one frame, and as long as the game is paused. A boss's
+## move in flight (saws, belts, beams, carts, a wind-up) waits on the pause menu and carries
+## on after RESUME. (The tree's process_frame still fires while paused, so a move that just
+## awaited it used to see the PAUSED state and end, or let its wind-up run on.)
+func frame() -> void:
+	await get_tree().process_frame
+	while is_instance_valid(self) and not dead and Game.state == Game.State.PAUSED:
 		await get_tree().process_frame
 
 

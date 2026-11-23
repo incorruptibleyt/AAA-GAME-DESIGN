@@ -5,6 +5,9 @@ extends Node3D
 enum Team { HERO, UNDEAD }
 
 static var all: Array[Actor] = []
+## Version 282 (Tweaks report #7): the longest step anything moves in one frame. A phone's
+## stutter (93-716 ms frames in run reports) used to let a dash jump through a pillar.
+const MAX_STEP := 0.05
 ## Damage that always kills, for scripted deaths (a bomber's blast, minions crumbling with
 ## their boss). It shows no number.
 const KILL := 9999.0

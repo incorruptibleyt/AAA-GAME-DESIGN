@@ -200,7 +200,7 @@ func _rush() -> void:
 		if not _alive():
 			return
 		face(d, 20.0, get_process_delta_time())
-		await get_tree().process_frame
+		await frame()
 		t += get_process_delta_time()
 	visual.attack()
 	contact_damage = 22.0
@@ -216,7 +216,7 @@ func _rush() -> void:
 		if drop <= 0.0:
 			drop = 0.11
 			FirePatch.spawn(global_position, 0.85, 3.5 if _enraged else 2.5)
-		await get_tree().process_frame
+		await frame()
 		t += dt
 	contact_damage = 18.0
 	Game.shake(0.3)

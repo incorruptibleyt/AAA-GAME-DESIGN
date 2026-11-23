@@ -858,7 +858,7 @@ func _throw_saws() -> void:
 			var blade: Node3D = s.blade
 			if is_instance_valid(blade):
 				blade.rotation.y -= dt * (6.0 + 30.0 * t / SAW_AIM)
-		await get_tree().process_frame
+		await frame()
 	if not _alive():
 		_clear_saws()
 		return
@@ -870,7 +870,7 @@ func _throw_saws() -> void:
 		var dt := get_process_delta_time()
 		guard += dt
 		_roll_saws(dt, source)
-		await get_tree().process_frame
+		await frame()
 	_clear_saws()
 	await _wait(0.2)
 
@@ -906,7 +906,11 @@ func _roll_saws(dt: float, source: String) -> void:
 		var blade: Node3D = s.blade
 		if is_instance_valid(blade):
 			blade.rotation.y -= dt * SAW_SPEED / SAW_R
-		if randf() < 0.6:
+		# Version 282 (Tweaks report #5): on a timer, not once a frame (twice as many on a
+		# 120 Hz phone), like the Crystal Tyrant's carts.
+		s.spark = float(s.get("spark", 0.0)) - dt
+		if float(s.spark) <= 0.0:
+			s.spark = 0.06
 			Fx.sparks(at + Vector3.UP * 0.05, Color(1.0, 0.75, 0.4))
 		if not bool(s.hit) and h and h.can_be_hit():
 			var off := h.global_position - at
@@ -1000,7 +1004,7 @@ func _run_belts() -> void:
 		if clatter <= 0.0:
 			clatter = 0.9
 			Sfx.play("belt", 0.35, randf_range(1.05, 1.15))
-		await get_tree().process_frame
+		await frame()
 	# The belts run down; the ingots still on them roll off the end.
 	belts = []
 	for b in _belt_nodes:
@@ -1015,7 +1019,7 @@ func _run_belts() -> void:
 		var dt := get_process_delta_time()
 		guard += dt
 		_ride_ingots(dt, source)
-		await get_tree().process_frame
+		await frame()
 	_clear_ingots()
 
 
@@ -1134,7 +1138,7 @@ func _pendulum() -> void:
 		t += dt
 		for p: Dictionary in _pendulums:
 			_swing(p, t, source)
-		await get_tree().process_frame
+		await frame()
 	swings = []
 	# The blades swing back up out of the way.
 	for p: Dictionary in _pendulums:

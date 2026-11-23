@@ -215,7 +215,7 @@ func _deep_breath() -> void:
 			puff = 0.08
 			var from := at + Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU) * (r + randf() * 2.5) + Vector3.UP * 0.6
 			_drift(from, center() + Vector3.UP * 1.0, 0.5)
-		await get_tree().process_frame
+		await frame()
 		t += dt
 	await _wait(0.8)
 

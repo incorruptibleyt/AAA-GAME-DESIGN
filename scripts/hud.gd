@@ -1066,6 +1066,7 @@ func _build_hud() -> void:
 	_pause_button.offset_right = -14
 	_pause_button.offset_top = 6
 	_pause_button.offset_bottom = 70
+	_pause_button.mouse_filter = Control.MOUSE_FILTER_IGNORE   # v282: _input takes its presses (any finger)
 	_pause_button.pressed.connect(func():
 		if Game.state == Game.State.PLAYING:
 			Sfx.play("click")
@@ -3693,10 +3694,16 @@ func _input(event: InputEvent) -> void:
 					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
 				return
-			# The pause button looks small but answers a little way around it too.
+			# The pause button looks small but answers a little way around it too. Version 282
+			# (Tweaks report #8): every press is taken here, by any finger. The Button itself
+			# ignores touches: Godot gives Buttons a pretend mouse click only from the first finger
+			# down, so with a thumb on the stick a second finger's tap on II did nothing.
 			if _safe.visible and _pause_button.get_global_rect().grow(12.0).has_point(t.position):
-				if not _pause_button.get_global_rect().has_point(t.position) and _pause_button.is_visible_in_tree() and not _overlay_open():
+				if _pause_button.is_visible_in_tree() and not _overlay_open():
 					Sfx.play("click")
+					var bt := _pause_button.create_tween()
+					bt.tween_property(_pause_button, "scale", Vector2(0.95, 0.93), 0.06)
+					bt.tween_property(_pause_button, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 					pause_pressed.emit()
 				return
 			# Version 163 (Tweaks report #7): an empty SURGE lets the touch through to the stick.

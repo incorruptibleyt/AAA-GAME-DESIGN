@@ -576,13 +576,13 @@ func _run_carts() -> void:
 			while t < 0.45 and _alive():
 				t += get_process_delta_time()
 				_roll(get_process_delta_time(), source)
-				await get_tree().process_frame
+				await frame()
 	var guard := 0.0
 	while _alive() and not _carts.is_empty() and guard < 4.0:
 		var dt := get_process_delta_time()
 		guard += dt
 		_roll(dt, source)
-		await get_tree().process_frame
+		await frame()
 	_clear_carts()
 	await _wait(0.2)
 
@@ -712,7 +712,7 @@ func _ripple() -> void:
 		_draw_rings(minf(t / RING_AIM, 1.0))
 		if _fist and randf() < 0.4:
 			Fx.magic(_fist.global_position, PALE, 2)
-		await get_tree().process_frame
+		await frame()
 	if not _alive():
 		_clear_rings()
 		return
@@ -753,7 +753,7 @@ func _ripple() -> void:
 		_draw_rings(1.0)
 		if not any:
 			break
-		await get_tree().process_frame
+		await frame()
 	_clear_rings()
 	await _wait(0.3)
 

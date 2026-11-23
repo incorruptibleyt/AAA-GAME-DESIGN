@@ -291,7 +291,7 @@ func _sweep(lane: float, gap: float) -> void:
 				hit = true
 				Game.hit_source = DISPLAY_NAME
 				hero.take_damage(16.0, Vector3.BACK, 11.0)
-		await get_tree().process_frame
+		await frame()
 	wave.queue_free()
 
 
@@ -355,7 +355,7 @@ func _dive() -> void:
 			ripple = 0.16
 			Fx.shockwave(global_position, WATER, 1.8)
 			Fx.magic(global_position + Vector3.UP * 0.2, WATER, 4)
-		await get_tree().process_frame
+		await frame()
 		t += dt
 	var at := global_position
 	var r := 2.3

@@ -561,6 +561,7 @@ func on_kill() -> void:
 
 
 func _process(delta: float) -> void:
+	delta = minf(delta, MAX_STEP)   # v282 (Tweaks report #7): a long frame is a short slow-down, never a jump
 	if dead:
 		return
 	if down_left > 0.0:

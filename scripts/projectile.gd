@@ -6,6 +6,8 @@ extends Node3D
 var owner_team := Actor.Team.HERO
 var damage := 10.0
 var speed := 15.0
+## Version 282 (Tweaks report #7): the longest step a shot flies in one frame.
+const MAX_STEP := 0.05
 var radius := 0.2
 var pierce := 0
 var push := 4.0
@@ -228,6 +230,7 @@ static func _flat_dist_sq(p: Vector3, a: Vector3, b: Vector3) -> float:
 
 
 func _process(delta: float) -> void:
+	delta = minf(delta, MAX_STEP)   # v282 (Tweaks report #7): a long frame is a short slow-down, never a jump
 	if _spent:
 		return
 	life -= delta
@@ -268,7 +271,10 @@ func _process(delta: float) -> void:
 				Fx.sparks(global_position, Color(1, 0.85, 0.5))   # off the wall and back
 			_turn(null)
 			return
-	if life <= 0.0 or (not _back and Room.current and Room.current.blocks_shot(next, radius * 0.5)):
+	# Version 282 (Tweaks report #7): the whole stretch flown this frame is checked against
+	# cover, not only where it ends, so a shot can't skip through a pillar on a stutter.
+	if life <= 0.0 or (not _back and Room.current and (Room.current.blocks_shot(next, radius * 0.5) \
+			or not Room.current.clear_shot(global_position, next))):
 		Fx.sparks(global_position, Color(1, 0.85, 0.5) if owner_team == Actor.Team.HERO else DANGER)
 		Fx.impact(global_position, _col, radius * 3.0)
 		finish()

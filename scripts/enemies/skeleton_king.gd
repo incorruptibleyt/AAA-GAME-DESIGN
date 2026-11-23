@@ -148,7 +148,7 @@ func _charge(wind_time := -1.0, rest := 0.7, hit := 24.0) -> void:
 		if not _alive():
 			return
 		face(d, 20.0, get_process_delta_time())
-		await get_tree().process_frame
+		await frame()
 		t += get_process_delta_time()
 	visual.attack()
 	contact_damage = hit   # 24 (was 28): on floor 5 one rush took 45% of a Mage's health
@@ -159,7 +159,7 @@ func _charge(wind_time := -1.0, rest := 0.7, hit := 24.0) -> void:
 			return
 		var dt := get_process_delta_time()
 		move_by(d * 17.0 * dt, dt)
-		await get_tree().process_frame
+		await frame()
 		t += dt
 	contact_damage = 18.0
 	Game.shake(0.3)
@@ -228,7 +228,7 @@ func _kings_leap() -> void:
 			global_position = from.lerp(spot, k)
 			_hop = sin(k * PI) * 3.2
 		face(spot - from, 12.0, dt)
-		await get_tree().process_frame
+		await frame()
 		t += dt
 	global_position = spot
 	_hop = 0.0

@@ -524,7 +524,7 @@ func _gravity_well() -> void:
 		if mote <= 0.0:
 			mote = 0.05
 			_mote_in(here + Vector3.UP * center_height, r + 1.5, col)
-		await get_tree().process_frame
+		await frame()
 		t += dt
 	_pulling = false
 	await _wait(0.6)
@@ -632,7 +632,7 @@ func _moon_sweep() -> void:
 					Game.hit_source = source
 					h.take_damage(16.0, d, 10.0)
 					Fx.impact(p, STAR, 1.0)
-		await get_tree().process_frame
+		await frame()
 	_clear_moons()
 	await _wait(0.4)
 
@@ -739,7 +739,7 @@ func _open_hole(spot: Vector3, seconds: float) -> void:
 				bite = 0.8
 				Game.hit_source = source
 				h.take_damage(10.0, d, 12.0)
-		await get_tree().process_frame
+		await frame()
 	if is_instance_valid(hole):
 		hole.queue_free()
 

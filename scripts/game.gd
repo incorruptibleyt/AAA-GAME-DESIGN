@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-22i"
+const BUILD := "2026-11-23a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1352,7 +1352,10 @@ func coin_mult() -> float:
 ## How much hearts and Vitality grow with the floor: +20% a floor up to floor 5 (the tuned
 ## early game, unchanged), then +35% a floor, like enemy hits, so deep floors stay fair.
 func heal_scale() -> float:
-	return 1.0 + 0.2 * (mini(floor_num, 5) - 1) + 0.35 * maxi(floor_num - 5, 0)
+	# Version 282 (Tweaks report #3): the strength floor, like health and damage, so the Free
+	# Dive's floor 6 heals like the floor 3 its skeletons are (it healed like floor 6).
+	var f := strength_floor()
+	return 1.0 + 0.2 * (mini(f, 5) - 1) + 0.35 * maxi(f - 5, 0)
 
 
 func heart_mult() -> float:

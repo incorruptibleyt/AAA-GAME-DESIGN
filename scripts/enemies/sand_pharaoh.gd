@@ -736,7 +736,7 @@ func _bandages() -> void:
 					TombMummy.ribbon(_ribbons[caught].mesh as ImmediateMesh, _lash_root(caught, n), hero.global_position + Vector3.UP * 0.8, 0.05, _t, 0.2)
 		if not any:
 			break
-		await get_tree().process_frame
+		await frame()
 	for i in MAX_LASHES:
 		_clear_ribbon(i)
 	_held = false
@@ -900,7 +900,7 @@ func _scarabs() -> void:
 			skitter = 0.5
 			Sfx.play("scarab", 0.35, randf_range(0.9, 1.15))
 		_move_bugs(dt, source)
-		await get_tree().process_frame
+		await frame()
 	_bugs.clear()
 	_draw_bugs()
 	await _wait(0.3)
@@ -970,7 +970,7 @@ func _sunbeam() -> void:
 	while t < 1.2 and _alive():
 		t += get_process_delta_time()
 		_charge = t / 1.2
-		await get_tree().process_frame
+		await frame()
 	if not _alive():
 		_charge = 0.0
 		return
@@ -1007,7 +1007,7 @@ func _sunbeam() -> void:
 		if hum <= 0.0:
 			hum = 0.9
 			Sfx.play("beam", 0.35, randf_range(0.75, 0.85))
-		await get_tree().process_frame
+		await frame()
 	_beam_off()
 	await _wait(0.5)
 

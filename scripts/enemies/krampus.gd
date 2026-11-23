@@ -435,7 +435,7 @@ func _whirl() -> void:
 				_chain.visible = false
 				return
 			_chain.rotation.y = a0 + t / 0.45 * TAU
-			await get_tree().process_frame
+			await frame()
 			t += get_process_delta_time()
 		_chain.visible = false
 		Fx.shockwave(global_position, ICE, reach)
@@ -478,7 +478,7 @@ func _lash() -> void:
 			if not _alive():
 				return
 			face(d, 20.0, get_process_delta_time())
-			await get_tree().process_frame
+			await frame()
 			t += get_process_delta_time()
 		visual.attack()
 		Sfx.play("crack", 0.8, 0.8)
@@ -520,7 +520,7 @@ func _sack_throw() -> void:
 		var k := t / flight
 		sack.global_position = from.lerp(spot, k) + Vector3.UP * sin(k * PI) * 4.0
 		sack.rotation.x += get_process_delta_time() * 6.0
-		await get_tree().process_frame
+		await frame()
 		t += get_process_delta_time()
 	if is_instance_valid(sack):
 		sack.queue_free()
