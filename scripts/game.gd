@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23m"
+const BUILD := "2026-11-23n"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -2933,6 +2933,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_lucky_blessing = {}
 		get_tree().create_timer(3.4, false).timeout.connect(func(): hud.banner("Lucky Start: " + u.title, Upgrades.color(u)))
 	_wave_kinds.clear()
+	_wave_elites = 0
 	var mages := 0
 	var spitters := 0
 	var theme_kind := theme_enemy()
@@ -2951,7 +2952,27 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	for s in room.spawns:
 		if s.kind != "s" and s.kind != "x":
 			plain += 1
+	# Version 295 (deep review fix 3): the floor's own skeletons used to replace minions only,
+	# and 7 of the 11 hard rooms have none, so the floor's own skeleton was missing from about
+	# two rooms in three. Now every room gets each of them: a minion changes first, then a
+	# warrior, archer, mage, spitter or spider (never the boss or a bomber).
+	var swap := {}
+	var taken := {}
+	for k in theme_kind:
+		var got := -1
+		for want: String in ["m", "w", "a", "g", "t", "s"]:
+			for i in room.spawns.size():
+				if not taken.has(i) and str(room.spawns[i].kind) == want:
+					got = i
+					break
+			if got >= 0:
+				break
+		if got >= 0:
+			taken[got] = true
+			swap[got] = k
+	var spawn_i := -1
 	for s in room.spawns:
+		spawn_i += 1
 		var kind: String = s.kind
 		if first_run and (kind == "s" or kind == "x"):
 			if plain >= 2:
@@ -2968,13 +2989,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 			spitters += 1
 			if spitters > 1:
 				kind = "m"
-		# Each themed floor swaps one minion in every room for each of its own skeletons
-		# (the Glowcap Grotto has two kinds, so two minions change if the room has them).
-		if kind == "m":
-			for k in theme_kind:
-				if not _wave_kinds.has(k):
-					kind = k
-					break
+		# Each themed floor swaps one skeleton in every room for each of its own (see swap).
+		if swap.has(spawn_i):
+			kind = swap[spawn_i]
 		if kind == "K":
 			kind = boss_kind()
 		# Floor 1 is for learning: never more than one skeleton mage in a wave.
@@ -3350,13 +3367,23 @@ func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 
 ## Now and then a skeleton is a purple elite. Never in the very first room, and more
 ## often the deeper you go.
+var _wave_elites := 0   # elites rolled in the wave being spawned
+
 func _roll_elite(e: Enemy, room_index: int) -> bool:
 	if e.is_boss or e is SkeletonBomber or (floor_num == 1 and room_index == 0):
 		return false
-	var chance := minf(0.3, 0.07 + 0.05 * (strength_floor() - 1))
+	# Version 295 (deep review fix 2): it was up to 30% (27% on floor 5), so a deep wave was
+	# often half purple and an elite stopped being special. Now 5% on floor 1 up to 12%, and
+	# never more than two elites in one wave.
+	if _wave_elites >= 2 and not (curses.has("gilded") or curses.has("hunt")):
+		return false
+	var chance := minf(0.12, 0.05 + 0.0175 * (strength_floor() - 1))
 	if curses.has("gilded") or curses.has("hunt"):
 		chance *= 2.0
-	return _room_rng.randf() < minf(0.6, chance * pow(2.0, _omen("gold")))
+	var yes := _room_rng.randf() < minf(0.6, chance * pow(2.0, _omen("gold")))
+	if yes:
+		_wave_elites += 1
+	return yes
 
 
 ## Points for a kill, before the chain and curse multipliers.
@@ -3562,6 +3589,7 @@ func _next_wave() -> void:
 	hud.banner("Wave %d" % wave, Color(1, 0.55, 0.4))
 	hud.set_wave(wave, _wave_total)   # the counter agrees with the banner at once
 	Sfx.play("warn")
+	_wave_elites = 0
 	var kinds := _wave_kinds.duplicate()
 	U.shuffle(kinds, _room_rng)
 	# Later waves bring one extra skeleton (two with the Swarm rule, and one per Omen of the Horde).

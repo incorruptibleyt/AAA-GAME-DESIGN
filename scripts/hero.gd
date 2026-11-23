@@ -95,6 +95,8 @@ const TWIN_GAIN := 1.4
 var _dash_left := 0.0
 ## Version 292: thrown through the air by a Glowcap Grotto bounce cap (BounceCap): no
 ## steering, no shooting, out of reach until it lands.
+## The most of the hero's full health one hit can take (deep review fix 2).
+const HIT_CAP := 0.45
 var fling_left := 0.0
 var _fling_dur := 0.0
 var _fling_vel := Vector3.ZERO
@@ -1243,7 +1245,11 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		Sfx.play("upgrade", 0.6)
 		Game.shake(0.2)
 		return
-	if second_wind and amount * Game.damage_scale() * (1.0 - armor) >= health:
+	# Version 295 (deep review fix 2): no single hit takes more than 45% of the hero's full
+	# health. On the deep floors one bomber blast was 86 against a Mage's 80: dead from full,
+	# with nothing learned. Now it takes at least three hits to fall from full health.
+	var scaled := minf(amount * Game.damage_scale() * (1.0 - armor), max_health * HIT_CAP)
+	if second_wind and scaled >= health:
 		second_wind = false
 		Game.report_event("second_wind")
 		health = max_health * 0.5
@@ -1253,12 +1259,11 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 		Game.shake(0.4)
 		Game.hud.banner("Second Wind!", Color(1, 0.9, 0.5))
 		return
-	if Game.race and amount * Game.damage_scale() * (1.0 - armor) >= health:
+	if Game.race and scaled >= health:
 		_knock_down()
 		return
 	# Version 169 (teaching review, change 2): nobody falls in the tutorial. A hit that would
 	# end it leaves the hero on 1 health instead, so the first run always ends in a win.
-	var scaled := amount * Game.damage_scale() * (1.0 - armor)
 	if Game.first_run and Game.floor_num == 1 and scaled >= health:
 		scaled = maxf(0.0, health - 1.0)
 	var before := health

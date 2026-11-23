@@ -1,5 +1,5 @@
-Version 294: danger fixes
-- Each floor danger is explained once, the first time you meet it. After that you only get a short warning.
-- After a death, the tip names what finished you.
-- Magnets bend only your shots now, not the skeletons'.
-- Fixes: bounce caps no longer throw you back and forth, Library rooms always have rolling shelves, the Free Dive gives 3 tries, the Crystal Tyrant's pillars sink again.
+Version 295: fairer fights
+- Purple elites are rarer and never more than two in a wave.
+- No single hit can take more than about half your health.
+- The Sand Pharaoh on floor 5 has less health.
+- Each place's own skeleton now shows up in every room.

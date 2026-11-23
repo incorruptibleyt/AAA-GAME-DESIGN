@@ -78,7 +78,9 @@ var _beam_mat: ShaderMaterial
 func _setup() -> void:
 	is_boss = true
 	roar_sound = "roar_pharaoh"
-	init_health(880.0)
+	# Version 295 (deep review fix 2): 880 made it 2.5 times the floor 4 boss's health, a long
+	# slog at the end of the free game. 640 is about 1.8 times.
+	init_health(640.0)
 	drop_chance = 0.0
 	move_speed = 1.3
 	contact_damage = 16.0
