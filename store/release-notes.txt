@@ -1,4 +1,4 @@
-Version 285: mine gas in the Amethyst Mine
-- Floor 7's rooms now have cracks in the walls that breathe out clouds of green mine gas.
-- A shot through the gas lights it: the cloud flares orange, then blows up, hurting everyone in it. Shoot it when skeletons crowd in, and step out when it flares.
-- Floor 5's quicksand is still there (version 284).
+Version 286: rolling shelves in the Whispering Library
+- Floor 8's bookcases now roll across the room on brass rails. When their books rattle and the arrows light up, keep off the rails.
+- A rolling bookcase is moving cover that stops shots, and it crushes anyone it pins against the wall, skeletons too.
+- Also new: quicksand on floor 5 and mine gas on floor 7.

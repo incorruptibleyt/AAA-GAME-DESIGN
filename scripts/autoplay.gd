@@ -962,6 +962,7 @@ var _snap_told := false
 var _sand_told := false
 var _quick_told := false
 var _gas_told := false
+var _rails_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1115,6 +1116,17 @@ func _drive(delta: float) -> void:
 				if not _sand_told:
 					_sand_told = true
 					print("[autoplay] in the sand pharaoh's sand: wading out")
+	# v286: keep off the rails of a library bookcase that is about to roll or rolling.
+	if not room.door_open:
+		var rs := RollingStacks.danger_at(hero.global_position)
+		if rs:
+			var off := signf(hero.global_position.z - rs._z + 0.001)
+			if absf(hero.global_position.z + off * 1.5) > Room.HALF_L - 1.0:
+				off = -off
+			move += Vector3(0, 0, off) * 3.5
+			if not _rails_told:
+				_rails_told = true
+				print("[autoplay] library shelves rolling: stepping off the rails")
 	# v285: step out of mine gas that is about to blow up.
 	if not room.door_open:
 		var gas := MineGas.flaring(hero.global_position, hero.radius + 0.3)
