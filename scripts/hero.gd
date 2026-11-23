@@ -69,7 +69,6 @@ var mired_left := 0.0
 var _mired_said := 0.0
 ## Version 290: sliding on the Frozen Ossuary's black ice (IcePatch): the speed carried.
 var _ice_vel := Vector3.ZERO
-var _ice_said := false
 ## Version 243, Frostfall's Blizzard (blizzard.gd): how cold the hero is (0..1; slower as it
 ## rises), and the block of ice they are frozen in (held like roots; a dash breaks it).
 var cold := 0.0
@@ -674,9 +673,8 @@ func _process(delta: float) -> void:
 	var on_ice := not IcePatch.all.is_empty() and _dash_left <= 0.0 and snare_left <= 0.0 and IcePatch.under(global_position) != null
 	if on_ice:
 		# v290: on ice the stick only slowly changes the slide, and a slide carries on.
-		if not _ice_said and _ice_vel.length() > 1.0:
-			_ice_said = true
-			Game.hud.callout("BLACK ICE! YOU SLIDE!", IcePatch.ICE, true)
+		if _ice_vel.length() > 1.0:
+			Game.danger_warn("ice", "ICE!", "BLACK ICE: you slide on it and keep gliding when you let go. Skeletons slip and slow down on it.", IcePatch.ICE)
 		_ice_vel = _ice_vel.move_toward(want, (IcePatch.GRIP if _moving else IcePatch.DRAG) * delta)
 		if not _moving and _ice_vel.length() > 0.3:
 			move_by(_ice_vel * delta, delta)

@@ -103,9 +103,9 @@ func _process(delta: float) -> void:
 		Game.shake(0.25)
 		if not _said:
 			_said = true
-			Game.hud.callout("THE TIDE! GET BEHIND COVER OR DASH!", SEA, true)
+			Game.danger_warn("tide", "TIDE!", "When THE TIDE rumbles, a wave sweeps down the room. Stand right behind a pillar or crate, or dash through the wave.", SEA)
 		else:
-			Game.hud.callout("TIDE!", SEA, false)
+			Game.hud.callout_at_hero("TIDE!", SEA)
 	if _warned and randf() < delta * 14.0:
 		Fx.magic(Vector3(randf_range(-Room.HALF_W, Room.HALF_W), 0.3, -Room.HALF_L + 0.4), SEA, 3)
 	if _t >= EVERY:

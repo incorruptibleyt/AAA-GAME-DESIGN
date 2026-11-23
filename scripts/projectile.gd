@@ -256,7 +256,7 @@ func _process(delta: float) -> void:
 			var turn := dir.signed_angle_to(to.normalized(), Vector3.UP)
 			dir = dir.rotated(Vector3.UP, clampf(turn, -seek * delta, seek * delta))
 			rotation.y = atan2(-dir.x, -dir.z)
-	if ElectroMagnet.live != null:
+	if ElectroMagnet.live != null and owner_team == Actor.Team.HERO:
 		# v287: the Clockwork Foundry's magnet that is on bends every shot towards it.
 		dir = ElectroMagnet.bend(global_position, dir, delta)
 		rotation.y = atan2(-dir.x, -dir.z)

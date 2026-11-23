@@ -106,6 +106,7 @@ func _coil(pos: Vector3, side: float) -> Dictionary:
 	light.light_color = BLUE
 	light.omni_range = 4.0
 	light.light_energy = 0.0
+	light.visible = false   # a light at zero energy still costs a pass on phones
 	light.position = Vector3(0, 1.6, 0)
 	holder.add_child(light)
 	return {"pos": pos, "mat": mat, "ring": ring_mat, "light": light, "glow": glow}
@@ -133,11 +134,12 @@ func _process(delta: float) -> void:
 			var f := 0.5 + 0.5 * sin(_t * (20.0 + warn * 40.0))
 			mat.albedo_color.a = 0.25 * f
 			light.light_energy = 0.6 * f
+			light.visible = true
 			if warn <= delta:
 				Sfx.play("beam", 0.3, 0.6)
 				if not _said:
 					_said = true
-					Game.hud.callout("MAGNET! IT BENDS SHOTS AND PULLS YOU IN!", BLUE, true)
+					Game.danger_warn("magnet", "MAGNET!", "When a MAGNET hums it switches on: it pulls everyone in and bends your shots. Don't let it drag you to the coil.", BLUE)
 		if _t >= OFF:
 			_t = 0.0
 			_on = true
@@ -147,6 +149,7 @@ func _process(delta: float) -> void:
 	mat.albedo_color.a = 0.55 + 0.15 * sin(_t * 30.0)
 	(c.ring as StandardMaterial3D).albedo_color = Color(BLUE.r, BLUE.g, BLUE.b, 0.9)
 	light.light_energy = 2.2 + 0.6 * sin(_t * 23.0)
+	light.visible = true
 	if randf() < delta * 10.0:
 		Fx.sparks((c.pos as Vector3) + Vector3(randf_range(-0.4, 0.4), 0.6 + randf() * 1.2, randf_range(-0.4, 0.4)), BLUE)
 	_pull(c, delta)
@@ -165,6 +168,7 @@ func _switch_off(c: Dictionary) -> void:
 	(c.mat as StandardMaterial3D).albedo_color.a = 0.0
 	(c.ring as StandardMaterial3D).albedo_color = Color(0.1, 0.18, 0.3, 0.6)
 	(c.light as OmniLight3D).light_energy = 0.0
+	(c.light as OmniLight3D).visible = false
 
 
 ## Drags everyone towards the coil that is on; whoever reaches it is shocked.

@@ -1,4 +1,5 @@
-Version 293: the tide in the Drowned Vault
-- On floor 6 the sea breaks in: a wave rolls down the room every few seconds and carries off anyone it hits.
-- Get right behind a pillar or crate, or dash through the wave. Skeletons get swept away too.
-- Floor 4 has bounce caps, floor 3 fire seams and floor 2 black ice.
+Version 294: danger fixes
+- Each floor danger is explained once, the first time you meet it. After that you only get a short warning.
+- After a death, the tip names what finished you.
+- Magnets bend only your shots now, not the skeletons'.
+- Fixes: bounce caps no longer throw you back and forth, Library rooms always have rolling shelves, the Free Dive gives 3 tries, the Crystal Tyrant's pillars sink again.

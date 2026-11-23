@@ -46,6 +46,13 @@ static func lay(room: Room) -> void:
 			break
 		if _lane_open(room, c, lanes):
 			lanes.append(c)
+	# Review fix 1 (build 295): a room whose rows were all near a skeleton's rising place got
+	# no bookcase at all (floor 8 then had no danger). Then the lane may pass a rising place.
+	if lanes.is_empty():
+		for c in cands:
+			if _lane_open(room, c, lanes, false):
+				lanes.append(c)
+				break
 	for l in lanes:
 		var s := RollingStacks.new()
 		s.name = "RollingStacks"
@@ -53,12 +60,12 @@ static func lay(room: Room) -> void:
 		s._build(room, l)
 
 
-static func _lane_open(room: Room, z: float, lanes: Array[float]) -> bool:
+static func _lane_open(room: Room, z: float, lanes: Array[float], mind_spawns := true) -> bool:
 	for o: Dictionary in room.obstacles:
 		if absf(float(o.pos.z) - z) < float(o.r) + R + 0.5:
 			return false
 	for s: Dictionary in room.spawns:
-		if absf(float(s.pos.z) - z) < 1.1:
+		if mind_spawns and absf(float(s.pos.z) - z) < 1.1:
 			return false
 	for l in lanes:
 		if absf(l - z) < 4.0:
@@ -155,7 +162,7 @@ func _process(delta: float) -> void:
 				m.rotation.z = -PI / 2 if _dir > 0.0 else PI / 2
 			if not _said:
 				_said = true
-				Game.hud.callout("THE SHELVES ROLL! KEEP OFF THE RAILS!", GLOW, true)
+				Game.danger_warn("shelves", "SHELVES!", "When the books rattle, the bookcase rolls along its brass rails. Keep off the rails, or hide behind it from shots.", GLOW)
 		if _t >= REST:
 			_t = 0.0
 			_rolling = true

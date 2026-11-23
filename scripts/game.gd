@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23l"
+const BUILD := "2026-11-23m"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -362,6 +362,25 @@ func mark_taught(key: String) -> void:
 	write_save(cfg)
 
 
+## Review fix 1 (build 295): a floor danger is explained once ever, in a long line at the
+## bottom (saved, like the skeleton lines); after that only a one-word reminder at the hero,
+## at most once a room for each danger (no more mid-screen sentences every room, or one for
+## every plate of the Abyss).
+var _danger_said := {}
+
+func danger_warn(key: String, word: String, lesson: String, col: Color) -> void:
+	if state != State.PLAYING or _danger_said.has(key):
+		return
+	_danger_said[key] = true
+	if not taught("danger_" + key) and not race:
+		if hud.tip_busy():
+			hud.tip("", 0.0)   # this matters more than a tip already showing
+		mark_taught("danger_" + key)
+		hud.tip(lesson, 5.0)
+		print("[teach] " + lesson)
+	hud.callout_at_hero(word, col)
+
+
 func _teach(key: String, text: String, seconds := 3.5) -> bool:
 	if taught(key) or first_run or race or hud.tip_busy() or state != State.PLAYING:
 		return false
@@ -428,7 +447,10 @@ func death_tip() -> String:
 		if float(_rep.damage[k]) > most:
 			most = float(_rep.damage[k])
 			top = str(k)
-	var name := top.replace("Elite ", "")
+	# Review fix 1 (build 295): the final blow names the lesson when there is one, so a
+	# player the tide finished off on floor 6 learns about the tide, not floor 1's skeletons.
+	var final_blow := str(_rep.get("killed_by", ""))
+	var name := (final_blow if final_blow != "" and state == State.DEAD else top).replace("Elite ", "")
 	var tip := "Keep moving. A mark on the floor hits when it FILLS IN: dash out."
 	if name == "Other" or name == "":
 		return tip
@@ -488,6 +510,8 @@ func death_tip() -> String:
 		tip = "Its ring of frost can't be walked round. Dash through it, or get far away."
 	elif "King" in name or "Warrior" in name or "Minion" in name or "Skeleton" in name:
 		tip = "A circle or strip hits when it FILLS IN. Step or dash out."
+	if final_blow != "" and state == State.DEAD:
+		return "%s finished you.\n%s" % [name, tip]
 	return "%s hurt you most.\n%s" % [name, tip]
 
 
@@ -1957,6 +1981,8 @@ func _start_run() -> void:
 	_race_requested = false
 	dive = _dive_requested and not race and not first_run_pending()
 	_dive_requested = false
+	if dive:
+		_count_dive_try()
 	_dive_done = false
 	if not race and not dive:   # (a Crypt Race or the Free Dive leaves a saved run alone: CONTINUE is still there after it)
 		var held := RunSave.held()
@@ -2398,6 +2424,7 @@ func _restart() -> void:
 	_reset_run_stats()
 	if dive:
 		floor_num = DIVE_FLOOR   # the Free Dive again (the Tidecaller wasn't reached)
+		_count_dive_try()
 	record_add("runs", 1)
 	if event != "" and not Events.active():
 		event = ""   # the event ended while on the end screen: a normal run
@@ -2758,7 +2785,25 @@ func _free_end_text() -> String:
 func dive_ready(cfg: ConfigFile = null) -> bool:
 	if cfg == null:
 		cfg = _load_save()
-	return not Store.owned(cfg) and unlock_stage(cfg) >= 2 and not bool(cfg.get_value("pass", "dive_used", false))
+	return not Store.owned(cfg) and unlock_stage(cfg) >= 2 and not bool(cfg.get_value("pass", "dive_used", false)) \
+		and dive_tries_left(cfg) > 0
+
+
+## Review fix 1 (build 295): a fall before the Tidecaller used to leave the Free Dive for
+## another go, as often as you liked, and the coins from it were kept (a free floor-6 farm).
+## Now it has three tries.
+const DIVE_TRIES := 3
+
+func _count_dive_try() -> void:
+	var cfg := _load_save()
+	cfg.set_value("pass", "dive_tries", int(cfg.get_value("pass", "dive_tries", 0)) + 1)
+	write_save(cfg)
+
+
+func dive_tries_left(cfg: ConfigFile = null) -> int:
+	if cfg == null:
+		cfg = _load_save()
+	return maxi(DIVE_TRIES - int(cfg.get_value("pass", "dive_tries", 0)), 0)
 
 
 ## FREE DIVE on the Crypt Pass screen (or on the title's Pass button's card): floor 6 now.
@@ -2785,7 +2830,8 @@ func _dive_text(won: bool) -> String:
 	if won:
 		return "The Tidecaller has fallen!\nThat was the Drowned Vault, floor 6.\nThe Crypt Pass opens it for good,\nand 4 more places, each with its own boss."
 	if dive_ready():
-		return "Your Free Dive is still there:\nit counts once you reach the Tidecaller."
+		var left := dive_tries_left()
+		return "Your Free Dive is still there:\n%d %s left to reach the Tidecaller." % [left, "try" if left == 1 else "tries"]
 	return "That was your Free Dive.\nThe Crypt Pass opens the Drowned Vault\nfor good, plus 4 more places and bosses."
 
 
@@ -3000,6 +3046,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_race_goal = maxi(1, alive_enemies * _wave_total + _wave_total - 1)
 	if _omen("stalker") > 0 and alive_enemies > 0:
 		Stalker.rise_in(room, _omen("stalker"), _in_boss_room())   # v241: the Omen of the Stalker
+	_danger_said.clear()
 	if _door.get("kind", "") == "traps" and alive_enemies > 0:
 		TrapHall.lay(room)   # v242: the Trap Hall door
 	elif Floors.sandfall() and not _in_boss_room() and alive_enemies > 0:

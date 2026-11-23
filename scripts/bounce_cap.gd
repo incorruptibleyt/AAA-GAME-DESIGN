@@ -36,6 +36,7 @@ static func lay(room: Room) -> void:
 	_said = false
 	var count := 4 if randf() < 0.4 else 3
 	var placed: Array[Vector3] = []
+	var lands: Array[Vector3] = []   # where each placed cap throws to
 	for attempt in 120:
 		if placed.size() >= count:
 			break
@@ -45,6 +46,11 @@ static func lay(room: Room) -> void:
 		var ok := true
 		for q in placed:
 			if q.distance_to(p) < 2.6:
+				ok = false
+		# Review fix 1 (build 295): no cap may throw the hero onto another cap, or two caps
+		# would bounce them back and forth, out of reach and unable to shoot.
+		for l in lands:
+			if l.distance_to(p) < TRIGGER + 1.2:
 				ok = false
 		if not ok:
 			continue
@@ -59,11 +65,18 @@ static func lay(room: Room) -> void:
 				continue
 			if not _clear(room, land, 0.9) or not _clear(room, p + dir * THROW * 0.5, 0.3):
 				continue
+			var onto := false
+			for q in placed:
+				if q.distance_to(land) < TRIGGER + 1.2:
+					onto = true
+			if onto:
+				continue
 			found = true
 			break
 		if not found:
 			continue
 		placed.append(p)
+		lands.append(p + dir * THROW)
 		var c := BounceCap.new()
 		c.name = "BounceCap"
 		c.aim = dir
@@ -167,7 +180,7 @@ func _process(delta: float) -> void:
 			_spring()
 			if not _said:
 				_said = true
-				Game.hud.callout("BOUNCE CAP! IT THROWS YOU!", PINK, true)
+				Game.danger_warn("caps", "BOING!", "BOUNCE CAPS throw you where their arrows point, and you land with a stamp. A dash skims over them.", PINK)
 			h.global_position = Vector3(global_position.x, h.global_position.y, global_position.z)
 			h.fling(aim * THROW / FLY, FLY)
 			return

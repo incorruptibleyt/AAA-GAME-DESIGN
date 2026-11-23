@@ -881,7 +881,7 @@ func _pillar(spot: Vector3, source: String, pillars: Array) -> void:
 		if d.length() < 0.62 + hero.radius * 0.5:
 			Game.hit_source = source
 			hero.take_damage(PILLAR_DAMAGE, d if d.length() > 0.05 else Vector3.BACK, 4.0)
-	var s := CrystalSpire.raise(spot, source, INF, 0, 1.3)
+	var s := CrystalSpire.raise(spot, source, PRISON_WARN + PRISON_N * PRISON_STEP + 4.0, 0, 1.3)   # (review fix 1: never forever, so a cancelled prison can't seal the hero in)
 	if s:
 		pillars.append(s)
 	Fx.dust(spot, 10)

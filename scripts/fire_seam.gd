@@ -129,6 +129,7 @@ func _build() -> void:
 	_light.light_color = HOT
 	_light.omni_range = length * 0.6 + 1.5
 	_light.light_energy = 0.0
+	_light.visible = false   # a light at zero energy still costs a pass on phones
 	_light.position = Vector3(0, 0.8, 0)
 	add_child(_light)
 
@@ -159,7 +160,7 @@ func _process(delta: float) -> void:
 			Sfx.play("ignite", 0.35, 0.6)
 			if not _said:
 				_said = true
-				Game.hud.callout("FIRE SEAM! IT BURNS SHOTS AND YOU!", HOT, true)
+				Game.danger_warn("fire", "FIRE!", "When a crack glows, a WALL OF FIRE rises from it. It burns you and stops every shot. Step off, or dash through.", HOT)
 		s._show(k)
 	elif _t < CALM + WARN + BURN:
 		if not s.burning:
@@ -184,6 +185,7 @@ func _show(k: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0
 	if k < 1.0:
 		_light.light_energy = 0.9 * k * (0.7 + 0.3 * sin(t * 25.0))
+		_light.visible = _light.light_energy > 0.01
 		for i in _flames.size():
 			var f := _flames[i]
 			f.visible = i % 3 == 0 and k > 0.35
@@ -195,7 +197,8 @@ func _show(k: float) -> void:
 	var rise := clampf((k - 1.0) / 0.18, 0.0, 1.0)
 	var fall := clampf((1.0 + BURN - k) / 0.3, 0.0, 1.0)
 	var h := 2.3 * minf(rise, fall)
-	_light.light_energy = 2.6 * minf(rise, fall) + 0.3 * sin(t * 31.0)
+	_light.light_energy = maxf(2.6 * minf(rise, fall) + 0.3 * sin(t * 31.0), 0.0)
+	_light.visible = _light.light_energy > 0.01
 	for i in _flames.size():
 		var f := _flames[i]
 		f.visible = h > 0.05
@@ -212,6 +215,7 @@ func _calm() -> void:
 	warning = false
 	_mat.set_shader_parameter("heat", 0.0)
 	_light.light_energy = 0.0
+	_light.visible = false
 	for f in _flames:
 		f.visible = false
 

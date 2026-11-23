@@ -147,7 +147,7 @@ func _drag(a: Actor, pull: float, delta: float) -> void:
 		return
 	if a is Hero and not _said:
 		_said = true
-		Game.hud.callout("QUICKSAND! WALK OR DASH OUT!", SAND, true)
+		Game.danger_warn("quicksand", "QUICKSAND!", "QUICKSAND pulls you to its middle, and the middle hurts. Walk out, or dash across. Lead skeletons into it!", SAND)
 	if dist > 0.05:
 		# Strongest near the middle, so the edge is a stumble and the middle a trap.
 		var k := 0.45 + 0.55 * (1.0 - dist / RADIUS)
