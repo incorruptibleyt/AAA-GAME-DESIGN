@@ -963,6 +963,7 @@ var _sand_told := false
 var _quick_told := false
 var _gas_told := false
 var _rails_told := false
+var _magnet_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1116,6 +1117,14 @@ func _drive(delta: float) -> void:
 				if not _sand_told:
 					_sand_told = true
 					print("[autoplay] in the sand pharaoh's sand: wading out")
+	# v287: walk away from a foundry magnet that is on and close.
+	if not room.door_open:
+		var away := ElectroMagnet.near(hero.global_position)
+		if away != Vector3.ZERO:
+			move += away.normalized() * 3.0
+			if not _magnet_told:
+				_magnet_told = true
+				print("[autoplay] foundry magnet on: walking away from it")
 	# v286: keep off the rails of a library bookcase that is about to roll or rolling.
 	if not room.door_open:
 		var rs := RollingStacks.danger_at(hero.global_position)

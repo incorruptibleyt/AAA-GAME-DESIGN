@@ -1,4 +1,4 @@
-Version 286: rolling shelves in the Whispering Library
-- Floor 8's bookcases now roll across the room on brass rails. When their books rattle and the arrows light up, keep off the rails.
-- A rolling bookcase is moving cover that stops shots, and it crushes anyone it pins against the wall, skeletons too.
-- Also new: quicksand on floor 5 and mine gas on floor 7.
+Version 287: magnets in the Clockwork Foundry
+- Floor 9's rooms now have two great copper magnets that take turns switching on.
+- When one hums, it is about to pull: shots curve towards it and you are dragged in. Touch it and you are shocked, skeletons too.
+- Mine gas (floor 7) and rolling shelves (floor 8) hurt you less.

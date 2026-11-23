@@ -256,6 +256,10 @@ func _process(delta: float) -> void:
 			var turn := dir.signed_angle_to(to.normalized(), Vector3.UP)
 			dir = dir.rotated(Vector3.UP, clampf(turn, -seek * delta, seek * delta))
 			rotation.y = atan2(-dir.x, -dir.z)
+	if ElectroMagnet.live != null:
+		# v287: the Clockwork Foundry's magnet that is on bends every shot towards it.
+		dir = ElectroMagnet.bend(global_position, dir, delta)
+		rotation.y = atan2(-dir.x, -dir.z)
 	var next := global_position + dir * speed * delta
 	# Hero bolts check the whole stretch they flew this frame. The first frame starts back at
 	# the hero (bolts appear a little in front), so a skeleton pressed right up against the

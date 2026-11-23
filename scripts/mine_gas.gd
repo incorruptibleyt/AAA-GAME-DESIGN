@@ -21,7 +21,7 @@ const SWELL := 0.9          # can't be lit until it has swelled
 const DRIFT := 0.32         # m/s into the room
 const FUSE := 0.55          # the flare before the blast
 const BLAST_R := 2.1
-const DAMAGE := 11.0        # to the hero, before the floor's damage scale
+const DAMAGE := 6.0         # to the hero, before the floor's damage scale (x3.4 on floor 7: about 20)
 const FOE_SHARE := 0.45     # to skeletons: this share of their full health
 const CHAIN := 2.6          # a blast lights clouds this close
 
@@ -135,7 +135,7 @@ static func touch(p: Vector3) -> void:
 			var n: Node3D = c.node
 			if Vector2(p.x - n.global_position.x, p.z - n.global_position.z).length() < CLOUD_R * 0.9:
 				c.fuse = FUSE
-				Sfx.play("dash", 0.4, 0.6)   # a whoosh as it catches
+				Sfx.play("ignite", 0.5)   # a whoosh as it catches
 
 
 ## Whether `p` is inside a cloud that is about to blow up (for the test robot).
