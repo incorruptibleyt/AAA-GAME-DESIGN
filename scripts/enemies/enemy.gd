@@ -666,9 +666,9 @@ func _process(delta: float) -> void:
 ## Tidecaller on 11, each the very same fight. A boss met again (past the floor it is first
 ## met on in a normal run; never in an event) brings an attack of its own that it never used
 ## before (ENCORES): its first move, then one more in its shuffled bag.
-const BOSS_FIRST := {"SkeletonKing": 1, "Lich": 2, "CinderColossus": 3, "Sporemother": 4, "Tidecaller": 6, "StarEater": 10}
+const BOSS_FIRST := {"SkeletonKing": 1, "Lich": 2, "CinderColossus": 3, "Sporemother": 4, "Tidecaller": 6, "StarEater": 10, "SandPharaoh": 5}
 const ENCORES := {"SkeletonKing": "King's Leap", "Lich": "Seeking Souls", "CinderColossus": "Flame Wheel",
-	"Sporemother": "Deep Breath", "Tidecaller": "Geyser Chase", "StarEater": "Black Hole"}
+	"Sporemother": "Deep Breath", "Tidecaller": "Geyser Chase", "StarEater": "Black Hole", "SandPharaoh": "Hourglass"}
 
 
 func returning() -> bool:

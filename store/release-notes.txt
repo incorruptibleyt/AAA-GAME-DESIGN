@@ -1,4 +1,2 @@
-Version 299: the endless remix
-- Crypt Pass loop 3 and deeper (floor 11+) now go round all nine places, not floors 6-10 again.
-- Every floor there brings a second place's danger with its own: black ice with loose plates, fire seams with the tide, bounce caps with rolling shelves and more.
-- The free floors' bosses come back in the loops too.
+Version 300: boss encores begin
+- The Sand Pharaoh, back in the endless loops, has a new attack: Hourglass. Sand floods the room from the walls inwards and only three gold sun plates stay clear. Get on one before it fills!

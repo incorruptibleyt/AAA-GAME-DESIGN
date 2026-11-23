@@ -17,6 +17,9 @@ extends Enemy
 ## - Scarab Swarm: streams of scarabs pour out of it in turning spokes. Keep to the gaps.
 ## - Sunbeam (phase 2's own move): the sun over its head burns a beam along the floor that
 ##   sweeps round the room. Dash through it, or hide behind a pillar.
+## - Hourglass (version 300, its encore when it comes back in the endless loops): sand floods
+##   the whole floor from the walls inwards, leaving only three gold sun plates clear. Be on
+##   one when the flood fills, or the sand swallows you; a dash doesn't help.
 ## Below half health the sun blazes, two Tomb Mummies climb out of the sand, and it attacks
 ## faster: more bandages, more sand, more spokes.
 
@@ -584,6 +587,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	while _alive():
 		await roar_done()
 		if not _alive():
@@ -592,11 +596,14 @@ func _brain() -> void:
 		var moves := ["bandages", "sandfall", "scarabs", "sandfall"]
 		if _enraged:
 			moves.append("sunbeam")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # Hourglass (version 300)
 		match next_move(moves):
 			"bandages": await _bandages()
 			"sandfall": await _sandfall()
 			"scarabs": await _scarabs()
 			"sunbeam": await _sunbeam()
+			"encore": await _hourglass()
 		_busy = false
 		_face_to = Vector3.ZERO
 		await _wait(1.0 if _enraged else 1.5)
@@ -1045,6 +1052,192 @@ func _beam_off() -> void:
 		_shaft.visible = false
 
 
+# Hourglass -------------------------------------------------------------------------------------
+
+const GLASS_FILL := 3.0      # seconds for the sand to reach the middle
+const GLASS_FILL_MAD := 2.5
+const PLATE_R := 1.15
+const GLASS_DAMAGE := 22.0
+var _flood: MeshInstance3D
+var _plates: Array[Node3D] = []
+
+## Sand floods the floor from the walls inwards; only three gold sun plates stay clear.
+func _hourglass() -> void:
+	var hero := Game.hero
+	if hero == null:
+		return
+	_cast()
+	Sfx.play(roar_sound, 0.5, 0.9)
+	Sfx.play("sandfall", 0.8, 0.75)
+	Game.shake(0.3)
+	# Three plates within reach of the hero (one near, two further), clear of the boss.
+	var spots: Array[Vector3] = []
+	var start := randf() * TAU
+	for i in 3:
+		var best := Vector3.ZERO
+		for tries in 12:
+			var a := start + TAU * i / 3.0 + randf_range(-0.5, 0.5)
+			var r := randf_range(2.0, 3.0) if i == 0 else randf_range(3.2, 4.6)
+			var p := _in_room(hero.global_position + Vector3(cos(a) * r, 0.0, sin(a) * r), PLATE_R + 0.3)
+			var ok := p.distance_to(global_position) > 2.6
+			for q in spots:
+				ok = ok and p.distance_to(q) > PLATE_R * 2.6
+			best = p
+			if ok:
+				break
+		spots.append(best)
+	for p in spots:
+		_plates.append(_sun_plate(p))
+	var fill := GLASS_FILL_MAD if _enraged else GLASS_FILL
+	_flood = MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(Room.HALF_W * 2.0, Room.HALF_L * 2.0)
+	_flood.mesh = plane
+	var mat := ShaderMaterial.new()
+	mat.shader = _flood_shader()
+	mat.render_priority = 2
+	var arr := PackedVector3Array()
+	for p in spots:
+		arr.append(Vector3(p.x, p.z, PLATE_R))
+	mat.set_shader_parameter("spots", arr)
+	mat.set_shader_parameter("half_size", Vector2(Room.HALF_W, Room.HALF_L))
+	mat.set_shader_parameter("fill", 0.0)
+	_flood.material_override = mat
+	_flood.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_room().add_child(_flood)
+	_flood.global_position = Vector3(0, 0.05, 0)
+	Game.hud.callout("GET ON A SUN PLATE!", GOLD)
+	var t := 0.0
+	while t < fill:
+		if not _alive():
+			_end_glass()
+			return
+		var dt := get_process_delta_time()
+		t += dt
+		mat.set_shader_parameter("fill", t / fill)
+		if randf() < dt * 8.0:
+			Sfx.play("sandfall", 0.25, randf_range(0.8, 1.1))
+		await get_tree().process_frame
+	# Full: whoever is not on a plate is swallowed.
+	Game.shake(0.35)
+	Sfx.play("sandfall", 0.9, 0.6)
+	if hero and not hero.dead:
+		var safe := false
+		for p in spots:
+			var d := hero.global_position - p
+			d.y = 0.0
+			safe = safe or d.length() < PLATE_R + hero.radius * 0.4
+		if safe:
+			Fx.magic(hero.center(), GOLD, 18)
+		else:
+			Game.hit_source = kind_name()
+			hero.take_damage(GLASS_DAMAGE, Vector3.ZERO, 0.0)
+			Fx._burst(hero.global_position + Vector3.UP * 0.4, 26, Color(0.95, 0.8, 0.5, 0.8), 0.5, 3.0, 0.8, 5.0)
+	for a: Actor in Actor.all:
+		if a is Enemy and not (a as Enemy).is_boss and not a.dead:
+			Fx.dust(a.global_position, 6)
+	await _wait(0.5)
+	_end_glass()
+
+
+## The sand sinks away and the plates go out.
+func _end_glass() -> void:
+	if is_instance_valid(_flood):
+		var mat := _flood.material_override as ShaderMaterial
+		var f := _flood
+		var tw := f.create_tween()
+		tw.tween_method(func(v: float): mat.set_shader_parameter("fade", v), 1.0, 0.0, 0.5)
+		tw.tween_callback(f.queue_free)
+	_flood = null
+	for p in _plates:
+		if is_instance_valid(p):
+			var tw := p.create_tween()
+			tw.tween_property(p, "scale", Vector3(0.01, 1.0, 0.01), 0.35)
+			tw.tween_callback(p.queue_free)
+	_plates.clear()
+
+
+## A gold disc with a sun on it, raised a hair off the floor, and a ring of light around it.
+func _sun_plate(at: Vector3) -> Node3D:
+	var n := Node3D.new()
+	_room().add_child(n)
+	n.global_position = at + Vector3.UP * 0.07
+	var disc := MeshInstance3D.new()
+	var c := CylinderMesh.new()
+	c.top_radius = PLATE_R
+	c.bottom_radius = PLATE_R * 1.04
+	c.height = 0.12
+	c.radial_segments = 28
+	disc.mesh = c
+	disc.material_override = _mat("gold")
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(disc)
+	# A white-hot sun in the middle and eight rays round it, all inside the plate.
+	var sun := MeshInstance3D.new()
+	var sc := CylinderMesh.new()
+	sc.top_radius = PLATE_R * 0.34
+	sc.bottom_radius = PLATE_R * 0.34
+	sc.height = 0.04
+	sc.radial_segments = 20
+	sun.mesh = sc
+	sun.material_override = U.unlit(Color(1.0, 0.95, 0.7))
+	sun.position.y = 0.08
+	sun.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(sun)
+	var rays := Node3D.new()
+	rays.position.y = 0.08
+	n.add_child(rays)
+	for k in 8:
+		var ray := MeshInstance3D.new()
+		var b := BoxMesh.new()
+		b.size = Vector3(0.12, 0.03, PLATE_R * 0.42)
+		ray.mesh = b
+		ray.material_override = U.unlit(Color(1.0, 0.62, 0.15))
+		ray.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var a := TAU * k / 8.0
+		ray.position = Vector3(sin(a), 0.0, cos(a)) * PLATE_R * 0.62
+		ray.rotation.y = a
+		rays.add_child(ray)
+	rays.create_tween().set_loops().tween_property(rays, "rotation:y", TAU, 4.0).from(0.0)
+	n.scale = Vector3(0.01, 1.0, 0.01)
+	n.create_tween().tween_property(n, "scale", Vector3.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	Fx.magic(at + Vector3.UP * 0.4, GOLD, 14)
+	return n
+
+
+static func _flood_shader() -> Shader:
+	if not _meshes.has("flood"):
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
+uniform vec3 spots[3];
+uniform vec2 half_size;
+uniform float fill = 0.0;
+uniform float fade = 1.0;
+varying vec3 wp;
+void vertex() { wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
+void fragment() {
+	float edge = min(half_size.x - abs(wp.x), half_size.y - abs(wp.z));
+	float front = fill * half_size.x * 1.15;
+	float sand = 1.0 - smoothstep(front - 0.5, front, edge);
+	float m = 100.0;
+	for (int i = 0; i < 3; i++) { m = min(m, distance(wp.xz, spots[i].xy) - spots[i].z); }
+	sand *= smoothstep(0.0, 0.2, m);
+	float ripple = 0.5 + 0.5 * sin(edge * 5.0 - TIME * 4.0 + sin(wp.x * 1.7 + wp.z * 0.9) * 1.5);
+	vec3 col = mix(vec3(0.62, 0.45, 0.22), vec3(0.98, 0.82, 0.5), ripple * 0.7 + 0.15);
+	float lip = (1.0 - smoothstep(0.0, 0.35, abs(edge - front))) * step(0.02, fill);
+	col = mix(col, vec3(1.0, 0.93, 0.7), lip * 0.8);
+	float rim = (1.0 - smoothstep(0.0, 0.16, abs(m))) * (0.55 + 0.45 * sin(TIME * 8.0));
+	col = mix(col, vec3(1.0, 0.78, 0.3), rim);
+	ALBEDO = col;
+	ALPHA = max(sand * 0.88, rim * 0.9 * step(0.01, fill)) * fade;
+}
+"""
+		_meshes["flood"] = sh
+	return _meshes["flood"]
+
+
 # Phase 2 ---------------------------------------------------------------------------------------
 
 ## Two Tomb Mummies climb out of the sand beside it (after its roar).
@@ -1070,6 +1263,7 @@ func _clear_all() -> void:
 	if _swarm:
 		_swarm.multimesh.visible_instance_count = 0
 	_beam_off()
+	_end_glass()
 
 
 func _exit_tree() -> void:
