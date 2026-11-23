@@ -610,6 +610,10 @@ func _process(delta: float) -> void:
 				if start_room > 1 or Game.floor_num > 1:
 					Game.hud.show_title(false)
 					Game.hud.show_hud(true)
+					# v284: a jump skips Game._start_run, which takes the title's event crypt
+					# away; without this, while an event was on, every jumped-to floor was the
+					# event's crypt.
+					Floors.lobby = false
 					if Game._daily_requested:
 						Game.daily = true
 						Game._begin_daily()
@@ -956,6 +960,7 @@ var _hush_told := false
 var _flank_told := false
 var _snap_told := false
 var _sand_told := false
+var _quick_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1109,6 +1114,16 @@ func _drive(delta: float) -> void:
 				if not _sand_told:
 					_sand_told = true
 					print("[autoplay] in the sand pharaoh's sand: wading out")
+	# v284: walk straight out of a pit of quicksand (the Sandfall Tomb's own danger).
+	if not room.door_open:
+		for q in Quicksand.all:
+			if is_instance_valid(q) and q.covers(hero.global_position, hero.radius + 0.3):
+				var d: Vector3 = hero.global_position - q.global_position
+				d.y = 0
+				move += (d.normalized() if d.length() > 0.1 else Vector3.RIGHT) * 3.0
+				if not _quick_told:
+					_quick_told = true
+					print("[autoplay] in quicksand: walking out")
 	if not room.door_open and hero.dash_ready():
 		for a: Actor in Actor.all:
 			if (a is TombMummy and (a as TombMummy).holding()) or (a is SandPharaoh and (a as SandPharaoh).holding()):

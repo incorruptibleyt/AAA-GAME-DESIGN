@@ -1,4 +1,4 @@
-Version 281: the Forgemaster
-- Floor 9, the Clockwork Foundry, has its own boss: the Forgemaster, a giant smith with a furnace in its ribs and a great clock behind its head.
-- Dodge its presses in time with its clock, its saw blades that bounce off the walls and its conveyor belts of red-hot ingots.
-- Below half health it swings giant pendulums and calls its Clockwork Skeletons.
+Version 284: quicksand in the Sandfall Tomb
+- Floor 5's rooms now have pits of quicksand. The sand drags you towards the middle: walk out, or dash across.
+- Reach the middle and you sink, get hurt and are thrown out. Skeletons too: lead them across a pit and the sand takes a third of their health.
+- Fixes for the test robot.
