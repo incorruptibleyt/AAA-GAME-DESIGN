@@ -20,6 +20,10 @@ extends Enemy
 ##   climbs out of it on the far side of the room (InkDouble). It copies your every step as
 ##   in a mirror and hurts to touch, so keep off the middle of the room, and when you stand
 ##   still to fight it throws ink back at you. Break it, or it dries up after a while.
+## - Turning Page (version 302, its encore in the endless loops): the floor becomes an open
+##   book. A giant page lifts from the far half of the room and turns over onto the half you
+##   stand on, slamming down. Cross the spine to the side it lifts from; below half health it
+##   turns back again straight after.
 ## Below half health its pages blaze, two Hush Keepers step out of the stacks, and it reads
 ## harder: "THE END" in two lines, a longer story, more books.
 
@@ -533,6 +537,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	while _alive():
 		await roar_done()
 		if not _alive():
@@ -541,11 +546,14 @@ func _brain() -> void:
 		var moves := ["words", "retell", "books", "words", "retell"]
 		if _enraged:
 			moves.append("mirror")   # phase 2's own move
+		if returning():
+			moves.append("encore")   # Turning Page (version 302)
 		match next_move(moves):
 			"words": await _words()
 			"retell": await _retell()
 			"books": await _bookstorm()
 			"mirror": await _mirror_page()
+			"encore": await _turning_page()
 		_busy = false
 		_face_to = Vector3.ZERO
 		await _wait(0.9 if _enraged else 1.4)
@@ -1002,6 +1010,85 @@ func _clear_books() -> void:
 
 ## Phase 2's own move: it tears a page out of its tome and the hero's ink double climbs out of
 ## it on the far side of the room, mirrored (InkDouble).
+# Turning Page -----------------------------------------------------------------------------------
+
+const TURN_LIFT := 1.5       # seconds for the page to rise up on its spine (the warning)
+const TURN_SLAM := 0.28      # seconds to fall onto the other half
+const TURN_DAMAGE := 24.0
+var _big_page: Node3D
+
+## A giant page turns over onto the half of the room the hero stands on.
+func _turning_page() -> void:
+	var hero := Game.hero
+	if hero == null:
+		return
+	_cast()
+	Sfx.play(roar_sound, 0.5, 1.15)
+	# It lands where the hero is now: it lifts from the other half.
+	var onto := 1.0 if hero.global_position.x >= 0.0 else -1.0
+	var turns := 2 if _enraged else 1
+	var source := kind_name()
+	for i in turns:
+		if not _alive():
+			break
+		await _turn_once(onto, source)
+		onto = -onto
+		await _wait(0.35)
+	_drop_page()
+
+
+func _turn_once(onto: float, source: String) -> void:
+	var w := Room.HALF_W
+	var l := Room.HALF_L * 2.0
+	# The warning: the half it will land on.
+	track(Telegraph.line(Vector3(onto * w * 0.5, 0.0, Room.HALF_L), Vector3.FORWARD, l, w, TURN_LIFT + TURN_SLAM, func():
+		_slam(onto, source)))
+	_drop_page()
+	_big_page = Node3D.new()
+	_room().add_child(_big_page)
+	_big_page.global_position = Vector3(0, 0.06, 0)
+	var sheet := MeshInstance3D.new()
+	var pm := PlaneMesh.new()
+	pm.size = Vector2(w - 0.1, l - 0.4)
+	sheet.mesh = pm
+	sheet.material_override = _page_mat()
+	sheet.position = Vector3(-onto * w * 0.5, 0.0, 0.0)
+	sheet.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_big_page.add_child(sheet)
+	Sfx.play("flutter", 0.8, 0.7)
+	Fx.magic(Vector3(-onto * w * 0.5, 0.5, 0.0), TEAL, 24)
+	# Up onto its spine, slowly (it lifts from the hero's far side, so it never covers them)...
+	var tw := _big_page.create_tween()
+	tw.tween_property(_big_page, "rotation:z", -onto * PI * 0.45, TURN_LIFT).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	# ...then over and down.
+	tw.tween_property(_big_page, "rotation:z", -onto * PI, TURN_SLAM).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	await _wait(TURN_LIFT + TURN_SLAM + 0.05)
+
+
+func _slam(onto: float, source: String) -> void:
+	Game.shake(0.45)
+	Sfx.play("book_slam", 0.9, 0.6)
+	var w := Room.HALF_W
+	for i in 6:
+		Fx._burst(Vector3(onto * w * 0.5 + randf_range(-2, 2), 0.3, randf_range(-8, 8)), 10, Color(0.86, 0.8, 0.64, 0.9), 0.3, 3.0, 0.5, 5.0)
+	Fx.magic(Vector3(onto * w * 0.5, 0.4, 0.0), TEAL, 30)
+	Enemy.strike_strip(Vector3(onto * w * 0.5, 0.0, Room.HALF_L), Vector3.FORWARD, Room.HALF_L * 2.0, w, TURN_DAMAGE, source)
+	# Skeletons caught under it are hurt too.
+	for a: Actor in Actor.all:
+		if a is Enemy and not (a as Enemy).is_boss and not a.dead and a.global_position.x * onto > 0.0:
+			a.take_damage(a.max_health * 0.3, Vector3.UP, 0.0)
+
+
+func _drop_page() -> void:
+	if is_instance_valid(_big_page):
+		var p := _big_page
+		var tw := p.create_tween()
+		tw.tween_interval(0.3)
+		tw.tween_property(p, "scale", Vector3(1.0, 1.0, 0.01), 0.3)
+		tw.tween_callback(p.queue_free)
+	_big_page = null
+
+
 func _mirror_page() -> void:
 	var hero := Game.hero
 	if hero == null:
@@ -1078,6 +1165,7 @@ func _open_spot(side: Vector3) -> Vector3:
 
 func _clear_all() -> void:
 	_clear_books()
+	_drop_page()
 	for m in _marks:
 		if is_instance_valid(m):
 			(m as Node).queue_free()
