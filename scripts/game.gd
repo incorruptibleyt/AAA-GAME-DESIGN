@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23p"
+const BUILD := "2026-11-23q"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -446,15 +446,37 @@ func danger_warn(key: String, word: String, lesson: String, col: Color) -> void:
 		if hud.tip_busy():
 			hud.tip("", 0.0)   # this matters more than a tip already showing
 		mark_taught("danger_" + key)
+		_tip_shown()   # (a danger is never held back, but the next tip waits after it)
 		hud.tip(lesson, 5.0)
 		print("[teach] " + lesson)
 	hud.callout_at_hero(word, col)
 
 
+## Version 298 (deep review fix 6, calmer second run): a new player's second run taught
+## fifteen things in 99 seconds, five of them in one room. Now a tip waits TIP_GAP seconds of
+## play after the last one, and a room gives at most ROOM_TIPS; the rest wait for later rooms
+## (an elite keeps its name tag, a new skeleton stays in the queue, until its line is shown).
+const TIP_GAP := 8.0
+const ROOM_TIPS := 2
+var _tip_clock := 0.0      # seconds of play, for the gap between tips
+var _last_tip_at := -100.0
+var _room_tips := 0
+
+
+func _tip_room() -> bool:
+	return _tip_clock - _last_tip_at >= TIP_GAP and _room_tips < ROOM_TIPS
+
+
+func _tip_shown() -> void:
+	_last_tip_at = _tip_clock
+	_room_tips += 1
+
+
 func _teach(key: String, text: String, seconds := 3.5) -> bool:
-	if taught(key) or first_run or race or hud.tip_busy() or state != State.PLAYING:
+	if taught(key) or first_run or race or hud.tip_busy() or state != State.PLAYING or not _tip_room():
 		return false
 	mark_taught(key)
+	_tip_shown()
 	hud.tip(text, seconds)
 	print("[teach] " + text)
 	return true
@@ -498,11 +520,12 @@ func _meet(e: Enemy) -> void:
 
 
 func _meet_tick() -> void:
-	if _meet_queue.is_empty() or state != State.PLAYING or hud.tip_busy() or hud.banner_busy():
+	if _meet_queue.is_empty() or state != State.PLAYING or hud.tip_busy() or hud.banner_busy() or not _tip_room():
 		return
 	var n: String = _meet_queue.pop_front()
 	if not taught("meet_" + n):
 		mark_taught("meet_" + n)
+		_tip_shown()
 		hud.tip(MEET_LINES[n], 3.5)
 		print("[teach] " + MEET_LINES[n])
 
@@ -648,6 +671,10 @@ func _finish_first_run() -> void:
 	var cfg := _load_save()
 	cfg.set_value("stats", "first_run_done", true)
 	write_save(cfg)
+	# Version 298: the tutorial already showed archers and the star button, so the next
+	# run does not explain them again.
+	for k in ["special", "meet_SkeletonArcher"]:
+		mark_taught(k)
 
 
 ## Ends the chain. The spine shatters on screen if it had got anywhere.
@@ -1027,6 +1054,8 @@ func _process(delta: float) -> void:
 	# the splash still shows).
 	if state == State.TITLE and fmod(_state_time, 1.0) < delta and _deal_checked != _deal_key():
 		_deal_pop()
+	if state == State.PLAYING:
+		_tip_clock += delta
 	if not _meet_queue.is_empty():
 		_meet_tick()   # version 170: one new-skeleton line at a time
 	var now := Time.get_ticks_usec()
@@ -2073,6 +2102,7 @@ func _start_run() -> void:
 			_save_coins()
 		RunSave.clear()   # starting something new gives up a saved run
 	first_run = (first_run_pending() or _tutorial_requested) and not race
+	_best_floor_seen = -1
 	_tutorial_requested = false
 	_after_tutorial = false
 	_gift_names = []
@@ -3015,6 +3045,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		get_tree().create_timer(3.4, false).timeout.connect(func(): hud.banner("Lucky Start: " + u.title, Upgrades.color(u)))
 	_wave_kinds.clear()
 	_wave_elites = 0
+	_room_tips = 0
 	var mages := 0
 	var spitters := 0
 	var theme_kind := theme_enemy()
@@ -3436,9 +3467,18 @@ func spawn_enemy(kind: String, pos: Vector3) -> Enemy:
 ## often the deeper you go.
 var _wave_elites := 0   # elites rolled in the wave being spawned
 
+var _best_floor_seen := -1
+
 func _roll_elite(e: Enemy, room_index: int) -> bool:
 	if e.is_boss or e is SkeletonBomber or (floor_num == 1 and room_index == 0):
 		return false
+	# Version 298 (deep review fix 6): floor 1 has no surprise elites until the player has
+	# reached floor 3 once; a Champion's Door still brings its own.
+	if floor_num == 1 and not (curses.has("gilded") or curses.has("hunt")):
+		if _best_floor_seen < 0:
+			_best_floor_seen = int(_load_save().get_value("stats", "best_floor", 1))
+		if _best_floor_seen < 3:
+			return false
 	# Version 295 (deep review fix 2): it was up to 30% (27% on floor 5), so a deep wave was
 	# often half purple and an elite stopped being special. Now 5% on floor 1 up to 12%, and
 	# never more than two elites in one wave.

@@ -57,6 +57,8 @@ const MEND_RANGE := 5.0
 const MEND_SHARE := 0.12
 const WARD_HITS := 3
 const WARD_REGROW := 5.0
+const WARD_REGROWS := 2   # v298: then it stays broken (a slow hero was stuck on one for 10 min)
+var _ward_regrown := 0
 var _tag: Label3D
 var _furious := false
 var _mend_left := MEND_EVERY
@@ -331,6 +333,9 @@ func _elite_tick(delta: float) -> void:
 		if _bubble and _ward_hits > 0:
 			_bubble.visible = true
 		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0)
+	elif _tag and Engine.get_process_frames() % 15 == 0 and not Game.taught("elite_" + elite_move):
+		# Version 298: the line may have waited for a calmer moment (Game.TIP_GAP); try again.
+		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0)
 	if _tag:
 		_fade_tag(delta)
 	if _emblem and _emblem.visible != _emblem_shown():
@@ -347,7 +352,7 @@ func _elite_tick(delta: float) -> void:
 				_mend_left = MEND_EVERY
 				_mend()
 		"ward":
-			if _ward_hits <= 0:
+			if _ward_hits <= 0 and _ward_regrown < WARD_REGROWS:
 				_ward_left -= delta
 				if _ward_left <= 0.0:
 					_ward_up()
@@ -455,6 +460,7 @@ func _ward_block() -> void:
 
 func _ward_up() -> void:
 	var col: Color = ELITE_MOVES.ward.col
+	_ward_regrown += 1
 	_ward_hits = WARD_HITS
 	_bubble_mat.albedo_color.a = 0.24
 	Sfx.play("shimmer", 0.3, 1.2)

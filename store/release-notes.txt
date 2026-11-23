@@ -1,3 +1,5 @@
-Version 297: floors that build up
-- Each floor's danger starts gentle in the first room and grows stronger towards the end of the floor.
-- At half health, every boss from floor 2 on calls in its floor's danger: fight the Tidecaller in the tide, the Pharaoh over quicksand, and more.
+Version 298: a calmer second run
+- New players get one tip at a time: at least 8 seconds apart and no more than two in a room.
+- Archers and the star button are no longer explained twice.
+- No surprise elites on floor 1 until you have reached floor 3 once.
+- A Warded elite's bubble grows back at most twice.
