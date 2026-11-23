@@ -1,4 +1,4 @@
-Version 291: fire seams in the Ember Catacomb
-- Floor 3 now has long cracks in the floor that erupt into walls of fire. Step off when one glows, or dash through.
-- The fire burns skeletons too, and it stops every shot, yours and theirs, so use it as cover.
-- Floor 2 has black ice you slide on.
+Version 292: bounce caps in the Glowcap Grotto
+- Floor 4 now has giant springy mushrooms. Step on one and it throws you across the room the way its arrows point.
+- You land with a stamp that knocks skeletons back. Skeletons that step on one get thrown too.
+- Floor 3 has fire seams and floor 2 has black ice.

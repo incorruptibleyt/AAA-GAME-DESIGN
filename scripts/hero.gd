@@ -94,6 +94,11 @@ const DASH_COOLDOWN := 1.1
 const SNARE_GUARD := 1.5
 const TWIN_GAIN := 1.4
 var _dash_left := 0.0
+## Version 292: thrown through the air by a Glowcap Grotto bounce cap (BounceCap): no
+## steering, no shooting, out of reach until it lands.
+var fling_left := 0.0
+var _fling_dur := 0.0
+var _fling_vel := Vector3.ZERO
 var _dash_cooldown := 0.0
 ## A dash asked for just before the dash recharged (DASH_BUFFER seconds early) goes off as
 ## soon as it's ready, instead of being lost (version 140).
@@ -284,7 +289,7 @@ func place_at(pos: Vector3) -> void:
 
 
 func can_be_hit() -> bool:
-	return not dead and down_left <= 0.0 and _invulnerable <= 0.0 and _dash_left <= 0.0 and _safe_left <= 0.0 and Game.state == Game.State.PLAYING
+	return not dead and down_left <= 0.0 and _invulnerable <= 0.0 and _dash_left <= 0.0 and _safe_left <= 0.0 and fling_left <= 0.0 and Game.state == Game.State.PLAYING
 
 
 func heal(amount: float) -> void:
@@ -302,6 +307,14 @@ func dashed_recently() -> bool:
 	return Time.get_ticks_msec() - _last_dash_ms < 1500
 
 
+## Throws the hero through the air at `vel` for `dur` seconds (BounceCap).
+func fling(vel: Vector3, dur: float) -> void:
+	fling_left = dur
+	_fling_dur = dur
+	_fling_vel = vel
+	face(vel, 100.0, 1.0)
+
+
 func dash_ready() -> bool:
 	return _dash_cooldown <= 0.0
 
@@ -310,7 +323,7 @@ func dash_ready() -> bool:
 func dash(dir: Vector3) -> void:
 	dir.y = 0.0
 	# (Version 164: not before the tutorial teaches it in room 2, a flick used to dash in room 1.)
-	if dead or down_left > 0.0 or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING or not Game.dash_unlocked():
+	if dead or down_left > 0.0 or fling_left > 0.0 or dir.length_squared() < 0.01 or Game.state != Game.State.PLAYING or not Game.dash_unlocked():
 		return
 	if not dash_ready():
 		if _dash_cooldown <= DASH_BUFFER:
@@ -600,6 +613,18 @@ func _process(delta: float) -> void:
 			Fx.trail(center(), _trail_color())
 		_shot_timer = maxf(_shot_timer, 0.1)
 		_check_perfect(0.0)
+		return
+	if fling_left > 0.0:
+		# v292: flying from a bounce cap: carried along an arc, then a stamp on landing.
+		fling_left -= delta
+		move_by(_fling_vel * delta, delta)
+		visual.position.y = sin(PI * clampf(1.0 - fling_left / _fling_dur, 0.0, 1.0)) * BounceCap.HEIGHT
+		visual.set_moving(false)
+		_shot_timer = maxf(_shot_timer, 0.1)
+		if fling_left <= 0.0:
+			visual.position.y = 0.0
+			_ice_vel = Vector3.ZERO
+			BounceCap.land(self)
 		return
 	if _invulnerable > 0.0:
 		_invulnerable -= delta

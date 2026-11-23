@@ -377,6 +377,9 @@ static func run(core := false, from := 0) -> bool:
 	# Version 291: the Ember Catacomb's fire seam, burning.
 	if not core: steps.append(func():
 		FireSeam.warm(holder, spots[23] + Vector3(0, 0, 0.6)))
+	# Version 292: the Glowcap Grotto's bounce cap.
+	if not core: steps.append(func():
+		BounceCap.warm(holder, spots[24] + Vector3(0, 0, 0.6)))
 	# Version 275: the Crystal Tyrant's spires (standing and cracking), ripple and cart.
 	if not core: steps.append(func():
 		CrystalTyrant.warm(holder, spots[22] + Vector3(0, 0, 0.6)))

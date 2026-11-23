@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23j"
+const BUILD := "2026-11-23k"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3014,6 +3014,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		IcePatch.lay(room)   # v290: the Frozen Ossuary's black ice
 	elif Floors.ember() and not _in_boss_room() and alive_enemies > 0 and not first_run:
 		FireSeam.lay(room)   # v291: the Ember Catacomb's fire seams
+	elif Floors.grotto() and not _in_boss_room() and alive_enemies > 0 and not first_run:
+		BounceCap.lay(room)   # v292: the Glowcap Grotto's bounce caps
 	if dive and _in_boss_room():
 		_use_dive()
 	_checkpoint()

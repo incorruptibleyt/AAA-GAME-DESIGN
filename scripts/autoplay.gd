@@ -966,6 +966,7 @@ var _rails_told := false
 var _magnet_told := false
 var _plate_told := false
 var _seam_told := false
+var _cap_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1138,6 +1139,19 @@ func _drive(delta: float) -> void:
 			if not _seam_told:
 				_seam_told = true
 				print("[autoplay] fire seam about to burn: stepping off")
+	# v292: walk round the Glowcap Grotto's bounce caps (it is thrown when it steps on one).
+	if not room.door_open and hero.fling_left <= 0.0:
+		var cap := BounceCap.near(hero.global_position, 1.3)
+		if cap != null:
+			var d: Vector3 = hero.global_position - cap.global_position
+			d.y = 0
+			move += (d.normalized() if d.length() > 0.1 else Vector3.BACK) * 2.0
+			if not _cap_told:
+				_cap_told = true
+				print("[autoplay] bounce cap ahead: walking round it")
+	elif hero.fling_left > 0.0 and not _cap_told:
+		_cap_told = true
+		print("[autoplay] thrown by a bounce cap")
 	# v287: walk away from a foundry magnet that is on and close.
 	if not room.door_open:
 		var away := ElectroMagnet.near(hero.global_position)
