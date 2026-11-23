@@ -284,7 +284,40 @@ static func index(floor_num: int) -> int:
 	var f := maxi(floor_num, 1)
 	if f <= Store.FREE_FLOORS:
 		return FREE_ORDER[(f - 1) % FREE_ORDER.size()]
+	if f > REMIX_FROM:
+		return REMIX_ORDER[(f - REMIX_FROM - 1) % REMIX_ORDER.size()]
 	return PASS_ORDER[(f - Store.FREE_FLOORS - 1) % PASS_ORDER.size()]
+
+
+## Version 299 (deep review fix 7, the endless remix): loops 3 and on (floor 11+) were floors
+## 6-10 again, only darker. Now they go round all nine places that have a danger of their
+## own (so the free crypts and their bosses come back too, five floors a loop, so each loop
+## starts somewhere new), and each floor brings a second place's danger along with its own
+## (REMIX_PARTNER: two partners per place, taking turns by loop).
+const REMIX_FROM := 10
+const REMIX_ORDER := [1, 2, GROTTO, SANDFALL, DROWNED, MINE, LIBRARY, FOUNDRY, ABYSS]
+const REMIX_PARTNER := {
+	1: [FOUNDRY, ABYSS],          # black ice + magnets / loose plates
+	2: [MINE, DROWNED],           # fire seams + gas / the tide
+	GROTTO: [SANDFALL, LIBRARY],  # bounce caps + quicksand / rolling shelves
+	SANDFALL: [ABYSS, FOUNDRY],   # quicksand + loose plates / magnets
+	DROWNED: [1, GROTTO],         # the tide + black ice / bounce caps
+	MINE: [2, SANDFALL],          # gas + fire seams / quicksand
+	LIBRARY: [1, MINE],           # rolling shelves + black ice / gas
+	FOUNDRY: [GROTTO, 2],         # magnets + bounce caps / fire seams
+	ABYSS: [DROWNED, 1],          # loose plates + the tide / black ice
+}
+## The one word for each place's danger, for the floor's banner.
+const DANGER_WORD := {1: "Black Ice", 2: "Fire Seams", GROTTO: "Bounce Caps", SANDFALL: "Quicksand",
+	DROWNED: "The Tide", MINE: "Mine Gas", LIBRARY: "Rolling Shelves", FOUNDRY: "Magnets", ABYSS: "Loose Plates"}
+
+
+## The place whose danger joins this floor's own in the remix, or -1.
+static func remix_partner(floor_num: int) -> int:
+	if Game.event != "" or lobby or floor_num <= REMIX_FROM:
+		return -1
+	var pair: Array = REMIX_PARTNER.get(index(floor_num), [])
+	return -1 if pair.is_empty() else int(pair[Loops.loop_of(floor_num) % 2])
 
 
 static func theme(floor_num: int) -> Dictionary:

@@ -1,5 +1,4 @@
-Version 298: a calmer second run
-- New players get one tip at a time: at least 8 seconds apart and no more than two in a room.
-- Archers and the star button are no longer explained twice.
-- No surprise elites on floor 1 until you have reached floor 3 once.
-- A Warded elite's bubble grows back at most twice.
+Version 299: the endless remix
+- Crypt Pass loop 3 and deeper (floor 11+) now go round all nine places, not floors 6-10 again.
+- Every floor there brings a second place's danger with its own: black ice with loose plates, fire seams with the tide, bounce caps with rolling shelves and more.
+- The free floors' bosses come back in the loops too.

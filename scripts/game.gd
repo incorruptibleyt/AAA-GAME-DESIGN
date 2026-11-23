@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23q"
+const BUILD := "2026-11-23r"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -371,23 +371,34 @@ var _danger_said := {}
 ## The floor's own danger (hard review fix 5, versions 284-293): quicksand, mine gas, rolling
 ## shelves, magnets, loose plates, black ice, fire seams, bounce caps or the tide.
 func _lay_floor_danger(room: Room) -> void:
-	if Floors.sandfall():
+	_lay_danger_of(Floors.index(floor_num), room)
+	# Version 299: from loop 3 a second place's danger joins (not in the boss room, where the
+	# boss calls in only its own floor's).
+	var partner := Floors.remix_partner(floor_num)
+	if partner >= 0 and not _in_boss_room():
+		var before := room.get_child_count()
+		_lay_danger_of(partner, room)
+		print("[run] remix danger %s laid %d" % [Floors.DANGER_WORD[partner], room.get_child_count() - before])
+
+
+func _lay_danger_of(idx: int, room: Room) -> void:
+	if idx == Floors.SANDFALL:
 		Quicksand.lay(room)  # v284: the Sandfall Tomb's quicksand pits
-	elif Floors.index(floor_num) == Floors.MINE:
+	elif idx == Floors.MINE:
 		MineGas.lay(room)    # v285: the Amethyst Mine's firedamp
-	elif Floors.index(floor_num) == Floors.LIBRARY:
+	elif idx == Floors.LIBRARY:
 		RollingStacks.lay(room)   # v286: the Whispering Library's rolling bookcases
-	elif Floors.index(floor_num) == Floors.FOUNDRY:
+	elif idx == Floors.FOUNDRY:
 		ElectroMagnet.lay(room)   # v287: the Clockwork Foundry's magnets
-	elif Floors.index(floor_num) == Floors.ABYSS:
+	elif idx == Floors.ABYSS:
 		FallingPlates.lay(room)   # v288: the Starfall Abyss's loose plates
-	elif Floors.index(floor_num) == 1 and not first_run:
+	elif idx == 1 and not first_run:
 		IcePatch.lay(room)   # v290: the Frozen Ossuary's black ice
-	elif Floors.ember() and not first_run:
+	elif idx == 2 and event == "" and not first_run:
 		FireSeam.lay(room)   # v291: the Ember Catacomb's fire seams
-	elif Floors.grotto() and not first_run:
+	elif idx == Floors.GROTTO and not first_run:
 		BounceCap.lay(room)   # v292: the Glowcap Grotto's bounce caps
-	elif Floors.drowned():
+	elif idx == Floors.DROWNED:
 		TideSurge.lay(room)   # v293: the Drowned Vault's tide
 
 
@@ -1981,6 +1992,8 @@ func boss_kind() -> String:
 		return own
 	if Floors.ember() and not first_run:
 		return "C"
+	if floor_num > Floors.REMIX_FROM and Floors.index(floor_num) == 1:
+		return "L"   # v299: the Frozen Ossuary back in the remix brings its own Lich
 	if Floors.drowned() and not first_run:
 		return "T"
 	if Floors.grotto() and not first_run:
@@ -2787,6 +2800,13 @@ func _descend() -> void:
 	_show_gifts()
 	var loop := Loops.loop_of(floor_num)
 	hud.banner(("Loop %d · " % loop if loop > 1 else "") + "Floor %d: %s" % [floor_num, Floors.current().name], Floors.current().banner)
+	var partner := Floors.remix_partner(floor_num)
+	if partner >= 0:
+		# Version 299: the remix names the danger that has come along.
+		print("[run] remix: %s + %s" % [Floors.current().name, Floors.DANGER_WORD[partner]])
+		get_tree().create_timer(2.2, false).timeout.connect(func():
+			if state == State.PLAYING:
+				hud.callout("+ " + str(Floors.DANGER_WORD[partner]).to_upper() + "!", Color(1.0, 0.6, 0.3)))
 	if new_loop and not omens.is_empty():
 		hud.tip("LOOP %d  ·  Score x%s\nOmens: %s" % [loop, _mult_text(_score_mult), Loops.names(omens)], 4.0, 1.8)
 	await _fade(1.0, 0.0, 0.5)
