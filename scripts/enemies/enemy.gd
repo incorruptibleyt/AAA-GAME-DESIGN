@@ -926,6 +926,8 @@ func walk(dir: Vector3, delta: float, speed_scale := 1.0) -> void:
 			dir = Room.current.steer(global_position, dir, radius)
 	if _slow_left > 0.0:
 		speed_scale *= 0.55
+	if not IcePatch.all.is_empty() and IcePatch.under(global_position):
+		speed_scale *= IcePatch.FOE_SLOW   # v290: slipping on the Frozen Ossuary's ice
 	speed_scale *= Game.surge_mult()   # a Blood Moon surge (events)
 	move_by(dir * move_speed * speed_scale * delta, delta)
 	face(dir, 10.0, delta)

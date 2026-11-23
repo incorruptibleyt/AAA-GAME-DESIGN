@@ -67,6 +67,9 @@ var _hush_said := 0.0
 ## while the hero stands in it. Slower until out.
 var mired_left := 0.0
 var _mired_said := 0.0
+## Version 290: sliding on the Frozen Ossuary's black ice (IcePatch): the speed carried.
+var _ice_vel := Vector3.ZERO
+var _ice_said := false
 ## Version 243, Frostfall's Blizzard (blizzard.gd): how cold the hero is (0..1; slower as it
 ## rises), and the block of ice they are frozen in (held like roots; a dash breaks it).
 var cold := 0.0
@@ -588,6 +591,8 @@ func _process(delta: float) -> void:
 	if _dash_left > 0.0:
 		_dash_left -= delta
 		move_by(_dash_dir * DASH_SPEED * delta, delta)
+		if _dash_left <= 0.0:
+			_ice_vel = _dash_dir * move_speed * 1.3   # v290: a dash that ends on ice slides on
 		visual.set_moving(true)
 		_trail_t -= delta
 		if _trail_t <= 0.0:
@@ -638,8 +643,24 @@ func _process(delta: float) -> void:
 			face(move, 18.0, delta)
 			_moving = false
 			visual.set_moving(false)
+	var want := Vector3.ZERO
 	if _moving:
-		move_by(move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * (SandMound.SLOW if mired_left > 0.0 else 1.0) * (1.0 - Blizzard.SLOW * cold) * delta, delta)
+		want = move * move_speed * (1.3 if _spin_left > 0.0 else 1.0) * (0.6 if chill_left > 0.0 else 1.0) * (SandMound.SLOW if mired_left > 0.0 else 1.0) * (1.0 - Blizzard.SLOW * cold)
+	var on_ice := not IcePatch.all.is_empty() and _dash_left <= 0.0 and snare_left <= 0.0 and IcePatch.under(global_position) != null
+	if on_ice:
+		# v290: on ice the stick only slowly changes the slide, and a slide carries on.
+		if not _ice_said and _ice_vel.length() > 1.0:
+			_ice_said = true
+			Game.hud.callout("BLACK ICE! YOU SLIDE!", IcePatch.ICE, true)
+		_ice_vel = _ice_vel.move_toward(want, (IcePatch.GRIP if _moving else IcePatch.DRAG) * delta)
+		if not _moving and _ice_vel.length() > 0.3:
+			move_by(_ice_vel * delta, delta)
+			if randf() < delta * 12.0:
+				Fx.magic(global_position + Vector3.UP * 0.1, IcePatch.ICE, 1)
+	else:
+		_ice_vel = want
+	if _moving:
+		move_by((_ice_vel if on_ice else want) * delta, delta)
 		face(move, 18.0, delta)
 		# The reload keeps counting while you move (it used to wait), and firing resumes
 		# shortly after you stop.

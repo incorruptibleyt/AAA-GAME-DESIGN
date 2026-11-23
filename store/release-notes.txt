@@ -1,3 +1,4 @@
-Version 289: better cracks in the Starfall Abyss
-- The loose floor plates of floor 10 now show jagged, branching cracks with starlight glowing inside them, and the cracks widen and burn white as a plate gives way.
-- Every new place has its own danger: quicksand, mine gas, rolling shelves, magnets and the falling floor.
+Version 290: black ice in the Frozen Ossuary
+- Floor 2 now has sheets of black ice. On ice you slide: you turn slowly and keep gliding when you let go.
+- Skeletons slip on it and slow down, so lead them across.
+- The new places each have their own danger too: quicksand, mine gas, rolling shelves, magnets and the falling floor.

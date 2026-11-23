@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23h"
+const BUILD := "2026-11-23i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3008,6 +3008,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		ElectroMagnet.lay(room)   # v287 (hard review fix 5): the Clockwork Foundry's magnets
 	elif Floors.index(floor_num) == Floors.ABYSS and not _in_boss_room() and alive_enemies > 0:
 		FallingPlates.lay(room)   # v288 (hard review fix 5): the Starfall Abyss's loose plates
+	elif Floors.index(floor_num) == 1 and not _in_boss_room() and alive_enemies > 0 and not first_run:
+		IcePatch.lay(room)   # v290: the Frozen Ossuary's black ice
 	if dive and _in_boss_room():
 		_use_dive()
 	_checkpoint()
