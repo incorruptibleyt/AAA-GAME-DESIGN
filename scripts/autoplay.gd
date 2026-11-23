@@ -965,6 +965,7 @@ var _gas_told := false
 var _rails_told := false
 var _magnet_told := false
 var _plate_told := false
+var _seam_told := false
 
 
 func _drive(delta: float) -> void:
@@ -1129,6 +1130,14 @@ func _drive(delta: float) -> void:
 					_plate_told = true
 					print("[autoplay] abyss floor giving way: stepping off")
 				break
+	# v291: step off an Ember Catacomb fire seam that is glowing or burning.
+	if not room.door_open:
+		var off := FireSeam.away(hero.global_position)
+		if off != Vector3.ZERO:
+			move += off * 3.5
+			if not _seam_told:
+				_seam_told = true
+				print("[autoplay] fire seam about to burn: stepping off")
 	# v287: walk away from a foundry magnet that is on and close.
 	if not room.door_open:
 		var away := ElectroMagnet.near(hero.global_position)

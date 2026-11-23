@@ -1,4 +1,4 @@
-Version 290: black ice in the Frozen Ossuary
-- Floor 2 now has sheets of black ice. On ice you slide: you turn slowly and keep gliding when you let go.
-- Skeletons slip on it and slow down, so lead them across.
-- The new places each have their own danger too: quicksand, mine gas, rolling shelves, magnets and the falling floor.
+Version 291: fire seams in the Ember Catacomb
+- Floor 3 now has long cracks in the floor that erupt into walls of fire. Step off when one glows, or dash through.
+- The fire burns skeletons too, and it stops every shot, yours and theirs, so use it as cover.
+- Floor 2 has black ice you slide on.

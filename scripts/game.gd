@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23i"
+const BUILD := "2026-11-23j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -444,6 +444,8 @@ func death_tip() -> String:
 		tip = "Step off a strip before it FILLS IN."
 	elif "Spike" in name or "fire" in name or "Spore" in name:
 		tip = "Watch the floor: don't stand in traps or flames."
+	elif "Fire seam" in name:
+		tip = "When a crack in the floor glows, a wall of fire is coming. Step off it, or dash through. The fire stops shots too."
 	elif "Fall into the void" in name:
 		tip = "Cracked plates with starlight in them fall away when stood on. Keep moving, or dash over the holes."
 	elif "Magnet" in name:
@@ -3010,6 +3012,8 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		FallingPlates.lay(room)   # v288 (hard review fix 5): the Starfall Abyss's loose plates
 	elif Floors.index(floor_num) == 1 and not _in_boss_room() and alive_enemies > 0 and not first_run:
 		IcePatch.lay(room)   # v290: the Frozen Ossuary's black ice
+	elif Floors.ember() and not _in_boss_room() and alive_enemies > 0 and not first_run:
+		FireSeam.lay(room)   # v291: the Ember Catacomb's fire seams
 	if dive and _in_boss_room():
 		_use_dive()
 	_checkpoint()

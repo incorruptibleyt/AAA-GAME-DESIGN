@@ -283,6 +283,11 @@ func _process(delta: float) -> void:
 		Fx.impact(global_position, _col, radius * 3.0)
 		finish()
 		return
+	if not FireSeam.all.is_empty() and FireSeam.burns(global_position, next):
+		# v291: a wall of fire in the Ember Catacomb burns up every shot that flies into it.
+		Fx.sparks(global_position, FireSeam.HOT)
+		finish()
+		return
 	global_position = next
 	if not MineGas.all.is_empty():
 		MineGas.touch(next)   # v285: a shot through the Amethyst Mine's gas lights it
