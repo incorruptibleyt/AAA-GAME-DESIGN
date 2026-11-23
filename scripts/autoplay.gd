@@ -937,8 +937,18 @@ func _gallery_step(delta: float) -> void:
 		var kinds := ["m", "w", "a", "g", "x", "t", "f", "e"]
 		for i in kinds.size():
 			var e := Game.spawn_enemy(kinds[i], Vector3(-4.5 + (i % 4) * 3.0, 0, 1.5 + (i / 4) * 3.0))
-			if elites and i < 3:
-				e.make_elite()
+			if elites and i < 5:
+				# One of each kind of elite, signs and tags showing (version 296).
+				e.make_elite(["split", "burst", "fury", "mender", "ward"][i])
+				e.global_position = Vector3(-3.2 + i * 1.6, 0, 4.2 + (i % 2) * 0.8)
+				if e._emblem:
+					e._emblem.visible = true
+				if e._tag:
+					e._tag.visible = true
+					if e._emblem:
+						e._tag.visible = false   # the signs alone, as players see them after the first time
+				if e._bubble:
+					e._bubble.visible = true
 		if elites:
 			Game.hero.ward = 1
 		Game.spawn_enemy("K", Vector3(-3, 0, -5))

@@ -72,11 +72,12 @@ const THEMES := [
 		"cover": "wreck",
 		"props": "water", "light": [1.3, 1.7, 0.35, 0.2]},
 	# Version 128: a cave grown over with glowing mushrooms. Mossy green stone under cool
-	# green light, with pink and lime fungus glowing in the moss ("spores", room.gd), so it
-	# looks like none of the other four (and pink isn't used by hearts, coins or warnings).
-	{"name": "Glowcap Grotto", "wisp": Color(0.72, 0.9, 1.0), "floor": Color(0.68, 0.78, 0.62), "spores": Color(1.0, 0.36, 0.78, 1.0),
+	# green light, with blue and lime fungus glowing in the moss ("spores", room.gd), so it
+	# looks like none of the other four. (Version 296: the fungus was hot pink, the colour of
+	# skeleton shots and of the bounce caps, so a shot got lost in it; now blue.)
+	{"name": "Glowcap Grotto", "wisp": Color(0.72, 0.9, 1.0), "floor": Color(0.68, 0.78, 0.62), "spores": Color(0.42, 0.62, 1.0, 1.0),
 		"spores2": Color(0.72, 1.0, 0.3),
-		# Mossy green stone, dark moss in patches and along the walls, and the pink glow of
+		# Mossy green stone, dark moss in patches and along the walls, and the glow of
 		# the fungus on top: green and pink sit opposite each other, so the glow pops.
 		"grout": Color(0.03, 0.045, 0.03), "grime": Color(0.08, 0.14, 0.07), "grime_amount": 0.75,
 		"patch_tint": Color(0.8, 0.92, 0.82), "patch_rough": 0.3,

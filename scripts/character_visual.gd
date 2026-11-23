@@ -49,6 +49,15 @@ var _outlined := {}
 ## silhouette, and small pieces would cost an extra draw each for no visible line.
 const OUTLINE_PARTS := 5
 var _outline_set := {}
+## Version 296 (deep review fix 4): the hero is drawn again wherever something stands in
+## front of them (a boss, a crowd, a pillar), as a bright see-through silhouette, so the
+## player never loses their hero. It only shows where the hero is hidden (a
+## test through a stencil mark, see _with_xray).
+var xray := false
+static var _xray_mat: ShaderMaterial
+static var _xray_mark: ShaderMaterial
+const XRAY_COL := Color(0.4, 0.95, 1.0)
+var _xrayed := {}
 ## A Master aura (hero_style.gd): a brighter, slightly wider outline in the aura's colours.
 var _aura := {}
 const AURA_WIDTH := 0.0036
@@ -391,7 +400,10 @@ func enrage(col: Color) -> void:
 
 func _set_flash(on: bool) -> void:
 	if _flash_mat == null:
-		_flash_mat = U.unlit(Color.WHITE)
+		# Version 296 (deep review fix 4): the skeletons' hit flash brightens them instead of
+		# painting them solid white: a crowd hit by a volley turned into one white blob.
+		_flash_mat = U.unlit(Color(0.62, 0.58, 0.52)).duplicate() as StandardMaterial3D
+		_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		_soft_flash_mat = _flash_mat.duplicate()
 		_soft_flash_mat.albedo_color = Color(0.24, 0.22, 0.19)
 		_soft_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
@@ -410,9 +422,51 @@ func _set_flash(on: bool) -> void:
 	var lined: Material = _with_outline(mat) if outline_me and outlines and not _dead else mat
 	if _outline_set.is_empty():
 		_pick_outline_meshes()
+	var seen: Material = _with_xray(lined) if xray and not _dead else lined
 	for m in _meshes:
 		if is_instance_valid(m):
-			m.material_overlay = lined if _outline_set.has(m) else mat
+			m.material_overlay = seen if _outline_set.has(m) else mat
+
+
+## `inner` with the see-through silhouette (see xray). Two passes head the chain: the first
+## marks every pixel where the hero can be seen (a stencil mark, drawing nothing), the second
+## draws the silhouette with no depth test, but only on unmarked pixels: so it shows where
+## something hides the hero, and never over the hero's own visible body.
+func _with_xray(inner: Material) -> Material:
+	if _xray_mat == null:
+		var mark := Shader.new()
+		mark.code = """
+shader_type spatial;
+render_mode unshaded, depth_draw_never, cull_back, shadows_disabled;
+stencil_mode write, compare_always, 2;
+void fragment() { ALBEDO = vec3(0.0); ALPHA = 0.0; }
+"""
+		_xray_mark = ShaderMaterial.new()
+		_xray_mark.shader = mark
+		_xray_mark.render_priority = 9
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode unshaded, depth_test_disabled, depth_draw_never, cull_back, shadows_disabled;
+stencil_mode read, compare_not_equal, 2;
+uniform vec4 col : source_color = vec4(0.4, 0.95, 1.0, 1.0);
+void fragment() {
+	float rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	ALBEDO = mix(col.rgb * 0.55, vec3(0.9, 1.0, 1.0), pow(rim, 2.0));
+	ALPHA = clamp(0.38 + pow(rim, 1.5) * 0.6, 0.0, 0.92);
+}
+"""
+		_xray_mat = ShaderMaterial.new()
+		_xray_mat.shader = sh
+		_xray_mat.render_priority = 10
+	if _xrayed.has(inner):
+		return _xrayed[inner]
+	var head := _xray_mark.duplicate() as ShaderMaterial
+	var ghost := _xray_mat.duplicate() as ShaderMaterial
+	head.next_pass = ghost
+	ghost.next_pass = inner   # the flash and outline follow unchanged
+	_xrayed[inner] = head
+	return head
 
 
 func _pick_outline_meshes() -> void:

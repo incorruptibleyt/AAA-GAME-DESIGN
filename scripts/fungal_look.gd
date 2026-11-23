@@ -101,10 +101,12 @@ static func _own(color: Color, roughness: float, glow: Color, energy: float) -> 
 ## of each to prepare.
 static func cap_materials() -> Array:
 	if _cap_mats.is_empty():
-		_cap_mats["top"] = _own(Color(0.95, 0.32, 0.7), 0.45, Color(1.0, 0.3, 0.72), 0.75)
-		_cap_mats["gills"] = _own(Color(0.42, 0.2, 0.44), 0.8, Color(0.7, 0.25, 0.6), 0.45)
+		# Version 296 (deep review fix 4): blue caps, not hot pink: pink is the colour of the
+		# skeletons' shots and of the bounce caps, and a shot was lost among the mushrooms.
+		_cap_mats["top"] = _own(Color(0.32, 0.52, 1.0), 0.45, Color(0.3, 0.55, 1.0), 0.75)
+		_cap_mats["gills"] = _own(Color(0.18, 0.22, 0.48), 0.8, Color(0.25, 0.35, 0.8), 0.45)
 		_cap_mats["spot"] = _own(Color(0.82, 1.0, 0.45), 0.5, Color(0.72, 1.0, 0.3), 1.8)
-		_cap_mats["stem"] = _own(Color(0.9, 0.86, 0.78), 0.75, Color(1.0, 0.8, 0.95), 0.08)
+		_cap_mats["stem"] = _own(Color(0.9, 0.86, 0.78), 0.75, Color(0.8, 0.9, 1.0), 0.08)
 	return [_cap_mats["top"], _cap_mats["gills"], _cap_mats["spot"], _cap_mats["stem"]]
 
 

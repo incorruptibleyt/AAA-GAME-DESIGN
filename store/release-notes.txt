@@ -1,5 +1,5 @@
-Version 295: fairer fights
-- Purple elites are rarer and never more than two in a wave.
-- No single hit can take more than about half your health.
-- The Sand Pharaoh on floor 5 has less health.
-- Each place's own skeleton now shows up in every room.
+Version 296: see the fight better
+- Your hero now shows through bosses, crowds and pillars, so you never lose them.
+- In boss fights the camera keeps the boss below the top bar.
+- Each kind of elite has its own sign over its head.
+- Clearer dangers: brighter ice edges and gas clouds, and blue mushrooms in the Grotto so pink skeleton shots stand out.

@@ -67,7 +67,9 @@ func _dress() -> void:
 		var hand := BoneAttachment3D.new()
 		skel.add_child(hand)
 		hand.bone_name = "handslot.r"
-		var glow := U.unlit(Color(0.55, 1.0, 0.95, 0.85), U.soft_circle(), true).duplicate()
+		# Version 296 (deep review fix 4): a warm amber lantern, not a pale sea-green light: a
+		# teal boss on the teal Drowned Vault floor was hard to pick out.
+		var glow := U.unlit(Color(1.0, 0.62, 0.2, 0.9), U.soft_circle(), true).duplicate()
 		glow.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		_staff_glow = MeshInstance3D.new()
 		var q := QuadMesh.new()
@@ -77,6 +79,8 @@ func _dress() -> void:
 		_staff_glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		hand.add_child(_staff_glow)
 		_staff_glow.position = Vector3(0, 1.2, 0)
+		var core := U.sphere(hand, 0.16, U.unlit(Color(1.0, 0.78, 0.4)), Vector3(0, 1.2, 0))
+		core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
 func display_name() -> String:

@@ -501,8 +501,8 @@ static func _scatter_piece(parts: Array, kind: String, p: Vector3, yaw: Basis, r
 static func _cap_mat(pink: bool) -> Material:
 	var key := "cap_pink" if pink else "cap_lime"
 	if not _baked.has(key):
-		var col := Color(0.85, 0.42, 0.66) if pink else Color(0.6, 0.78, 0.35)
-		_baked[key] = U.mat(col.lerp(Color(0.45, 0.4, 0.4), 0.45), 0.7)   # dull, unlit: glowing pink means spores
+		var col := Color(0.45, 0.58, 0.9) if pink else Color(0.6, 0.78, 0.35)   # v296: blue, was pink
+		_baked[key] = U.mat(col.lerp(Color(0.45, 0.4, 0.4), 0.45), 0.7)   # dull, unlit: a glow means spores
 	return _baked[key]
 
 
@@ -844,9 +844,9 @@ static func _shelf_fungus() -> ArrayMesh:
 	return _baked["shelf"]
 
 
-## The soft pink light a clump of glowcaps throws on the floor around it (no real light:
-## lights cost a lot on phones).
-static func _glow_pool(n: Node3D, size: float, color := Color(1.0, 0.4, 0.82, 0.32)) -> void:
+## The soft blue light a clump of glowcaps throws on the floor around it (no real light:
+## lights cost a lot on phones). (Pink before version 296.)
+static func _glow_pool(n: Node3D, size: float, color := Color(0.4, 0.6, 1.0, 0.32)) -> void:
 	var key := "glow_pool " + color.to_html()
 	if not _baked.has(key):
 		var m := U.unlit(color, U.soft_circle()).duplicate()

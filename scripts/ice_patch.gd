@@ -110,6 +110,12 @@ void fragment() {
 	vec3 col = mix(vec3(0.05, 0.1, 0.17), vec3(0.55, 0.7, 0.85), rim * 0.75);
 	col += vec3(0.7, 0.85, 1.0) * (crack + bubble) * (1.0 - rim) * 0.6;
 	col += vec3(1.0) * sheen;
+	// Version 296 (deep review fix 4): a bright frost line round the edge and glints that wink
+	// on and off, so it reads as ice to stay off, not a dark rug on a dark floor.
+	float edge = smoothstep(0.8, 0.88, r) * inside;
+	float glint = step(0.993, hash(floor(q * 18.0) + floor(TIME * 2.5))) * (1.0 - rim);
+	col = mix(col, vec3(0.9, 0.97, 1.0), edge * 0.85);
+	EMISSION = vec3(0.55, 0.8, 1.0) * (edge * 0.7 + glint * 1.6);
 	ALBEDO = col;
 	ROUGHNESS = 0.08;
 	METALLIC = 0.0;

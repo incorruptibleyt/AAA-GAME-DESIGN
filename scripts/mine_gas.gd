@@ -205,7 +205,8 @@ func _process(delta: float) -> void:
 		var pm: StandardMaterial3D = c.puff
 		pm.albedo_color = Color(col.r, col.g, col.b, (0.5 + 0.35 * flare) * k * fade)
 		var rm: StandardMaterial3D = c.rim
-		rm.albedo_color = Color(0.12 + 0.6 * flare, 0.2 + 0.1 * flare, 0.04, 0.75 * k * fade)
+		# Version 296: a bright yellow-green rim (it was dark and read as floor decoration).
+		rm.albedo_color = Color(0.6 + 0.4 * flare, 0.85 - 0.3 * flare, 0.12, 0.85 * k * fade)
 		var puffs: Array = c.puffs
 		for j in puffs.size():
 			var p: MeshInstance3D = puffs[j]

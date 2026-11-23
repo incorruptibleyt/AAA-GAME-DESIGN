@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-23n"
+const BUILD := "2026-11-23o"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1551,6 +1551,17 @@ func _room_focus() -> Vector3:
 	# stays below the top 22% of the screen, even if a strip past the far wall shows.
 	var a_min := p - atan((0.5 - TOP_SAFE) * 2.0 * tan(half_v))
 	z = minf(z, hero.global_position.z - (d * cos(p) - d * sin(p) / tan(a_min)))
+	# Version 296 (deep review fix 4): in a boss fight the camera also leans towards the boss,
+	# so its body stays below the top bar (it stood under the score and its own health bar),
+	# as long as the hero stays above the bottom 26% of the screen (DASH and the special).
+	var far_boss := INF
+	for b in _bosses:
+		if is_instance_valid(b) and not b.dead:
+			far_boss = minf(far_boss, b.global_position.z - 2.0)   # its head and shoulders too
+	if far_boss != INF and not _intro_focus:
+		var a_bot := p + atan((0.74 - 0.5) * 2.0 * tan(half_v))
+		var keep_hero := hero.global_position.z - (d * cos(p) - d * sin(p) / tan(a_bot))
+		z = maxf(minf(z, far_boss - (d * cos(p) - d * sin(p) / tan(a_min))), minf(z, keep_hero))
 	var x_room := maxf(0.0, Room.HALF_W + 0.6 - VIEW_HALF_WIDTH)
 	# Version 219 (review 4 fix 20): the wall clamp used the width seen at the middle of the
 	# screen, but rows nearer the camera see less, so a hero in a near corner sat half off the

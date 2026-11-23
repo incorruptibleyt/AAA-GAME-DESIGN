@@ -62,6 +62,7 @@ func make_visual(look: Dictionary) -> CharacterVisual:
 	# Version 213 (hardest review fix #10): a hit hero glows red for a moment instead of
 	# turning solid white, so the player never loses sight of them in a busy fight.
 	visual.hero_flash = team == Team.HERO
+	visual.xray = self is Hero   # version 296: seen through whatever hides them
 	add_child(visual)
 	visual.build(look)
 	if team == Team.UNDEAD:
