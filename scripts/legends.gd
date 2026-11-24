@@ -19,21 +19,21 @@ const GOLD := Color(1.0, 0.8, 0.3)
 const LIST := [
 	{"id": "wisp", "slot": "pet", "name": "Lantern Wisp", "price": 25000, "ready": true,
 		"text": "A little ghost with a swinging lantern. Its warm light follows you."},
-	{"id": "ember_steps", "slot": "steps", "name": "Ember Steps", "price": 40000, "ready": false,
+	{"id": "ember_steps", "slot": "steps", "name": "Ember Steps", "price": 40000, "ready": true,
 		"text": "Every step burns into the floor and smoulders away."},
 	{"id": "raven", "slot": "pet", "name": "Crypt Raven", "price": 60000, "ready": true,
 		"text": "A black raven with a bird-skull head. It circles you in a fight and rests on your shoulder."},
-	{"id": "bone_wings", "slot": "wings", "name": "Bone Wings", "price": 80000, "ready": false,
+	{"id": "bone_wings", "slot": "wings", "name": "Bone Wings", "price": 80000, "ready": true,
 		"text": "Skeleton wings with torn dusk skin. They spread when you dash."},
 	{"id": "gold_rush", "slot": "finisher", "name": "Gold Rush", "price": 100000, "ready": false,
 		"text": "Every skeleton you fell bursts into a fountain of gold coins."},
-	{"id": "star_steps", "slot": "steps", "name": "Stardust Steps", "price": 120000, "ready": false,
+	{"id": "star_steps", "slot": "steps", "name": "Stardust Steps", "price": 120000, "ready": true,
 		"text": "Each step leaves a little constellation that twinkles away."},
 	{"id": "mimic", "slot": "pet", "name": "Mimic", "price": 150000, "ready": true,
 		"text": "A treasure chest with fangs. It hops after you and snaps at skeletons."},
 	{"id": "soul_harvest", "slot": "finisher", "name": "Soul Harvest", "price": 200000, "ready": false,
 		"text": "A ghost rises from every skeleton you fell and flies into you."},
-	{"id": "phoenix", "slot": "wings", "name": "Phoenix Wings", "price": 250000, "ready": false,
+	{"id": "phoenix", "slot": "wings", "name": "Phoenix Wings", "price": 250000, "ready": true,
 		"text": "Wings of burning feathers. A dash leaves a firebird behind."},
 	{"id": "wyrm", "slot": "pet", "name": "Bone Wyrm", "price": 400000, "ready": false,
 		"text": "A tiny skeleton dragon on your shoulder that breathes violet fire at bosses."},
@@ -103,12 +103,28 @@ static func price_text(id: String) -> String:
 
 # ---------------------------------------------------------------- on the hero
 
-## Adds the worn legends to a hero's model (CharacterVisual._dress_model): the pet beside them.
+## Adds the worn legends to a hero's model (CharacterVisual._dress_model): the pet beside them,
+## wings on their back, footsteps behind them, and on a pedestal the finisher played beside
+## them (in a run Game.on_enemy_died plays it: LegendFinish).
 ## `legend` is {slot: id} (HeroStyle.dressed puts it in the style as "legend").
-static func dress(visual: Node3D, _model: Node3D, legend: Dictionary) -> void:
+static func dress(visual: Node3D, model: Node3D, legend: Dictionary) -> void:
 	var pet := str(legend.get("pet", ""))
 	if pet != "":
 		var p := LegendPet.new()
 		p.kind = pet
 		p.name = "LegendPet"
 		visual.add_child(p)
+	var wings := str(legend.get("wings", ""))
+	if wings != "":
+		LegendWings.make(visual, model, wings)   # version 313
+	var finisher := str(legend.get("finisher", ""))
+	if finisher != "" and visual.get_viewport() is SubViewport:
+		var show := LegendFinish.Show.new()   # version 314: on a pedestal, played over and over
+		show.kind = finisher
+		visual.add_child(show)
+	var steps := str(legend.get("steps", ""))
+	if steps != "":
+		var st := LegendSteps.new()   # version 313
+		st.kind = steps
+		st.name = "LegendSteps"
+		visual.add_child(st)

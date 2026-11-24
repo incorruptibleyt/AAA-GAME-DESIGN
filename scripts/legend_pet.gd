@@ -572,6 +572,14 @@ class Icon extends Control:
 				_raven()
 			"mimic":
 				_mimic()
+			"bone_wings":
+				_bone_wings()
+			"phoenix":
+				_phoenix()
+			"ember_steps":
+				_steps(false)
+			"star_steps":
+				_steps(true)
 
 	func _glow(p: Vector2, r: float, col: Color) -> void:
 		for i in 5:
@@ -650,6 +658,74 @@ class Icon extends Control:
 			var x := -30.0 + i * 13.0
 			draw_colored_polygon(PackedVector2Array([Vector2(x, 4), Vector2(x + 8, 4), Vector2(x + 4, -5)]), Color(0.97, 0.95, 0.86))
 		_ellipse(Vector2(8, 16 + sin(_t * 4.0) * 2.0), 7, 12, Color(0.92, 0.32, 0.42))
+
+	func _bone_wings() -> void:
+		var f := sin(_t * 1.8) * 3.0
+		var bone := Color(0.93, 0.9, 0.82)
+		var skin := Color(0.4, 0.16, 0.52)
+		for s in [-1.0, 1.0]:
+			var sh := Vector2(4 * s, -4)
+			var el := Vector2(20 * s, -16 + f)
+			var wr := Vector2(36 * s, -22 + f)
+			var tips := [Vector2(50 * s, -26 + f), Vector2(50 * s, -6 + f), Vector2(42 * s, 12 + f), Vector2(26 * s, 22 + f)]
+			var poly := PackedVector2Array([sh, el, wr])
+			for i in tips.size():
+				poly.append(tips[i])
+				var nxt: Vector2 = tips[i + 1] if i + 1 < tips.size() else Vector2(6 * s, 18)
+				poly.append(((tips[i] + nxt) * 0.5).lerp(wr, 0.3))
+			poly.append(Vector2(6 * s, 18))
+			draw_colored_polygon(poly, skin)
+			draw_line(sh, el, bone, 4.0)
+			draw_line(el, wr, bone, 3.5)
+			for tp: Vector2 in tips:
+				draw_line(wr, tp, bone, 2.2)
+			draw_circle(el, 3.5, bone)
+			draw_circle(wr, 4.0, bone)
+		draw_circle(Vector2(0, -2), 5, Color(0.25, 0.2, 0.3))
+
+	func _phoenix() -> void:
+		var f := sin(_t * 2.0) * 3.0
+		_glow(Vector2(0, 0), 52, Color(1.0, 0.5, 0.15, 0.7))
+		for s in [-1.0, 1.0]:
+			for i in 6:
+				var k := i / 5.0
+				var root := Vector2((4 + 26 * k) * s, -8 - 6 * k + f * k)
+				var ang := lerpf(1.9, 0.2, k)
+				var d := Vector2(cos(ang) * s, -sin(ang) + 0.6)
+				var tip := root + d.normalized() * lerpf(26, 36, k)
+				var n := Vector2(-d.y, d.x).normalized() * 4.5
+				draw_colored_polygon(PackedVector2Array([root - n, tip, root + n]), Color(1.0, 0.45, 0.1))
+				draw_colored_polygon(PackedVector2Array([root.lerp(tip, 0.65) - n * 0.6, tip, root.lerp(tip, 0.65) + n * 0.6]), Color(0.9, 0.15, 0.05))
+			draw_line(Vector2(4 * s, -8), Vector2(30 * s, -14 + f), Color(1.0, 0.85, 0.4), 4.0)
+		for i in 5:
+			var p := Vector2(sin(_t * 1.3 + i * 2.1) * 30, 30 - fmod(_t * 18.0 + i * 13.0, 60.0))
+			draw_circle(p, 2.0, Color(1.0, 0.8, 0.3, 0.8))
+
+	func _steps(stars: bool) -> void:
+		for j in 2:
+			var s := -1.0 if j == 0 else 1.0
+			var c := Vector2(14 * s, 14 if j == 0 else -16)
+			var age := fmod(_t * 0.7 + j * 0.5, 1.0)
+			if stars:
+				var pts := [c + Vector2(0, 16), c + Vector2(1, 3), c + Vector2(-1, -8), c + Vector2(-5, -18), c + Vector2(5, -17)]
+				var a := 1.0 - age * 0.6
+				for pr in [[0, 1], [1, 2], [2, 3], [2, 4]]:
+					draw_line(pts[pr[0]], pts[pr[1]], Color(0.7, 0.85, 1.0, 0.45 * a), 1.5)
+				for i in pts.size():
+					var tw := 0.6 + 0.4 * sin(_t * 6.0 + i * 1.9 + j)
+					_glow(pts[i], 10, Color(0.75, 0.85, 1.0, 0.7 * a * tw))
+					draw_circle(pts[i], 2.4, Color(1, 1, 1, a))
+			else:
+				var fire := 1.0 - age
+				_ellipse(c + Vector2(0, 6), 9, 13, Color(0.12, 0.06, 0.03))
+				for i in 5:
+					draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 2.6, Color(0.12, 0.06, 0.03))
+				var hot := Color(1.0, 0.5 + 0.2 * fire, 0.1, 0.35 + 0.65 * fire)
+				_glow(c + Vector2(0, 2), 22, Color(1.0, 0.45, 0.1, 0.6 * fire))
+				_ellipse(c + Vector2(0, 6), 6.5, 10, hot)
+				for i in 5:
+					draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 1.6, hot)
+				draw_circle(c + Vector2(sin(_t * 3.0 + j) * 3, -4 - age * 26), 1.8, Color(1, 0.75, 0.3, fire))
 
 	## A dark shape of the look's kind, for the looks still to come.
 	func _shadow() -> void:

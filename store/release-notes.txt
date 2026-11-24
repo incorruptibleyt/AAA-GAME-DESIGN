@@ -1,5 +1,4 @@
-Version 312: the Legend Vault
-- A new LEGENDS tab in the Armory: 12 legendary looks for every hero, from 25,000 to 1,000,000 coins.
-- First 3 pets: the Lantern Wisp, the Crypt Raven (circles you in a fight) and the Mimic (snaps at skeletons).
-- More legends are coming: wings, footsteps, finishers and two grand sets.
-- Today's Goals: 3 new goals every day in REWARDS, and the Today Chest.
+Version 313: Legend Vault wings and footsteps
+- Bone Wings and Phoenix Wings: they spread when you dash, and Phoenix Wings leave a firebird behind.
+- Ember Steps burn footprints into the floor. Stardust Steps leave little constellations.
+- The Legend Vault (Armory, LEGENDS tab): 12 legendary looks for every hero, from 25,000 to 1,000,000 coins. 7 are out now.
