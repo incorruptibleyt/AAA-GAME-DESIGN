@@ -8,7 +8,11 @@ extends Node3D
 ##                scorch fades after it. Version 326: each step cracks the floor, glowing
 ##                cracks of magma that split out from the print and cool with it; embers puff
 ##                up from every step and trail off the hero's boots; the steps are drawn
-##                bigger in a run, and a dash leaves a line of fire.
+##                bigger in a run, and a dash leaves a line of fire. Version 331: the print
+##                is a boot's sole with tread (the bare foot's toes read as orange beads), it
+##                burns orange to red under a charred rim rather than white, the cracks are
+##                thick veins of molten rock with charred edges and side branches (thin
+##                white-gold lines read as lightning), and smoke curls up off each step.
 ##   star_steps:  Stardust Steps (version 322: it was five faint sparkles per step). Each step
 ##                drops a fat five-pointed star onto the floor (a white heart, a coloured
 ##                rim, a dark outline) that pops in with a flash of light and a ring of
@@ -120,10 +124,15 @@ func _put(at: Vector3, yaw: float) -> void:
 		n.position.y = 0.16
 		if n.has_node("Heat"):
 			n.get_node("Heat").visible = false
+		if n.has_node("Crack"):
+			# (tipped up, long cracks stood up in the air like squiggles: keep them by the print)
+			(n.get_node("Crack") as Node3D).scale = Vector3.ONE * 0.62
 	elif kind == "ember_steps":
 		n.scale = Vector3.ONE * (EMBER_DASH if _dashing else EMBER_RUN)
 		# Embers puff up off the step (it is the world's burst pool: only in a run).
 		Fx._burst(at + Vector3(0, 0.15, 0), 7 if _dashing else 5, Color(1.0, 0.55, 0.15), 0.16, 1.6, 0.9, -0.15, true, "glow")
+		# (version 331: and a curl of dark smoke rises off it)
+		Fx._burst(at + Vector3(0, 0.25, 0), 3, Color(0.13, 0.1, 0.09, 0.5), 0.55, 0.5, 1.3, -0.12, true, "soft")
 	n.visible = true
 	m.age = 0.0
 	m.seed = randf() * TAU
@@ -173,7 +182,7 @@ func _make_mark() -> Dictionary:
 	char_mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	char_mat.albedo_color = Color(0.08, 0.04, 0.02, 0.75)
 	char_mat.albedo_texture = footprint()
-	U.floor_quad(n, Vector2(0.3, 0.46), char_mat, Vector3.ZERO)
+	U.floor_quad(n, Vector2(0.36, 0.55), char_mat, Vector3.ZERO)   # (a little bigger: a charred rim)
 	var haze_mat := _flat_mat(Color(1.0, 0.36, 0.06), null)
 	var hot := U.floor_quad(n, Vector2(0.6, 0.85), haze_mat, Vector3(0, 0.002, 0))
 	hot.name = "Heat"
@@ -189,7 +198,8 @@ func _make_mark() -> Dictionary:
 		f.position = at
 		n.add_child(f)
 	var crack_mat := _ember_crack_mat()
-	U.floor_quad(n, Vector2(1.1, 1.1), crack_mat, Vector3(0, 0.003, 0))
+	var cq := U.floor_quad(n, Vector2(1.1, 1.1), crack_mat, Vector3(0, 0.003, 0))
+	cq.name = "Crack"
 	m.scorch = char_mat
 	m.glow = glow_mat
 	m.flame = flame_mat
@@ -450,13 +460,15 @@ static var _crack_shader: Shader
 
 ## Version 326: glowing cracks that split the floor out from a burning step: six jagged lines
 ## from the print's edge, thick at the root and thin at the tip, that run out as the foot
-## lands (`grow` 0 to 1) and cool from white-gold through orange to dull red (`heat` 1 to 0).
+## lands (`grow` 0 to 1) and cool through orange to dull red (`heat` 1 to 0). Version 331:
+## veins of molten rock with charred edges and a branch off each (painted over the floor,
+## not added to it: thin added lines of white-gold read as lightning).
 static func _ember_crack_mat() -> ShaderMaterial:
 	if _crack_shader == null:
 		_crack_shader = Shader.new()
 		_crack_shader.code = """
 shader_type spatial;
-render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+render_mode unshaded, depth_draw_never, cull_disabled, shadows_disabled;
 uniform float heat = 0.0;
 uniform float grow = 1.0;
 uniform float seed = 0.0;
@@ -467,32 +479,57 @@ void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
 	float r = length(p);
 	float a = atan(p.y, p.x);
-	float on = 0.0;
-	float reach = 1.0;
+	float best = 9.0;   // how far from the nearest crack, in its own widths
+	float reach = 1.0;  // how far out along it (0 at the print, 1 at its tip)
 	for (int i = 0; i < 6; i++) {
 		float fi = float(i);
 		float ca = fi / 6.0 * 6.2832 + (h1(fi) - 0.5) * 0.8;
 		float len = 0.5 + 0.45 * h1(fi + 7.0);
-		float jag = sin(r * 23.0 + fi * 3.1 + seed) * 0.13 + sin(r * 51.0 + fi * 1.7) * 0.05;
+		// (sharp kinks, not waves: a wavy line reads as a worm)
+		float kr = r * 9.0;
+		float jag = (mix(h1(floor(kr) + fi * 11.0), h1(floor(kr) + 1.0 + fi * 11.0), fract(kr)) - 0.5) * 0.3;
 		float da = abs(mod(a - ca - jag + 3.1416, 6.2832) - 3.1416);
-		float d = da * r;
 		float k = clamp(r / len, 0.0, 1.0);
-		float w = mix(0.065, 0.014, k);
-		float c = (1.0 - smoothstep(w * 0.45, w, d)) * step(r, len * grow);
-		if (c > on) {
-			on = c;
+		float q = da * r / mix(0.085, 0.02, k);
+		if (r > len * grow) {
+			q = 9.0;
+		}
+		if (q < best) {
+			best = q;
 			reach = k;
 		}
+		// A branch splitting off it partway out.
+		float sgn = h1(fi + 3.0) > 0.5 ? 1.0 : -1.0;
+		vec2 b0 = vec2(cos(ca), sin(ca)) * len * 0.45;
+		vec2 bd = vec2(cos(ca + sgn * 0.75), sin(ca + sgn * 0.75));
+		float bl = len * 0.4;
+		float t = clamp(dot(p - b0, bd), 0.0, bl);
+		vec2 off = p - b0 - bd * t;
+		float bk = t * 22.0;
+		float bj = (mix(h1(floor(bk) + fi * 5.0 + 40.0), h1(floor(bk) + fi * 5.0 + 41.0), fract(bk)) - 0.5) * 0.03;
+		vec2 bn = vec2(-bd.y, bd.x);
+		float side = dot(off, bn);   // (across the branch; past its tip, `off` runs along it too)
+		float bq = abs(side + bj) / mix(0.045, 0.012, t / bl) + length(off - bn * side) * 40.0;
+		if (r > len * grow * 0.95 || t <= 0.0) {
+			bq = 9.0;
+		}
+		if (bq < best) {
+			best = bq;
+			reach = 0.45 + 0.55 * t / bl;
+		}
 	}
-	on *= smoothstep(0.12, 0.2, r);
-	float h = heat * (1.0 - 0.55 * reach);
-	vec3 col = mix(vec3(0.9, 0.14, 0.0), vec3(1.0, 0.5, 0.06), smoothstep(0.1, 0.5, h));
-	col = mix(col, vec3(1.0, 0.92, 0.6), smoothstep(0.65, 1.0, h));
-	vec3 c = col * on * clamp(heat * 1.6, 0.0, 1.0);
-	c += vec3(1.0, 0.38, 0.04) * pow(max(0.0, 1.0 - r * 2.4), 2.0) * 0.4 * heat;
-	float glow_a = max(max(c.r, c.g), c.b);
-	ALBEDO = c / max(glow_a, 0.001);
-	ALPHA = clamp(glow_a, 0.0, 1.0);
+	// (the cracks start at the print's edge, never over it)
+	float out_print = smoothstep(0.85, 1.1, length(p / vec2(0.27, 0.42)));
+	float core = (1.0 - smoothstep(0.45, 1.0, best)) * out_print;
+	float burnt = (1.0 - smoothstep(1.0, 2.6, best)) * out_print;
+	float h = heat * (1.0 - 0.5 * reach);
+	vec3 molten = mix(vec3(0.7, 0.08, 0.0), vec3(1.0, 0.4, 0.05), smoothstep(0.1, 0.5, h));
+	molten = mix(molten, vec3(1.0, 0.74, 0.2), smoothstep(0.6, 1.0, h) * (1.0 - reach));
+	// (hotter down the middle of each vein, darker at its banks: molten rock, not a flat stroke)
+	molten = mix(molten, vec3(1.0, 0.8, 0.32), (1.0 - smoothstep(0.0, 0.4, best)) * clamp(h * 1.3, 0.0, 0.65));
+	molten *= mix(0.62, 1.0, 1.0 - smoothstep(0.2, 0.9, best));
+	ALBEDO = mix(vec3(0.05, 0.03, 0.02), molten, core);
+	ALPHA = max(core * clamp(heat * 2.5, 0.0, 1.0), burnt * 0.7 * clamp(heat * 2.0, 0.0, 1.0));
 }
 """
 	var m := ShaderMaterial.new()
@@ -541,8 +578,8 @@ void fragment() {
 	float fl = 0.88 + 0.12 * sin(TIME * 21.0 + seed) * sin(TIME * 13.0 + seed * 2.0);
 	float h = heat * fl;
 	float x = clamp(v * 1.5 * h + h * 0.15, 0.0, 1.0);
-	vec3 c = mix(vec3(0.6, 0.06, 0.0), vec3(1.0, 0.46, 0.06), smoothstep(0.05, 0.5, x));
-	c = mix(c, vec3(1.0, 0.93, 0.62), smoothstep(0.55, 0.95, x));
+	vec3 c = mix(vec3(0.6, 0.06, 0.0), vec3(1.0, 0.42, 0.05), smoothstep(0.05, 0.5, x));
+	c = mix(c, vec3(1.0, 0.72, 0.2), smoothstep(0.6, 0.95, x));   // (version 331: never white)
 	float a = smoothstep(0.0, 0.12, v) * clamp(h * 1.4, 0.0, 1.0);
 	ALBEDO = c * a;
 	// (added light writes its own alpha: over a see-through pedestal picture an
@@ -610,38 +647,37 @@ static func _flat_mat(col: Color, tex: Texture2D) -> StandardMaterial3D:
 
 static var _foot_tex: ImageTexture
 
-## The parts of a footprint on its 40 x 64 picture: centre and size of the heel, the arch, the
-## ball and the five toes.
-const FOOT_BLOBS := [
-	[Vector2(20, 50), Vector2(9, 11)],   # heel
-	[Vector2(21, 37), Vector2(8, 9)],    # arch
-	[Vector2(20, 24), Vector2(12, 11)],  # ball
-	[Vector2(9, 10), Vector2(4.5, 5)],
-	[Vector2(16, 7), Vector2(4, 4.5)],
-	[Vector2(23, 6), Vector2(3.6, 4)],
-	[Vector2(29, 8), Vector2(3.2, 3.6)],
-	[Vector2(34, 12), Vector2(3, 3.2)],
-]
+
+## Version 331: a boot's sole on a 40 x 64 picture, toes at the top (towards -Z on the floor):
+## 0 outside, rising to 1 deep inside each part (the sole and the heel), with grooves of
+## tread across both. (A bare foot's five toes read as orange beads, and the heroes wear boots.)
+static func _boot(x: float, y: float) -> float:
+	# The sole: widest across the ball, narrowing to the waist (a long egg, not a round pad).
+	var hw := 11.5 - 3.5 * smoothstep(14.0, 40.0, y)
+	var u := absf(x - 20.0) / hw
+	var v := absf(y - 21.0) / 18.5
+	var sole := 1.0 - pow(pow(u, 2.4) + pow(v, 2.4), 1.0 / 2.4)
+	# The heel: a rounded block behind a gap at the arch.
+	var hx := absf(x - 20.0) / 8.5
+	var hy := absf(y - 53.0) / 8.0
+	var heel := 1.0 - pow(pow(hx, 4.0) + pow(hy, 4.0), 0.25)
+	var d := clampf(maxf(sole, heel), 0.0, 1.0)
+	# Chevron lugs pointing to the toe (straight bars across it read as a grill).
+	var groove := fposmod(y + absf(x - 20.0) * 0.7, 7.0) < 1.7 if y < 41.0 else fposmod(y, 5.5) < 1.4
+	if groove and d > 0.14:
+		d *= 0.4
+	return d
 
 
-## A footprint, drawn once: a heel, a sole and five toes, toes at the top (towards -Z on the
-## floor, the way the foot walks).
+## The boot print's shape (white, its alpha the print), drawn once.
 static func footprint() -> ImageTexture:
 	if _foot_tex:
 		return _foot_tex
-	var w := 40
-	var h := 64
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	var blobs := FOOT_BLOBS
-	for y in h:
-		for x in w:
-			var a := 0.0
-			for b in blobs:
-				var c: Vector2 = b[0]
-				var r: Vector2 = b[1]
-				var d := Vector2((x + 0.5 - c.x) / r.x, (y + 0.5 - c.y) / r.y).length()
-				a = maxf(a, 1.0 - smoothstep(0.75, 1.0, d))
-			img.set_pixel(x, y, Color(1, 1, 1, a))
+	var img := Image.create(40, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		for x in 40:
+			var d := _boot(x + 0.5, y + 0.5)
+			img.set_pixel(x, y, Color(1, 1, 1, smoothstep(0.0, 0.1, d)))
 	_foot_tex = ImageTexture.create_from_image(img)
 	return _foot_tex
 
@@ -649,22 +685,15 @@ static func footprint() -> ImageTexture:
 static var _depth_tex: ImageTexture
 
 
-## The same footprint as footprint(), but deepest (1) in the middle of each part of the foot
-## and 0 at its edge, for the burning print's colours.
+## The same print, deepest (1) in the middle of the sole and the heel and 0 at the edge and in
+## the tread, for the burning print's colours.
 static func footprint_depth() -> ImageTexture:
 	if _depth_tex:
 		return _depth_tex
-	var w := 40
-	var h := 64
-	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
-	for y in h:
-		for x in w:
-			var a := 0.0
-			for b in FOOT_BLOBS:
-				var c: Vector2 = b[0]
-				var r: Vector2 = b[1]
-				var d := Vector2((x + 0.5 - c.x) / r.x, (y + 0.5 - c.y) / r.y).length()
-				a = maxf(a, clampf(1.0 - d, 0.0, 1.0))
-			img.set_pixel(x, y, Color(a, a, a, 1.0))
+	var img := Image.create(40, 64, false, Image.FORMAT_RGBA8)
+	for y in 64:
+		for x in 40:
+			var d := _boot(x + 0.5, y + 0.5)
+			img.set_pixel(x, y, Color(d, d, d, 1.0))
 	_depth_tex = ImageTexture.create_from_image(img)
 	return _depth_tex

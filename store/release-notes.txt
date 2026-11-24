@@ -1,2 +1,2 @@
-Version 330: Legend Vault looks get better (1 of 6)
-- Crypt Raven upgraded: a real shaped body covered in layered black feathers with a violet sheen, shaggy throat feathers, and glowing violet eyes.
+Version 331: Legend Vault looks get better (2 of 6)
+- Ember Steps upgraded: the cracks are now thick glowing veins of magma with charred edges (they looked like yellow lightning), each step leaves a real boot print with tread, and smoke curls up off every step.
