@@ -38,6 +38,7 @@ func _setup() -> void:
 	knockback_scale = 0.0
 	var id := Game.hero.hero_id if Game.hero else "rogue"
 	var def := HeroStyle.styled(Game._load_save(), Heroes.get_hero(id))
+	def.style.erase("legend")   # (the ink copies the hero, not their pet)
 	var look := Heroes.look(def)
 	look.overlay = _ink()
 	make_visual(look)

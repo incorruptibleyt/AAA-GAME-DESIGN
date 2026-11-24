@@ -144,6 +144,20 @@ static func run(core := false, from := 0) -> bool:
 			for g: GeometryInstance3D in sv._meshes:
 				if is_instance_valid(g):
 					g.material_override = sm
+		# Version 312: the Legend Vault pets (the ghost's see-through body, the lantern's light
+		# on the floor). The short warm-up: only the pet being worn.
+		var worn_pet := str(Legends.worn(Game._load_save()).get("pet", ""))
+		var n_pet := 0
+		for d: Dictionary in Legends.LIST:
+			if d.slot != "pet" or not d.ready or (core and d.id != worn_pet):
+				continue
+			var anchor := Node3D.new()
+			holder.add_child(anchor)
+			anchor.position = spots[n_pet % spots.size()] + Vector3(-1.3, 0, 1.2)
+			var pet := LegendPet.new()
+			pet.kind = str(d.id)
+			anchor.add_child(pet)
+			n_pet += 1
 		DamageNumber.healed(hero, 9876543210.0))
 
 	# Every Feat and Bone Drop look: the headwear's flame, ghost and glow materials, the

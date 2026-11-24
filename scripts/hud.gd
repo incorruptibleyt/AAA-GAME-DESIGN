@@ -2887,9 +2887,10 @@ func _build_armory() -> void:
 	_shop_sub = label("Upgrades bought here last forever.", 18, Color(0.8, 0.8, 0.85))
 	col.add_child(_shop_sub)
 	var tabs := []
-	for tab in [["upgrades", "UPGRADES"], ["vault", "VAULT"], ["bazaar", "BAZAAR"]]:
-		var tb := button(tab[1], 20)
-		tb.custom_minimum_size = Vector2(148, 64)
+	# Version 312: a fourth tab, the Legend Vault (legends.gd); the four share the width.
+	for tab in [["upgrades", "UPGRADES"], ["vault", "VAULT"], ["bazaar", "BAZAAR"], ["legends", "LEGENDS"]]:
+		var tb := button(tab[1], 17)
+		tb.custom_minimum_size = Vector2(114, 64)
 		var id: String = tab[0]
 		tb.pressed.connect(func():
 			Sfx.play("click")
@@ -2903,8 +2904,9 @@ func _build_armory() -> void:
 			tb.add_child(_bazaar_tab_badge)
 		tabs.append(tb)
 	_armory_tabs = _pair(tabs[0], tabs[1])
-	_armory_tabs.add_theme_constant_override("separation", 10)
+	_armory_tabs.add_theme_constant_override("separation", 8)
 	_armory_tabs.add_child(tabs[2])
+	_armory_tabs.add_child(tabs[3])
 	col.add_child(_armory_tabs)
 	# Version 225 (Jesse: "I can't even scroll down"): the cards scroll inside a dark window
 	# that fills the screen down to BACK, so BACK never covers a card. The window fades at
@@ -5363,10 +5365,12 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	_shop_coins = coins
 	var vault := _armory_tab == "vault"
 	var bazaar := _armory_tab == "bazaar"
-	_shop_title.text = "BONE BAZAAR" if bazaar else "ARMORY"
-	_shop_title.label_settings.font_color = BAZAAR_AMBER if bazaar else Color(1, 0.85, 0.55)
-	_shop_sub.text = ("Three new looks a day  ·  %s" % Bazaar.refresh_text()) if bazaar \
-			else ("New blessings for your runs. Buy each one once." if vault else "Upgrades bought here last forever.")
+	var legends := _armory_tab == "legends"
+	_shop_title.text = "LEGEND VAULT" if legends else ("BONE BAZAAR" if bazaar else "ARMORY")
+	_shop_title.label_settings.font_color = Legends.GOLD if legends else (BAZAAR_AMBER if bazaar else Color(1, 0.85, 0.55))
+	_shop_sub.text = "Legendary looks. Bought once, worn by every hero." if legends else \
+			(("Three new looks a day  ·  %s" % Bazaar.refresh_text()) if bazaar \
+			else ("New blessings for your runs. Buy each one once." if vault else "Upgrades bought here last forever."))
 	if bazaar:
 		var cfg := Game._load_save()
 		if Bazaar.unseen(cfg):
@@ -5380,6 +5384,9 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	_armory_coins.text = thousands(coins)
 	for c in _armory_rows.get_children():
 		c.queue_free()
+	if legends:
+		_fill_legends(rows, coins)
+		return
 	if bazaar:
 		var shown := 0
 		for r: Dictionary in rows:
@@ -5395,7 +5402,7 @@ func _fill_shop(rows: Array, coins: int) -> void:
 	var buy := []
 	var have := []
 	for r: Dictionary in rows:
-		if r.has("look") or r.has("vault") != vault:
+		if r.has("look") or r.has("legend") or r.has("vault") != vault:
 			continue
 		if r.id == "buy_drop":
 			spare.append(r)
@@ -5420,6 +5427,103 @@ func _fill_shop(rows: Array, coins: int) -> void:
 			_armory_rows.add_child(_shop_note("All %d are yours. Each one can turn up in your runs." % have.size()))
 		for r: Dictionary in have:
 			_armory_rows.add_child(_shop_card(r, coins))
+
+
+## Version 312: the Legend Vault. What is yours first (tap one to wear it or take it off),
+## then the looks to buy from the cheapest up, then those still to come.
+func _fill_legends(rows: Array, coins: int) -> void:
+	var have := []
+	var buy := []
+	var soon := []
+	for r: Dictionary in rows:
+		if not r.has("legend"):
+			continue
+		if int(r.cost) < 0:
+			have.append(r)
+		elif r.ready:
+			buy.append(r)
+		else:
+			soon.append(r)
+	if not have.is_empty():
+		_armory_rows.add_child(_shop_head("YOURS", "%d / %d" % [have.size(), Legends.LIST.size()]))
+		for r: Dictionary in have:
+			_armory_rows.add_child(_legend_row(r, coins))
+	if not buy.is_empty():
+		_armory_rows.add_child(_shop_head("TO BUY", "%d" % buy.size()))
+		for r: Dictionary in buy:
+			_armory_rows.add_child(_legend_row(r, coins))
+	if not soon.is_empty():
+		_armory_rows.add_child(_shop_head("COMING SOON", "%d" % soon.size()))
+		for r: Dictionary in soon:
+			_armory_rows.add_child(_legend_row(r, coins))
+	_armory_rows.add_child(_shop_note("Save your coins: these are the dearest looks in the crypt."))
+
+
+## A Legend Vault card: its moving picture, name and kind, words, and its huge price (or
+## WEARING, OWNED or COMING SOON). A tap shows the hero with it, with BUY or WEAR IT.
+func _legend_row(r: Dictionary, coins: int) -> Button:
+	var owned: bool = int(r.cost) < 0
+	var ready: bool = r.ready
+	var afford: bool = ready and not owned and int(r.cost) <= coins
+	var gold := Legends.GOLD
+	var edge := gold if (afford or r.worn) else (Color(0.5, 0.42, 0.3, 0.8) if ready else Color(0.3, 0.28, 0.34, 0.7))
+	var b := button("", 20, Color(0.15, 0.1, 0.04, 0.98) if ready else Color(0.08, 0.07, 0.1, 0.98), edge)
+	b.custom_minimum_size = Vector2(0, 150 if str(r.text).length() <= 80 else 172)   # (3 lines of words)
+	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4 if r.worn else (3 if afford else 2))
+	var id: String = r.legend
+	if ready:
+		_shop_tap(b, func(): bazaar_look.emit("legend", id))
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 12)
+	m.add_theme_constant_override("margin_top", 8)
+	m.add_theme_constant_override("margin_bottom", 8)
+	full(m)
+	b.add_child(m)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 12)
+	m.add_child(h)
+	var pic := LegendPet.Icon.new()
+	pic.kind = id
+	pic.slot = str(r.slot)
+	pic.locked = not ready
+	pic.custom_minimum_size = Vector2(112, 112)
+	pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	h.add_child(pic)
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.add_theme_constant_override("separation", 1)
+	h.add_child(texts)
+	var t := label(r.title, 24, gold.lightened(0.3) if ready else Color(0.62, 0.6, 0.66), HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(t)
+	var kind := label(Legends.SLOT_NAMES.get(str(r.slot), "") + "  ·  every hero", 14, Color(0.85, 0.7, 0.45) if ready else Color(0.5, 0.48, 0.55), HORIZONTAL_ALIGNMENT_LEFT)
+	kind.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(kind)
+	var d := label(r.text, 15, Color(0.82, 0.8, 0.86) if ready else Color(0.58, 0.56, 0.62), HORIZONTAL_ALIGNMENT_LEFT)
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texts.add_child(d)
+	var price := HBoxContainer.new()
+	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.add_child(price)
+	if owned:
+		var tag := label("WEARING  ·  tap to take off" if r.worn else "OWNED  ·  tap to wear", 18, Color(0.6, 1, 0.6) if r.worn else Color(0.8, 0.95, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
+		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+		price.add_child(tag)
+	else:
+		var cost_label := coin_row(26, price)
+		cost_label.text = thousands(int(r.cost))
+		if not afford:
+			cost_label.label_settings.font_color = Color(0.62, 0.56, 0.48) if ready else Color(0.45, 0.42, 0.48)
+		if not ready:
+			var soon := label("   COMING SOON", 15, Color(0.6, 0.56, 0.66), HORIZONTAL_ALIGNMENT_LEFT)
+			soon.autowrap_mode = TextServer.AUTOWRAP_OFF
+			price.add_child(soon)
+	return b
 
 
 ## A heading over a group of cards: its name on the left, a count on the right, a thin line.

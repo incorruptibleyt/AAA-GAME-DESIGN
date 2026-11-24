@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24i"
+const BUILD := "2026-11-24j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -5925,6 +5925,9 @@ func _wear_look(id: String, slot: String, key: String) -> void:
 ## WEAR IT on a found or earned look (the drop screen): worn from now on (from the next run
 ## when one is on), without leaving the screen.
 func _wear_found(id: String, slot: String, key: String) -> void:
+	if slot == "legend":
+		_legend_wear(key)
+		return
 	if id == "":
 		id = str(_load_save().get_value("heroes", "selected", "rogue"))
 	var cfg := _load_save()
@@ -6751,11 +6754,19 @@ func _armory_rows() -> Array:
 		else:
 			rows[-1].from = "Only in the Bazaar"
 			rows[-1].from_color = Color(1.0, 0.75, 0.45)
+	# The Legend Vault (version 312): the dearest looks, for players with everything else.
+	for d: Dictionary in Legends.LIST:
+		rows.append({"id": "legend", "legend": d.id, "title": d.name, "text": d.text, "slot": d.slot,
+			"cost": -1 if Legends.owns(cfg, d.id) else int(d.price), "ready": bool(d.ready),
+			"worn": Legends.is_worn(cfg, d.id), "level": 0, "max": 1})
 	return rows
 
 
 ## The Bone Bazaar: a look on show, worn by the chosen hero, with its price and BUY.
 func _bazaar_preview(slot: String, key: String) -> void:
+	if slot == "legend":
+		_legend_preview(key)
+		return
 	var cfg := _load_save()
 	var id := Heroes.selected(cfg)
 	var picks := HeroStyle.picks(cfg, id)
@@ -6775,7 +6786,65 @@ func _bazaar_preview(slot: String, key: String) -> void:
 		"owned": Bazaar.has(cfg, slot, key), "afford": coins >= price})
 
 
+## Version 312: a Legend Vault look on show: the chosen hero with it (and nothing else from
+## the vault), its kind and its huge price, with BUY, or WEAR IT / TAKE OFF once it is yours.
+func _legend_preview(id: String) -> void:
+	var d := Legends.def(id)
+	if d.is_empty() or not d.ready:
+		return
+	var cfg := _load_save()
+	var hero_id := Heroes.selected(cfg)
+	var picks := HeroStyle.picks(cfg, hero_id)
+	for s: String in ["glow", "aura"]:
+		picks[s] = ""   # (as in the Bazaar: the look for sale is the star)
+	var def := HeroStyle.dressed(Heroes.get_hero(hero_id), picks)
+	def.style.legend = {str(d.slot): id}
+	var price := int(d.price)
+	hud.show_offer({"name": d.name, "kind": str(Legends.SLOT_NAMES.get(str(d.slot), "")).capitalize(),
+		"look": ["legend", id], "hero": hero_id, "preview": def, "price": price, "legend": true,
+		"worn": Legends.is_worn(cfg, id), "owned": Legends.owns(cfg, id), "afford": coins >= price})
+
+
+func _legend_buy(id: String) -> void:
+	var cfg := _load_save()
+	var d := Legends.def(id)
+	var price := int(d.get("price", 0))
+	if d.is_empty() or not d.ready or Legends.owns(cfg, id) or coins < price:
+		Sfx.play("hurt")
+		return
+	coins -= price
+	cfg.set_value("stats", "coins", coins)
+	Legends.give(cfg, id)
+	Legends.wear(cfg, id)   # (bought for a fortune: worn at once)
+	write_save(cfg)
+	print("[legend] bought %s for %d" % [id, price])
+	Telemetry.step("legend_" + id)
+	hud.set_coins(coins)
+	hud.offer_bought(coins)
+	hud.show_armory(true, _armory_rows(), coins)
+	hud.show_title(hud.title_visible(), _best_text(), coins)
+	_refresh_end_goal()
+	if state == State.TITLE and hero:
+		_swap_hero(hero.hero_id, true)
+
+
+## WEAR IT on a Legend Vault look that is yours: wears it, or takes it off if it was worn.
+func _legend_wear(id: String) -> void:
+	var cfg := _load_save()
+	if not Legends.owns(cfg, id):
+		return
+	Legends.toggle(cfg, id)
+	write_save(cfg)
+	print("[legend] %s %s" % ["wears" if Legends.is_worn(cfg, id) else "took off", id])
+	hud.show_armory(true, _armory_rows(), coins)
+	if state == State.TITLE and hero:
+		_swap_hero(hero.hero_id, true)
+
+
 func _bazaar_buy(slot: String, key: String) -> void:
+	if slot == "legend":
+		_legend_buy(key)
+		return
 	var cfg := _load_save()
 	var price := Bazaar.price(slot, key)
 	if price <= 0 or Bazaar.has(cfg, slot, key) or coins < price or not Bazaar.today(cfg).has([slot, key]):

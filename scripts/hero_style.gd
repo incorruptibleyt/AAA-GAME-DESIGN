@@ -644,7 +644,12 @@ static func mark_seen(cfg: ConfigFile, id: String) -> void:
 
 ## `def` (an entry of Heroes.LIST) as this player has dressed them.
 static func styled(cfg: ConfigFile, def: Dictionary) -> Dictionary:
-	return dressed(def, picks(cfg, def.id))
+	var d := dressed(def, picks(cfg, def.id))
+	# Version 312: the Legend Vault's looks (legends.gd) are worn by every hero.
+	var legend := Legends.worn(cfg)
+	if not legend.is_empty():
+		d.style.legend = legend
+	return d
 
 
 ## `def` in the looks `p` ({slot: key}): its glow colours, and a "style" for the model.

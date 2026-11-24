@@ -4,6 +4,7 @@ extends Node
 ## Start Godot with:  -- autoplay [god] [shop] [shots=<folder>]
 ## `startfloor=N` (version 309) starts the run on floor N the way the title's button does.
 ## `quick` (version 310) plays Quick Play: two rooms and a boss on a place already reached.
+## `legend=wisp,raven` (version 312) owns and wears those Legend Vault looks.
 ## `shop` buys what it can afford in the Armory and its Vault before the first run (`coins=N`
 ## gives it N coins first). `vault` owns every Vault blessing without paying.
 ## `quittest` quits the first run from the pause menu and starts again.
@@ -198,6 +199,14 @@ func _ready() -> void:
 		elif a == "daily":
 			Game._daily_requested = true
 			_skip_first_run()
+		elif a.begins_with("legend="):   # version 312: owns and wears these Legend Vault looks
+			var lcfg := Game._load_save()
+			for id: String in a.substr(7).split(","):
+				Legends.give(lcfg, id)
+				Legends.wear(lcfg, id)
+			Game.write_save(lcfg)
+			if Game.hero:
+				Game._swap_hero.call_deferred(Game.hero.hero_id, true)   # (the title's hero was built already)
 		elif a == "quick":   # version 310: Quick Play (2 rooms and a boss on a reached place)
 			Game._quick_requested = true
 			_skip_first_run()

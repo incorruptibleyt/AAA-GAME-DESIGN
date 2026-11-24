@@ -309,7 +309,12 @@ func _on_wear() -> void:
 		buy_look.emit(str(look[0]), str(look[1]))
 		return
 	wear.emit(str(_result.get("hero", "")), str(look[0]), str(look[1]))
-	_wear.text = "WEARING!"
+	if _offer.get("legend", false):
+		# (a Legend Vault look's button puts it on or takes it off: see Game._legend_wear)
+		_offer.worn = not _offer.get("worn", false)
+		_wear.text = "WEARING!" if _offer.worn else "TAKEN OFF"
+	else:
+		_wear.text = "WEARING!"
 	_wear.disabled = true
 	Sfx.play("upgrade")
 
@@ -342,12 +347,13 @@ func show_offer(o: Dictionary) -> void:
 	_flash = 0.0
 	_pop = 0.0
 	_set_purse(Game.coins)
-	_head.text = "BONE BAZAAR"
-	_head.label_settings.font_color = BAZAAR
+	var legend: bool = o.get("legend", false)   # version 312: a Legend Vault look
+	_head.text = "LEGEND VAULT" if legend else "BONE BAZAAR"
+	_head.label_settings.font_color = Legends.GOLD if legend else BAZAAR
 	_count.text = "%s  ·  every hero can wear it" % str(o.kind)
 	_pity.text = ""
 	_rarity.text = str(o.name).to_upper()
-	_rarity.label_settings.font_color = BAZAAR.lightened(0.3)
+	_rarity.label_settings.font_color = (Legends.GOLD if legend else BAZAAR).lightened(0.3)
 	_prize.label_settings.font_size = 22
 	_show_look(true)
 	_wear.visible = true
@@ -361,16 +367,22 @@ func show_offer(o: Dictionary) -> void:
 func _offer_buttons() -> void:
 	var owned: bool = _offer.get("owned", false)
 	var afford: bool = _offer.get("afford", false)
+	var legend: bool = _offer.get("legend", false)
 	_wear.disabled = not owned and not afford
-	_wear.text = "WEAR IT" if owned else ("BUY  %s" % Hud.thousands(int(_offer.price)))
-	_prize.text = "Yours! Wear it any time on the Style screen." if owned else \
-			("Buy it once, keep it for good." if afford else "You need %s more coins." % Hud.thousands(int(_offer.price) - Game.coins))
+	_wear.text = ("TAKE IT OFF" if legend and _offer.get("worn", false) else "WEAR IT") if owned else ("BUY  %s" % Hud.thousands(int(_offer.price)))
+	if legend and owned:
+		_prize.text = "Yours! Every hero wears it." if _offer.get("worn", false) else "Yours! Wear it, and every hero has it."
+	else:
+		_prize.text = "Yours! Wear it any time on the Style screen." if owned else \
+				("Buy it once, keep it for good." if afford else "You need %s more coins." % Hud.thousands(int(_offer.price) - Game.coins))
 	_prize.label_settings.font_color = Color(0.7, 1, 0.7) if owned else (Color(0.9, 0.88, 0.95) if afford else Color(0.75, 0.7, 0.68))
 
 
 ## Bought: coins fly out of the purse, and BUY turns into WEAR IT.
 func offer_bought(coins_left: int) -> void:
 	_offer.owned = true
+	if _offer.get("legend", false):
+		_offer.worn = true   # (Game._legend_buy wears it at once)
 	_set_purse(coins_left)
 	_offer_buttons()
 	_head.text = "YOURS!"
