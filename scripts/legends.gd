@@ -39,7 +39,7 @@ const LIST := [
 		"text": "A tiny skeleton dragon on your shoulder that breathes violet fire at bosses."},
 	{"id": "starfall", "slot": "grand", "name": "Starfall Mantle", "price": 600000, "ready": true,
 		"text": "A cape and tall collar that are a window into the night sky, and a crown of stars with a comet."},
-	{"id": "emperor", "slot": "grand", "name": "The Bone Emperor", "price": 1000000, "ready": false,
+	{"id": "emperor", "slot": "grand", "name": "The Bone Emperor", "price": 1000000, "ready": true,
 		"text": "Golden bone armour, a spine cape, a crown of skulls, and a bone throne."},
 ]
 

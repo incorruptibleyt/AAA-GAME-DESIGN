@@ -844,6 +844,8 @@ class Icon extends Control:
 				_wyrm()
 			"starfall":
 				_starfall()
+			"emperor":
+				_emperor()
 
 	func _glow(p: Vector2, r: float, col: Color) -> void:
 		for i in 5:
@@ -1152,6 +1154,38 @@ class Icon extends Control:
 			draw_circle(Vector2(cos(b) * 30.0, cy - 10.0 + sin(b) * 7.0), 2.6 - i * 0.4, Color(0.7, 0.8, 1.0, 0.6 - i * 0.1))
 		_glow(cp, 9.0, Color(0.9, 0.95, 1.0, 0.9))
 		draw_circle(cp, 2.4, Color.WHITE)
+
+	func _emperor() -> void:
+		var bone := Color(0.93, 0.88, 0.76)
+		var gold := Color(1.0, 0.78, 0.3)
+		var velvet := Color(0.36, 0.1, 0.44)
+		var ember := Color(1.0, 0.62, 0.16, 0.6 + 0.4 * sin(_t * 4.0))
+		# The throne: a fan of long bones topped with skulls behind a velvet back, gold-framed.
+		for i in 5:
+			var k := (i - 2) / 2.0
+			var top := Vector2(k * 34.0, -38.0 + absf(k) * 10.0)
+			draw_line(Vector2(k * 10.0, 32), top, bone, 4.0, true)
+			_skull(top, 6.5 if i == 2 else 5.0)
+		draw_rect(Rect2(-20, -16, 40, 48), velvet)
+		draw_rect(Rect2(-20, -16, 40, 48), gold, false, 2.0)
+		draw_rect(Rect2(-30, 30, 60, 6), Color(0.2, 0.15, 0.18))
+		draw_line(Vector2(-30, 30), Vector2(30, 30), gold, 2.0)
+		# The crown of skulls in front: a velvet cap crossed by gold arches, a gold band set
+		# with skulls whose eyes burn, gold spikes between them.
+		var cy := 10.0
+		draw_circle(Vector2(0, cy - 4), 17.0, velvet)
+		draw_arc(Vector2(0, cy - 4), 17.0, PI, TAU, 16, gold, 2.2, true)
+		draw_line(Vector2(0, cy - 21), Vector2(0, cy - 2), gold, 2.2)
+		_skull(Vector2(0, cy - 25), 4.0)
+		for i in 4:
+			var x := -13.0 + i * 8.67
+			draw_colored_polygon(PackedVector2Array([Vector2(x - 2.5, cy), Vector2(x + 2.5, cy), Vector2(x, cy - 10)]), gold)
+		draw_rect(Rect2(-19, cy - 1, 38, 9), gold)
+		for i in 3:
+			var p := Vector2(-11.0 + i * 11.0, cy + 4)
+			_skull(p, 4.4 if i == 1 else 3.6)
+			for sd in [-1.0, 1.0]:
+				draw_circle(p + Vector2(1.6 * sd * (1.2 if i == 1 else 1.0), 0), 1.0, ember)
 
 	## A dark shape of the look's kind, for the looks still to come.
 	func _shadow() -> void:

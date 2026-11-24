@@ -1,6 +1,6 @@
-Version 315: the Starfall Mantle
-- New in the Legend Vault (Armory, LEGENDS tab): the Starfall Mantle, 600,000 coins.
-- A long cape and tall collar that are a window into the night sky: twinkling stars, drifting nebula and a shooting star now and then. It blows back as you run.
-- With it a crown of night sky, five stars on its points and a comet circling it.
+Version 316: the Bone Emperor
+- New in the Legend Vault (Armory, LEGENDS tab): the Bone Emperor, 1,000,000 coins, the top prize.
+- A spine cape of bones and gold that streams behind you as you run, golden bone shoulders and a crown of skulls with glowing eyes.
+- On the title screen and in the Armory you stand before your own bone throne.
 - Every hero can wear it.
-- 11 of 12 legendary looks are out now.
+- All 12 legendary looks are out now.

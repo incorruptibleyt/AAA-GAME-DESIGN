@@ -1148,6 +1148,8 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			att.add_child(CryptCrown.make(id, y, hat))
 		"starfall_crown":
 			att.add_child(LegendGrand.starfall_crown(id, y))   # version 315: Legend Vault
+		"emperor_crown":
+			att.add_child(LegendEmperor.crown(id, y))   # version 316: Legend Vault
 		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown", "moon_crown", "candle_crown", "horns", "halo":
 			att.add_child(FeatHeads.make(kind, id, y, hat, style))
 		"mage_hood":
@@ -1161,8 +1163,8 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 	# Version 191: under a crown or horns the Knight wears a mail coif and the Barbarian a fur
 	# cap, in the outfit's colours. Without their helmet and bear hood these two were a bare
 	# head, which from the camera above was a big peach ball that took over the whole look.
-	# (Version 315: the Starfall crown brings its own dome of night sky instead.)
-	if not hat and id in ["knight", "barbarian"] and not kind in ["skull_helm", "mage_hood", "starfall_crown"]:
+	# (Version 315: the Legend Vault crowns bring their own caps instead.)
+	if not hat and id in ["knight", "barbarian"] and not kind in ["skull_helm", "mage_hood", "starfall_crown", "emperor_crown"]:
 		var oc: Dictionary = style.get("outfit", {})
 		var col := Color(0.6, 0.63, 0.7) if id == "knight" else Color(0.4, 0.28, 0.19)
 		var pick = oc.get("b" if id == "knight" else "a")

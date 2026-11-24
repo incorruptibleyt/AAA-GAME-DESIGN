@@ -30,8 +30,11 @@ static func make(visual: Node3D, model: Node3D, grand: String) -> void:
 	g.kind = grand
 	g.name = "LegendGrand"
 	visual.add_child(g)
-	if grand == "starfall":
-		g._starfall(visual, model)
+	match grand:
+		"starfall":
+			g._starfall(visual, model)
+		"emperor":
+			g._emperor(visual, model)
 
 
 var _looked := false
@@ -40,6 +43,7 @@ var _looked := false
 ## Worn by a hero in the world (not on a pedestal)?
 func _find_hero() -> void:
 	_looked = true
+	_staged = get_viewport() is SubViewport
 	var n := get_parent()
 	while n != null and not (n is Hero):
 		n = n.get_parent()
@@ -74,20 +78,21 @@ func _process(delta: float) -> void:
 		want = clampf(v.length() / 6.0, 0.45, 1.0) if v.length() < 40.0 else 0.45
 	_blow = move_toward(_blow, want, delta * (3.0 if want > _blow else 1.5))
 	_cape_mat.set_shader_parameter("blow", _blow)
+	if kind == "emperor":
+		_throne_now()
 
 
-# ---------------------------------------------------------------- Starfall Mantle
-
-func _starfall(visual: Node3D, model: Node3D) -> void:
+## The hero's own cape comes off, and a holder for the grand set's mantle goes on the chest
+## bone, placed so that at rest its origin is at CAPE_TOP in the visual (the top of the back);
+## it then turns and bobs with the body.
+func _back_holder(visual: Node3D, model: Node3D, holder_name: String) -> Node3D:
 	var skel := Art._find_skeleton(model)
-	# The hero's own cape comes off: the mantle takes its place.
 	for c in model.find_children("*_Cape", "MeshInstance3D", true, false):
 		(c as Node3D).visible = false
 	var holder := Node3D.new()
-	holder.name = "StarMantle"
+	holder.name = holder_name
 	var at := Transform3D(Basis.IDENTITY, CAPE_TOP)
 	if skel and skel.find_bone("chest") >= 0:
-		# On the chest bone, placed so that at rest it hangs where `at` says in the visual.
 		var att := HeroStyle._attachment(skel, "chest")
 		att.add_child(holder)
 		var to_skel := _chain(visual, skel)
@@ -95,6 +100,61 @@ func _starfall(visual: Node3D, model: Node3D) -> void:
 	else:
 		visual.add_child(holder)
 		holder.transform = at
+	return holder
+
+
+# ---------------------------------------------------------------- The Bone Emperor
+
+var _throne: Node3D
+var _staged := false
+
+func _emperor(visual: Node3D, model: Node3D) -> void:
+	var holder := _back_holder(visual, model, "SpineCape")
+	_cape_mat = LegendEmperor.cape_material()
+	var cape := MeshInstance3D.new()
+	cape.mesh = LegendEmperor.cape_mesh()
+	cape.material_override = _cape_mat
+	cape.set_meta("fx", true)   # (its outline would not sway with it)
+	holder.add_child(cape)
+	LegendEmperor.nape(holder)
+	var skel := Art._find_skeleton(model)
+	if skel:
+		LegendEmperor.pauldrons(skel)
+
+
+## The bone throne stands behind the hero on the title screen and on a pedestal (built the
+## first time it is wanted).
+func _throne_now() -> void:
+	var want := _staged or (_hero != null and Game.state == Game.State.TITLE)
+	if want and _throne == null:
+		_throne = LegendEmperor.throne()
+		# On a pedestal the hero turns (they sway, are dragged round, spin for a reveal) while
+		# the throne stays put behind them, square to the camera: it goes on the stage itself
+		# (HeroStage: the visual's turning pivot, then the stage's root, where the camera looks
+		# down -Z). Facing the other way here would put the throne in front of the hero.
+		var pivot := get_parent().get_parent() if get_parent() else null
+		if _staged and pivot and pivot.get_parent() is Node3D:
+			pivot.get_parent().add_child(_throne)
+			_throne.transform = Transform3D(Basis(Vector3.UP, PI).scaled(Vector3.ONE * 0.78), Vector3(0, 0, -0.62))
+		else:
+			get_parent().add_child(_throne)
+			_throne.position = Vector3(0, 0, 0.8)
+	if _throne:
+		_throne.visible = want
+
+
+func _exit_tree() -> void:
+	# (On a pedestal the throne is the stage's, not the hero's: it goes when they do.)
+	if _throne and is_instance_valid(_throne):
+		_throne.queue_free()
+	_throne = null
+
+
+# ---------------------------------------------------------------- Starfall Mantle
+
+func _starfall(visual: Node3D, model: Node3D) -> void:
+	# The hero's own cape comes off: the mantle takes its place.
+	var holder := _back_holder(visual, model, "StarMantle")
 	_cape_mat = ShaderMaterial.new()
 	_cape_mat.shader = _sky_shader()
 	_cape_mat.set_shader_parameter("edge_w", 0.04)
