@@ -23,9 +23,9 @@ const GOALS := [
 	{"id": "elites", "need": [2, 3, 5], "text": "Destroy %d elite skeletons"},
 	{"id": "specials", "need": [6, 10, 16], "text": "Use your special %d times"},
 	{"id": "rooms", "need": [5, 8, 12], "text": "Clear %d rooms"},
-	{"id": "bosses", "need": [1, 2, 3], "text": "Beat %d bosses"},
-	{"id": "quick", "need": [1, 2, 3], "text": "Win %d Quick Plays"},
-	{"id": "chain", "need": [20, 25, 30], "best": true, "text": "Reach a x%s Bone Chain"},
+	{"id": "bosses", "need": [1, 2, 3], "text": "Beat %d bosses", "one": "Beat a boss"},
+	{"id": "quick", "need": [1, 2, 3], "text": "Win %d Quick Plays", "one": "Win a Quick Play"},
+	{"id": "chain", "need": [15, 20, 25], "best": true, "text": "Reach a x%s Bone Chain"},
 	{"id": "coins", "need": [150, 300, 500], "text": "Pick up %d coins in runs"},
 ]
 
@@ -60,7 +60,10 @@ static func goals(cfg: ConfigFile, day := "") -> Array:
 		day = Curses.today()
 	if str(cfg.get_value(SECTION, "day", "")) != day:
 		_new_day(cfg, day)
-	return cfg.get_value(SECTION, "goals", [])
+	var out := []
+	for g: Dictionary in cfg.get_value(SECTION, "goals", []):
+		out.append({"id": g.id, "need": int(g.need), "text": text_of(g.id, int(g.need))})   # (words from this version)
+	return out
 
 
 static func _new_day(cfg: ConfigFile, day: String) -> void:
@@ -85,6 +88,8 @@ static func text_of(id: String, need: int) -> String:
 	var g := def(id)
 	if g.get("best", false):
 		return str(g.text) % str(snappedf(need / 10.0, 0.1))
+	if need == 1 and g.has("one"):
+		return str(g.one)
 	return str(g.text) % need
 
 

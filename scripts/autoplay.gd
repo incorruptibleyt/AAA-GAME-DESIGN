@@ -756,6 +756,14 @@ func _process(delta: float) -> void:
 					print("[autoplay] free dive %s: used=%s ready=%s best_floor=%d best_score=%d saved run=%s" % ["WON" if Game.state == Game.State.VICTORY else "LOST",
 						dcfg.get_value("pass", "dive_used", false), Game.dive_ready(dcfg), int(dcfg.get_value("stats", "best_floor", 1)),
 						int(dcfg.get_value("stats", "best_score", 0)), Game.continue_text()])
+				var tcfg := Game._load_save()   # version 311: today's goals
+				print("[autoplay] today %d/%d (chest %s): %s" % [Today.done_count(tcfg), Today.COUNT,
+					"opened" if Today.chest_open(tcfg) else ("READY" if Today.chest_ready(tcfg) else "shut"),
+					" | ".join(Today.goals(tcfg).map(func(g: Dictionary) -> String: return "%s %s" % [g.text, Today.progress_text(tcfg, g)]))])
+				if Today.chest_ready(tcfg):
+					var before := Game.coins
+					Game.open_today_chest()
+					print("[autoplay] opened the Today Chest: coins %d -> %d, drops waiting %d" % [before, Game.coins, Drops.waiting(Game._load_save())])
 				if Game.quick:
 					var qcfg := Game._load_save()
 					print("[autoplay] quick play %s on floor %d in %.1f s: quick wins today %d, drops waiting %d, best_floor %d, best_boss %d, saved run '%s'" % ["WON" if Game.state == Game.State.VICTORY else "LOST",

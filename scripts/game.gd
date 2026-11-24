@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24h"
+const BUILD := "2026-11-24i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -884,6 +884,7 @@ func _ready() -> void:
 	hud.continue_pressed.connect(_continue_run)
 	hud.start_floor_pressed.connect(cycle_start_floor)   # version 309
 	hud.quick_pressed.connect(start_quick)   # version 310
+	hud.today_chest_pressed.connect(open_today_chest)   # version 311
 	hud.hero_trial.connect(_try_hero)
 	hud.share_pressed.connect(_share)
 	hud.loop_deeper.connect(_open_omens)
@@ -1309,6 +1310,9 @@ func _notification(what: int) -> void:
 			return
 		if hud.records_visible():
 			hud.show_records(false)
+			return
+		if hud.today_visible():
+			hud.show_today(false)   # version 311
 			return
 		if hud.rewards_visible():
 			hud.show_rewards(false)
@@ -2373,6 +2377,8 @@ func report_event(what: String, amount := 1.0) -> void:
 	if _rep.is_empty() or not _rep.has(what):
 		return
 	_rep[what] += amount
+	if what == "special" and not bench:
+		Today.add("specials")   # version 311
 	if what == "perfect" or what == "special":
 		_feat_check()
 
@@ -2381,6 +2387,8 @@ func _report_room_done(label: String) -> void:
 	if _rep.is_empty():
 		return
 	_rep.rooms.append("%s %s" % [label, _format_time(_run_time - _rep.room_start)])
+	if not bench:
+		Today.add("rooms")   # version 311
 	_rep.chains.append(_rep.room_chain)
 
 
@@ -3049,6 +3057,65 @@ func _quick_text(cfg: ConfigFile) -> String:
 	if wins <= QUICK_DROPS:
 		return "+1 Bone Drop  (Quick Play drop %d of %d today)" % [wins, QUICK_DROPS]
 	return "Coins, bones and Mastery count.\nQuick Play's Bone Drops come back tomorrow."
+
+
+## Version 311: today's goals (today.gd). Goals finished since the last end screen, for its lines.
+var _today_done: Array = []
+
+
+## Banks today's goal progress into `cfg` (called by _save_coins, which saves it): each goal
+## just finished pays Today.GOAL_COINS and gets a banner (and a line on the next end screen).
+func _bank_today(cfg: ConfigFile) -> void:
+	if bench:
+		Today.pending.clear()
+		return
+	if not _rep.is_empty():
+		Today.best("chain", roundi(float(_rep.get("best_chain", 1.0)) * 10.0))
+	if first_run_pending():
+		return   # (kept in `pending` until the tutorial is won: the goals show from then)
+	var done: Array = Today.bank(cfg)
+	if done.is_empty():
+		return
+	coins += Today.GOAL_COINS * done.size()
+	hud.set_coins(coins)
+	_today_done.append_array(done)
+	var all: bool = Today.done_count(cfg) >= Today.COUNT
+	for g: Dictionary in done:
+		print("[today] goal done: %s (+%d coins)%s" % [g.text, Today.GOAL_COINS, "  ALL DONE: chest ready" if all else ""])
+	if state == State.PLAYING or state == State.UPGRADE or state == State.TRANSITION:
+		var line := "TODAY'S GOAL DONE!  %s  +%d coins" % [str(done[0].text), Today.GOAL_COINS]
+		if all:
+			line += "\nAll 3 done: the Today Chest is waiting in REWARDS"
+		hud.banner(line, Color(0.55, 1.0, 0.6))
+		Sfx.play("coin", 1.2)
+
+
+## The end screen's lines for the goals finished this time, then cleared.
+func _today_lines() -> String:
+	if _today_done.is_empty():
+		return ""
+	var out := ""
+	for g: Dictionary in _today_done:
+		out += "\nToday's goal done: %s  +%d coins" % [str(g.text), Today.GOAL_COINS]
+	_today_done.clear()
+	var cfg := _load_save()
+	if Today.chest_ready(cfg):
+		out += "\nAll 3 done: open the Today Chest in REWARDS!"
+	return out
+
+
+## REWARDS > TODAY'S GOALS > OPEN THE CHEST.
+func open_today_chest() -> void:
+	var cfg := _load_save()
+	if not Today.open_chest(cfg):
+		return
+	coins += Today.CHEST_COINS
+	cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	hud.set_coins(coins)
+	Sfx.play("victory")
+	print("[today] chest opened: +%d coins, +1 Bone Drop" % Today.CHEST_COINS)
+	hud.today_opened(Today.CHEST_COINS)
 
 
 ## Version 169: the 3-room tutorial gives 2 blessings where the old 5 rooms gave 5. Going
@@ -3782,6 +3849,10 @@ func on_enemy_died(e: Enemy) -> void:
 	note_progress()
 	_kills += 1
 	record_add("kills", 1)
+	if not bench:
+		Today.add("kills")   # version 311: today's goals
+		if e.elite:
+			Today.add("elites")
 	if _kills == 1 and first_run:
 		Telemetry.step("kill1")
 	hud.show_hint("")
@@ -4218,6 +4289,9 @@ func _win() -> void:
 	var where := boss.global_position if is_instance_valid(boss) else hero.global_position
 	_boss_feats()
 	_report_room_done("F%d Boss" % floor_num)
+	Today.add("bosses")   # version 311 (banked with the coins just below)
+	if quick:
+		Today.add("quick")
 	_set_state(State.VICTORY)
 	finisher(where, 0.2, 1.0, Color(1, 0.5, 0.3))
 	_clear_enemy_attacks()
@@ -4345,6 +4419,7 @@ func _win() -> void:
 		extra += "\n\n" + _loop_text()
 	elif _quick_done:
 		extra += "\n\n" + _quick_text(cfg)
+	extra += _today_lines()
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
 	if race_new:
@@ -4472,6 +4547,7 @@ func on_hero_died() -> void:
 		coin_line += "\nBone Road  +%d bones" % bones
 	if shards > 0:
 		coin_line += "\n%s  +%d" % [Events.word("shards"), shards]
+	coin_line += _today_lines()
 	if tutorial_again:
 		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nYou start again in this room." % run_coins
 	# Free players who got deep hear about the Pass once a session, never mid-run.
@@ -5077,6 +5153,8 @@ func add_coins(n: int) -> void:
 	coins += n
 	run_coins += n
 	record_add("coins", n)
+	if not bench:
+		Today.add("coins", n)   # version 311
 	hud.set_coins(coins)
 
 
@@ -5224,6 +5302,7 @@ func _flush_feats(cfg: ConfigFile) -> void:
 
 func _save_coins() -> void:
 	var cfg := _load_save()
+	_bank_today(cfg)   # version 311: before the coins, which a finished goal adds to
 	cfg.set_value("stats", "coins", coins)
 	_flush_feats(cfg)
 	BoneRoad.add(cfg, _road_unsaved)

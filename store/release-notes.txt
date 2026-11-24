@@ -1,5 +1,5 @@
-Version 310: Quick Play
-- New QUICK PLAY button on the title: two rooms and a boss on a place you have reached, with 3 blessings to start. About 2 minutes.
-- Your first 2 Quick Play wins each day give a Bone Drop. Coins, bones and Mastery always count.
-- Quick Play never touches your saved run.
-- Start a new run on floor 3 or 5 once you have reached it (7 and 9 with the Crypt Pass).
+Version 311: Today's Goals
+- Three new goals every day in REWARDS. Each one done pays 100 coins.
+- Finish all 3 to open the Today Chest: 250 coins and a Bone Drop.
+- QUICK PLAY on the title: two rooms and a boss in about 2 minutes. The first 2 wins each day give a Bone Drop.
+- Start a new run on floor 3 or 5 once you have reached it.

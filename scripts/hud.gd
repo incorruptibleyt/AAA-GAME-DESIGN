@@ -42,6 +42,7 @@ signal quit_run_pressed
 signal retry_pressed
 signal start_floor_pressed   # version 309: the title's start-floor button
 signal quick_pressed   # version 310: the title's QUICK PLAY button
+signal today_chest_pressed   # version 311: OPEN THE CHEST on TODAY'S GOALS
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
 signal graphics_toggled(level: int)
@@ -393,6 +394,14 @@ var _title_play: Button
 var _title_start: Button   # version 309
 var _title_quick: Button   # version 310
 var _title_small_row: Control   # version 310: START ON FLOOR and QUICK PLAY side by side
+## Version 311: TODAY'S GOALS (today.gd), a row on REWARDS and its own screen.
+var _rw_today: Button
+var _rw_today_sub: Label
+var _today_box: Control
+var _today_rows: VBoxContainer
+var _today_chest: Button
+var _today_chest_note: Label
+var _today_clock: Label
 var _end_retry: Button   # version 309
 var _title_continue: Control
 var _continue_where: Label
@@ -457,6 +466,7 @@ func _ready() -> void:
 	_build_feedback()
 	_build_modes()
 	_build_records()
+	_build_today()
 	_build_armory()
 	_build_heroes()
 	_event = EventScreen.new()
@@ -2228,6 +2238,143 @@ func records_visible() -> bool:
 	return _records_box.visible
 
 
+# ---------------------------------------------------------------- today's goals (version 311)
+
+func _build_today() -> void:
+	_today_box = overlay(Color(0.03, 0.02, 0.05, 1.0), "gold")
+	add_child(_today_box)
+	var col := VBoxContainer.new()
+	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	col.offset_left = 28
+	col.offset_right = -28
+	col.add_theme_constant_override("separation", 14)
+	_today_box.add_child(col)
+	col.add_child(label("TODAY'S GOALS", 46, GOLD))
+	col.add_child(label("Three new goals a day. Every run counts.", 18, Color(0.8, 0.78, 0.85)))
+	_today_rows = VBoxContainer.new()
+	_today_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_today_rows.add_theme_constant_override("separation", 12)
+	col.add_child(_today_rows)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 6)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(gap)
+	_today_chest = button("OPEN THE TODAY CHEST", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	_today_chest.custom_minimum_size = Vector2(420, 78)
+	_today_chest.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_today_chest.pressed.connect(func(): today_chest_pressed.emit())
+	col.add_child(_today_chest)
+	_today_chest_note = label("", 18, Color(1.0, 0.85, 0.5))
+	col.add_child(_today_chest_note)
+	_today_clock = label("", 16, Color(0.65, 0.63, 0.7))
+	col.add_child(_today_clock)
+	var back := button("BACK", 26)
+	back.pressed.connect(func(): show_today(false))
+	_frame(_today_box, col, back)
+	_today_box.visible = false
+
+
+func show_today(v: bool) -> void:
+	if v:
+		Sfx.play("click")
+		refresh_today()
+	_today_box.visible = v
+	if not v and _rewards_box.visible:
+		refresh_rewards()
+
+
+func today_visible() -> bool:
+	return _today_box != null and _today_box.visible
+
+
+## The three goal cards, each with its bar and a tick once it's done, and the chest.
+func refresh_today() -> void:
+	var cfg := Game._load_save()
+	for c in _today_rows.get_children():
+		c.free()
+	for g: Dictionary in Today.goals(cfg):
+		_today_rows.add_child(_today_card(g, Today.done(cfg, g), Today.progress_text(cfg, g),
+			clampf(float(Today.have(cfg, g.id)) / maxf(float(g.need), 1.0), 0.0, 1.0)))
+	var ready := Today.chest_ready(cfg)
+	var opened := Today.chest_open(cfg)
+	_today_chest.disabled = not ready
+	_today_chest.text = "CHEST OPENED" if opened else "OPEN THE TODAY CHEST"
+	_today_chest_note.text = "Come back tomorrow for three new goals." if opened else \
+		("Inside: %d coins and a Bone Drop" % Today.CHEST_COINS if ready else \
+		"Finish all 3 to open it: %d coins and a Bone Drop" % Today.CHEST_COINS)
+	_today_clock.text = "New goals in %s" % _clock_text(Curses.seconds_left())
+
+
+func _today_card(g: Dictionary, done: bool, progress: String, k: float) -> Control:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.06, 0.16, 0.09, 0.97) if done else Color(0.1, 0.08, 0.13, 0.95)
+	sb.border_color = Color(0.5, 1.0, 0.6, 0.85) if done else Color(GOLD, 0.45)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	panel.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 6)
+	panel.add_child(v)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(top)
+	var what := label(("DONE  " if done else "") + str(g.text), 22, Color(0.6, 1.0, 0.65) if done else Color(0.95, 0.93, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+	what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(what)
+	var pay := label("+%d" % Today.GOAL_COINS, 20, GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
+	pay.autowrap_mode = TextServer.AUTOWRAP_OFF
+	top.add_child(pay)
+	var bar_row := HBoxContainer.new()
+	bar_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar_row.add_theme_constant_override("separation", 12)
+	v.add_child(bar_row)
+	var bar := ProgressBar.new()
+	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.show_percentage = false
+	bar.min_value = 0.0
+	bar.max_value = 1.0
+	bar.value = k
+	bar.custom_minimum_size = Vector2(0, 16)
+	bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var back := StyleBoxFlat.new()
+	back.bg_color = Color(0.0, 0.0, 0.0, 0.5)
+	back.set_corner_radius_all(8)
+	var fill := StyleBoxFlat.new()
+	fill.bg_color = Color(0.45, 0.95, 0.5) if done else Color(1.0, 0.75, 0.25)
+	fill.set_corner_radius_all(8)
+	bar.add_theme_stylebox_override("background", back)
+	bar.add_theme_stylebox_override("fill", fill)
+	bar_row.add_child(bar)
+	var p := label(progress, 18, Color(0.85, 0.85, 0.9), HORIZONTAL_ALIGNMENT_RIGHT)
+	p.autowrap_mode = TextServer.AUTOWRAP_OFF
+	p.custom_minimum_size = Vector2(100, 0)
+	bar_row.add_child(p)
+	return panel
+
+
+## After OPEN THE TODAY CHEST: the screen again, and a banner.
+func today_opened(chest_coins: int) -> void:
+	refresh_today()
+	set_drops(Drops.waiting(Game._load_save()))
+	banner("TODAY CHEST!  +%d coins  +1 Bone Drop" % chest_coins, GOLD)
+
+
+## 18000 -> "5h 0m", 600 -> "10m".
+static func _clock_text(seconds: int) -> String:
+	var h := seconds / 3600
+	var m := (seconds % 3600) / 60
+	return "%dh %dm" % [h, m] if h > 0 else "%dm" % maxi(m, 1)
+
+
 func modes_visible() -> bool:
 	return _modes_box.visible
 
@@ -3705,7 +3852,7 @@ func _place_title_buttons() -> void:
 func _overlay_open() -> bool:
 	return _cards_box.visible or _doors_box.visible or _title_box.visible or _end_box.visible or _pause_box.visible or _armory_box.visible or _pass_box.visible \
 		or _daily_box.visible or _omen_box.visible or _ask_box.visible or _rem_box.visible or _modes_box.visible or _heroes_box.visible \
-		or _fb_box.visible or _records_box.visible or _drops.visible or _road.visible or _mastery.visible or _style.visible \
+		or _fb_box.visible or _records_box.visible or (_today_box != null and _today_box.visible) or _drops.visible or _road.visible or _mastery.visible or _style.visible \
 		or _rewards_box.visible or _feats.visible or _event.visible or _splash.visible or _leaders.visible or race_screen.visible
 
 
@@ -4685,6 +4832,11 @@ func _build_rewards() -> void:
 	_rewards_box.add_child(col)
 	col.add_child(label("REWARDS", 46, GOLD))
 	col.add_child(label("Everything you've earned, all free.", 19, Color(0.8, 0.78, 0.85)))
+	# Version 311: today's three goals and the Today Chest, first.
+	_rw_today = button("TODAY'S GOALS  0/3", 24, Color(0.05, 0.2, 0.1, 0.97), Color(0.5, 1.0, 0.65))
+	_rw_today.pressed.connect(func(): show_today(true))
+	col.add_child(_reward_row(_rw_today, null))
+	_rw_today_sub = col.get_child(col.get_child_count() - 1).get_child(1)
 	_rw_road = RoadScreen.Bar.new()
 	_rw_road.custom_minimum_size = Vector2(420, 70)
 	_rw_road.pressed.connect(func(): road_pressed.emit())
@@ -4861,13 +5013,23 @@ func refresh_rewards() -> void:
 	var pity := Drops.pity_text(cfg)
 	_rw_drops_sub.text = ("%d waiting" % n if n > 0 else "None waiting: win runs to earn more") + ("  ·  " + pity if pity != "" and n > 0 else "")
 	_rw_feats_sub.text = "%d of %d done  ·  each one wins a look" % [Feats.count(cfg), Feats.LIST.size()]
+	var tdone := Today.done_count(cfg)
+	var chest := Today.chest_ready(cfg)
+	_rw_today.text = "OPEN THE TODAY CHEST" if chest else "TODAY'S GOALS  %d/%d" % [tdone, Today.COUNT]
+	_rw_today_sub.text = ("All 3 done: %d coins and a Bone Drop inside" % Today.CHEST_COINS) if chest else \
+		("Chest opened  ·  new goals in %s" % _clock_text(Curses.seconds_left()) if Today.chest_open(cfg) else \
+		"+%d coins each  ·  all 3 open the Today Chest" % Today.GOAL_COINS)
 	var badge := ""
-	if BoneRoad.ready_count(cfg) > 0:
+	if chest:
+		badge = "CHEST!"
+	elif BoneRoad.ready_count(cfg) > 0:
 		badge = "CLAIM"
 	elif n > 0:
 		badge = "%d DROP%s" % [n, "" if n == 1 else "S"]
 	elif fnew:
 		badge = "NEW"
+	elif tdone < Today.COUNT and not Game.first_run_pending():
+		badge = "TODAY %d/%d" % [tdone, Today.COUNT]   # version 311: a reason to look in each day
 	_rewards_badge.text = badge
 	_rewards_badge.visible = badge != ""
 
@@ -5719,7 +5881,7 @@ func open_feats(cfg: ConfigFile, id: String) -> void:
 ## Daily Crypt, Omens, Feedback, the Bone Road and the reports question count too.
 func covers_world() -> bool:
 	return _style.visible or _feats.visible or _mastery.visible or _drops.visible or _heroes_box.visible \
-			or (_rewards_box != null and _rewards_box.visible) or _armory_box.visible or _records_box.visible \
+			or (_rewards_box != null and _rewards_box.visible) or _armory_box.visible or _records_box.visible or (_today_box != null and _today_box.visible) \
 			or _pass_box.visible or _modes_box.visible or _daily_box.visible or _omen_box.visible \
 			or _fb_box.visible or _road.visible or _ask_box.visible or _rem_box.visible or _event.visible or _splash.visible \
 			or (_leaders != null and _leaders.visible)
