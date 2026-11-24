@@ -4,9 +4,13 @@ extends Node3D
 ## simple shapes, at a size the run camera far above can read (the hero is 2.1 m tall):
 ##   wisp:  Lantern Wisp. A little ghost with big eyes and a lantern swinging from its hand;
 ##          the lantern throws a warm pool of light on the floor under it.
-##   raven: Crypt Raven. A black raven with a bone-white bird skull for a head, violet eyes
-##          and violet-tipped wings. It circles over the hero while there are skeletons about
-##          and lands on their shoulder to rest when the room is clear (and on the title).
+##   raven: Crypt Raven. A blue-black raven with a violet sheen, a big bone-white bird skull
+##          for a head (glowing violet eyes, a hooked beak that opens to caw, a ragged crest)
+##          and wings of real feathers tipped in glowing violet (version 319: it was a dark
+##          lump of boxes). It circles over the hero while there are skeletons about, a violet
+##          pool following it on the floor and feathers falling from it, now and then dives
+##          at the nearest skeleton and pecks it with a violet flash (only a show), and lands
+##          on their shoulder to rest when the room is clear (and on the title).
 ##   mimic: Mimic. A treasure chest with fangs and a tongue. It hops after the hero, chomps
 ##          now and then, and snaps at the nearest skeleton.
 ##   wyrm:  Bone Wyrm (version 314). A tiny skeleton dragon with a violet soul fire in its
@@ -37,7 +41,7 @@ var _yaw := PI
 var _look := 0.0   # (a timer for small idle moves)
 var _base_scale := Vector3.ONE
 ## How much bigger each pet is drawn in a run than on a pedestal.
-const RUN_SIZE := {"wisp": 1.45, "raven": 1.2, "mimic": 1.3, "wyrm": 1.85}
+const RUN_SIZE := {"wisp": 1.45, "raven": 1.25, "mimic": 1.3, "wyrm": 1.85}
 
 # Lantern Wisp
 var _lantern: Node3D
@@ -51,6 +55,12 @@ var _wing_r: Node3D
 var _head: Node3D
 var _orbit := 0.0
 var _land := 0.0
+var _beak: Node3D
+var _pool: MeshInstance3D
+var _shed: CPUParticles3D
+var _dive_t := -1.0
+var _dive_wait := 3.0
+var _dive_prey: Node3D
 
 # Mimic
 var _lid: Node3D
@@ -254,92 +264,266 @@ func _wisp(delta: float) -> void:
 # ---------------------------------------------------------------- Crypt Raven
 
 func _build_raven() -> void:
-	var bone := _mat("raven_bone", Color(0.94, 0.92, 0.86), 0.7)
-	var feather := _mat("raven_feather", Color(0.09, 0.08, 0.12), 0.45)
-	var sheen := _mat("raven_sheen", Color(0.2, 0.15, 0.3), 0.4)
-	var black := _mat("raven_black", Color(0.05, 0.04, 0.06), 0.6)
-	var violet := _mat("raven_eye", Color(0.75, 0.45, 1.0), 0.3, Color(0.7, 0.4, 1.0), 4.0)
-	var tip := _mat("raven_tip", Color(0.6, 0.35, 0.95), 0.4, Color(0.55, 0.3, 0.95), 1.6)
-	var body := _sphere(_body, 0.19, feather, Vector3(0, 0, 0.02))
-	body.scale = Vector3(0.95, 0.9, 1.55)
-	var chest := _sphere(_body, 0.15, sheen, Vector3(0, -0.03, -0.17))
-	chest.scale = Vector3(1.0, 1.0, 1.1)
-	# A ruff of ragged neck feathers where the skull meets the body.
-	for i in 5:
-		var a := -0.9 + i * 0.45
-		var r := U.box(_body, Vector3(0.07, 0.03, 0.14), feather, Vector3(sin(a) * 0.12, 0.1, -0.2 + cos(a) * 0.03))
-		r.rotation = Vector3(-0.5, a, 0)
-	# The head is a bird's skull: white bone, dark sockets with violet eyes, a black beak.
+	var bone := _mat("raven_bone", Color(0.95, 0.93, 0.87), 0.6)
+	var black := _mat("raven_black", Color(0.05, 0.04, 0.07), 0.6)
+	var violet := _mat("raven_eye", Color(0.85, 0.6, 1.0), 0.3, Color(0.75, 0.45, 1.0), 5.0)
+	var plume := _raven_plume()
+	# The body: blue-black feathers with a violet sheen at the edges (so a black bird still
+	# reads on a dark floor), a rounder chest, and a ruff of ragged feathers at the neck.
+	var body := _sphere(_body, 0.2, plume, Vector3(0, 0, 0.02))
+	body.scale = Vector3(0.95, 0.88, 1.5)
+	var chest := _sphere(_body, 0.16, plume, Vector3(0, -0.04, -0.17))
+	chest.scale = Vector3(1.05, 1.0, 1.05)
+	var ruff := MeshInstance3D.new()
+	ruff.mesh = _raven_fan(7, 0.17, 0.045, -0.55, 0.55, Color(0.08, 0.07, 0.13), Color(0.35, 0.2, 0.6))
+	ruff.material_override = _raven_feather_mat()
+	ruff.position = Vector3(0, 0.07, -0.2)
+	ruff.rotation.x = -0.35   # (the fan points back over the shoulders, a little up)
+	_body.add_child(ruff)
+	# The head: a big bird's skull, white bone (it is what the run camera sees best), deep
+	# sockets with glowing violet eyes, a hooked black beak that opens to caw, and a crest of
+	# three ragged feathers swept back.
 	_head = Node3D.new()
-	_head.position = Vector3(0, 0.12, -0.3)
+	_head.position = Vector3(0, 0.13, -0.3)
 	_body.add_child(_head)
-	var skull := _sphere(_head, 0.13, bone, Vector3.ZERO)
-	skull.scale = Vector3(0.95, 0.95, 1.15)
+	var skull := _sphere(_head, 0.15, bone, Vector3.ZERO)
+	skull.scale = Vector3(0.95, 0.92, 1.12)
+	var brow := _sphere(_head, 0.1, bone, Vector3(0, 0.05, -0.08))
+	brow.scale = Vector3(1.25, 0.6, 1.0)
 	for side in [-1.0, 1.0]:
-		_sphere(_head, 0.05, black, Vector3(0.075 * side, 0.025, -0.06))
-		_sphere(_head, 0.026, violet, Vector3(0.09 * side, 0.03, -0.075))
-	var beak := _tube(_head, 0.055, 0.0, 0.24, black, Vector3.ZERO)
-	beak.rotation.x = PI / 2.0
-	beak.position = Vector3(0, -0.015, -0.24)
-	beak.scale = Vector3(1.0, 1.0, 0.75)
-	# Wings: a long bone-white arm of feathers with black finger feathers at the tip.
-	_wing_l = _wing(-1.0, feather, sheen, tip)
-	_wing_r = _wing(1.0, feather, sheen, tip)
-	# A fan of tail feathers, black-tipped.
-	for i in 3:
-		var f := Node3D.new()
-		f.position = Vector3(0, 0.02, 0.24)
-		f.rotation.y = (i - 1) * 0.32
-		_body.add_child(f)
-		U.box(f, Vector3(0.09, 0.025, 0.24), feather, Vector3(0, 0, 0.12))
-		U.box(f, Vector3(0.08, 0.026, 0.09), tip, Vector3(0, 0, 0.27))
+		var sock := _sphere(_head, 0.058, black, Vector3(0.085 * side, 0.015, -0.075))
+		sock.scale = Vector3(0.9, 1.0, 0.7)
+		_sphere(_head, 0.032, violet, Vector3(0.1 * side, 0.02, -0.095))
+	var upper := _tube(_head, 0.06, 0.0, 0.27, black, Vector3.ZERO)
+	upper.rotation.x = PI / 2.0 + 0.22   # (hooked: the tip turns down)
+	upper.position = Vector3(0, -0.005, -0.26)
+	upper.scale = Vector3(1.0, 1.0, 0.8)
+	_beak = Node3D.new()
+	_beak.position = Vector3(0, -0.04, -0.13)
+	_head.add_child(_beak)
+	var lower := _tube(_beak, 0.04, 0.0, 0.18, black, Vector3.ZERO)
+	lower.rotation.x = PI / 2.0 - 0.1
+	lower.position = Vector3(0, 0, -0.09)
+	lower.scale = Vector3(1.0, 1.0, 0.6)
+	var crest := MeshInstance3D.new()
+	crest.mesh = _raven_fan(3, 0.2, 0.04, -0.3, 0.3, Color(0.08, 0.07, 0.13), Color(0.6, 0.35, 0.95))
+	crest.material_override = _raven_feather_mat()
+	crest.position = Vector3(0, 0.1, 0.05)
+	crest.rotation.x = -0.6
+	_head.add_child(crest)
+	# Wings of real feathers: long black primaries tipped in glowing violet, a row of
+	# secondaries behind the arm and coverts over them. Spread, the wings are 2 m across
+	# (at the run's size), a big V the camera far above can read.
+	_wing_l = _raven_wing(-1.0)
+	_wing_r = _raven_wing(1.0)
+	# A fan of five tail feathers, violet-tipped.
+	var tail := MeshInstance3D.new()
+	tail.mesh = _raven_fan(5, 0.34, 0.055, -0.45, 0.45, Color(0.07, 0.06, 0.12), Color(0.55, 0.3, 0.95))
+	tail.material_override = _raven_feather_mat()
+	tail.position = Vector3(0, 0.02, 0.22)
+	tail.rotation.x = 0.15   # (the fan lies flat, pointing back and a little down)
+	_body.add_child(tail)
+	_tail = tail
 	# Legs, for perching.
 	for side in [-1.0, 1.0]:
 		U.box(_body, Vector3(0.025, 0.14, 0.025), black, Vector3(0.06 * side, -0.2, -0.04))
-	# A faint violet light about it, so a black bird still stands out on a dark floor.
+	# A violet glow about it.
 	var glow := MeshInstance3D.new()
-	glow.mesh = _quad(1.3)
-	glow.material_override = _add_mat(Color(0.55, 0.3, 1.0, 0.32), true)
+	glow.mesh = _quad(1.5)
+	glow.material_override = _add_mat(Color(0.55, 0.3, 1.0, 0.38), true)
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_body.add_child(glow)
 	_body.position.y = 1.5
+	# Under it on the floor, a soft violet pool that follows it about, so from far above the
+	# eye finds where the bird is even over a dark floor.
+	if not _staged:
+		_pool_mat = _add_mat(Color(0.5, 0.28, 1.0, 0.0), false)
+		_pool = U.floor_quad(self, Vector2.ONE * 1.6, _pool_mat)
+		_pool.top_level = true
+		_shed = CPUParticles3D.new()
+		_shed.amount = 10
+		_shed.lifetime = 1.0
+		_shed.local_coords = false
+		_shed.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		_shed.emission_sphere_radius = 0.3
+		_shed.direction = Vector3.DOWN
+		_shed.spread = 60.0
+		_shed.gravity = Vector3(0, -1.2, 0)
+		_shed.initial_velocity_min = 0.2
+		_shed.initial_velocity_max = 0.6
+		_shed.angular_velocity_min = -200.0
+		_shed.angular_velocity_max = 200.0
+		_shed.angle_max = 360.0
+		var q := QuadMesh.new()
+		q.size = Vector2(0.09, 0.2)
+		_shed.mesh = q
+		var sm := _add_mat(Color(0.65, 0.4, 1.0, 0.9), true)
+		sm.vertex_color_use_as_albedo = true
+		_shed.material_override = sm
+		var g := Gradient.new()
+		g.set_color(0, Color(0.8, 0.6, 1.0, 1.0))
+		g.set_color(1, Color(0.4, 0.2, 0.9, 0.0))
+		_shed.color_ramp = g
+		_body.add_child(_shed)
 
 
-func _wing(side: float, feather: Material, sheen: Material, tip: Material) -> Node3D:
+static var _plume_mat: ShaderMaterial
+static var _feather_mat: ShaderMaterial
+
+
+## Blue-black plumage with a violet-to-teal sheen round its edges (like a real raven's).
+static func _raven_plume() -> ShaderMaterial:
+	if _plume_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+void fragment() {
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	vec3 sheen = mix(vec3(0.45, 0.25, 0.95), vec3(0.2, 0.7, 0.85), clamp(NORMAL.y * 0.5 + 0.5, 0.0, 1.0));
+	ALBEDO = vec3(0.06, 0.055, 0.1) + sheen * fres * 0.35;
+	ROUGHNESS = 0.4;
+	EMISSION = sheen * fres * 0.55;
+}
+"""
+		_plume_mat = ShaderMaterial.new()
+		_plume_mat.shader = sh
+	return _plume_mat
+
+
+## The feathers (wings, tail, crest, ruff): their colour from the mesh (black at the root,
+## violet at the tip), the tips glowing, a sheen at the edges.
+static func _raven_feather_mat() -> ShaderMaterial:
+	if _feather_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode cull_disabled;
+void fragment() {
+	float fres = pow(1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), 2.0);
+	float tip = smoothstep(0.62, 1.0, UV.y);
+	float edge = smoothstep(0.55, 1.0, abs(UV.x)) * 0.35;
+	ALBEDO = COLOR.rgb + vec3(0.25, 0.15, 0.45) * edge;
+	ROUGHNESS = 0.45;
+	EMISSION = vec3(0.62, 0.32, 1.0) * tip * 1.4 + vec3(0.35, 0.25, 0.8) * fres * 0.3;
+}
+"""
+		_feather_mat = ShaderMaterial.new()
+		_feather_mat.shader = sh
+	return _feather_mat
+
+
+static var _raven_meshes := {}
+
+
+## A wing of feathers lying flat (x out to the `side`, z back, y up), from the shoulder at
+## the origin: an arm to the wrist, long primaries fanning from the hand, secondaries behind
+## the arm, coverts over them.
+func _raven_wing(side: float) -> Node3D:
 	var w := Node3D.new()
-	w.position = Vector3(0.13 * side, 0.07, -0.08)
+	w.position = Vector3(0.14 * side, 0.08, -0.06)
 	_body.add_child(w)
-	U.box(w, Vector3(0.36, 0.05, 0.26), feather, Vector3(0.18 * side, 0, 0.02))
-	U.box(w, Vector3(0.34, 0.055, 0.08), sheen, Vector3(0.18 * side, 0.004, -0.09))   # (the leading edge)
-	var outer := Node3D.new()
-	outer.position = Vector3(0.34 * side, 0, 0.0)
-	outer.rotation.y = -0.25 * side
-	w.add_child(outer)
-	U.box(outer, Vector3(0.26, 0.045, 0.22), feather, Vector3(0.13 * side, 0, 0.03))
-	# Long finger feathers, black with glowing violet tips.
-	for i in 4:
-		var f := U.box(outer, Vector3(0.22, 0.035, 0.06), feather, Vector3((0.3 + 0.02 * i) * side, 0, -0.06 + i * 0.065))
-		f.rotation.y = (0.12 - 0.18 * i) * side
-		U.box(f, Vector3(0.07, 0.04, 0.062), tip, Vector3(0.12 * side, 0, 0))
+	var key := int(side)
+	if not _raven_meshes.has(key):
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var dark := Color(0.07, 0.065, 0.12)
+		var mid := Color(0.22, 0.17, 0.36)   # (the coverts a little lighter: the camera above sees them)
+		var tipc := Color(0.55, 0.3, 0.95)
+		var wrist := Vector2(0.32, 0.02)
+		# Primaries: from the hand, sweeping from out-and-forward to out-and-back.
+		for i in 6:
+			var f := float(i) / 5.0
+			var root := wrist.lerp(Vector2(0.48, 0.05), f)
+			_flat_feather(st, root, lerpf(-0.15, 0.75, f), lerpf(0.42, 0.3, f), 0.055, 0.08, 0.0, dark, tipc, side)
+		# Secondaries: along the arm, pointing back.
+		for i in 6:
+			var f := float(i) / 5.0
+			var root := Vector2(0.06, 0.0).lerp(wrist, f)
+			_flat_feather(st, root, lerpf(1.45, 1.0, f), lerpf(0.25, 0.3, f), 0.055, 0.05, 0.0, dark, tipc.lerp(dark, 0.45), side)
+		# Coverts over the roots, a little above.
+		for i in 7:
+			var f := float(i) / 6.0
+			var root := Vector2(0.04, -0.01).lerp(Vector2(0.45, 0.04), f)
+			_flat_feather(st, root, lerpf(1.3, 0.5, f), 0.15, 0.05, 0.03, 0.012, mid, mid.lerp(tipc, 0.3), side)
+		_raven_meshes[key] = st.commit()
+	var mi := MeshInstance3D.new()
+	mi.mesh = _raven_meshes[key]
+	mi.material_override = _raven_feather_mat()
+	w.add_child(mi)
 	return w
+
+
+## One feather lying flat (in the XZ plane, y `lift` above it), from `root` (x out, z back,
+## made for the right side and mirrored for `side`) at the angle `ang` (0 points straight
+## out, PI/2 straight back), tapering to a point that curls back by `curl`. UV.y 0 at the
+## root to 1 at the tip, UV.x -1 to 1 across.
+static func _flat_feather(st: SurfaceTool, root: Vector2, ang: float, length: float, half_w: float, curl: float, lift: float, c0: Color, c1: Color, side: float) -> void:
+	var d := Vector2(cos(ang), sin(ang))
+	var n := Vector2(-d.y, d.x)
+	var pl := Vector3.ZERO
+	var pr := Vector3.ZERO
+	var pt := 0.0
+	for i in 8:
+		var t := float(i) / 7.0
+		var c := root + d * (t * length) + n * (curl * t * t)
+		var hw := half_w * (0.45 * (1.0 - t) + 0.75 * sin(PI * pow(t, 0.6)))
+		var l := Vector3((c.x - n.x * hw) * side, lift + 0.01 * t, c.y - n.y * hw)
+		var r := Vector3((c.x + n.x * hw) * side, lift + 0.01 * t, c.y + n.y * hw)
+		if i > 0:
+			var a0 := c0.lerp(c1, pt * pt)
+			var a1 := c0.lerp(c1, t * t)
+			for v in [[pl, -1.0, pt, a0], [pr, 1.0, pt, a0], [r, 1.0, t, a1], [pl, -1.0, pt, a0], [r, 1.0, t, a1], [l, -1.0, t, a1]]:
+				st.set_color(v[3])
+				st.set_uv(Vector2(v[1], v[2]))
+				st.set_normal(Vector3.UP)
+				st.add_vertex(v[0])
+		pl = l
+		pr = r
+		pt = t
+
+
+## A fan of `count` feathers from one point, spread from `a0` to `a1` (radians), lying flat
+## (in the XZ plane) and pointing back along +Z (the caller turns it into place).
+static func _raven_fan(count: int, length: float, half_w: float, a0: float, a1: float, c0: Color, c1: Color) -> Mesh:
+	var key := "fan%d/%.2f/%.2f" % [count, length, a1]
+	if _raven_meshes.has(key):
+		return _raven_meshes[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in count:
+		var f := 0.5 if count == 1 else float(i) / (count - 1)
+		var a := lerpf(a0, a1, f)
+		# (_flat_feather lays feathers in XZ; a fan for the tail is turned by its holder)
+		_flat_feather(st, Vector2.ZERO, PI / 2.0 + a, length * (1.0 - 0.12 * absf(f - 0.5) * 2.0), half_w, 0.0, 0.004 * i, c0, c1, 1.0)
+	var m := st.commit()
+	_raven_meshes[key] = m
+	return m
 
 
 func _raven(delta: float) -> void:
 	var a := Vector3.ZERO if _staged else _anchor.global_position
 	var hb := Basis.IDENTITY if _staged else _anchor.global_basis.orthonormalized()
 	var shoulder := a + hb * Vector3(0.5, 1.38, 0.02)
+	# It caws now and then: the beak snaps open and the head jerks up.
+	var cw := fmod(_t + 1.3, 3.4)
+	var caw := smoothstep(0.0, 0.06, cw) * (1.0 - smoothstep(0.25, 0.4, cw))
+	_beak.rotation.x = 0.55 * caw
+	_tail.rotation.z = sin(_t * 2.6) * 0.12
 	if _staged:
 		# On a pedestal it hovers beside the hero, turned to fly towards them and the camera,
 		# so its wings beat up and down beside the hero (face on, they crossed the hero's face).
-		position = Vector3(-1.05, 0, -0.35)
+		position = Vector3(-0.8, 0, -0.45)   # (version 319: further in, it was cut off by the frame)
 		_body.position = Vector3(0, 1.5 + sin(_t * 1.6) * 0.08, 0)
-		_body.scale = Vector3.ONE * 1.15
-		_turn_to(-PI / 2.0 + 0.55 + sin(_t * 0.7) * 0.15, delta, 3.0)
-		_body.rotation.x = 0.1
+		_body.scale = Vector3.ONE * 0.95
+		# (side on to the camera, its wings beating high in a V over its back, so their
+		# feathers face the camera: flat out, or seen from the front, they are lines)
+		_turn_to(-PI / 2.0 + 0.45 + sin(_t * 0.7) * 0.12, delta, 3.0)
+		_body.rotation.x = 0.12
 		_body.rotation.z = sin(_t * 0.9) * 0.1
-		var hover := sin(_t * 6.0) * 0.7
-		_wing_l.rotation = Vector3(0, 0, -hover)
-		_wing_r.rotation = Vector3(0, 0, hover)
+		var hover := 0.65 + sin(_t * 6.0) * 0.55
+		_wing_l.rotation = Vector3(0, 0.25, -hover)
+		_wing_r.rotation = Vector3(0, -0.25, hover)
+		_head.rotation.x = -0.25 * caw
 		return
 	elif _still > 1.0 and Game.alive_enemies <= 0:
 		_land = move_toward(_land, 1.0, delta * 1.3)   # (in a fight the hero stands still to shoot)
@@ -347,36 +531,68 @@ func _raven(delta: float) -> void:
 		_land = move_toward(_land, 0.0, delta * 2.4)
 	var k := smoothstep(0.0, 1.0, _land)
 	# Flying: wide circles over the hero, rising and falling a little.
-	var speed_turn := 1.9
-	_orbit += delta * speed_turn
-	var r := 1.35
+	_orbit += delta * 1.9
+	var r := 1.5
 	var fly := a + Vector3(cos(_orbit) * r, 2.5 + sin(_orbit * 2.0) * 0.18, sin(_orbit) * r)
 	var tangent := Vector3(-sin(_orbit), 0, cos(_orbit))
 	# On the way down it swoops in an arc rather than sliding.
 	var p := fly.lerp(shoulder, k) + Vector3.UP * sin(k * PI) * 0.45
+	# In a fight it dives at the nearest skeleton now and then, pecks it with a violet flash
+	# and climbs back to its circle (only a show: it never hurts anything).
+	if k < 0.05:
+		if _dive_t < 0.0:
+			_dive_wait -= delta
+			if _dive_wait <= 0.0:
+				_dive_wait = randf_range(3.5, 5.5)
+				_dive_prey = _nearest_enemy(8.0)
+				if _dive_prey:
+					_dive_t = 0.0
+		else:
+			_dive_t += delta
+	var dive := 0.0
+	if _dive_t >= 0.0:
+		if _dive_prey == null or not is_instance_valid(_dive_prey) or _dive_t > 1.0:
+			_dive_t = -1.0
+		else:
+			dive = smoothstep(0.0, 1.0, sin(_dive_t * PI))
+			var prey_at := _dive_prey.global_position + Vector3(0, 1.1, 0)
+			p = p.lerp(prey_at, dive)
+			if _dive_t - delta < 0.5 and _dive_t >= 0.5:
+				Fx._burst(prey_at, 8, Color(0.75, 0.5, 1.0), 0.4, 2.6, 0.35, 0.0, true, "glint")
+				caw = 1.0
+				_beak.rotation.x = 0.55
+			if _dive_t < 0.5:
+				tangent = (prey_at - (a + _body.position)).normalized()
 	position = a
 	_body.position = p - a
 	var face := _yaw_of(tangent) if k < 0.5 else hb.get_euler().y
-	_turn_to(face, delta, 5.0 if k < 0.5 else 8.0)
-	_body.rotation.z = lerpf(0.38, 0.0, k)   # leaning into the turn
-	# Wings: flapping, with a glide now and then; folded along the back when perched.
+	_turn_to(face, delta, (9.0 if dive > 0.0 else 5.0) if k < 0.5 else 8.0)
+	_body.rotation.z = lerpf(0.38, 0.0, k) * (1.0 - dive)   # leaning into the turn
+	_body.rotation.x = -0.6 * dive if _dive_t < 0.5 else 0.3 * dive   # (nose down into the dive)
+	# Wings: flapping, with a glide now and then; tucked in a dive; folded along the back when
+	# perched.
 	var glide := smoothstep(0.3, 0.7, sin(_t * 0.9))
 	var flap := sin(_t * 11.0) * lerpf(0.75, 0.12, glide) + 0.1 * glide
-	var fold := k
-	if fold > 0.95:
+	var fold := maxf(k, dive * 0.55)
+	if k > 0.95:
 		_look += delta
 		# Perched: now and then it stretches its wings, and it looks about.
 		var stretch := smoothstep(0.0, 0.3, fmod(_look, 6.0) - 4.6) * (1.0 - smoothstep(0.0, 0.3, fmod(_look, 6.0) - 5.4))
 		fold = 1.0 - stretch * 0.8
 		flap = stretch * (0.4 + sin(_t * 9.0) * 0.25)
 		_head.rotation.y = sin(_t * 1.1) * 0.55
-		_head.rotation.x = sin(_t * 2.3) * 0.12
+		_head.rotation.x = sin(_t * 2.3) * 0.12 - 0.25 * caw
 	else:
-		_head.rotation = Vector3.ZERO
+		_head.rotation = Vector3(-0.25 * caw, 0, 0)
 	_wing_l.rotation = Vector3(0, 1.35 * fold, -flap * (1.0 - fold) - 0.3 * fold)
 	_wing_r.rotation = Vector3(0, -1.35 * fold, flap * (1.0 - fold) + 0.3 * fold)
 	for w: Node3D in [_wing_l, _wing_r]:
-		w.scale.x = lerpf(1.0, 0.5, fold)   # (folded, the long feathers lie over each other)
+		w.scale.x = lerpf(1.0, 0.55, fold)   # (folded, the long feathers lie over each other)
+	# The violet pool on the floor under it, and feathers shed as it flies.
+	var bird := a + _body.position
+	_pool.global_position = Vector3(bird.x, 0.06, bird.z)
+	_pool_mat.albedo_color.a = lerpf(0.5, 0.2, k) + 0.25 * dive
+	_shed.emitting = k < 0.5
 
 
 # ---------------------------------------------------------------- Mimic
@@ -889,16 +1105,27 @@ class Icon extends Control:
 		var tipc := Color(0.65, 0.4, 1.0)
 		_glow(Vector2(0, -16 + y), 26, Color(0.6, 0.35, 1.0, 0.5))
 		for s in [-1.0, 1.0]:
-			var tip := Vector2(48 * s, -14 + y - f)
-			draw_colored_polygon(PackedVector2Array([Vector2(4 * s, -6 + y), tip, Vector2(40 * s, 4 + y - f * 0.6), Vector2(6 * s, 10 + y)]), feather)
-			draw_colored_polygon(PackedVector2Array([tip, Vector2(36 * s, -8 + y - f * 0.85), Vector2(42 * s, 0 + y - f * 0.7)]), tipc)
+			# (version 319) the wing as real feathers: an arm, then four long finger feathers
+			# fanning from the wrist, each tipped in glowing violet.
+			var wrist := Vector2(26 * s, -8 + y - f * 0.6)
+			draw_colored_polygon(PackedVector2Array([Vector2(4 * s, -6 + y), wrist, Vector2(28 * s, 2 + y - f * 0.5), Vector2(6 * s, 10 + y)]), feather)
+			for i in 4:
+				var ang := -0.5 + i * 0.32
+				var d := Vector2(cos(ang) * s, sin(ang))
+				var tip := wrist + d * (26.0 - i * 3.0) + Vector2(0, -f * 0.4)
+				var nrm := Vector2(-d.y, d.x) * 3.2
+				draw_colored_polygon(PackedVector2Array([wrist + nrm, tip, wrist - nrm]), feather)
+				draw_colored_polygon(PackedVector2Array([wrist.lerp(tip, 0.65) + nrm * 0.6, tip, wrist.lerp(tip, 0.65) - nrm * 0.6]), tipc)
 		draw_colored_polygon(PackedVector2Array([Vector2(-8, 18 + y), Vector2(8, 18 + y), Vector2(12, 36 + y), Vector2(-12, 36 + y)]), feather)
 		_ellipse(Vector2(0, 6 + y), 11, 20, feather)
-		draw_circle(Vector2(0, -16 + y), 11, bone)
-		draw_colored_polygon(PackedVector2Array([Vector2(-4, -12 + y), Vector2(4, -12 + y), Vector2(0, 4 + y)]), black)
+		# a ragged crest swept back over the skull
+		for i in 3:
+			draw_colored_polygon(PackedVector2Array([Vector2(-4 + i * 4, -24 + y), Vector2(-8 + i * 8, -36 + y), Vector2(i * 4, -24 + y)]), feather)
+		draw_circle(Vector2(0, -16 + y), 12, bone)
+		draw_colored_polygon(PackedVector2Array([Vector2(-5, -12 + y), Vector2(5, -12 + y), Vector2(2, 6 + y), Vector2(-1, 4 + y)]), black)
 		for s in [-1.0, 1.0]:
-			draw_circle(Vector2(5 * s, -19 + y), 3.5, black)
-			draw_circle(Vector2(5 * s, -19 + y), 1.8, Color(0.8, 0.5, 1.0))
+			draw_circle(Vector2(5.5 * s, -19 + y), 4.0, black)
+			draw_circle(Vector2(5.5 * s, -19 + y), 2.2, Color(0.85, 0.6, 1.0))
 
 	func _mimic() -> void:
 		var bite := maxf(0.0, sin(_t * 2.2)) * 10.0

@@ -1,3 +1,3 @@
-Version 318: Legend Vault, Supercell pass 1 of 10
-- Soul Harvest rebuilt: a rune ring flares where a skeleton falls, its wailing ghost is torn out of the bones and streaks into you along a ribbon of light, and blue fire flares at your feet.
-- More Legend Vault looks are being rebuilt one by one.
+Version 319: Legend Vault, Supercell pass 2 of 10
+- Crypt Raven rebuilt: real feathered wings with glowing violet tips, a big skull head that caws, and it now dives at skeletons and pecks them. A violet glow follows it so you can always see it.
+- Version 318: Soul Harvest rebuilt with a wailing ghost that streaks into you.
