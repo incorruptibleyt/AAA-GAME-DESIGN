@@ -1,2 +1,2 @@
-Version 331: Legend Vault looks get better (2 of 6)
-- Ember Steps upgraded: the cracks are now thick glowing veins of magma with charred edges (they looked like yellow lightning), each step leaves a real boot print with tread, and smoke curls up off every step.
+Version 332: Legend Vault looks get better (3 of 6)
+- Bone Wyrm upgraded: in the shop it now flies beside your hero instead of over them, with a bigger skull, long curling horns, glowing violet eyes and a throat that glows as it roars.

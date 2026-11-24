@@ -98,6 +98,7 @@ var _flame: CPUParticles3D
 var _core: CPUParticles3D
 var _heart_mat: StandardMaterial3D
 var _mouth_mat: StandardMaterial3D
+var _maw: MeshInstance3D   # (Bone Wyrm: the violet light in its throat, as big as its jaw is open)
 var _breath := 0.0   # (seconds of fire left)
 var _breath_wait := 2.0
 var _breath_at := Vector3.ZERO   # (where the fire goes)
@@ -1382,6 +1383,9 @@ func _nearest_enemy(reach: float) -> Node3D:
 ## Its vertebrae, from the neck to the tail: their sizes (3 neck, 4 with ribs, 9 tail).
 const WYRM_SIZES := [0.72, 0.8, 0.88, 1.0, 1.08, 1.08, 1.0, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.45, 0.39, 0.34]
 const WYRM_CHEST := 3   # (the first vertebra with ribs; the wings grow from it)
+## On a pedestal: its size, and how far to the hero's side its loop lies.
+const WYRM_STAGE := 1.15
+const WYRM_STAGE_X := -0.78
 const WYRM_BONE := Color(0.93, 0.9, 0.82)
 const WYRM_OLD := Color(0.7, 0.65, 0.56)
 const WYRM_DARK := Color(0.05, 0.025, 0.08)
@@ -1393,7 +1397,7 @@ static var _wyrm_thread_mat: ShaderMaterial
 
 func _build_wyrm() -> void:
 	# In a run it is drawn big, for the camera far above (the hero is 2.1 m tall there).
-	_wsize = float(RUN_SIZE.wyrm) if not _staged else 1.0
+	_wsize = float(RUN_SIZE.wyrm) if not _staged else WYRM_STAGE
 	var bone := _wyrm_bone()
 	var violet := _mat("wyrm_eye", Color(0.85, 0.6, 1.0), 0.3, Color(0.75, 0.42, 1.0), 5.0)
 	_heart_mat = _mat("wyrm_heart%d" % get_instance_id(), Color(0.7, 0.4, 1.0), 0.3, Color(0.65, 0.3, 1.0), 3.0)
@@ -1402,30 +1406,23 @@ func _build_wyrm() -> void:
 	_body.add_child(_head)
 	_wyrm_mesh(_head, "skull", bone)
 	for side in [-1.0, 1.0]:
-		_sphere(_head, 0.026, violet, Vector3(0.105 * side, 0.05, -0.05))
-		var eg := MeshInstance3D.new()
-		eg.mesh = _quad(0.2)
-		eg.material_override = _add_mat(Color(0.75, 0.45, 1.0, 0.9), true)
-		eg.position = Vector3(0.11 * side, 0.055, -0.05)
-		eg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_head.add_child(eg)
+		# (version 332: bigger eyes, each in a ball of violet light: the flat glints never showed)
+		_sphere(_head, 0.033, violet, Vector3(0.105 * side, 0.05, -0.05))
+		LegendGrand._glow(_head, 0.085, Color(0.75, 0.42, 1.0), 1.1).position = Vector3(0.11 * side, 0.052, -0.055)
 	_jaw = Node3D.new()
 	_jaw.position = Vector3(0, -0.035, 0.08)
 	_head.add_child(_jaw)
 	_wyrm_mesh(_jaw, "jaw", bone)
 	# A violet glow in its throat that blazes when the jaw drops.
-	var mouth := MeshInstance3D.new()
-	mouth.mesh = _quad(0.5)
-	_mouth_mat = _add_mat(Color(0.8, 0.5, 1.0, 0.0), true)
-	mouth.material_override = _mouth_mat
-	mouth.position = Vector3(0, -0.04, -0.2)
-	mouth.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_head.add_child(mouth)
+	_maw = LegendGrand._glow(_head, 0.13, Color(0.8, 0.5, 1.0), 1.2)
+	_maw.position = Vector3(0, -0.045, -0.2)
+	_maw.visible = false
 	# Its fire: a violet stream from the open jaws with a white-hot core, left in the world.
-	_flame = _wyrm_fire(0.62, Color(0.82, 0.45, 1.0), 80)
+	var fs := 0.5 if _staged else 1.0   # (a pedestal's picture is small: a smaller fire)
+	_flame = _wyrm_fire(0.62 * fs, Color(0.82, 0.45, 1.0), 80 if not _staged else 40)
 	_flame.position = Vector3(0, -0.04, -0.32)
 	_head.add_child(_flame)
-	_core = _wyrm_fire(0.3, Color(1.0, 0.92, 1.0), 40)
+	_core = _wyrm_fire(0.3 * fs, Color(1.0, 0.92, 1.0), 40 if not _staged else 16)
 	_core.position = _flame.position
 	_head.add_child(_core)
 	# The spine: a chain of vertebrae, ribs round the chest, a crystal barb at the tail's end.
@@ -1446,22 +1443,14 @@ func _build_wyrm() -> void:
 	barb.mesh = _wyrm_barb()
 	barb.material_override = violet
 	tip.add_child(barb)
-	var bg := MeshInstance3D.new()
-	bg.mesh = _quad(0.7)
-	bg.material_override = _add_mat(Color(0.7, 0.4, 1.0, 0.7), true)
-	bg.position = Vector3(0, 0, 0.15)
-	bg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	tip.add_child(bg)
+	LegendGrand._glow(tip, 0.2, Color(0.7, 0.4, 1.0), 0.8).position = Vector3(0, 0, 0.15)
 	# The soul fire in its ribs, and the glow it throws (so bone reads on a pale floor too).
 	var chest := _segs[WYRM_CHEST + 1]
 	var heart := _sphere(chest, 0.07, _heart_mat, Vector3(0, -0.11, 0.05))
 	heart.scale = Vector3(1.0, 1.1, 1.4)
-	var hg := MeshInstance3D.new()
-	hg.mesh = _quad(0.9)
-	hg.material_override = _add_mat(Color(0.65, 0.35, 1.0, 0.75), true)
+	var hg := LegendGrand._glow(chest, 0.24, Color(0.65, 0.35, 1.0), 0.7)
 	hg.position = Vector3(0, -0.1, 0.05)
-	hg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	chest.add_child(hg)
+	hg.scale *= Vector3(1.0, 0.9, 1.3)
 	# Violet embers falling from the ribs.
 	var em := CPUParticles3D.new()
 	em.amount = 12
@@ -1600,8 +1589,15 @@ static func _wyrm_skull(st: SurfaceTool) -> void:
 		_spike(st, Vector3(0.05 * side, 0.105, 0.03), Vector3(0.115 * side, 0.09, -0.085), Vector3(0.0, 0.012, 0.0), 0.032, WYRM_BONE, WYRM_OLD)
 		# Nostrils.
 		_ball(st, Vector3(0.03 * side, 0.035, -0.29), Vector3(0.016, 0.012, 0.02), WYRM_DARK, 6)
-		# The great horns, back and curling up; the small ones back and out.
-		_spike(st, Vector3(0.07 * side, 0.1, 0.08), Vector3(0.13 * side, 0.2, 0.42), Vector3(0.02 * side, -0.07, 0.0), 0.04, WYRM_BONE, WYRM_DARK.lerp(WYRM_OLD, 0.4), 7)
+		# The great horns, swept back and curling up (version 332: longer, thicker, ridged, so
+		# they read from the run camera and the shop alike); a middle pair out to the sides;
+		# the small ones back and out.
+		_spike(st, Vector3(0.07 * side, 0.1, 0.08), Vector3(0.2 * side, 0.36, 0.5), Vector3(0.05 * side, -0.13, 0.04), 0.055, WYRM_BONE, WYRM_DARK.lerp(WYRM_OLD, 0.3), 10)
+		for r in 4:
+			var k := 0.15 + r * 0.16
+			var at := Vector3(0.07 * side, 0.1, 0.08).lerp(Vector3(0.2 * side, 0.36, 0.5), k) + Vector3(0.05 * side, -0.13, 0.04) * sin(PI * k)
+			_ball(st, at, Vector3.ONE * (0.05 * pow(1.0 - k, 0.8) + 0.008), WYRM_OLD.lerp(WYRM_BONE, 0.5), 8)
+		_spike(st, Vector3(0.1 * side, 0.07, 0.05), Vector3(0.27 * side, 0.15, 0.17), Vector3(0, 0.05, 0), 0.032, WYRM_BONE, WYRM_DARK.lerp(WYRM_OLD, 0.4), 6)
 		_spike(st, Vector3(0.11 * side, 0.01, 0.07), Vector3(0.22 * side, -0.02, 0.24), Vector3(0, 0.02, 0), 0.024, WYRM_BONE, WYRM_OLD)
 		# Cheek spurs below the eyes.
 		_spike(st, Vector3(0.1 * side, -0.02, -0.02), Vector3(0.17 * side, -0.05, 0.05), Vector3.ZERO, 0.016, WYRM_BONE, WYRM_OLD, 3)
@@ -1859,7 +1855,9 @@ func _wyrm_fire(size: float, col: Color, amount: int) -> CPUParticles3D:
 ## hero, rising and falling so the body snakes.
 func _wyrm_path(c: float) -> Vector3:
 	if _staged:
-		return Vector3(sin(c) * 0.8, 1.4 + 0.72 * cos(c), cos(c) * 0.5)
+		# (version 332: a tall loop beside the hero, rearing up and diving round, never across
+		# them: its old ring round the hero lay over their body)
+		return Vector3(WYRM_STAGE_X + 0.28 * sin(c), 1.5 + 0.42 * cos(c), 0.15 - 0.35 * sin(c))
 	# (its ring is pushed 0.6 m towards the camera: the camera looks down from behind at 58
 	# degrees, so a skull 2 m up on the near side was drawn over the hero's body)
 	var a := _anchor.global_position
@@ -1900,11 +1898,13 @@ func _wyrm(delta: float) -> void:
 				_breath_wait = 0.5
 		elif absf(sin(_coil)) > 0.97:
 			# On a pedestal: out past the hero's side, towards the camera, every few seconds.
-			_breath_at = _head_at + Vector3(signf(sin(_coil)) * 0.7, -0.1, -1.0)
+			# (out past the hero's side and a little towards the camera, short and small, so it
+			# stays in the picture and never covers the hero)
+			_breath_at = _head_at + Vector3(signf(WYRM_STAGE_X) * 0.75, 0.05, -0.6)
 			_breath = 1.0
 			_breath_wait = 3.8
 		var big := _breath_big or _staged
-		var sp := (5.5 if big else 3.0) * _wsize
+		var sp := (2.3 if _staged else (5.5 if big else 3.0)) * _wsize
 		_flame.initial_velocity_min = sp
 		_flame.initial_velocity_max = sp * 1.2
 		_core.initial_velocity_min = sp * 1.1
@@ -1960,7 +1960,9 @@ func _wyrm(delta: float) -> void:
 	var open := 0.62 if fire else 0.08 + 0.04 * sin(_t * 2.0)
 	open = maxf(open, 0.8 * roar)
 	_jaw.rotation.x = lerpf(_jaw.rotation.x, -open, 1.0 - exp(-14.0 * delta))
-	_mouth_mat.albedo_color.a = clampf(-_jaw.rotation.x * 1.6, 0.0, 1.0)
+	var maw := clampf(-_jaw.rotation.x * 1.6, 0.0, 1.0)
+	_maw.visible = maw > 0.05
+	_maw.scale = Vector3.ONE * 0.13 * maw
 	# The soul fire in its ribs pulses, and blazes as it breathes or roars.
 	_heart_mat.emission_energy_multiplier = (6.0 if fire else 2.5 + 3.0 * roar) + sin(_t * 4.0) * 0.8
 	_wyrm_place()
@@ -1976,7 +1978,7 @@ func _wyrm(delta: float) -> void:
 ## look at the one before, and draws the soul thread through them.
 func _wyrm_place() -> void:
 	var up := Vector3.UP
-	_head.transform = Transform3D(_wyrm_basis(_head_dir, up).scaled(Vector3.ONE * _wsize * 1.15), _head_at)
+	_head.transform = Transform3D(_wyrm_basis(_head_dir, up).scaled(Vector3.ONE * _wsize * 1.3), _head_at)
 	# One walk down the trail, finding each vertebra's spot.
 	var path := PackedVector3Array([_head_at])
 	path.append_array(_trail)

@@ -253,6 +253,8 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	var tall := false
 	for x in ["crown", "crypt_crown", "storm_halo", "flame_crown", "antlers", "phantom_horns", "bone_crown", "star_circlet", "moon_crown", "candle_crown", "halo", "horns", "starfall_crown", "emperor_crown"]:
 		tall = tall or extras.has(x)
+	# (version 332: the Bone Wyrm flies its loop above the hero's shoulder: frame it whole too)
+	tall = tall or str(def.get("style", {}).get("legend", {}).get("pet", "")) == "wyrm"
 	_visual = CharacterVisual.new()
 	_visual.outline_me = true
 	_visual.aura_boost = 1.8   # the hero is drawn big here: a Master aura's line grows to match
