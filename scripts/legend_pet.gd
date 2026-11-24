@@ -226,7 +226,7 @@ var _scan := 0.0
 var _flare := 0.0
 var _spin := 0.0
 var _lift := 0.0
-var _blink := 2.0
+var _blink := 3.2   # (its first blink: not as the shop picture settles, about 2 s in)
 var _sparks := 0
 var _show_wait := 2.0
 var _room_clear := false
@@ -329,6 +329,15 @@ func _build_wisp() -> void:
 	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_flame_spirit.add_child(halo)
 	_halo = halo
+	if _staged:
+		# On a pedestal the lantern lights the wisp and the hero beside it (a run has its own
+		# lights: one more per pet there would cost too much).
+		var lamp := OmniLight3D.new()
+		lamp.light_color = Color(1.0, 0.7, 0.35)
+		lamp.light_energy = 1.4
+		lamp.omni_range = 1.4
+		lamp.shadow_enabled = false
+		_flame_spirit.add_child(lamp)
 	var em := CPUParticles3D.new()
 	em.amount = 8
 	em.lifetime = 1.6
@@ -431,7 +440,10 @@ static func _glow_ball() -> Mesh:
 
 ## The cloth of the cloak and hood: emerald green, darker at the hem (no hero wears green), stitched seams,
 ## a gold band; the hem is cut torn and flutters (UV.y runs 0 at the neck to 1 at the hem; the
-## hood has no UV, so it is all the top colour and still).
+## hood has no UV, so it is all the top colour and still). Version 333: it read as one flat
+## green: now the cloak hangs in soft folds that deepen to the hem, the band is an embroidered
+## trim (dark velvet between gold edges, a row of gold diamonds), the torn hem has a gold edge
+## of its own, and the side by the lantern is warmed by its light.
 static func _wisp_cloth() -> ShaderMaterial:
 	if _wisp_cloth_mat == null:
 		var sh := Shader.new()
@@ -439,27 +451,43 @@ static func _wisp_cloth() -> ShaderMaterial:
 shader_type spatial;
 render_mode cull_disabled;
 const vec3 TOP = vec3(0.22, 0.52, 0.34);
-const vec3 HEM = vec3(0.1, 0.28, 0.19);
+const vec3 HEM = vec3(0.09, 0.26, 0.18);
+const vec3 GOLD = vec3(0.98, 0.74, 0.3);
+varying vec3 lp;
 void vertex() {
+	lp = VERTEX;
 	float w = UV.y * UV.y;
 	VERTEX.x += sin(TIME * 3.1 + UV.x * 18.85) * 0.03 * w;
 	VERTEX.z += cos(TIME * 2.7 + UV.x * 12.566) * 0.03 * w;
 }
 void fragment() {
 	float zig = abs(fract(UV.x * 9.0) - 0.5) * 2.0;
-	if (UV.y > 0.84 + 0.16 * zig) {
+	float edge = 0.84 + 0.16 * zig;
+	if (UV.y > edge) {
 		discard;
 	}
 	vec3 c = mix(TOP, HEM, smoothstep(0.2, 1.0, UV.y));
-	float band = step(0.64, UV.y) * step(UV.y, 0.7);
-	float seam = step(0.08, UV.y) * (1.0 - smoothstep(0.006, 0.014, abs(fract(UV.x * 6.0) - 0.5)));
-	c = mix(c, c * 0.72, seam);
-	c = mix(c, vec3(0.95, 0.72, 0.3), band);
+	// Soft folds hanging from the shoulders, deeper towards the hem.
+	float fold = 0.5 + 0.5 * sin(UV.x * 6.2832 * 7.0 + sin(UV.x * 6.2832 * 3.0) * 0.8);
+	c *= mix(1.0, 0.68 + 0.42 * fold, smoothstep(0.08, 0.75, UV.y));
+	// The embroidered trim: dark velvet between two gold edges, gold diamonds along it.
+	float tb = smoothstep(0.6, 0.605, UV.y) * (1.0 - smoothstep(0.715, 0.72, UV.y));
+	float gold_edge = tb * (1.0 - step(0.616, UV.y) * step(UV.y, 0.704));
+	float dx = abs(fract(UV.x * 20.0) - 0.5) * 2.0;
+	float diamond = tb * (1.0 - step(1.0, dx * 0.9 + abs(UV.y - 0.66) / 0.04));
+	c = mix(c, vec3(0.04, 0.12, 0.08), tb);
+	c = mix(c, GOLD, max(gold_edge, diamond));
+	// A thin gold edge along the torn hem.
+	float hem = step(edge - 0.025, UV.y) * step(0.5, UV.y);
+	c = mix(c, GOLD * 0.9, hem);
+	// Warmed on the side by the lantern (it hangs out to the wisp's left).
+	float warm = smoothstep(0.05, -0.35, lp.x) * (0.7 + 0.3 * sin(TIME * 9.0) * sin(TIME * 5.3));
 	ALBEDO = FRONT_FACING ? c : c * 0.4;
-	ROUGHNESS = 0.85;
+	ROUGHNESS = mix(0.85, 0.35, max(max(gold_edge, diamond), hem));
+	METALLIC = 0.6 * max(max(gold_edge, diamond), hem);
 	RIM = 0.55;
 	RIM_TINT = 0.4;
-	EMISSION = c * 0.2 + vec3(1.0, 0.7, 0.3) * band * 0.3;
+	EMISSION = c * 0.18 + GOLD * max(gold_edge, diamond) * 0.25 + vec3(1.0, 0.62, 0.25) * warm * 0.16;
 }
 """
 		_wisp_cloth_mat = ShaderMaterial.new()
