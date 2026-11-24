@@ -1,2 +1,3 @@
-Version 302: boss encores
-- The Archivist, back in the endless loops, has a new attack: Turning Page. A giant page lifts up and slams down on your half of the room. Run across to the side it lifted from!
+Version 303: boss encores
+- The Forgemaster, back in the endless loops, has a new attack: Iron Casting. Molten iron runs across the floor and cools into walls that reshape the room. Use them as cover!
+- Now every boss you meet again in the loops brings a move of its own.

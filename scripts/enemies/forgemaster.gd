@@ -16,6 +16,10 @@ extends Enemy
 ##   red-hot ingots riding them. Stand in the gaps between the belts, or cross between ingots.
 ## - Pendulum (phase 2's own move): strips across the room, then great pendulum blades swing
 ##   along them from wall to wall. Keep out of the strips until they stop.
+## - Iron Casting (version 303, its encore in the endless loops): channels glow across the
+##   floor and molten iron runs down them, burning whoever stands there; then the iron cools
+##   and rises as walls, each with a gap, that stand for a while. The room changes shape:
+##   walls stop saws, ingots and shots, yours and its, so use them.
 ## Below half health its furnace burns white-hot, its clock races, two Clockwork Skeletons
 ## march out of the walls, and it attacks harder: a beat more of presses, three saws, more
 ## belts, two pendulums.
@@ -659,6 +663,7 @@ func _alive() -> bool:
 
 func _brain() -> void:
 	await _wait(1.2)
+	encore_first()
 	while _alive():
 		await roar_done()
 		if not _alive():
@@ -667,11 +672,14 @@ func _brain() -> void:
 		var moves := ["presses", "saws", "belts", "saws"]
 		if _enraged:
 			moves.append("pendulum")   # phase 2's own move
+		if returning() and _casts.is_empty():
+			moves.append("encore")   # Iron Casting (version 303)
 		match next_move(moves):
 			"presses": await _presses()
 			"saws": await _throw_saws()
 			"belts": await _run_belts()
 			"pendulum": await _pendulum()
+			"encore": await _iron_casting()
 		_busy = false
 		_face_to = Vector3.ZERO
 		await _wait(1.0 if _enraged else 1.5)
@@ -1222,7 +1230,133 @@ func _open_spot(side: Vector3) -> Vector3:
 	return q
 
 
+# Iron Casting -----------------------------------------------------------------------------------
+
+const CAST_WARN := 1.3
+const CAST_WIDTH := 0.9
+const CAST_DAMAGE := 16.0
+const CAST_GAP := 2.4         # each wall's way through
+const CAST_STAND := 8.0       # seconds the walls stand
+var _casts: Array = []        # [{node, obstacles}]
+
+## Molten iron runs down channels across the room, then cools into walls with a gap each.
+func _iron_casting() -> void:
+	var hero := Game.hero
+	if hero == null:
+		return
+	_slam()
+	Sfx.play(roar_sound, 0.5, 1.1)
+	var n := 3 if _enraged else 2
+	# One channel through the hero, the others 3.5 m either side, kept off the boss.
+	var zs: Array[float] = []
+	var hz := clampf(hero.global_position.z, -Room.HALF_L + 1.5, Room.HALF_L - 1.5)
+	for cand in [hz, hz - 3.5, hz + 3.5, hz - 7.0, hz + 7.0]:
+		if zs.size() >= n:
+			break
+		if absf(cand) > Room.HALF_L - 1.2 or absf(cand - global_position.z) < radius + 1.0:
+			continue
+		zs.append(cand)
+	var source := kind_name()
+	for z in zs:
+		var gap := randf_range(-Room.HALF_W + 1.6, Room.HALF_W - 1.6)
+		if absf(z - hz) < 0.1 and absf(gap - hero.global_position.x) < 1.6:
+			gap = clampf(gap + 3.0 * (1.0 if gap < 0.0 else -1.0), -Room.HALF_W + 1.6, Room.HALF_W - 1.6)
+		for side in [-1.0, 1.0]:
+			# Each half of the channel, from the gap out to the wall.
+			var a: float = gap + side * CAST_GAP * 0.5
+			var b: float = side * Room.HALF_W
+			var length := absf(b - a)
+			if length < 0.6:
+				continue
+			var from := Vector3(a, 0.0, z)
+			var dir := Vector3(float(side), 0.0, 0.0)
+			track(Telegraph.line(from, dir, length, CAST_WIDTH, CAST_WARN, _pour_iron.bind(from, dir, length, source), 0.6))
+	Sfx.play("belt", 0.6, 0.6)
+	await _wait(CAST_WARN + 0.5)
+
+
+## The iron runs: it burns along the channel, then cools into a wall.
+func _pour_iron(from: Vector3, dir: Vector3, length: float, source: String) -> void:
+	if not is_instance_valid(self) or not is_inside_tree():
+		return
+	Sfx.play("press", 0.6, 0.7)
+	for i in int(length / 0.7) + 1:
+		Fx._burst(from + dir * (i * 0.7) + Vector3.UP * 0.2, 4, Color(1.0, 0.55, 0.15, 0.9), 0.2, 2.4, 0.4, 5.0)
+	var h := Game.hero
+	if h and h.can_be_hit() and Enemy.in_strip(h.global_position, from, dir, length, CAST_WIDTH, h.radius * 0.6):
+		_hit(CAST_DAMAGE, Vector3(0, 0, 1.0 if h.global_position.z > from.z else -1.0), 7.0, source)
+	var wall := Node3D.new()
+	_room().add_child(wall)
+	wall.global_position = from + dir * length * 0.5
+	var box := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(length, 1.1, 0.55)
+	box.mesh = bm
+	box.material_override = _mat("ingot")
+	box.position.y = 0.55
+	wall.add_child(box)
+	var cap := MeshInstance3D.new()
+	var cm := BoxMesh.new()
+	cm.size = Vector3(length, 0.12, 0.7)
+	cap.mesh = cm
+	cap.material_override = _mat("iron")
+	cap.position.y = 1.12
+	wall.add_child(cap)
+	wall.scale = Vector3(1.0, 0.05, 1.0)
+	var tw := wall.create_tween()
+	tw.tween_property(wall, "scale", Vector3.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	# It cools from orange-hot to iron.
+	var cool := StandardMaterial3D.new()
+	cool.albedo_color = Color(1.0, 0.52, 0.14)
+	cool.emission_enabled = true
+	cool.emission = Color(1.0, 0.45, 0.1)
+	cool.emission_energy_multiplier = 2.2
+	cool.roughness = 0.5
+	box.material_override = cool
+	tw.tween_property(cool, "albedo_color", Color(0.34, 0.3, 0.28), 2.0)
+	tw.parallel().tween_property(cool, "emission_energy_multiplier", 0.45, 2.0)
+	# Solid: a row of circles along it, as the room's cover.
+	var obs: Array = []
+	if is_instance_valid(Room.current):
+		var k := int(ceil(length / 0.55))
+		for i in k + 1:
+			var o := {"pos": from + dir * minf(i * 0.55, length), "r": 0.32}
+			Room.current.obstacles.append(o)
+			obs.append(o)
+	# Whoever is standing where it rises is shoved out of it.
+	for a: Actor in Actor.all:
+		if a.dead or (a is Enemy and (a as Enemy).is_boss):
+			continue
+		var d := a.global_position - from
+		var along := d.dot(dir)
+		if along > -0.3 and along < length + 0.3 and absf(d.z) < 0.6 + a.radius:
+			a.global_position.z = from.z + (0.7 + a.radius) * (1.0 if d.z >= 0.0 else -1.0)
+	var entry := {"node": wall, "obstacles": obs}
+	_casts.append(entry)
+	get_tree().create_timer(CAST_STAND, false).timeout.connect(_sink_cast.bind(entry))
+
+
+func _sink_cast(entry: Dictionary) -> void:
+	if is_instance_valid(Room.current):
+		for o in entry.obstacles:
+			Room.current.obstacles.erase(o)
+	entry.obstacles = []
+	var w: Node3D = entry.node
+	if is_instance_valid(w):
+		var tw := w.create_tween()
+		tw.tween_property(w, "scale", Vector3(1.0, 0.02, 1.0), 0.5)
+		tw.tween_callback(w.queue_free)
+	_casts.erase(entry)
+
+
+func _clear_casts() -> void:
+	for e in _casts.duplicate():
+		_sink_cast(e)
+	_casts.clear()
+
+
 func _clear_all() -> void:
+	_clear_casts()
 	# Presses not yet down go with it (one already falling finishes on its own).
 	for n in _hung:
 		if is_instance_valid(n) and not (n as Node3D).visible:
