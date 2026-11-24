@@ -1,3 +1,3 @@
-Version 320: Legend Vault, Supercell pass 3 of 10
-- Gold Rush rebuilt: a gold shockwave and flash, then a dozen fat stamped gold coins burst out, bounce and zip into you with a chink.
-- Also new: Soul Harvest (318) and Crypt Raven (319) rebuilt.
+Version 321: Legend Vault, Supercell pass 4 of 10
+- Bone Wyrm rebuilt: a great skeleton dragon that coils round you in the air, its spine following the path it flew, soul light running through its bones. It roars, and pours violet fire at bosses.
+- Also new: Soul Harvest, Crypt Raven and Gold Rush rebuilt.

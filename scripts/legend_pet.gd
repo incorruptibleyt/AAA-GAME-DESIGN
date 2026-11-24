@@ -13,10 +13,12 @@ extends Node3D
 ##          on their shoulder to rest when the room is clear (and on the title).
 ##   mimic: Mimic. A treasure chest with fangs and a tongue. It hops after the hero, chomps
 ##          now and then, and snaps at the nearest skeleton.
-##   wyrm:  Bone Wyrm (version 314). A tiny skeleton dragon with a violet soul fire in its
-##          ribs, curled on the hero's shoulder. It breathes a stream of violet fire at a boss
-##          (and a little puff at a skeleton now and then). It rides on the hero, so it is a
-##          plain child of the hero's visual even in a run.
+##   wyrm:  Bone Wyrm (version 321: it was a tiny dragon on the shoulder, lost from the run
+##          camera). A great skeleton serpent with bat wings that coils round the hero in the
+##          air: its spine is a chain of vertebrae that follows the path its skull flew, like
+##          a real snake, ribs round a violet soul fire, a glowing soul thread running through
+##          its bones to a crystal barb, a horned skull whose jaw drops to roar. It breathes a
+##          stream of violet fire at a boss (and a puff at a skeleton now and then).
 ## In a run it moves through the world on its own (top_level) and trails the hero. On a
 ## pedestal (a HeroStage, drawn in its own SubViewport) it stays at the hero's side and turns
 ## with them. It is never outlined, tinted or flashed with the hero (CharacterVisual only
@@ -41,7 +43,7 @@ var _yaw := PI
 var _look := 0.0   # (a timer for small idle moves)
 var _base_scale := Vector3.ONE
 ## How much bigger each pet is drawn in a run than on a pedestal.
-const RUN_SIZE := {"wisp": 1.45, "raven": 1.25, "mimic": 1.3, "wyrm": 1.85}
+const RUN_SIZE := {"wisp": 1.45, "raven": 1.25, "mimic": 1.3, "wyrm": 1.7}
 
 # Lantern Wisp
 var _lantern: Node3D
@@ -76,24 +78,35 @@ var _prey_scan := 0.0
 var _squash := 0.0
 
 # Bone Wyrm
-## Where it sits, in the hero visual's own space: out on the shoulder, clear of the big hood
-## (the shoulder away from the raven's).
-const PERCH := Vector3(-0.6, 1.0, 0.0)
-var _neck: Node3D
 var _jaw: Node3D
-var _tail_bones: Array[Node3D] = []
+var _segs: Array[Node3D] = []
+var _seg_size := PackedFloat32Array()   # (each vertebra's size)
+var _seg_at := PackedFloat32Array()     # (how far behind the skull each sits, at size 1)
+var _trail := PackedVector3Array()      # (where the skull has been, newest first)
+var _thread: ImmediateMesh
 var _flame: CPUParticles3D
+var _core: CPUParticles3D
 var _heart_mat: StandardMaterial3D
+var _mouth_mat: StandardMaterial3D
 var _breath := 0.0   # (seconds of fire left)
 var _breath_wait := 2.0
-var _breath_at := Vector3.ZERO   # (where the fire goes, in the world)
+var _breath_at := Vector3.ZERO   # (where the fire goes)
 var _breath_big := false
+var _coil := 0.0      # (the skull's way round the hero)
+var _head_at := Vector3.ZERO
+var _head_dir := Vector3.FORWARD
+var _wsize := 1.0     # (bigger in a run)
+var _roar := -1.0
+var _roar_wait := 4.0
+var _hit_wait := 0.0
 
 
 func _ready() -> void:
 	_anchor = get_parent() as Node3D
 	_staged = get_viewport() is SubViewport
-	top_level = not _staged and kind != "wyrm"
+	top_level = not _staged
+	if kind == "wyrm" and top_level:
+		global_transform = Transform3D.IDENTITY   # (its bones are placed in the world itself)
 	_body = Node3D.new()
 	add_child(_body)
 	match kind:
@@ -105,19 +118,18 @@ func _ready() -> void:
 			_build_wyrm()
 		_:
 			_build_wisp()
-	if not _staged:
+	if kind == "wyrm":
+		pass   # (its bones are placed one by one, at its own size: _wsize)
+	elif not _staged:
 		# In a run the camera is far above: the pet is drawn bigger there than on a pedestal.
 		_body.scale = Vector3.ONE * float(RUN_SIZE.get(kind, 1.3))
-	elif kind == "wyrm":
-		_body.scale = Vector3.ONE * 1.4   # (small beside the hero's big head otherwise)
 	_base_scale = _body.scale
 	_place_now()
 
 
 func _place_now() -> void:
 	if kind == "wyrm":
-		position = PERCH
-		_yaw = 0.0
+		_wyrm_lay()
 	elif _staged:
 		position = STAGE_SIDE if kind != "mimic" else Vector3(-0.66, 0.0, -0.05)
 		_yaw = 0.0
@@ -717,143 +729,451 @@ func _nearest_enemy(reach: float) -> Node3D:
 
 # ---------------------------------------------------------------- Bone Wyrm
 
+## Its vertebrae, from the neck to the tail: their sizes (3 neck, 4 with ribs, 9 tail).
+const WYRM_SIZES := [0.72, 0.8, 0.88, 1.0, 1.08, 1.08, 1.0, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.45, 0.39, 0.34]
+const WYRM_CHEST := 3   # (the first vertebra with ribs; the wings grow from it)
+const WYRM_BONE := Color(0.93, 0.9, 0.82)
+const WYRM_OLD := Color(0.7, 0.65, 0.56)
+const WYRM_DARK := Color(0.05, 0.025, 0.08)
+static var _wyrm_meshes := {}
+static var _wyrm_bone_mat: ShaderMaterial
+static var _wyrm_skin_mat: ShaderMaterial
+static var _wyrm_thread_mat: ShaderMaterial
+
+
 func _build_wyrm() -> void:
-	var bone := _mat("wyrm_bone", Color(0.93, 0.9, 0.82), 0.7)
-	var old := _mat("wyrm_bone2", Color(0.72, 0.68, 0.6), 0.8)
-	var black := _mat("wyrm_black", Color(0.05, 0.03, 0.07), 0.6)
-	var violet := _mat("wyrm_eye", Color(0.8, 0.5, 1.0), 0.3, Color(0.72, 0.4, 1.0), 4.5)
+	# In a run it is drawn big, for the camera far above (the hero is 2.1 m tall there).
+	_wsize = float(RUN_SIZE.wyrm) if not _staged else 1.0
+	var bone := _wyrm_bone()
+	var violet := _mat("wyrm_eye", Color(0.85, 0.6, 1.0), 0.3, Color(0.75, 0.42, 1.0), 5.0)
 	_heart_mat = _mat("wyrm_heart%d" % get_instance_id(), Color(0.7, 0.4, 1.0), 0.3, Color(0.65, 0.3, 1.0), 3.0)
-	var skin := StandardMaterial3D.new()   # (the wings' torn violet skin, lit from behind)
-	skin.albedo_color = Color(0.42, 0.18, 0.62, 0.78)
-	skin.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	skin.cull_mode = BaseMaterial3D.CULL_DISABLED
-	skin.emission_enabled = true
-	skin.emission = Color(0.5, 0.2, 0.85)
-	skin.emission_energy_multiplier = 0.7
-	skin.roughness = 0.8
-	# The rib cage: a spine of knuckled bones over curved ribs, a violet soul fire inside.
-	for i in 5:
-		var z := -0.1 + i * 0.07
-		_sphere(_body, 0.034 - i * 0.002, bone, Vector3(0, 0.22 - i * 0.008, z))
-		if i < 4:
-			for side in [-1.0, 1.0]:
-				var rib := U.box(_body, Vector3(0.022, 0.15 - i * 0.015, 0.024), bone, Vector3(0.055 * side, 0.15, z + 0.02))
-				rib.rotation = Vector3(0, 0, 0.42 * side)
-				var low := U.box(_body, Vector3(0.02, 0.07, 0.022), old, Vector3(0.07 * side, 0.07, z + 0.02))
-				low.rotation = Vector3(0, 0, -0.35 * side)
-	var heart := _sphere(_body, 0.055, _heart_mat, Vector3(0, 0.13, 0.02))
-	heart.scale = Vector3(1.0, 1.2, 1.3)
-	# Four short legs with claws, gripping the shoulder.
+	# The skull: long and horned, deep sockets with violet eyes, teeth along both jaws.
+	_head = Node3D.new()
+	_body.add_child(_head)
+	_wyrm_mesh(_head, "skull", bone)
 	for side in [-1.0, 1.0]:
-		for z in [-0.09, 0.14]:
-			var leg := U.box(_body, Vector3(0.025, 0.11, 0.025), bone, Vector3(0.07 * side, 0.04, z))
-			leg.rotation.z = -0.3 * side
-			for c in 3:
-				var claw := U.box(_body, Vector3(0.012, 0.012, 0.05), black, Vector3(0.09 * side + (c - 1) * 0.018, -0.01, z - 0.03))
-				claw.rotation.x = 0.4
-	# The neck: three bones curving up and forward to the head; it bends to aim the fire.
-	_neck = Node3D.new()
-	_neck.position = Vector3(0, 0.24, -0.13)
-	_neck.rotation.x = 0.55
-	_body.add_child(_neck)
-	for i in 3:
-		_sphere(_neck, 0.03 - i * 0.002, bone, Vector3(0, 0.0, -0.06 * i))
-	# The head: a long dragon skull with swept-back horns, dark sockets and violet eyes.
-	var head := Node3D.new()
-	head.position = Vector3(0, 0.0, -0.19)
-	head.rotation.x = -0.6
-	_neck.add_child(head)
-	_head = head
-	var skull := _sphere(head, 0.072, bone, Vector3(0, 0.02, 0))
-	skull.scale = Vector3(1.0, 0.85, 1.15)
-	var snout := U.box(head, Vector3(0.075, 0.045, 0.13), bone, Vector3(0, 0.0, -0.11))
-	snout.rotation.x = 0.08
-	for side in [-1.0, 1.0]:
-		_sphere(head, 0.03, black, Vector3(0.042 * side, 0.04, -0.04))
-		_sphere(head, 0.017, violet, Vector3(0.05 * side, 0.045, -0.05))
-		_sphere(head, 0.009, black, Vector3(0.02 * side, 0.016, -0.175))   # (nostrils)
-		# Horns: two curving back from the brow, a small pair below them.
-		var horn := Node3D.new()
-		horn.position = Vector3(0.04 * side, 0.06, 0.03)
-		horn.rotation = Vector3(1.2, 0, -0.35 * side)
-		head.add_child(horn)
-		_tube(horn, 0.0, 0.022, 0.14, old, Vector3(0, 0.07, 0))
-		var tip := Node3D.new()
-		tip.position = Vector3(0, 0.13, 0)
-		tip.rotation.x = 0.5
-		horn.add_child(tip)
-		_tube(tip, 0.0, 0.01, 0.07, old, Vector3(0, 0.03, 0))
-		var small := _tube(head, 0.0, 0.012, 0.07, old, Vector3(0.06 * side, 0.0, 0.05))
-		small.rotation = Vector3(1.3, 0, -0.6 * side)
-	# The jaw hinges at the back of the skull and drops open to breathe.
+		_sphere(_head, 0.026, violet, Vector3(0.105 * side, 0.05, -0.05))
+		var eg := MeshInstance3D.new()
+		eg.mesh = _quad(0.2)
+		eg.material_override = _add_mat(Color(0.75, 0.45, 1.0, 0.9), true)
+		eg.position = Vector3(0.11 * side, 0.055, -0.05)
+		eg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_head.add_child(eg)
 	_jaw = Node3D.new()
-	_jaw.position = Vector3(0, -0.03, 0.02)
-	head.add_child(_jaw)
-	U.box(_jaw, Vector3(0.065, 0.022, 0.15), old, Vector3(0, -0.012, -0.1))
-	for i in 3:
-		for side in [-1.0, 1.0]:
-			U.box(_jaw, Vector3(0.01, 0.022, 0.01), bone, Vector3(0.026 * side, 0.01, -0.06 - i * 0.04))
-	# The wings: a bone arm with three long fingers and torn violet skin between them.
-	_wing_l = _wyrm_wing(-1.0, bone, skin)
-	_wing_r = _wyrm_wing(1.0, bone, skin)
-	# The tail: six bones growing smaller, hanging down the hero's back, a violet barb at its end.
-	var parent: Node3D = _body
-	var at := Vector3(0, 0.19, 0.22)
-	for i in 6:
+	_jaw.position = Vector3(0, -0.035, 0.08)
+	_head.add_child(_jaw)
+	_wyrm_mesh(_jaw, "jaw", bone)
+	# A violet glow in its throat that blazes when the jaw drops.
+	var mouth := MeshInstance3D.new()
+	mouth.mesh = _quad(0.5)
+	_mouth_mat = _add_mat(Color(0.8, 0.5, 1.0, 0.0), true)
+	mouth.material_override = _mouth_mat
+	mouth.position = Vector3(0, -0.04, -0.2)
+	mouth.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_head.add_child(mouth)
+	# Its fire: a violet stream from the open jaws with a white-hot core, left in the world.
+	_flame = _wyrm_fire(0.62, Color(0.82, 0.45, 1.0), 80)
+	_flame.position = Vector3(0, -0.04, -0.32)
+	_head.add_child(_flame)
+	_core = _wyrm_fire(0.3, Color(1.0, 0.92, 1.0), 40)
+	_core.position = _flame.position
+	_head.add_child(_core)
+	# The spine: a chain of vertebrae, ribs round the chest, a crystal barb at the tail's end.
+	var at := 0.2   # (the neck starts behind the skull)
+	for i in WYRM_SIZES.size():
+		var sz: float = WYRM_SIZES[i]
+		if i > 0:
+			at += 0.1 * (sz + float(WYRM_SIZES[i - 1])) * 0.5
+		_seg_at.append(at)
+		_seg_size.append(sz)
 		var seg := Node3D.new()
-		seg.position = at
-		parent.add_child(seg)
-		_sphere(seg, 0.03 - i * 0.004, bone if i % 2 == 0 else old, Vector3.ZERO)
-		_tail_bones.append(seg)
-		parent = seg
-		at = Vector3(0, -0.012, 0.065 - i * 0.003)
-	var barb := U.box(parent, Vector3(0.07, 0.012, 0.07), violet, Vector3(0, 0, 0.05))
-	barb.rotation.y = PI / 4.0
-	# A faint violet light about it, so bone on a pale floor still stands out from above.
-	var glow := MeshInstance3D.new()
-	glow.mesh = _quad(1.1)
-	glow.material_override = _add_mat(Color(0.6, 0.3, 1.0, 0.38 if _staged else 0.55), true)
-	glow.position = Vector3(0, 0.18, 0)
-	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_body.add_child(glow)
-	# Its fire: violet flame from the open jaws, left in the world as it flies.
-	_flame = _wyrm_fire()
-	_flame.position = Vector3(0, -0.01, -0.2)
-	head.add_child(_flame)
+		_body.add_child(seg)
+		_segs.append(seg)
+		var shape := "neck" if i < WYRM_CHEST else ("ribs" if i < WYRM_CHEST + 4 else "tail")
+		_wyrm_mesh(seg, shape, bone)
+	var tip := _segs[_segs.size() - 1]
+	var barb := MeshInstance3D.new()
+	barb.mesh = _wyrm_barb()
+	barb.material_override = violet
+	tip.add_child(barb)
+	var bg := MeshInstance3D.new()
+	bg.mesh = _quad(0.7)
+	bg.material_override = _add_mat(Color(0.7, 0.4, 1.0, 0.7), true)
+	bg.position = Vector3(0, 0, 0.15)
+	bg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	tip.add_child(bg)
+	# The soul fire in its ribs, and the glow it throws (so bone reads on a pale floor too).
+	var chest := _segs[WYRM_CHEST + 1]
+	var heart := _sphere(chest, 0.07, _heart_mat, Vector3(0, -0.11, 0.05))
+	heart.scale = Vector3(1.0, 1.1, 1.4)
+	var hg := MeshInstance3D.new()
+	hg.mesh = _quad(0.9)
+	hg.material_override = _add_mat(Color(0.65, 0.35, 1.0, 0.75), true)
+	hg.position = Vector3(0, -0.1, 0.05)
+	hg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	chest.add_child(hg)
+	# Violet embers falling from the ribs.
+	var em := CPUParticles3D.new()
+	em.amount = 12
+	em.lifetime = 1.3
+	em.local_coords = false
+	em.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	em.emission_sphere_radius = 0.12
+	em.position = Vector3(0, -0.12, 0.05)
+	em.direction = Vector3.DOWN
+	em.spread = 40.0
+	em.gravity = Vector3(0, -0.5, 0)
+	em.initial_velocity_min = 0.1
+	em.initial_velocity_max = 0.4
+	var eq := QuadMesh.new()
+	eq.size = Vector2.ONE * 0.09 * _wsize
+	em.mesh = eq
+	var emm := _add_mat(Color(1, 1, 1, 1), true)
+	emm.vertex_color_use_as_albedo = true
+	emm.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	em.material_override = emm
+	var eg2 := Gradient.new()
+	eg2.set_color(0, Color(0.95, 0.8, 1.0, 1.0))
+	eg2.set_color(1, Color(0.5, 0.2, 1.0, 0.0))
+	em.color_ramp = eg2
+	chest.add_child(em)
+	# Bat wings from the chest: bone fingers and a torn membrane with glowing veins.
+	_wing_l = _wyrm_wing(-1.0, _segs[WYRM_CHEST], bone)
+	_wing_r = _wyrm_wing(1.0, _segs[WYRM_CHEST], bone)
+	# The soul thread: a violet light running down the spine through every bone.
+	_thread = ImmediateMesh.new()
+	var th := MeshInstance3D.new()
+	th.mesh = _thread
+	th.material_override = _wyrm_thread()
+	th.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	th.extra_cull_margin = 16384.0   # (its mesh is drawn anew every frame, wherever the wyrm is)
+	_body.add_child(th)
 
 
-func _wyrm_wing(side: float, bone: Material, skin: Material) -> Node3D:
+## One of its baked shapes (skull, jaw, neck, ribs, tail), as a child of `parent`.
+func _wyrm_mesh(parent: Node3D, shape: String, m: Material) -> MeshInstance3D:
+	if not _wyrm_meshes.has(shape):
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		match shape:
+			"skull":
+				_wyrm_skull(st)
+			"jaw":
+				_wyrm_jaw(st)
+			_:
+				_wyrm_vertebra(st, shape)
+		_wyrm_meshes[shape] = st.commit()
+	var mi := MeshInstance3D.new()
+	mi.mesh = _wyrm_meshes[shape]
+	mi.material_override = m
+	parent.add_child(mi)
+	return mi
+
+
+## A closed tube through `pts`, `rx` wide and `ry` tall at each (0 makes a point), coloured
+## `cols`. Its rings stand square to the line; `up` says which way their "tall" faces.
+static func _loft(st: SurfaceTool, pts: Array, rx: Array, ry: Array, cols: Array, n := 10, up := Vector3.UP) -> void:
+	var rings := []
+	var m := pts.size()
+	for i in m:
+		var t: Vector3 = (pts[mini(i + 1, m - 1)] - pts[maxi(i - 1, 0)]).normalized()
+		var u := up
+		if absf(t.dot(u)) > 0.95:
+			u = Vector3.BACK if absf(t.dot(Vector3.BACK)) < 0.95 else Vector3.RIGHT
+		var x := u.cross(t).normalized()
+		var y := t.cross(x).normalized()
+		var a_rx: float = rx[i]
+		var a_ry: float = ry[i]
+		var ring := []
+		for j in n + 1:
+			var a := TAU * j / n
+			var off := x * cos(a) * a_rx + y * sin(a) * a_ry
+			var nrm := (x * cos(a) / maxf(a_rx, 0.002) + y * sin(a) / maxf(a_ry, 0.002)).normalized()
+			if a_rx < 0.001 and a_ry < 0.001:
+				nrm = t * (1.0 if i == m - 1 else -1.0)
+			ring.append([pts[i] + off, nrm, cols[mini(i, cols.size() - 1)]])
+		rings.append(ring)
+	for i in m - 1:
+		for j in n:
+			for c in [rings[i][j], rings[i + 1][j], rings[i + 1][j + 1], rings[i][j], rings[i + 1][j + 1], rings[i][j + 1]]:
+				st.set_color(c[2])
+				st.set_normal(c[1])
+				st.add_vertex(c[0])
+
+
+## A ball `r` wide (x, y, z) at `c`.
+static func _ball(st: SurfaceTool, c: Vector3, r: Vector3, col: Color, n := 8) -> void:
+	var pts := []
+	var rx := []
+	var ry := []
+	for i in n + 1:
+		var k := -1.0 + 2.0 * i / n
+		var w := sqrt(maxf(0.0, 1.0 - k * k))
+		pts.append(c + Vector3(0, 0, k * r.z))
+		rx.append(w * r.x)
+		ry.append(w * r.y)
+	_loft(st, pts, rx, ry, [col], 10)
+
+
+## A horn, tooth or spike: from `a` along a curve to `b`, bent by `bend` at its middle,
+## `r` thick at the root to a point.
+static func _spike(st: SurfaceTool, a: Vector3, b: Vector3, bend: Vector3, r: float, c0: Color, c1: Color, n := 5) -> void:
+	var pts := []
+	var rs := []
+	var cs := []
+	for i in n + 1:
+		var k := float(i) / n
+		pts.append(a.lerp(b, k) + bend * sin(PI * k))
+		rs.append(r * pow(1.0 - k, 0.8) + (0.0 if i == n else 0.002))
+		cs.append(c0.lerp(c1, k * k))
+	_loft(st, pts, rs, rs, cs, 7)
+
+
+## The skull (its front is -Z): a long head over a long snout, a heavy brow over deep sockets,
+## two great horns swept back and up, two small ones, a crest of spikes, and teeth.
+static func _wyrm_skull(st: SurfaceTool) -> void:
+	var prof := [   # [z, y, half width, half height]
+		[0.16, 0.04, 0.0, 0.0], [0.15, 0.04, 0.06, 0.055], [0.11, 0.045, 0.11, 0.09], [0.05, 0.045, 0.13, 0.1],
+		[-0.02, 0.035, 0.12, 0.085], [-0.08, 0.02, 0.09, 0.065], [-0.15, 0.01, 0.075, 0.052],
+		[-0.22, 0.005, 0.07, 0.048], [-0.27, 0.0, 0.066, 0.045], [-0.31, -0.005, 0.046, 0.034], [-0.33, -0.01, 0.0, 0.0]]
+	var pts := []
+	var rx := []
+	var ry := []
+	for p in prof:
+		pts.append(Vector3(0, p[1], p[0]))
+		rx.append(p[2])
+		ry.append(p[3])
+	_loft(st, pts, rx, ry, [WYRM_BONE], 14)
+	for side in [-1.0, 1.0]:
+		# The sockets, dark and deep, under a heavy brow ridge.
+		_ball(st, Vector3(0.09 * side, 0.045, -0.045), Vector3(0.05, 0.042, 0.055), WYRM_DARK)
+		_spike(st, Vector3(0.05 * side, 0.105, 0.03), Vector3(0.115 * side, 0.09, -0.085), Vector3(0.0, 0.012, 0.0), 0.032, WYRM_BONE, WYRM_OLD)
+		# Nostrils.
+		_ball(st, Vector3(0.03 * side, 0.035, -0.29), Vector3(0.016, 0.012, 0.02), WYRM_DARK, 6)
+		# The great horns, back and curling up; the small ones back and out.
+		_spike(st, Vector3(0.07 * side, 0.1, 0.08), Vector3(0.13 * side, 0.2, 0.42), Vector3(0.02 * side, -0.07, 0.0), 0.04, WYRM_BONE, WYRM_DARK.lerp(WYRM_OLD, 0.4), 7)
+		_spike(st, Vector3(0.11 * side, 0.01, 0.07), Vector3(0.22 * side, -0.02, 0.24), Vector3(0, 0.02, 0), 0.024, WYRM_BONE, WYRM_OLD)
+		# Cheek spurs below the eyes.
+		_spike(st, Vector3(0.1 * side, -0.02, -0.02), Vector3(0.17 * side, -0.05, 0.05), Vector3.ZERO, 0.016, WYRM_BONE, WYRM_OLD, 3)
+		# Upper teeth, a long fang among them.
+		for i in 6:
+			var z := -0.07 - i * 0.042
+			var fang := i == 4
+			_spike(st, Vector3((0.058 - i * 0.003) * side, -0.025, z), Vector3((0.056 - i * 0.003) * side, -0.07 if fang else -0.05, z - 0.006), Vector3.ZERO, 0.016 if fang else 0.011, WYRM_BONE, Color(1, 0.98, 0.94), 3)
+	# A crest of spikes down the middle of the head.
+	for i in 3:
+		var z := 0.12 - i * 0.055
+		_spike(st, Vector3(0, 0.12 - i * 0.008, z), Vector3(0, 0.2 - i * 0.025, z + 0.07), Vector3.ZERO, 0.024 - i * 0.004, WYRM_BONE, WYRM_OLD, 3)
+
+
+## The lower jaw (from its hinge at the origin), with teeth pointing up.
+static func _wyrm_jaw(st: SurfaceTool) -> void:
+	var prof := [[0.03, -0.012, 0.0, 0.0], [0.01, -0.015, 0.09, 0.03], [-0.1, -0.028, 0.082, 0.028],
+		[-0.2, -0.033, 0.066, 0.024], [-0.3, -0.032, 0.05, 0.02], [-0.37, -0.028, 0.0, 0.0]]
+	var pts := []
+	var rx := []
+	var ry := []
+	for p in prof:
+		pts.append(Vector3(0, p[1], p[0]))
+		rx.append(p[2])
+		ry.append(p[3])
+	_loft(st, pts, rx, ry, [WYRM_OLD.lerp(WYRM_BONE, 0.5)], 12)
+	for side in [-1.0, 1.0]:
+		for i in 5:
+			var z := -0.1 - i * 0.045
+			_spike(st, Vector3((0.05 - i * 0.004) * side, -0.012, z), Vector3((0.048 - i * 0.004) * side, 0.028, z - 0.005), Vector3.ZERO, 0.01, WYRM_BONE, Color(1, 0.98, 0.94), 3)
+
+
+## A vertebra (its front, towards the head, is -Z): a spool of bone with a spine fin on top
+## and spurs out to the sides; "ribs" adds a pair of curved ribs round the soul fire.
+static func _wyrm_vertebra(st: SurfaceTool, shape: String) -> void:
+	var pts := []
+	var rs := []
+	for p in [[-0.05, 0.0], [-0.047, 0.046], [-0.035, 0.058], [0.0, 0.047], [0.035, 0.058], [0.047, 0.046], [0.05, 0.0]]:
+		pts.append(Vector3(0, 0, p[0]))
+		rs.append(p[1])
+	_loft(st, pts, rs, rs, [WYRM_BONE], 10)
+	var fin := 0.08 if shape == "neck" else (0.12 if shape == "ribs" else 0.1)
+	_spike(st, Vector3(0, 0.04, 0.0), Vector3(0, 0.04 + fin, 0.06), Vector3(0, 0, -0.01), 0.032, WYRM_BONE, WYRM_OLD, 4)
+	for side in [-1.0, 1.0]:
+		_spike(st, Vector3(0.04 * side, 0.0, 0.0), Vector3(0.095 * side, 0.012, 0.03), Vector3.ZERO, 0.022, WYRM_BONE, WYRM_OLD, 3)
+		if shape == "ribs":
+			# A rib: out, down and back in under the spine, swept a little back.
+			var rib := [Vector3(0.04 * side, -0.005, 0.0), Vector3(0.11 * side, -0.03, 0.015), Vector3(0.15 * side, -0.1, 0.03),
+				Vector3(0.135 * side, -0.19, 0.04), Vector3(0.075 * side, -0.245, 0.042), Vector3(0.025 * side, -0.26, 0.04)]
+			var rr := []
+			var rc := []
+			for i in rib.size():
+				rr.append(0.022 - i * 0.002 if i < rib.size() - 1 else 0.006)
+				rc.append(WYRM_BONE.lerp(WYRM_OLD, float(i) / rib.size()))
+			_loft(st, rib, rr, rr, rc, 7)
+
+
+## The crystal barb at the end of the tail: a flat violet blade pointing back.
+static func _wyrm_barb() -> Mesh:
+	if _wyrm_meshes.has("barb"):
+		return _wyrm_meshes.barb
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var c := Color.WHITE
+	_loft(st, [Vector3(0, 0, 0.02), Vector3(0, 0, 0.08), Vector3(0, 0, 0.16), Vector3(0, 0, 0.28)],
+		[0.0, 0.12, 0.08, 0.0], [0.0, 0.03, 0.022, 0.0], [c], 8)
+	_spike(st, Vector3(0.08, 0, 0.08), Vector3(0.17, 0, 0.0), Vector3.ZERO, 0.022, c, c, 3)
+	_spike(st, Vector3(-0.08, 0, 0.08), Vector3(-0.17, 0, 0.0), Vector3.ZERO, 0.022, c, c, 3)
+	var m := st.commit()
+	_wyrm_meshes.barb = m
+	return m
+
+
+## A bat wing from the chest vertebra `seg` (x out to the `side`, z back): an arm to the
+## wrist, four long fingers, a hooked thumb, and a torn membrane between them.
+func _wyrm_wing(side: float, seg: Node3D, bone: Material) -> Node3D:
 	var w := Node3D.new()
-	w.position = Vector3(0.05 * side, 0.25, -0.06)
-	_body.add_child(w)
-	var wrist := Vector2(0.17, 0.1)
-	var tips: Array[Vector2] = [Vector2(0.34, 0.12), Vector2(0.33, -0.04), Vector2(0.24, -0.15)]
-	LegendWings._bone(w, Vector2.ZERO, wrist, 0.016, bone, side)
-	for tp in tips:
-		LegendWings._bone(w, wrist, tp, 0.009, bone, side)
-	var claw := U.box(w, Vector3(0.012, 0.04, 0.012), bone, LegendWings._v(wrist + Vector2(0.0, 0.03), side))
-	claw.rotation.z = -0.4 * side
-	var pts: Array[Vector2] = [Vector2.ZERO, wrist, tips[0], (tips[0] + tips[1]) * 0.5 + Vector2(-0.04, 0.0), tips[1],
-		(tips[1] + tips[2]) * 0.5 + Vector2(-0.04, 0.02), tips[2], Vector2(0.06, -0.1)]
-	var m := MeshInstance3D.new()
-	m.mesh = LegendWings._fan(pts, side, "wyrm")
-	m.material_override = skin
-	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	w.add_child(m)
+	w.position = Vector3(0.05 * side, 0.03, -0.01)
+	w.scale = Vector3.ONE * 1.0
+	seg.add_child(w)
+	var key := "wing%d" % int(side)
+	if not _wyrm_meshes.has(key):
+		var S := Vector2(0.0, 0.0)
+		var E := Vector2(0.2, -0.08)
+		var W := Vector2(0.4, -0.05)
+		var tips: Array[Vector2] = [Vector2(0.8, 0.02), Vector2(0.74, 0.3), Vector2(0.56, 0.5), Vector2(0.3, 0.56)]
+		var B := Vector2(0.03, 0.46)
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var v3 := func(p: Vector2) -> Vector3: return Vector3(p.x * side, 0.0, p.y)
+		_spike(st, v3.call(S), v3.call(E), Vector3.ZERO, 0.026, WYRM_BONE, WYRM_BONE, 3)
+		_spike(st, v3.call(E), v3.call(W), Vector3.ZERO, 0.022, WYRM_BONE, WYRM_BONE, 3)
+		_ball(st, v3.call(E), Vector3.ONE * 0.026, WYRM_BONE, 6)
+		_ball(st, v3.call(W), Vector3.ONE * 0.03, WYRM_BONE, 6)
+		for tp in tips:
+			var bend := (tp - W).orthogonal().normalized() * -0.03 * side
+			_spike(st, v3.call(W), v3.call(tp), Vector3(bend.x, 0.015, bend.y), 0.015, WYRM_BONE, WYRM_OLD, 5)
+		_spike(st, v3.call(W), v3.call(W + Vector2(0.05, -0.12)), Vector3(0, 0.02, 0), 0.018, WYRM_BONE, WYRM_DARK.lerp(WYRM_OLD, 0.3), 4)
+		_wyrm_meshes[key] = st.commit()
+		# The membrane: a panel between each pair of fingers, and one from the arm back to the
+		# body, its trailing edge scalloped. UV.x counts the panels (whole numbers on the
+		# fingers, where the veins run), UV.y 0 at the wrist to 1 at the edge.
+		var ms := SurfaceTool.new()
+		ms.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var panels := [[W, tips[0], W, tips[1]], [W, tips[1], W, tips[2]], [W, tips[2], W, tips[3]], [W, tips[3], S, B]]
+		var nu := 5
+		var nv := 6
+		for k in panels.size():
+			var pn: Array = panels[k]
+			var grid := []
+			for iu in nu + 1:
+				var u := float(iu) / nu
+				var col := []
+				for iv in nv + 1:
+					var v := float(iv) / nv
+					var a: Vector2 = (pn[0] as Vector2).lerp(pn[1], v)
+					var b: Vector2 = (pn[2] as Vector2).lerp(pn[3], v)
+					var p := a.lerp(b, u)
+					# (the edge between two finger tips curves in towards the wrist)
+					var root: Vector2 = (pn[0] as Vector2).lerp(pn[2], u)
+					p = p.lerp(root, 0.22 * sin(PI * u) * v * v)
+					col.append([Vector3(p.x * side, -0.004, p.y), Vector2(k + u, v)])
+				grid.append(col)
+			for iu in nu:
+				for iv in nv:
+					for c in [grid[iu][iv], grid[iu][iv + 1], grid[iu + 1][iv + 1], grid[iu][iv], grid[iu + 1][iv + 1], grid[iu + 1][iv]]:
+						ms.set_uv(c[1])
+						ms.set_normal(Vector3.UP)
+						ms.add_vertex(c[0])
+		_wyrm_meshes[key + "skin"] = ms.commit()
+	var bm := MeshInstance3D.new()
+	bm.mesh = _wyrm_meshes[key]
+	bm.material_override = bone
+	w.add_child(bm)
+	var sm := MeshInstance3D.new()
+	sm.mesh = _wyrm_meshes[key + "skin"]
+	sm.material_override = _wyrm_skin()
+	w.add_child(sm)
 	return w
 
 
-func _wyrm_fire() -> CPUParticles3D:
+## Bone: its colour from the mesh, a violet rim of soul light round its edges so the white
+## bone stands off any floor.
+static func _wyrm_bone() -> ShaderMaterial:
+	if _wyrm_bone_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+void fragment() {
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
+	float lit = step(0.25, COLOR.r);
+	ALBEDO = COLOR.rgb;
+	ROUGHNESS = 0.62;
+	EMISSION = vec3(0.55, 0.25, 1.0) * fres * 0.7 * lit + COLOR.rgb * 0.06 * lit;
+}
+"""
+		_wyrm_bone_mat = ShaderMaterial.new()
+		_wyrm_bone_mat.shader = sh
+	return _wyrm_bone_mat
+
+
+## The wing membrane: dark violet skin, glowing veins along the fingers, a glowing torn
+## edge, and pulses of soul light running out to it.
+static func _wyrm_skin() -> ShaderMaterial:
+	if _wyrm_skin_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode cull_disabled;
+void fragment() {
+	float k = UV.x;
+	float v = UV.y;
+	float cell = floor(k * 4.0);
+	float h = fract(sin(cell * 91.7 + 3.1) * 4375.85);
+	if (v > 0.8 + 0.22 * h && abs(fract(k * 4.0) - 0.5) < 0.2 + 0.1 * h) {
+		discard;
+	}
+	float f = fract(k);
+	float vein = 1.0 - smoothstep(0.0, 0.07, min(f, 1.0 - f));
+	float fine = (1.0 - smoothstep(0.0, 0.05, abs(fract(k * 3.0 + v * 0.4) - 0.5) - 0.42)) * smoothstep(0.15, 0.6, v) * 0.35;
+	float edge = smoothstep(0.72, 0.98, v);
+	float pulse = pow(max(0.0, sin(v * 9.0 - TIME * 3.0)), 6.0) * smoothstep(0.1, 0.4, v);
+	ALBEDO = vec3(0.13, 0.05, 0.22);
+	ROUGHNESS = 0.8;
+	EMISSION = vec3(0.62, 0.3, 1.0) * (0.16 + vein * 0.9 + fine + edge * 0.75 + pulse * 0.45);
+}
+"""
+		_wyrm_skin_mat = ShaderMaterial.new()
+		_wyrm_skin_mat.shader = sh
+	return _wyrm_skin_mat
+
+
+## The soul thread down its spine: brightest on the line, soft at its sides, pulses flowing
+## from the skull to the tail.
+static func _wyrm_thread() -> ShaderMaterial:
+	if _wyrm_thread_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+void fragment() {
+	float across = 1.0 - abs(UV.x * 2.0 - 1.0);
+	float flow = 0.45 + 0.55 * pow(0.5 + 0.5 * sin(UV.y * 9.0 - TIME * 7.0), 3.0);
+	ALBEDO = vec3(0.62, 0.32, 1.0) * across * across * flow * COLOR.a;
+}
+"""
+		_wyrm_thread_mat = ShaderMaterial.new()
+		_wyrm_thread_mat.shader = sh
+	return _wyrm_thread_mat
+
+
+func _wyrm_fire(size: float, col: Color, amount: int) -> CPUParticles3D:
 	var p := CPUParticles3D.new()
-	p.amount = 72
+	p.amount = amount
 	p.lifetime = 0.55
 	p.emitting = false
 	p.local_coords = false
 	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	p.emission_sphere_radius = 0.04
+	p.emission_sphere_radius = 0.04 * _wsize
 	p.direction = Vector3(0, 0, -1)
-	p.spread = 11.0
-	p.gravity = Vector3(0, 1.4, 0)
+	p.spread = 10.0
+	p.gravity = Vector3(0, 1.2, 0)
 	p.initial_velocity_min = 4.0
 	p.initial_velocity_max = 5.0
 	p.damping_min = 2.0
@@ -861,12 +1181,12 @@ func _wyrm_fire() -> CPUParticles3D:
 	p.scale_amount_min = 0.85
 	p.scale_amount_max = 1.2
 	var curve := Curve.new()
-	curve.add_point(Vector2(0.0, 0.4))
+	curve.add_point(Vector2(0.0, 0.35))
 	curve.add_point(Vector2(0.45, 1.0))
-	curve.add_point(Vector2(1.0, 1.0))
+	curve.add_point(Vector2(1.0, 1.15))
 	p.scale_amount_curve = curve
 	var q := QuadMesh.new()
-	q.size = Vector2(0.7, 0.7)
+	q.size = Vector2.ONE * size * _wsize
 	p.mesh = q
 	var m := _add_mat(Color(1, 1, 1, 1), true)
 	m.vertex_color_use_as_albedo = true
@@ -874,12 +1194,36 @@ func _wyrm_fire() -> CPUParticles3D:
 	p.material_override = m
 	var g := Gradient.new()
 	g.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
-	g.colors = PackedColorArray([Color(1.0, 0.92, 1.0, 1.0), Color(0.82, 0.45, 1.0, 1.0), Color(0.42, 0.1, 0.8, 0.0)])
+	g.colors = PackedColorArray([Color(1.0, 0.95, 1.0, 1.0), col, Color(col.r * 0.5, col.g * 0.2, col.b, 0.0)])
 	p.color_ramp = g
 	return p
 
 
+## Where the skull flies at the turn `c` of its coil: on a pedestal a tilted ring round the
+## hero (high behind their head, low in front of their knees); in a run wide loops over the
+## hero, rising and falling so the body snakes.
+func _wyrm_path(c: float) -> Vector3:
+	if _staged:
+		return Vector3(sin(c) * 0.8, 1.4 + 0.72 * cos(c), cos(c) * 0.5)
+	# (its ring is pushed 0.6 m towards the camera: the camera looks down from behind at 58
+	# degrees, so a skull 2 m up on the near side was drawn over the hero's body)
+	var a := _anchor.global_position
+	return a + Vector3(cos(c) * 1.7, 2.0 + 0.4 * sin(c * 2.0 + 0.7), 0.6 + sin(c) * 1.5)
+
+
+## Lays the whole wyrm along its path at once (when it is made, and in a new room).
+func _wyrm_lay() -> void:
+	_trail.clear()
+	for j in 80:
+		_trail.append(_wyrm_path(_coil - j * 0.05 * (1.0 if _staged else 0.5)))
+	_head_at = _trail[0]
+	_head_dir = (_trail[0] - _trail[1]).normalized()
+	_wyrm_place()
+
+
 func _wyrm(delta: float) -> void:
+	if not _staged and _head_at.distance_to(_anchor.global_position) > 9.0:
+		_wyrm_lay()   # (a new room: it is there with the hero at once)
 	# Looking for something to burn: a boss in reach, else now and then the nearest skeleton.
 	_breath_wait -= delta
 	if _breath <= 0.0 and _breath_wait <= 0.0:
@@ -887,62 +1231,164 @@ func _wyrm(delta: float) -> void:
 		_breath_big = false
 		if not _staged:
 			for b in Game._bosses:
-				if is_instance_valid(b) and not (b as Actor).dead and global_position.distance_to((b as Node3D).global_position) < 12.0:
+				if is_instance_valid(b) and not (b as Actor).dead and _head_at.distance_to((b as Node3D).global_position) < 12.0:
 					target = b
 					_breath_big = true
 					break
 			if target == null:
 				target = _nearest_enemy(7.0)
-		if target != null:
-			_breath_at = target.global_position + Vector3(0, 1.0, 0)
-			_breath = 1.1 if _breath_big else 0.45
-			_breath_wait = 2.6 if _breath_big else randf_range(4.0, 7.0)
-			# (at a boss a long roaring stream; at a skeleton a short puff)
-			_flame.initial_velocity_min = 7.5 if _breath_big else 4.0
-			_flame.initial_velocity_max = 9.5 if _breath_big else 5.0
-		elif _staged:
-			# On a pedestal: a breath out to the side, towards the camera, every few seconds.
-			_breath_at = Vector3.ZERO
-			_breath = 0.9
-			_breath_wait = 3.2
-			_flame.initial_velocity_min = 3.0
-			_flame.initial_velocity_max = 4.2
-		else:
-			_breath_wait = 0.5
+			if target != null:
+				_breath_at = target.global_position + Vector3(0, 1.0, 0)
+				_breath = 1.4 if _breath_big else 0.5
+				_breath_wait = 2.4 if _breath_big else randf_range(3.5, 6.0)
+			else:
+				_breath_wait = 0.5
+		elif absf(sin(_coil)) > 0.97:
+			# On a pedestal: out past the hero's side, towards the camera, every few seconds.
+			_breath_at = _head_at + Vector3(signf(sin(_coil)) * 0.7, -0.1, -1.0)
+			_breath = 1.0
+			_breath_wait = 3.8
+		var big := _breath_big or _staged
+		var sp := (5.5 if big else 3.0) * _wsize
+		_flame.initial_velocity_min = sp
+		_flame.initial_velocity_max = sp * 1.2
+		_core.initial_velocity_min = sp * 1.1
+		_core.initial_velocity_max = sp * 1.3
 	var fire := _breath > 0.0
 	_breath = maxf(0.0, _breath - delta)
-	# It turns round on the shoulder to face what it burns, and the neck tips its head up or
-	# down along the fire; at rest it looks about.
-	var body_yaw := 0.55 if _staged else 0.0   # (on a pedestal turned a little to the side)
-	var want := Vector3(sin(_t * 0.9) * 0.12, sin(_t * 0.55) * 0.5, 0.0)   # (x up and down, y left and right)
+	# Now and then, with nothing to burn, it rears and roars.
+	_roar_wait -= delta
+	if _roar < 0.0 and not fire and _roar_wait <= 0.0:
+		_roar = 0.0
+		_roar_wait = randf_range(6.0, 9.0)
+	var roar := 0.0
+	if _roar >= 0.0:
+		_roar += delta
+		roar = sin(clampf(_roar / 1.2, 0.0, 1.0) * PI)
+		if _roar > 1.2:
+			_roar = -1.0
+	# The skull flies its coil (slowly while it breathes), or to a spot beside the hero facing
+	# what it burns, and the body follows the path it flew.
+	_coil += delta * ((0.12 if _staged else 0.35) if fire else (0.85 if _staged else 1.15))
+	var want := _wyrm_path(_coil)
+	if fire and not _staged:
+		var a := _anchor.global_position
+		var to := _breath_at - a
+		to.y = 0.0
+		if to.length() > 0.1:
+			want = a + to.normalized() * 1.2 + Vector3(0, 2.2, 0.5)
+	var prev := _head_at
+	_head_at = _head_at.lerp(want, 1.0 - exp(-(7.0 if not _staged else 30.0) * delta))
+	var vel := (_head_at - prev) / delta
+	var look := _head_dir
 	if fire:
-		if _staged:
-			want = Vector3(0.05, 0.45, 0.0)   # (out past the hero's shoulder, towards the camera)
-		else:
-			var d := global_basis.orthonormalized().inverse() * (_breath_at - _neck.global_position)
-			body_yaw = atan2(-d.x, -d.z)
-			want = Vector3(clampf(atan2(d.y, Vector2(d.x, d.z).length()) + 0.05, -0.7, 0.5), 0.0, 0.0)
-	_body.rotation.y = lerp_angle(_body.rotation.y, body_yaw, 1.0 - exp(-(12.0 if fire else 2.5) * delta))
-	# The fire starts once it faces its target (the hero may be facing any way when it begins).
-	_flame.emitting = fire and absf(angle_difference(_body.rotation.y, body_yaw)) < 0.35
-	var k := 1.0 - exp(-(10.0 if fire else 3.0) * delta)
-	var turn := Vector3(_neck.rotation.x - 0.55, _neck.rotation.y, 0.0).lerp(want, k)
-	_neck.rotation = Vector3(0.55 + turn.x, turn.y, 0.0)
-	_jaw.rotation.x = lerpf(_jaw.rotation.x, 0.55 if fire else 0.06 + 0.04 * sin(_t * 2.0), 1.0 - exp(-14.0 * delta))
-	# The wings: half spread and slowly beating, wide open while it breathes (in a run held
-	# open a little more, so the camera far above sees them past the hero's head).
-	var open := 1.0 if fire else (0.0 if _staged else 0.45)
-	var beat := sin(_t * (9.0 if fire else 2.2)) * (0.35 if fire else 0.15)
+		look = (_breath_at - _head_at).normalized()
+	elif vel.length() > 0.15:
+		look = vel.normalized()
+	look = (look + Vector3.UP * (0.9 * roar) + Vector3.DOWN * 0.12).normalized()
+	_head_dir = _head_dir.slerp(look, 1.0 - exp(-(9.0 if fire else 5.0) * delta)).normalized()
+	if _trail.is_empty() or _head_at.distance_to(_trail[0]) > 0.035 * _wsize:
+		_trail.insert(0, _head_at)
+		if _trail.size() > 160:
+			_trail.resize(160)
+	# The fire starts once it faces its target (a breath with no target, as the warm-up asks
+	# for, goes at once).
+	var aim := (_breath_at - _head_at).normalized()
+	var facing := _staged or _breath_at == Vector3.ZERO or _head_dir.dot(aim) > 0.9
+	_flame.emitting = fire and facing
+	_core.emitting = _flame.emitting
+	if _flame.emitting and _breath_big and not _staged:
+		_hit_wait -= delta
+		if _hit_wait <= 0.0:
+			_hit_wait = 0.25
+			Fx._burst(_breath_at, 8, Color(0.75, 0.45, 1.0), 0.45, 2.8, 0.35, 0.0, true, "glint")
+	var open := 0.62 if fire else 0.08 + 0.04 * sin(_t * 2.0)
+	open = maxf(open, 0.8 * roar)
+	_jaw.rotation.x = lerpf(_jaw.rotation.x, -open, 1.0 - exp(-14.0 * delta))
+	_mouth_mat.albedo_color.a = clampf(-_jaw.rotation.x * 1.6, 0.0, 1.0)
+	# The soul fire in its ribs pulses, and blazes as it breathes or roars.
+	_heart_mat.emission_energy_multiplier = (6.0 if fire else 2.5 + 3.0 * roar) + sin(_t * 4.0) * 0.8
+	_wyrm_place()
+	# The wings: slow, heavy beats; spread wide and quick as it hovers to breathe or roars.
+	var spread := maxf(1.0 if fire else 0.0, roar)
+	var beat := sin(_t * lerpf(3.4, 6.5, spread))
 	for side in [-1.0, 1.0]:
 		var w: Node3D = _wing_l if side < 0.0 else _wing_r
-		w.rotation = Vector3(lerpf(-0.2, -0.05, open), side * lerpf(0.9, 0.25, open), side * (lerpf(0.35, 0.15, open) + beat))
-	# The tail sways, each bone a little behind the one before.
-	for i in _tail_bones.size():
-		var tb := _tail_bones[i]
-		tb.rotation = Vector3(0.32 + 0.04 * i, sin(_t * 1.7 - i * 0.6) * 0.22, 0.0)
-	# The soul fire in its ribs pulses, and blazes as it breathes.
-	_heart_mat.emission_energy_multiplier = (6.0 if fire else 2.5) + sin(_t * 4.0) * 0.8
-	_body.position.y = sin(_t * 1.4) * 0.008
+		w.rotation = Vector3(0.0, side * lerpf(-0.35, -0.1, spread), side * (lerpf(0.15, 0.3, spread) + beat * lerpf(0.5, 0.65, spread)))
+
+
+## Puts the skull at its place and every vertebra along the path behind it, each turned to
+## look at the one before, and draws the soul thread through them.
+func _wyrm_place() -> void:
+	var up := Vector3.UP
+	_head.transform = Transform3D(_wyrm_basis(_head_dir, up).scaled(Vector3.ONE * _wsize * 1.15), _head_at)
+	# One walk down the trail, finding each vertebra's spot.
+	var path := PackedVector3Array([_head_at])
+	path.append_array(_trail)
+	var j := 0
+	var walked := 0.0
+	var spots := PackedVector3Array()
+	for i in _segs.size():
+		var want := _seg_at[i] * _wsize
+		while j < path.size() - 1:
+			var step := path[j].distance_to(path[j + 1])
+			if walked + step >= want:
+				break
+			walked += step
+			j += 1
+		var p: Vector3
+		if j < path.size() - 1:
+			var step2 := path[j].distance_to(path[j + 1])
+			p = path[j].lerp(path[j + 1], clampf((want - walked) / maxf(step2, 0.0001), 0.0, 1.0))
+		else:
+			p = path[path.size() - 1] - _head_dir * (want - walked)
+		spots.append(p)
+	var before := _head_at
+	for i in _segs.size():
+		var p := spots[i]
+		var fwd := before - p
+		if fwd.length() < 0.0001:
+			fwd = _head_dir
+		_segs[i].transform = Transform3D(_wyrm_basis(fwd.normalized(), up).scaled(Vector3.ONE * _seg_size[i] * _wsize), p)
+		before = p
+	# The thread: a cross of two soft ribbons (one lying flat for the camera above, one
+	# standing for the pedestal's), from the back of the skull to the barb.
+	_thread.clear_surfaces()
+	_thread.surface_begin(Mesh.PRIMITIVE_TRIANGLES)
+	var line := PackedVector3Array([_head_at + _head_dir * -0.05 * _wsize])
+	line.append_array(spots)
+	line.append(spots[spots.size() - 1] + (spots[spots.size() - 1] - spots[spots.size() - 2]).normalized() * 0.2 * _wsize)
+	var along := 0.0
+	for k in 2:
+		along = 0.0
+		for i in line.size() - 1:
+			var a := line[i]
+			var b := line[i + 1]
+			var t := (a - b).normalized()
+			var sz_a := (1.0 if i == 0 else _seg_size[mini(i - 1, _seg_size.size() - 1)]) * _wsize
+			var sz_b := _seg_size[mini(i, _seg_size.size() - 1)] * _wsize
+			var side := t.cross(up).normalized() if k == 0 else up
+			if side.length() < 0.5:
+				side = Vector3.RIGHT
+			var wa := side * 0.15 * sz_a
+			var wb := side * 0.15 * sz_b
+			var la := along
+			along += a.distance_to(b) / _wsize
+			var fade_a := 1.0 - float(i) / line.size() * 0.5
+			var fade_b := 1.0 - float(i + 1) / line.size() * 0.5
+			for v in [[a - wa, 0.0, la, fade_a], [b - wb, 0.0, along, fade_b], [b + wb, 1.0, along, fade_b],
+					[a - wa, 0.0, la, fade_a], [b + wb, 1.0, along, fade_b], [a + wa, 1.0, la, fade_a]]:
+				_thread.surface_set_color(Color(1, 1, 1, v[3]))
+				_thread.surface_set_uv(Vector2(v[1], v[2]))
+				_thread.surface_add_vertex(v[0])
+	_thread.surface_end()
+
+
+static func _wyrm_basis(fwd: Vector3, up: Vector3) -> Basis:
+	if absf(fwd.dot(up)) > 0.98:
+		up = Vector3.BACK
+	return Basis.looking_at(fwd, up)
+
 
 # ---------------------------------------------------------------- shapes and materials
 
@@ -1285,59 +1731,72 @@ class Icon extends Control:
 		_glow(Vector2(30, -38), 30, Color(0.6, 0.9, 1.0, 0.8 * f + 0.15))
 
 	func _wyrm() -> void:
-		var y := sin(_t * 1.4) * 2.0
 		var bone := Color(0.93, 0.9, 0.82)
-		var old := Color(0.72, 0.68, 0.6)
-		var dark := Color(0.08, 0.05, 0.1)
-		var breath := fmod(_t, 3.0) < 1.1
-		# A wing raised behind it: bone fingers and torn violet skin.
-		var f := sin(_t * (8.0 if breath else 2.0)) * (6.0 if breath else 3.0)
-		var sh := Vector2(4, -6 + y)
-		var wr := Vector2(18, -34 + y - f)
-		var tips := [Vector2(44, -40 + y - f), Vector2(46, -20 + y - f * 0.6), Vector2(34, -6 + y)]
-		var poly := PackedVector2Array([sh, wr])
+		var old := Color(0.72, 0.67, 0.58)
+		var dark := Color(0.06, 0.03, 0.09)
+		var vio := Color(0.75, 0.45, 1.0)
+		var breath := fmod(_t, 3.2) < 1.2
+		# The spine: a snaking chain of vertebrae from the skull (top left) to the crystal barb
+		# (bottom right), a violet soul thread glowing through it.
+		var sp := PackedVector2Array()
+		for i in 17:
+			var k := i / 16.0
+			sp.append(Vector2(-16.0 + 58.0 * k, -12.0 + 40.0 * k + sin(k * 6.0 + 0.5 - _t * 1.8) * 9.0 * (0.35 + k)))
+		# A bat wing raised from the chest: bone fingers, a dark membrane with glowing veins.
+		var ch := sp[4]
+		var f := sin(_t * (7.0 if breath else 2.2)) * (5.0 if breath else 3.0)
+		var wr := ch + Vector2(8, -26 - f)
+		var tips := [ch + Vector2(32, -40 - f), ch + Vector2(42, -20 - f * 0.6), ch + Vector2(30, -4)]
+		var poly := PackedVector2Array([ch, wr])
 		for tp: Vector2 in tips:
 			poly.append(tp)
-		draw_colored_polygon(poly, Color(0.45, 0.2, 0.68, 0.85))
-		draw_line(sh, wr, bone, 3.0)
+		draw_colored_polygon(poly, Color(0.3, 0.1, 0.46, 0.92))
+		for i in tips.size() - 1:
+			draw_line(tips[i], tips[i + 1], Color(vio, 0.8), 1.6)
+		draw_line(ch, wr, bone, 3.0)
 		for tp: Vector2 in tips:
 			draw_line(wr, tp, bone, 1.8)
-		# Body: a spine and ribs around a violet soul fire; a tail curling down and away.
-		_glow(Vector2(4, 4 + y), 18, Color(0.7, 0.35, 1.0, 0.7))
-		draw_line(Vector2(-14, -8 + y), Vector2(20, 0 + y), bone, 4.0)
-		for i in 4:
-			var x := -8.0 + i * 8.0
-			draw_arc(Vector2(x, 6 + y), 9.0, -PI * 0.9, -PI * 0.1 + PI, 10, bone, 2.0)
-		draw_circle(Vector2(4, 6 + y), 5.0, Color(0.8, 0.5, 1.0))
-		var tail := PackedVector2Array()
-		for i in 8:
-			var k := i / 7.0
-			tail.append(Vector2(20 + 22 * k, 0 + y + 26 * k * k + sin(_t * 2.0 + k * 3.0) * 3.0 * k))
-		draw_polyline(tail, old, 3.0)
-		var tip := tail[tail.size() - 1]
-		draw_colored_polygon(PackedVector2Array([tip + Vector2(-5, 0), tip + Vector2(0, -5), tip + Vector2(6, 2), tip + Vector2(0, 6)]), Color(0.75, 0.45, 1.0))
-		# Legs.
-		for x in [-8.0, 14.0]:
-			draw_line(Vector2(x, 12 + y), Vector2(x - 3, 24 + y), bone, 2.5)
-		# Neck up to the skull: a long snout, horns swept back, a violet eye; the jaw drops to breathe.
-		var head := Vector2(-28, -18 + y)
-		draw_line(Vector2(-14, -8 + y), head + Vector2(6, 4), bone, 4.0)
-		var jaw := 0.5 if breath else 0.08
-		draw_colored_polygon(PackedVector2Array([head + Vector2(4, 2), head + Vector2(-20, 4 + jaw * 14), head + Vector2(-20, 7 + jaw * 14), head + Vector2(2, 8)]), old)
-		draw_circle(head, 9.0, bone)
-		draw_colored_polygon(PackedVector2Array([head + Vector2(-4, -6), head + Vector2(-22, -1), head + Vector2(-22, 4), head + Vector2(-2, 5)]), bone)
-		draw_circle(head + Vector2(-2, -2), 3.4, dark)
-		draw_circle(head + Vector2(-2, -2), 1.8, Color(0.85, 0.55, 1.0))
+			draw_line(wr, tp, Color(vio, 0.5), 4.0)
+		_glow(sp[5] + Vector2(0, 7), 20, Color(0.7, 0.35, 1.0, 0.8))
+		draw_polyline(sp, Color(vio, 0.45), 8.0)
+		draw_polyline(sp, Color(0.85, 0.65, 1.0, 0.8), 2.5)
+		for i in range(3, 7):
+			var p := sp[i]
+			draw_arc(p + Vector2(0, 7), 8.0, -0.2, PI + 0.2, 8, bone, 2.0)
+		draw_circle(sp[5] + Vector2(0, 8), 4.5, Color(0.85, 0.6, 1.0))
+		for i in range(16, -1, -1):
+			var r := 4.2 - 2.6 * i / 16.0
+			if i < 3:
+				r = 3.0
+			draw_circle(sp[i], r, bone if i % 2 == 0 else old)
+			draw_line(sp[i], sp[i] + Vector2(1.5, -r - 2.5), old, 1.4)
+		var end := sp[16]
+		var dir := (sp[16] - sp[15]).normalized()
+		var nrm := dir.orthogonal()
+		draw_colored_polygon(PackedVector2Array([end, end + nrm * 6 + dir * 4, end + dir * 12, end - nrm * 6 + dir * 4]), vio)
+		_glow(end + dir * 5, 10, Color(vio, 0.7))
+		# The skull: a long horned head facing left, a violet eye in a dark socket; the jaw
+		# drops to breathe.
+		var head := sp[0] + Vector2(-6, -6)
+		var jaw := 0.6 if breath else 0.08
 		for i in 2:
-			draw_line(head + Vector2(4 - i * 4, -6), head + Vector2(18 - i * 6, -18 + i * 3), old, 2.6 - i * 0.6)
+			draw_line(head + Vector2(2 - i * 2, -6 + i * 3), head + Vector2(20 - i * 3, -20 + i * 8), old, 3.0 - i)
+		draw_colored_polygon(PackedVector2Array([head + Vector2(4, 3), head + Vector2(-22, 4 + jaw * 16), head + Vector2(-22, 8 + jaw * 16), head + Vector2(2, 9)]), old)
+		draw_circle(head, 9.5, bone)
+		draw_colored_polygon(PackedVector2Array([head + Vector2(-3, -7), head + Vector2(-24, -1), head + Vector2(-25, 4), head + Vector2(-2, 6)]), bone)
+		for i in 3:
+			draw_line(head + Vector2(-8 - i * 5, 4), head + Vector2(-8 - i * 5, 7), Color(1, 1, 1), 1.4)
+		draw_circle(head + Vector2(-3, -2), 3.8, dark)
+		draw_circle(head + Vector2(-3, -2), 2.0, Color(0.9, 0.65, 1.0))
+		_glow(head + Vector2(-3, -2), 6, Color(vio, 0.8))
 		if breath:
-			# Violet fire pouring from the jaws.
-			for i in 7:
-				var k := fmod(_t * 2.5 + i / 7.0, 1.0)
-				var p := head + Vector2(-24 - 34 * k, 6 + 10 * k * k + sin(i * 2.3) * 6.0 * k)
+			# Violet fire pouring from the jaws, a white-hot core in it.
+			for i in 8:
+				var k := fmod(_t * 2.5 + i / 8.0, 1.0)
+				var p := head + Vector2(-26 - 30 * k, 6 + 16 * k + sin(i * 2.3) * 5.0 * k)
 				var r := 3.0 + 9.0 * k
 				draw_circle(p, r, Color(0.75, 0.45, 1.0, 0.55 * (1.0 - k)))
-				draw_circle(p, r * 0.5, Color(0.95, 0.85, 1.0, 0.7 * (1.0 - k)))
+				draw_circle(p, r * 0.5, Color(0.97, 0.9, 1.0, 0.75 * (1.0 - k)))
 
 	func _starfall() -> void:
 		var night := Color(0.05, 0.05, 0.16)
