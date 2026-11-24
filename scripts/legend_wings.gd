@@ -8,8 +8,11 @@ extends Node3D
 ##                edge (version 324). They stretch now and then, and a dash beats them with
 ##                a gust of dusk motes.
 ##   phoenix:     Phoenix Wings. Layers of long burning feathers, gold at the root and red at
-##                the tips, their edges flickering like flames (version 317), shedding embers; a dash leaves a firebird of flame behind where it
-##                started, which spreads its wings and fades.
+##                the tips, their edges flickering like flames (version 317), shedding embers;
+##                every few seconds a wave of white fire runs out along the feathers. A dash
+##                leaves a firebird behind where it started (version 327: a bird of fire with
+##                the phoenix's own wings, a crest and tail streamers) that beats its wings
+##                once as it rises and burns away.
 ## The wing's flat side leans back towards the run camera (above and behind the hero), so from
 ## up there it is seen spread, not edge on. On a pedestal they are shown spread and beating.
 
@@ -52,7 +55,7 @@ func _ready() -> void:
 		p = p.get_parent()
 	if p and p.get_parent() is Hero:
 		_hero = p.get_parent() as Node3D
-		scale = Vector3.ONE * (1.45 if kind == "bone_wings" else 1.3)   # (the run camera is far above: bigger there, as the pets)
+		scale = Vector3.ONE * 1.45   # (the run camera is far above: bigger there, as the pets)
 	match kind:
 		"phoenix":
 			_l = _phoenix_wing(-1.0)
@@ -98,10 +101,10 @@ func _pose(_delta: float) -> void:
 			flap = sin(_t * 2.2) * 0.22   # (on a pedestal: slow, wide beats)
 		elif _stretch:
 			flap = sin(_t * 17.0) * 0.07
-		# (Bone wings in a run lean further back, so the run camera sees the skin, not the bones edge on.)
-		var run_bone := _hero != null and kind == "bone_wings"
-		var lean := -1.05 if run_bone else -0.7
-		var lean_spread := -0.95 if run_bone else -0.4
+		# (In a run the wings lean further back, so the camera above sees them spread, not
+		# edge on: version 324 for the bone wings, 327 for the phoenix.)
+		var lean := -1.05 if _hero != null else -0.7
+		var lean_spread := -0.95 if _hero != null else -0.4
 		w.rotation = Vector3(lerpf(lean, lean_spread, s), side * lerpf(0.55, 0.12, s), side * (lerpf(0.28, 0.22, s) + breathe + flap))
 
 
@@ -324,11 +327,16 @@ func _phoenix_wing(side: float) -> Node3D:
 	_bone(w, Vector2.ZERO, ELBOW, 0.05, gold, side)
 	_bone(w, ELBOW, WRIST, 0.045, gold, side)
 	_bone(w, WRIST, PHX_TIP, 0.035, gold, side)
-	# A soft fire-glow over the whole wing.
+	# A soft fire-glow over the whole wing in a run (version 327: a flattened ball of added
+	# light; the billboard quad it was did not show there). On a pedestal, close up, it only
+	# blurred the feathers.
+	if _hero == null:
+		return w
 	var glow := MeshInstance3D.new()
-	glow.mesh = LegendPet._quad(2.3)
-	glow.material_override = LegendPet._add_mat(Color(1.0, 0.5, 0.15, 0.75 if _hero else 0.55), true)
-	glow.position = _v(Vector2(0.75, 0.0), side)
+	glow.mesh = LegendPet._glow_ball()
+	glow.material_override = LegendPet._wisp_glow()
+	glow.position = _v(Vector2(0.7, -0.05), side)
+	glow.scale = Vector3(0.85, 0.75, 0.3)
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	w.add_child(glow)
 	return w
@@ -359,6 +367,11 @@ void fragment() {
 	float flick = 0.9 + 0.1 * sin(TIME * 11.0 + vt * 9.0 + ph * 3.0);
 	float core = (1.0 - smoothstep(0.0, 0.32, abs(vx))) * (1.0 - smoothstep(0.15, 0.95, vt));
 	vec3 c = mix(COLOR.rgb, vec3(1.0, 0.95, 0.72), core * 0.8);
+	// (version 327) every few seconds a wave of white fire runs out from the shoulder to the
+	// feather tips, a little later on each feather.
+	float run = fract(TIME * 0.2 + ph * 0.03);
+	float wave = (1.0 - smoothstep(0.0, 0.14, abs(vt - (run * 1.8 - 0.3)))) * step(run, 0.75);
+	c = mix(c, vec3(1.0, 0.96, 0.72), wave * 0.6);
 	ALBEDO = c * flick;
 }
 """
@@ -474,14 +487,9 @@ func _ember_fx() -> CPUParticles3D:
 	p.gravity = Vector3(0, 0.6, 0)
 	p.initial_velocity_min = 0.3
 	p.initial_velocity_max = 0.8
-	p.scale_amount_min = 0.5
-	p.scale_amount_max = 1.0
-	var q := QuadMesh.new()
-	q.size = Vector2(0.14, 0.14)
-	p.mesh = q
-	var m := LegendPet._add_mat(Color(1.0, 0.6, 0.2, 1.0), true)
-	m.vertex_color_use_as_albedo = true
-	p.material_override = m
+	p.scale_amount_min = 0.07
+	p.scale_amount_max = 0.14
+	p.mesh = Fx._shaped("glow")   # (version 327: a particle billboard; the quad it was did not show in a run)
 	var g := Gradient.new()
 	g.set_color(0, Color(1, 0.85, 0.4, 1))
 	g.set_color(1, Color(1, 0.2, 0.05, 0))
@@ -489,40 +497,78 @@ func _ember_fx() -> CPUParticles3D:
 	return p
 
 
-## A dash leaves a firebird where it started: the spread wings drawn in flame, which rise,
-## grow and fade over most of a second.
+## A dash leaves a firebird where it started (version 327: it was a few flat orange cards): a
+## bird of white-gold fire with the phoenix's own feathered wings, a crested head and three
+## long tail streamers, laid facing the camera above. It beats its wings once as it rises,
+## grows and burns away over most of a second, throwing out a burst of embers.
+static var _bird_body: Mesh
+static var _bird_shader: Shader
+
+
 func _firebird() -> void:
 	var world := _hero.get_parent() as Node3D
 	if world == null:
 		return
 	var bird := Node3D.new()
 	world.add_child(bird)
-	bird.global_transform = global_transform
 	bird.global_position = _hero.global_position + Vector3(0, 1.3, 0)
-	var mats: Array[StandardMaterial3D] = []
-	for side in [-1.0, 1.0]:
-		var mat := LegendPet._add_mat(Color(1.0, 0.55, 0.15, 0.95), false)
-		mats.append(mat)
-		for i in 5:
-			var f := float(i) / 4.0
-			var q := MeshInstance3D.new()
-			q.mesh = LegendPet._quad(0.7)
-			q.material_override = mat
-			q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			q.position = Vector3(side * (0.35 + 0.75 * f), 0.15 + 0.25 * sin(f * PI) - 0.2 * f, 0)
-			q.scale = Vector3(1.0, 1.0 - 0.5 * f, 1.0)
-			bird.add_child(q)
+	bird.rotation = Vector3(-1.0, 0, 0)   # (its wings face the camera above, its head up the screen)
+	bird.scale = Vector3.ONE * 0.8
+	if _bird_shader == null:
+		_bird_shader = Shader.new()
+		_bird_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform float fade = 1.0;
+void fragment() {
+	float fl = 0.85 + 0.15 * sin(TIME * 17.0 + UV.y * 9.0);
+	vec3 c = mix(COLOR.rgb, vec3(1.0, 0.9, 0.6), 0.1) * fade * fl;
+	float glow_a = max(max(c.r, c.g), c.b);
+	ALBEDO = c / max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = _bird_shader
+	if _bird_body == null:
+		_bird_body = _firebird_body()
 	var body := MeshInstance3D.new()
-	body.mesh = LegendPet._quad(0.9)
-	var bm := LegendPet._add_mat(Color(1.0, 0.8, 0.4, 1.0), false)
-	mats.append(bm)
-	body.material_override = bm
-	body.scale = Vector3(0.6, 1.4, 1.0)
+	body.mesh = _bird_body
+	body.material_override = mat
 	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	bird.add_child(body)
 	var tw := bird.create_tween().set_parallel(true)
-	tw.tween_property(bird, "scale", Vector3.ONE * 1.5, 0.8).set_ease(Tween.EASE_OUT)
-	tw.tween_property(bird, "global_position", bird.global_position + Vector3(0, 1.0, 0), 0.8)
-	for m in mats:
-		tw.tween_property(m, "albedo_color:a", 0.0, 0.8).set_ease(Tween.EASE_IN)
+	for side in [-1.0, 1.0]:
+		var w := MeshInstance3D.new()
+		w.mesh = _phoenix_mesh(side, 1.4)
+		w.material_override = mat
+		w.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		w.position = Vector3(0.08 * side, 0.12, 0)
+		w.rotation.z = side * 0.55
+		bird.add_child(w)
+		tw.tween_property(w, "rotation:z", side * -0.2, 0.45).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	Fx._burst(bird.global_position, 16, Color(1.0, 0.55, 0.15), 0.22, 3.5, 0.7, -0.1, true, "glow")
+	tw.tween_property(bird, "scale", Vector3.ONE * 1.5, 0.9).set_ease(Tween.EASE_OUT)
+	tw.tween_property(bird, "global_position", bird.global_position + Vector3(0, 1.2, -0.4), 0.9).set_ease(Tween.EASE_OUT)
+	tw.tween_method(func(v: float) -> void: mat.set_shader_parameter("fade", v), 1.0, 0.0, 0.9).set_ease(Tween.EASE_IN)
 	tw.chain().tween_callback(bird.queue_free)
+
+
+## The firebird's body: a teardrop of fire with a head and a crest of three flames, and three
+## long tail streamers; white-gold at the heart, orange to red at the tips.
+static func _firebird_body() -> Mesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var hot := Color(1.0, 0.92, 0.62)
+	var orange := Color(1.0, 0.55, 0.12)
+	var red := Color(0.95, 0.2, 0.04)
+	var pts := [Vector3(0, -0.42, 0), Vector3(0, -0.3, 0), Vector3(0, -0.1, 0), Vector3(0, 0.1, 0), Vector3(0, 0.26, 0), Vector3(0, 0.36, 0), Vector3(0, 0.46, 0), Vector3(0, 0.58, 0)]
+	var r := [0.0, 0.09, 0.15, 0.15, 0.1, 0.08, 0.1, 0.0]
+	LegendPet._loft(st, pts, r, r, [orange, hot, hot, hot, hot, hot, hot, orange], 10)
+	for k in 3:
+		var x := (k - 1) * 0.07
+		LegendPet._spike(st, Vector3(x, 0.52, 0), Vector3(x * 2.5, 0.78 - absf(x), 0), Vector3(0, 0, 0.0), 0.035, hot, red, 4)
+	for k in 3:
+		var x := (k - 1) * 0.32
+		LegendPet._spike(st, Vector3(0, -0.36, 0), Vector3(x, -1.35 + absf(x) * 0.5, 0), Vector3(-x * 0.4, 0.0, 0.0), 0.06, orange, red, 6)
+	return st.commit()

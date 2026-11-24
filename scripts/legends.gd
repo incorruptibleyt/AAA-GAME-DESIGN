@@ -34,7 +34,7 @@ const LIST := [
 	{"id": "soul_harvest", "slot": "finisher", "name": "Soul Harvest", "price": 200000, "ready": true,
 		"text": "A ghost rises from every skeleton you fell and flies into you."},
 	{"id": "phoenix", "slot": "wings", "name": "Phoenix Wings", "price": 250000, "ready": true,
-		"text": "Wings of burning feathers. A dash leaves a firebird behind."},
+		"text": "Great wings of burning feathers that ripple with white fire. A dash leaves a firebird that beats its wings and burns away."},
 	{"id": "wyrm", "slot": "pet", "name": "Bone Wyrm", "price": 400000, "ready": true,
 		"text": "A great bone dragon that coils round you in the air and breathes violet fire at bosses."},
 	{"id": "starfall", "slot": "grand", "name": "Starfall Mantle", "price": 600000, "ready": true,

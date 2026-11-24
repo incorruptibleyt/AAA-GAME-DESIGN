@@ -1,3 +1,3 @@
-Version 326: Legend Vault, Supercell pass 9 of 10
-- Ember Steps upgraded: every step now cracks the floor with glowing magma that spreads out and cools, embers puff up from each step and trail off your boots, the steps are bigger in a run, and a dash leaves a burning line of fire behind you.
-- Also new: 8 more Legend looks rebuilt.
+Version 327: Legend Vault, Supercell pass 10 of 12
+- Phoenix Wings upgraded: in a run the wings are bigger and spread toward the camera with a soft fire glow, a wave of white fire ripples along the feathers every few seconds, and a dash leaves a real firebird of flame that beats its wings, rises and burns away.
+- Also new: 9 more Legend looks rebuilt.
