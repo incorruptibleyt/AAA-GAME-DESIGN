@@ -2,6 +2,7 @@ class_name Autoplay
 extends Node
 ## A simple robot player used to test the game without a person holding the phone.
 ## Start Godot with:  -- autoplay [god] [shop] [shots=<folder>]
+## `startfloor=N` (version 309) starts the run on floor N the way the title's button does.
 ## `shop` buys what it can afford in the Armory and its Vault before the first run (`coins=N`
 ## gives it N coins first). `vault` owns every Vault blessing without paying.
 ## `quittest` quits the first run from the pause menu and starts again.
@@ -140,6 +141,14 @@ func _ready() -> void:
 			_intro_marks = Array(a.substr(11).split(",")).map(func(m): return float(m))
 		elif a.begins_with("floor="):
 			Game.floor_num = int(a.substr(6))
+		elif a.begins_with("startfloor="):
+			# Version 309: a new run on this start floor, as if picked on the title (and reached).
+			var scfg := Game._load_save()
+			var sf := int(a.substr(11))
+			scfg.set_value("settings", "start_floor", sf)
+			if int(scfg.get_value("stats", "best_floor", 1)) < sf:
+				scfg.set_value("stats", "best_floor", sf)
+			Game.write_save(scfg)
 		elif a == "shop":
 			shop = true
 		elif a == "vault":
@@ -777,13 +786,16 @@ func _process(delta: float) -> void:
 		Game.State.TRANSITION when gallery and _gallery_t >= 0.0:
 			_gallery_step(delta)
 		Game.State.PLAYING when _die:
-			if Game._state_time > 1.0:
-				_die = false
+			# (Waits out the hero's start-of-room shield, or the fall would be shrugged off.)
+			if Game._state_time > 1.0 and Game.hero and Game.hero.can_be_hit():
 				if not _chains.is_empty():
 					if Game._rep.is_empty():
 						Game._reset_report()
 					Game._rep.chains = _chains   # a made-up chain in each room so far, for the share card
+				Game.hero.ward = 0   # (a Bone Ward would block it)
+				Game.hero.health = 1.0   # (one hit takes at most 45% of full health since version 295)
 				Game.hero.take_damage(1e9, Vector3.ZERO, 0.0)
+				_die = not Game.hero.dead   # (again next time if a Second Wind got up)
 		Game.State.PLAYING when _loop_menu:
 			if is_instance_valid(Game.boss) and not Game.boss.dead and Game._state_time > 1.0:
 				Game.boss.take_damage(1e9, Vector3.ZERO, 0.0)

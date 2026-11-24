@@ -1,6 +1,4 @@
-Version 308: every hero special gets a twist
-- Shadow Quiver: the Rogue's volley knives fly back to you.
-- Aftershock: the Knight's Shield Slam slams twice.
-- Endless Whirl: the Barbarian's Whirlwind drags skeletons in.
-- Meteor Storm: the Mage's meteors leave burning craters.
-- 3 new combos: Thunder Bones, Frost Ghost and Storm Bounce.
+Version 309: shorter sessions
+- Start a new run on floor 3 or 5 once you have reached it (floors 7 and 9 with the Crypt Pass). Tap the button under PLAY to pick.
+- A deeper start gives you 3 blessings for every floor you skip.
+- After a fall, TRY AGAIN starts from the floor you reached, not floor 1.

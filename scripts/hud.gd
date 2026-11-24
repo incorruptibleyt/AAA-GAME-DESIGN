@@ -40,6 +40,7 @@ signal copy_report_pressed
 signal resume_pressed
 signal quit_run_pressed
 signal retry_pressed
+signal start_floor_pressed   # version 309: the title's start-floor button
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
 signal graphics_toggled(level: int)
@@ -388,6 +389,8 @@ var _end_deal: PanelContainer   # v279: the deal over the end-of-free-game offer
 var _shop_curses := false
 var _title_free: Label
 var _title_play: Button
+var _title_start: Button   # version 309
+var _end_retry: Button   # version 309
 var _title_continue: Control
 var _continue_where: Label
 var _title_spacer: Control
@@ -1918,6 +1921,14 @@ func _build_title() -> void:
 	_title_play_badge.offset_left = -84
 	play.add_child(_title_play_badge)
 	col.add_child(_centered(play))
+	# Version 309: which floor a new run starts on, once floor 3 has been reached (a tap
+	# goes on to the next open floor, then back to floor 1).
+	var start := button("START ON FLOOR 1  >", 19, Color(0.16, 0.12, 0.2, 0.95), Color(1.0, 0.85, 0.5))
+	start.custom_minimum_size = Vector2(260, 46)
+	start.pressed.connect(func(): start_floor_pressed.emit())
+	start.visible = false
+	_title_start = start
+	col.add_child(_centered(start))
 	var heroes := button("HEROES", 26)
 	heroes.custom_minimum_size = Vector2(222, 74)
 	heroes.pressed.connect(func(): heroes_pressed.emit())
@@ -2326,6 +2337,7 @@ func _build_end() -> void:
 	col.add_child(buttons)
 	var retry := button("TRY AGAIN", 32, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
 	retry.custom_minimum_size = Vector2(300, 86)
+	_end_retry = retry
 	retry.pressed.connect(func(): retry_pressed.emit())
 	buttons.add_child(_centered(retry))
 	var heroes := button("HEROES", 26)
@@ -4905,13 +4917,32 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_continue_where.text = where
 	_title_spacer.visible = not _title_continue.visible
 	_title_play.text = "NEW RUN" if _title_continue.visible else "PLAY"
+	# Version 309: the start-floor button under PLAY. With a saved run's CONTINUE there is no
+	# room for it (the hero would be hidden), so NEW RUN names the floor instead.
+	var start_line := Game.start_text() if v and not locked else ""
+	var show_start := start_line != "" and not _title_continue.visible
+	_title_start.text = start_line
+	_title_start.get_parent().visible = show_start
+	_title_start.visible = show_start
+	if show_start:
+		_title_spacer.visible = false
+	if start_line != "" and _title_continue.visible and Game.chosen_start(tcfg) > 1:
+		_title_play.text = "NEW RUN: FLOOR %d" % Game.chosen_start(tcfg)
 	_title_play_badge.visible = v and not locked and Curses.chosen(tcfg, has_pass).has("heroic")
-	_title_play.add_theme_font_size_override("font_size", 32 if _title_continue.visible else 38)
+	_title_play.add_theme_font_size_override("font_size", (26 if _title_play.text.length() > 8 else 32) if _title_continue.visible else 38)
 	_title_play.remove_meta("armed")
 
 
 func title_visible() -> bool:
 	return _title_box.visible
+
+
+## Version 309: TRY AGAIN names the floor it starts on when that isn't floor 1.
+func set_retry_floor(f: int) -> void:
+	if _end_retry == null:
+		return
+	_end_retry.text = "TRY AGAIN" if f <= 1 else "TRY AGAIN: FLOOR %d" % f
+	_end_retry.add_theme_font_size_override("font_size", 32 if f <= 1 else 27)
 
 
 ## Version 279: true while another screen (or the splash) covers the title.

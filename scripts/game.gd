@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24f"
+const BUILD := "2026-11-24g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -220,6 +220,13 @@ const DIVE_FLOOR := 6
 const DIVE_STRENGTH := 3
 const DIVE_GIFTS := 5
 const DIVE_BOSS_HP := 0.85
+## Version 309 (player panel fix 3, short sessions): a new run can start on a floor the player
+## has already reached, every second floor (the Crypt Pass's floors with the Pass). The casual
+## player quit when a fall on floor 3 sent them back to floor 1 room 1, ten minutes again.
+## Starting deeper brings CATCHUP_GIFTS random blessings and one reroll for each floor skipped.
+const CHECKPOINTS := [1, 3, 5, 7, 9]
+const CATCHUP_GIFTS := 3
+var start_floor := 1   # the floor this run began on
 ## This run's hero when it isn't the chosen one: the Daily Crypt's hero, or a free trial.
 var _run_hero_id := ""
 ## A locked hero picked on the Heroes screen for one free trial run, used by the next run.
@@ -861,6 +868,7 @@ func _ready() -> void:
 	hud.title_pressed.connect(_end_to_title)
 	hud.pass_dive.connect(_start_dive)   # version 280: the Free Dive
 	hud.continue_pressed.connect(_continue_run)
+	hud.start_floor_pressed.connect(cycle_start_floor)   # version 309
 	hud.hero_trial.connect(_try_hero)
 	hud.share_pressed.connect(_share)
 	hud.loop_deeper.connect(_open_omens)
@@ -2179,6 +2187,9 @@ func _start_run() -> void:
 	if dive:
 		floor_num = DIVE_FLOOR
 		Telemetry.step("dive_start")
+	start_floor = chosen_start() if _normal_run() else 1
+	if start_floor > 1:
+		floor_num = start_floor
 	record_add("runs", 1)
 	if race:
 		Telemetry.step("race1")
@@ -2191,10 +2202,11 @@ func _start_run() -> void:
 	_pick_curses()
 	# Version 169: the tutorial too. The run built for the title had 5 rooms (medium and hard
 	# ones too), so a first launch played that instead of the tutorial's own easy rooms.
-	if daily or event != "" or race or first_run or dive:
-		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt; the tutorial; the Drowned Vault
+	if daily or event != "" or race or first_run or dive or start_floor > 1:
+		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt; the tutorial; the Drowned Vault; a deeper start
 	_use_run_hero()
 	_apply_armory()
+	_catch_up()
 	_go_to_room(0)
 	_mode_banner()
 
@@ -2565,6 +2577,7 @@ func _restart() -> void:
 	var fell_taken := _taken.duplicate()
 	var fell_run := _run.duplicate(true)
 	var fell_ids := _run_ids.duplicate()
+	var again_floor := _retry_floor()   # (before the run's numbers are reset)
 	await _fade(0.0, 1.0, 0.4)
 	hud.show_end(false)
 	if hero:
@@ -2596,6 +2609,10 @@ func _restart() -> void:
 		_run_hero_id = ""   # a free trial is one run
 	first_run = first_run_pending()   # true only after a first death in the tutorial
 	var again_at := fell_room if first_run and fell_room > 0 and fell_room < fell_run.size() else 0
+	start_floor = again_floor if _normal_run() else 1
+	if start_floor > 1:
+		floor_num = start_floor
+		_save_start_floor(start_floor)
 	_check_newcomer()
 	_build_run()
 	if again_at > 0:
@@ -2605,6 +2622,7 @@ func _restart() -> void:
 	hud.show_hud(true)
 	_load_room(0, false)
 	_apply_armory()
+	_catch_up()
 	if again_at > 0:
 		# Only the blessings the Armory didn't just give back.
 		for id in fell_taken:
@@ -2835,6 +2853,98 @@ func _descend() -> void:
 	if new_loop and not omens.is_empty():
 		hud.tip("LOOP %d  ·  Score x%s\nOmens: %s" % [loop, _mult_text(_score_mult), Loops.names(omens)], 4.0, 1.8)
 	await _fade(1.0, 0.0, 0.5)
+
+
+## A plain run: not the tutorial, a Daily Crypt, an event, a Crypt Race, the Free Dive or the
+## speed test. Only these can start deeper (version 309).
+func _normal_run() -> bool:
+	return not (first_run or daily or event != "" or race or dive or bench)
+
+
+## The start floors this save has opened: floor 1, and every checkpoint floor already reached
+## (floors past the free crypt only with the Crypt Pass).
+func start_checkpoints(cfg: ConfigFile = null) -> Array:
+	if cfg == null:
+		cfg = _load_save()
+	var best := int(cfg.get_value("stats", "best_floor", 1))
+	var out := []
+	for f: int in CHECKPOINTS:
+		if f == 1 or (f <= best and (f <= Store.FREE_FLOORS or Store.owned(cfg))):
+			out.append(f)
+	return out
+
+
+## The start floor picked on the title (the deepest open one at or above it).
+func chosen_start(cfg: ConfigFile = null) -> int:
+	if cfg == null:
+		cfg = _load_save()
+	var want := int(cfg.get_value("settings", "start_floor", 1))
+	var out := 1
+	for f: int in start_checkpoints(cfg):
+		if f <= want:
+			out = f
+	return out
+
+
+func _save_start_floor(f: int) -> void:
+	var cfg := _load_save()
+	cfg.set_value("settings", "start_floor", f)
+	write_save(cfg)
+
+
+## The title's start-floor button: "" while only floor 1 is open.
+func start_text() -> String:
+	if first_run_pending() or start_checkpoints().size() <= 1:
+		return ""
+	return "START ON FLOOR %d  >" % chosen_start()
+
+
+## A tap on the start-floor button: the next open floor (back to 1 after the deepest).
+func cycle_start_floor() -> void:
+	if state != State.TITLE:
+		return
+	var open := start_checkpoints()
+	var i := open.find(chosen_start())
+	var next: int = open[(i + 1) % open.size()]
+	_save_start_floor(next)
+	Sfx.play("click")
+	hud.show_title(true, _best_text(), coins)
+
+
+## TRY AGAIN after a fall: the deepest open start floor at or above the floor of the fall,
+## so a fall on floor 4 tries again from floor 3, not floor 1.
+func _retry_floor() -> int:
+	if not _normal_run():
+		return 1
+	var out := 1
+	for f: int in start_checkpoints():
+		if f <= floor_num:
+			out = f
+	return out
+
+
+## A deeper start's blessings: CATCHUP_GIFTS random ones and a reroll for each floor skipped,
+## and full health (the skipped floors' gifts and hearts).
+func _catch_up() -> void:
+	if floor_num <= 1 or not _normal_run() or hero == null:
+		return
+	var skipped := floor_num - 1
+	var names := []
+	for i in skipped * CATCHUP_GIFTS:
+		var g := Upgrades.roll(_taken, 4, false, "", false, null).filter(func(x: Dictionary) -> bool:
+			return x.rarity != "synergy" and not x.get("endless", false))
+		if g.is_empty():
+			break
+		var u: Dictionary = g[0]
+		_taken[u.id] = _taken.get(u.id, 0) + 1
+		Upgrades.apply(u.id, hero)
+		names.append(str(u.title))
+	if not curses.has("narrow"):
+		rerolls += skipped
+	hero.heal(hero.max_health)
+	print("[run] start on floor %d: %s" % [floor_num, ", ".join(names)])
+	var line := "Floor %d start: %d blessings for the road" % [floor_num, names.size()]
+	get_tree().create_timer(2.4, false).timeout.connect(func(): hud.banner(line, Color(1.0, 0.82, 0.3)))
 
 
 ## Version 169: the 3-room tutorial gives 2 blessings where the old 5 rooms gave 5. Going
@@ -4259,6 +4369,9 @@ func on_hero_died() -> void:
 	hud.show_end(true, false, "You fell in %s.%s\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, why, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again" if again or not dive else "Tap to return to the title", again, score, best)
 	hud.show_mastery(mastery)
+	hud.set_retry_floor(_retry_floor() if again else 1)
+	if again and _retry_floor() > 1:
+		_save_start_floor(_retry_floor())   # the title starts there next time too (its button can change it)
 	hud.show_end_title(true)
 	hud.set_end_goal(_daily_goal() if daily else (_event_goal() if event != "" else next_goal()))
 	hud.set_drops(Drops.waiting(_load_save()))
