@@ -1,4 +1,3 @@
-Version 322: Legend Vault, Supercell pass 5 of 10
-- Stardust Steps rebuilt: each step drops a fat glowing star joined to the last by a line of light, so your path becomes a constellation. A dash leaves a streak of stardust.
-- Fixed: glowing Legend looks no longer show a dark box on the shop pedestal.
-- Also new: Soul Harvest, Crypt Raven, Gold Rush and Bone Wyrm rebuilt.
+Version 323: Legend Vault, Supercell pass 6 of 10
+- Mimic rebuilt: a chunky gold-banded treasure chest on stubby legs, with fangs, glaring eyes and a long tongue. It hops after you and lunges at skeletons with a crunch.
+- Also new: Soul Harvest, Crypt Raven, Gold Rush, Bone Wyrm and Stardust Steps rebuilt.

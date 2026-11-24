@@ -30,7 +30,7 @@ const LIST := [
 	{"id": "star_steps", "slot": "steps", "name": "Stardust Steps", "price": 120000, "ready": true,
 		"text": "Each step drops a fat star, joined to the last by a line of light: your path becomes a constellation."},
 	{"id": "mimic", "slot": "pet", "name": "Mimic", "price": 150000, "ready": true,
-		"text": "A treasure chest with fangs. It hops after you and snaps at skeletons."},
+		"text": "A treasure chest with fangs, eyes and a long tongue. It hops after you and lunges at skeletons."},
 	{"id": "soul_harvest", "slot": "finisher", "name": "Soul Harvest", "price": 200000, "ready": true,
 		"text": "A ghost rises from every skeleton you fell and flies into you."},
 	{"id": "phoenix", "slot": "wings", "name": "Phoenix Wings", "price": 250000, "ready": true,

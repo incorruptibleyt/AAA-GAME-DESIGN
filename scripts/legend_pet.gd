@@ -11,8 +11,13 @@ extends Node3D
 ##          pool following it on the floor and feathers falling from it, now and then dives
 ##          at the nearest skeleton and pecks it with a violet flash (only a show), and lands
 ##          on their shoulder to rest when the room is clear (and on the title).
-##   mimic: Mimic. A treasure chest with fangs and a tongue. It hops after the hero, chomps
-##          now and then, and snaps at the nearest skeleton.
+##   mimic: Mimic (version 323: it was a plain brown box). A chunky treasure chest of planks
+##          in a dark frame, gold corners and studded bands, a gold skull on its lid and a
+##          gold lock, on four stubby gold-clawed legs; its lid gapes on a crooked row of
+##          fangs, a long tongue lolling out, two slit-eyed yellow eyes glaring from the dark
+##          over a pile of gold. It hops after the hero (stretching as it jumps, squashing as
+##          it lands), lunges at a skeleton jaws wide and crunches (bone chips fly; only a
+##          show), and blinks, looks about and licks its lips when it waits.
 ##   wyrm:  Bone Wyrm (version 321: it was a tiny dragon on the shoulder, lost from the run
 ##          camera). A great skeleton serpent with bat wings that coils round the hero in the
 ##          air: its spine is a chain of vertebrae that follows the path its skull flew, like
@@ -43,7 +48,7 @@ var _yaw := PI
 var _look := 0.0   # (a timer for small idle moves)
 var _base_scale := Vector3.ONE
 ## How much bigger each pet is drawn in a run than on a pedestal.
-const RUN_SIZE := {"wisp": 1.45, "raven": 1.25, "mimic": 1.3, "wyrm": 1.7}
+const RUN_SIZE := {"wisp": 1.45, "raven": 1.25, "mimic": 1.4, "wyrm": 1.7}
 
 # Lantern Wisp
 var _lantern: Node3D
@@ -131,7 +136,7 @@ func _place_now() -> void:
 	if kind == "wyrm":
 		_wyrm_lay()
 	elif _staged:
-		position = STAGE_SIDE if kind != "mimic" else Vector3(-0.66, 0.0, -0.05)
+		position = STAGE_SIDE if kind != "mimic" else Vector3(-0.74, 0.0, -0.4)   # (version 323: out from behind a knight's sword)
 		_yaw = 0.0
 	elif _anchor:
 		_last = _anchor.global_position
@@ -609,57 +614,190 @@ func _raven(delta: float) -> void:
 
 # ---------------------------------------------------------------- Mimic
 
+## Mimic: its wood (version 323), shared by every mimic: planks with dark seams and grain,
+## warm at the edges.
+static var _mimic_wood_mat: ShaderMaterial
+var _legs: Array[Node3D] = []
+var _eyes: Array[Node3D] = []
+var _treasure_glint: StandardMaterial3D
+var _lunge := false
+var _gold_pool: StandardMaterial3D
+
+
+static func _mimic_wood() -> ShaderMaterial:
+	if _mimic_wood_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+uniform vec3 base : source_color = vec3(0.56, 0.31, 0.13);
+varying vec3 lp;
+varying vec3 ln;
+void vertex() {
+	lp = VERTEX;
+	ln = NORMAL;
+}
+void fragment() {
+	// Planks run along x: their seams cross y on the sides and z on the top.
+	float coord = abs(ln.y) > 0.5 ? lp.z : lp.y;
+	float row = floor(coord * 8.0);
+	float f = fract(coord * 8.0);
+	float seam = 1.0 - smoothstep(0.0, 0.1, min(f, 1.0 - f));
+	float grain = 0.5 + 0.5 * sin(lp.x * 38.0 + sin(coord * 26.0 + row) * 2.2 + row * 7.3);
+	float tone = 0.88 + 0.18 * fract(sin(row * 12.9898) * 43758.5453);
+	vec3 c = base * tone * (0.84 + 0.22 * grain);
+	c *= 1.0 - 0.65 * seam;
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
+	ALBEDO = c;
+	ROUGHNESS = 0.78;
+	EMISSION = vec3(1.0, 0.62, 0.25) * fres * 0.18;
+}
+"""
+		_mimic_wood_mat = ShaderMaterial.new()
+		_mimic_wood_mat.shader = sh
+	return _mimic_wood_mat
+
+
 func _build_mimic() -> void:
-	var wood := _mat("mimic_wood", Color(0.45, 0.26, 0.12), 0.85)
-	var dark_wood := _mat("mimic_wood2", Color(0.3, 0.17, 0.08), 0.85)
-	var gold := _mat("mimic_gold", Color(1.0, 0.76, 0.28), 0.35, Color(1.0, 0.7, 0.2), 0.3)
+	var wood := _mimic_wood()
+	var frame := _mat("mimic_frame", Color(0.22, 0.12, 0.06), 0.8)
+	var gold := _mat("mimic_gold2", Color(1.0, 0.78, 0.3), 0.3, Color(1.0, 0.68, 0.18), 0.45)
+	gold.metallic = 0.6
 	var mouth := _mat("mimic_mouth", Color(0.32, 0.03, 0.06), 0.7, Color(0.4, 0.02, 0.06), 0.4)
+	var gum := _mat("mimic_gum", Color(0.62, 0.12, 0.2), 0.6)
 	var tooth := _mat("mimic_tooth", Color(0.97, 0.95, 0.86), 0.4)
-	var tongue := _mat("mimic_tongue", Color(0.92, 0.32, 0.42), 0.5)
+	var tongue_m := _mat("mimic_tongue", Color(0.95, 0.35, 0.45), 0.45, Color(0.5, 0.08, 0.15), 0.25)
 	var eye := _mat("mimic_eye", Color(1.0, 0.85, 0.2), 0.3, Color(1.0, 0.8, 0.1), 4.0)
+	var black := _mat("mimic_black", Color(0.03, 0.02, 0.02), 0.5)
 	var w := 0.72
-	var d := 0.5
-	var h := 0.34
-	# The chest: wooden planks, gold bands and corners.
-	U.box(_body, Vector3(w, h, d), wood, Vector3(0, h * 0.5, 0))
-	for z in [-0.12, 0.12]:
-		U.box(_body, Vector3(w + 0.02, h + 0.01, 0.05), gold, Vector3(0, h * 0.5, z))
+	var d := 0.52
+	var h := 0.36
+	var lift := 0.09   # (it stands on four stubby legs)
+	var box := Node3D.new()
+	box.position.y = lift
+	_body.add_child(box)
+	# The chest: planks in a dark frame, gold corners, gold bands studded with rivets.
+	U.box(box, Vector3(w, h, d), wood, Vector3(0, h * 0.5, 0))
 	for x in [-1.0, 1.0]:
-		U.box(_body, Vector3(0.05, h + 0.02, d + 0.02), dark_wood, Vector3(x * (w * 0.5 - 0.02), h * 0.5, 0))
-	# The open mouth: dark red inside, a row of fangs along the front, and two eyes glowing at
-	# the back of the dark.
-	U.box(_body, Vector3(w - 0.08, 0.02, d - 0.08), mouth, Vector3(0, h + 0.005, 0))
+		for z in [-1.0, 1.0]:
+			U.box(box, Vector3(0.06, h + 0.01, 0.06), frame, Vector3(x * (w * 0.5 - 0.02), h * 0.5, z * (d * 0.5 - 0.02)))
+			# Gold corner caps, top and bottom.
+			U.box(box, Vector3(0.11, 0.09, 0.11), gold, Vector3(x * (w * 0.5 - 0.035), 0.035, z * (d * 0.5 - 0.035)))
+	U.box(box, Vector3(w + 0.02, 0.05, d + 0.02), frame, Vector3(0, 0.02, 0))
+	U.box(box, Vector3(w + 0.03, 0.045, d + 0.03), frame, Vector3(0, h - 0.015, 0))
+	for x in [-0.17, 0.17]:
+		U.box(box, Vector3(0.07, h + 0.02, d + 0.025), gold, Vector3(x, h * 0.5, 0))
+		for y in [0.09, 0.25]:
+			_sphere(box, 0.018, gold, Vector3(x, y, -d * 0.5 - 0.016))
+	# The mouth: dark red inside, gums along the front edge, a crooked row of fangs, a pile
+	# of gold coins at the back with a glint on it, and two big yellow eyes with slit pupils
+	# glaring out of the dark.
+	U.box(box, Vector3(w - 0.08, 0.02, d - 0.08), mouth, Vector3(0, h + 0.002, 0))
+	U.box(box, Vector3(w - 0.1, 0.035, 0.05), gum, Vector3(0, h + 0.01, -d * 0.5 + 0.06))
+	var fangs := [[-0.27, 0.09], [-0.18, 0.12], [-0.09, 0.1], [0.0, 0.12], [0.09, 0.1], [0.18, 0.12], [0.27, 0.09]]
+	for f in fangs:
+		var t := _tube(box, 0.0, 0.045 if f[1] > 0.11 else 0.036, f[1], tooth, Vector3(f[0], h + 0.01 + f[1] * 0.5, -d * 0.5 + 0.065))
+		t.rotation.x = -0.12
 	for i in 5:
-		var x := -0.24 + i * 0.12
-		var t := _tube(_body, 0.0, 0.035, 0.1, tooth, Vector3(x, h + 0.05, -d * 0.5 + 0.05))
-		t.name = "Fang"
-	for x in [-0.11, 0.11]:
-		_sphere(_body, 0.05, eye, Vector3(x, h + 0.04, d * 0.5 - 0.12))
+		var c := MeshInstance3D.new()
+		c.mesh = LegendFinish.coin_mesh()
+		c.material_override = LegendFinish.coin_material()
+		c.position = Vector3(-0.16 + i * 0.08, h + 0.03 + (i % 2) * 0.015, 0.1 + (i % 3) * 0.035)
+		c.rotation = Vector3(0.3 * (i % 2) - 0.15, i * 1.1, 0.2 * ((i + 1) % 3 - 1))
+		c.scale = Vector3.ONE * 0.62
+		box.add_child(c)
+	_treasure_glint = _add_mat(Color(1.0, 0.9, 0.5, 0.0), true)
+	_treasure_glint.albedo_texture = U.glint()
+	var tg := MeshInstance3D.new()
+	tg.mesh = _quad(0.5)
+	tg.material_override = _treasure_glint
+	tg.position = Vector3(0.02, h + 0.12, 0.12)
+	tg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	box.add_child(tg)
+	for x in [-0.13, 0.13]:
+		var e := Node3D.new()
+		e.position = Vector3(x, h + 0.05, -0.15)   # (in the dark of the gap, over the tongue)
+		box.add_child(e)
+		var ball := _sphere(e, 0.075, eye, Vector3.ZERO)
+		ball.scale = Vector3(1.0, 0.9, 0.85)
+		var slit := U.box(e, Vector3(0.02, 0.1, 0.02), black, Vector3(0, 0, -0.06))
+		slit.name = "Slit"
+		var eg := MeshInstance3D.new()
+		eg.mesh = _quad(0.34)
+		eg.material_override = _add_mat(Color(1.0, 0.75, 0.2, 0.55), true)
+		eg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		e.add_child(eg)
+		_eyes.append(e)
+	# A long tongue in three parts that lolls out over the front and swings.
 	_tongue = Node3D.new()
-	_tongue.position = Vector3(0, h + 0.02, -0.02)
-	_body.add_child(_tongue)
-	var tg := _sphere(_tongue, 0.1, tongue, Vector3(0, 0, -0.22))
-	tg.scale = Vector3(1.0, 0.35, 2.4)
-	# The lid, hinged along the back: a rounded top, gold bands, a lock, and fangs hanging down.
+	_tongue.position = Vector3(0, h + 0.035, -0.05)
+	box.add_child(_tongue)
+	var seg_parent := _tongue
+	for i in 3:
+		var tg2 := _sphere(seg_parent, 0.1 - i * 0.012, tongue_m, Vector3(0, 0, -0.1))
+		tg2.scale = Vector3(1.0, 0.32, 1.25)
+		var nxt := Node3D.new()
+		nxt.position = Vector3(0, 0, -0.18)
+		seg_parent.add_child(nxt)
+		seg_parent = nxt
+	# The lid, hinged along the back: planks over a rounded top, gold bands with rivets, a
+	# gold skull on top, a big gold lock in front, and fangs hanging down inside.
 	_lid = Node3D.new()
-	_lid.position = Vector3(0, h, d * 0.5)
+	_lid.position = Vector3(0, h + lift, d * 0.5)
 	_body.add_child(_lid)
-	U.box(_lid, Vector3(w, 0.1, d), wood, Vector3(0, 0.05, -d * 0.5))
+	U.box(_lid, Vector3(w, 0.09, d), wood, Vector3(0, 0.045, -d * 0.5))
 	var top := _tube(_lid, d * 0.5, d * 0.5, w, wood, Vector3.ZERO)
 	top.rotation.z = PI / 2.0
-	top.position = Vector3(0, 0.1, -d * 0.5)
-	top.scale = Vector3(0.5, 1.0, 1.0)
-	for z in [-0.12, 0.12]:
-		var band := _tube(_lid, d * 0.5 + 0.012, d * 0.5 + 0.012, 0.05, gold, Vector3.ZERO)
+	top.position = Vector3(0, 0.09, -d * 0.5)
+	top.scale = Vector3(0.52, 1.0, 1.0)
+	U.box(_lid, Vector3(w + 0.03, 0.05, d + 0.03), frame, Vector3(0, 0.025, -d * 0.5))
+	for x in [-0.17, 0.17]:
+		var band := _tube(_lid, d * 0.5 + 0.014, d * 0.5 + 0.014, 0.07, gold, Vector3.ZERO)
 		band.rotation.z = PI / 2.0
-		band.position = Vector3(0, 0.1, -d * 0.5 + z)
-		band.scale = Vector3(0.52, 1.0, 1.0)
-	U.box(_lid, Vector3(0.12, 0.13, 0.04), gold, Vector3(0, 0.02, -d - 0.01))
-	U.box(_lid, Vector3(w - 0.08, 0.02, d - 0.08), mouth, Vector3(0, -0.005, -d * 0.5))
-	for i in 4:
-		var x := -0.18 + i * 0.12
-		var t := _tube(_lid, 0.035, 0.0, 0.1, tooth, Vector3(x, -0.1, -d + 0.05))
-		t.name = "Fang"
+		band.position = Vector3(x, 0.09, -d * 0.5)
+		band.scale = Vector3(0.55, 1.0, 1.0)
+	for x in [-1.0, 1.0]:
+		var cap := _tube(_lid, d * 0.5 + 0.02, d * 0.5 + 0.02, 0.05, gold, Vector3.ZERO)
+		cap.rotation.z = PI / 2.0
+		cap.position = Vector3(x * (w * 0.5 - 0.01), 0.09, -d * 0.5)
+		cap.scale = Vector3(0.56, 1.0, 1.0)
+	# The skull on the lid (what the camera above sees first).
+	var sk := Node3D.new()
+	sk.position = Vector3(0, 0.09 + d * 0.26, -d * 0.5)
+	_lid.add_child(sk)
+	var cranium := _sphere(sk, 0.085, gold, Vector3(0, 0.02, 0))
+	cranium.scale = Vector3(1.0, 0.7, 1.0)
+	var jawb := U.box(sk, Vector3(0.1, 0.04, 0.06), gold, Vector3(0, -0.005, -0.06))
+	jawb.rotation.x = 0.2
+	for x in [-0.034, 0.034]:
+		_sphere(sk, 0.024, black, Vector3(x, 0.035, -0.06))
+	# The lock: a gold plate on the front with a keyhole.
+	var lock := U.box(_lid, Vector3(0.15, 0.17, 0.05), gold, Vector3(0, 0.0, -d - 0.02))
+	lock.rotation.x = 0.0
+	_sphere(_lid, 0.022, black, Vector3(0, 0.02, -d - 0.05))
+	U.box(_lid, Vector3(0.018, 0.05, 0.02), black, Vector3(0, -0.02, -d - 0.048))
+	U.box(_lid, Vector3(w - 0.08, 0.02, d - 0.08), mouth, Vector3(0, -0.003, -d * 0.5))
+	U.box(_lid, Vector3(w - 0.1, 0.035, 0.05), gum, Vector3(0, -0.012, -d + 0.06))
+	for i in 6:
+		var x := -0.225 + i * 0.09
+		var ln := 0.15 if i == 0 or i == 5 else (0.1 if i % 2 == 0 else 0.12)
+		var t := _tube(_lid, 0.042 if ln > 0.13 else 0.034, 0.0, ln, tooth, Vector3(x, -0.02 - ln * 0.5, -d + 0.065))
+		t.rotation.x = 0.12
+	# Four stubby legs with gold claws.
+	for x in [-1.0, 1.0]:
+		for z in [-1.0, 1.0]:
+			var leg := Node3D.new()
+			leg.position = Vector3(x * (w * 0.5 - 0.09), lift + 0.02, z * (d * 0.5 - 0.09))
+			_body.add_child(leg)
+			_tube(leg, 0.045, 0.035, 0.11, frame, Vector3(0, -0.05, 0))
+			for c in 3:
+				var cl := _tube(leg, 0.012, 0.0, 0.06, gold, Vector3((c - 1) * 0.025, -0.1, -0.03))
+				cl.rotation.x = -1.2
+			_legs.append(leg)
+	# A warm gold pool on the floor under it, so the camera far above finds it on any floor.
+	if not _staged:
+		_gold_pool = _add_mat(Color(1.0, 0.7, 0.25, 0.32), false)
+		var pool := U.floor_quad(self, Vector2.ONE * 1.5, _gold_pool, Vector3(0, 0.04, 0))
+		pool.name = "Pool"
 	_body.position.y = 0.0
 
 
@@ -670,47 +808,95 @@ func _mimic(delta: float) -> void:
 		_prey_scan = 0.25
 		_prey = null if _staged else _nearest_enemy(4.5)
 	var hunting := _prey != null and is_instance_valid(_prey)
+	var air := 0.0
 	if not _staged:
 		var home := _home()
 		if _hop_t < 0.0:
 			var gap := Vector3(home.x - position.x, 0, home.z - position.z)
-			if gap.length() > 0.45:
+			var prey_gap := Vector3.ZERO
+			if hunting:
+				prey_gap = _prey.global_position - global_position
+				prey_gap.y = 0.0
+			if hunting and prey_gap.length() < 3.2 and prey_gap.length() > 0.9 and _chomp_wait <= 0.2:
+				# A lunge: it hops at the skeleton, jaws wide, and bites as it lands.
+				_hop_len = prey_gap.length() - 0.7
+				_hop_from = position
+				_hop_to = position + prey_gap.normalized() * _hop_len
+				_hop_t = 0.0
+				_lunge = true
+			elif gap.length() > 0.45:
 				_hop_len = clampf(gap.length() * 0.7, 0.5, 2.6)
 				_hop_from = position
 				_hop_to = position + gap.limit_length(_hop_len)
 				_hop_t = 0.0
+				_lunge = false
 		if _hop_t >= 0.0:
-			_hop_t += delta / 0.36
+			_hop_t += delta / (0.3 if _lunge else 0.36)
 			var s := minf(_hop_t, 1.0)
 			position = _hop_from.lerp(_hop_to, s)
-			_body.position.y = 4.0 * (0.25 + 0.1 * _hop_len) * s * (1.0 - s)
+			air = s * (1.0 - s) * 4.0
+			_body.position.y = air * (0.25 + 0.1 * _hop_len)
 			_turn_to(_yaw_of(_hop_to - _hop_from), delta, 14.0)
 			if _hop_t >= 1.0:
 				_hop_t = -1.0
 				_squash = 1.0
+				if _lunge:
+					_lunge = false
+					_chomp = 1.0
+					_chomp_wait = 1.2
+					if hunting:
+						# A crunch: chips of bone fly from the skeleton (a show: it hurts nothing).
+						Fx._burst(_prey.global_position + Vector3(0, 0.8, 0), 10, Color(0.95, 0.92, 0.84), 0.25, 3.2, 0.5, 0.8, true, "dot")
 		elif hunting:
 			_turn_to(_yaw_of(_prey.global_position - global_position), delta, 8.0)
 		else:
 			_turn_to(PI, delta, 3.0)
 	else:
 		_turn_to(sin(_t * 0.5) * 0.3, delta, 3.0)
-	# The lid: a little open while it hops, a chomp now and then, fast snaps at a skeleton.
+		# On a pedestal: a happy hop on the spot now and then.
+		var ph := fmod(_t, 4.2)
+		if ph < 0.4:
+			air = sin(ph / 0.4 * PI)
+			_body.position.y = air * 0.16
+		elif ph < 0.45 and _squash < 0.1:
+			_squash = 1.0
+	# The lid: a little open while it hops, a chomp now and then, wide open in a lunge.
 	_chomp_wait -= delta
-	if _chomp_wait <= 0.0 and _chomp <= 0.0:
+	if _chomp_wait <= 0.0 and _chomp <= 0.0 and not _lunge:
 		_chomp = 1.0
-		_chomp_wait = 0.45 if hunting else randf_range(1.6, 3.2)
+		_chomp_wait = 0.9 if hunting else randf_range(1.6, 3.2)
 	var open := 0.0
 	if _chomp > 0.0:
 		_chomp = maxf(0.0, _chomp - delta / (0.32 if hunting else 0.6))
 		var c := 1.0 - _chomp
 		open = (1.05 if hunting else 0.9) * (smoothstep(0.0, 0.55, c) if c < 0.7 else 1.0 - smoothstep(0.7, 0.85, c))
 	if _hop_t >= 0.0:
-		open = maxf(open, 0.35 * sin(_hop_t * PI))
-	_lid.rotation.x = maxf(open, 0.14) * (1.0 + 0.04 * sin(_t * 20.0))   # (a little ajar: fangs and eyes peek out)
-	_tongue.rotation.x = -0.3 + sin(_t * 5.0) * 0.1 + open * 0.25
-	_tongue.rotation.y = sin(_t * 3.3) * 0.2
+		open = maxf(open, (1.1 if _lunge else 0.35) * sin(minf(_hop_t, 1.0) * PI))
+	_lid.rotation.x = maxf(open, 0.3) * (1.0 + 0.04 * sin(_t * 20.0))   # (a little ajar: fangs and eyes peek out)
+	# The tongue lolls out over the front and swings, each part after the one before.
+	var tp := _tongue
+	for i in 3:
+		tp.rotation = Vector3(-0.15 + 0.35 * i * (0.5 + 0.5 * open) + sin(_t * 5.0 - i) * 0.12, sin(_t * 3.3 - i * 0.7) * 0.25, 0.0)
+		tp = tp.get_child(1) as Node3D
+	# The eyes look about (at the skeleton when hunting) and blink now and then.
+	var look := sin(_t * 0.9) * 0.4
+	var blink := 1.0 - (1.0 - smoothstep(0.0, 0.05, absf(fmod(_t + 0.7, 3.7) - 0.1))) * 0.9
+	for e in _eyes:
+		e.rotation.y = look if not hunting else 0.0
+		e.scale = Vector3(1.0, blink, 1.0)
+	# The treasure inside glints now and then.
+	_treasure_glint.albedo_color.a = pow(maxf(0.0, sin(_t * 1.7)), 12.0) * (0.4 + open)
+	# Legs: they dangle in the air and splay as it lands.
+	for i in _legs.size():
+		var lg := _legs[i]
+		var sx := -1.0 if i < 2 else 1.0
+		lg.rotation.z = sx * (0.35 * air + 0.25 * _squash)
+		lg.rotation.x = sin(_t * 14.0 + i * 1.6) * 0.25 * air
+	if _gold_pool:
+		_gold_pool.albedo_color.a = 0.3 + 0.1 * sin(_t * 2.0) + 0.25 * open
 	_squash = maxf(0.0, _squash - delta * 4.0)
-	_body.scale = _base_scale * Vector3(1.0 + 0.12 * _squash, 1.0 - 0.18 * _squash, 1.0 + 0.12 * _squash)
+	var stretch := air * 0.12
+	_body.scale = _base_scale * Vector3(1.0 + 0.14 * _squash - stretch * 0.5, 1.0 - 0.2 * _squash + stretch, 1.0 + 0.14 * _squash - stretch * 0.5)
 
 
 func _nearest_enemy(reach: float) -> Node3D:
@@ -1579,29 +1765,62 @@ class Icon extends Control:
 			draw_circle(Vector2(5.5 * s, -19 + y), 2.2, Color(0.85, 0.6, 1.0))
 
 	func _mimic() -> void:
-		var bite := maxf(0.0, sin(_t * 2.2)) * 10.0
-		var wood := Color(0.45, 0.26, 0.12)
-		var gold := Color(1.0, 0.76, 0.28)
-		var mouth := Color(0.32, 0.03, 0.06)
-		var top := -26.0 - bite
-		draw_rect(Rect2(-34, top + 20, 68, -16.0 - top), mouth)
-		draw_rect(Rect2(-34, top, 68, 20), wood)
-		draw_rect(Rect2(-36, top - 6, 72, 8), wood.darkened(0.1))
-		for x in [-18.0, 14.0]:
-			draw_rect(Rect2(x, top - 6, 5, 26), gold)
+		# A chunky chest on stubby legs: planks in a dark frame, gold corners and bands, a gold
+		# skull on the lid; the lid gapes on crooked fangs, slit-eyed yellow eyes glare out of
+		# the dark over a pile of gold, and a long tongue lolls out.
+		var hop := maxf(0.0, sin(_t * 2.2))
+		var y := -hop * 6.0
+		var bite := hop * 12.0
+		var wood := Color(0.56, 0.31, 0.13)
+		var frame := Color(0.22, 0.12, 0.06)
+		var gold := Color(1.0, 0.78, 0.3)
+		var mouth := Color(0.3, 0.03, 0.06)
+		var tooth := Color(0.97, 0.95, 0.86)
+		for x in [-26.0, 20.0]:
+			draw_rect(Rect2(x, 34 + y, 7, 10), frame)
+			draw_rect(Rect2(x - 1, 42 + y, 9, 3), gold)
+		# The body.
+		draw_rect(Rect2(-36, 2 + y, 72, 34), frame)
+		draw_rect(Rect2(-33, 4 + y, 66, 30), wood)
+		for i in 3:
+			draw_line(Vector2(-33, 13 + i * 9 + y), Vector2(33, 13 + i * 9 + y), wood.darkened(0.45), 1.5)
+		for x in [-17.0, 12.0]:
+			draw_rect(Rect2(x, 2 + y, 6, 34), gold)
+			draw_circle(Vector2(x + 3, 12 + y), 1.6, gold.darkened(0.4))
+			draw_circle(Vector2(x + 3, 27 + y), 1.6, gold.darkened(0.4))
+		for x in [-38.0, 30.0]:
+			draw_rect(Rect2(x, 28 + y, 9, 9), gold)
+		# The open mouth: the gold, the eyes, the fangs and the tongue.
+		var top := -16.0 - bite + y
+		draw_rect(Rect2(-33, top + 14, 66, 4.0 + y - (top + 14) + 2), mouth)
+		draw_circle(Vector2(-6, 2 + y), 6, gold)
+		draw_circle(Vector2(5, 1 + y), 5, gold.lightened(0.2))
+		for s2 in [-1.0, 1.0]:
+			var e := Vector2(13 * s2, top + 22 + bite * 0.3)
+			draw_circle(e, 6.5, Color(1.0, 0.85, 0.2))
+			draw_rect(Rect2(e.x - 1.2, e.y - 5, 2.4, 10), Color(0.05, 0.02, 0.02))
+		for i in 6:
+			var x := -30.0 + i * 11.0
+			var ln := 9.0 if i % 2 == 0 else 6.0
+			draw_colored_polygon(PackedVector2Array([Vector2(x, 2 + y), Vector2(x + 8, 2 + y), Vector2(x + 4, 2 + y - ln)]), tooth)
+		_ellipse(Vector2(9, 12 + y + sin(_t * 4.0) * 2.0), 8, 14, Color(0.95, 0.35, 0.45))
+		# The lid.
+		draw_rect(Rect2(-36, top - 8, 72, 22), frame)
+		draw_rect(Rect2(-33, top - 6, 66, 18), wood)
+		draw_line(Vector2(-33, top + 3), Vector2(33, top + 3), wood.darkened(0.45), 1.5)
+		for x in [-17.0, 12.0]:
+			draw_rect(Rect2(x, top - 8, 6, 22), gold)
 		for i in 5:
-			var x := -28.0 + i * 13.0
-			draw_colored_polygon(PackedVector2Array([Vector2(x, top + 20), Vector2(x + 8, top + 20), Vector2(x + 4, top + 29)]), Color(0.97, 0.95, 0.86))
-		for s in [-1.0, 1.0]:
-			draw_circle(Vector2(12 * s, top + 26), 3.5, Color(1.0, 0.85, 0.2))
-		draw_rect(Rect2(-34, 4, 68, 30), wood)
-		for x in [-18.0, 14.0]:
-			draw_rect(Rect2(x, 4, 5, 30), gold)
-		draw_rect(Rect2(-4, 4, 8, 10), gold)
-		for i in 5:
-			var x := -30.0 + i * 13.0
-			draw_colored_polygon(PackedVector2Array([Vector2(x, 4), Vector2(x + 8, 4), Vector2(x + 4, -5)]), Color(0.97, 0.95, 0.86))
-		_ellipse(Vector2(8, 16 + sin(_t * 4.0) * 2.0), 7, 12, Color(0.92, 0.32, 0.42))
+			var x := -29.0 + i * 13.0
+			var ln := 10.0 if i == 0 or i == 4 else 7.0
+			draw_colored_polygon(PackedVector2Array([Vector2(x, top + 14), Vector2(x + 8, top + 14), Vector2(x + 4, top + 14 + ln)]), tooth)
+		draw_rect(Rect2(-5, top + 2, 10, 13), gold)
+		draw_circle(Vector2(0, top + 7), 1.8, Color(0.05, 0.02, 0.02))
+		draw_circle(Vector2(0, top - 10), 6, gold)
+		for s2 in [-1.0, 1.0]:
+			draw_circle(Vector2(2.3 * s2, top - 10), 1.6, Color(0.1, 0.05, 0.02))
+		var glint := pow(maxf(0.0, sin(_t * 1.7)), 10.0)
+		_glow(Vector2(-2, 0 + y), 14, Color(1.0, 0.9, 0.5, 0.8 * glint))
 
 	func _bone_wings() -> void:
 		var f := sin(_t * 1.8) * 3.0
