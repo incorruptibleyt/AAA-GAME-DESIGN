@@ -18,7 +18,7 @@ const GOLD := Color(1.0, 0.8, 0.3)
 ## `ready`: built in this version (the rest show as COMING SOON in the vault).
 const LIST := [
 	{"id": "wisp", "slot": "pet", "name": "Lantern Wisp", "price": 25000, "ready": true,
-		"text": "A little ghost with a swinging lantern. Its warm light follows you."},
+		"text": "A hooded ghost with a lantern on a crook. Each skeleton you fell sends a spark into its lantern."},
 	{"id": "ember_steps", "slot": "steps", "name": "Ember Steps", "price": 40000, "ready": true,
 		"text": "Every step burns into the floor and smoulders away."},
 	{"id": "raven", "slot": "pet", "name": "Crypt Raven", "price": 60000, "ready": true,

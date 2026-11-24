@@ -1,3 +1,3 @@
-Version 324: Legend Vault, Supercell pass 7 of 10
-- Bone Wings rebuilt: thick knuckled bat bones with hooked claws and torn dusk skin that glows ember at the edge. They stretch now and then, and a dash beats them with a gust of dusk motes.
-- Also new: Soul Harvest, Crypt Raven, Gold Rush, Bone Wyrm, Stardust Steps and Mimic rebuilt.
+Version 325: Legend Vault, Supercell pass 8 of 10
+- Lantern Wisp rebuilt: a little hooded ghost in a fluttering emerald cloak with glowing eyes, carrying a crook with a big brass lantern (a living flame and moths inside its light). It catches a spark from every skeleton you fell, spins when you dash, and lifts its lantern when the room is clear.
+- Also new: 7 more Legend looks rebuilt.

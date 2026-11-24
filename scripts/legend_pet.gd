@@ -2,8 +2,11 @@ class_name LegendPet
 extends Node3D
 ## Version 312 (Legend Vault, legends.gd): a pet that goes everywhere with the hero. Built from
 ## simple shapes, at a size the run camera far above can read (the hero is 2.1 m tall):
-##   wisp:  Lantern Wisp. A little ghost with big eyes and a lantern swinging from its hand;
-##          the lantern throws a warm pool of light on the floor under it.
+##   wisp:  Lantern Wisp (version 325: it was a plain white ghost). A little hooded ghost in
+##          an emerald fluttering cloak with a torn hem, two glowing eyes in its hood, carrying a
+##          crook with a big brass lantern (a living flame inside, moths about it) that throws
+##          a barred pool of light on the floor; it catches a spark from each skeleton that
+##          falls, spins in a dash, and lifts its lantern high when the room is clear.
 ##   raven: Crypt Raven. A blue-black raven with a violet sheen, a big bone-white bird skull
 ##          for a head (glowing violet eyes, a hooked beak that opens to caw, a ragged crest)
 ##          and wings of real feathers tipped in glowing violet (version 319: it was a dark
@@ -35,6 +38,9 @@ var kind := "wisp"
 const SIDE := Vector3(1.3, 0.0, 0.3)
 ## On a pedestal (in the hero's own space: their front faces the camera there).
 const STAGE_SIDE := Vector3(-0.85, 0.0, -0.35)
+## Where some pets stand on a pedestal instead: the Mimic out from behind a knight's sword
+## (version 323), the Lantern Wisp closer in so its lantern stays inside the frame (325).
+const STAGE_SPOT := {"mimic": Vector3(-0.74, 0.0, -0.4), "wisp": Vector3(-0.64, 0.0, -0.55)}
 
 var _anchor: Node3D
 var _staged := false
@@ -54,7 +60,6 @@ const RUN_SIZE := {"wisp": 1.45, "raven": 1.25, "mimic": 1.4, "wyrm": 1.7}
 var _lantern: Node3D
 var _tail: Node3D
 var _pool_mat: StandardMaterial3D
-var _halo_mat: StandardMaterial3D
 
 # Crypt Raven
 var _wing_l: Node3D
@@ -136,7 +141,7 @@ func _place_now() -> void:
 	if kind == "wyrm":
 		_wyrm_lay()
 	elif _staged:
-		position = STAGE_SIDE if kind != "mimic" else Vector3(-0.74, 0.0, -0.4)   # (version 323: out from behind a knight's sword)
+		position = STAGE_SPOT.get(kind, STAGE_SIDE)
 		_yaw = 0.0
 	elif _anchor:
 		_last = _anchor.global_position
@@ -192,90 +197,477 @@ static func _yaw_of(d: Vector3) -> float:
 
 # ---------------------------------------------------------------- Lantern Wisp
 
+## Version 325: it was a plain white ball of a ghost with a tiny lantern. Now a little hooded
+## lamplighter ghost: an emerald cloak with stitched seams and a gold band that flutters out to a
+## torn hem, a hood whose long tip droops down its back to a gold tassel, and in the dark of the hood (a
+## gold rim round it) two big glowing eyes that blink. It carries a crook with a big brass
+## lantern hanging from the hook: amber glass, brass bars, a living flame with eyes inside,
+## moths circling it, embers rising, and a pool of light on the floor striped by the lantern's
+## bars. In a run it catches a spark from each skeleton that falls near the hero (the lantern
+## flares), spins round when the hero dashes, and lifts its lantern high when the room is clear.
+const WISP_CLOTH := Color(0.22, 0.52, 0.34)
+const WISP_WOOD := Color(0.34, 0.21, 0.12)
+const WISP_BRASS := Color(0.92, 0.68, 0.28)
+static var _wisp_meshes := {}
+static var _wisp_cloth_mat: ShaderMaterial
+static var _wisp_pool_shader: Shader
+static var _wisp_glow_mat: ShaderMaterial
+var _crook: Node3D
+var _flame_spirit: Node3D
+var _halo: Node3D
+var _moths: Array[Node3D] = []
+var _wisp_pool: MeshInstance3D
+var _wisp_pool_mat: ShaderMaterial
+var _spark_mat: StandardMaterial3D
+var _ember_ramp: Gradient
+var _watch := {}        # (skeletons near the hero: instance id -> where it stood)
+var _scan := 0.0
+var _flare := 0.0
+var _spin := 0.0
+var _lift := 0.0
+var _blink := 2.0
+var _sparks := 0
+var _show_wait := 2.0
+var _room_clear := false
+
+
 func _build_wisp() -> void:
-	var ghost := _mat("wisp_ghost", Color(0.86, 0.95, 1.0, 0.86), 0.5, Color(0.55, 0.8, 1.0), 0.55, true)
-	var dark := _mat("wisp_eye", Color(0.04, 0.05, 0.12), 0.3)
-	var shine := _mat("wisp_shine", Color(1, 1, 1), 0.3, Color(1, 1, 1), 1.2)
+	if _wisp_meshes.is_empty():
+		_wisp_meshes = _wisp_bake()
+	var cloth := _wisp_cloth()
+	var dark := _mat("wisp_eye", Color(0.03, 0.04, 0.08), 0.6)
+	var eye := _mat("wisp_glow_eye", Color(1.0, 0.86, 0.42), 0.4, Color(1.0, 0.8, 0.35), 3.0)
+	var brass := _mat("wisp_brass2", WISP_BRASS, 0.35, Color(0.85, 0.55, 0.2), 0.3)
 	var iron := _mat("wisp_iron", Color(0.16, 0.13, 0.12), 0.5)
-	var brass := _mat("wisp_brass", Color(0.85, 0.6, 0.25), 0.35, Color(0.85, 0.55, 0.2), 0.25)
-	var flame := _mat("wisp_flame", Color(1.0, 0.72, 0.3), 0.4, Color(1.0, 0.65, 0.2), 4.0)
-	# The head: a big round ghost head, a little taller than wide.
-	var head := _sphere(_body, 0.3, ghost, Vector3.ZERO)
-	head.scale = Vector3(1.0, 1.08, 0.96)
-	# The tail: it narrows to a curl and trails behind when the wisp flies.
+	var flame := _mat("wisp_flame2", Color(1.0, 0.93, 0.62), 0.4, Color(1.0, 0.72, 0.3), 5.0)
+	var glass := _mat("wisp_glass", Color(1.0, 0.72, 0.32, 0.38), 0.2, Color(1.0, 0.6, 0.2), 1.2, true)
+	var vc := _mat("wisp_vc", Color.WHITE, 0.6)
+	vc.vertex_color_use_as_albedo = true
+	var moth := _mat("wisp_moth", Color(0.95, 0.9, 0.78), 0.8, Color(1.0, 0.85, 0.6), 0.6)
+	moth.cull_mode = BaseMaterial3D.CULL_DISABLED
+	# The cloak, the hood with the left sleeve, and the hood's floppy tip on its own pivot.
+	for part in ["cloak", "hood"]:
+		var mi := MeshInstance3D.new()
+		mi.mesh = _wisp_meshes[part]
+		mi.material_override = cloth
+		_body.add_child(mi)
+	var cuff := _sphere(_body, 0.06, dark, Vector3(0.32, -0.3, -0.07))
+	cuff.scale = Vector3(1.0, 0.5, 1.0)
 	_tail = Node3D.new()
-	_tail.position = Vector3(0, -0.12, 0.02)
+	_tail.position = Vector3(0, 0.28, 0.08)
 	_body.add_child(_tail)
-	_tube(_tail, 0.27, 0.17, 0.3, ghost, Vector3(0, -0.15, 0.02))
-	var tip := Node3D.new()
-	tip.position = Vector3(0, -0.3, 0.05)
-	tip.rotation.x = -0.55
+	var tip := MeshInstance3D.new()
+	tip.mesh = _wisp_meshes["tip"]
+	tip.material_override = cloth
 	_tail.add_child(tip)
-	_tube(tip, 0.17, 0.02, 0.32, ghost, Vector3(0, -0.15, 0))
-	# Big dark eyes with a white glint, and a small round mouth.
+	_sphere(_tail, 0.045, brass, Vector3(0, -0.26, 0.4))
+	# Two brass buttons down the front of the cloak.
+	for b in [Vector2(0.215, -0.14), Vector2(0.262, -0.29)]:
+		_sphere(_body, 0.026, brass, Vector3(0, b.y, -b.x - 0.01))
+	# The face: dark under the hood, a gold rim round it, two big glowing eyes.
+	var face := _sphere(_body, 0.18, dark, Vector3(0, 0.08, -0.19))
+	face.scale = Vector3(1.0, 0.95, 0.45)
+	var rim := MeshInstance3D.new()
+	rim.mesh = U._cached("wisp_rim", func():
+		var t := TorusMesh.new()
+		t.inner_radius = 0.165
+		t.outer_radius = 0.215
+		t.rings = 24
+		t.ring_segments = 8
+		return t)
+	rim.material_override = brass
+	rim.position = Vector3(0, 0.08, -0.2)
+	rim.rotation.x = PI / 2.0
+	_body.add_child(rim)
+	_eyes.clear()
 	for side in [-1.0, 1.0]:
-		var e := _sphere(_body, 0.075, dark, Vector3(0.11 * side, 0.05, -0.26))
-		e.scale = Vector3(0.85, 1.35, 0.55)
-		_sphere(_body, 0.024, shine, Vector3(0.11 * side + 0.025, 0.1, -0.3))
-		# little arms
-		var arm := _sphere(_body, 0.08, ghost, Vector3(0.29 * side, -0.12, -0.04))
-		arm.scale = Vector3(0.8, 1.2, 0.8)
-	var mouth := _sphere(_body, 0.04, dark, Vector3(0, -0.09, -0.27))
-	mouth.scale = Vector3(1.0, 0.8, 0.5)
-	# The lantern hangs from the right hand on a short handle and swings as the wisp floats.
+		var e := _sphere(_body, 0.05, eye, Vector3(0.075 * side, 0.12, -0.262))
+		e.scale = Vector3(0.85, 1.3, 0.4)
+		_eyes.append(e)
+	# The left arm and the crook, on a pivot at the shoulder (it lifts the lantern high). (On
+	# the left, it is on the far side from the hero, both in a run and on a pedestal.)
+	_crook = Node3D.new()
+	_crook.position = Vector3(-0.2, -0.06, 0.0)
+	_body.add_child(_crook)
+	var sleeve := MeshInstance3D.new()
+	sleeve.mesh = _wisp_meshes["sleeve"]
+	sleeve.material_override = cloth
+	_crook.add_child(sleeve)
+	var pole := MeshInstance3D.new()
+	pole.mesh = _wisp_meshes["crook"]
+	pole.material_override = vc
+	_crook.add_child(pole)
+	# The lantern, hanging from the hook: a brass cap and finial, amber glass in six brass bars,
+	# a brass base; the flame inside has two little eyes.
 	_lantern = Node3D.new()
-	_lantern.position = Vector3(0.33, -0.16, -0.06)
-	_body.add_child(_lantern)
-	U.box(_lantern, Vector3(0.02, 0.14, 0.02), iron, Vector3(0, -0.07, 0))
-	var cap := _tube(_lantern, 0.02, 0.11, 0.08, iron, Vector3(0, -0.18, 0))
-	cap.name = "Cap"
-	_sphere(_lantern, 0.035, brass, Vector3(0, -0.13, 0))
-	_sphere(_lantern, 0.11, flame, Vector3(0, -0.3, 0))
-	for i in 4:
-		var ang := TAU * i / 4.0 + PI / 4.0
-		U.box(_lantern, Vector3(0.022, 0.2, 0.022), brass, Vector3(cos(ang) * 0.095, -0.3, sin(ang) * 0.095))
-	_tube(_lantern, 0.11, 0.11, 0.035, iron, Vector3(0, -0.415, 0))
-	# The lantern's glow: a soft halo around the flame, and a warm pool of light on the floor.
-	_halo_mat = _add_mat(Color(1.0, 0.7, 0.3, 0.9), true)
+	_lantern.position = Vector3(-0.375, 0.56, -0.41)
+	_crook.add_child(_lantern)
+	U.box(_lantern, Vector3(0.012, 0.07, 0.012), iron, Vector3(0, -0.035, 0))
+	_sphere(_lantern, 0.026, brass, Vector3(0, -0.072, 0))
+	_tube(_lantern, 0.02, 0.135, 0.08, brass, Vector3(0, -0.115, 0))
+	_tube(_lantern, 0.135, 0.135, 0.025, iron, Vector3(0, -0.165, 0))
+	_tube(_lantern, 0.112, 0.112, 0.22, glass, Vector3(0, -0.285, 0))
+	for i in 6:
+		var ang := TAU * i / 6.0
+		U.box(_lantern, Vector3(0.018, 0.22, 0.018), brass, Vector3(cos(ang) * 0.114, -0.285, sin(ang) * 0.114))
+	_tube(_lantern, 0.135, 0.09, 0.045, brass, Vector3(0, -0.415, 0))
+	_sphere(_lantern, 0.03, brass, Vector3(0, -0.45, 0))
+	_flame_spirit = Node3D.new()
+	_flame_spirit.position = Vector3(0, -0.29, 0)
+	_lantern.add_child(_flame_spirit)
+	var drop := _sphere(_flame_spirit, 0.06, flame, Vector3.ZERO)
+	drop.scale = Vector3(0.75, 1.2, 0.75)
+	for side in [-1.0, 1.0]:
+		_sphere(_flame_spirit, 0.013, dark, Vector3(0.02 * side, 0.008, -0.043))
+	# Its glow: a soft ball of light round the flame (a sphere, bright where it faces the
+	# camera; billboard quads did not show in a run) and embers rising from it.
 	var halo := MeshInstance3D.new()
-	halo.mesh = _quad(1.25)
-	halo.material_override = _halo_mat
-	halo.position = Vector3(0, -0.3, 0)
+	halo.mesh = _glow_ball()
+	halo.material_override = _wisp_glow()
+	halo.scale = Vector3.ONE * 0.36
 	halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_lantern.add_child(halo)
-	_pool_mat = _add_mat(Color(1.0, 0.62, 0.25, 0.6), false)
-	var pool := U.floor_quad(self, Vector2(3.4, 3.4), _pool_mat, Vector3(0, 0.05, 0))
-	pool.name = "Pool"
-	# A cold ghost-light around the wisp itself.
-	var aura := MeshInstance3D.new()
-	aura.mesh = _quad(1.5)
-	aura.material_override = _add_mat(Color(0.55, 0.8, 1.0, 0.4), true)
-	aura.position = Vector3(0, -0.05, 0.05)
-	aura.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	_body.add_child(aura)
+	_flame_spirit.add_child(halo)
+	_halo = halo
+	var em := CPUParticles3D.new()
+	em.amount = 8
+	em.lifetime = 1.6
+	em.local_coords = false
+	em.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	em.emission_sphere_radius = 0.08
+	em.position = Vector3(0, -0.18, 0)
+	em.direction = Vector3.UP
+	em.spread = 30.0
+	em.gravity = Vector3(0, 0.35, 0)
+	em.initial_velocity_min = 0.1
+	em.initial_velocity_max = 0.35
+	em.mesh = Fx._shaped("glow")
+	em.scale_amount_min = 0.09
+	em.scale_amount_max = 0.16
+	_ember_ramp = Gradient.new()
+	_ember_ramp.set_color(0, Color(1, 0.9, 0.5, 1))
+	_ember_ramp.set_color(1, Color(1, 0.4, 0.1, 0))
+	em.color_ramp = _ember_ramp
+	_lantern.add_child(em)
+	# Three moths circling the lantern.
+	_moths.clear()
+	var wing := QuadMesh.new()
+	wing.size = Vector2(0.075, 0.055)
+	for i in 3:
+		var m := Node3D.new()
+		_lantern.add_child(m)
+		for side in [-1.0, 1.0]:
+			var piv := Node3D.new()
+			m.add_child(piv)
+			var w := MeshInstance3D.new()
+			w.mesh = wing
+			w.material_override = moth
+			w.position = Vector3(0.036 * side, 0, 0)
+			w.rotation.x = -PI / 2.0
+			piv.add_child(w)
+		_moths.append(m)
+	# The pool of light on the floor under the lantern, striped by its bars.
+	_wisp_pool_mat = ShaderMaterial.new()
+	if _wisp_pool_shader == null:
+		_wisp_pool_shader = Shader.new()
+		_wisp_pool_shader.code = WISP_POOL_SHADER
+	_wisp_pool_mat.shader = _wisp_pool_shader
+	_wisp_pool = U.floor_quad(self, Vector2(2.8, 2.8), _wisp_pool_mat, Vector3(0, 0.05, 0))
+	_wisp_pool.top_level = true
+	_spark_mat = _mat("wisp_spark", Color(1.0, 0.93, 0.7), 0.5, Color(1.0, 0.75, 0.35), 6.0)
 	_body.position.y = 1.4 if not _staged else 1.25
+
+
+const WISP_POOL_SHADER := """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform float glow = 1.0;
+uniform float spin = 0.0;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) + spin;
+	float bar = smoothstep(0.38, 0.47, abs(fract(a * 0.95493) - 0.5));
+	float fall = pow(clamp(1.0 - r, 0.0, 1.0), 1.5);
+	float lit = fall * (1.0 - 0.7 * bar * smoothstep(0.1, 0.3, r));
+	vec3 c = vec3(1.0, 0.6, 0.24) * lit * 0.5 * glow + vec3(1.0, 0.85, 0.5) * smoothstep(0.3, 0.0, r) * 0.15 * glow;
+	float glow_a = max(max(c.r, c.g), c.b);
+	ALBEDO = c / max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
+}
+"""
+
+
+## A ball of warm light: a sphere drawn added over what is behind it, bright where it faces
+## the camera and fading to nothing at its rim (writes ALPHA for see-through pedestals).
+static func _wisp_glow() -> ShaderMaterial:
+	if _wisp_glow_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled;
+void fragment() {
+	float f = pow(clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.2);
+	vec3 c = vec3(1.0, 0.66, 0.28) * f * 1.1;
+	float glow_a = max(max(c.r, c.g), c.b);
+	ALBEDO = c / max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
+}
+"""
+		_wisp_glow_mat = ShaderMaterial.new()
+		_wisp_glow_mat.shader = sh
+	return _wisp_glow_mat
+
+
+static func _glow_ball() -> Mesh:
+	return U._cached("wisp_glow_ball", func():
+		var b := SphereMesh.new()
+		b.radius = 1.0
+		b.height = 2.0
+		b.radial_segments = 16
+		b.rings = 8
+		return b)
+
+
+## The cloth of the cloak and hood: emerald green, darker at the hem (no hero wears green), stitched seams,
+## a gold band; the hem is cut torn and flutters (UV.y runs 0 at the neck to 1 at the hem; the
+## hood has no UV, so it is all the top colour and still).
+static func _wisp_cloth() -> ShaderMaterial:
+	if _wisp_cloth_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode cull_disabled;
+const vec3 TOP = vec3(0.22, 0.52, 0.34);
+const vec3 HEM = vec3(0.1, 0.28, 0.19);
+void vertex() {
+	float w = UV.y * UV.y;
+	VERTEX.x += sin(TIME * 3.1 + UV.x * 18.85) * 0.03 * w;
+	VERTEX.z += cos(TIME * 2.7 + UV.x * 12.566) * 0.03 * w;
+}
+void fragment() {
+	float zig = abs(fract(UV.x * 9.0) - 0.5) * 2.0;
+	if (UV.y > 0.84 + 0.16 * zig) {
+		discard;
+	}
+	vec3 c = mix(TOP, HEM, smoothstep(0.2, 1.0, UV.y));
+	float band = step(0.64, UV.y) * step(UV.y, 0.7);
+	float seam = step(0.08, UV.y) * (1.0 - smoothstep(0.006, 0.014, abs(fract(UV.x * 6.0) - 0.5)));
+	c = mix(c, c * 0.72, seam);
+	c = mix(c, vec3(0.95, 0.72, 0.3), band);
+	ALBEDO = FRONT_FACING ? c : c * 0.4;
+	ROUGHNESS = 0.85;
+	RIM = 0.55;
+	RIM_TINT = 0.4;
+	EMISSION = c * 0.2 + vec3(1.0, 0.7, 0.3) * band * 0.3;
+}
+"""
+		_wisp_cloth_mat = ShaderMaterial.new()
+		_wisp_cloth_mat.shader = sh
+	return _wisp_cloth_mat
+
+
+## The wisp's baked shapes: the cloak (a lathe with UVs), the hood with the left sleeve, the
+## hood's tip, the right sleeve and the crook (wood with brass bands, vertex colours).
+static func _wisp_bake() -> Dictionary:
+	var out := {}
+	out["cloak"] = _lathe([Vector2(0.15, 0.02), Vector2(0.2, -0.1), Vector2(0.25, -0.24), Vector2(0.3, -0.38), Vector2(0.34, -0.5), Vector2(0.37, -0.6), Vector2(0.39, -0.68)], 20)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_ball(st, Vector3(0, 0.1, 0.02), Vector3(0.27, 0.27, 0.27), WISP_CLOTH, 10)
+	_loft(st, [Vector3(0.2, -0.04, 0.0), Vector3(0.29, -0.16, -0.03), Vector3(0.32, -0.3, -0.07)], [0.07, 0.075, 0.09], [0.07, 0.075, 0.09], [WISP_CLOTH], 10)
+	out["hood"] = st.commit()
+	st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var tr := [0.19, 0.16, 0.12, 0.085, 0.055, 0.0]
+	_loft(st, [Vector3(0, -0.08, 0.0), Vector3(0, -0.01, 0.1), Vector3(0, 0.0, 0.22), Vector3(0, -0.05, 0.32), Vector3(0, -0.13, 0.38), Vector3(0, -0.23, 0.4)], tr, tr, [WISP_CLOTH], 10)
+	out["tip"] = st.commit()
+	st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_loft(st, [Vector3(0, 0.02, 0.0), Vector3(-0.09, -0.05, -0.08), Vector3(-0.13, -0.07, -0.19)], [0.07, 0.075, 0.085], [0.07, 0.075, 0.085], [WISP_CLOTH], 10)
+	_ball(st, Vector3(-0.135, -0.072, -0.2), Vector3(0.07, 0.07, 0.03), Color(0.03, 0.04, 0.08), 6)
+	out["sleeve"] = st.commit()
+	st = SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var pole := [Vector3(-0.15, -0.36, -0.21), Vector3(-0.14, -0.08, -0.2), Vector3(-0.15, 0.2, -0.22), Vector3(-0.165, 0.45, -0.25), Vector3(-0.18, 0.6, -0.28), Vector3(-0.23, 0.69, -0.32), Vector3(-0.3, 0.71, -0.36), Vector3(-0.36, 0.66, -0.4), Vector3(-0.375, 0.58, -0.41)]
+	var pr := []
+	for i in pole.size():
+		pr.append(0.022 if i < 5 else 0.018)
+	_loft(st, pole, pr, pr, [WISP_WOOD], 8)
+	for c: Vector3 in [pole[0], pole[4], pole[8]]:
+		_ball(st, c, Vector3.ONE * 0.032, WISP_BRASS, 6)
+	out["crook"] = st.commit()
+	return out
+
+
+## A lathe: rings round the Y axis through `prof` (Vector2(radius, height), top first), with
+## UV.x round and UV.y down it (0 at the top ring, 1 at the bottom).
+static func _lathe(prof: Array, n := 18) -> Mesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var m := prof.size()
+	for i in m - 1:
+		for j in n:
+			for q in [[i, j], [i + 1, j], [i + 1, j + 1], [i, j], [i + 1, j + 1], [i, j + 1]]:
+				var k: int = q[0]
+				var p: Vector2 = prof[k]
+				var d: Vector2 = ((prof[mini(k + 1, m - 1)] as Vector2) - (prof[maxi(k - 1, 0)] as Vector2)).normalized()
+				var nr := Vector2(-d.y, d.x)
+				var a := TAU * float(q[1]) / n
+				st.set_uv(Vector2(float(q[1]) / n, float(k) / (m - 1)))
+				st.set_normal(Vector3(cos(a) * nr.x, nr.y, sin(a) * nr.x))
+				st.add_vertex(Vector3(cos(a) * p.x, p.y, sin(a) * p.x))
+	return st.commit()
 
 
 func _wisp(delta: float) -> void:
 	var bob := sin(_t * 2.1) * 0.09
 	var speed := _vel.length()
+	var want_lift := 0.0
 	if _staged:
 		_body.position.y = 1.25 + bob
-		_turn_to(sin(_t * 0.6) * 0.25, delta, 3.0)
+		_turn_to(-0.65 + sin(_t * 0.6) * 0.2, delta, 3.0)   # (half turned to its hero: the lantern swings into view)
+		# On a pedestal: a spark flies in now and then, and it lifts the lantern now and then.
+		_show_wait -= delta
+		if _show_wait <= 0.0:
+			_show_wait = 3.2
+			_spark_from(_body.to_global(Vector3(0.9, -1.2, -0.5)), 0.6)
+		want_lift = 1.0 if fmod(_t, 9.0) > 6.3 else 0.0
 	else:
 		var home := _home()
 		position = position.lerp(home, 1.0 - exp(-3.2 * delta))
 		_body.position.y = 1.4 + bob
 		_turn_to(_yaw_of(_vel) if speed > 0.8 else PI, delta, 4.0)
+		_wisp_watch(delta)
+		if speed > 11.0 and _spin <= 0.0:
+			_spin = 1.0   # (a dash: it is spun round in the hero's wake)
+		want_lift = 1.0 if (_room_clear and speed < 0.6) else 0.0
+	if _spin > 0.0:
+		_spin = maxf(0.0, _spin - delta * 1.8)
+		_body.rotation.y = _yaw + TAU * smoothstep(0.0, 1.0, 1.0 - _spin)
+	_lift = move_toward(_lift, want_lift, delta * 1.6)
+	_flare = maxf(0.0, _flare - delta * 1.3)
 	var blown := clampf(speed / 6.0, 0.0, 1.0)
-	_tail.rotation.x = -0.45 * blown + sin(_t * 3.1) * 0.12
-	_tail.rotation.z = sin(_t * 2.3) * 0.3
+	_tail.rotation.x = 0.35 * blown + 0.4 * _spin + sin(_t * 2.4) * 0.12
+	_tail.rotation.z = sin(_t * 1.9) * 0.18
 	_body.rotation.x = -0.18 * blown
-	_lantern.rotation.z = sin(_t * 2.5) * 0.22
-	_lantern.rotation.x = sin(_t * 1.7) * 0.12 - 0.35 * blown
+	var lift := smoothstep(0.0, 1.0, _lift)
+	_crook.rotation.x = -0.4 * lift
+	_crook.position.y = -0.06 + 0.1 * lift
+	_lantern.rotation.z = sin(_t * 2.5) * 0.2
+	_lantern.rotation.x = sin(_t * 1.7) * 0.12 - 0.35 * blown + 0.4 * lift
 	var flicker := 0.85 + 0.15 * sin(_t * 13.0) * sin(_t * 7.3)
-	_halo_mat.albedo_color.a = 0.9 * flicker
-	_pool_mat.albedo_color.a = 0.6 * flicker
+	_halo.scale = Vector3.ONE * 0.36 * (flicker + 0.9 * _flare + 0.15 * lift)
+	_flame_spirit.scale = Vector3.ONE * (1.0 + 0.5 * _flare + 0.06 * sin(_t * 11.0))
+	_flame_spirit.position.y = -0.29 + sin(_t * 3.3) * 0.012
+	# The pool of light lies under the lantern; its bars turn as the lantern swings.
+	var at := _flame_spirit.global_position
+	_wisp_pool.global_position = Vector3(at.x, global_position.y + 0.05, at.z)
+	_wisp_pool.scale = Vector3.ONE * (1.0 + 0.4 * lift + 0.25 * _flare)
+	_wisp_pool_mat.set_shader_parameter("glow", flicker * (1.0 + 0.9 * _flare + 0.3 * lift))
+	_wisp_pool_mat.set_shader_parameter("spin", _body.rotation.y + _lantern.rotation.z * 0.8)
+	for i in _moths.size():
+		var m := _moths[i]
+		var a := _t * (2.2 + i * 0.55) + i * 2.1
+		var r := 0.22 + 0.05 * sin(_t * 1.3 + i)
+		m.position = Vector3(cos(a) * r, -0.27 + 0.08 * sin(_t * 2.7 + i * 1.7), sin(a) * r)
+		m.rotation.y = -a
+		var flap := sin(_t * 31.0 + i * 1.3) * 0.9
+		(m.get_child(0) as Node3D).rotation.z = -flap
+		(m.get_child(1) as Node3D).rotation.z = flap
+	_blink -= delta
+	if _blink < 0.0:
+		_blink = randf_range(2.2, 4.5)
+	for e in _eyes:
+		e.scale.y = 0.12 if _blink < 0.12 else 1.3 + 0.35 * _flare
+
+
+## Watches the skeletons near the hero: one that falls sends a spark to the lantern.
+func _wisp_watch(delta: float) -> void:
+	_scan -= delta
+	if _scan > 0.0:
+		return
+	_scan = 0.15
+	var a := _anchor.global_position
+	var alive := 0
+	var near := {}
+	for e in Actor.all:
+		var en := e as Enemy
+		if en == null:
+			continue
+		var id := en.get_instance_id()
+		if en.dead:
+			if _watch.has(id):
+				_spark_from((_watch[id] as Vector3) + Vector3(0, 0.9, 0), 1.6)
+				_watch.erase(id)
+			continue
+		alive += 1
+		if a.distance_to(en.global_position) < 10.0:
+			_watch[id] = en.global_position
+			near[id] = true
+	for id in _watch.keys():
+		if not near.has(id):
+			_watch.erase(id)
+	_room_clear = alive == 0
+
+
+## A spark that arcs from `from` into the lantern, which flares when it lands.
+func _spark_from(from: Vector3, arc: float) -> void:
+	if _sparks >= 4 or _flame_spirit == null:
+		return
+	_sparks += 1
+	# A bright core with a trail of warm motes behind it.
+	var s := MeshInstance3D.new()
+	s.mesh = U._cached("wisp_spark", func():
+		var b := SphereMesh.new()
+		b.radius = 0.12
+		b.height = 0.24
+		b.radial_segments = 8
+		b.rings = 4
+		return b)
+	s.material_override = _spark_mat
+	s.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(s)
+	s.top_level = true
+	s.global_position = from
+	var tail := CPUParticles3D.new()
+	tail.amount = 16
+	tail.lifetime = 0.35
+	tail.local_coords = false
+	tail.direction = Vector3.UP
+	tail.spread = 180.0
+	tail.initial_velocity_min = 0.0
+	tail.initial_velocity_max = 0.3
+	tail.gravity = Vector3.ZERO
+	tail.scale_amount_min = 0.14
+	tail.scale_amount_max = 0.26
+	tail.mesh = Fx._shaped("glow")
+	tail.color_ramp = _ember_ramp
+	s.add_child(tail)
+	var glow := MeshInstance3D.new()
+	glow.mesh = _glow_ball()
+	glow.material_override = _wisp_glow()
+	glow.scale = Vector3.ONE * 0.4
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	s.add_child(glow)
+	var tw := create_tween()
+	tw.tween_method(_spark_step.bind(s, from, arc), 0.0, 1.0, 0.55).set_trans(Tween.TRANS_SINE)
+	tw.tween_callback(_spark_done.bind(s))
+
+
+func _spark_step(k: float, s: Node3D, from: Vector3, arc: float) -> void:
+	if not is_instance_valid(s) or not is_instance_valid(_flame_spirit):
+		return
+	var to := _flame_spirit.global_position
+	var mid := from.lerp(to, 0.5) + Vector3(0, arc, 0)
+	s.global_position = from.lerp(mid, k).lerp(mid.lerp(to, k), k)
+	s.scale = Vector3.ONE * (1.0 - 0.4 * k)
+
+
+func _spark_done(s: Node3D) -> void:
+	if is_instance_valid(s):
+		s.queue_free()
+	_sparks -= 1
+	_flare = 1.0
 
 
 # ---------------------------------------------------------------- Crypt Raven
@@ -1713,25 +2105,70 @@ class Icon extends Control:
 		draw_colored_polygon(pts, col)
 
 	func _wisp() -> void:
+		# Version 325: a hooded little ghost in an emerald cloak with a torn hem and a gold band, two
+		# glowing eyes in the dark of its hood, the hood's floppy tip with a gold tassel; it holds
+		# up a crook with a big brass lantern (a flame with eyes inside), moths about it.
 		var y := sin(_t * 2.0) * 3.0
-		var ghost := Color(0.86, 0.95, 1.0)
-		var sway := sin(_t * 2.5) * 0.25
-		var lamp := Vector2(24, 18 + y) + Vector2(sin(sway), cos(sway)) * 16.0 - Vector2(0, 16)
-		_glow(lamp + Vector2(0, 14), 34, Color(1.0, 0.65, 0.25, 0.8))
-		var h := Vector2(-6, -12 + y)
-		var w := sin(_t * 3.0) * 4.0
-		draw_colored_polygon(PackedVector2Array([h + Vector2(-25, 2), h + Vector2(25, 2), h + Vector2(16, 30),
-			h + Vector2(14 + w, 50), h + Vector2(2 + w, 38), h + Vector2(-16, 26)]), ghost)
-		draw_circle(h, 26, ghost)
-		for s in [-1.0, 1.0]:
-			_ellipse(h + Vector2(9 * s, 2), 5.5, 8.0, Color(0.04, 0.05, 0.12))
-			draw_circle(h + Vector2(9 * s + 2, -2), 2.0, Color.WHITE)
-		_ellipse(h + Vector2(0, 14), 3.5, 2.5, Color(0.04, 0.05, 0.12))
-		draw_line(h + Vector2(24, 10), lamp, Color(0.2, 0.16, 0.14), 2.5)
-		draw_colored_polygon(PackedVector2Array([lamp + Vector2(-8, 4), lamp + Vector2(8, 4), lamp + Vector2(0, -3)]), Color(0.2, 0.16, 0.14))
-		draw_rect(Rect2(lamp + Vector2(-7, 4), Vector2(14, 18)), Color(0.85, 0.6, 0.25))
-		draw_rect(Rect2(lamp + Vector2(-5, 6), Vector2(10, 14)), Color(1.0, 0.8, 0.4))
-		draw_circle(lamp + Vector2(0, 13), 4.0, Color(1.0, 0.95, 0.75))
+		var cloth := Color(0.28, 0.6, 0.4)
+		var hem := Color(0.13, 0.34, 0.23)
+		var gold := Color(0.95, 0.72, 0.3)
+		var wood := Color(0.4, 0.26, 0.14)
+		var dark := Color(0.03, 0.04, 0.08)
+		var h := Vector2(-12, -8 + y)
+		var hook := Vector2(30.5, -30 + y)
+		var sway := sin(_t * 2.5) * 0.2
+		var lamp := hook + Vector2(sin(sway), cos(sway)) * 9.0
+		_glow(lamp + Vector2(0, 12), 38, Color(1.0, 0.65, 0.25, 0.85))
+		# The crook.
+		draw_line(Vector2(17, 42 + y), Vector2(17.5, -30 + y), wood, 3.5)
+		draw_arc(Vector2(24, -30 + y), 6.5, PI, TAU, 12, wood, 3.5)
+		# The cloak: a bell down to a torn, fluttering hem, a gold band above it.
+		var w := sin(_t * 3.0) * 2.0
+		var body := PackedVector2Array([h + Vector2(-15, 6), h + Vector2(15, 6)])
+		var low := PackedVector2Array([h + Vector2(-22.5, 32), h + Vector2(22.5, 32)])
+		for i in 7:
+			var x := 25.0 - i * 50.0 / 6.0
+			var tooth := Vector2(x, 47.0 + w * (1.0 if i % 2 == 0 else -1.0)) if i % 2 == 0 else Vector2(x, 39.0)
+			body.append(h + tooth)
+			low.append(h + tooth)
+		draw_colored_polygon(body, cloth)
+		draw_colored_polygon(low, hem)
+		draw_line(h + Vector2(-22.5, 32), h + Vector2(22.5, 32), gold, 3.0)
+		for b in [14.0, 23.0]:
+			draw_circle(h + Vector2(0, b), 2.0, gold)
+		# The sleeves: one hanging, one holding the crook.
+		draw_line(h + Vector2(-13, 12), h + Vector2(-22, 28), cloth, 9.0)
+		draw_circle(h + Vector2(-22, 29), 3.5, dark)
+		draw_line(h + Vector2(13, 12), Vector2(16, 6 + y), cloth, 9.0)
+		draw_circle(Vector2(17, 6 + y), 3.5, dark)
+		# The hood: its floppy tip with a tassel, the hood round the head, the dark face in a
+		# gold rim and two glowing eyes.
+		var tip := h + Vector2(-35, -6 + sin(_t * 2.0) * 3.0)
+		draw_colored_polygon(PackedVector2Array([h + Vector2(-2, -24), h + Vector2(-20, -27), h + Vector2(-31, -20), tip, h + Vector2(-23, -6)]), cloth.darkened(0.15))
+		draw_circle(tip, 4.0, gold)
+		draw_circle(h, 24.0, cloth)
+		_ellipse(h + Vector2(0, 3), 17.5, 16.0, gold)
+		_ellipse(h + Vector2(0, 3), 14.5, 13.0, dark)
+		var open := 0.15 if fmod(_t, 3.2) < 0.12 else 1.0
+		for s2 in [-1.0, 1.0]:
+			_ellipse(h + Vector2(6.5 * s2, 2), 3.8, 5.8 * open, Color(1.0, 0.86, 0.42))
+		# The lantern: brass cap, amber glass in bars, the little flame with eyes.
+		draw_line(hook, lamp, Color(0.2, 0.16, 0.14), 1.5)
+		draw_colored_polygon(PackedVector2Array([lamp + Vector2(-10, 7), lamp + Vector2(10, 7), lamp + Vector2(0, -1)]), gold)
+		draw_rect(Rect2(lamp + Vector2(-8, 7), Vector2(16, 19)), Color(1.0, 0.76, 0.38))
+		_ellipse(lamp + Vector2(0, 17), 4.0, 6.0, Color(1.0, 0.97, 0.82))
+		for s2 in [-1.0, 1.0]:
+			draw_circle(lamp + Vector2(1.6 * s2, 17), 0.9, dark)
+		for x in [-8.0, 0.0, 8.0]:
+			draw_line(lamp + Vector2(x, 7), lamp + Vector2(x, 26), gold, 1.6)
+		draw_rect(Rect2(lamp + Vector2(-10, 25), Vector2(20, 4)), gold)
+		# Two moths about the lantern.
+		for i in 2:
+			var a := _t * 3.0 + i * PI
+			var mp := lamp + Vector2(cos(a) * 17.0, 16.0 + sin(a) * 8.0)
+			var fl := absf(sin(_t * 24.0 + i)) * 2.5 + 1.0
+			_ellipse(mp + Vector2(-2.2, 0), 2.4, fl, Color(0.95, 0.9, 0.78))
+			_ellipse(mp + Vector2(2.2, 0), 2.4, fl, Color(0.95, 0.9, 0.78))
 
 	func _raven() -> void:
 		var y := sin(_t * 1.6) * 3.0
