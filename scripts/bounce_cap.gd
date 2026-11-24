@@ -8,8 +8,11 @@ extends Node3D
 ## (the landing stamps the floor and knocks the ones right there back). A skeleton that
 ## blunders onto one is thrown and lands hard. A dash skims over a cap without setting it off.
 
-const PINK := Color(1.0, 0.36, 0.78)
-const LIME := Color(0.72, 1.0, 0.3)
+## Version 305 (Supercell review fix 3): the caps were the same hot pink as the DANGER
+## warnings and skeleton shots, though they are something to step on. Now a friendly mint
+## dome with warm yellow arrows (the name PINK is kept for the code that uses it).
+const PINK := Color(0.3, 1.0, 0.72)
+const LIME := Color(1.0, 0.9, 0.4)
 const R := 0.78              # the cap's size; standing this close to its middle sets it off
 const TRIGGER := 0.62
 const THROW := 5.0           # metres the hero is thrown
@@ -115,7 +118,7 @@ func _exit_tree() -> void:
 	all.erase(self)
 
 
-## A wide pink glowcap squatting on a stubby pale stalk, pale spots on top, and lime arrows
+## A wide mint glowcap squatting on a stubby pale stalk, pale spots on top, and yellow arrows
 ## glowing on the floor ahead of it the way it throws.
 func _build() -> void:
 	# The glow on the floor under it.
@@ -126,23 +129,23 @@ func _build() -> void:
 	add_child(_cap)
 	var stalk := U.mat(Color(0.88, 0.85, 0.75), 0.7)
 	U.cylinder(_cap, 0.32, 0.22, stalk, Vector3.ZERO)
-	# A deep magenta rim under a brighter pink crown, so it reads as a dome from above.
-	var rim := U.mat(Color(0.62, 0.1, 0.42), 0.45, 0.25)
+	# A deep teal rim under a brighter mint crown, so it reads as a dome from above.
+	var rim := U.mat(Color(0.06, 0.45, 0.38), 0.45, 0.25)
 	var rim_m := U.sphere(_cap, R, rim, Vector3(0, 0.2, 0))
 	rim_m.scale = Vector3(1.0, 0.42, 1.0)
 	var crown := U.mat(PINK, 0.35, 0.35)
 	var top := U.sphere(_cap, R * 0.72, crown, Vector3(0, 0.36, 0))
 	top.scale = Vector3(1.0, 0.45, 1.0)
-	var gill := U.mat(Color(0.35, 0.08, 0.25), 0.9)
+	var gill := U.mat(Color(0.04, 0.22, 0.2), 0.9)
 	var under := U.cylinder(_cap, R * 0.92, 0.04, gill, Vector3(0, 0.16, 0))
 	under.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var spot := U.mat(Color(0.85, 1.0, 0.6), 0.6, 0.6)
+	var spot := U.mat(Color(1.0, 0.97, 0.75), 0.6, 0.6)
 	for i in 6:
 		var a := TAU * i / 6.0 + randf() * 0.5
 		var r := randf_range(0.25, 0.55)
 		var s := U.sphere(_cap, randf_range(0.09, 0.13), spot, Vector3(cos(a) * r, 0.5 - r * 0.35, sin(a) * r))
 		s.scale.y = 0.4
-	# The arrows: three lime chevrons on the floor pointing the way it throws.
+	# The arrows: three yellow chevrons on the floor pointing the way it throws.
 	var holder := Node3D.new()
 	add_child(holder)
 	holder.rotation.y = atan2(aim.x, aim.z)

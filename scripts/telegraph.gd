@@ -39,10 +39,22 @@ static func _parent() -> Node:
 
 ## The middle of a warning: red, or yellow-white on the Ember floor where red would vanish.
 ## Version 140: ice white on the Blood Moon floor, where gold melted into the gold inlay.
-static func _core(alpha: float) -> Color:
-	if Game.colorblind and not Floors.blood_moon() and not Floors.hot():
-		return Color(_cb_color(), alpha)
+## Version 305 (Supercell review fix 3): red warnings also melted into the Library's red
+## carpet, the Foundry's hot iron and the endless loops' reddened rooms (floor 11+). Those
+## floors now get the Blood Moon's ice white and cyan too.
+static func _ice() -> bool:
 	if Floors.blood_moon():
+		return true
+	if Game.event != "" or Floors.hot():
+		return false
+	var i := Floors.index(Game.floor_num)
+	return i == Floors.LIBRARY or i == Floors.FOUNDRY or Loops.loop_of(Game.floor_num) >= 3
+
+
+static func _core(alpha: float) -> Color:
+	if Game.colorblind and not _ice() and not Floors.hot():
+		return Color(_cb_color(), alpha)
+	if _ice():
 		return Color(0.85, 0.97, 1.0, alpha)
 	return Color(1, 0.86, 0.5, alpha) if Floors.hot() else Color(1, 0.2, 0.1, alpha)
 
@@ -53,9 +65,9 @@ static func _core(alpha: float) -> Color:
 static func _area(alpha: float) -> Color:
 	var deeper := 1.0 + 0.25 * clampi(Loops.loop_of(Game.floor_num) - 1, 0, 3)
 	var a := minf(alpha * deeper, 0.9)
-	if Game.colorblind and not Floors.blood_moon() and not Floors.hot():
+	if Game.colorblind and not _ice() and not Floors.hot():
 		return Color(_cb_color(), minf(a * 1.4, 0.9))
-	if Floors.blood_moon():
+	if _ice():
 		return Color(0.45, 0.85, 1.0, minf(a * 1.4, 0.9))   # ice cyan
 	return Color(1, 0.62, 0.22, minf(a * 1.4, 0.9)) if Floors.hot() else Color(1, 0.15, 0.1, a)
 

@@ -3848,6 +3848,11 @@ func _process(delta: float) -> void:
 	# stood under the chain and score. Then they go see-through so she can be read.
 	if want > 0.0 and _boss_near_top():
 		want = 0.4
+	# Version 305 (Supercell review fix 2): in a boss fight the chain, x1.0 and SCORE stood
+	# right over the boss in every boss picture. They step aside until the boss is down (the
+	# chain still counts; a break still flashes CHAIN BROKEN under the boss bar).
+	if Game.boss_fight_on() and _broken_time <= 0.0:
+		want = 0.0
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)

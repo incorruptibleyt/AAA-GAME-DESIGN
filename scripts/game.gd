@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24b"
+const BUILD := "2026-11-24c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1617,7 +1617,7 @@ func _cam_distance() -> float:
 	var vp := get_viewport().get_visible_rect().size
 	var aspect := vp.x / maxf(vp.y, 1.0)
 	var half_h := atan(tan(deg_to_rad(CAMERA_FOV) * 0.5) * aspect)
-	return VIEW_HALF_WIDTH / tan(half_h)
+	return VIEW_HALF_WIDTH / tan(half_h) * _boss_pull
 
 
 func _focus_goal() -> Vector3:
@@ -1699,7 +1699,15 @@ func _snap_camera() -> void:
 	_place_camera()
 
 
+## Version 305 (Supercell review fix 2): in a boss fight the camera stands 12% further back,
+## so the boss, the hero and the warnings fit together under the top bars (eased in and out).
+const BOSS_PULL := 1.12
+var _boss_pull := 1.0
+
+
 func _update_camera(real_delta: float) -> void:
+	var pull_goal := BOSS_PULL if state == State.PLAYING and boss_fight_on() else 1.0
+	_boss_pull = lerpf(_boss_pull, pull_goal, 1.0 - exp(-2.5 * real_delta))
 	var lobby := state == State.TITLE and hud.title_visible() and hero != null
 	_lobby = lerpf(_lobby, 1.0 if lobby else 0.0, 1.0 - exp(-5.0 * real_delta))
 	if _lobby < 0.002:
@@ -2059,6 +2067,15 @@ func _combat_rooms() -> int:
 
 func _in_boss_room() -> bool:
 	return _room_index == _run.size() - 1
+
+
+## A boss is up and fighting (version 305: the HUD drops the chain and score, the camera
+## stands back).
+func boss_fight_on() -> bool:
+	for b in _bosses:
+		if is_instance_valid(b) and not b.dead:
+			return true
+	return false
 
 
 func _on_screen_tapped() -> void:

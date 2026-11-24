@@ -58,6 +58,7 @@ func wants_outline() -> bool:
 func make_visual(look: Dictionary) -> CharacterVisual:
 	visual = CharacterVisual.new()
 	visual.outline_me = wants_outline()
+	visual.team_line = self is Hero   # v305: the hero's bright line (character_visual.gd)
 	visual.soft_flash = wants_outline() and team == Team.UNDEAD   # the bosses
 	# Version 213 (hardest review fix #10): a hit hero glows red for a moment instead of
 	# turning solid white, so the player never loses sight of them in a busy fight.

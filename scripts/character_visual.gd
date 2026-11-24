@@ -49,6 +49,17 @@ var _outlined := {}
 ## silhouette, and small pieces would cost an extra draw each for no visible line.
 const OUTLINE_PARTS := 5
 var _outline_set := {}
+## Version 305 (Supercell review fix 3): the hero in a run wears a bright line in the
+## heroes' own colour instead of the dark ink, on every graphics setting, so a blue Rogue on
+## the blue Abyss or a purple Mage among purple elites is still found at a glance (a Master
+## aura keeps its own colours). Only the hero, so it costs one character's few extra draws.
+var team_line := false
+const TEAM_INK := Color(0.72, 0.96, 1.0)
+const TEAM_WIDTH := 0.004
+## Version 305: while the hero can't be hurt after a hit, they flicker pale instead of
+## vanishing (the blink used to hide the whole model, leaving only a dark ring).
+var _blink_off := false
+static var _blink_mat: ShaderMaterial
 ## Version 296 (deep review fix 4): the hero is drawn again wherever something stands in
 ## front of them (a boss, a crowd, a pillar), as a bright see-through silhouette, so the
 ## player never loses their hero. It only shows where the hero is hidden (a
@@ -332,7 +343,11 @@ func stand_up() -> void:
 
 
 func set_visible_blink(v: bool) -> void:
-	_model.visible = v
+	_model.visible = true
+	if _blink_off == (not v):
+		return
+	_blink_off = not v
+	_set_flash(false)
 
 
 # ---------------------------------------------------------------- internals
@@ -418,14 +433,27 @@ func _set_flash(on: bool) -> void:
 		_hero_flash_mat = ShaderMaterial.new()
 		_hero_flash_mat.shader = sh
 	var hit_mat: Material = _hero_flash_mat if hero_flash else (_soft_flash_mat if soft_flash else _flash_mat)
-	var mat: Material = hit_mat if on else _tint_mat
-	var lined: Material = _with_outline(mat) if outline_me and outlines and not _dead else mat
+	var mat: Material = hit_mat if on else (_blink_material() if _blink_off else _tint_mat)
+	var lined: Material = _with_outline(mat) if outline_me and (outlines or team_line) and not _dead else mat
 	if _outline_set.is_empty():
 		_pick_outline_meshes()
 	var seen: Material = _with_xray(lined) if xray and not _dead else lined
 	for m in _meshes:
 		if is_instance_valid(m):
 			m.material_overlay = seen if _outline_set.has(m) else mat
+
+
+## The pale flicker of a hero who can't be hurt just now (see _blink_off): a see-through
+## white-cyan wash, brightest at the edges, over the outfit.
+static func _blink_material() -> ShaderMaterial:
+	if _blink_mat == null:
+		var sh := Shader.new()
+		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, cull_back, depth_draw_never;\n" \
+			+ "void fragment() {\n\tfloat rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);\n" \
+			+ "\tALBEDO = vec3(0.85, 0.98, 1.0);\n\tALPHA = clamp(0.3 + pow(rim, 1.5) * 0.5, 0.0, 0.75);\n}\n"
+		_blink_mat = ShaderMaterial.new()
+		_blink_mat.shader = sh
+	return _blink_mat
 
 
 ## `inner` with the see-through silhouette (see xray). Two passes head the chain: the first
@@ -505,6 +533,10 @@ func _with_outline(inner: Material) -> Material:
 	if _outlined.has(inner):
 		return _outlined[inner]
 	var m := outline_material()
+	if team_line and _aura.is_empty():
+		m.set_shader_parameter("ink", TEAM_INK)
+		m.set_shader_parameter("ink2", TEAM_INK)
+		m.set_shader_parameter("width", TEAM_WIDTH)
 	if not _aura.is_empty():
 		var ink: Color = _aura.ink
 		m.set_shader_parameter("ink", ink)
