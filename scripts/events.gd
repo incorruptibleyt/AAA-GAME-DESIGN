@@ -41,7 +41,9 @@ const BLOOD_MOON := {
 		"set": "Blood Moon set", "pass_set": "Silver Moon set", "rule": "Moon Surge", "top": "Blood Eclipse",
 		"music": "queen", "ruler": "Ruler of the Blood Moon", "guardian": "Guardian of the Blood Moon",
 		"down": "Bring her down!", "over": "The Blood Moon has set.", "fallen": "The Blood Moon Queen has fallen!",
-		"kills": "Queen kills"},
+		"kills": "Queen kills",
+		"rise_title": "The Blood Moon has risen!", "rise_text": "A new event crypt is open for 14 days. The Queen wakes tonight.",
+		"last_title": "Last day of the Blood Moon", "last_text": "Spend your Moon Shards and claim the road before the moon sets."},
 }
 ## Version 243 (whole-game review fix 3): the second big event, for midwinter. Its own
 ## crypt (Frostfall Hall, Floors.FROSTFALL), rule (the Blizzard), skeletons and boss
@@ -69,7 +71,9 @@ const FROSTFALL := {
 		"set": "Frostfall set", "pass_set": "Polar Night set", "rule": "Blizzard", "top": "Whiteout",
 		"music": "krampus", "ruler": "Thief of Midwinter", "guardian": "Guardian of the Frostfall Hall",
 		"down": "Bring him down!", "over": "The snow has stopped: Frostfall is over.", "fallen": "Krampus has fallen!",
-		"kills": "Krampus beaten"},
+		"kills": "Krampus beaten",
+		"rise_title": "Frostfall has begun!", "rise_text": "The snow is falling into the crypt for 14 days. Krampus comes down with it tonight.",
+		"last_title": "Last day of Frostfall", "last_text": "Spend your Snowflakes and claim the road before the snow stops."},
 }
 const LIST := [BLOOD_MOON, FROSTFALL]
 

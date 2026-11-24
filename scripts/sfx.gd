@@ -122,6 +122,14 @@ func _ready() -> void:
 			+ _sine(t, 150.0 - t * 120.0) * exp(-t * 18.0) * 0.45 + _sine(t, 620.0 + t * 300.0) * exp(-t * 26.0) * 0.12) * _env(t, 0.55) * 0.6)
 	_make("roots", 0.6, func(t): return (_square(t, 95.0 - t * 60.0 + sin(t * 70.0) * 9.0) * 0.28 * exp(-t * 3.5) \
 			+ _noise() * (0.35 + 0.4 * float(sin(t * 210.0) > 0.7)) * exp(-t * 6.0) * 0.6) * _env(t, 0.6) * 0.55)
+	# Version 304 (Supercell review): two sounds that were asked for but never made, so the
+	# Archivist's Turning Page slammed in silence and snowballs and the Gift Thief made no
+	# sound. "book_slam": a huge book shutting (a deep thump, a slap of leather, a flutter of
+	# pages after it). "pff": a short soft puff of snow.
+	_make("book_slam", 0.8, func(t): return (_sweep(t, 95, 38) * 0.75 * exp(-t * 5.0) + _noise() * exp(-t * 55.0) * 0.9 \
+			+ _noise() * 0.22 * float(sin(t * 180.0) > 0.2) * exp(-pow((t - 0.2) / 0.12, 2.0))) * _env(t, 0.8) * 0.65)
+	_make("pff", 0.22, func(t): return (_noise() * (1.0 - exp(-t * 90.0)) * exp(-t * 16.0) * 0.6 \
+			+ _sine(t, 240.0 - t * 300.0) * exp(-t * 30.0) * 0.25) * _env(t, 0.22) * 0.5)
 	_make("heart", 0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
 	# Version 122: a short tick for numbers counting up, and a rising three-note sting for
 	# Epic and Legendary drops.

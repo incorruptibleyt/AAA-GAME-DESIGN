@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24a"
+const BUILD := "2026-11-24b"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1994,6 +1994,8 @@ func boss_kind() -> String:
 		return "C"
 	if floor_num > Floors.REMIX_FROM and Floors.index(floor_num) == 1:
 		return "L"   # v299: the Frozen Ossuary back in the remix brings its own Lich
+	if floor_num > Floors.REMIX_FROM and Floors.index(floor_num) == 0:
+		return "K"   # v304: the Bone Crypt back in the remix brings the Skeleton King (King's Leap)
 	if Floors.drowned() and not first_run:
 		return "T"
 	if Floors.grotto() and not first_run:

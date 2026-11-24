@@ -113,11 +113,12 @@ static func build(cfg: ConfigFile, now: int) -> Array:
 	# 1. The event calendar (the strongest reason to come back).
 	for e: Dictionary in Events.LIST:
 		var start := Events._unix(e.start) + Curses.DAY_START_HOURS * 3600
-		var notes := [[1, "The %s has risen!" % e.name.capitalize(), "A new event crypt is open for %d days. The Queen wakes tonight." % int(e.days)]]
+		# Each event's own words (Frostfall must not promise the Queen or Moon Shards).
+		var notes := [[1, Events.word("rise_title", e), Events.word("rise_text", e)]]
 		for i in range(1, e.chapters.size()):
 			var c: Dictionary = e.chapters[i]
 			notes.append([int(c.day), "%s: chapter %d, %s" % [e.name.capitalize(), i + 1, c.name.capitalize()], str(c.text)])
-		notes.append([int(e.days), "Last day of the %s" % e.name.capitalize(), "Spend your Moon Shards and claim the road before the moon sets."])
+		notes.append([int(e.days), Events.word("last_title", e), Events.word("last_text", e)])
 		for n: Array in notes:
 			var at := _awake(start + (int(n[0]) - 1) * 86400)
 			if at > now + 600 and at < now + EVENT_AHEAD * 86400:

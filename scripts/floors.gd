@@ -295,8 +295,13 @@ static func index(floor_num: int) -> int:
 ## starts somewhere new), and each floor brings a second place's danger along with its own
 ## (REMIX_PARTNER: two partners per place, taking turns by loop).
 const REMIX_FROM := 10
-const REMIX_ORDER := [1, 2, GROTTO, SANDFALL, DROWNED, MINE, LIBRARY, FOUNDRY, ABYSS]
+## Version 304 (Supercell review fix 1): the Bone Crypt joins the round (it has no danger of
+## its own, so it brings one guest danger), so the Skeleton King and his King's Leap come back
+## too; ten places, so each place takes turns between its two partners by how many times the
+## round has gone by (remix_partner), not by loop, or every place would always get the same one.
+const REMIX_ORDER := [1, 2, GROTTO, SANDFALL, DROWNED, 0, MINE, LIBRARY, FOUNDRY, ABYSS]
 const REMIX_PARTNER := {
+	0: [LIBRARY, SANDFALL],       # the Bone Crypt + rolling shelves / quicksand
 	1: [FOUNDRY, ABYSS],          # black ice + magnets / loose plates
 	2: [MINE, DROWNED],           # fire seams + gas / the tide
 	GROTTO: [SANDFALL, LIBRARY],  # bounce caps + quicksand / rolling shelves
@@ -317,7 +322,8 @@ static func remix_partner(floor_num: int) -> int:
 	if Game.event != "" or lobby or floor_num <= REMIX_FROM:
 		return -1
 	var pair: Array = REMIX_PARTNER.get(index(floor_num), [])
-	return -1 if pair.is_empty() else int(pair[Loops.loop_of(floor_num) % 2])
+	var round := (floor_num - REMIX_FROM - 1) / REMIX_ORDER.size()
+	return -1 if pair.is_empty() else int(pair[round % 2])
 
 
 static func theme(floor_num: int) -> Dictionary:
@@ -343,8 +349,12 @@ const PASS_REMIX := {
 
 
 ## True on a Crypt Pass floor that brings back one of the free crypts (see PASS_REMIX).
+## Version 304: not in the endless remix (floor 11+), where a place comes back as itself
+## (the review found floors 11 and 12 were the Pass's relit Aurora and Ashen crypts, and the
+## Bone Crypt would have come back as the Moonlit Crypt instead of the King's own).
 static func remixed(floor_num: int) -> bool:
-	return Game.event == "" and not lobby and floor_num > Store.FREE_FLOORS and PASS_REMIX.has(index(floor_num))
+	return Game.event == "" and not lobby and floor_num > Store.FREE_FLOORS and floor_num <= REMIX_FROM \
+			and PASS_REMIX.has(index(floor_num))
 
 
 ## Every endless loop is a little darker and redder than the one before (down to loop 4).

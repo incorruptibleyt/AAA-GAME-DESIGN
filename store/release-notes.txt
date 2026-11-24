@@ -1,3 +1,4 @@
-Version 303: boss encores
-- The Forgemaster, back in the endless loops, has a new attack: Iron Casting. Molten iron runs across the floor and cools into walls that reshape the room. Use them as cover!
-- Now every boss you meet again in the loops brings a move of its own.
+Version 304: fixes
+- The Skeleton King now comes back in the endless loops (floor 16) with his King's Leap.
+- Phone reminders for Frostfall now talk about Krampus and Snowflakes, not the Blood Moon.
+- The Archivist's Turning Page and snowballs now make a sound.
