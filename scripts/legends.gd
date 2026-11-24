@@ -38,7 +38,7 @@ const LIST := [
 	{"id": "wyrm", "slot": "pet", "name": "Bone Wyrm", "price": 400000, "ready": true,
 		"text": "A great bone dragon that coils round you in the air and breathes violet fire at bosses."},
 	{"id": "starfall", "slot": "grand", "name": "Starfall Mantle", "price": 600000, "ready": true,
-		"text": "A cape and tall collar that are a window into the night sky, and a crown of stars with a comet."},
+		"text": "A cape that is a window into the night sky, a silver crown of stars with a comet, and stars falling from the hem. A dash calls down a shower of shooting stars."},
 	{"id": "emperor", "slot": "grand", "name": "The Bone Emperor", "price": 1000000, "ready": true,
 		"text": "Golden bone armour, a spine cape, a crown of skulls, and a bone throne."},
 ]

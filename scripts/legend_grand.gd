@@ -10,6 +10,9 @@ extends Node3D
 ##             band with five dark points tipped with bright stars, and a comet circling it
 ##             (HeroStyle._extra "starfall_crown": a grand set's crown takes the place of the
 ##             hero's hat and head look, see HeroStyle.grand_head).
+##             Version 328: a brighter sky of violet, teal and rose nebula; silver crown points
+##             with glowing stars and a comet you can see; stars fall from the mantle's hem,
+##             and a dash calls down a shower of falling stars round the hero.
 ## The mantle hangs from the chest bone, so it turns and bobs with the body. This node, on the
 ## hero's visual, blows it back as the hero runs; in a run (seen from far above) it always
 ## streams out behind.
@@ -20,6 +23,8 @@ var _last := Vector3.ZERO
 var _blow := 0.0
 var _cape_mat: ShaderMaterial
 var _collar_mat: ShaderMaterial
+var _was_dashing := false
+var _fall: CPUParticles3D   # (the stars falling from the Starfall Mantle's hem)
 
 ## Where the mantle hangs from, in the visual's own space: the top of the back.
 const CAPE_TOP := Vector3(0.0, 1.17, 0.19)
@@ -63,6 +68,14 @@ func _find_hero() -> void:
 	for m in skies:
 		if m:
 			(m as ShaderMaterial).set_shader_parameter("star_k", 1.6)
+			(m as ShaderMaterial).set_shader_parameter("bright", 1.4)   # (version 328: it read as black there)
+	if kind == "starfall":
+		_cape_mat.set_shader_parameter("edge_w", 0.06)
+	if _fall:
+		# (the mantle streams out behind in a run: the stars fall from its hem out there)
+		_fall.position = Vector3(0, 0.55, 0.95)
+		_fall.emission_box_extents = Vector3(0.55, 0.25, 0.25)
+		_fall.amount = 12
 
 
 func _process(delta: float) -> void:
@@ -78,6 +91,11 @@ func _process(delta: float) -> void:
 		want = clampf(v.length() / 6.0, 0.45, 1.0) if v.length() < 40.0 else 0.45
 	_blow = move_toward(_blow, want, delta * (3.0 if want > _blow else 1.5))
 	_cape_mat.set_shader_parameter("blow", _blow)
+	if kind == "starfall" and _hero and is_instance_valid(_hero):
+		var dashing := (_hero as Hero).is_dashing()
+		if dashing and not _was_dashing:
+			_meteors()
+		_was_dashing = dashing
 	if kind == "emperor":
 		_throne_now()
 
@@ -191,12 +209,118 @@ func _starfall(visual: Node3D, model: Node3D) -> void:
 		st.position = Vector3(0, 0, -0.04)
 		st.set_meta("fx", true)
 		clasp.add_child(st)
-		var glow := MeshInstance3D.new()
-		glow.mesh = LegendPet._quad(0.45)
-		glow.material_override = LegendPet._add_mat(Color(0.75, 0.8, 1.0, 0.5), true)
-		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		glow.set_meta("fx", true)
-		clasp.add_child(glow)
+		var glow := _glow(clasp, 0.17, Color(0.75, 0.8, 1.0), 0.6)
+		glow.position = Vector3(0, 0, -0.03)
+	# Version 328: stars fall from the mantle as the hero goes (on a pedestal they drift down
+	# off the cloth; in a run they fall from its hem, see _find_hero).
+	_fall = CPUParticles3D.new()
+	_fall.mesh = Fx._shaped("glint")
+	_fall.amount = 8
+	_fall.lifetime = 1.1
+	_fall.local_coords = false
+	_fall.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	_fall.emission_box_extents = Vector3(0.42, 0.4, 0.08)
+	_fall.position = Vector3(0, 0.62, 0.42)
+	_fall.direction = Vector3.DOWN
+	_fall.spread = 25.0
+	_fall.initial_velocity_min = 0.15
+	_fall.initial_velocity_max = 0.4
+	_fall.gravity = Vector3(0, -1.2, 0)
+	_fall.scale_amount_min = 0.16
+	_fall.scale_amount_max = 0.3
+	var grow := Curve.new()
+	grow.add_point(Vector2(0, 0.3))
+	grow.add_point(Vector2(0.25, 1.0))
+	grow.add_point(Vector2(1, 0))
+	_fall.scale_amount_curve = grow
+	var ramp := Gradient.new()
+	ramp.set_color(0, Color(1.0, 0.95, 0.8))
+	ramp.set_color(1, Color(0.6, 0.72, 1.0))
+	_fall.color_ramp = ramp
+	add_child(_fall)
+
+
+## A soft ball of added starlight under `parent`, `r` across (version 328: the billboard quads
+## these were barely showed, and not at all in a run).
+static func _glow(parent: Node3D, r: float, tint: Color, k: float) -> MeshInstance3D:
+	var g := MeshInstance3D.new()
+	g.mesh = LegendPet._glow_ball()
+	g.material_override = star_glow(tint, k)
+	g.scale = Vector3.ONE * r
+	g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	g.set_meta("fx", true)
+	parent.add_child(g)
+	return g
+
+
+static var _glow_sh: Shader
+static var _glows := {}
+
+## Added starlight on a ball, brightest at its middle (it writes ALPHA: see the Godot notes on
+## additive shaders over a see-through picture).
+static func star_glow(tint: Color, k: float) -> ShaderMaterial:
+	var key := "%s/%.2f" % [tint.to_html(false), k]
+	if _glows.has(key):
+		return _glows[key]
+	if _glow_sh == null:
+		_glow_sh = Shader.new()
+		_glow_sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_back, shadows_disabled;
+uniform vec3 tint = vec3(0.8, 0.85, 1.0);
+uniform float k = 1.0;
+void fragment() {
+	float f = pow(clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	vec3 c = tint * f * k;
+	float glow_a = max(max(c.r, c.g), c.b);
+	ALBEDO = c / max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = _glow_sh
+	m.set_shader_parameter("tint", Vector3(tint.r, tint.g, tint.b))
+	m.set_shader_parameter("k", k)
+	_glows[key] = m
+	return m
+
+
+## Version 328: a dash calls down a shower of falling stars. Five fat gold stars, spinning,
+## with long blue tails of light, streak down out of the sky at a slant one after another
+## and burst into glints where they land round the hero.
+func _meteors() -> void:
+	var world := Game.world
+	if world == null:
+		return
+	var at := _hero.global_position
+	var side := 1.0 if randf() < 0.5 else -1.0
+	var gem := LegendPet._mat("star_gem", Color(1.0, 0.95, 0.8), 0.2, Color(1.0, 0.92, 0.7), 3.0)
+	for i in 5:
+		var land := at + Vector3(randf_range(-1.8, 1.8), 0.2, randf_range(-1.7, 1.2))
+		var from := land + Vector3(1.4 * side, 4.4, -1.5)
+		var m := Node3D.new()
+		world.add_child(m)
+		m.global_position = from
+		m.visible = false
+		var star := MeshInstance3D.new()
+		star.mesh = star_mesh(0.26, 0.11, 0.07)
+		star.material_override = gem
+		star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		star.rotation.x = -1.0   # (its face to the run camera, above and behind)
+		m.add_child(star)
+		_glow(m, 0.34, Color(1.0, 0.9, 0.6), 0.85)
+		var back := (from - land).normalized()
+		for j in 10:
+			var q := _glow(m, 0.2 - j * 0.015, Color(0.45, 0.65, 1.0), 0.85 - j * 0.075)
+			q.position = back * (0.28 + j * 0.19)
+		var tw := m.create_tween()
+		tw.tween_interval(i * 0.09)
+		tw.tween_callback(m.show)
+		tw.tween_property(m, "global_position", land, 0.42).set_ease(Tween.EASE_IN)
+		tw.parallel().tween_property(star, "rotation:z", TAU * 1.5 * side, 0.42)
+		tw.tween_callback(func() -> void:
+			Fx._burst(land + Vector3(0, 0.15, 0), 12, Color(1.0, 0.92, 0.7), 0.45, 3.0, 0.55, 0.25, true, "glint")
+			m.queue_free())
 
 
 ## The transform from `to`'s space into `from`'s (from a node down to one of its descendants).
@@ -396,7 +520,7 @@ static func starfall_crown(id: String, y: float) -> Node3D:
 		cone.radial_segments = 4
 		cone.rings = 1
 		pt.mesh = cone
-		pt.material_override = sky
+		pt.material_override = silver   # (version 328: dark sky points were lost on dark floors)
 		pt.position = Vector3(0, tall * 0.5, 0)
 		pt.rotation.y = PI / 4.0
 		arm.add_child(pt)
@@ -405,33 +529,23 @@ static func starfall_crown(id: String, y: float) -> Node3D:
 		tip.position = Vector3(0, tall + 0.07, 0.02)
 		arm.add_child(tip)
 		var st := MeshInstance3D.new()
-		st.mesh = star_mesh(0.085 if i == 0 else 0.07, 0.035, 0.03)
+		st.mesh = star_mesh(0.11 if i == 0 else 0.09, 0.045, 0.035)
 		st.material_override = gem
 		tip.add_child(st)
-		var glow := MeshInstance3D.new()
-		glow.mesh = LegendPet._quad(0.4 if i == 0 else 0.32)
-		glow.material_override = LegendPet._add_mat(Color(0.8, 0.85, 1.0, 0.55), true)
-		glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		tip.add_child(glow)
+		var gr := 0.15 if i == 0 else 0.12
+		_glow(tip, gr, Color(0.8, 0.85, 1.0), 0.75)
+		tip.set_meta("g", gr)
 		crown._tips.append(tip)
 	# The comet: a bright head and a tail of fading sparks that follows it round.
 	crown._orbit = Node3D.new()
 	crown._orbit.position = Vector3(0, base + dome_h + 0.3, 0)
 	crown.add_child(crown._orbit)
 	crown.R = dome_r + 0.12
-	var head := MeshInstance3D.new()
-	head.mesh = LegendPet._quad(0.38)
-	head.material_override = LegendPet._add_mat(Color(0.9, 0.95, 1.0, 1.0), true)
-	head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	crown._orbit.add_child(head)
-	var core := U.sphere(crown._orbit, 0.04, gem, Vector3.ZERO)
+	var head := _glow(crown._orbit, 0.16, Color(0.95, 0.97, 1.0), 1.0)
+	var core := U.sphere(crown._orbit, 0.05, gem, Vector3.ZERO)
 	crown._comet = [head, core]
 	for i in 8:
-		var q := MeshInstance3D.new()
-		q.mesh = LegendPet._quad(0.28 - i * 0.024)
-		q.material_override = LegendPet._add_mat(Color(0.6, 0.75, 1.0, 0.75 - i * 0.08), true)
-		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		crown._orbit.add_child(q)
+		var q := _glow(crown._orbit, 0.11 - i * 0.009, Color(0.55, 0.72, 1.0), 0.8 - i * 0.08)
 		crown._tail.append(q)
 	# The night sky, the stars and the lights take no outline, rim light or hit flash (a hero's
 	# rim light drawn over a glow quad made it a black square on the pedestal).
@@ -456,7 +570,7 @@ class StarCrown extends Node3D:
 		for i in _tips.size():
 			var tip := _tips[i]
 			tip.get_child(0).rotation.z = _t * 1.2 + i
-			tip.get_child(1).scale = Vector3.ONE * (0.85 + 0.25 * sin(_t * 3.0 + i * 1.7))
+			tip.get_child(1).scale = Vector3.ONE * float(tip.get_meta("g", 0.12)) * (0.85 + 0.25 * sin(_t * 3.0 + i * 1.7))
 		var a := _t * 1.6
 		var at := Vector3(sin(a) * R, 0.06 * sin(a * 2.0), cos(a) * R)
 		for c: Node3D in _comet:
@@ -489,6 +603,7 @@ uniform float star_k = 1.0;   // more stars (in a run, where the mantle is small
 uniform float reach = 0.34;   // how far back a full blow throws the hem (further in a run)
 uniform float rise = 0.14;    // and how far up
 uniform float edge_w = 0.04;
+uniform float bright = 1.0;   // (brighter in a run, version 328)
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 float noise(vec2 p) {
 	vec2 i = floor(p);
@@ -524,8 +639,11 @@ void fragment() {
 	float t = TIME;
 	vec2 drift = vec2(t * 0.004, t * 0.001);
 	float n = noise((s + drift) * 3.0) * 0.6 + noise((s + drift) * 7.0) * 0.4;
-	vec3 col = mix(vec3(0.025, 0.035, 0.12), vec3(0.3, 0.09, 0.48), smoothstep(0.35, 0.95, n));
-	col += vec3(0.04, 0.16, 0.36) * smoothstep(0.5, 1.0, noise((s + drift * 2.0) * 2.0 + 4.0));
+	// Version 328: a richer sky, deep blue with clouds of violet, teal and rose nebula.
+	vec3 col = mix(vec3(0.04, 0.05, 0.17), vec3(0.42, 0.13, 0.66), smoothstep(0.35, 0.95, n));
+	col += vec3(0.05, 0.26, 0.5) * smoothstep(0.45, 1.0, noise((s + drift * 2.0) * 2.0 + 4.0));
+	col += vec3(0.5, 0.1, 0.32) * smoothstep(0.62, 1.0, noise((s - drift) * 4.0 + 9.0)) * 0.7;
+	col *= bright;
 	col += stars(s + drift, 52.0, t, 1.0) + stars(s + drift, 24.0, t + 3.0, 1.25) + stars(s + drift, 10.0, t + 7.0, 2.0) * 1.6;
 	// A shooting star across the cloth every few seconds.
 	float cyc = floor(t / 2.6);
