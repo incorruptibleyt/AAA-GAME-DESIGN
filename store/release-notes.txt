@@ -1,6 +1,4 @@
-Version 306: a smoother start
-- Beating the tutorial always takes your hero to Mastery level 2.
-- Your 3 gifts after the tutorial are now 3 different blessings that change how you fight.
-- No event pop-up or bug-report question in your first two runs.
-- Rolling shelves now appear in every room that promises them.
-- Clearer "NEXT" goal for Curses.
+Version 307: blessings that change your run
+- 6 new blessings: Bouncing Shots, Static Shots (lightning), Spinning Bones, Blazing Dash, Phantom Dash and Cold Snap.
+- Kindling, Frostbite and Deep Freeze now do something new: fire patches, skeletons frozen in ice, and chilled skeletons that shatter.
+- Your tutorial gifts can now include the new blessings.

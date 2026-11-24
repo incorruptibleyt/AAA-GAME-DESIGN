@@ -92,7 +92,7 @@ func _draw() -> void:
 		"kindling": _kindling()
 		"pyre": _pyre()
 		"frost": _snowflake()
-		"frostbite": _icicles()
+		"frostbite": _frozen_skull()
 		"deepfreeze": _ice_block()
 		"vitality", "deep_vigor": _heart()
 		"deep_glass": _sword()
@@ -111,6 +111,12 @@ func _draw() -> void:
 		"ward": _shield()
 		"links": _chain()
 		"marrow": _spine()
+		"bounce": _bounce()
+		"spark": _spark()
+		"orbit": _spinning_bones()
+		"blaze_dash": _blaze_dash()
+		"phantom": _phantom_dash()
+		"cold_snap": _cold_snap()
 		"shatter": _shards()
 		"bonestorm": _shard_ring()
 		"ossuary": _skull()
@@ -475,6 +481,83 @@ func _skull() -> void:
 	_poly([Vector2(0, 2), Vector2(-2.5, 6), Vector2(2.5, 6)], DARK)
 	for x in [-3.5, 0.0, 3.5]:
 		_ln(Vector2(x, 9), Vector2(x, 14), 1.5, DARK)
+
+
+# ---------------------------------------------------------------- version 307 cards
+
+func _frozen_skull() -> void:
+	# Frostbite: a skull shut in a block of ice.
+	var hex := []
+	for i in 6:
+		var a := -PI / 2.0 + i * PI / 3.0
+		hex.append(Vector2(cos(a), sin(a)) * 18.0)
+	_poly(hex, Color(color, 0.3))
+	_dot(Vector2(0, -3), 8.5, Color(0.93, 0.95, 0.88))
+	_poly([Vector2(-5, 2), Vector2(5, 2), Vector2(4.5, 9), Vector2(-4.5, 9)], Color(0.93, 0.95, 0.88))
+	_dot(Vector2(-3.2, -3), 2.6, DARK)
+	_dot(Vector2(3.2, -3), 2.6, DARK)
+	_outline(hex, 3.0)
+	_ln(Vector2(-12, -9), Vector2(-7, -14), 2.0, Color(1, 1, 1, 0.85))
+
+
+func _bounce() -> void:
+	# Bouncing Shots: a bolt that hits the wall and flies back out.
+	_ln(Vector2(15, -18), Vector2(15, 18), 5.0, STEEL)
+	_ln(Vector2(-17, 13), Vector2(11, 0), 3.0, Color(color, 0.75))
+	_arrow(Vector2(11, 0), Vector2(-14, -14), 3.5, 8.0)
+	_sparkle(Vector2(12, 0), 5.0, HOT)
+
+
+func _spark() -> void:
+	# Static Shots: lightning jumping between two skeleton heads.
+	_dot(Vector2(-12, 11), 6.0, Color(0.88, 0.92, 0.72))
+	_dot(Vector2(12, -11), 6.0, Color(0.88, 0.92, 0.72))
+	for p in [Vector2(-14, 10), Vector2(-10, 10), Vector2(10, -12), Vector2(14, -12)]:
+		_dot(p, 1.4, DARK)
+	var zig := [Vector2(-8, 6), Vector2(-1, 2), Vector2(-4, -2), Vector2(4, -4), Vector2(1, -8), Vector2(8, -8)]
+	for i in zig.size() - 1:
+		_ln(zig[i], zig[i + 1], 4.5, Color(color, 0.6))
+		_ln(zig[i], zig[i + 1], 2.0, Color.WHITE)
+
+
+func _spinning_bones() -> void:
+	# Spinning Bones: two bone blades on a circle round the hero.
+	_arc(Vector2.ZERO, 15.0, 0.0, TAU, 2.0, Color(color, 0.45))
+	_dot(Vector2.ZERO, 4.5, STEEL)
+	for t in [0.6, 0.6 + PI]:
+		var at := Vector2(cos(t), sin(t)) * 15.0
+		var d := Vector2(-sin(t), cos(t))
+		var n := d.orthogonal()
+		_poly([at + d * 9.0, at + n * 3.5, at - d * 7.0, at - n * 3.5], Color(0.97, 0.94, 0.84))
+
+
+func _blaze_dash() -> void:
+	# Blazing Dash: a dash streak with flames left along it.
+	for y in [-6.0, 0.0, 6.0]:
+		_ln(Vector2(-18, y + 6), Vector2(4, y - 6), 2.0, Color(STEEL, 0.6))
+	_arrow(Vector2(-6, 6), Vector2(17, -10), 3.5, 8.0, STEEL)
+	_flame(Vector2(-12, 10), 0.55)
+	_flame(Vector2(0, 4), 0.45)
+
+
+func _phantom_dash() -> void:
+	# Phantom Dash: a violet dash cutting through a skeleton.
+	_dot(Vector2(4, -4), 9.0, Color(0.88, 0.92, 0.72))
+	_dot(Vector2(1, -5), 2.5, DARK)
+	_dot(Vector2(7, -5), 2.5, DARK)
+	_poly([Vector2(-1, 2), Vector2(9, 2), Vector2(8, 8), Vector2(0, 8)], Color(0.88, 0.92, 0.72))
+	_ln(Vector2(-18, 16), Vector2(18, -16), 5.0, Color(ARCANE, 0.55))
+	_arrow(Vector2(-18, 16), Vector2(18, -16), 2.5, 7.0, Color.WHITE)
+
+
+func _cold_snap() -> void:
+	# Cold Snap: a burst of ice spikes from a star.
+	for i in 8:
+		var d := Vector2.UP.rotated(TAU * i / 8.0)
+		var n := d.orthogonal()
+		var r := 19.0 if i % 2 == 0 else 13.0
+		_poly([d * r, d * 5.0 + n * 3.0, d * 5.0 - n * 3.0], color if i % 2 == 0 else Color(color, 0.6))
+	_star(Vector2.ZERO, 6, 6.0, 3.0, 0.0, Color.WHITE)
 
 
 # ---------------------------------------------------------------- hero blessings

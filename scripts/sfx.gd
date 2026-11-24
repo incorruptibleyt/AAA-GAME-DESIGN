@@ -130,6 +130,8 @@ func _ready() -> void:
 			+ _noise() * 0.22 * float(sin(t * 180.0) > 0.2) * exp(-pow((t - 0.2) / 0.12, 2.0))) * _env(t, 0.8) * 0.65)
 	_make("pff", 0.22, func(t): return (_noise() * (1.0 - exp(-t * 90.0)) * exp(-t * 16.0) * 0.6 \
 			+ _sine(t, 240.0 - t * 300.0) * exp(-t * 30.0) * 0.25) * _env(t, 0.22) * 0.5)
+	# Version 307: Static Shots' spark of lightning, a short electric snap.
+	_make("zap", 0.2, func(t): return (_square(t, 1500.0 - t * 4000.0) * 0.35 + _noise() * 0.55) * exp(-t * 24.0) * _env(t, 0.2) * 0.55)
 	_make("heart", 0.5, func(t): return (_thump(t) + _thump(t - 0.17) * 0.7) * 0.8)
 	# Version 122: a short tick for numbers counting up, and a rising three-note sting for
 	# Epic and Legendary drops.

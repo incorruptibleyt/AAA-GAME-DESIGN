@@ -192,6 +192,35 @@ var _orbit: Node3D
 var _orbit_a := 0.0
 var _orbit_on := 0.0
 var _orbit_next := {}        # skeleton's instance id -> when an ice orb may hit it again (ms)
+
+## Version 307 (player panel fix 2): shared blessings that change how a run plays.
+## Static Shots: a hit throws a spark of lightning on to the nearest other skeleton within
+## SPARK_R (a second pick: on again to a third), for SPARK_SHARE of the hero's damage. At most
+## one spark every SPARK_GAP seconds, so a fan of shots doesn't light up the room every frame.
+const SPARK_R := 4.5
+const SPARK_SHARE := 0.4
+const SPARK_GAP_MS := 200
+const SPARK_COL := Color(0.72, 0.9, 1.0)
+var _spark_ms := -100000
+## Spinning Bones: bone blades circle the hero in every fight (two, three with a second pick).
+const BONES_R := 1.3
+const BONES_SPIN := 5.2      # radians a second (the other way round from Frost Orbit)
+const BONES_SHARE := 0.5
+const BONES_EVERY_MS := 400
+const BONE_COL := Color(0.97, 0.94, 0.84)
+var _bones: Node3D
+var _bones_n := 0
+var _bones_a := 0.0
+var _bones_next := {}
+## Blazing Dash: patches of fire along the dash. Phantom Dash: each skeleton the dash
+## passes through is cut once (PHANTOM_MULT of the hero's damage).
+const BLAZE_STEP := 1.1
+const PHANTOM_MULT := 2.0
+var _dash_from := Vector3.ZERO
+var _phantom_cut: Array[Actor] = []
+## Cold Snap: the special freezes every skeleton within COLD_SNAP_R solid for COLD_SNAP_TIME.
+const COLD_SNAP_R := 4.5
+const COLD_SNAP_TIME := 2.0
 var _shadow: ShadowStep
 
 
@@ -336,6 +365,8 @@ func dash(dir: Vector3) -> void:
 		_shadow_step()
 	_dash_dir = dir.normalized()
 	_dash_left = DASH_TIME
+	_dash_from = global_position
+	_phantom_cut.clear()
 	if snare_left > 0.0:
 		snare_left = 0.0   # tearing free of the roots
 		snare_guard = SNARE_GUARD
@@ -470,6 +501,8 @@ func use_special() -> void:
 			Sfx.play("dash", 0.9)
 		"mage": _meteors()
 		_: _shadow_volley()
+	if perks.has("cold_snap"):
+		_cold_snap()
 
 
 func _special_hit(a: Actor, amount: float, from: Vector3, push: float) -> void:
@@ -591,6 +624,8 @@ func _process(delta: float) -> void:
 	_thunder_cd -= delta
 	if perks.has("frost_orbit"):
 		_update_orbit(delta)
+	if perks.has("orbit"):
+		_update_bones(delta)
 	if is_instance_valid(_aura_fx):
 		_aura_fx.rotation.y = -rotation.y
 	if _chain_mat:
@@ -605,8 +640,12 @@ func _process(delta: float) -> void:
 	if _dash_left > 0.0:
 		_dash_left -= delta
 		move_by(_dash_dir * DASH_SPEED * delta, delta)
+		if perks.has("phantom"):
+			_phantom_cuts()
 		if _dash_left <= 0.0:
 			_ice_vel = _dash_dir * move_speed * 1.3   # v290: a dash that ends on ice slides on
+			if perks.has("blaze_dash"):
+				_blaze_trail()
 		visual.set_moving(true)
 		_trail_t -= delta
 		if _trail_t <= 0.0:
@@ -822,6 +861,7 @@ func _run_knives(delta: float) -> void:
 	p.burn_dps = burn_dps
 	p.frost = frost
 	p.bounce = int(perks.get("ricochet", 0))
+	p.wall_bounce = int(perks.get("bounce", 0))
 	Sfx.play("swing", 0.25, 1.6)
 	Game._teach("rogue_knives", "KNIVES: the Rogue throws knives while running. Stand still for the crossbow!")
 
@@ -885,8 +925,9 @@ func _swing(fwd: Vector3) -> void:
 		elif crit and perks.has("flashfire") and not a.dead:
 			Burning.apply(a, 8.0, 2.5)   # Flashfire
 		if (frost or Blizzard.heart_chill()) and not a.dead and a is Enemy:
-			(a as Enemy).chill(frost_time)
+			(a as Enemy).frost_hit(frost_time, self)
 	if hits > 0:
+		spark_from(cut[0])
 		Sfx.play("hit", 0.7)
 		Game.shake(0.05 + 0.03 * mini(hits, 4))
 	# The blade knocks enemy shots out of the air.
@@ -1116,6 +1157,7 @@ func _fire(origin: Vector3, d: Vector3, col: Color, share := 1.0, boost := 0.0) 
 	p.burn_dps = burn_dps
 	p.frost = frost
 	p.bounce = int(perks.get("ricochet", 0))
+	p.wall_bounce = int(perks.get("bounce", 0))
 	if boomerang > 0.0:
 		p.boomerang = _throw_reach
 		p._cuts = pierce
@@ -1225,6 +1267,145 @@ func _build_orbit() -> void:
 		m.rotation.y = -a   # its tail trails round the circle behind it
 		ShotLook._put(m, ShotLook._card, orb, Vector3(0.62, 0.62, 1.0))
 		ShotLook._put(m, ShotLook._flat, tail, Vector3(0.34, 1.0, 1.3), Vector3(0, 0, 0.62))
+
+## Static Shots (version 307): a spark of lightning jumps from `a` to the nearest other
+## skeleton (and on again with a second pick). Called on a hero shot's or swing's hit.
+func spark_from(a: Actor) -> void:
+	var jumps := int(perks.get("spark", 0))
+	if jumps <= 0 or a == null or not is_instance_valid(a) or Game.state != Game.State.PLAYING:
+		return
+	var now := Time.get_ticks_msec()
+	if now - _spark_ms < SPARK_GAP_MS:
+		return
+	var from := a.center()
+	var done: Array[Actor] = [a]
+	var dmg := damage * SPARK_SHARE * Game.chain_damage()
+	for j in jumps:
+		var best: Actor = null
+		var best_d := SPARK_R * SPARK_R
+		for b: Actor in Actor.all:
+			if b.team != Team.UNDEAD or not b.can_be_hit() or done.has(b):
+				continue
+			var dd := Vector2(b.global_position.x - from.x, b.global_position.z - from.z).length_squared()
+			if dd < best_d:
+				best_d = dd
+				best = b
+		if best == null:
+			break
+		_spark_ms = now
+		var to := best.center()
+		Fx.zap(from, to, SPARK_COL)
+		var push_dir := Vector3(to.x - from.x, 0.0, to.z - from.z)
+		best.take_damage(dmg, push_dir.normalized() if push_dir.length_squared() > 0.01 else Vector3.FORWARD, 1.5)
+		done.append(best)
+		from = to
+	if done.size() > 1:
+		Sfx.play("zap", 0.35, randf_range(0.9, 1.15))
+		Game._teach("spark", "STATIC SHOTS: every hit throws lightning on to the next skeleton!")
+
+
+## Spinning Bones (version 307): bone blades circling the hero in every fight, each cutting a
+## skeleton it touches at most every BONES_EVERY_MS.
+func _update_bones(delta: float) -> void:
+	var on := not dead and down_left <= 0.0 and Game.state == Game.State.PLAYING and Game.alive_enemies > 0
+	var n := 1 + int(perks.get("orbit", 0))
+	if _bones == null or _bones_n != n:
+		if not on and _bones == null:
+			return
+		_build_bones(n)
+	_bones.visible = on
+	if not on:
+		return
+	_bones_a = fmod(_bones_a - BONES_SPIN * delta, TAU)
+	_bones.global_rotation = Vector3(0, _bones_a, 0)
+	var now := Time.get_ticks_msec()
+	var dmg := damage * BONES_SHARE * Game.chain_damage()
+	for m: Node3D in _bones.get_children():
+		var at := m.global_position
+		for a: Actor in Actor.all:
+			if a.team != Team.UNDEAD or not a.can_be_hit():
+				continue
+			var d := a.global_position - at
+			d.y = 0.0
+			if d.length() > 0.5 + a.radius:
+				continue
+			var key := a.get_instance_id()
+			if int(_bones_next.get(key, 0)) > now:
+				continue
+			_bones_next[key] = now + BONES_EVERY_MS
+			var away := a.global_position - global_position
+			away.y = 0.0
+			a.take_damage(dmg, away.normalized() if away.length_squared() > 0.01 else d, 2.0)
+			Fx.sparks(at, BONE_COL)
+			Sfx.play("swing", 0.2, 1.7)
+			Game._teach("orbit", "SPINNING BONES: walk into skeletons and the blades cut them!")
+			break
+
+
+func _build_bones(n: int) -> void:
+	if _bones:
+		_bones.queue_free()
+	_bones_n = n
+	_bones = Node3D.new()
+	_bones.name = "SpinningBones"
+	_bones.position = Vector3(0, 0.9, 0)
+	add_child(_bones)
+	ShotLook._shaders()
+	# A cartoon bone (a shaft with two knobs at each end) lying along the circle, with a
+	# pale streak trailing behind it so the spin reads.
+	var bone := U.mat(BONE_COL, 0.6, 0.6)
+	var tail := ShotLook.hero_mat(ShotLook.K_TAIL, Color(BONE_COL.r, BONE_COL.g, BONE_COL.b, 0.6))
+	for i in n:
+		var ang := TAU * i / n
+		var m := Node3D.new()
+		_bones.add_child(m)
+		m.position = Vector3(cos(ang), 0, sin(ang)) * BONES_R
+		m.rotation.y = -ang   # its length along the circle
+		var shaft := U.cylinder(m, 0.08, 0.64, bone)
+		shaft.rotation.x = PI / 2.0
+		shaft.position = Vector3.ZERO
+		for z in [-0.32, 0.32]:
+			for x in [-0.08, 0.08]:
+				U.sphere(m, 0.105, bone, Vector3(x, 0, z))
+		ShotLook._put(m, ShotLook._flat, tail, Vector3(0.36, 1.0, 1.1), Vector3(0, -0.05, 0.75))
+
+
+## Phantom Dash (version 307): each skeleton the dash passes through is cut once.
+func _phantom_cuts() -> void:
+	for a: Actor in Actor.all.duplicate():
+		if a.team != Team.UNDEAD or not a.can_be_hit() or _phantom_cut.has(a):
+			continue
+		var d := a.global_position - global_position
+		d.y = 0.0
+		if d.length() > radius + a.radius + 0.45:
+			continue
+		_phantom_cut.append(a)
+		var side := d - _dash_dir * d.dot(_dash_dir)
+		a.take_damage(damage * PHANTOM_MULT * Game.chain_damage(), side.normalized() if side.length_squared() > 0.01 else _dash_dir, 6.0)
+		Fx.impact(a.center(), Color(0.75, 0.6, 1.0), 1.6)
+		Sfx.play("swing", 0.6, 1.3)
+		Game._teach("phantom", "PHANTOM DASH: dash straight through skeletons to cut them!")
+
+
+## Blazing Dash (version 307): a line of fire patches from where the dash began to where it ended.
+func _blaze_trail() -> void:
+	var path := global_position - _dash_from
+	path.y = 0.0
+	var steps := maxi(1, int(path.length() / BLAZE_STEP))
+	var dps := maxf(burn_dps, 6.0 + 0.4 * damage)
+	for i in steps + 1:
+		FirePatch.spawn_hero(_dash_from + path * (float(i) / steps), 0.8, 2.5, dps)
+	Game._teach("blaze_dash", "BLAZING DASH: lead skeletons over your trail of fire!")
+
+
+## Cold Snap (version 307): the special freezes every skeleton near the hero solid.
+func _cold_snap() -> void:
+	Fx.shockwave(global_position, Enemy.ICE_COL, COLD_SNAP_R)
+	Fx.magic(center(), Enemy.ICE_COL, 20)
+	for a: Actor in Actor.all.duplicate():
+		if a is Enemy and a.can_be_hit() and a.global_position.distance_to(global_position) < COLD_SNAP_R + a.radius:
+			(a as Enemy).freeze_solid(COLD_SNAP_TIME)
+
 
 func take_damage(amount: float, direction: Vector3, push: float, crit := false) -> void:
 	if not can_be_hit():

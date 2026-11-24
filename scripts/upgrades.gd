@@ -35,11 +35,13 @@ const LIST := [
 	{"id": "pierce", "family": "bolt", "rarity": "rare", "title": "Piercing Shot", "text": "Shots pass through 1 more enemy", "max": 2},
 	{"id": "diagonal", "family": "bolt", "rarity": "epic", "title": "Fan of Shots", "text": "+2 shots at an angle", "max": 2},
 	{"id": "fire", "family": "flame", "rarity": "rare", "title": "Fire Shots", "text": "Hits set enemies on fire", "max": 2},
-	{"id": "kindling", "family": "flame", "rarity": "common", "title": "Kindling", "text": "Fire burns twice as hot", "max": 1, "needs": "fire"},
+	# Version 307 (player panel fix 2): Kindling, Frostbite and Deep Freeze were number cards
+	# (fire twice as hot, chill twice as long, +30% damage); now each changes what happens.
+	{"id": "kindling", "family": "flame", "rarity": "common", "title": "Kindling", "text": "Burning skeletons leave a patch of fire where they fall", "max": 1, "needs": "fire"},
 	{"id": "pyre", "family": "flame", "rarity": "epic", "title": "Pyre", "text": "Burning skeletons explode when they die", "max": 1, "needs": "fire"},
 	{"id": "frost", "family": "frost", "rarity": "rare", "title": "Frost Shots", "text": "Hits slow enemies down", "max": 1},
-	{"id": "frostbite", "family": "frost", "rarity": "common", "title": "Frostbite", "text": "Chill lasts twice as long", "max": 1, "needs": "frost"},
-	{"id": "deepfreeze", "family": "frost", "rarity": "rare", "title": "Deep Freeze", "text": "Chilled skeletons take +30% damage", "max": 1, "needs": "frost"},
+	{"id": "frostbite", "family": "frost", "rarity": "common", "title": "Frostbite", "text": "Every 3rd hit on a chilled skeleton freezes it solid", "max": 1, "needs": "frost"},
+	{"id": "deepfreeze", "family": "frost", "rarity": "rare", "title": "Deep Freeze", "text": "Chilled skeletons shatter at 20% health (bosses take +30%)", "max": 1, "needs": "frost"},
 	{"id": "vitality", "family": "bone", "rarity": "common", "title": "Vitality", "text": "+30 max health and heal 30 (more on deeper floors)", "max": 12},
 	{"id": "boots", "family": "bone", "rarity": "common", "title": "Swift Boots", "text": "+12% move speed", "max": 3},
 	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Hearts heal 30% more, and fly to you from twice as far", "max": 1},
@@ -48,6 +50,15 @@ const LIST := [
 	{"id": "ward", "family": "bone", "rarity": "rare", "title": "Bone Ward", "text": "Block the first hit in every room", "max": 2},
 	{"id": "links", "family": "bone", "rarity": "rare", "title": "Long Links", "text": "Bone Chain lasts 1 second longer", "max": 1},
 	{"id": "marrow", "family": "bone", "rarity": "epic", "title": "Marrow", "text": "Bone Chain can climb to x4, and shots pierce 1 more enemy", "max": 1},
+	# Version 307 (player panel fix 2): six cards that change how a run plays, for every hero
+	# but Bouncing Shots ("heroes": only those heroes are offered it; the Knight's sword and
+	# the Barbarian's axes, which already come back off walls, have no use for it).
+	{"id": "bounce", "heroes": ["rogue", "mage"], "family": "bolt", "rarity": "rare", "title": "Bouncing Shots", "text": "Shots bounce off walls and pillars once", "max": 1},
+	{"id": "spark", "family": "bolt", "rarity": "rare", "title": "Static Shots", "text": "Every hit throws a spark of lightning to the next skeleton", "max": 2},
+	{"id": "orbit", "family": "bone", "rarity": "rare", "title": "Spinning Bones", "text": "Two bone blades circle you, cutting every skeleton they touch", "max": 2},
+	{"id": "blaze_dash", "family": "flame", "rarity": "rare", "title": "Blazing Dash", "text": "Your dash leaves a trail of fire that burns skeletons", "max": 1},
+	{"id": "phantom", "family": "bone", "rarity": "rare", "title": "Phantom Dash", "text": "Dash through skeletons to cut every one you pass", "max": 1},
+	{"id": "cold_snap", "family": "frost", "rarity": "rare", "title": "Cold Snap", "text": "Your special freezes every skeleton near you solid", "max": 1},
 	# Hero blessings: only the named hero is offered these. Version 239 (whole-game review fix
 	# 8): two of each hero's three were plain number bumps (Nimble, Backstab, Bulwark, Broad
 	# Swing, Bloodlust, Heavy Axes, Volatile Orbs, Arcane Flow). Now each one changes how that
@@ -150,6 +161,8 @@ static func get_def(id: String) -> Dictionary:
 
 ## Only the hero a blessing is made for is offered it.
 static func fits_hero(u: Dictionary) -> bool:
+	if u.has("heroes"):
+		return Game.hero != null and (u.heroes as Array).has(Game.hero.hero_id)
 	return not u.has("hero") or (Game.hero != null and Game.hero.hero_id == u.hero)
 
 
@@ -190,8 +203,7 @@ static func apply(id: String, h: Hero) -> void:
 		"rear": h.rear_bolts += 1
 		"pierce": h.pierce += 1
 		"crit": h.crit_chance += 0.15
-		"fire": h.burn_dps += 8.0 * (2.0 if h.perks.has("kindling") else 1.0)   # Kindling doubles a later Fire Shots too
-		"kindling": h.burn_dps *= 2.0
+		"fire": h.burn_dps += 8.0   # (Kindling no longer doubles it: version 307)
 		"vitality":
 			var v := vitality_amount()
 			h.max_health += v
@@ -221,7 +233,6 @@ static func apply(id: String, h: Hero) -> void:
 			h.damage -= _deep_base(h, "damage") * 0.04
 		"boots": h.move_speed *= 1.12
 		"frost": h.frost = true
-		"frostbite": h.frost_time *= 2.0
 		"magnet": h.magnet = 2.0
 		"greed": h.coin_bonus += 0.3
 		"ward":
@@ -371,7 +382,7 @@ static func _weighted(pool: Array, rng: RandomNumberGenerator = null) -> Diction
 ## Shots, Quick Draw, Sharpened Shots"). Now they are `n` different cards that each change how
 ## the hero fights: one of the hero's own blessings, then shot, fire, frost or ward cards,
 ## from different families where possible. Nothing the hero already holds.
-const GIFT_RULES := ["multishot", "fire", "frost", "pierce", "rear", "ward", "diagonal"]
+const GIFT_RULES := ["multishot", "fire", "frost", "pierce", "rear", "ward", "diagonal", "spark", "orbit", "phantom"]
 
 static func roll_gifts(taken: Dictionary, n := 3) -> Array:
 	var can := func(id: String) -> bool: return not taken.has(id)
@@ -380,7 +391,7 @@ static func roll_gifts(taken: Dictionary, n := 3) -> Array:
 	own.shuffle()
 	if not own.is_empty():
 		out.append(own[0])
-	var rules := GIFT_RULES.filter(can)
+	var rules := GIFT_RULES.filter(func(id: String) -> bool: return can.call(id) and fits_hero(get_def(id)))
 	rules.shuffle()
 	for fresh_family in [true, false]:
 		for id in rules:

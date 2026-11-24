@@ -600,6 +600,65 @@ static var _impact_frame := -1
 static var _impacts_now := 0
 
 
+## Version 307, Static Shots: a jagged spark of lightning from `a` to `b`, gone in about a fifth of a second.
+static var _zap_box: BoxMesh
+static var _zaps_now := 0
+static var _zap_frame := -1
+
+static func zap(a: Vector3, b: Vector3, color: Color) -> void:
+	var world := Game.world
+	if world == null:
+		return
+	var key := Engine.get_process_frames()
+	if key != _zap_frame:
+		_zap_frame = key
+		_zaps_now = 0
+	_zaps_now += 1
+	if _zaps_now > 3:
+		return
+	if _zap_box == null:
+		_zap_box = BoxMesh.new()
+		_zap_box.size = Vector3.ONE
+	var root := Node3D.new()
+	world.add_child(root)
+	# The outer glow is a deep electric blue drawn normally (not added), so the bolt still
+	# shows on the bright sandy and icy floors; the white core is added on top.
+	var deep := Color(color.r * 0.45, color.g * 0.75, color.b, 0.9)
+	var m := U.unlit(deep).duplicate() as StandardMaterial3D
+	var core := U.unlit(Color(1, 1, 1, 1.0)).duplicate() as StandardMaterial3D
+	core.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	var span := b - a
+	var side := span.cross(Vector3.UP)
+	side = side.normalized() if side.length_squared() > 0.0001 else Vector3.RIGHT
+	var pts: Array[Vector3] = [a]
+	var n := 5
+	for i in range(1, n):
+		pts.append(a.lerp(b, float(i) / n) + side * randf_range(-0.4, 0.4) + Vector3.UP * randf_range(-0.12, 0.12))
+	pts.append(b)
+	for i in n:
+		var p0 := pts[i]
+		var p1 := pts[i + 1]
+		var length := p0.distance_to(p1)
+		if length < 0.01:
+			continue
+		for layer in 2:
+			var seg := MeshInstance3D.new()
+			seg.mesh = _zap_box
+			seg.material_override = m if layer == 0 else core
+			seg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			root.add_child(seg)
+			var mid := (p0 + p1) * 0.5
+			var up := Vector3.UP if absf((p1 - p0).normalized().y) < 0.95 else Vector3.RIGHT
+			seg.look_at_from_position(mid, p1, up)
+			var w := 0.17 if layer == 0 else 0.06
+			seg.scale = Vector3(w, w, length)
+	impact(b, color, 1.1)
+	var tw := root.create_tween().set_parallel(true)
+	tw.tween_property(m, "albedo_color:a", 0.0, 0.14).set_delay(0.08)
+	tw.tween_property(core, "albedo_color:a", 0.0, 0.12).set_delay(0.06)
+	tw.chain().tween_callback(root.queue_free)
+
+
 ## A glowing after-image left behind by the dash.
 static func trail(pos: Vector3, color: Color) -> void:
 	_burst(pos, 6, color, 1.2, 0.6, 0.35, 0.0)

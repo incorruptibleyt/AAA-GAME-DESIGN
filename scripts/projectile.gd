@@ -50,6 +50,8 @@ var seek := 0.0
 ## Ricochet: after its last hit the shot flies on at the nearest other skeleton, this many times.
 var bounce := 0
 const BOUNCE_RANGE := 7.0
+## Version 307, Bouncing Shots: times a hero shot still bounces off a wall or pillar.
+var wall_bounce := 0
 ## Buzzsaw: where an axe turns for home it first hangs this long, spinning and grinding
 ## every skeleton beside it (each tick a share of its damage).
 var hang := 0.0
@@ -151,6 +153,7 @@ func _reset() -> void:
 	charged = 0.0
 	seek = 0.0
 	bounce = 0
+	wall_bounce = 0
 	hang = 0.0
 	_hang_left = 0.0
 	_hang_from = null
@@ -277,6 +280,10 @@ func _process(delta: float) -> void:
 			return
 	# Version 282 (Tweaks report #7): the whole stretch flown this frame is checked against
 	# cover, not only where it ends, so a shot can't skip through a pillar on a stutter.
+	if life > 0.0 and wall_bounce > 0 and not _back and boomerang <= 0.0 and Room.current \
+			and (Room.current.blocks_shot(next, radius * 0.5) or not Room.current.clear_shot(global_position, next)):
+		_bounce_off(next)
+		return
 	if life <= 0.0 or (not _back and Room.current and (Room.current.blocks_shot(next, radius * 0.5) \
 			or not Room.current.clear_shot(global_position, next))):
 		Fx.sparks(global_position, Color(1, 0.85, 0.5) if owner_team == Actor.Team.HERO else DANGER)
@@ -344,7 +351,9 @@ func _process(delta: float) -> void:
 		elif crit and owner_team == Actor.Team.HERO and not a.dead and Game.hero and Game.hero.perks.has("flashfire"):
 			Burning.apply(a, 8.0, 2.5)   # Flashfire
 		if (frost or (owner_team == Actor.Team.HERO and Blizzard.heart_chill())) and not a.dead and a is Enemy:
-			(a as Enemy).chill(Game.hero.frost_time if Game.hero else 1.5)
+			(a as Enemy).frost_hit(Game.hero.frost_time if Game.hero else 1.5, Game.hero)
+		if owner_team == Actor.Team.HERO and Game.hero and a is Enemy:
+			Game.hero.spark_from(a)   # Static Shots (version 307)
 		if splash > 0.0:
 			_explode(next, target, a)
 		if owner_team == Actor.Team.HERO:
@@ -363,6 +372,38 @@ func _process(delta: float) -> void:
 				return
 			_turn(a)   # bounces off the last skeleton it cut and comes back
 			return
+
+
+## Bouncing Shots (version 307): off the wall (the room is a box) or the pillar it ran into,
+## and it may hit every skeleton again.
+func _bounce_off(next: Vector3) -> void:
+	wall_bounce -= 1
+	var n := Vector3.ZERO
+	var half_w := Room.HALF_W - radius * 0.5
+	var half_l := Room.HALF_L - radius * 0.5
+	if absf(next.x) > half_w:
+		n.x = -signf(next.x)
+	if absf(next.z) > half_l:
+		n.z = -signf(next.z)
+	if n == Vector3.ZERO:
+		var best := INF
+		for o in Room.current.obstacles:
+			var d: Vector3 = next - o.pos
+			d.y = 0.0
+			var gap: float = d.length() - float(o.r)
+			if gap < best:
+				best = gap
+				n = d
+	n.y = 0.0
+	if n.length_squared() < 0.0001:
+		n = -dir
+	dir = dir.bounce(n.normalized())
+	dir.y = 0.0
+	dir = dir.normalized()
+	rotation.y = atan2(-dir.x, -dir.z)
+	_hit.clear()
+	Fx.sparks(global_position, Color(1, 0.85, 0.5))
+	Sfx.play("block", 0.15, 1.6)
 
 
 ## The axe turns for home: every skeleton can be cut once more (but not the one it just

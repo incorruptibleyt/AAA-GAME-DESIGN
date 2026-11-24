@@ -539,6 +539,9 @@ func _surface() -> void:
 ## Pyre and Shatter: burning or chilled skeletons take their neighbours with them.
 func _death_burst(h: Hero) -> void:
 	var burning := get_node_or_null("Burning") != null
+	# Version 307: Kindling, a burning skeleton leaves a patch of fire where it falls.
+	if burning and h.perks.has("kindling") and Room.current:
+		FirePatch.spawn_hero(global_position, 1.1, 3.0, maxf(h.burn_dps, 6.0))
 	var pyre := burning and h.perks.has("pyre")
 	var shatter := _slow_left > 0.0 and h.perks.has("shatter")
 	if not pyre and not shatter:
@@ -572,6 +575,55 @@ func _splinters(h: Hero) -> void:
 		var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 0.9 + d * 0.4, d, h.damage * 0.6 * Game.chain_damage(),
 			h.bolt_speed * 0.8, Color(0.95, 0.92, 0.8), h.bolt_size * 0.8, "Shot", "shard")
 		p.pierce = 1
+
+
+## Version 307: frozen solid (Frostbite, Cold Snap): shut in a block of ice for `seconds`, it
+## can't move or attack (the flinch keeps it standing). Bosses are only chilled.
+var _frozen_left := 0.0
+var _frost_hits := 0
+var _ice_block: MeshInstance3D
+static var _ice_mat: StandardMaterial3D
+const ICE_COL := Color(0.62, 0.92, 1.0)
+
+func freeze_solid(seconds: float) -> void:
+	if dead or not can_be_hit():
+		return
+	chill(seconds + 1.0)
+	if is_boss:
+		return
+	_frozen_left = maxf(_frozen_left, seconds)
+	_flinch_left = maxf(_flinch_left, seconds)
+	_cancel_attacks()
+	if _ice_block == null:
+		if _ice_mat == null:
+			_ice_mat = U.unlit(Color(0.72, 0.95, 1.0, 0.45)).duplicate() as StandardMaterial3D
+		_ice_block = MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = Vector3(radius * 2.6, 2.0, radius * 2.6)
+		_ice_block.mesh = box
+		_ice_block.material_override = _ice_mat
+		_ice_block.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_ice_block.position = Vector3(0, 1.0, 0)
+		_ice_block.rotation.y = randf() * TAU
+		add_child(_ice_block)
+		# A frosted white lid: the camera looks down on the block, so its top is what shows.
+		U.box(_ice_block, Vector3(radius * 2.3, 0.08, radius * 2.3), U.unlit(Color(0.94, 0.99, 1.0, 0.7)), Vector3(0, 1.0, 0))
+	_ice_block.visible = true
+	Fx.impact(center(), ICE_COL, 1.6)
+	Fx.magic(center(), ICE_COL, 14)
+	Sfx.play("crack", 0.45, 1.4)
+
+
+## A hero's frost hit (Frost Shots, the Blizzard's Winter's Heart): it chills, and with
+## Frostbite every 3rd hit on a skeleton that is already chilled freezes it solid.
+func frost_hit(seconds: float, h: Hero) -> void:
+	if h and h.perks.has("frostbite") and _slow_left > 0.0 and _frozen_left <= 0.0:
+		_frost_hits += 1
+		if _frost_hits >= 3:
+			_frost_hits = 0
+			freeze_solid(1.5)
+			Game._teach("frostbite", "FROSTBITE: every 3rd hit on a chilled skeleton freezes it solid!")
+	chill(seconds)
 
 
 ## Frost Shots: walk slower for a moment.
@@ -636,6 +688,11 @@ func _process(delta: float) -> void:
 		return
 	visual.position.y = 0.0
 	_slow_left -= delta
+	if _frozen_left > 0.0:
+		_frozen_left -= delta
+		if _frozen_left <= 0.0 and _ice_block:
+			_ice_block.visible = false
+			Fx.sparks(center(), ICE_COL)
 	_roar_left -= delta
 	_guard_left -= delta
 
@@ -1033,8 +1090,15 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 	if _ward_hits > 0 and amount < Actor.KILL:
 		_ward_block()
 		return
-	if _slow_left > 0.0 and Game.hero and Game.hero.perks.has("deepfreeze"):
-		amount *= 1.3
+	# Version 307: Deep Freeze shatters a chilled skeleton that falls to 20% health (a boss
+	# only takes +30%, as the card used to give everyone).
+	var shatter := false
+	if _slow_left > 0.0 and Game.hero and Game.hero.perks.has("deepfreeze") and amount < Actor.KILL:
+		if is_boss:
+			amount *= 1.3
+		elif health - amount <= max_health * 0.2:
+			amount = maxf(amount, health)
+			shatter = true
 	if health < max_health * 0.3 and Game.hero and Game.hero.perks.has("executioner"):
 		amount *= 1.5
 	if is_boss:
@@ -1049,6 +1113,10 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 				return
 	super.take_damage(amount, direction, push * knockback_scale, crit)
 	Game.note_progress()
+	if shatter and dead:
+		Fx.impact(center(), ICE_COL, 2.2)
+		Fx.magic(center(), Color(0.85, 0.97, 1.0), 22)
+		Sfx.play("crack", 0.6, 1.15)
 	if _bar:
 		_bar.reveal()
 	# A hit worth a quarter of its health staggers it and breaks a swing still winding up.
@@ -1070,6 +1138,8 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 
 
 func _on_death() -> void:
+	if _ice_block:
+		_ice_block.visible = false
 	for t in _telegraphs:
 		if is_instance_valid(t):
 			t.cancel()
