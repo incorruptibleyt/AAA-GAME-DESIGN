@@ -1156,6 +1156,11 @@ void fragment() {
 	float across = 1.0 - abs(UV.x * 2.0 - 1.0);
 	float flow = 0.45 + 0.55 * pow(0.5 + 0.5 * sin(UV.y * 9.0 - TIME * 7.0), 3.0);
 	ALBEDO = vec3(0.62, 0.32, 1.0) * across * across * flow * COLOR.a;
+	// (added light writes its own alpha: over a see-through pedestal picture an
+	// unwritten alpha of 1 drew a black box wherever the quad lay)
+	float glow_a = max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b);
+	ALBEDO /= max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
 }
 """
 		_wyrm_thread_mat = ShaderMaterial.new()
@@ -1641,30 +1646,54 @@ class Icon extends Control:
 			draw_circle(p, 2.0, Color(1.0, 0.8, 0.3, 0.8))
 
 	func _steps(stars: bool) -> void:
+		if stars:
+			_stardust()
+			return
 		for j in 2:
 			var s := -1.0 if j == 0 else 1.0
 			var c := Vector2(14 * s, 14 if j == 0 else -16)
 			var age := fmod(_t * 0.7 + j * 0.5, 1.0)
-			if stars:
-				var pts := [c + Vector2(0, 16), c + Vector2(1, 3), c + Vector2(-1, -8), c + Vector2(-5, -18), c + Vector2(5, -17)]
-				var a := 1.0 - age * 0.6
-				for pr in [[0, 1], [1, 2], [2, 3], [2, 4]]:
-					draw_line(pts[pr[0]], pts[pr[1]], Color(0.7, 0.85, 1.0, 0.45 * a), 1.5)
-				for i in pts.size():
-					var tw := 0.6 + 0.4 * sin(_t * 6.0 + i * 1.9 + j)
-					_glow(pts[i], 10, Color(0.75, 0.85, 1.0, 0.7 * a * tw))
-					draw_circle(pts[i], 2.4, Color(1, 1, 1, a))
-			else:
-				var fire := 1.0 - age
-				_ellipse(c + Vector2(0, 6), 9, 13, Color(0.12, 0.06, 0.03))
-				for i in 5:
-					draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 2.6, Color(0.12, 0.06, 0.03))
-				var hot := Color(1.0, 0.5 + 0.2 * fire, 0.1, 0.35 + 0.65 * fire)
-				_glow(c + Vector2(0, 2), 22, Color(1.0, 0.45, 0.1, 0.6 * fire))
-				_ellipse(c + Vector2(0, 6), 6.5, 10, hot)
-				for i in 5:
-					draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 1.6, hot)
-				draw_circle(c + Vector2(sin(_t * 3.0 + j) * 3, -4 - age * 26), 1.8, Color(1, 0.75, 0.3, fire))
+			var fire := 1.0 - age
+			_ellipse(c + Vector2(0, 6), 9, 13, Color(0.12, 0.06, 0.03))
+			for i in 5:
+				draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 2.6, Color(0.12, 0.06, 0.03))
+			var hot := Color(1.0, 0.5 + 0.2 * fire, 0.1, 0.35 + 0.65 * fire)
+			_glow(c + Vector2(0, 2), 22, Color(1.0, 0.45, 0.1, 0.6 * fire))
+			_ellipse(c + Vector2(0, 6), 6.5, 10, hot)
+			for i in 5:
+				draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 1.6, hot)
+			draw_circle(c + Vector2(sin(_t * 3.0 + j) * 3, -4 - age * 26), 1.8, Color(1, 0.75, 0.3, fire))
+
+	## Stardust Steps: a zig-zag path of fat coloured stars joined by lines of light, the
+	## newest popping in with a flash, the oldest going out.
+	func _stardust() -> void:
+		var cols := [Color(1.0, 0.8, 0.35), Color(0.45, 0.75, 1.0), Color(0.72, 0.5, 1.0), Color(0.4, 0.95, 0.85)]
+		var pts: Array[Vector2] = []
+		for i in 5:
+			pts.append(Vector2(-34 + i * 17, 26 - i * 13 + (8 if i % 2 == 0 else -8)))
+		var cyc := fmod(_t * 1.2, 1.0)
+		for i in 4:
+			var a := 0.35 + 0.65 * (i + 1) / 4.0
+			draw_line(pts[i], pts[i + 1], Color(cols[(i + 1) % 4], 0.5 * a), 5.0)
+			draw_line(pts[i], pts[i + 1], Color(1, 1, 1, 0.8 * a), 1.6)
+		for i in 5:
+			var col: Color = cols[i % 4]
+			var a := 0.4 + 0.6 * i / 4.0
+			var r := 9.0 + (4.0 * (1.0 - cyc) if i == 4 else 0.0)
+			_glow(pts[i], r * 2.0, Color(col, 0.55 * a))
+			_star(pts[i], r * 1.2, Color(col.darkened(0.7), a), _t * 0.5 + i)
+			_star(pts[i], r, Color(col, a), _t * 0.5 + i)
+			_star(pts[i], r * 0.45, Color(1, 1, 0.95, a), _t * 0.5 + i)
+		var tw := pow(maxf(0.0, 1.0 - cyc * 2.5), 2.0)
+		_glow(pts[4], 26 * tw + 4, Color(1, 1, 1, 0.8 * tw))
+
+	func _star(p: Vector2, r: float, col: Color, turn: float) -> void:
+		var poly := PackedVector2Array()
+		for i in 10:
+			var a := TAU * i / 10.0 + turn * 0.2
+			var rr := r if i % 2 == 0 else r * 0.5
+			poly.append(p + Vector2(sin(a), -cos(a)) * rr)
+		draw_colored_polygon(poly, col)
 
 	## A little skull at the bottom, the start of everything a finisher does.
 	func _skull(p: Vector2, r: float, a := 1.0) -> void:

@@ -367,6 +367,11 @@ void fragment() {
 	float body = 0.32 + 0.75 * fres;
 	float tail = 1.0 - smoothstep(0.55, 1.0, UV.y);
 	ALBEDO = tint * body * (0.45 + 0.55 * tail) * alpha;
+	// (added light writes its own alpha: over a see-through pedestal picture an
+	// unwritten alpha of 1 drew a black box wherever the quad lay)
+	float glow_a = max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b);
+	ALBEDO /= max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
 }
 """
 	var m := ShaderMaterial.new()

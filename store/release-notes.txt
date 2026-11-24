@@ -1,3 +1,4 @@
-Version 321: Legend Vault, Supercell pass 4 of 10
-- Bone Wyrm rebuilt: a great skeleton dragon that coils round you in the air, its spine following the path it flew, soul light running through its bones. It roars, and pours violet fire at bosses.
-- Also new: Soul Harvest, Crypt Raven and Gold Rush rebuilt.
+Version 322: Legend Vault, Supercell pass 5 of 10
+- Stardust Steps rebuilt: each step drops a fat glowing star joined to the last by a line of light, so your path becomes a constellation. A dash leaves a streak of stardust.
+- Fixed: glowing Legend looks no longer show a dark box on the shop pedestal.
+- Also new: Soul Harvest, Crypt Raven, Gold Rush and Bone Wyrm rebuilt.

@@ -6,8 +6,12 @@ extends Node3D
 ##                (version 317: it was one flat orange print, which read as mud); it cools from
 ##                white through orange to red and goes out in about two seconds, and the black
 ##                scorch fades after it.
-##   star_steps:  Stardust Steps. Each step leaves a little constellation in the shape of a
-##                footprint (five stars joined by faint lines) that twinkles and fades away.
+##   star_steps:  Stardust Steps (version 322: it was five faint sparkles per step). Each step
+##                drops a fat five-pointed star onto the floor (a white heart, a coloured
+##                rim, a dark outline) that pops in with a flash of light and a ring of
+##                stardust, and a line of light joins it to the step before, so the hero's
+##                path is drawn behind them as a constellation; the stars twinkle, shed
+##                motes and go out one by one. A dash leaves a streak of stardust.
 ## In a run the marks lie in the world (top_level) wherever the hero walked; on a pedestal a
 ## line of steps walks out from the hero's feet towards the camera, over and over, tipped up so
 ## the camera can see them.
@@ -27,6 +31,11 @@ var _marks: Array[Dictionary] = []
 var _next := 0
 var _stage_t := 0.0
 var _stage_i := 0
+var _prev_at := Vector3(INF, 0, 0)   # (the last star, for the line of light to the next)
+var _dust: CPUParticles3D   # (Stardust Steps: the streak a dash leaves)
+
+## Stardust Steps: the colours the stars take in turn (pale gold, ice blue, violet, sea green).
+const STAR_COLS := [Color(1.0, 0.8, 0.35), Color(0.45, 0.75, 1.0), Color(0.72, 0.5, 1.0), Color(0.4, 0.95, 0.85)]
 
 
 func _ready() -> void:
@@ -38,6 +47,9 @@ func _ready() -> void:
 		_last = _anchor.global_position
 	for i in POOL:
 		_marks.append(_make_mark())
+	if kind == "star_steps" and not _staged:
+		_dust = _star_dust()
+		add_child(_dust)
 
 
 func _process(delta: float) -> void:
@@ -63,6 +75,10 @@ func _process(delta: float) -> void:
 	if step.length() > 3.0 or a.y > 0.5:
 		return   # (a jump to a new room, or flung through the air)
 	_walked += step.length()
+	if _dust:
+		# A dash (21 m/s; a run is 6) streams stardust from the hero.
+		_dust.global_position = a + Vector3(0, 0.5, 0)
+		_dust.emitting = step.length() > 12.0 * delta
 	if _walked >= STRIDE and step.length() > 0.001:
 		_walked = 0.0
 		var dir := step.normalized()
@@ -88,6 +104,8 @@ func _put(at: Vector3, yaw: float) -> void:
 	n.visible = true
 	m.age = 0.0
 	m.seed = randf() * TAU
+	if kind == "star_steps":
+		_star_put(m, at)
 	_fade(m)
 
 
@@ -95,21 +113,7 @@ func _fade(m: Dictionary) -> void:
 	var t: float = m.age
 	var n: Node3D = m.node
 	if kind == "star_steps":
-		var life := 2.6
-		if t >= life:
-			n.visible = false
-			m.age = -1.0
-			return
-		var k := 1.0 - smoothstep(life * 0.45, life, t)
-		var mats: Array = m.mats
-		for i in mats.size() - 1:
-			var tw := 0.65 + 0.35 * sin(t * 9.0 + m.seed + i * 1.7)
-			(mats[i] as StandardMaterial3D).albedo_color.a = k * tw * minf(1.0, t * 8.0)
-		(mats[-1] as StandardMaterial3D).albedo_color.a = 0.6 * k * minf(1.0, t * 4.0)
-		var stars: Array = m.stars
-		for i in stars.size():
-			var s := 1.0 + 0.25 * sin(t * 7.0 + i * 2.1 + m.seed)
-			(stars[i] as Node3D).scale = Vector3(s, 1.0, s)
+		_star_fade(m, t)
 		return
 	# Ember Steps: the fire flickers out in about two seconds; the scorch fades after it.
 	var life_e := 4.0
@@ -132,28 +136,7 @@ func _make_mark() -> Dictionary:
 	add_child(n)
 	var m := {"node": n, "age": -1.0, "seed": 0.0}
 	if kind == "star_steps":
-		# Five stars where the heel, the arch, the ball and two toes of a foot would be.
-		var spots := [Vector3(0, 0, 0.17), Vector3(0.02, 0, 0.03), Vector3(-0.01, 0, -0.1), Vector3(-0.05, 0, -0.21), Vector3(0.05, 0, -0.2)]
-		var cols := [Color(0.85, 0.95, 1.0), Color(0.7, 0.85, 1.0), Color(1.0, 0.95, 0.75), Color(0.8, 0.75, 1.0), Color(0.85, 0.95, 1.0)]
-		var mats: Array[StandardMaterial3D] = []
-		var stars: Array[Node3D] = []
-		for i in spots.size():
-			var mat := _flat_mat(cols[i], U.glint())
-			mats.append(mat)
-			var q := U.floor_quad(n, Vector2.ONE * (0.4 if i != 1 else 0.28), mat, spots[i] * 1.25)
-			stars.append(q)
-		# The lines that join them, in one faint material.
-		var line_mat := _flat_mat(Color(0.7, 0.85, 1.0), null)
-		mats.append(line_mat)
-		for pair in [[0, 1], [1, 2], [2, 3], [2, 4]]:
-			var a: Vector3 = spots[pair[0]]
-			var b: Vector3 = spots[pair[1]]
-			a *= 1.25
-			b *= 1.25
-			var l := U.floor_quad(n, Vector2(0.02, a.distance_to(b)), line_mat, (a + b) * 0.5 - Vector3(0, 0.002, 0))
-			l.rotation.y = atan2(b.x - a.x, b.z - a.z)
-		m.mats = mats
-		m.stars = stars
+		_star_mark(n, m)
 		return m
 	# Ember Steps: a black scorch under a burning footprint, a haze of heat round it, three
 	# little flames standing on it (at the toes, the ball and the heel) and a spark rising.
@@ -193,6 +176,251 @@ func _make_mark() -> Dictionary:
 	return m
 
 
+# ---------------------------------------------------------------- Stardust Steps
+
+static var _star_mesh: ArrayMesh
+static var _star_shader: Shader
+static var _ring_shader: Shader
+static var _line_shader: Shader
+
+
+## A step's star: a soft glow under it, the star itself, a ring of stardust that rings out,
+## a flash of light over it and two motes that rise off it; the line of light back to the
+## step before is its own (it lies between the two).
+func _star_mark(n: Node3D, m: Dictionary) -> void:
+	m.glow = _flat_mat(Color.WHITE, null)
+	m.glow_q = U.floor_quad(n, Vector2.ONE * 1.0, m.glow, Vector3(0, 0.002, 0))
+	m.ring = _star_mat("ring")
+	U.floor_quad(n, Vector2.ONE * 1.7, m.ring, Vector3(0, 0.004, 0))
+	m.star = _star_mat("star")
+	var st := MeshInstance3D.new()
+	st.mesh = _star_shape()
+	st.material_override = m.star
+	st.position = Vector3(0, 0.008, 0)
+	st.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(st)
+	m.star_q = st
+	m.flare = LegendPet._add_mat(Color.WHITE, true)
+	m.flare.albedo_texture = U.glint()
+	m.flare.render_priority = 3
+	var fl := MeshInstance3D.new()
+	fl.mesh = LegendPet._quad(1.0)
+	fl.material_override = m.flare
+	fl.position = Vector3(0, 0.18, 0)
+	fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	n.add_child(fl)
+	m.flare_q = fl
+	m.mote = LegendPet._add_mat(Color.WHITE, true)
+	m.mote.albedo_texture = U.glint()
+	var motes: Array[Node3D] = []
+	for i in 2:
+		var q := MeshInstance3D.new()
+		q.mesh = LegendPet._quad(0.2)
+		q.material_override = m.mote
+		q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		n.add_child(q)
+		motes.append(q)
+	m.motes = motes
+	m.line = _star_mat("line")
+	var ln := U.floor_quad(self, Vector2(0.15, 1.0), m.line, Vector3.ZERO)
+	ln.visible = false
+	m.line_q = ln
+
+
+## Lays a step's star at `at`: its colour, a turn of its own, and the line of light from the
+## step before (none after a jump to a new room).
+func _star_put(m: Dictionary, at: Vector3) -> void:
+	var col: Color = STAR_COLS[_next % STAR_COLS.size()]
+	m.col = col
+	m.glow.albedo_color = Color(col, 0.0)
+	m.mote.albedo_color = Color(col.lightened(0.4), 0.0)
+	m.flare.albedo_color = Color(col.lightened(0.6), 0.0)
+	for k in ["ring", "star", "line"]:
+		(m[k] as ShaderMaterial).set_shader_parameter("col", col)
+	(m.star_q as Node3D).rotation.y = randf() * TAU
+	var ln: MeshInstance3D = m.line_q
+	var d := at - _prev_at
+	d.y = 0.0
+	ln.visible = d.length() > 0.2 and d.length() < 1.6
+	if ln.visible:
+		var mid := (at + _prev_at) * 0.5
+		var b := Basis(Vector3.UP, atan2(d.x, d.z)) * Basis.from_scale(Vector3(1.0, 1.0, d.length()))
+		if _staged:
+			b = Basis(Vector3.RIGHT, -0.65) * b * Basis.from_scale(Vector3(1.35, 1.0, 1.0))
+			mid.y = 0.16
+		ln.transform = Transform3D(b, mid + Vector3(0, 0.003, 0))
+	_prev_at = at
+
+
+func _star_fade(m: Dictionary, t: float) -> void:
+	var n: Node3D = m.node
+	var life := 3.0
+	var ln: MeshInstance3D = m.line_q
+	if t >= life:
+		n.visible = false
+		ln.visible = false
+		m.age = -1.0
+		return
+	var out := 1.0 - smoothstep(life * 0.55, life, t)
+	# The star pops in (overshooting), twinkles, and shrinks away at the end.
+	var pop := minf(1.0, t / 0.1)
+	var s := pop * (1.0 + 0.45 * sin(minf(t / 0.32, 1.0) * PI) ) * (0.25 + 0.75 * out)
+	s *= 1.0 + 0.08 * sin(t * 9.0 + m.seed)
+	(m.star_q as Node3D).scale = Vector3.ONE * (0.15 if _staged else 0.3) * s
+	(m.star_q as Node3D).rotation.y += 0.01
+	(m.star as ShaderMaterial).set_shader_parameter("alpha", minf(1.0, t * 12.0) * minf(1.0, out * 1.6))
+	(m.glow as StandardMaterial3D).albedo_color.a = (0.55 + 0.25 * sin(t * 6.0 + m.seed)) * out * pop + 0.5 * (1.0 - smoothstep(0.0, 0.3, t))
+	(m.glow_q as Node3D).scale = Vector3.ONE * (0.7 + 0.3 * out)
+	# A flash of light as it lands, then a small twinkle over it now and then.
+	var flash := 1.0 - smoothstep(0.0, 0.35, t)
+	var tw := pow(maxf(0.0, sin(t * 4.5 + m.seed)), 8.0) * 0.6 * out
+	(m.flare as StandardMaterial3D).albedo_color.a = maxf(flash, tw)
+	(m.flare_q as Node3D).scale = Vector3.ONE * (0.35 + 1.0 * flash + 0.25 * tw)
+	(m.ring as ShaderMaterial).set_shader_parameter("t", clampf(t / 0.55, 0.0, 1.0))
+	# The line of light draws itself from the step before to this one, then fades first.
+	(m.line as ShaderMaterial).set_shader_parameter("grow", clampf(t / 0.16, 0.0, 1.0))
+	(m.line as ShaderMaterial).set_shader_parameter("alpha", 1.0 - smoothstep(life * 0.4, life * 0.85, t))
+	# Two motes rise off it, drifting and fading.
+	var motes: Array = m.motes
+	for i in motes.size():
+		var k := fmod(t * 0.8 + i * 0.5, 1.0)
+		var q: Node3D = motes[i]
+		q.position = Vector3(sin(m.seed + i * 2.6) * 0.14, 0.1 + k * 0.9, cos(m.seed + i * 2.6) * 0.14)
+		q.scale = Vector3.ONE * (1.0 - k * 0.6)
+	(m.mote as StandardMaterial3D).albedo_color.a = 0.9 * out * minf(1.0, t * 3.0)
+
+
+## The star: five fat points round a white heart, rim in the mark's colour (`col`), with a
+## dark outline round it so it stands off any floor. UV.x: 0 at the heart to 1 at the rim;
+## UV.y 1 on the outline.
+static func _star_shape() -> ArrayMesh:
+	if _star_mesh:
+		return _star_mesh
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for layer in 2:
+		var big := 1.2 if layer == 0 else 1.0
+		var y := 0.0 if layer == 0 else 0.004
+		var pts: Array[Vector3] = []
+		for i in 10:
+			var a := TAU * i / 10.0
+			var r := (1.0 if i % 2 == 0 else 0.5) * big
+			pts.append(Vector3(sin(a) * r, y, -cos(a) * r))
+		for i in 10:
+			for v in [[Vector3(0, y + 0.03, 0), 0.0], [pts[i], 1.0], [pts[(i + 1) % 10], 1.0]]:
+				st.set_uv(Vector2(v[1], 1.0 - layer))
+				st.set_normal(Vector3.UP)
+				st.add_vertex(v[0])
+	_star_mesh = st.commit()
+	return _star_mesh
+
+
+## Each mark's own material for its star, its ring of stardust or its line of light.
+static func _star_mat(which: String) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	match which:
+		"star":
+			if _star_shader == null:
+				_star_shader = Shader.new()
+				_star_shader.code = """
+shader_type spatial;
+render_mode unshaded, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0);
+uniform float alpha = 0.0;
+void fragment() {
+	vec3 c = mix(vec3(1.0, 1.0, 0.95), col.rgb, smoothstep(0.25, 0.85, UV.x));
+	c = mix(c, col.rgb * 0.22, UV.y);
+	ALBEDO = c;
+	ALPHA = alpha;
+}
+"""
+			m.shader = _star_shader
+			m.render_priority = 2
+		"ring":
+			if _ring_shader == null:
+				_ring_shader = Shader.new()
+				_ring_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0);
+uniform float t = 1.0;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x);
+	float at = 0.15 + t * 0.8;
+	float band = 1.0 - smoothstep(0.0, 0.07 + 0.05 * t, abs(r - at));
+	float cell = floor(a * 4.0);
+	float dots = smoothstep(0.55, 0.95, fract(sin(cell * 12.9898) * 43758.5453)) * (1.0 - smoothstep(0.0, 0.05, abs(r - at - 0.04)));
+	ALBEDO = (col.rgb * band + vec3(1.0) * dots) * (1.0 - t) * 1.3;
+	// (added light writes its own alpha: over a see-through pedestal picture an
+	// unwritten alpha of 1 drew a black box wherever the quad lay)
+	float glow_a = max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b);
+	ALBEDO /= max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
+}
+"""
+			m.shader = _ring_shader
+			m.render_priority = 1
+		"line":
+			if _line_shader == null:
+				_line_shader = Shader.new()
+				_line_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0);
+uniform float grow = 0.0;
+uniform float alpha = 0.0;
+void fragment() {
+	float across = 1.0 - abs(UV.x * 2.0 - 1.0);
+	float along = UV.y;
+	float shown = step(along, grow);
+	float spark = exp(-pow((along - fract(TIME * 0.9 + col.r * 3.0)) * 9.0, 2.0));
+	float ends = smoothstep(0.0, 0.12, along) * smoothstep(0.0, 0.12, 1.0 - along);
+	ALBEDO = (col.rgb * across * across * 0.9 + vec3(1.0) * spark * across * 0.8) * shown * ends * alpha;
+	// (added light writes its own alpha: over a see-through pedestal picture an
+	// unwritten alpha of 1 drew a black box wherever the quad lay)
+	float glow_a = max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b);
+	ALBEDO /= max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
+}
+"""
+			m.shader = _line_shader
+			m.render_priority = 1
+	return m
+
+
+## The streak a dash leaves: glints in the stars' colours that hang in the air and fade.
+static func _star_dust() -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.amount = 60
+	p.lifetime = 0.9
+	p.emitting = false
+	p.local_coords = false
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+	p.emission_sphere_radius = 0.35
+	p.direction = Vector3.UP
+	p.spread = 60.0
+	p.gravity = Vector3(0, -0.4, 0)
+	p.initial_velocity_min = 0.2
+	p.initial_velocity_max = 0.8
+	p.scale_amount_min = 0.6
+	p.scale_amount_max = 1.4
+	var q := QuadMesh.new()
+	q.size = Vector2.ONE * 0.45
+	p.mesh = q
+	var m := LegendPet._add_mat(Color(1, 1, 1, 1), true)
+	m.albedo_texture = U.glint()
+	m.vertex_color_use_as_albedo = true
+	m.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+	p.material_override = m
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.3, 0.65, 1.0])
+	g.colors = PackedColorArray([Color(1.0, 0.95, 0.8, 1.0), Color(1.0, 0.8, 0.35, 0.9), Color(0.5, 0.75, 1.0, 0.7), Color(0.72, 0.5, 1.0, 0.0)])
+	p.color_ramp = g
+	return p
+
+
 static var _glow_shader: Shader
 static var _flame_shader: Shader
 
@@ -217,6 +445,11 @@ void fragment() {
 	c = mix(c, vec3(1.0, 0.93, 0.62), smoothstep(0.55, 0.95, x));
 	float a = smoothstep(0.0, 0.12, v) * clamp(h * 1.4, 0.0, 1.0);
 	ALBEDO = c * a;
+	// (added light writes its own alpha: over a see-through pedestal picture an
+	// unwritten alpha of 1 drew a black box wherever the quad lay)
+	float glow_a = max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b);
+	ALBEDO /= max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
 }
 """
 	var m := ShaderMaterial.new()
@@ -249,6 +482,11 @@ void fragment() {
 	float hot = (1.0 - smoothstep(0.0, w * 0.6 + 0.001, abs(p.x))) * (1.0 - yy);
 	vec3 c = mix(vec3(1.0, 0.32, 0.04), vec3(1.0, 0.88, 0.5), hot);
 	ALBEDO = c * inside * smoothstep(0.0, 0.25, h);
+	// (added light writes its own alpha: over a see-through pedestal picture an
+	// unwritten alpha of 1 drew a black box wherever the quad lay)
+	float glow_a = max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b);
+	ALBEDO /= max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
 }
 """
 	var m := ShaderMaterial.new()
