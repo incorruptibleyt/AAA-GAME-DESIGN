@@ -1,4 +1,5 @@
-Version 335: Legend Vault looks get better (6 of 6)
-- Mimic: gold glows inside its mouth, coins on its lip and a little pile of gold at its feet in the shop.
-- Gold Rush: the coins flash and sparkle as they fly.
-- Bone Emperor: a wider, grander bone throne that frames your hero.
+Version 336: see the fight better
+- The run camera sits a little lower and closer: skeletons show their faces and everyone is bigger on your phone.
+- The Mage's hat brim is narrower in a run, so you see the Mage, not a purple disc.
+- Your hero's bright outline is bolder.
+- The bottom of the screen shows the stone top of the wall instead of a black strip.

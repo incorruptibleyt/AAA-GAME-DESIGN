@@ -9,6 +9,7 @@ extends Node3D
 const CELL := 4.0 / 3.0
 const HALF_W := Layouts.COLUMNS * CELL * 0.5   # 6
 const HALF_L := Layouts.ROWS * CELL * 0.5      # 10
+const LEDGE_DEPTH := 4.5   # v336: the near ledge, deep enough to fill the bottom of the screen
 const WALL_H := 2.6
 const DOOR_HALF := 1.2
 
@@ -74,7 +75,10 @@ func _build_shell() -> void:
 	# The near wall is only a low ledge so it never hides the hero from the camera. It is
 	# laid with darker stone than the floor, so the bottom of the screen reads as the top
 	# of a wall instead of a flat coloured bar.
-	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.5, t), _wall_material(look, _ledge_material(look)), Vector3(0, 0.25, HALF_L + t / 2))
+	# Version 336 (visual review fix 1): the ledge runs 4.5 m deep toward the camera, so the
+	# bottom of the phone shows the top of a thick stone wall instead of a black strip.
+	var ledge_d := LEDGE_DEPTH
+	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.5, ledge_d), _wall_material(look, _ledge_material(look)), Vector3(0, 0.25, HALF_L + ledge_d / 2))
 	var side := HALF_W - DOOR_HALF
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(-DOOR_HALF - side / 2, WALL_H / 2, -HALF_L - t / 2))
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(DOOR_HALF + side / 2, WALL_H / 2, -HALF_L - t / 2))

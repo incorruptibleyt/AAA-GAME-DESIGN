@@ -12,7 +12,10 @@ const TUTORIAL_ROOMS := 2   # version 169: room 1 move and shoot, room 2 dash, t
 const SAVE_PATH := "user://save.cfg"
 const SAVE_BACKUP := "user://save.cfg.bak"
 
-const CAMERA_PITCH := 58.0
+## Version 336 (visual review fix 1): 52 degrees, was 58. From higher up the run camera saw
+## the tops of hats and skulls; a little lower it sees the skeletons' faces and more of the
+## hero's body, and the room still fits the same way (the follow math works from the angle).
+const CAMERA_PITCH := 52.0
 const CAMERA_FOV := 42.0
 
 var state := State.TITLE
@@ -98,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24zg"
+const BUILD := "2026-11-24zh"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1621,7 +1624,8 @@ func keyboard_move() -> Vector2:
 
 ## How much of the room's width the camera shows (the room is 12 wide). Showing about two
 ## thirds of it keeps the skeletons big on a phone; the camera follows the hero instead.
-const VIEW_HALF_WIDTH := 4.4
+## Version 336 (visual review fix 1): 4.0, was 4.4, so everyone is a tenth bigger on a phone.
+const VIEW_HALF_WIDTH := 4.0
 ## The hero sits this far above the middle of the screen, away from the thumb.
 const HERO_ABOVE_CENTRE := 0.9
 ## Version 220: share of the screen at the top the hero is kept out of (the top HUD).

@@ -681,7 +681,31 @@ func on_kill() -> void:
 		heal(amount)
 
 
+## Version 336 (visual review fix 1): the run camera looks down on the hero, and the Mage's
+## own hat brim covered the whole body: from above the Mage was a lilac disc. In a run the
+## brim draws narrower (the cone keeps its height); on the title, where the camera sees the
+## Mage from the front, it eases back to full size (Game._lobby).
+const RUN_BRIM := 0.68
+var _brim: Node3D
+var _brim_base := Vector3.ONE
+var _brim_looked := false
+
+func _update_brim() -> void:
+	if not _brim_looked:
+		_brim_looked = true
+		if visual:
+			var hats := visual.find_children("Mage_Hat", "MeshInstance3D", true, false)
+			if not hats.is_empty():
+				_brim = hats[0] as Node3D
+				_brim_base = _brim.scale
+	if _brim == null or not is_instance_valid(_brim):
+		return
+	var k := lerpf(RUN_BRIM, 1.0, clampf(Game._lobby, 0.0, 1.0))
+	_brim.scale = Vector3(_brim_base.x * k, _brim_base.y, _brim_base.z * k)
+
+
 func _process(delta: float) -> void:
+	_update_brim()
 	delta = minf(delta, MAX_STEP)   # v282 (Tweaks report #7): a long frame is a short slow-down, never a jump
 	if dead:
 		return

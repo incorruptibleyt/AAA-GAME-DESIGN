@@ -55,7 +55,7 @@ var _outline_set := {}
 ## aura keeps its own colours). Only the hero, so it costs one character's few extra draws.
 var team_line := false
 const TEAM_INK := Color(0.72, 0.96, 1.0)
-const TEAM_WIDTH := 0.004
+const TEAM_WIDTH := 0.0052   # v336: was 0.004, lost on busy floors
 ## Version 305: while the hero can't be hurt after a hit, they flicker pale instead of
 ## vanishing (the blink used to hide the whole model, leaving only a dark ring).
 var _blink_off := false
