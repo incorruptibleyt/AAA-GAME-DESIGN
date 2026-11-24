@@ -1,2 +1,3 @@
-Version 333: Legend Vault looks get better (4 of 6)
-- Lantern Wisp upgraded: its cloak now hangs in soft folds with an embroidered gold trim and a gold-edged hem, and in the shop its lantern really lights up the wisp and your hero.
+Version 334: Legend Vault looks get better (5 of 6)
+- Starfall crown upgraded: silver arches studded with pearls cross over it to a big star on top, with sapphires round the band, so it looks like a real crown.
+- Stardust Steps upgraded: each step leaves a twinkling sparkle of starlight instead of a toy star.

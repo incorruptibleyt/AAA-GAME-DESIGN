@@ -551,6 +551,52 @@ static func starfall_crown(id: String, y: float) -> Node3D:
 		rim.position = Vector3(0, band_y + k, 0)
 		crown.add_child(rim)
 	var gem := LegendPet._mat("star_gem", Color(1.0, 0.95, 0.8), 0.2, Color(1.0, 0.92, 0.7), 3.0)
+	# Version 334: the sky dome over the head read as a purple hat. Two silver arches now cross
+	# over it, studded with little stars, to a great star on top (an imperial crown's shape, the
+	# sky its velvet cap), and sapphires and pearls of starlight ring the band.
+	var arch_m := LegendPet._mat("star_silver_vc", Color.WHITE, 0.25, Color(0.6, 0.7, 1.0), 0.35)
+	arch_m.vertex_color_use_as_albedo = true
+	var ast := SurfaceTool.new()
+	ast.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var ar := dome_r + 0.035
+	var ah := dome_h + 0.035
+	var silver_c := Color(0.86, 0.88, 0.98)
+	for turn in [PI / 4.0, PI * 0.75]:   # (crossing on the slant, so both show from the front)
+		var pts := []
+		var rr := []
+		for k in 17:
+			var t := lerpf(0.14, PI - 0.14, k / 16.0)
+			var hz := Vector3(cos(t) * ar, 0, 0).rotated(Vector3.UP, turn)
+			pts.append(hz + Vector3(0, base + sin(t) * ah, 0))
+			rr.append(0.044)
+		LegendPet._loft(ast, pts, rr, rr, [silver_c], 8)
+		# (little studs along it)
+		for k in [3, 5, 7, 9, 11, 13]:
+			var on: Vector3 = pts[k]
+			LegendPet._ball(ast, on + (on - Vector3(0, base, 0)).normalized() * 0.03, Vector3.ONE * 0.032, Color(1.0, 0.97, 0.88), 6)
+	var arches := MeshInstance3D.new()
+	arches.mesh = ast.commit()
+	arches.material_override = arch_m
+	crown.add_child(arches)
+	var top := Node3D.new()
+	top.position = Vector3(0, base + ah + 0.09, 0)
+	crown.add_child(top)
+	var ts := MeshInstance3D.new()
+	ts.mesh = star_mesh(0.12, 0.05, 0.045)
+	ts.material_override = gem
+	top.add_child(ts)
+	_glow(top, 0.2, Color(0.85, 0.9, 1.0), 0.85)
+	top.set_meta("g", 0.2)
+	crown._tips.append(top)
+	var sapphire := LegendPet._mat("star_sapphire", Color(0.25, 0.45, 1.0), 0.15, Color(0.3, 0.5, 1.0), 1.6)
+	for i in 5:
+		var a := TAU * (i + 0.5) / 5.0
+		var g := U.sphere(crown, 0.042, sapphire, Vector3(sin(a) * (r + 0.035), band_y, cos(a) * (r + 0.035)))
+		g.scale = Vector3(1.0, 1.25, 0.7)
+		g.rotation.y = a
+		for side in [-1.0, 1.0]:
+			var b2: float = a + side * 0.2
+			U.sphere(crown, 0.022, gem, Vector3(sin(b2) * (r + 0.03), band_y, cos(b2) * (r + 0.03)))
 	for i in 5:
 		var a := TAU * i / 5.0
 		# (tall enough to rise well above the dome; leaning out, so the camera above sees them)
@@ -564,7 +610,7 @@ static func starfall_crown(id: String, y: float) -> Node3D:
 		var pt := MeshInstance3D.new()
 		var cone := CylinderMesh.new()
 		cone.top_radius = 0.0
-		cone.bottom_radius = 0.1
+		cone.bottom_radius = 0.075   # (version 334: slimmer, a crown's points, not a spiked helmet's)
 		cone.height = tall
 		cone.radial_segments = 4
 		cone.rings = 1
@@ -599,7 +645,7 @@ static func starfall_crown(id: String, y: float) -> Node3D:
 	# The night sky, the stars and the lights take no outline, rim light or hit flash (a hero's
 	# rim light drawn over a glow quad made it a black square on the pedestal).
 	for mi in crown.find_children("*", "MeshInstance3D", true, false):
-		if (mi as MeshInstance3D).material_override != silver:
+		if not (mi as MeshInstance3D).material_override in [silver, arch_m, sapphire]:
 			mi.set_meta("fx", true)
 	return crown
 

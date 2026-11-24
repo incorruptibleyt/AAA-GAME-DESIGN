@@ -15,7 +15,8 @@ extends Node3D
 ##                white-gold lines read as lightning), and smoke curls up off each step.
 ##   star_steps:  Stardust Steps (version 322: it was five faint sparkles per step). Each step
 ##                drops a fat five-pointed star onto the floor (a white heart, a coloured
-##                rim, a dark outline) that pops in with a flash of light and a ring of
+##                rim, a dark outline; version 334: a sparkle of starlight, four long points and
+##                four short, over a halo of its colour) that pops in with a flash and a ring of
 ##                stardust, and a line of light joins it to the step before, so the hero's
 ##                path is drawn behind them as a constellation; the stars twinkle, shed
 ##                motes and go out one by one. A dash leaves a streak of stardust.
@@ -298,7 +299,7 @@ func _star_fade(m: Dictionary, t: float) -> void:
 	var pop := minf(1.0, t / 0.1)
 	var s := pop * (1.0 + 0.45 * sin(minf(t / 0.32, 1.0) * PI) ) * (0.25 + 0.75 * out)
 	s *= 1.0 + 0.08 * sin(t * 9.0 + m.seed)
-	(m.star_q as Node3D).scale = Vector3.ONE * (0.15 if _staged else 0.3) * s
+	(m.star_q as Node3D).scale = Vector3.ONE * (0.18 if _staged else 0.42) * s   # (v334: slimmer points, drawn bigger)
 	(m.star_q as Node3D).rotation.y += 0.01
 	(m.star as ShaderMaterial).set_shader_parameter("alpha", minf(1.0, t * 12.0) * minf(1.0, out * 1.6))
 	(m.glow as StandardMaterial3D).albedo_color.a = (0.55 + 0.25 * sin(t * 6.0 + m.seed)) * out * pop + 0.5 * (1.0 - smoothstep(0.0, 0.3, t))
@@ -322,24 +323,28 @@ func _star_fade(m: Dictionary, t: float) -> void:
 	(m.mote as StandardMaterial3D).albedo_color.a = 0.9 * out * minf(1.0, t * 3.0)
 
 
-## The star: five fat points round a white heart, rim in the mark's colour (`col`), with a
-## dark outline round it so it stands off any floor. UV.x: 0 at the heart to 1 at the rim;
-## UV.y 1 on the outline.
+## The star: version 334, a sparkle of starlight (four long points and four short ones round a
+## white-hot heart, its colour out at the tips) over a soft halo of its colour; it was a fat
+## five-pointed star with a dark outline, which read as a plastic toy. UV.x: 0 at the heart to
+## 1 at the tips; UV.y 1 on the halo.
 static func _star_shape() -> ArrayMesh:
 	if _star_mesh:
 		return _star_mesh
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for layer in 2:
-		var big := 1.2 if layer == 0 else 1.0
+		var big := 1.4 if layer == 0 else 1.0
 		var y := 0.0 if layer == 0 else 0.004
 		var pts: Array[Vector3] = []
-		for i in 10:
-			var a := TAU * i / 10.0
-			var r := (1.0 if i % 2 == 0 else 0.5) * big
-			pts.append(Vector3(sin(a) * r, y, -cos(a) * r))
-		for i in 10:
-			for v in [[Vector3(0, y + 0.03, 0), 0.0], [pts[i], 1.0], [pts[(i + 1) % 10], 1.0]]:
+		var tip: Array[float] = []
+		for i in 16:
+			var a := TAU * i / 16.0
+			var r := 1.0 if i % 4 == 0 else (0.5 if i % 2 == 0 else (0.3 if layer == 0 else 0.15))
+			pts.append(Vector3(sin(a) * r * big, y, -cos(a) * r * big))
+			tip.append(1.0 if i % 2 == 0 else 0.45)
+		for i in 16:
+			var j := (i + 1) % 16
+			for v in [[Vector3(0, y + 0.03, 0), 0.0], [pts[i], tip[i]], [pts[j], tip[j]]]:
 				st.set_uv(Vector2(v[1], 1.0 - layer))
 				st.set_normal(Vector3.UP)
 				st.add_vertex(v[0])
@@ -356,14 +361,20 @@ static func _star_mat(which: String) -> ShaderMaterial:
 				_star_shader = Shader.new()
 				_star_shader.code = """
 shader_type spatial;
-render_mode unshaded, depth_draw_never, cull_disabled, shadows_disabled;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
 uniform vec4 col : source_color = vec4(1.0);
 uniform float alpha = 0.0;
 void fragment() {
-	vec3 c = mix(vec3(1.0, 1.0, 0.95), col.rgb, smoothstep(0.25, 0.85, UV.x));
-	c = mix(c, col.rgb * 0.22, UV.y);
-	ALBEDO = c;
-	ALPHA = alpha;
+	// (light, added to the floor: white-hot at the heart, its colour towards the tips, fading
+	// out along each point; the halo under it a soft wash of its colour)
+	vec3 c = mix(vec3(1.0, 1.0, 0.96), col.rgb, smoothstep(0.02, 0.32, UV.x)) * (1.3 - UV.x * 0.8);
+	vec3 halo = col.rgb * 0.6 * (1.0 - UV.x);
+	ALBEDO = mix(c, halo, step(0.5, UV.y)) * alpha;
+	// (added light writes its own alpha: over a see-through pedestal picture an
+	// unwritten alpha of 1 drew a black box wherever the quad lay)
+	float glow_a = max(max(ALBEDO.r, ALBEDO.g), ALBEDO.b);
+	ALBEDO /= max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
 }
 """
 			m.shader = _star_shader
