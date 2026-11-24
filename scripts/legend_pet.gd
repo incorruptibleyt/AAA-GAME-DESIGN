@@ -1026,6 +1026,10 @@ class Icon extends Control:
 
 	func _soul_harvest() -> void:
 		var cycle := fmod(_t, 2.0) / 2.0
+		# The rune ring flaring under the fallen skull (version 318).
+		var ro := minf(1.0, cycle * 5.0)
+		_glow(Vector2(-14, 36), 30, Color(0.55, 0.9, 1.0, 0.45 * (1.0 - cycle)))
+		draw_arc(Vector2(-14, 36), 8.0 + 16.0 * ro, 0.0, TAU, 32, Color(0.6, 0.92, 1.0, 0.9 * (1.0 - cycle)), 2.5)
 		_skull(Vector2(-14, 30), 12.0)
 		# The ghost rises out of the skull, then sweeps up and over in an arc.
 		var path := func(q: float) -> Vector2:
@@ -1042,7 +1046,11 @@ class Icon extends Control:
 		draw_circle(p, 12.0, ghost)
 		draw_colored_polygon(PackedVector2Array([p + Vector2(-12, 0), p + Vector2(12, 0), p + Vector2(6, 18), p + Vector2(0, 13), p + Vector2(-6, 19)]), ghost)
 		for s in [-1.0, 1.0]:
-			_ellipse(p + Vector2(4.5 * s, -1), 2.6, 4.0, Color(0.05, 0.1, 0.2, a))
+			_ellipse(p + Vector2(4.5 * s, -1), 2.8, 4.2, Color(0.05, 0.1, 0.2, a))
+			draw_circle(p + Vector2(4.5 * s + 0.8, -2), 1.1, Color(0.8, 1.0, 1.0, a))
+			# little arms raised as it wails
+			_ellipse(p + Vector2(13.0 * s, 4), 2.6, 4.2, Color(0.75, 0.93, 1.0, a))
+		_ellipse(p + Vector2(0, 6), 2.2, 3.0, Color(0.05, 0.1, 0.2, a))   # (its open mouth)
 		# The hero's side of it: a pale blue flash where the souls arrive.
 		var f := smoothstep(0.75, 0.9, k) * (1.0 - smoothstep(0.9, 1.0, k))
 		_glow(Vector2(30, -38), 30, Color(0.6, 0.9, 1.0, 0.8 * f + 0.15))

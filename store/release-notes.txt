@@ -1,3 +1,3 @@
-Version 317: hotter Legend Vault looks
-- Phoenix Wings rebuilt: real burning feathers, gold at the root and red at the tips, with edges that flicker like flames. Bigger and brighter in a run.
-- Ember Steps rebuilt: each footprint burns white-hot in the middle, with little flames dancing on it, and cools from white to orange to red.
+Version 318: Legend Vault, Supercell pass 1 of 10
+- Soul Harvest rebuilt: a rune ring flares where a skeleton falls, its wailing ghost is torn out of the bones and streaks into you along a ribbon of light, and blue fire flares at your feet.
+- More Legend Vault looks are being rebuilt one by one.
