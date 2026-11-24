@@ -2,8 +2,11 @@ class_name LegendWings
 extends Node3D
 ## Version 313 (Legend Vault, legends.gd): wings on the hero's back, held half folded and
 ## swept back, that spread wide and beat once when the hero dashes.
-##   bone_wings:  Bone Wings. A bat's wing made of bones (arm, elbow, wrist and four long
-##                finger bones) with torn dusk-violet skin stretched between them.
+##   bone_wings:  Bone Wings. A bat's wing made of thick knuckled bones (arm, elbow, wrist,
+##                four long fingers with hooked claws, a thumb claw, spurs along the arm)
+##                with torn dusk skin between them, indigo at the bones to a glowing ember
+##                edge (version 324). They stretch now and then, and a dash beats them with
+##                a gust of dusk motes.
 ##   phoenix:     Phoenix Wings. Layers of long burning feathers, gold at the root and red at
 ##                the tips, their edges flickering like flames (version 317), shedding embers; a dash leaves a firebird of flame behind where it
 ##                started, which spreads its wings and fades.
@@ -20,6 +23,7 @@ var _spread := 0.0   # 0 at rest (half folded, swept back), 1 spread wide
 var _beat := 0.0
 var _was_dashing := false
 var _embers: CPUParticles3D
+var _stretch := false
 
 ## The wing's shape, in its own flat plane (x out from the back, y up): the shoulder, the
 ## elbow, the wrist and the four finger tips; the skin runs from the shoulder round the
@@ -48,7 +52,7 @@ func _ready() -> void:
 		p = p.get_parent()
 	if p and p.get_parent() is Hero:
 		_hero = p.get_parent() as Node3D
-		scale = Vector3.ONE * 1.3   # (the run camera is far above: bigger there, as the pets)
+		scale = Vector3.ONE * (1.45 if kind == "bone_wings" else 1.3)   # (the run camera is far above: bigger there, as the pets)
 	match kind:
 		"phoenix":
 			_l = _phoenix_wing(-1.0)
@@ -68,8 +72,14 @@ func _process(delta: float) -> void:
 		_beat = 1.0
 		if kind == "phoenix" and _hero:
 			_firebird()
+		elif _hero:
+			# Version 324: a beat of the bone wings throws a gust of dusk motes.
+			Fx._burst(_hero.global_position + Vector3(0, 1.3, 0), 14, Color(0.85, 0.4, 0.55), 0.5, 4.0, 0.55, 0.0, true, "soft")
 	_was_dashing = dashing
 	var want := 1.0 if (dashing or _beat > 0.0 or _hero == null) else 0.0
+	_stretch = kind == "bone_wings" and _hero != null and want == 0.0 and fmod(_t, 8.0) > 6.7
+	if _stretch:
+		want = 0.6   # (a stretch now and then, with a shake)
 	_spread = move_toward(_spread, want, delta * (7.0 if want > _spread else 1.6))
 	_beat = maxf(0.0, _beat - delta * 1.6)
 	_pose(delta)
@@ -86,46 +96,167 @@ func _pose(_delta: float) -> void:
 		# y: swept back; z: raised; x: the flat side leaning back to face up and behind.
 		if _hero == null:
 			flap = sin(_t * 2.2) * 0.22   # (on a pedestal: slow, wide beats)
-		w.rotation = Vector3(lerpf(-0.7, -0.4, s), side * lerpf(0.55, 0.12, s), side * (lerpf(0.28, 0.22, s) + breathe + flap))
+		elif _stretch:
+			flap = sin(_t * 17.0) * 0.07
+		# (Bone wings in a run lean further back, so the run camera sees the skin, not the bones edge on.)
+		var run_bone := _hero != null and kind == "bone_wings"
+		var lean := -1.05 if run_bone else -0.7
+		var lean_spread := -0.95 if run_bone else -0.4
+		w.rotation = Vector3(lerpf(lean, lean_spread, s), side * lerpf(0.55, 0.12, s), side * (lerpf(0.28, 0.22, s) + breathe + flap))
 
 
 # ---------------------------------------------------------------- Bone Wings
+
+## Version 324: the wing was thin sticks over a flat purple sheet. Now the bones are thick and
+## knuckled (baked shapes, LegendPet._loft), hooked dark claws on every finger, a thumb claw
+## and a row of spurs along the arm; the skin between them runs from deep indigo at the bones
+## to a glowing dusk orange at its scalloped, torn edge, with amber veins along the fingers
+## and slow pulses of light running out to the edge.
+const WING_BONE := Color(0.94, 0.9, 0.8)
+const WING_KNOB := Color(0.76, 0.69, 0.58)
+const WING_CLAW := Color(0.14, 0.08, 0.12)
+static var _wing_meshes := {}
+static var _dusk_mat: ShaderMaterial
+static var _wing_bone_mat: ShaderMaterial
+
 
 func _bone_wing(side: float) -> Node3D:
 	var w := Node3D.new()
 	w.position = Vector3(0.1 * side, 0, 0)
 	add_child(w)
-	var bone := LegendPet._mat("wing_bone", Color(0.92, 0.89, 0.8), 0.7)
-	var knob := LegendPet._mat("wing_knob", Color(0.85, 0.8, 0.7), 0.7)
-	var skin := LegendPet._mat("wing_skin", Color(0.32, 0.12, 0.42, 0.82), 0.6, Color(0.45, 0.15, 0.6), 0.5, true)
-	# The skin first (it sits a hair behind the bones).
-	var pts: Array[Vector2] = [Vector2.ZERO, ELBOW, WRIST]
-	for i in FINGERS.size():
-		var tip: Vector2 = FINGERS[i]
-		pts.append(tip)
-		var nxt: Vector2 = FINGERS[i + 1] if i + 1 < FINGERS.size() else HIP
-		# Between two fingers the skin sags in towards the wrist, torn at the edge.
-		var mid := (tip + nxt) * 0.5
-		pts.append(mid.lerp(WRIST, 0.32 + 0.08 * (i % 2)))
-	pts.append(HIP)
-	var m := MeshInstance3D.new()
-	m.mesh = _fan(pts, side, "bone")
-	m.material_override = skin
-	m.position.z = -0.01
-	w.add_child(m)
-	# The bones: arm, forearm and fingers, with round knuckles.
-	_bone(w, Vector2.ZERO, ELBOW, 0.04, bone, side)
-	_bone(w, ELBOW, WRIST, 0.035, bone, side)
-	U.sphere(w, 0.06, knob, _v(ELBOW, side))
-	U.sphere(w, 0.065, knob, _v(WRIST, side))
-	for tip: Vector2 in FINGERS:
-		_bone(w, WRIST, tip, 0.022, bone, side)
-		var claw := LegendPet._tube(w, 0.0, 0.03, 0.1, bone, _v(tip, side))
-		claw.rotation.z = atan2(tip.y - WRIST.y, (tip.x - WRIST.x) * side) - PI / 2.0
-	# A hooked thumb claw at the wrist.
-	var thumb := LegendPet._tube(w, 0.0, 0.035, 0.16, knob, _v(WRIST + Vector2(0.02, 0.1), side))
-	thumb.rotation.z = -0.4 * side
+	var key := int(side)
+	if not _wing_meshes.has(key):
+		_wing_meshes[key] = [_bone_wing_bones(side), _bone_wing_skin(side)]
+	var skin := MeshInstance3D.new()
+	skin.mesh = _wing_meshes[key][1]
+	skin.material_override = _dusk_skin()
+	skin.position.z = -0.012
+	w.add_child(skin)
+	var bones := MeshInstance3D.new()
+	bones.mesh = _wing_meshes[key][0]
+	bones.material_override = _wing_bone()
+	w.add_child(bones)
 	return w
+
+
+static func _bone_wing_bones(side: float) -> Mesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var v := func(p: Vector2) -> Vector3: return Vector3(p.x * side, p.y, 0.0)
+	# The arm and forearm, thick, a little bowed; round knuckles at the elbow and wrist.
+	LegendPet._spike(st, v.call(Vector2.ZERO), v.call(ELBOW), Vector3(0, 0.03, 0), 0.06, WING_BONE, WING_BONE, 5)
+	LegendPet._spike(st, v.call(ELBOW), v.call(WRIST), Vector3(0, 0.025, 0), 0.05, WING_BONE, WING_BONE, 5)
+	LegendPet._ball(st, v.call(Vector2.ZERO), Vector3.ONE * 0.075, WING_KNOB)
+	LegendPet._ball(st, v.call(ELBOW), Vector3.ONE * 0.07, WING_KNOB)
+	LegendPet._ball(st, v.call(WRIST), Vector3.ONE * 0.08, WING_KNOB)
+	# Spurs along the top of the arm.
+	for i in 4:
+		var k := 0.2 + i * 0.2
+		var at: Vector2 = Vector2.ZERO.lerp(ELBOW, k * 2.0) if k < 0.5 else ELBOW.lerp(WRIST, (k - 0.5) * 2.0)
+		LegendPet._spike(st, v.call(at + Vector2(0, 0.03)), v.call(at + Vector2(-0.05, 0.13 - i * 0.015)), Vector3.ZERO, 0.022, WING_BONE, WING_KNOB, 3)
+	# Four long fingers, each with a knuckle half way and a hooked dark claw at its tip.
+	for tip: Vector2 in FINGERS:
+		var d := (tip - WRIST).normalized()
+		var bend := Vector2(-d.y, d.x) * 0.04
+		var mid := WRIST.lerp(tip, 0.5) + bend
+		LegendPet._spike(st, v.call(WRIST), v.call(mid), Vector3.ZERO, 0.034, WING_BONE, WING_BONE, 3)
+		LegendPet._spike(st, v.call(mid), v.call(tip), Vector3.ZERO, 0.028, WING_BONE, WING_KNOB, 4)
+		LegendPet._ball(st, v.call(mid), Vector3.ONE * 0.034, WING_KNOB, 6)
+		LegendPet._spike(st, v.call(tip - d * 0.02), v.call(tip + d * 0.13), Vector3(-d.y * side, d.x, 0.0) * -0.05, 0.03, WING_CLAW, WING_CLAW, 4)
+	# The hooked thumb claw at the wrist.
+	LegendPet._spike(st, v.call(WRIST + Vector2(0.0, 0.04)), v.call(WRIST + Vector2(0.06, 0.22)), v.call(Vector2(-0.05, 0.0)), 0.04, WING_KNOB, WING_CLAW, 5)
+	return st.commit()
+
+
+## The skin: a panel between each two fingers and one from the last finger back to the hip,
+## each scalloped in along its edge. UV.x counts the panels (whole numbers on the fingers),
+## UV.y runs 0 at the bones to 1 at the torn edge.
+static func _bone_wing_skin(side: float) -> Mesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var f: Array = FINGERS
+	var panels := [[WRIST, f[0], WRIST, f[1]], [WRIST, f[1], WRIST, f[2]], [WRIST, f[2], WRIST, f[3]], [WRIST, f[3], Vector2.ZERO, HIP]]
+	var nu := 6
+	var nv := 7
+	for k in panels.size():
+		var pn: Array = panels[k]
+		var grid := []
+		for iu in nu + 1:
+			var u := float(iu) / nu
+			var col := []
+			for iv in nv + 1:
+				var t := float(iv) / nv
+				var a: Vector2 = (pn[0] as Vector2).lerp(pn[1], t)
+				var b: Vector2 = (pn[2] as Vector2).lerp(pn[3], t)
+				var p := a.lerp(b, u)
+				var root: Vector2 = (pn[0] as Vector2).lerp(pn[2], u)
+				p = p.lerp(root, 0.26 * sin(PI * u) * t * t)
+				col.append([Vector3(p.x * side, p.y, 0.0), Vector2(k + u, t)])
+			grid.append(col)
+		for iu in nu:
+			for iv in nv:
+				for c in [grid[iu][iv], grid[iu][iv + 1], grid[iu + 1][iv + 1], grid[iu][iv], grid[iu + 1][iv + 1], grid[iu + 1][iv]]:
+					st.set_uv(c[1])
+					st.set_normal(Vector3(0, 0, 1))
+					st.add_vertex(c[0])
+	return st.commit()
+
+
+## Dusk skin: deep indigo at the bones to violet to a glowing ember orange at the torn edge;
+## amber veins along the fingers; slow pulses of light running out to the edge.
+static func _dusk_skin() -> ShaderMaterial:
+	if _dusk_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode cull_disabled;
+void fragment() {
+	float k = UV.x;
+	float v = UV.y;
+	float cell = floor(k * 3.0);
+	float h = fract(sin(cell * 71.3 + 1.7) * 4375.85);
+	if (v > 0.78 + 0.2 * h && abs(fract(k * 3.0) - 0.5) < 0.16 + 0.12 * h) {
+		discard;
+	}
+	float hole = length(vec2(fract(k * 2.0 + 0.3) - 0.5, (v - 0.55 - 0.1 * h) * 2.2));
+	if (hole < 0.07 * h && h > 0.5) {
+		discard;
+	}
+	vec3 deep = vec3(0.2, 0.07, 0.38);
+	vec3 mid = vec3(0.6, 0.16, 0.62);
+	vec3 edge = vec3(1.0, 0.45, 0.22);
+	vec3 c = mix(deep, mid, smoothstep(0.1, 0.6, v));
+	c = mix(c, edge, smoothstep(0.62, 0.98, v));
+	float f = fract(k);
+	float vein = 1.0 - smoothstep(0.0, 0.06, min(f, 1.0 - f));
+	float pulse = pow(max(0.0, sin(v * 7.0 - TIME * 2.2 + floor(k) * 1.3)), 8.0) * smoothstep(0.15, 0.5, v);
+	ALBEDO = c;
+	ROUGHNESS = 0.75;
+	EMISSION = c * (0.45 + 0.9 * smoothstep(0.6, 1.0, v)) + vec3(1.0, 0.62, 0.3) * (vein * 0.55 + pulse * 0.35);
+}
+"""
+		_dusk_mat = ShaderMaterial.new()
+		_dusk_mat.shader = sh
+	return _dusk_mat
+
+
+## The wing bones: their colour from the mesh, a warm dusk rim round their edges.
+static func _wing_bone() -> ShaderMaterial:
+	if _wing_bone_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+void fragment() {
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.5);
+	float lit = step(0.3, COLOR.r);
+	ALBEDO = COLOR.rgb;
+	ROUGHNESS = 0.6;
+	EMISSION = vec3(1.0, 0.5, 0.35) * fres * 0.55 * lit + COLOR.rgb * 0.05;
+}
+"""
+		_wing_bone_mat = ShaderMaterial.new()
+		_wing_bone_mat.shader = sh
+	return _wing_bone_mat
 
 
 static func _v(p: Vector2, side: float) -> Vector3:

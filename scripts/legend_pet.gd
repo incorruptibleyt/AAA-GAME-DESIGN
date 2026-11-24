@@ -1823,28 +1823,53 @@ class Icon extends Control:
 		_glow(Vector2(-2, 0 + y), 14, Color(1.0, 0.9, 0.5, 0.8 * glint))
 
 	func _bone_wings() -> void:
+		# Version 324: a bat's wing of thick knuckled bones each side, the dusk skin between the
+		# fingers deep indigo at the bones to a glowing ember edge, scalloped and torn, with
+		# hooked dark claws, a thumb claw and spurs along the arm.
 		var f := sin(_t * 1.8) * 3.0
-		var bone := Color(0.93, 0.9, 0.82)
-		var skin := Color(0.4, 0.16, 0.52)
-		for s in [-1.0, 1.0]:
-			var sh := Vector2(4 * s, -4)
-			var el := Vector2(20 * s, -16 + f)
-			var wr := Vector2(36 * s, -22 + f)
-			var tips := [Vector2(50 * s, -26 + f), Vector2(50 * s, -6 + f), Vector2(42 * s, 12 + f), Vector2(26 * s, 22 + f)]
-			var poly := PackedVector2Array([sh, el, wr])
-			for i in tips.size():
-				poly.append(tips[i])
-				var nxt: Vector2 = tips[i + 1] if i + 1 < tips.size() else Vector2(6 * s, 18)
-				poly.append(((tips[i] + nxt) * 0.5).lerp(wr, 0.3))
-			poly.append(Vector2(6 * s, 18))
-			draw_colored_polygon(poly, skin)
-			draw_line(sh, el, bone, 4.0)
-			draw_line(el, wr, bone, 3.5)
+		var bone := Color(0.94, 0.9, 0.8)
+		var knob := Color(0.76, 0.69, 0.58)
+		var claw := Color(0.14, 0.08, 0.12)
+		var deep := Color(0.2, 0.07, 0.38)
+		var mid := Color(0.6, 0.16, 0.62)
+		var edge := Color(1.0, 0.45 + 0.15 * sin(_t * 2.2), 0.22)
+		_glow(Vector2(0, 4), 50, Color(0.6, 0.2, 0.7, 0.35))
+		for s: float in [-1.0, 1.0]:
+			var sh := Vector2(5 * s, -6)
+			var el := Vector2(20 * s, -20 + f * 0.5)
+			var wr := Vector2(34 * s, -28 + f)
+			var tips := [Vector2(52 * s, -30 + f), Vector2(52 * s, -8 + f), Vector2(44 * s, 14 + f), Vector2(26 * s, 28 + f)]
+			var hip := Vector2(6 * s, 20)
+			# The skin, a panel between each two fingers, each scalloped in at its edge.
+			for i in 3:
+				var a: Vector2 = tips[i]
+				var b: Vector2 = tips[i + 1]
+				var dip := ((a + b) * 0.5).lerp(wr, 0.3)
+				draw_polygon(PackedVector2Array([wr, a, dip, b]), PackedColorArray([deep, edge, mid.lerp(edge, 0.6), edge]))
+			var dip2 := ((tips[3] as Vector2) + hip) * 0.5
+			dip2 = dip2.lerp(sh, 0.3)
+			draw_polygon(PackedVector2Array([sh, el, wr, tips[3], dip2, hip]), PackedColorArray([deep, deep, deep, edge, mid.lerp(edge, 0.5), mid]))
+			# A torn hole in the middle panel.
+			draw_circle(wr.lerp((tips[1] + tips[2]) * 0.5, 0.62), 2.6, Color(0.1, 0.07, 0.04))
+			# The bones: thick arm and forearm, knuckled fingers, a dark hooked claw at each tip.
+			draw_line(sh, el, bone, 5.0)
+			draw_line(el, wr, bone, 4.5)
+			for k in 3:
+				var at := sh.lerp(el, 0.35 + k * 0.4) if k < 2 else el.lerp(wr, 0.5)
+				draw_colored_polygon(PackedVector2Array([at + Vector2(-2.5 * s, 0), at + Vector2(2.5 * s, -1), at + Vector2(-1.5 * s, -8)]), bone)
 			for tp: Vector2 in tips:
-				draw_line(wr, tp, bone, 2.2)
-			draw_circle(el, 3.5, bone)
-			draw_circle(wr, 4.0, bone)
-		draw_circle(Vector2(0, -2), 5, Color(0.25, 0.2, 0.3))
+				var d := (tp - wr).normalized()
+				var m := wr.lerp(tp, 0.5) + Vector2(-d.y, d.x) * 1.5 * s
+				draw_line(wr, m, bone, 3.0)
+				draw_line(m, tp, bone, 2.4)
+				draw_circle(m, 2.2, knob)
+				var n := Vector2(-d.y, d.x) * 2.2
+				draw_colored_polygon(PackedVector2Array([tp - n, tp + n, tp + d * 7.0 - n * 1.6 * s]), claw)
+			draw_colored_polygon(PackedVector2Array([wr + Vector2(-2.5, 0), wr + Vector2(2.5, 0), wr + Vector2(2 * s, -11)]), claw)
+			draw_circle(el, 4.0, knob)
+			draw_circle(wr, 4.5, knob)
+			draw_circle(sh, 4.0, knob)
+		draw_circle(Vector2(0, -2), 6, Color(0.25, 0.2, 0.3))
 
 	func _phoenix() -> void:
 		var f := sin(_t * 2.0) * 3.0

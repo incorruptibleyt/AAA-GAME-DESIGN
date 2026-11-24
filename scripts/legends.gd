@@ -24,7 +24,7 @@ const LIST := [
 	{"id": "raven", "slot": "pet", "name": "Crypt Raven", "price": 60000, "ready": true,
 		"text": "A black raven with a bird-skull head. It circles you in a fight and rests on your shoulder."},
 	{"id": "bone_wings", "slot": "wings", "name": "Bone Wings", "price": 80000, "ready": true,
-		"text": "Skeleton wings with torn dusk skin. They spread when you dash."},
+		"text": "Knuckled bat bones, hooked claws and torn dusk skin glowing ember at the edge. A dash beats them with a gust."},
 	{"id": "gold_rush", "slot": "finisher", "name": "Gold Rush", "price": 100000, "ready": true,
 		"text": "Every skeleton you fell bursts into a fountain of gold coins."},
 	{"id": "star_steps", "slot": "steps", "name": "Stardust Steps", "price": 120000, "ready": true,
