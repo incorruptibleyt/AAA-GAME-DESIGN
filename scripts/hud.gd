@@ -4894,7 +4894,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	var goal := Game.title_goal() if v else ""
 	var view := get_viewport().get_visible_rect().size
 	if _title_continue.visible and view.y < view.x * 1.9:
-		goal = goal.get_slice("\n", 0)
+		goal = goal.get_slice("\n", 0).trim_suffix(",")
 	_title_goal.text = goal
 	_title_goal.visible = goal != ""
 	# Short screens: the how-to line makes room for the Bone Road row, so the hero shows.
@@ -6127,8 +6127,10 @@ func refresh_event_banner() -> void:
 	if not live:
 		e = Events.coming()
 	# version 212 (critic fix #2): events from the end of the tutorial (was run 3), so a
-	# player who installs because of an event finds it
-	if e.is_empty() or Game.unlock_stage() < 1:
+	# player who installs because of an event finds it. Version 306 (player panel fix 1):
+	# back to run 3; a new player's first titles were an event banner and a splash on top of
+	# everything else to learn. (An event installer meets it two short runs later.)
+	if e.is_empty() or Game.unlock_stage() < Game.CALM_RUNS:
 		_title_event.visible = false
 		return
 	_title_event.visible = true

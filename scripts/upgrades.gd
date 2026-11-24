@@ -366,6 +366,33 @@ static func _weighted(pool: Array, rng: RandomNumberGenerator = null) -> Diction
 ## Vitality and a plain common beside one card you could see (version 142). Now: a new shot
 ## (Twin Shots or Fire Shots, half of Wildfire), one of the hero's own (version 239), and one
 ## more you can see at work (Frost Shots, Eyes in the Back or Bone Ward).
+## Version 306 (player panel fix 1): the tutorial's "Gifts for the road" were three cards
+## picked at random, so mostly number cards and sometimes the same one twice ("Sharpened
+## Shots, Quick Draw, Sharpened Shots"). Now they are `n` different cards that each change how
+## the hero fights: one of the hero's own blessings, then shot, fire, frost or ward cards,
+## from different families where possible. Nothing the hero already holds.
+const GIFT_RULES := ["multishot", "fire", "frost", "pierce", "rear", "ward", "diagonal"]
+
+static func roll_gifts(taken: Dictionary, n := 3) -> Array:
+	var can := func(id: String) -> bool: return not taken.has(id)
+	var out := []
+	var own := LIST.filter(func(u): return u.has("hero") and u.rarity != "epic" and fits_hero(u) and can.call(u.id))
+	own.shuffle()
+	if not own.is_empty():
+		out.append(own[0])
+	var rules := GIFT_RULES.filter(can)
+	rules.shuffle()
+	for fresh_family in [true, false]:
+		for id in rules:
+			var u := get_def(id)
+			if out.size() >= n or out.has(u):
+				continue
+			if fresh_family and out.any(func(o): return o.family == u.family):
+				continue
+			out.append(u)
+	return out
+
+
 static func roll_first(taken: Dictionary) -> Array:
 	var can := func(id: String) -> bool: return taken.get(id, 0) < int(get_def(id).get("max", 1))
 	var out := []

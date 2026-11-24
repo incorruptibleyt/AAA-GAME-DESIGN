@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24c"
+const BUILD := "2026-11-24d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -632,6 +632,12 @@ func unlock_stage(cfg: ConfigFile = null) -> int:
 	if str(cfg.get_value(RECORDS, "since", "")) != "" or int(cfg.get_value("stats", "wins", 0)) >= 2:
 		return 99
 	return maxi(1, roundi(record(cfg, "runs")))
+
+
+## Version 306 (player panel fix 1): the first two runs after install stay calm. No event
+## splash or title banner, no reports question and no reminders question until the third run
+## has begun (unlock_stage counts runs started, the tutorial included).
+const CALM_RUNS := 3
 
 
 ## A gold title line the first time a new part opens (version 170).
@@ -2843,13 +2849,9 @@ func _tutorial_gifts() -> void:
 	if not _after_tutorial or hero == null:
 		return
 	var names: Array[String] = []
-	for i in TUTORIAL_GIFTS:
-		# Fighting blessings only (no coin cards), as the Queen Hunt's gifts.
-		var g := Upgrades.roll(_taken, 4, false, "", false, null).filter(func(x: Dictionary):
-			return x.rarity != "synergy" and not str(x.id) in Events.HUNT_NO_GIFT)
-		if g.is_empty():
-			continue
-		var u: Dictionary = g[0]
+	# Version 306: three different cards that change how the hero fights (Upgrades.roll_gifts),
+	# not three random ones (mostly number cards, sometimes one twice).
+	for u: Dictionary in Upgrades.roll_gifts(_taken, TUTORIAL_GIFTS):
 		_taken[u.id] = _taken.get(u.id, 0) + 1
 		Upgrades.apply(u.id, hero)
 		names.append(str(u.title))
@@ -4054,7 +4056,13 @@ func _win() -> void:
 	# both ladders pay Bone Drops, so full pay kept the drop farm open.
 	var repeat_hunt := event == "hunt" and not bool(hunt.get("casket", false))
 	_add_bones(roundi(BoneRoad.BOSS_BONES / 3.0) if repeat_hunt else BoneRoad.BOSS_BONES)
-	_add_mastery(roundi(HeroMastery.BOSS_POINTS / 3.0) if repeat_hunt else HeroMastery.BOSS_POINTS)
+	var boss_points := roundi(HeroMastery.BOSS_POINTS / 3.0) if repeat_hunt else HeroMastery.BOSS_POINTS
+	# Version 306 (player panel fix 1): the tutorial win promises Mastery level 2, but its two
+	# rooms and the boss came to 14 of the 20 points. The tutorial boss tops the hero up to level 2.
+	if first_run and hero:
+		var have := HeroMastery.points(cfg, hero.hero_id) + _mastery_unsaved
+		boss_points = maxi(boss_points, int(HeroMastery.LEVELS[1]) - have)
+	_add_mastery(boss_points)
 	var bones := _bank_bones(cfg)
 	var mastery := _bank_mastery(cfg)
 	var best := _save_score(cfg)
@@ -4502,7 +4510,9 @@ func start_event(kind: String, tier := 1) -> void:
 func _maybe_event_splash(force := false) -> void:
 	await get_tree().create_timer(0.9, true, false, true).timeout
 	var e := Events.current()
-	if e.is_empty() or unlock_stage() < 1 or state != State.TITLE or not hud.title_visible() or hud.covers_world():
+	# Version 306 (player panel fix 1): not before the third run (it was the first title after
+	# the tutorial, a full-screen story before the player had seen floor 2).
+	if e.is_empty() or unlock_stage() < CALM_RUNS or state != State.TITLE or not hud.title_visible() or hud.covers_world():
 		return
 	var cfg := _load_save()
 	var c := Events.chapter(e)
@@ -5125,7 +5135,7 @@ func _check_reminders_allowed() -> void:
 
 
 ## Asked once, on the title after a boss win that wasn't the tutorial's (the player knows
-## the game by then), or as soon as the tutorial is done while an event is near. Never on
+## the game by then), or from the third run while an event is near (v306). Never on
 ## top of the reports question, a splash or a menu.
 func _ask_reminders_on_title() -> void:
 	var cfg := _load_save()
@@ -5133,7 +5143,7 @@ func _ask_reminders_on_title() -> void:
 		return
 	var wins := int(cfg.get_value("stats", "wins", 0))
 	var event_near := not Events.current().is_empty() or not Events.coming().is_empty()
-	if wins < 2 and not (event_near and wins >= 1) and not "remindask" in OS.get_cmdline_user_args():
+	if wins < 2 and not (event_near and wins >= 1 and unlock_stage(cfg) >= CALM_RUNS) and not "remindask" in OS.get_cmdline_user_args():
 		return
 	await get_tree().create_timer(2.2, true, false, true).timeout
 	if state != State.TITLE or not hud.title_visible() or hud.covers_world() or hud.reports_ask_visible() \
@@ -5155,8 +5165,9 @@ func _ask_reports() -> void:
 	if not Telemetry.configured() or _load_save().has_section_key("settings", "reports"):
 		return
 	# Version 116: not before the first boss win (a new player's first screen used to be an
-	# 80-word data question). After that, any run's end can ask.
-	if int(_load_save().get_value("stats", "wins", 0)) <= 0:
+	# 80-word data question). After that, any run's end can ask. Version 306: and not before
+	# the third run either (it came at the end of the first run after the tutorial).
+	if int(_load_save().get_value("stats", "wins", 0)) <= 0 or unlock_stage() < CALM_RUNS:
 		return
 	await get_tree().create_timer(1.6, true, false, true).timeout
 	if state in [State.DEAD, State.VICTORY] and not hud.armory_visible() and not hud.pass_visible() and not hud.heroes_visible() \
@@ -5226,7 +5237,7 @@ func _ask_reports_on_title() -> void:
 	var cfg := _load_save()
 	if not Telemetry.configured() or cfg.has_section_key("settings", "reports"):
 		return
-	if int(cfg.get_value("stats", "wins", 0)) <= 0:
+	if int(cfg.get_value("stats", "wins", 0)) <= 0 or unlock_stage(cfg) < CALM_RUNS:
 		return   # asked after the first boss win instead (_ask_reports)
 	await get_tree().create_timer(0.6, true, false, true).timeout
 	if state == State.TITLE and hud.title_visible() and not hud.armory_visible() and not hud.pass_visible() \
@@ -6671,7 +6682,13 @@ func next_goal() -> String:
 	var reward := Curses.next_reward(Curses.mastery(cfg, Heroes.selected(cfg)))
 	if not reward.is_empty() and (Store.owned() or int(reward.level) <= 1) \
 			and (not Store.owned() or roundi(record(cfg, "runs")) % 2 == 0):
-		return "NEXT: Curse Level %d on the floor %d boss: %s" % [int(reward.level), Store.FREE_FLOORS, reward.title]
+		# Version 306 (player panel fix 1): plain words. It read "NEXT: Curse Level 1 on the
+		# floor 5 boss: Cursed", which a returning player couldn't follow.
+		var prize := ("the title " + str(reward.title)) if str(reward.text).begins_with("Title") else str(reward.title)
+		# (Two lines of its own: as one line it wrapped edge to edge.)
+		var first := "turn on a Curse in MODES" if int(reward.level) <= 1 \
+			else "turn on Curses up to level %d in MODES" % int(reward.level)
+		return "NEXT: %s,\nthen beat the floor %d boss to win %s" % [first, Store.FREE_FLOORS, prize]
 	if not cheapest.is_empty():
 		return "NEXT: %d more coins for %s" % [int(cheapest.cost) - coins, cheapest.name]
 	if Store.owned():

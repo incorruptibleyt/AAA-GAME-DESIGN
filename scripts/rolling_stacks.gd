@@ -17,6 +17,8 @@ const FOE_SHARE := 0.4      # to skeletons: this share of their full health
 const BRASS := Color(0.85, 0.66, 0.3)
 const GLOW := Color(1.0, 0.82, 0.45)
 const DELAY := 1.0          # the first rest is this much longer, while the skeletons climb out
+## Version 306: the shortest stretch of rails worth laying when no row crosses the whole room.
+const MIN_STRETCH := 3.5
 
 var _ob: Dictionary         # the room obstacle this bookcase is: moved with it
 var _case: Node3D
@@ -24,6 +26,8 @@ var _arrows: Array[MeshInstance3D] = []
 var _arrow_mat: StandardMaterial3D
 var _z := 0.0
 var _x := 0.0
+var _lo := 0.0              # where the bookcase stops at each end (its centre); v306: a short
+var _hi := 0.0              # stretch may end at a pillar instead of the wall
 var _dir := 1.0             # the way it rolls next
 var _t := 0.0
 var _rolling := false
@@ -53,11 +57,48 @@ static func lay(room: Room) -> void:
 			if _lane_open(room, c, lanes, false):
 				lanes.append(c)
 				break
+	# Version 306 (player panel fix 1): a room with cover in every row (the Bone Crypt's
+	# graves, with the shelves as its guest danger past floor 10) still laid none, under a
+	# "+ ROLLING SHELVES!" banner. Then the rails run along the longest open stretch of a
+	# row, from a pillar to the wall or between two pillars.
+	if lanes.is_empty():
+		var best := Vector3(0, 0, 0)   # (z, lo, hi)
+		for c in cands:
+			var seg := _open_stretch(room, c)
+			if seg.y - seg.x > best.z - best.y:
+				best = Vector3(c, seg.x, seg.y)
+		if best.z - best.y >= MIN_STRETCH:
+			var s := RollingStacks.new()
+			s.name = "RollingStacks"
+			room.add_child(s)
+			s._build(room, best.x, best.y, best.z)
+		return
 	for l in lanes:
 		var s := RollingStacks.new()
 		s.name = "RollingStacks"
 		room.add_child(s)
 		s._build(room, l)
+
+
+## The longest stretch of the row at `z` that the bookcase can roll along without passing
+## through cover: Vector2(lo, hi), the furthest its centre goes each way.
+static func _open_stretch(room: Room, z: float) -> Vector2:
+	var end := Room.HALF_W - R - 0.05
+	var blocks: Array[Vector2] = []
+	for o: Dictionary in room.obstacles:
+		var r := float(o.r)
+		if absf(float(o.pos.z) - z) < r + R + 0.3:
+			blocks.append(Vector2(float(o.pos.x) - r - R - 0.1, float(o.pos.x) + r + R + 0.1))
+	blocks.sort_custom(func(a: Vector2, b: Vector2) -> bool: return a.x < b.x)
+	var best := Vector2.ZERO
+	var from := -end
+	for b in blocks:
+		if b.x > from and minf(b.x, end) - from > best.y - best.x:
+			best = Vector2(from, minf(b.x, end))
+		from = maxf(from, b.y)
+	if end - from > best.y - best.x:
+		best = Vector2(from, end)
+	return best
 
 
 static func _lane_open(room: Room, z: float, lanes: Array[float], mind_spawns := true) -> bool:
@@ -82,12 +123,14 @@ static func warm(parent: Node, at: Vector3) -> void:
 	s._look(3.0)
 
 
-func _build(room: Room, z: float) -> void:
+func _build(room: Room, z: float, lo := -INF, hi := INF) -> void:
 	_z = z
+	_lo = maxf(lo, -_end())
+	_hi = minf(hi, _end())
 	_dir = 1.0 if randf() < 0.5 else -1.0
-	_x = -_dir * _end()
+	_x = _lo if _dir > 0.0 else _hi
 	_t = -DELAY
-	_look(Room.HALF_W * 2.0)
+	_look(_hi - _lo + 2.0 * R + 0.1, (_lo + _hi) * 0.5)
 	_case.position = Vector3(_x, 0, _z)
 	_ob = {"pos": Vector3(_x, 0, _z), "r": R}
 	room.obstacles.append(_ob)
@@ -99,15 +142,15 @@ func _end() -> float:
 
 ## Two brass rails across the room with sleepers between, a row of arrows between them, and
 ## the bookcase on iron wheels.
-func _look(width: float) -> void:
+func _look(width: float, cx := 0.0) -> void:
 	var brass := U.mat(BRASS, 0.35, 0.05)
 	brass.metallic = 0.8
 	for side: float in [-0.42, 0.42]:
-		U.box(self, Vector3(width, 0.05, 0.07), brass, Vector3(0, 0.025, _z + side))
+		U.box(self, Vector3(width, 0.05, 0.07), brass, Vector3(cx, 0.025, _z + side))
 	var dark := U.mat(Color(0.22, 0.14, 0.09), 0.9)
 	var n := int(width / 0.7)
 	for i in n:
-		U.box(self, Vector3(0.12, 0.03, 1.05), dark, Vector3(-width * 0.5 + 0.35 + i * 0.7, 0.012, _z))
+		U.box(self, Vector3(0.12, 0.03, 1.05), dark, Vector3(cx - width * 0.5 + 0.35 + i * 0.7, 0.012, _z))
 	_arrow_mat = U.unlit(Color(GLOW.r, GLOW.g, GLOW.b, 0.0)).duplicate() as StandardMaterial3D
 	var arrow := PrismMesh.new()
 	arrow.size = Vector3(0.36, 0.3, 0.02)
@@ -117,7 +160,7 @@ func _look(width: float) -> void:
 		mi.mesh = arrow
 		mi.material_override = _arrow_mat
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mi.position = Vector3(-width * 0.5 + 0.55 + i * 1.1, 0.04, _z)
+		mi.position = Vector3(cx - width * 0.5 + 0.55 + i * 1.1, 0.04, _z)
 		mi.rotation = Vector3(-PI / 2, 0, -PI / 2)   # lying flat, pointing +X
 		add_child(mi)
 		_arrows.append(mi)
@@ -171,7 +214,7 @@ func _process(delta: float) -> void:
 		return
 	_arrow_mat.albedo_color.a = 0.5
 	var step := _dir * SPEED * delta
-	var goal := _dir * _end()
+	var goal := _hi if _dir > 0.0 else _lo
 	var nx := move_toward(_x, goal, absf(step))
 	var moved := nx - _x
 	_x = nx
@@ -201,7 +244,8 @@ func _shove(moved: float) -> void:
 		if d.x * _dir < -0.05 and absf(d.z) < m * 0.8:
 			continue
 		var ahead := absf(d.z) < m * 0.75
-		if ahead and absf(_ob.pos.x + _dir * m) > Room.HALF_W - a.radius - 0.02:
+		var face := (_hi if _dir > 0.0 else _lo) + _dir * (R + 0.05)   # the wall (or pillar) it stops at
+		if ahead and _dir * (_ob.pos.x + _dir * m) > _dir * face - a.radius - 0.02:
 			# Nowhere left to go: pinned on the wall.
 			if not _crushed.has(a) and a.can_be_hit():
 				_crush(a)

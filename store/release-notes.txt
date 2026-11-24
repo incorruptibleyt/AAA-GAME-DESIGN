@@ -1,5 +1,6 @@
-Version 305: see the fight
-- In boss fights the score and chain move out of the way and the camera pulls back, so you can see the boss.
-- Your hero now has a bright outline, and no longer disappears when hit.
-- Bounce caps are mint green, not danger pink.
-- Warnings are white on red floors and in the endless loops, so they stand out.
+Version 306: a smoother start
+- Beating the tutorial always takes your hero to Mastery level 2.
+- Your 3 gifts after the tutorial are now 3 different blessings that change how you fight.
+- No event pop-up or bug-report question in your first two runs.
+- Rolling shelves now appear in every room that promises them.
+- Clearer "NEXT" goal for Curses.

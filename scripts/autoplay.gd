@@ -980,6 +980,9 @@ var _cap_told := false
 var _tide_told := false
 
 
+var _blocked_for := 0.0
+var _cover_told := false
+
 func _drive(delta: float) -> void:
 	var hero := Game.hero
 	if hero == null:
@@ -1118,6 +1121,25 @@ func _drive(delta: float) -> void:
 				if not _flank_told:
 					_flank_told = true
 					print("[autoplay] geode guard blocks: walking round it")
+	# v306 (player panel fix 1): every skeleton behind cover: walk round it for a clear shot. A
+	# fresh Mage robot once spent five minutes in floor 1's first room shooting a pillar while
+	# three minions followed it round the other side (the room watchdog then crumbled them).
+	if not room.door_open:
+		var tg := hero._pick_target()
+		if tg != null and not (tg is GeodeGuard) and not room.clear_shot(hero.global_position, tg.global_position):
+			_blocked_for += delta
+			if _blocked_for > 1.5:
+				var to: Vector3 = tg.global_position - hero.global_position
+				to.y = 0
+				var side := to.normalized().cross(Vector3.UP)
+				if side.dot(Vector3(0, 0, 2) - hero.global_position) < 0.0:
+					side = -side
+				move += side * 2.5
+				if not _cover_told:
+					_cover_told = true
+					print("[autoplay] target behind cover: walking round for a clear shot")
+		else:
+			_blocked_for = 0.0
 	# v273: held on a Tomb Mummy's bandage, dash to snap it (even in god mode, or the robot
 	# would be reeled in every time).
 	# v274: the Sand Pharaoh's bandages the same way, and wade out of its mounds of sand
