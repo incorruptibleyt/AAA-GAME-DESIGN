@@ -147,6 +147,9 @@ static func _floor_material(look: Dictionary, style := -1) -> Material:
 	for key in ["grout", "grime", "grime_amount", "patch_tint", "patch_rough"]:
 		if look.has(key):
 			sm.set_shader_parameter(key, look[key])
+	# Version 337 (visual review fix 2): dirt and soot patches at a bit over half their old
+	# amount everywhere; they made every floor blotchy under the fight.
+	sm.set_shader_parameter("grime_amount", float(look.get("grime_amount", 0.6)) * CALM_GRIME)
 	sm.set_shader_parameter("blood", look.get("blood", 0.0))
 	sm.set_shader_parameter("seam", look.get("seams", Color(0, 0, 0, 0)))
 	sm.set_shader_parameter("water", look.get("water", Color(0, 0, 0, 0)))
@@ -155,7 +158,22 @@ static func _floor_material(look: Dictionary, style := -1) -> Material:
 	sm.set_shader_parameter("half_size", Vector2(HALF_W, HALF_L))
 	sm.set_shader_parameter("torch_glow", look.torch)
 	sm.set_shader_parameter("torch_amount", look.get("pool", 1.5))
+	# Version 337 (visual review fix 2): each floor style's own stone brightness, so its dark
+	# lines and smudges can be softened towards it (the shader's calm_ uniforms).
+	var tl: float = (look.floor as Color).get_luminance() if CALM_TINTED.has(style) else 1.0
+	sm.set_shader_parameter("calm_mid", float(CALM_MID.get(style, 0.0)) * tl)
+	sm.set_shader_parameter("calm_depth", float(look.get("calm_depth", CALM_DEPTH)))
+	sm.set_shader_parameter("calm_sat", float(look.get("calm_sat", CALM_SAT)))
 	return sm
+
+
+## Version 337: the usual brightness of each floor style's stone (see the shader's first
+## colour in each style), and the styles whose stone is multiplied by the place's floor tint.
+const CALM_MID := {0: 0.34, 1: 0.2, 2: 0.157, 3: 0.196, 4: 0.14, 5: 0.103, 6: 0.17, 7: 0.23, 8: 0.25, 9: 0.19, 10: 0.22, 11: 0.27}
+const CALM_TINTED := [0, 1, 5, 7, 8, 10, 11]
+const CALM_DEPTH := 0.3
+const CALM_GRIME := 0.55
+const CALM_SAT := 0.72
 
 
 const FLOOR_CODE := """
@@ -185,6 +203,11 @@ uniform float torch_amount = 0.0;
 // 1 on the near ledge's box: its front face takes the pattern from its own plane and
 // keeps its real normal.
 uniform float ledge = 0.0;
+// Version 337: calmer floors. The floor stone's usual brightness (0 = leave as drawn), how
+// deep darker marks may stay (share of their depth) and how much colour is kept.
+uniform float calm_mid = 0.0;
+uniform float calm_depth = 0.5;
+uniform float calm_sat = 0.8;
 varying vec2 pos;
 varying float up;
 
@@ -1351,6 +1374,27 @@ void fragment() {
 		float b = smoothstep(0.7, 0.78, texture(grain, pos * 0.07 + vec2(0.5, 0.2)).r) * blood;
 		c = mix(c, vec3(0.3, 0.03, 0.03), b);
 		rough = mix(rough, 0.35, b);
+	}
+	// Version 337 (visual review fix 2, calmer floors): the floors were busy, with dark lines
+	// between the stones, smudges and dirt everywhere, and one strong colour edge to edge, so
+	// the ground fought the fighters for attention. Anything darker than the floor's own stone
+	// is lifted halfway back towards it (grout, cracks, grime: the lines stay, softer), and the
+	// colour is taken down a little. Glowing seams, water light and spores are EMISSION, so
+	// they keep their full strength.
+	if (calm_mid > 0.0) {
+		float lum = dot(c, vec3(0.299, 0.587, 0.114));
+		float floor_lum = calm_mid;
+		if (lum < floor_lum) {
+			float lifted = floor_lum - (floor_lum - lum) * calm_depth;
+			c = mix(vec3(lifted), c * (lifted / max(lum, 0.004)), clamp(lum / floor_lum * 1.4, 0.0, 1.0));
+		}
+		// Pale patches (ash, dust) far brighter than the stone come part way down too.
+		float lum2 = dot(c, vec3(0.299, 0.587, 0.114));
+		float hi = calm_mid * 1.45;
+		if (lum2 > hi) {
+			c *= (hi + (lum2 - hi) * 0.5) / lum2;
+		}
+		c = mix(vec3(dot(c, vec3(0.299, 0.587, 0.114))), c, calm_sat);
 	}
 	c *= shade;
 	// A soft lighter middle, as if light falls into the room from above.

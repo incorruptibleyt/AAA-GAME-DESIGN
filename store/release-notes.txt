@@ -1,5 +1,4 @@
-Version 336: see the fight better
-- The run camera sits a little lower and closer: skeletons show their faces and everyone is bigger on your phone.
-- The Mage's hat brim is narrower in a run, so you see the Mage, not a purple disc.
-- Your hero's bright outline is bolder.
-- The bottom of the screen shows the stone top of the wall instead of a black strip.
+Version 337: calmer floors
+- Every place's floor is calmer: the dark lines between stones are softer, there is about half the soot and dirt, and the colours are a little gentler.
+- Glowing seams, water and fungus light keep their full glow.
+- Heroes and skeletons stand out more from the ground.
