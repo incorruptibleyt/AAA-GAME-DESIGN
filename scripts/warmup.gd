@@ -157,7 +157,16 @@ static func run(core := false, from := 0) -> bool:
 			var pet := LegendPet.new()
 			pet.kind = str(d.id)
 			anchor.add_child(pet)
+			if pet.kind == "wyrm":
+				pet._breath = 0.6   # (its violet fire, at once)
 			n_pet += 1
+		# Version 314: the Legend Vault finishers (the gold coins, the soul's glow).
+		var worn_fin := str(Legends.worn(Game._load_save()).get("finisher", ""))
+		for d: Dictionary in Legends.LIST:
+			if d.slot != "finisher" or not d.ready or (core and d.id != worn_fin):
+				continue
+			if hero:
+				LegendFinish.play(str(d.id), spots[0] + Vector3(0.0, 0.0, 1.0), holder, hero)
 		DamageNumber.healed(hero, 9876543210.0))
 
 	# Every Feat and Bone Drop look: the headwear's flame, ghost and glow materials, the

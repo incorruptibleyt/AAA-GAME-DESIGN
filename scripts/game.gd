@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24k"
+const BUILD := "2026-11-24l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3856,6 +3856,8 @@ func on_enemy_died(e: Enemy) -> void:
 	if _kills == 1 and first_run:
 		Telemetry.step("kill1")
 	hud.show_hint("")
+	if hero and hero.finisher != "" and not e.is_boss:
+		LegendFinish.play(hero.finisher, e.global_position, world, hero)   # version 314: Legend Vault
 	if state != State.PLAYING:
 		return
 	if _omen("graves") > 0 and not e.is_boss:

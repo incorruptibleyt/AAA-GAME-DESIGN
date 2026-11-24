@@ -99,7 +99,7 @@ func _push_out_all() -> void:
 	var hero := Game.hero
 	if hero and not hero.dead and covers(hero.global_position, hero.radius):
 		hero.global_position = _clear_spot(hero.global_position, hero.radius)
-	for e in get_tree().get_nodes_in_group("enemies"):
+	for e in Actor.all:   # (version 314: there is no "enemies" group)
 		var en := e as Enemy
 		if en and not en.dead and covers(en.global_position, en.radius):
 			en.global_position = _clear_spot(en.global_position, en.radius)

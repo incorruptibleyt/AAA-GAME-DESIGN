@@ -54,9 +54,17 @@ static func _gold_rush(at: Vector3, world: Node3D) -> void:
 				_coin_pool.append(p)
 			elif is_instance_valid(p):
 				p.queue_free())
-	p.global_position = at + Vector3(0, 0.6, 0)
+	var run := world == Game.world
+	# In a run, a tall fountain the camera far above can see; on a pedestal, a small one beside
+	# the hero.
+	p.initial_velocity_min = 4.2 if run else 2.6
+	p.initial_velocity_max = 6.5 if run else 3.6
+	p.gravity = Vector3(0, -13.0 if run else -9.0, 0)
+	p.scale_amount_min = 1.1 if run else 0.9
+	p.scale_amount_max = 1.5 if run else 1.15
+	p.global_position = at + Vector3(0, 0.6 if run else 0.25, 0)
 	p.restart()
-	if world == Game.world:   # (not on a pedestal: Fx bursts belong to the run's world)
+	if run:   # (not on a pedestal: Fx bursts belong to the run's world)
 		Fx._burst(at + Vector3(0, 0.8, 0), 10, Color(1.0, 0.85, 0.35), 0.5, 3.0, 0.5, 0.0, true, "glint")
 		Sfx.play("coin", 0.35, randf_range(0.95, 1.25))
 
@@ -64,8 +72,8 @@ static func _gold_rush(at: Vector3, world: Node3D) -> void:
 static var _coin_mesh: Mesh
 
 
-## A fountain of gold coins: flat discs that spring up out of the skeleton, spinning, and rain
-## down around it.
+## A fountain of gold coins that spring up out of the skeleton and rain down around it, each
+## one standing on its edge and spinning, so it flashes face on and edge on as it flies.
 static func _coin_fountain() -> CPUParticles3D:
 	var p := CPUParticles3D.new()
 	p.one_shot = true
@@ -74,37 +82,51 @@ static func _coin_fountain() -> CPUParticles3D:
 	p.lifetime = 1.15
 	p.explosiveness = 0.8
 	p.direction = Vector3.UP
-	p.spread = 24.0
-	p.initial_velocity_min = 4.0
-	p.initial_velocity_max = 6.5
-	p.gravity = Vector3(0, -13.0, 0)
+	p.spread = 26.0
 	p.particle_flag_rotate_y = true
-	p.angular_velocity_min = -540.0
-	p.angular_velocity_max = 540.0
+	p.angular_velocity_min = -720.0
+	p.angular_velocity_max = 720.0
 	p.angle_min = 0.0
 	p.angle_max = 360.0
-	p.scale_amount_min = 0.8
-	p.scale_amount_max = 1.2
 	if _coin_mesh == null:
-		var c := CylinderMesh.new()
-		c.top_radius = 0.11
-		c.bottom_radius = 0.11
-		c.height = 0.03
-		c.radial_segments = 12
-		c.rings = 1
 		var m := StandardMaterial3D.new()
 		m.albedo_color = Color(1.0, 0.78, 0.25)
-		m.metallic = 0.7
+		m.metallic = 0.6
 		m.roughness = 0.3
 		m.emission_enabled = true
-		m.emission = Color(1.0, 0.65, 0.15)
-		m.emission_energy_multiplier = 0.9
-		c.material = m
-		_coin_mesh = c
+		m.emission = Color(1.0, 0.62, 0.12)
+		m.emission_energy_multiplier = 1.1
+		_coin_mesh = _coin_disc(0.13, 0.035, m)
 	p.mesh = _coin_mesh
-	# (tipped a little, so they flash as they spin)
-	p.rotation = Vector3(0.35, 0, 0.2)
 	return p
+
+
+## A coin standing up: a disc facing +Z and -Z with a rim, its middle at the origin.
+static func _coin_disc(r: float, thick: float, m: Material) -> Mesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 14
+	var h := thick * 0.5
+	for i in n:
+		var a0 := TAU * i / n
+		var a1 := TAU * (i + 1) / n
+		var p0 := Vector3(cos(a0) * r, sin(a0) * r, 0)
+		var p1 := Vector3(cos(a1) * r, sin(a1) * r, 0)
+		for face in [1.0, -1.0]:
+			var z := Vector3(0, 0, h * face)
+			var tri := [z, p1 + z, p0 + z] if face > 0.0 else [z, p0 + z, p1 + z]   # (front faces turn clockwise)
+			for v: Vector3 in tri:
+				st.set_normal(Vector3(0, 0, face))
+				st.add_vertex(v)
+		var e0 := Vector3(cos(a0), sin(a0), 0)
+		var e1 := Vector3(cos(a1), sin(a1), 0)
+		var zf := Vector3(0, 0, h)
+		for q in [[p0 - zf, e0], [p0 + zf, e0], [p1 + zf, e1], [p0 - zf, e0], [p1 + zf, e1], [p1 - zf, e1]]:
+			st.set_normal(q[1])
+			st.add_vertex(q[0])
+	var mesh := st.commit()
+	mesh.surface_set_material(0, m)
+	return mesh
 
 
 # ---------------------------------------------------------------- Soul Harvest
@@ -125,8 +147,12 @@ class Soul extends Node3D:
 	var _tail: Array[Node3D] = []
 	var _trail: Array[Vector3] = []
 
+	var _size := 1.0
+
 	func _ready() -> void:
 		LegendFinish._souls += 1
+		_size = 1.5 if get_parent() == Game.world else 1.2   # (seen from far above in a run)
+		scale = Vector3.ONE * _size
 		_mat = LegendPet._add_mat(Color(0.7, 0.92, 1.0, 0.95), true)
 		var body := MeshInstance3D.new()
 		body.mesh = LegendPet._quad(0.75)
@@ -145,7 +171,7 @@ class Soul extends Node3D:
 			e.scale = Vector3(0.8, 1.3, 0.5)
 		for i in 4:
 			var q := MeshInstance3D.new()
-			q.mesh = LegendPet._quad(0.5 - i * 0.09)
+			q.mesh = LegendPet._quad((0.5 - i * 0.09) * _size)
 			q.material_override = _mat
 			q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			q.top_level = true
@@ -179,6 +205,7 @@ class Soul extends Node3D:
 		if cam:
 			face = (cam.global_position - global_position).normalized()
 		look_at(global_position - face, Vector3.UP)
+		scale = Vector3.ONE * _size
 		_trail.push_front(global_position)
 		if _trail.size() > 12:
 			_trail.pop_back()

@@ -1,4 +1,6 @@
-Version 313: Legend Vault wings and footsteps
-- Bone Wings and Phoenix Wings: they spread when you dash, and Phoenix Wings leave a firebird behind.
-- Ember Steps burn footprints into the floor. Stardust Steps leave little constellations.
-- The Legend Vault (Armory, LEGENDS tab): 12 legendary looks for every hero, from 25,000 to 1,000,000 coins. 7 are out now.
+Version 314: Legend Vault finishers and the Bone Wyrm
+- Gold Rush: every skeleton you fell bursts into a fountain of spinning gold coins.
+- Soul Harvest: a ghost rises from every skeleton you fell and flies into you.
+- Bone Wyrm: a tiny skeleton dragon on your shoulder that breathes violet fire at bosses.
+- The Mimic now really snaps at skeletons.
+- The Legend Vault (Armory, LEGENDS tab): 10 of 12 legendary looks are out now.

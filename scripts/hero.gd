@@ -27,6 +27,9 @@ var harvest_left := 0.0
 var siphon_left := 0.0
 ## Set by the chosen hero (heroes.gd).
 var hero_id := "rogue"
+## Version 314: the Legend Vault finisher this hero wears ("" for none): LegendFinish plays it
+## when a skeleton falls (Game.on_enemy_died).
+var finisher := ""
 var bolt_size := 0.22
 var bolt_color := Color(0.55, 0.85, 1.0)
 var _finish_col = null   # a weapon finish's sparks when it fires (version 174)
@@ -247,6 +250,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.radius = 0.45
 	h.center_height = 1.0
 	h.hero_id = def.id
+	h.finisher = str(def.get("style", {}).get("legend", {}).get("finisher", ""))
 	h.init_health(def.health)
 	h.move_speed = def.move_speed
 	h.damage = def.damage
