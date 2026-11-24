@@ -5,7 +5,7 @@ extends Node3D
 ##   bone_wings:  Bone Wings. A bat's wing made of bones (arm, elbow, wrist and four long
 ##                finger bones) with torn dusk-violet skin stretched between them.
 ##   phoenix:     Phoenix Wings. Layers of long burning feathers, gold at the root and red at
-##                the tips, shedding embers; a dash leaves a firebird of flame behind where it
+##                the tips, their edges flickering like flames (version 317), shedding embers; a dash leaves a firebird of flame behind where it
 ##                started, which spreads its wings and fades.
 ## The wing's flat side leans back towards the run camera (above and behind the hero), so from
 ## up there it is seen spread, not edge on. On a pedestal they are shown spread and beating.
@@ -171,43 +171,163 @@ static func _fan(pts: Array[Vector2], side: float, key: String) -> Mesh:
 
 # ---------------------------------------------------------------- Phoenix Wings
 
+## Version 317: the feathers are real feather shapes (they were flat boxes, which read as a
+## fan of cards): each one tapers from its root to a pointed tip that curls up like a flame,
+## gold at the root, orange, then red at the tip, with a hot white-gold line down its middle.
+## Long flight feathers fan out from the arm, two rows of shorter coverts lie over their roots
+## (on both faces: the pedestal sees the front, the run camera the back) with little gold down
+## over those, and tongues of flame lick up from the top of the arm. The tips flutter and their
+## edges are cut into flickering tongues of fire (PHX_SHADER).
 func _phoenix_wing(side: float) -> Node3D:
 	var w := Node3D.new()
 	w.position = Vector3(0.1 * side, 0, 0)
 	add_child(w)
+	var feathers := MeshInstance3D.new()
+	# (in a run the camera far above often sees the wing at a slant, where the gaps between
+	# tapering feathers show: there the feathers are broader, and the glow brighter)
+	feathers.mesh = _phoenix_mesh(side, 1.4 if _hero else 1.0)
+	feathers.material_override = _phoenix_mat()
+	feathers.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	w.add_child(feathers)
 	var gold := LegendPet._mat("phx_gold", Color(1.0, 0.82, 0.35), 0.4, Color(1.0, 0.7, 0.2), 2.2)
-	var orange := LegendPet._mat("phx_orange", Color(1.0, 0.5, 0.12), 0.4, Color(1.0, 0.42, 0.08), 2.6)
-	var red := LegendPet._mat("phx_red", Color(0.9, 0.16, 0.06), 0.4, Color(1.0, 0.2, 0.05), 2.2)
-	# A row of long flight feathers fanning out from the arm (red-tipped), a row of shorter
-	# orange coverts over their roots, and gold down along the arm.
-	for i in 9:
-		var f := float(i) / 8.0
-		var root := _v(Vector2(0.12 + 0.72 * f, 0.18 + 0.16 * f), side)
-		var ang := lerpf(-1.3, 0.3, f)   # (from pointing down to pointing out and up)
-		var length := lerpf(0.65, 1.05, f)
-		var feather := Node3D.new()
-		feather.position = root
-		w.add_child(feather)
-		var d := Vector3(side * cos(ang), sin(ang), 0)
-		feather.rotation = Vector3(0, 0, atan2(-d.x, d.y) + PI)
-		U.box(feather, Vector3(0.17, length * 0.7, 0.02), orange, Vector3(0, -length * 0.35, 0))
-		var tipf := U.box(feather, Vector3(0.14, length * 0.34, 0.022), red, Vector3(0, -length * 0.83, 0))
-		tipf.rotation.z = 0.12 * side   # (the tips curl a little, like flames)
-	for i in 6:
-		var f := float(i) / 5.0
-		var root := _v(Vector2(0.1 + 0.7 * f, 0.22 + 0.15 * f), side)
-		var c := U.box(w, Vector3(0.13, 0.3, 0.025), gold, root + Vector3(0, -0.1, 0.012))
-		c.rotation.z = side * lerpf(0.5, -0.3, f)
 	_bone(w, Vector2.ZERO, ELBOW, 0.05, gold, side)
 	_bone(w, ELBOW, WRIST, 0.045, gold, side)
+	_bone(w, WRIST, PHX_TIP, 0.035, gold, side)
 	# A soft fire-glow over the whole wing.
 	var glow := MeshInstance3D.new()
 	glow.mesh = LegendPet._quad(2.3)
-	glow.material_override = LegendPet._add_mat(Color(1.0, 0.5, 0.15, 0.6), true)
+	glow.material_override = LegendPet._add_mat(Color(1.0, 0.5, 0.15, 0.75 if _hero else 0.55), true)
 	glow.position = _v(Vector2(0.75, 0.0), side)
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	w.add_child(glow)
 	return w
+
+
+const PHX_TIP := Vector2(1.06, 0.42)
+
+const PHX_SHADER := """
+shader_type spatial;
+render_mode unshaded, cull_disabled, shadows_disabled;
+varying float vt;
+varying float vx;
+void vertex() {
+	vt = UV.y;
+	vx = UV.x;
+	float ph = COLOR.a * 6.2832;
+	float k = vt * vt;
+	VERTEX.z += sin(TIME * 6.0 + vt * 5.0 + ph) * 0.05 * k;
+	VERTEX.x += sin(TIME * 4.3 + ph * 1.7 + vt * 3.0) * 0.025 * k;
+}
+void fragment() {
+	float ph = COLOR.a * 6.2832;
+	float tongues = 0.5 + 0.5 * sin(vt * 22.0 - TIME * 8.0 + ph * 2.0);
+	float cut = 1.0 - smoothstep(0.5, 1.0, vt) * (0.2 + 0.45 * tongues);
+	if (abs(vx) > cut) {
+		discard;
+	}
+	float flick = 0.9 + 0.1 * sin(TIME * 11.0 + vt * 9.0 + ph * 3.0);
+	float core = (1.0 - smoothstep(0.0, 0.32, abs(vx))) * (1.0 - smoothstep(0.15, 0.95, vt));
+	vec3 c = mix(COLOR.rgb, vec3(1.0, 0.95, 0.72), core * 0.8);
+	ALBEDO = c * flick;
+}
+"""
+
+static var _phx_mat: ShaderMaterial
+static var _phx_meshes := {}
+
+
+static func _phoenix_mat() -> ShaderMaterial:
+	if _phx_mat == null:
+		var sh := Shader.new()
+		sh.code = PHX_SHADER
+		_phx_mat = ShaderMaterial.new()
+		_phx_mat.shader = sh
+	return _phx_mat
+
+
+## The point `s` (0 to 1) of the way along the wing's arm, shoulder to tip.
+static func _arm(s: float) -> Vector2:
+	var pts: Array[Vector2] = [Vector2.ZERO, ELBOW, WRIST, PHX_TIP]
+	var total := 0.0
+	for i in 3:
+		total += pts[i].distance_to(pts[i + 1])
+	var want := s * total
+	for i in 3:
+		var l := pts[i].distance_to(pts[i + 1])
+		if want <= l or i == 2:
+			return pts[i].lerp(pts[i + 1], clampf(want / l, 0.0, 1.0))
+		want -= l
+	return PHX_TIP
+
+
+static func _phoenix_mesh(side: float, wide: float) -> Mesh:
+	var key := "%d/%.2f" % [int(side), wide]
+	if _phx_meshes.has(key):
+		return _phx_meshes[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var gold := Color(1.0, 0.8, 0.3)
+	var red := Color(0.92, 0.14, 0.04)
+	# The long flight feathers, from hanging down at the shoulder to reaching out past the tip.
+	for i in 14:
+		var f := float(i) / 13.0
+		_feather(st, _arm(0.06 + 0.92 * f), lerpf(-1.62, 0.45, pow(f, 1.1)), lerpf(0.62, 1.3, pow(f, 1.2)), 0.1 * wide, 0.12, 0.0, gold, red, fposmod(i * 0.618, 1.0), side)
+	# Shorter coverts over their roots, on both faces of the wing.
+	for z in [0.025, -0.025]:
+		for i in 10:
+			var f := float(i) / 9.0
+			_feather(st, _arm(0.03 + 0.86 * f), lerpf(-1.5, 0.25, f), lerpf(0.32, 0.52, f), 0.1 * wide, 0.08, z, Color(1.0, 0.9, 0.5), Color(1.0, 0.5, 0.1), fposmod(i * 0.37 + 0.2, 1.0), side)
+		# Little gold down over the coverts' roots.
+		for i in 8:
+			var f := float(i) / 7.0
+			var dz: float = z * 1.8
+			_feather(st, _arm(0.02 + 0.86 * f) + Vector2(0, 0.02), lerpf(-1.3, 0.1, f), 0.21, 0.075 * wide, 0.05, dz, Color(1.0, 0.96, 0.72), Color(1.0, 0.72, 0.28), fposmod(i * 0.29 + 0.5, 1.0), side)
+	# Tongues of flame licking up from the top of the arm.
+	for i in 5:
+		var f := float(i) / 4.0
+		_feather(st, _arm(0.12 + 0.8 * f), lerpf(1.85, 1.05, f), lerpf(0.24, 0.34, f), 0.06 * wide, -0.25, 0.0, Color(1.0, 0.75, 0.25), Color(0.95, 0.2, 0.05), fposmod(i * 0.53 + 0.1, 1.0), side)
+	var mesh := st.commit()
+	_phx_meshes[key] = mesh
+	return mesh
+
+
+## One feather in the wing's plane (made for the right wing: x out from the back, y up, then
+## mirrored for `side`): from `root` along the angle `ang`, `length` long and about twice
+## `half_w` wide, its tip curling up by `curl`; `c0` at the root to `c1` at the tip, `ph` the
+## phase of its flicker (in the vertex colour's alpha); `z` lifts its layer off the others.
+static func _feather(st: SurfaceTool, root: Vector2, ang: float, length: float, half_w: float, curl: float, z: float, c0: Color, c1: Color, ph: float, side: float) -> void:
+	var d := Vector2(cos(ang), sin(ang))
+	var n := Vector2(-d.y, d.x)
+	var prev_l := Vector3.ZERO
+	var prev_r := Vector3.ZERO
+	var prev_t := 0.0
+	for i in 9:
+		var t := float(i) / 8.0
+		var c := root + d * (t * length) + n * (curl * t * t * length)
+		var hw := half_w * (0.3 * (1.0 - t) + 0.9 * sin(PI * pow(t, 0.7)))
+		var l := _v(c - n * hw, side) + Vector3(0, 0, z)
+		var r := _v(c + n * hw, side) + Vector3(0, 0, z)
+		if i > 0:
+			var col0 := c0.lerp(c1, prev_t)
+			col0.a = ph
+			var col1 := c0.lerp(c1, t)
+			col1.a = ph
+			_fv(st, prev_l, Vector2(-1, prev_t), col0)
+			_fv(st, prev_r, Vector2(1, prev_t), col0)
+			_fv(st, r, Vector2(1, t), col1)
+			_fv(st, prev_l, Vector2(-1, prev_t), col0)
+			_fv(st, r, Vector2(1, t), col1)
+			_fv(st, l, Vector2(-1, t), col1)
+		prev_l = l
+		prev_r = r
+		prev_t = t
+
+
+static func _fv(st: SurfaceTool, v: Vector3, uv: Vector2, col: Color) -> void:
+	st.set_color(col)
+	st.set_uv(uv)
+	st.set_normal(Vector3(0, 0, 1))
+	st.add_vertex(v)
 
 
 func _ember_fx() -> CPUParticles3D:
