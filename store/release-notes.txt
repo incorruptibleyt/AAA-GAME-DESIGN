@@ -1,3 +1,2 @@
-Version 329: Legend Vault, Supercell pass 12 of 12
-- The Bone Emperor upgraded: the golden spine now lies on a royal purple velvet cape with a gold border and an ermine collar, the gold shines brighter, and a dash raises a row of bone spikes out of the floor behind you.
-- All 12 Legend looks have now been rebuilt or polished.
+Version 330: Legend Vault looks get better (1 of 6)
+- Crypt Raven upgraded: a real shaped body covered in layered black feathers with a violet sheen, shaggy throat feathers, and glowing violet eyes.

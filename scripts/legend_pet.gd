@@ -676,13 +676,14 @@ func _build_raven() -> void:
 	var bone := _mat("raven_bone", Color(0.95, 0.93, 0.87), 0.6)
 	var black := _mat("raven_black", Color(0.05, 0.04, 0.07), 0.6)
 	var violet := _mat("raven_eye", Color(0.85, 0.6, 1.0), 0.3, Color(0.75, 0.45, 1.0), 5.0)
-	var plume := _raven_plume()
-	# The body: blue-black feathers with a violet sheen at the edges (so a black bird still
-	# reads on a dark floor), a rounder chest, and a ruff of ragged feathers at the neck.
-	var body := _sphere(_body, 0.2, plume, Vector3(0, 0, 0.02))
-	body.scale = Vector3(0.95, 0.88, 1.5)
-	var chest := _sphere(_body, 0.16, plume, Vector3(0, -0.04, -0.17))
-	chest.scale = Vector3(1.05, 1.0, 1.05)
+	# The body (version 330: it was two black balls): one shaped body, a full chest tapering
+	# to a slim tail, covered in rows of overlapping feathers that catch a violet-to-teal sheen
+	# at their edges (so a black bird still reads on a dark floor); a ruff of ragged feathers
+	# at the neck and shaggy hackles under the beak.
+	var body := MeshInstance3D.new()
+	body.mesh = _raven_body_mesh()
+	body.material_override = _raven_body_mat()
+	_body.add_child(body)
 	var ruff := MeshInstance3D.new()
 	ruff.mesh = _raven_fan(7, 0.17, 0.045, -0.55, 0.55, Color(0.08, 0.07, 0.13), Color(0.35, 0.2, 0.6))
 	ruff.material_override = _raven_feather_mat()
@@ -703,6 +704,20 @@ func _build_raven() -> void:
 		var sock := _sphere(_head, 0.058, black, Vector3(0.085 * side, 0.015, -0.075))
 		sock.scale = Vector3(0.9, 1.0, 0.7)
 		_sphere(_head, 0.032, violet, Vector3(0.1 * side, 0.02, -0.095))
+		# (version 330: a soft violet light round each eye, seen from far above)
+		var eg := MeshInstance3D.new()
+		eg.mesh = _glow_ball()
+		eg.material_override = LegendGrand.star_glow(Color(0.7, 0.4, 1.0), 0.9)
+		eg.scale = Vector3.ONE * 0.075
+		eg.position = Vector3(0.1 * side, 0.02, -0.1)
+		eg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_head.add_child(eg)
+	var hackles := MeshInstance3D.new()
+	hackles.mesh = _raven_fan(5, 0.13, 0.035, -0.5, 0.5, Color(0.07, 0.06, 0.11), Color(0.3, 0.2, 0.5))
+	hackles.material_override = _raven_feather_mat()
+	hackles.position = Vector3(0, -0.07, -0.06)
+	hackles.rotation.x = 1.15   # (hanging down and back from the throat)
+	_head.add_child(hackles)
 	var upper := _tube(_head, 0.06, 0.0, 0.27, black, Vector3.ZERO)
 	upper.rotation.x = PI / 2.0 + 0.22   # (hooked: the tip turns down)
 	upper.position = Vector3(0, -0.005, -0.26)
@@ -736,10 +751,12 @@ func _build_raven() -> void:
 	# Legs, for perching.
 	for side in [-1.0, 1.0]:
 		U.box(_body, Vector3(0.025, 0.14, 0.025), black, Vector3(0.06 * side, -0.2, -0.04))
-	# A violet glow about it.
+	# A soft violet glow about it (version 330: a ball of added light; the billboard it was
+	# never showed in a run).
 	var glow := MeshInstance3D.new()
-	glow.mesh = _quad(1.5)
-	glow.material_override = _add_mat(Color(0.55, 0.3, 1.0, 0.38), true)
+	glow.mesh = _glow_ball()
+	glow.material_override = LegendGrand.star_glow(Color(0.5, 0.28, 1.0), 0.16)
+	glow.scale = Vector3(0.5, 0.42, 0.6)
 	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_body.add_child(glow)
 	_body.position.y = 1.5
@@ -763,12 +780,9 @@ func _build_raven() -> void:
 		_shed.angular_velocity_min = -200.0
 		_shed.angular_velocity_max = 200.0
 		_shed.angle_max = 360.0
-		var q := QuadMesh.new()
-		q.size = Vector2(0.09, 0.2)
-		_shed.mesh = q
-		var sm := _add_mat(Color(0.65, 0.4, 1.0, 0.9), true)
-		sm.vertex_color_use_as_albedo = true
-		_shed.material_override = sm
+		_shed.mesh = Fx._shaped("glow")   # (version 330: the billboard quads never showed)
+		_shed.scale_amount_min = 0.08
+		_shed.scale_amount_max = 0.15
 		var g := Gradient.new()
 		g.set_color(0, Color(0.8, 0.6, 1.0, 1.0))
 		g.set_color(1, Color(0.4, 0.2, 0.9, 0.0))
@@ -777,6 +791,64 @@ func _build_raven() -> void:
 
 
 static var _plume_mat: ShaderMaterial
+static var _raven_body_m: ShaderMaterial
+static var _raven_body: Mesh
+
+
+## Version 330: the raven's body, its front -Z: a neck rising to the head, a full round
+## chest, a back that tapers to a slim tail root. Blue-black, the chest a little lighter.
+static func _raven_body_mesh() -> Mesh:
+	if _raven_body:
+		return _raven_body
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var prof := [   # [z, y, half width, half height]
+		[-0.34, 0.1, 0.0, 0.0], [-0.33, 0.1, 0.07, 0.08], [-0.29, 0.06, 0.12, 0.13], [-0.22, 0.0, 0.17, 0.17],
+		[-0.12, -0.015, 0.19, 0.175], [0.0, -0.005, 0.18, 0.155], [0.12, 0.015, 0.145, 0.12],
+		[0.23, 0.03, 0.095, 0.075], [0.31, 0.035, 0.05, 0.04], [0.35, 0.035, 0.0, 0.0]]
+	var pts := []
+	var rx := []
+	var ry := []
+	var cols := []
+	for p in prof:
+		pts.append(Vector3(0, p[1], p[0]))
+		rx.append(p[2])
+		ry.append(p[3])
+		cols.append(Color(0.075, 0.065, 0.115).lerp(Color(0.035, 0.032, 0.06), clampf((float(p[0]) + 0.2) / 0.45, 0.0, 1.0)))
+	_loft(st, pts, rx, ry, cols, 14)
+	_raven_body = st.commit()
+	return _raven_body
+
+
+## Its plumage: rows of overlapping rounded feathers (drawn by the shader along the body),
+## each edged with a violet-to-teal sheen, and a sheen round the outline.
+static func _raven_body_mat() -> ShaderMaterial:
+	if _raven_body_m == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+varying vec3 lp;
+void vertex() {
+	lp = VERTEX;
+}
+void fragment() {
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+	// (long feathers, narrower than they are long: round scales read as a fish)
+	vec2 g = vec2(atan(lp.x, lp.y + 0.02) * 3.4, lp.z * 15.0);
+	g.x += floor(g.y) * 0.5;
+	vec2 f = fract(g) - vec2(0.5, 0.0);
+	float d = length(f * vec2(1.0, 0.55));
+	float rim = smoothstep(0.36, 0.46, d) * (1.0 - smoothstep(0.5, 0.6, d));
+	vec3 sheen = mix(vec3(0.5, 0.28, 1.0), vec3(0.2, 0.7, 0.9), clamp(NORMAL.y * 0.5 + 0.5, 0.0, 1.0));
+	vec3 base = COLOR.rgb * (1.0 - 0.35 * smoothstep(0.3, 0.55, d));
+	ALBEDO = base + sheen * (fres * 0.25 + rim * 0.07);
+	ROUGHNESS = 0.4;
+	EMISSION = sheen * (fres * 0.45 + rim * 0.03);
+}
+"""
+		_raven_body_m = ShaderMaterial.new()
+		_raven_body_m.shader = sh
+	return _raven_body_m
 static var _feather_mat: ShaderMaterial
 
 
