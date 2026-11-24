@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24l"
+const BUILD := "2026-11-24m"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -6796,11 +6796,13 @@ func _legend_preview(id: String) -> void:
 		return
 	var cfg := _load_save()
 	var hero_id := Heroes.selected(cfg)
-	var picks := HeroStyle.picks(cfg, hero_id)
+	var legend := {str(d.slot): id}
+	var picks := HeroStyle.grand_head(HeroStyle.picks(cfg, hero_id), legend)
 	for s: String in ["glow", "aura"]:
 		picks[s] = ""   # (as in the Bazaar: the look for sale is the star)
 	var def := HeroStyle.dressed(Heroes.get_hero(hero_id), picks)
-	def.style.legend = {str(d.slot): id}
+	def.style.legend = legend
+	HeroStyle.crown_grand(def, legend)   # (version 315: a grand set's crown)
 	var price := int(d.price)
 	hud.show_offer({"name": d.name, "kind": str(Legends.SLOT_NAMES.get(str(d.slot), "")).capitalize(),
 		"look": ["legend", id], "hero": hero_id, "preview": def, "price": price, "legend": true,

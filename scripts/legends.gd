@@ -37,8 +37,8 @@ const LIST := [
 		"text": "Wings of burning feathers. A dash leaves a firebird behind."},
 	{"id": "wyrm", "slot": "pet", "name": "Bone Wyrm", "price": 400000, "ready": true,
 		"text": "A tiny skeleton dragon on your shoulder that breathes violet fire at bosses."},
-	{"id": "starfall", "slot": "grand", "name": "Starfall Mantle", "price": 600000, "ready": false,
-		"text": "A cape that is a window into the night sky, and a crown of orbiting stars."},
+	{"id": "starfall", "slot": "grand", "name": "Starfall Mantle", "price": 600000, "ready": true,
+		"text": "A cape and tall collar that are a window into the night sky, and a crown of stars with a comet."},
 	{"id": "emperor", "slot": "grand", "name": "The Bone Emperor", "price": 1000000, "ready": false,
 		"text": "Golden bone armour, a spine cape, a crown of skulls, and a bone throne."},
 ]
@@ -122,6 +122,9 @@ static func dress(visual: Node3D, model: Node3D, legend: Dictionary) -> void:
 		var show := LegendFinish.Show.new()   # version 314: on a pedestal, played over and over
 		show.kind = finisher
 		visual.add_child(show)
+	var grand := str(legend.get("grand", ""))
+	if grand != "":
+		LegendGrand.make(visual, model, grand)   # version 315 (its crown: HeroStyle.crown_grand)
 	var steps := str(legend.get("steps", ""))
 	if steps != "":
 		var st := LegendSteps.new()   # version 313

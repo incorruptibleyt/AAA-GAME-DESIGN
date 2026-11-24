@@ -644,12 +644,35 @@ static func mark_seen(cfg: ConfigFile, id: String) -> void:
 
 ## `def` (an entry of Heroes.LIST) as this player has dressed them.
 static func styled(cfg: ConfigFile, def: Dictionary) -> Dictionary:
-	var d := dressed(def, picks(cfg, def.id))
 	# Version 312: the Legend Vault's looks (legends.gd) are worn by every hero.
 	var legend := Legends.worn(cfg)
+	var d := dressed(def, grand_head(picks(cfg, def.id), legend))
 	if not legend.is_empty():
 		d.style.legend = legend
+		crown_grand(d, legend)
 	return d
+
+
+## Version 315: a Legend Vault grand set brings its own crown, so the hero's own head look
+## comes off for it: the picks with no head look (the class hat comes back, see crown_grand).
+static func grand_head(p: Dictionary, legend: Dictionary) -> Dictionary:
+	if str(legend.get("grand", "")) == "":
+		return p
+	var q := p.duplicate()
+	q.head = ""
+	return q
+
+
+## ... and the grand set's crown on the bare head, in the class hat's place.
+static func crown_grand(d: Dictionary, legend: Dictionary) -> void:
+	var g := str(legend.get("grand", ""))
+	if g == "":
+		return
+	var id := str(d.style.id)
+	if OWN_HAT.has(id):
+		d.style.hide.append(OWN_HAT[id])
+	d.style.hat = false
+	d.style.extras = [g + "_crown"]
 
 
 ## `def` in the looks `p` ({slot: key}): its glow colours, and a "style" for the model.
@@ -1123,6 +1146,8 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 			_crown(att, id, y, hat)
 		"crypt_crown":
 			att.add_child(CryptCrown.make(id, y, hat))
+		"starfall_crown":
+			att.add_child(LegendGrand.starfall_crown(id, y))   # version 315: Legend Vault
 		"storm_halo", "star_circlet", "flame_crown", "skull_helm", "antlers", "phantom_horns", "bone_crown", "moon_crown", "candle_crown", "horns", "halo":
 			att.add_child(FeatHeads.make(kind, id, y, hat, style))
 		"mage_hood":
@@ -1136,7 +1161,8 @@ static func _extra(skel: Skeleton3D, id: String, kind: String, hat: bool, hat_h 
 	# Version 191: under a crown or horns the Knight wears a mail coif and the Barbarian a fur
 	# cap, in the outfit's colours. Without their helmet and bear hood these two were a bare
 	# head, which from the camera above was a big peach ball that took over the whole look.
-	if not hat and id in ["knight", "barbarian"] and not kind in ["skull_helm", "mage_hood"]:
+	# (Version 315: the Starfall crown brings its own dome of night sky instead.)
+	if not hat and id in ["knight", "barbarian"] and not kind in ["skull_helm", "mage_hood", "starfall_crown"]:
 		var oc: Dictionary = style.get("outfit", {})
 		var col := Color(0.6, 0.63, 0.7) if id == "knight" else Color(0.4, 0.28, 0.19)
 		var pick = oc.get("b" if id == "knight" else "a")

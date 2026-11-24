@@ -1,6 +1,6 @@
-Version 314: Legend Vault finishers and the Bone Wyrm
-- Gold Rush: every skeleton you fell bursts into a fountain of spinning gold coins.
-- Soul Harvest: a ghost rises from every skeleton you fell and flies into you.
-- Bone Wyrm: a tiny skeleton dragon on your shoulder that breathes violet fire at bosses.
-- The Mimic now really snaps at skeletons.
-- The Legend Vault (Armory, LEGENDS tab): 10 of 12 legendary looks are out now.
+Version 315: the Starfall Mantle
+- New in the Legend Vault (Armory, LEGENDS tab): the Starfall Mantle, 600,000 coins.
+- A long cape and tall collar that are a window into the night sky: twinkling stars, drifting nebula and a shooting star now and then. It blows back as you run.
+- With it a crown of night sky, five stars on its points and a comet circling it.
+- Every hero can wear it.
+- 11 of 12 legendary looks are out now.

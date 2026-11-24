@@ -842,6 +842,8 @@ class Icon extends Control:
 				_soul_harvest()
 			"wyrm":
 				_wyrm()
+			"starfall":
+				_starfall()
 
 	func _glow(p: Vector2, r: float, col: Color) -> void:
 		for i in 5:
@@ -1097,6 +1099,59 @@ class Icon extends Control:
 				var r := 3.0 + 9.0 * k
 				draw_circle(p, r, Color(0.75, 0.45, 1.0, 0.55 * (1.0 - k)))
 				draw_circle(p, r * 0.5, Color(0.95, 0.85, 1.0, 0.7 * (1.0 - k)))
+
+	func _starfall() -> void:
+		var night := Color(0.05, 0.05, 0.16)
+		var silver := Color(0.86, 0.9, 1.0)
+		# The mantle: wide at the hem, cut in points, a window of night sky with twinkling stars.
+		var sway := sin(_t * 1.5) * 2.0
+		var poly := PackedVector2Array([Vector2(-16, -12), Vector2(16, -12)])
+		for i in 11:
+			var u := 1.0 - i / 10.0
+			var x := lerpf(-38.0, 38.0, u) + sway
+			var y := 40.0 - (8.0 if i % 2 == 1 else 0.0)
+			poly.append(Vector2(x, y))
+		draw_colored_polygon(poly, night)
+		var edge := poly.duplicate()
+		edge.append(poly[0])
+		draw_polyline(edge, silver, 2.0, true)
+		for i in 14:
+			var p := Vector2(-30 + fmod(i * 37.0, 60.0), -4 + fmod(i * 23.0, 40.0))
+			if Geometry2D.is_point_in_polygon(p, poly):
+				var tw := 0.5 + 0.5 * sin(_t * 3.0 + i * 1.9)
+				draw_circle(p, 1.0 + tw * (1.4 if i % 4 == 0 else 0.6), Color(0.85, 0.9, 1.0, 0.5 + 0.5 * tw))
+		# A shooting star across it now and then.
+		var ph := fmod(_t, 2.5) / 2.5
+		if ph < 0.35:
+			var hp := Vector2(-24, 2).lerp(Vector2(22, 28), ph / 0.35)
+			draw_line(hp, hp - Vector2(10, 6), Color(1, 1, 1, 0.8), 1.6)
+		# The tall collar standing up behind the head, flaring out each side.
+		for sd in [-1.0, 1.0]:
+			var cl := PackedVector2Array([Vector2(-6 * sd, -12), Vector2(-17 * sd, -12), Vector2(-29 * sd, -33), Vector2(-21 * sd, -36), Vector2(-12 * sd, -24)])
+			draw_colored_polygon(cl, night)
+			var cle := cl.duplicate()
+			cle.append(cl[0])
+			draw_polyline(cle, silver, 1.6, true)
+			draw_circle(Vector2(-23 * sd, -26), 1.2, Color(0.85, 0.9, 1.0, 0.6 + 0.4 * sin(_t * 2.5 + sd)))
+		# The crown: dark points with bright stars at their tips, and a comet going round.
+		var cy := -24.0
+		draw_rect(Rect2(-17, cy - 3, 34, 8), night)
+		draw_line(Vector2(-17, cy - 3), Vector2(17, cy - 3), silver, 1.6)
+		draw_line(Vector2(-17, cy + 5), Vector2(17, cy + 5), silver, 1.6)
+		for i in 5:
+			var x := -14.0 + i * 7.0
+			var h := 16.0 if i == 2 else 11.0
+			draw_colored_polygon(PackedVector2Array([Vector2(x - 3.5, cy - 3), Vector2(x + 3.5, cy - 3), Vector2(x, cy - 3 - h)]), night)
+			var tp := Vector2(x, cy - 5 - h)
+			_glow(tp, 7.0, Color(0.85, 0.9, 1.0, 0.7))
+			draw_circle(tp, 1.8, Color(1.0, 0.97, 0.85))
+		var ca := _t * 2.2
+		var cp := Vector2(cos(ca) * 30.0, cy - 10.0 + sin(ca) * 7.0)
+		for i in 5:
+			var b := ca - 0.18 * (i + 1)
+			draw_circle(Vector2(cos(b) * 30.0, cy - 10.0 + sin(b) * 7.0), 2.6 - i * 0.4, Color(0.7, 0.8, 1.0, 0.6 - i * 0.1))
+		_glow(cp, 9.0, Color(0.9, 0.95, 1.0, 0.9))
+		draw_circle(cp, 2.4, Color.WHITE)
 
 	## A dark shape of the look's kind, for the looks still to come.
 	func _shadow() -> void:
