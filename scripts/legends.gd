@@ -20,7 +20,7 @@ const LIST := [
 	{"id": "wisp", "slot": "pet", "name": "Lantern Wisp", "price": 25000, "ready": true,
 		"text": "A hooded ghost with a lantern on a crook. Each skeleton you fell sends a spark into its lantern."},
 	{"id": "ember_steps", "slot": "steps", "name": "Ember Steps", "price": 40000, "ready": true,
-		"text": "Every step burns into the floor and smoulders away."},
+		"text": "Every step burns into the floor and cracks it with glowing magma. A dash leaves a line of fire."},
 	{"id": "raven", "slot": "pet", "name": "Crypt Raven", "price": 60000, "ready": true,
 		"text": "A black raven with a bird-skull head. It circles you in a fight and rests on your shoulder."},
 	{"id": "bone_wings", "slot": "wings", "name": "Bone Wings", "price": 80000, "ready": true,

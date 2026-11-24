@@ -2340,6 +2340,17 @@ class Icon extends Control:
 				draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 2.6, Color(0.12, 0.06, 0.03))
 			var hot := Color(1.0, 0.5 + 0.2 * fire, 0.1, 0.35 + 0.65 * fire)
 			_glow(c + Vector2(0, 2), 22, Color(1.0, 0.45, 0.1, 0.6 * fire))
+			# (version 326) glowing cracks split the floor out from the print.
+			for k in 5:
+				var ang := TAU * k / 5.0 + j * 0.7
+				var dir := Vector2(cos(ang), sin(ang))
+				var nrm := Vector2(-dir.y, dir.x)
+				var reach := minf(1.0, age * 8.0) * (16.0 + 6.0 * sin(k * 2.3 + j))
+				var pts := PackedVector2Array()
+				for q in 4:
+					var r := 9.0 + reach * q / 3.0
+					pts.append(c + Vector2(0, 4) + dir * r * Vector2(1.0, 1.3) + nrm * (2.5 if q % 2 == 1 else -1.0))
+				draw_polyline(pts, Color(1.0, 0.55 + 0.35 * fire, 0.15, 0.25 + 0.75 * fire), 2.0)
 			_ellipse(c + Vector2(0, 6), 6.5, 10, hot)
 			for i in 5:
 				draw_circle(c + Vector2(-8 + i * 4, -12 + abs(i - 2) * 1.5), 1.6, hot)

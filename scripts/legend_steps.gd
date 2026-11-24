@@ -5,7 +5,10 @@ extends Node3D
 ##                middle and orange to red at its edge, with three little flames rising off it
 ##                (version 317: it was one flat orange print, which read as mud); it cools from
 ##                white through orange to red and goes out in about two seconds, and the black
-##                scorch fades after it.
+##                scorch fades after it. Version 326: each step cracks the floor, glowing
+##                cracks of magma that split out from the print and cool with it; embers puff
+##                up from every step and trail off the hero's boots; the steps are drawn
+##                bigger in a run, and a dash leaves a line of fire.
 ##   star_steps:  Stardust Steps (version 322: it was five faint sparkles per step). Each step
 ##                drops a fat five-pointed star onto the floor (a white heart, a coloured
 ##                rim, a dark outline) that pops in with a flash of light and a ring of
@@ -33,6 +36,12 @@ var _stage_t := 0.0
 var _stage_i := 0
 var _prev_at := Vector3(INF, 0, 0)   # (the last star, for the line of light to the next)
 var _dust: CPUParticles3D   # (Stardust Steps: the streak a dash leaves)
+var _boots: CPUParticles3D  # (Ember Steps: embers trailing off the hero's boots in a run)
+var _dashing := false
+
+## Ember Steps are drawn this much bigger in a run (the camera is far above), more in a dash.
+const EMBER_RUN := 1.7
+const EMBER_DASH := 2.1
 
 ## Stardust Steps: the colours the stars take in turn (pale gold, ice blue, violet, sea green).
 const STAR_COLS := [Color(1.0, 0.8, 0.35), Color(0.45, 0.75, 1.0), Color(0.72, 0.5, 1.0), Color(0.4, 0.95, 0.85)]
@@ -50,6 +59,9 @@ func _ready() -> void:
 	if kind == "star_steps" and not _staged:
 		_dust = _star_dust()
 		add_child(_dust)
+	if kind == "ember_steps" and not _staged:
+		_boots = _ember_boots()
+		add_child(_boots)
 
 
 func _process(delta: float) -> void:
@@ -75,15 +87,22 @@ func _process(delta: float) -> void:
 	if step.length() > 3.0 or a.y > 0.5:
 		return   # (a jump to a new room, or flung through the air)
 	_walked += step.length()
+	# A dash is 21 m/s; a run is 6.
+	_dashing = step.length() > 12.0 * delta
 	if _dust:
-		# A dash (21 m/s; a run is 6) streams stardust from the hero.
+		# A dash streams stardust from the hero.
 		_dust.global_position = a + Vector3(0, 0.5, 0)
-		_dust.emitting = step.length() > 12.0 * delta
-	if _walked >= STRIDE and step.length() > 0.001:
+		_dust.emitting = _dashing
+	if _boots:
+		_boots.global_position = a + Vector3(0, 0.12, 0)
+		_boots.emitting = step.length() > 1.0 * delta
+	# (Ember Steps in a dash: a line of fire, steps close together down the middle.)
+	var stride := 0.34 if (_dashing and kind == "ember_steps") else STRIDE
+	if _walked >= stride and step.length() > 0.001:
 		_walked = 0.0
 		var dir := step.normalized()
 		_foot = -_foot
-		var side := Vector3(-dir.z, 0, dir.x) * FOOT_GAP * _foot
+		var side := Vector3(-dir.z, 0, dir.x) * FOOT_GAP * _foot * (0.4 if _dashing else 1.0)
 		_put(Vector3(a.x, 0.045, a.z) + side, atan2(-dir.x, -dir.z))
 
 
@@ -101,11 +120,17 @@ func _put(at: Vector3, yaw: float) -> void:
 		n.position.y = 0.16
 		if n.has_node("Heat"):
 			n.get_node("Heat").visible = false
+	elif kind == "ember_steps":
+		n.scale = Vector3.ONE * (EMBER_DASH if _dashing else EMBER_RUN)
+		# Embers puff up off the step (it is the world's burst pool: only in a run).
+		Fx._burst(at + Vector3(0, 0.15, 0), 7 if _dashing else 5, Color(1.0, 0.55, 0.15), 0.16, 1.6, 0.9, -0.15, true, "glow")
 	n.visible = true
 	m.age = 0.0
 	m.seed = randf() * TAU
 	if kind == "star_steps":
 		_star_put(m, at)
+	elif m.has("crack"):
+		(m.crack as ShaderMaterial).set_shader_parameter("seed", randf() * 50.0)
 	_fade(m)
 
 
@@ -126,8 +151,9 @@ func _fade(m: Dictionary) -> void:
 	(m.flame as ShaderMaterial).set_shader_parameter("heat", pow(fire, 1.6))
 	(m.haze as StandardMaterial3D).albedo_color.a = fire * 0.45
 	(m.scorch as StandardMaterial3D).albedo_color.a = 0.75 * (1.0 - smoothstep(2.0, life_e, t))
-	(m.spark as Node3D).position.y = 0.05 + t * 0.5
-	(m.spark_mat as StandardMaterial3D).albedo_color.a = fire * 0.9
+	var crack := m.crack as ShaderMaterial
+	crack.set_shader_parameter("heat", 1.0 - smoothstep(0.3, 3.2, t))
+	crack.set_shader_parameter("grow", smoothstep(0.0, 0.16, t))
 
 
 func _make_mark() -> Dictionary:
@@ -138,8 +164,9 @@ func _make_mark() -> Dictionary:
 	if kind == "star_steps":
 		_star_mark(n, m)
 		return m
-	# Ember Steps: a black scorch under a burning footprint, a haze of heat round it, three
-	# little flames standing on it (at the toes, the ball and the heel) and a spark rising.
+	# Ember Steps: a black scorch under a burning footprint, a haze of heat round it, glowing
+	# cracks splitting the floor out from it, and three little flames standing on it (at the
+	# toes, the ball and the heel).
 	var char_mat := StandardMaterial3D.new()   # (the scorch)
 	char_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	char_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -161,18 +188,13 @@ func _make_mark() -> Dictionary:
 		f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		f.position = at
 		n.add_child(f)
-	var spark_mat := LegendPet._add_mat(Color(1.0, 0.7, 0.3, 0.9), true)
-	var spark := MeshInstance3D.new()
-	spark.mesh = LegendPet._quad(0.12)
-	spark.material_override = spark_mat
-	spark.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	n.add_child(spark)
+	var crack_mat := _ember_crack_mat()
+	U.floor_quad(n, Vector2(1.1, 1.1), crack_mat, Vector3(0, 0.003, 0))
 	m.scorch = char_mat
 	m.glow = glow_mat
 	m.flame = flame_mat
 	m.haze = haze_mat
-	m.spark = spark
-	m.spark_mat = spark_mat
+	m.crack = crack_mat
 	return m
 
 
@@ -423,6 +445,84 @@ static func _star_dust() -> CPUParticles3D:
 
 static var _glow_shader: Shader
 static var _flame_shader: Shader
+static var _crack_shader: Shader
+
+
+## Version 326: glowing cracks that split the floor out from a burning step: six jagged lines
+## from the print's edge, thick at the root and thin at the tip, that run out as the foot
+## lands (`grow` 0 to 1) and cool from white-gold through orange to dull red (`heat` 1 to 0).
+static func _ember_crack_mat() -> ShaderMaterial:
+	if _crack_shader == null:
+		_crack_shader = Shader.new()
+		_crack_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform float heat = 0.0;
+uniform float grow = 1.0;
+uniform float seed = 0.0;
+float h1(float n) {
+	return fract(sin(n * 91.7 + seed * 13.1) * 43758.5);
+}
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x);
+	float on = 0.0;
+	float reach = 1.0;
+	for (int i = 0; i < 6; i++) {
+		float fi = float(i);
+		float ca = fi / 6.0 * 6.2832 + (h1(fi) - 0.5) * 0.8;
+		float len = 0.5 + 0.45 * h1(fi + 7.0);
+		float jag = sin(r * 23.0 + fi * 3.1 + seed) * 0.13 + sin(r * 51.0 + fi * 1.7) * 0.05;
+		float da = abs(mod(a - ca - jag + 3.1416, 6.2832) - 3.1416);
+		float d = da * r;
+		float k = clamp(r / len, 0.0, 1.0);
+		float w = mix(0.065, 0.014, k);
+		float c = (1.0 - smoothstep(w * 0.45, w, d)) * step(r, len * grow);
+		if (c > on) {
+			on = c;
+			reach = k;
+		}
+	}
+	on *= smoothstep(0.12, 0.2, r);
+	float h = heat * (1.0 - 0.55 * reach);
+	vec3 col = mix(vec3(0.9, 0.14, 0.0), vec3(1.0, 0.5, 0.06), smoothstep(0.1, 0.5, h));
+	col = mix(col, vec3(1.0, 0.92, 0.6), smoothstep(0.65, 1.0, h));
+	vec3 c = col * on * clamp(heat * 1.6, 0.0, 1.0);
+	c += vec3(1.0, 0.38, 0.04) * pow(max(0.0, 1.0 - r * 2.4), 2.0) * 0.4 * heat;
+	float glow_a = max(max(c.r, c.g), c.b);
+	ALBEDO = c / max(glow_a, 0.001);
+	ALPHA = clamp(glow_a, 0.0, 1.0);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = _crack_shader
+	m.render_priority = 1
+	return m
+
+
+## Ember Steps in a run: embers trailing off the hero's boots as they walk.
+static func _ember_boots() -> CPUParticles3D:
+	var p := CPUParticles3D.new()
+	p.mesh = Fx._shaped("glow")
+	p.amount = 16
+	p.lifetime = 0.8
+	p.local_coords = false
+	p.emitting = false
+	p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+	p.emission_box_extents = Vector3(0.25, 0.04, 0.25)
+	p.direction = Vector3.UP
+	p.spread = 35.0
+	p.gravity = Vector3(0, 0.9, 0)
+	p.initial_velocity_min = 0.2
+	p.initial_velocity_max = 0.6
+	p.scale_amount_min = 0.07
+	p.scale_amount_max = 0.14
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	g.colors = PackedColorArray([Color(1.0, 0.85, 0.4, 1.0), Color(1.0, 0.4, 0.08, 0.8), Color(0.6, 0.1, 0.0, 0.0)])
+	p.color_ramp = g
+	return p
 
 
 ## The burning footprint (one per mark, to cool it): white-hot where the print is deepest (the
