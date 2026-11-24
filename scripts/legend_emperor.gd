@@ -14,6 +14,11 @@ extends RefCounted
 ##   The bone throne: on the title screen (and on the vault's pedestal) a throne of bones
 ##     stands behind the hero: a fan of long bones topped with skulls, a velvet back, skull
 ##     armrests and a gold-trimmed step.
+##   Version 329: the spine now lies on a cape of imperial purple velvet edged in gold, with
+##     an ermine collar (white fur, black tails) across the shoulders, so from the run camera
+##     the set reads as an emperor's cape, not a bare ribcage; the gold shines brighter; and a
+##     dash raises a row of gold-tipped bone spikes out of the floor behind the hero
+##     (LegendGrand._bone_spikes).
 ## Its solid parts are marked in the stencil as the hero's own body (see
 ## CharacterVisual._with_xray), so in a run the hero's see-through silhouette is not drawn
 ## over them.
@@ -38,7 +43,7 @@ static func _mats() -> void:
 	_gold = _hero_mat(Color(1.0, 0.77, 0.3), 0.28, 0.85)
 	_gold.emission_enabled = true
 	_gold.emission = Color(1.0, 0.62, 0.18)
-	_gold.emission_energy_multiplier = 0.3
+	_gold.emission_energy_multiplier = 0.45   # (version 329: it read as tan from above)
 	_gold.cull_mode = BaseMaterial3D.CULL_DISABLED   # (the open crown band is seen from inside)
 	_dark = _hero_mat(Color(0.07, 0.04, 0.03), 0.85, 0.0)
 	_velvet = _hero_mat(Color(0.27, 0.07, 0.45), 1.0, 0.0)
@@ -48,6 +53,21 @@ static func _mats() -> void:
 	_stone = StandardMaterial3D.new()
 	_stone.albedo_color = Color(0.17, 0.13, 0.16)
 	_stone.roughness = 0.9
+
+
+static func bone_mat() -> StandardMaterial3D:
+	_mats()
+	return _bone
+
+
+static func gold_mat() -> StandardMaterial3D:
+	_mats()
+	return _gold
+
+
+static func dark_mat() -> StandardMaterial3D:
+	_mats()
+	return _dark
 
 
 ## Marked in the stencil as the hero's own body (the x-ray mark's value).
@@ -167,6 +187,7 @@ static func cape_mesh() -> Mesh:
 		return _cape
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_velvet_cloth(st)
 	# The spine: twelve vertebrae, smaller towards the tail, gold rings between them, and a
 	# spine standing out from each, gold at the tip.
 	for j in 12:
@@ -204,6 +225,38 @@ static func cape_mesh() -> Mesh:
 	return _cape
 
 
+## Version 329: the velvet under the spine and ribs, the width of the Starfall Mantle and a
+## little behind the bones, its hem cut into seven shallow points. Vertex colour green marks
+## it as cloth for the shader (blue: how far down its own rows a point is, 1 at the hem), UV.x
+## runs across it.
+static func _velvet_cloth(st: SurfaceTool) -> void:
+	var cols := 21
+	var rows := 14
+	var pts := []
+	for r in rows + 1:
+		var row := []
+		for c in cols + 1:
+			var u := float(c) / cols
+			var hem := 1.0 - 0.07 * absf(sin((u - 0.5) * PI * 7.0))
+			var v := float(r) / rows * hem
+			var p := Vector3((u - 0.5) * _width(v), -LEN * v, _surf_z(u, v) - 0.012)
+			row.append([p, Vector2(u, v), float(r) / rows])
+		pts.append(row)
+	for r in rows:
+		for c in cols:
+			var a: Array = pts[r][c]
+			var b: Array = pts[r][c + 1]
+			var d: Array = pts[r + 1][c]
+			var e: Array = pts[r + 1][c + 1]
+			for tri in [[a, d, b], [b, d, e]]:
+				var n: Vector3 = ((tri[1][0] - tri[0][0]) as Vector3).cross(tri[2][0] - tri[0][0]).normalized()
+				for q: Array in tri:
+					st.set_color(Color(0.0, 1.0, float(q[2]), 1.0))
+					st.set_normal(n)
+					st.set_uv(q[1])
+					st.add_vertex(q[0])
+
+
 static var _cape_shader: Shader
 
 ## The cape's bone and gold (gold where the vertex colour's red is 1), swaying and blowing
@@ -227,10 +280,41 @@ void vertex() {
 void fragment() {
 	float g = COLOR.r;
 	vec3 au = vec3(1.0, 0.76, 0.3);
-	ALBEDO = mix(vec3(0.92, 0.87, 0.75), au, g);
-	METALLIC = 0.85 * g;
-	ROUGHNESS = mix(0.55, 0.28, g);
-	EMISSION = au * g * 0.3;
+	vec3 alb = mix(vec3(0.92, 0.87, 0.75), au, g);
+	float met = 0.85 * g;
+	float rough = mix(0.55, 0.28, g);
+	vec3 emi = au * g * 0.45;
+	if (COLOR.g > 0.5) {
+		// The velvet: deep imperial purple, lighter where it turns away (a velvet sheen).
+		float u = UV.x;
+		float v = UV.y;
+		float facing = abs(dot(NORMAL, VIEW));
+		alb = mix(vec3(0.19, 0.035, 0.32), vec3(0.46, 0.13, 0.66), pow(1.0 - facing, 2.0));
+		met = 0.0;
+		rough = 0.95;
+		emi = vec3(0.0);
+		// A gold border down the sides and round the hem, and a gold band under the collar.
+		float side = min(u, 1.0 - u);
+		float trim = max(smoothstep(0.045, 0.032, side), smoothstep(0.94, 0.955, COLOR.b));
+		trim = max(trim, smoothstep(0.004, 0.0, abs(v - 0.1) - 0.012));
+		// Ermine across the shoulders: white fur with rows of little black tails.
+		float erm = 1.0 - smoothstep(0.08, 0.088, v);
+		vec2 gg = vec2(u * 11.0, v * 52.0);
+		gg.x += floor(gg.y) * 0.5;
+		vec2 f = (fract(gg) - 0.5) * vec2(1.0, 0.55);
+		float tail = smoothstep(0.17, 0.11, length(f));
+		vec3 fur = mix(vec3(0.97, 0.95, 0.9), vec3(0.04, 0.03, 0.03), tail);
+		alb = mix(alb, fur, erm);
+		rough = mix(rough, 1.0, erm);
+		alb = mix(alb, au, trim);
+		met = mix(met, 0.85, trim);
+		rough = mix(rough, 0.28, trim);
+		emi = mix(emi, au * 0.45, trim);
+	}
+	ALBEDO = alb;
+	METALLIC = met;
+	ROUGHNESS = rough;
+	EMISSION = emi;
 	RIM = 0.3;
 	RIM_TINT = 0.4;
 }

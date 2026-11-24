@@ -91,10 +91,13 @@ func _process(delta: float) -> void:
 		want = clampf(v.length() / 6.0, 0.45, 1.0) if v.length() < 40.0 else 0.45
 	_blow = move_toward(_blow, want, delta * (3.0 if want > _blow else 1.5))
 	_cape_mat.set_shader_parameter("blow", _blow)
-	if kind == "starfall" and _hero and is_instance_valid(_hero):
+	if _hero and is_instance_valid(_hero):
 		var dashing := (_hero as Hero).is_dashing()
 		if dashing and not _was_dashing:
-			_meteors()
+			if kind == "starfall":
+				_meteors()
+			else:
+				_bone_spikes()
 		_was_dashing = dashing
 	if kind == "emperor":
 		_throne_now()
@@ -138,6 +141,52 @@ func _emperor(visual: Node3D, model: Node3D) -> void:
 	var skel := Art._find_skeleton(model)
 	if skel:
 		LegendEmperor.pauldrons(skel)
+
+
+## Version 329: a dash raises a row of bone spikes out of the floor along its path: clumps of
+## three curved fangs of bone bursting up through a dark crack, one after another as the hero
+## passes, leaning out from the path; they stand a moment and sink back.
+func _bone_spikes() -> void:
+	var world := Game.world
+	var h := _hero as Hero
+	if world == null or h._dash_dir.length() < 0.1:
+		return
+	var dir := Vector3(h._dash_dir.x, 0, h._dash_dir.z).normalized()
+	var across := Vector3(-dir.z, 0, dir.x)
+	var start := h.global_position
+	var bone := LegendEmperor.bone_mat()
+	var dark := LegendEmperor.dark_mat()
+	for i in 6:
+		var clump := Node3D.new()
+		world.add_child(clump)
+		clump.global_position = start + dir * (0.35 + i * 0.62) + across * (0.1 if i % 2 == 0 else -0.1)
+		clump.rotation.y = atan2(-dir.x, -dir.z)   # (its x across the path)
+		clump.scale = Vector3(1.0, 0.05, 1.0)
+		clump.visible = false
+		U.cylinder(clump, 0.46, 0.012, dark, Vector3(0, 0.006, 0))
+		for k in 3:
+			var tall := 1.1 if k == 1 else 0.8
+			var rb := 0.17 if k == 1 else 0.13
+			var sp := Node3D.new()
+			sp.position = Vector3((k - 1) * 0.26, 0, randf_range(-0.08, 0.08))
+			sp.rotation = Vector3(randf_range(-0.15, 0.15), 0, -(k - 1) * 0.42)
+			clump.add_child(sp)
+			U.cone(sp, rb, tall * 0.58, bone, Vector3.ZERO, rb * 0.55)
+			var tip := Node3D.new()
+			tip.position = Vector3(0, tall * 0.56, 0)
+			tip.rotation.z = -(k - 1) * 0.35 if k != 1 else 0.0
+			tip.rotation.x = 0.0 if k != 1 else 0.3
+			sp.add_child(tip)
+			U.cone(tip, rb * 0.56, tall * 0.48, bone, Vector3.ZERO, 0.0)
+		var tw := clump.create_tween()
+		tw.tween_interval(i * 0.03)
+		tw.tween_callback(clump.show)
+		tw.tween_callback(func() -> void:
+			Fx._burst(clump.global_position + Vector3(0, 0.1, 0), 6, Color(0.88, 0.82, 0.7), 0.3, 2.2, 0.45, 0.8, true, "soft"))
+		tw.tween_property(clump, "scale", Vector3.ONE, 0.1).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_interval(0.55)
+		tw.tween_property(clump, "scale", Vector3(1.0, 0.05, 1.0), 0.22).set_ease(Tween.EASE_IN)
+		tw.tween_callback(clump.queue_free)
 
 
 ## The bone throne stands behind the hero on the title screen and on a pedestal (built the

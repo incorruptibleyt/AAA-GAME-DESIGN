@@ -1,3 +1,3 @@
-Version 328: Legend Vault, Supercell pass 11 of 12
-- Starfall Mantle upgraded: a brighter night sky with violet, teal and rose clouds, a silver crown with glowing stars and a comet you can see, stars falling from the hem as you walk, and a dash calls down a shower of shooting stars around you.
-- Also new: 10 more Legend looks rebuilt.
+Version 329: Legend Vault, Supercell pass 12 of 12
+- The Bone Emperor upgraded: the golden spine now lies on a royal purple velvet cape with a gold border and an ermine collar, the gold shines brighter, and a dash raises a row of bone spikes out of the floor behind you.
+- All 12 Legend looks have now been rebuilt or polished.
