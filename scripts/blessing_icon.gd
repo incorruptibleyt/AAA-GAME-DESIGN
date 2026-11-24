@@ -117,21 +117,24 @@ func _draw() -> void:
 		"blaze_dash": _blaze_dash()
 		"phantom": _phantom_dash()
 		"cold_snap": _cold_snap()
+		"thunder_bones": _thunder_bones()
+		"frost_ghost": _frost_ghost()
+		"storm_bounce": _storm_bounce()
 		"shatter": _shards()
 		"bonestorm": _shard_ring()
 		"ossuary": _skull()
 		"shadowstep": _shadow_step()
 		"ricochet": _ricochet()
-		"quiver": _rings()
+		"quiver": _returning_knives()
 		"riposte": _riposte()
 		"cutting_wind": _cutting_wind()
-		"aftershock": _quake()
+		"aftershock": _double_quake()
 		"thunder_catch": _thunder_catch()
 		"buzzsaw": _buzzsaw()
-		"whirl": _spiral()
+		"whirl": _vortex()
 		"burning_ground": _burning_ground()
 		"frost_orbit": _frost_orbit()
-		"meteors": _meteor_storm()
+		"meteors": _meteor_crater()
 		"wildfire": _wildfire()
 		"glacier": _glacier()
 		"deadeye": _crosshair()
@@ -558,6 +561,91 @@ func _cold_snap() -> void:
 		var r := 19.0 if i % 2 == 0 else 13.0
 		_poly([d * r, d * 5.0 + n * 3.0, d * 5.0 - n * 3.0], color if i % 2 == 0 else Color(color, 0.6))
 	_star(Vector2.ZERO, 6, 6.0, 3.0, 0.0, Color.WHITE)
+
+
+# ---------------------------------------------------------------- version 308 pairs and epics
+
+func _zig(pts: Array) -> void:
+	for i in pts.size() - 1:
+		_ln(pts[i], pts[i + 1], 4.5, Color(0.45, 0.75, 1.0, 0.75))
+		_ln(pts[i], pts[i + 1], 2.0, Color.WHITE)
+
+
+func _thunder_bones() -> void:
+	# Thunder Bones: a bone blade on its circle, throwing a bolt of lightning.
+	_arc(Vector2.ZERO, 14.0, 0.0, TAU, 2.0, Color(color, 0.4))
+	var t := 2.4
+	var at := Vector2(cos(t), sin(t)) * 14.0
+	var d := Vector2(-sin(t), cos(t))
+	var n := d.orthogonal()
+	_poly([at + d * 9.0, at + n * 3.5, at - d * 7.0, at - n * 3.5], Color(0.97, 0.94, 0.84))
+	_zig([at, Vector2(-3, -2), Vector2(2, 2), Vector2(6, -6), Vector2(11, -2), Vector2(17, -12)])
+
+
+func _frost_ghost() -> void:
+	# Frost Ghost: a violet dash through a skeleton shut in ice.
+	var hex := []
+	for i in 6:
+		var a := -PI / 2.0 + i * PI / 3.0
+		hex.append(Vector2(4, -3) + Vector2(cos(a), sin(a)) * 12.0)
+	_poly(hex, Color(0.62, 0.92, 1.0, 0.4))
+	_dot(Vector2(4, -5), 6.5, Color(0.93, 0.95, 0.88))
+	_dot(Vector2(1.6, -5.5), 1.8, DARK)
+	_dot(Vector2(6.4, -5.5), 1.8, DARK)
+	_outline(hex, 2.5, Color(0.62, 0.92, 1.0))
+	_ln(Vector2(-18, 16), Vector2(18, -16), 5.0, Color(ARCANE, 0.55))
+	_arrow(Vector2(-18, 16), Vector2(18, -16), 2.5, 7.0, Color.WHITE)
+
+
+func _storm_bounce() -> void:
+	# Storm Bounce: a shot bouncing off a wall, lightning leaping from the bounce.
+	_ln(Vector2(15, -18), Vector2(15, 18), 5.0, STEEL)
+	_ln(Vector2(-17, 15), Vector2(11, 4), 3.0, Color(color, 0.75))
+	_arrow(Vector2(11, 4), Vector2(-12, -6), 3.0, 7.0)
+	_zig([Vector2(11, 2), Vector2(6, -6), Vector2(10, -10), Vector2(3, -17)])
+	_sparkle(Vector2(12, 3), 5.0, Color.WHITE)
+
+
+func _returning_knives() -> void:
+	# Shadow Quiver: knives flying out in a ring, then back in to the middle.
+	_arc(Vector2.ZERO, 15.0, 0.0, TAU, 2.0, Color(ARCANE, 0.6))
+	for i in 6:
+		var d := Vector2.UP.rotated(TAU * i / 6.0 + PI / 6.0)
+		_arrow(d * 17.0, d * 7.0, 2.5, 6.0, Color.WHITE if i % 2 == 0 else color)
+	_dot(Vector2.ZERO, 3.5, ARCANE)
+
+
+func _double_quake() -> void:
+	# Aftershock: two shockwaves, the second one bigger.
+	_arc(Vector2(0, 8), 7.0, PI, TAU, 3.0, Color.WHITE)
+	_arc(Vector2(0, 8), 12.0, PI + 0.1, TAU - 0.1, 2.5, Color(color, 0.7))
+	_arc(Vector2(0, 8), 18.0, PI + 0.12, TAU - 0.12, 3.5)
+	_ln(Vector2(-19, 9), Vector2(19, 9), 3.0)
+	_ln(Vector2(0, 9), Vector2(3, 13), 2.5)
+	_ln(Vector2(3, 13), Vector2(-1, 17), 2.5)
+
+
+func _vortex() -> void:
+	# Endless Whirl: a spiral with skeleton heads drawn into it.
+	_spiral()
+	for t in [0.4, 2.5, 4.6]:
+		var d := Vector2(cos(t), sin(t))
+		_dot(d * 17.0, 3.0, Color(0.88, 0.92, 0.72))
+		_arrow(d * 13.5, d * 8.0, 2.0, 4.0, Color.WHITE)
+
+
+func _meteor_crater() -> void:
+	# Meteor Storm: a meteor coming down on a burning crater.
+	_oval(Vector2(-3, 11), 14.0, 5.5, 0.0, 3.0, ARCANE)
+	_flame(Vector2(-7, 6), 0.5)
+	_flame(Vector2(2, 7), 0.42)
+	var at := Vector2(9, -9)
+	var r := 6.0
+	var d := Vector2(-1, 1).normalized()
+	var n := d.orthogonal()
+	_poly([at + n * r, at - n * r, at - d * r * 2.8], Color(EMBER, 0.75))
+	_dot(at, r, EMBER)
+	_dot(at - Vector2(r, r) * 0.25, r * 0.45, HOT)
 
 
 # ---------------------------------------------------------------- hero blessings

@@ -1,4 +1,6 @@
-Version 307: blessings that change your run
-- 6 new blessings: Bouncing Shots, Static Shots (lightning), Spinning Bones, Blazing Dash, Phantom Dash and Cold Snap.
-- Kindling, Frostbite and Deep Freeze now do something new: fire patches, skeletons frozen in ice, and chilled skeletons that shatter.
-- Your tutorial gifts can now include the new blessings.
+Version 308: every hero special gets a twist
+- Shadow Quiver: the Rogue's volley knives fly back to you.
+- Aftershock: the Knight's Shield Slam slams twice.
+- Endless Whirl: the Barbarian's Whirlwind drags skeletons in.
+- Meteor Storm: the Mage's meteors leave burning craters.
+- 3 new combos: Thunder Bones, Frost Ghost and Storm Bounce.

@@ -52,6 +52,11 @@ var bounce := 0
 const BOUNCE_RANGE := 7.0
 ## Version 307, Bouncing Shots: times a hero shot still bounces off a wall or pillar.
 var wall_bounce := 0
+## Shadow Quiver (version 308): seconds until this knife turns round and flies back to the
+## hero, cutting again on the way (0 = it doesn't).
+var recall := 0.0
+const QUIVER_TURN_COL := Color(0.75, 0.5, 1.0)
+var _recall_pierce := 0
 ## Buzzsaw: where an axe turns for home it first hangs this long, spinning and grinding
 ## every skeleton beside it (each tick a share of its damage).
 var hang := 0.0
@@ -154,6 +159,7 @@ func _reset() -> void:
 	seek = 0.0
 	bounce = 0
 	wall_bounce = 0
+	recall = 0.0
 	hang = 0.0
 	_hang_left = 0.0
 	_hang_from = null
@@ -250,6 +256,10 @@ func _process(delta: float) -> void:
 	if _hang_left > 0.0:
 		_grind(delta)
 		return
+	if recall > 0.0:
+		recall -= delta
+		if recall <= 0.0 and not _recall_home():
+			return
 	if _back and not _home():
 		return
 	if seek > 0.0 and Game.hero and not Game.hero.dead:
@@ -374,10 +384,40 @@ func _process(delta: float) -> void:
 			return
 
 
+func recall_after(seconds: float) -> void:
+	recall = seconds
+	_recall_pierce = pierce
+
+
+## The knife turns for the hero and flies straight back; it may cut every skeleton again
+## and is gone when it reaches the hero. False if it was put away instead.
+func _recall_home() -> bool:
+	var h := Game.hero
+	if h == null or not is_instance_valid(h) or h.dead:
+		finish()
+		return false
+	var to := h.global_position - global_position
+	to.y = 0.0
+	var d := to.length()
+	if d < 1.0:
+		finish()
+		return false
+	dir = to / d
+	rotation.y = atan2(-dir.x, -dir.z)
+	_hit.clear()
+	pierce = _recall_pierce
+	life = d / maxf(speed, 1.0)
+	Fx.impact(global_position, QUIVER_TURN_COL, 0.9)   # a violet pop where each knife turns
+	Fx.sparks(global_position, QUIVER_TURN_COL)
+	return true
+
+
 ## Bouncing Shots (version 307): off the wall (the room is a box) or the pillar it ran into,
 ## and it may hit every skeleton again.
 func _bounce_off(next: Vector3) -> void:
 	wall_bounce -= 1
+	if owner_team == Actor.Team.HERO and Game.hero:
+		Game.hero.storm_bounce(global_position)   # Storm Bounce (version 308)
 	var n := Vector3.ZERO
 	var half_w := Room.HALF_W - radius * 0.5
 	var half_l := Room.HALF_L - radius * 0.5

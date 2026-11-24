@@ -65,16 +65,16 @@ const LIST := [
 	# hero's own attack works (see hero.gd and projectile.gd).
 	{"id": "shadowstep", "hero": "rogue", "family": "bone", "rarity": "rare", "title": "Shadow Step", "text": "Dashing leaves your shadow behind: it throws knives for 2 seconds", "max": 1},
 	{"id": "ricochet", "hero": "rogue", "family": "bolt", "rarity": "rare", "title": "Ricochet", "text": "Knives and bolts bounce on to 1 more skeleton", "max": 2},
-	{"id": "quiver", "hero": "rogue", "family": "bolt", "rarity": "epic", "title": "Shadow Quiver", "text": "Shadow Volley fires 5 rings instead of 3", "max": 1},
+	{"id": "quiver", "hero": "rogue", "family": "bolt", "rarity": "epic", "title": "Shadow Quiver", "text": "Shadow Volley's knives fly back to you, cutting again", "max": 1},
 	{"id": "riposte", "hero": "knight", "family": "bone", "rarity": "rare", "title": "Riposte", "text": "Shots your shield blocks fly back as sword waves", "max": 1},
 	{"id": "cutting_wind", "hero": "knight", "family": "bolt", "rarity": "common", "title": "Cutting Wind", "text": "Every swing also throws a wide wave through the skeletons behind", "max": 1},
-	{"id": "aftershock", "hero": "knight", "family": "bone", "rarity": "epic", "title": "Aftershock", "text": "Shield Slam reaches 40% further and freezes longer", "max": 1},
+	{"id": "aftershock", "hero": "knight", "family": "bone", "rarity": "epic", "title": "Aftershock", "text": "Shield Slam slams again a second later, even bigger", "max": 1},
 	{"id": "thunder_catch", "hero": "barbarian", "family": "bone", "rarity": "rare", "title": "Thunder Catch", "text": "Catching an axe slams the ground, throwing back skeletons near you", "max": 1},
 	{"id": "buzzsaw", "hero": "barbarian", "family": "bolt", "rarity": "common", "title": "Buzzsaw", "text": "Axes stop and spin at the far end, grinding skeletons, then fly back", "max": 1},
-	{"id": "whirl", "hero": "barbarian", "family": "bolt", "rarity": "epic", "title": "Endless Whirl", "text": "Whirlwind lasts twice as long", "max": 1},
+	{"id": "whirl", "hero": "barbarian", "family": "bolt", "rarity": "epic", "title": "Endless Whirl", "text": "Whirlwind lasts longer and drags skeletons in to you", "max": 1},
 	{"id": "burning_ground", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Burning Ground", "text": "Charged orbs leave a pool of fire that burns skeletons", "max": 1},
 	{"id": "frost_orbit", "hero": "mage", "family": "frost", "rarity": "common", "title": "Frost Orbit", "text": "While you move, ice orbs circle you, chilling skeletons they touch", "max": 1},
-	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Meteor hits 3 more skeletons", "max": 1},
+	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Every meteor leaves a burning crater behind", "max": 1},
 	# Event blessings: only offered in that event's runs and hunts ("event" is its id). The
 	# Blood Moon's (version 134):
 	{"id": "bloodpact", "event": "blood_moon", "family": "moon", "rarity": "rare", "title": "Blood Pact", "text": "+30% damage, but 15% less max health", "max": 1},
@@ -108,6 +108,10 @@ const SYNERGIES := [
 	{"id": "wildfire", "family": "flame", "rarity": "synergy", "title": "Wildfire", "text": "Fire + Twin Shots: burning spreads to a skeleton nearby", "max": 1, "parts": ["fire", "multishot"]},
 	{"id": "glacier", "family": "frost", "rarity": "synergy", "title": "Glacier", "text": "Frost + Ward: blocking a hit freezes every skeleton near you", "max": 1, "parts": ["frost", "ward"]},
 	{"id": "deadeye", "family": "bolt", "rarity": "synergy", "title": "Deadeye", "text": "Keen Eye + Pierce: critical hits fly through every skeleton", "max": 1, "parts": ["crit", "pierce"]},
+	# Version 308 (player panel fix 2, part 2): pairs made from version 307's new cards.
+	{"id": "thunder_bones", "family": "bolt", "rarity": "synergy", "title": "Thunder Bones", "text": "Static + Spinning Bones: the bones throw lightning too", "max": 1, "parts": ["spark", "orbit"]},
+	{"id": "frost_ghost", "family": "frost", "rarity": "synergy", "title": "Frost Ghost", "text": "Phantom + Cold Snap: dash through skeletons to freeze them", "max": 1, "parts": ["phantom", "cold_snap"]},
+	{"id": "storm_bounce", "family": "bolt", "rarity": "synergy", "title": "Storm Bounce", "text": "Bouncing + Static: a bounce throws lightning at 2 skeletons", "max": 1, "parts": ["bounce", "spark"]},
 ]
 
 
@@ -240,12 +244,9 @@ static func apply(id: String, h: Hero) -> void:
 			h.ward += 1
 		"ossuary":
 			h.ward = h.ward_max
-		"quiver": h.volley_rings = 5
-		"aftershock": h.slam_reach *= 1.4
-		"whirl": h.whirl_time *= 2.0
-		# (Version 239's hero blessings work from h.perks: hero.gd and projectile.gd look
-		# them up, so a saved run brings them back with no number of their own to save.)
-		"meteors": h.meteor_count += 3
+		# (Version 239's hero blessings, and from version 308 the four epics, work from
+		# h.perks: hero.gd and projectile.gd look them up, so a saved run brings them back
+		# with no number of their own to save.)
 		"bloodpact":
 			h.damage *= 1.3
 			h.max_health = roundf(h.max_health * 0.85)

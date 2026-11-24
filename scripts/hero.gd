@@ -221,6 +221,20 @@ var _phantom_cut: Array[Actor] = []
 ## Cold Snap: the special freezes every skeleton within COLD_SNAP_R solid for COLD_SNAP_TIME.
 const COLD_SNAP_R := 4.5
 const COLD_SNAP_TIME := 2.0
+# Version 308 (player panel fix 2, part 2): the epics change the special, and three new pairs.
+const QUIVER_TURN := 0.42   # Shadow Quiver: the volley's knives turn for home after this long
+const AFTERSHOCK_DELAY := 0.9
+const AFTERSHOCK_REACH := 1.35
+const AFTERSHOCK_COL := Color(1.0, 0.8, 0.45, 0.6)
+const WHIRL_LONGER := 1.4
+const WHIRL_PULL_R := 7.0
+const WHIRL_PULL := 6.5
+const CRATER_R := 1.5
+const CRATER_TIME := 4.0
+const FROST_GHOST_TIME := 1.2
+const STORM_R := 6.0
+const STORM_GAP_MS := 150
+var _storm_ms := 0
 var _shadow: ShadowStep
 
 
@@ -497,7 +511,7 @@ func use_special() -> void:
 	match hero_id:
 		"knight": _shield_slam()
 		"barbarian":
-			_spin_left = whirl_time
+			_spin_left = whirl_time * (WHIRL_LONGER if perks.has("whirl") else 1.0)
 			Sfx.play("dash", 0.9)
 		"mage": _meteors()
 		_: _shadow_volley()
@@ -521,22 +535,42 @@ func _shadow_volley() -> void:
 				var d := Vector3.FORWARD.rotated(Vector3.UP, TAU * (i + wave * 0.33) / 12.0)
 				var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.4 * Game.chain, bolt_speed, bolt_color.lerp(Color(0.6, 0.3, 1.0), 0.4), bolt_size)
 				p.pierce = pierce + 1
-				p.push = bolt_push)
+				p.push = bolt_push
+				p.recall_after(QUIVER_TURN if perks.has("quiver") else 0.0))   # Shadow Quiver (version 308)
+	if perks.has("quiver"):
+		get_tree().create_timer(QUIVER_TURN + 0.05, false).timeout.connect(func():
+			Game._teach("quiver", "SHADOW QUIVER: the knives come back to you, cutting again!"))
 
 
 func _shield_slam() -> void:
 	visual.attack()
 	Game.finisher(global_position, 0.35, 0.3, Color(1, 0.95, 0.7), 0.12)
-	Fx.shockwave(global_position, Color(1, 0.9, 0.6), slam_reach)
-	Fx.dust(global_position, 30)
 	_invulnerable = maxf(_invulnerable, 1.2)
+	_slam(slam_reach, 3.0, 14.0)
+	if perks.has("aftershock"):
+		# Aftershock (version 308): the floor answers a second later with a bigger slam,
+		# reaching the skeletons the first one threw back.
+		Fx.shockwave(global_position, AFTERSHOCK_COL, slam_reach * AFTERSHOCK_REACH)
+		get_tree().create_timer(AFTERSHOCK_DELAY, false).timeout.connect(func():
+			if dead or Game.state != Game.State.PLAYING:
+				return
+			visual.attack()
+			Game.shake(0.3)
+			Sfx.play("boom", 0.55, 0.8)
+			_slam(slam_reach * AFTERSHOCK_REACH, 2.0, 9.0)
+			Game._teach("aftershock", "AFTERSHOCK: Shield Slam slams again a second later!"))
+
+
+func _slam(reach: float, mult: float, push: float) -> void:
+	Fx.shockwave(global_position, Color(1, 0.9, 0.6), reach)
+	Fx.dust(global_position, 30)
 	for a: Actor in Actor.all.duplicate():
 		if a.team != Team.UNDEAD or not a.can_be_hit():
 			continue
-		if a.global_position.distance_to(global_position) < slam_reach + a.radius:
-			_special_hit(a, damage * 3.0, global_position, 14.0)
+		if a.global_position.distance_to(global_position) < reach + a.radius:
+			_special_hit(a, damage * mult, global_position, push)
 			if not a.dead and a is Enemy:
-				(a as Enemy).chill(2.5 if slam_reach <= 5.0 else 3.5)
+				(a as Enemy).chill(2.5)
 
 
 func _meteors() -> void:
@@ -573,7 +607,23 @@ func _meteor(spot: Vector3) -> void:
 			if a.team == Team.UNDEAD and a.can_be_hit() and a.global_position.distance_to(spot) < 2.2 + a.radius:
 				_special_hit(a, damage * 3.0, spot, 8.0)
 				if not a.dead:
-					Burning.apply(a, maxf(burn_dps, 8.0), 3.0))
+					Burning.apply(a, maxf(burn_dps, 8.0), 3.0)
+		if perks.has("meteors"):
+			_crater(spot))
+
+
+## Meteor Storm (version 308): a scorched crater where the meteor struck, burning for a while.
+func _crater(spot: Vector3) -> void:
+	if Room.current == null:
+		return
+	FirePatch.spawn_hero(spot, CRATER_R, CRATER_TIME, maxf(burn_dps, 8.0 + 0.4 * damage))
+	var scorch := U.floor_quad(Room.current, Vector2(CRATER_R * 2.6, CRATER_R * 2.6), U.unlit(Color(0.1, 0.05, 0.03, 0.7), U.soft_circle()).duplicate(), spot + Vector3.UP * 0.02)
+	var mat := scorch.material_override as StandardMaterial3D
+	var tw := scorch.create_tween()
+	tw.tween_interval(CRATER_TIME - 0.8)
+	tw.tween_property(mat, "albedo_color:a", 0.0, 0.8)
+	tw.tween_callback(scorch.queue_free)
+	Game._teach("meteors", "METEOR STORM: meteors leave burning craters!")
 
 
 func _whirlwind(delta: float) -> void:
@@ -591,8 +641,25 @@ func _whirlwind(delta: float) -> void:
 		# One heal per spin tick, not one per enemy caught (a big crowd healed to full).
 		if hit_any:
 			heal(1.0)
+		if perks.has("whirl"):
+			_whirl_pull()
 	if _spin_left <= 0.0:
 		visual.rotation.y = 0.0
+
+
+## Endless Whirl (version 308): the whirlwind drags skeletons (not bosses) in towards the
+## Barbarian, harder the closer they are, so a crowd is pulled into the blades.
+func _whirl_pull() -> void:
+	for a: Actor in Actor.all:
+		if a.team != Team.UNDEAD or not a.can_be_hit() or not a is Enemy or (a as Enemy).is_boss:
+			continue
+		var to := global_position - a.global_position
+		to.y = 0.0
+		var d := to.length()
+		if d > WHIRL_PULL_R or d < 1.3:
+			continue
+		a.knockback += to / d * WHIRL_PULL * (a as Enemy).knockback_scale * (1.2 - 0.6 * d / WHIRL_PULL_R)
+	Game._teach("whirl", "ENDLESS WHIRL: your whirlwind drags skeletons in!")
 
 
 ## Kill healing. Only what actually heals is taken from the room's allowance, so kills at
@@ -1304,6 +1371,31 @@ func spark_from(a: Actor) -> void:
 		Game._teach("spark", "STATIC SHOTS: every hit throws lightning on to the next skeleton!")
 
 
+## Storm Bounce (version 308): a shot bouncing off a wall or pillar throws lightning at the
+## two skeletons nearest the spot.
+func storm_bounce(at: Vector3) -> void:
+	if not perks.has("storm_bounce") or Game.state != Game.State.PLAYING:
+		return
+	var now := Time.get_ticks_msec()
+	if now - _storm_ms < STORM_GAP_MS:
+		return
+	var near: Array = Actor.all.filter(func(b: Actor) -> bool:
+		return b.team == Team.UNDEAD and b.can_be_hit() and Vector2(b.global_position.x - at.x, b.global_position.z - at.z).length() < STORM_R)
+	if near.is_empty():
+		return
+	near.sort_custom(func(x: Actor, y: Actor) -> bool: return x.global_position.distance_squared_to(at) < y.global_position.distance_squared_to(at))
+	_storm_ms = now
+	var from := Vector3(at.x, 1.0, at.z)
+	var dmg := damage * SPARK_SHARE * 1.5 * Game.chain_damage()
+	for b: Actor in near.slice(0, 2):
+		var to := b.center()
+		Fx.zap(from, to, SPARK_COL)
+		var push_dir := Vector3(to.x - from.x, 0.0, to.z - from.z)
+		b.take_damage(dmg, push_dir.normalized() if push_dir.length_squared() > 0.01 else Vector3.FORWARD, 2.0)
+	Sfx.play("zap", 0.45, 0.85)
+	Game._teach("storm_bounce", "STORM BOUNCE: bounced shots throw lightning!")
+
+
 ## Spinning Bones (version 307): bone blades circling the hero in every fight, each cutting a
 ## skeleton it touches at most every BONES_EVERY_MS.
 func _update_bones(delta: float) -> void:
@@ -1336,6 +1428,8 @@ func _update_bones(delta: float) -> void:
 			var away := a.global_position - global_position
 			away.y = 0.0
 			a.take_damage(dmg, away.normalized() if away.length_squared() > 0.01 else d, 2.0)
+			if perks.has("thunder_bones"):
+				spark_from(a)   # Thunder Bones (version 308)
 			Fx.sparks(at, BONE_COL)
 			Sfx.play("swing", 0.2, 1.7)
 			Game._teach("orbit", "SPINNING BONES: walk into skeletons and the blades cut them!")
@@ -1382,6 +1476,8 @@ func _phantom_cuts() -> void:
 		_phantom_cut.append(a)
 		var side := d - _dash_dir * d.dot(_dash_dir)
 		a.take_damage(damage * PHANTOM_MULT * Game.chain_damage(), side.normalized() if side.length_squared() > 0.01 else _dash_dir, 6.0)
+		if perks.has("frost_ghost") and a is Enemy and not a.dead:
+			(a as Enemy).freeze_solid(FROST_GHOST_TIME)   # Frost Ghost (version 308)
 		Fx.impact(a.center(), Color(0.75, 0.6, 1.0), 1.6)
 		Sfx.play("swing", 0.6, 1.3)
 		Game._teach("phantom", "PHANTOM DASH: dash straight through skeletons to cut them!")
