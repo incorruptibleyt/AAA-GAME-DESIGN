@@ -3,6 +3,7 @@ extends Node
 ## A simple robot player used to test the game without a person holding the phone.
 ## Start Godot with:  -- autoplay [god] [shop] [shots=<folder>]
 ## `startfloor=N` (version 309) starts the run on floor N the way the title's button does.
+## `quick` (version 310) plays Quick Play: two rooms and a boss on a place already reached.
 ## `shop` buys what it can afford in the Armory and its Vault before the first run (`coins=N`
 ## gives it N coins first). `vault` owns every Vault blessing without paying.
 ## `quittest` quits the first run from the pause menu and starts again.
@@ -196,6 +197,9 @@ func _ready() -> void:
 			Store.test_owned = true
 		elif a == "daily":
 			Game._daily_requested = true
+			_skip_first_run()
+		elif a == "quick":   # version 310: Quick Play (2 rooms and a boss on a reached place)
+			Game._quick_requested = true
 			_skip_first_run()
 		elif a == "dive":   # version 280: the Free Dive (floor 6 at floor 3's strength)
 			Game._dive_requested = true
@@ -752,6 +756,11 @@ func _process(delta: float) -> void:
 					print("[autoplay] free dive %s: used=%s ready=%s best_floor=%d best_score=%d saved run=%s" % ["WON" if Game.state == Game.State.VICTORY else "LOST",
 						dcfg.get_value("pass", "dive_used", false), Game.dive_ready(dcfg), int(dcfg.get_value("stats", "best_floor", 1)),
 						int(dcfg.get_value("stats", "best_score", 0)), Game.continue_text()])
+				if Game.quick:
+					var qcfg := Game._load_save()
+					print("[autoplay] quick play %s on floor %d in %.1f s: quick wins today %d, drops waiting %d, best_floor %d, best_boss %d, saved run '%s'" % ["WON" if Game.state == Game.State.VICTORY else "LOST",
+						Game.floor_num, Game._run_time, Game.quick_wins(qcfg), Drops.waiting(qcfg), int(qcfg.get_value("stats", "best_floor", 1)),
+						int(qcfg.get_value("stats", "best_boss", 0)), Game.continue_text()])
 				print("[autoplay] END objects=%d nodes=%d state=%s floor=%d room=%d kills=%d time=%.1f perfect=%d chain=%.1f" % [Performance.get_monitor(Performance.OBJECT_COUNT), Performance.get_monitor(Performance.OBJECT_NODE_COUNT), Game.State.keys()[Game.state], Game.floor_num, Game._room_index + 1, Game._kills, Game._run_time, Game._rep.get("perfect", 0), Game._rep.get("best_chain", 1.0)])
 				runs -= 1
 				if runs <= 0:

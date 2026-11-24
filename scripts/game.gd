@@ -98,7 +98,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-24g"
+const BUILD := "2026-11-24h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -227,6 +227,20 @@ const DIVE_BOSS_HP := 0.85
 const CHECKPOINTS := [1, 3, 5, 7, 9]
 const CATCHUP_GIFTS := 3
 var start_floor := 1   # the floor this run began on
+## Version 310 (short sessions, part 2): QUICK PLAY on the title. One short floor on a place
+## already reached: QUICK_ROOMS rooms (an easy one, a medium one), then that place's boss, with
+## QUICK_GIFTS blessings to start. About two minutes. Like the Free Dive it leaves a saved run,
+## records and the leaderboard alone; coins, bones and Mastery count, and the day's first
+## QUICK_DROPS wins pay a Bone Drop. A win's tap plays another one, on another place.
+var quick := false
+var _quick_requested := false
+var _quick_done := false   # a Quick Play was won: the end screen offers another
+const QUICK_GIFTS := 3
+const QUICK_STRENGTH := 2   # skeletons and the boss as strong as floor 2's, on any place
+const QUICK_BOSS_HP := 0.75
+const QUICK_DROPS := 2
+const QUICK_MAX_FLOOR := 10   # the ten places (the endless floors past it remix them)
+const QUICK_SECTION := "quick"
 ## This run's hero when it isn't the chosen one: the Daily Crypt's hero, or a free trial.
 var _run_hero_id := ""
 ## A locked hero picked on the Heroes screen for one free trial run, used by the next run.
@@ -869,6 +883,7 @@ func _ready() -> void:
 	hud.pass_dive.connect(_start_dive)   # version 280: the Free Dive
 	hud.continue_pressed.connect(_continue_run)
 	hud.start_floor_pressed.connect(cycle_start_floor)   # version 309
+	hud.quick_pressed.connect(start_quick)   # version 310
 	hud.hero_trial.connect(_try_hero)
 	hud.share_pressed.connect(_share)
 	hud.loop_deeper.connect(_open_omens)
@@ -1382,9 +1397,11 @@ func health_scale() -> float:
 
 
 ## The floor whose strength skeletons, bosses and coins have: the floor itself, or floor 3
-## in the Free Dive (version 280), whose floor 6 is a taste, not a wall.
+## in the Free Dive (version 280), whose floor 6 is a taste, not a wall. Quick Play (version
+## 310) is floor 2's strength on every place: three blessings and two picks don't make a
+## floor-5 hero, and the robot's mage took over a minute on the Sand Pharaoh alone.
 func strength_floor() -> int:
-	return DIVE_STRENGTH if dive else floor_num
+	return DIVE_STRENGTH if dive else (mini(floor_num, QUICK_STRENGTH) if quick else floor_num)
 
 
 ## Skeletons hit 35% harder per floor, and 50% per floor below floor 5 (the endless loops).
@@ -1962,6 +1979,8 @@ func _build_run() -> void:
 		# Version 169 (teaching review, change 1): the tutorial is two easy rooms and the boss
 		# (move, dash, boss). Real new players needed 5 to 9 minutes for 5 rooms and a boss.
 		piles = [[Layouts.EASY, TUTORIAL_ROOMS], [Layouts.MEDIUM, 0], [Layouts.HARD, 0]]
+	elif quick:
+		piles = [[Layouts.EASY, 1], [Layouts.MEDIUM, 1], [Layouts.HARD, 0]]   # version 310: Quick Play
 	for p in piles.size():
 		var all: Array = piles[p][0]
 		var count: int = piles[p][1]
@@ -2109,6 +2128,8 @@ func _on_screen_tapped() -> void:
 					# bought there, a tap goes back to the title.
 					if Store.owned():
 						_back_to_title(true)
+				elif _quick_done:
+					_restart()   # version 310: another Quick Play, on another place
 				elif _daily_done or _event_done:
 					_to_event = _event_done and Events.active()   # v221: BACK TO EVENT
 					_back_to_title()
@@ -2140,7 +2161,10 @@ func _start_run() -> void:
 	if dive:
 		_count_dive_try()
 	_dive_done = false
-	if not race and not dive:   # (a Crypt Race or the Free Dive leaves a saved run alone: CONTINUE is still there after it)
+	quick = _quick_requested and not race and not dive and not first_run_pending()
+	_quick_requested = false
+	_quick_done = false
+	if not race and not _side_run():   # (a Crypt Race, the Free Dive or Quick Play leaves a saved run alone: CONTINUE is still there after it)
 		var held := RunSave.held()
 		if held > 0:
 			coins += held   # giving up the saved run gives its held-back coins back
@@ -2157,10 +2181,10 @@ func _start_run() -> void:
 		var scfg := _load_save()
 		scfg.set_value("taught", "stage_seen", mini(stage_now, 3))
 		write_save(scfg)
-	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run and not dive
+	daily = _daily_requested and Curses.can_play(Store.owned(), _load_save()) and not first_run and not _side_run()
 	_daily_requested = false
 	_daily_done = false
-	event = _event_requested if not first_run and not dive and Events.active() else ""
+	event = _event_requested if not first_run and not _side_run() and Events.active() else ""
 	event_tier = clampi(_event_tier_requested, 1, Events.tiers().size())
 	_event_requested = ""
 	_event_done = false
@@ -2172,7 +2196,7 @@ func _start_run() -> void:
 	_run_hero_id = ""
 	if daily:
 		_begin_daily()
-	elif _trial_hero != "" and not first_run and not race and not dive:
+	elif _trial_hero != "" and not first_run and not race and not _side_run():
 		_run_hero_id = _trial_hero
 		var cfg := _load_save()
 		cfg.set_value(TRIAL_SECTION, _trial_hero, true)
@@ -2187,6 +2211,9 @@ func _start_run() -> void:
 	if dive:
 		floor_num = DIVE_FLOOR
 		Telemetry.step("dive_start")
+	if quick:
+		floor_num = quick_floor()
+		Telemetry.step("quick_start")
 	start_floor = chosen_start() if _normal_run() else 1
 	if start_floor > 1:
 		floor_num = start_floor
@@ -2202,8 +2229,8 @@ func _start_run() -> void:
 	_pick_curses()
 	# Version 169: the tutorial too. The run built for the title had 5 rooms (medium and hard
 	# ones too), so a first launch played that instead of the tutorial's own easy rooms.
-	if daily or event != "" or race or first_run or dive or start_floor > 1:
-		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt; the tutorial; the Drowned Vault; a deeper start
+	if daily or event != "" or race or first_run or _side_run() or start_floor > 1:
+		_build_run()   # the day's rooms; the event's crypt or the Queen's throne room; the race crypt; the tutorial; the Drowned Vault or Quick Play; a deeper start
 	_use_run_hero()
 	_apply_armory()
 	_catch_up()
@@ -2253,7 +2280,7 @@ func _swap_hero(id: String, again := false) -> bool:
 
 ## Curses chosen on the Curses screen, or the day's rules in the Daily Crypt.
 func _pick_curses() -> void:
-	if first_run or event != "" or race or dive:
+	if first_run or event != "" or race or _side_run():
 		curses = []
 	elif daily:
 		curses = Curses.daily_rules(_daily_date)
@@ -2286,6 +2313,9 @@ func _mode_banner() -> void:
 			Curses.names(others) if others else "Tougher skeletons, +50% coins"], 4.0, 1.8)
 	elif dive:
 		hud.tip("FREE DIVE  ·  THE DROWNED VAULT\n%d blessings to start. Find the Tidecaller!" % DIVE_GIFTS, 4.5, 1.8)
+	elif quick:
+		hud.tip("QUICK PLAY  ·  %s\n%d blessings to start. %d rooms, then the boss!" % [str(Floors.current().get("name", "Floor %d" % floor_num)).to_upper(),
+			QUICK_GIFTS, _combat_rooms()], 4.5, 1.8)
 	elif _run_hero_id != "":
 		hud.tip("FREE TRIAL RUN  ·  %s" % Heroes.full_name(Heroes.get_hero(_run_hero_id)), 4.0, 1.8)
 
@@ -2517,9 +2547,9 @@ func _apply_armory() -> void:
 			_taken[id] = _taken.get(id, 0) + 1
 			Upgrades.apply(id, hero)
 	# The Queen Hunt starts with a handful of blessings, more on higher tiers.
-	if event == "hunt" or dive:
+	if event == "hunt" or _side_run():
 		var names := []
-		for i in (DIVE_GIFTS if dive else int(Events.tiers()[event_tier - 1].gifts)):
+		for i in (DIVE_GIFTS if dive else (QUICK_GIFTS if quick else int(Events.tiers()[event_tier - 1].gifts))):
 			var g := Upgrades.roll(_taken, 4, false, "", false, null).filter(func(x: Dictionary):
 				return x.rarity != "synergy" and not str(x.id) in Events.HUNT_NO_GIFT)
 			if g.is_empty():
@@ -2541,7 +2571,7 @@ func _apply_armory() -> void:
 			Upgrades.apply(u.id, hero)
 			_start_blessing = u
 	# A Lucky Start from a Bone Drop: one more blessing, in the next normal run.
-	if not daily and not first_run and not dive and Drops.lucky(cfg) > 0:
+	if not daily and not first_run and not _side_run() and Drops.lucky(cfg) > 0:
 		var lucky := Upgrades.roll(_taken, 2, false, "", false, null) \
 				.filter(func(x: Dictionary): return x.rarity != "synergy")
 		if not lucky.is_empty():
@@ -2578,6 +2608,7 @@ func _restart() -> void:
 	var fell_run := _run.duplicate(true)
 	var fell_ids := _run_ids.duplicate()
 	var again_floor := _retry_floor()   # (before the run's numbers are reset)
+	var again_quick := floor_num
 	await _fade(0.0, 1.0, 0.4)
 	hud.show_end(false)
 	if hero:
@@ -2587,6 +2618,11 @@ func _restart() -> void:
 	if dive:
 		floor_num = DIVE_FLOOR   # the Free Dive again (the Tidecaller wasn't reached)
 		_count_dive_try()
+	if quick:
+		# Version 310: after a fall, the same place again; after a win, another place.
+		floor_num = quick_floor() if _quick_done else again_quick
+		_quick_done = false
+		Telemetry.step("quick_start")
 	record_add("runs", 1)
 	if event != "" and not Events.active():
 		event = ""   # the event ended while on the end screen: a normal run
@@ -2747,7 +2783,7 @@ func _back_to_title(keep_run := false) -> void:
 	_set_state(State.TRANSITION)
 	_save_coins()
 	var mastery_note := _give_mastery_on_title()   # before the hero is made again, in a new color
-	if not keep_run and not dive:
+	if not keep_run and not _side_run():
 		RunSave.clear()
 	_free_end = false
 	await _fade(0.0, 1.0, 0.4)
@@ -2761,6 +2797,8 @@ func _back_to_title(keep_run := false) -> void:
 	race = false
 	dive = false
 	_dive_done = false
+	quick = false
+	_quick_done = false
 	_race = null
 	_race_live = false
 	hud.race_bar.visible = false
@@ -2817,7 +2855,7 @@ func _back_to_title(keep_run := false) -> void:
 ## After beating the king: keep your blessings and go one floor deeper, where it's harder.
 ## Every new floor brings a free reroll; a new loop gives full health and two more.
 func _descend() -> void:
-	if _free_end or _dive_done:
+	if _free_end or _dive_done or _quick_done:
 		return
 	_set_state(State.TRANSITION)
 	await _fade(0.0, 1.0, 0.5)
@@ -2858,7 +2896,7 @@ func _descend() -> void:
 ## A plain run: not the tutorial, a Daily Crypt, an event, a Crypt Race, the Free Dive or the
 ## speed test. Only these can start deeper (version 309).
 func _normal_run() -> bool:
-	return not (first_run or daily or event != "" or race or dive or bench)
+	return not (first_run or daily or event != "" or race or _side_run() or bench)
 
 
 ## The start floors this save has opened: floor 1, and every checkpoint floor already reached
@@ -2945,6 +2983,72 @@ func _catch_up() -> void:
 	print("[run] start on floor %d: %s" % [floor_num, ", ".join(names)])
 	var line := "Floor %d start: %d blessings for the road" % [floor_num, names.size()]
 	get_tree().create_timer(2.4, false).timeout.connect(func(): hud.banner(line, Color(1.0, 0.82, 0.3)))
+
+
+## A run that leaves a saved run, the records and the leaderboard alone: the Free Dive
+## (version 280) and Quick Play (version 310).
+func _side_run() -> bool:
+	return dive or quick
+
+
+## Version 310: Quick Play opens with the second run (unlock stage 2), as the Pass row does.
+func quick_open(cfg: ConfigFile = null) -> bool:
+	return not first_run_pending() and unlock_stage(cfg) >= 2
+
+
+## The title's QUICK PLAY button starts one.
+func start_quick() -> void:
+	if state != State.TITLE or not quick_open():
+		return
+	Sfx.play("click")
+	_quick_requested = true
+	_start_run()
+
+
+## A place already reached (the ten places at most; the Crypt Pass's floors with the Pass),
+## never the one played last, so Quick Play after Quick Play moves around the crypt.
+func quick_floor(cfg: ConfigFile = null) -> int:
+	if cfg == null:
+		cfg = _load_save()
+	var best := int(cfg.get_value("stats", "best_floor", 1))
+	var top := mini(best, QUICK_MAX_FLOOR)
+	if not Store.owned(cfg):
+		top = mini(top, Store.FREE_FLOORS)
+	top = maxi(top, 1)
+	var last := int(cfg.get_value(QUICK_SECTION, "last_floor", 0))
+	var f := randi_range(1, top)
+	if top > 1 and f == last:
+		f = (f % top) + 1
+	cfg.set_value(QUICK_SECTION, "last_floor", f)
+	write_save(cfg)
+	return f
+
+
+## Today's Quick Play wins so far, and whether this win still pays a Bone Drop (the day's
+## first QUICK_DROPS do). Counts the win either way (the caller saves `cfg`).
+func _quick_drop(cfg: ConfigFile) -> bool:
+	var day := Curses.today()
+	var wins := quick_wins(cfg) if str(cfg.get_value(QUICK_SECTION, "day", "")) == day else 0
+	cfg.set_value(QUICK_SECTION, "day", day)
+	cfg.set_value(QUICK_SECTION, "wins", wins + 1)
+	cfg.set_value(QUICK_SECTION, "total", int(cfg.get_value(QUICK_SECTION, "total", 0)) + 1)
+	return wins < QUICK_DROPS
+
+
+func quick_wins(cfg: ConfigFile = null) -> int:
+	if cfg == null:
+		cfg = _load_save()
+	if str(cfg.get_value(QUICK_SECTION, "day", "")) != Curses.today():
+		return 0
+	return int(cfg.get_value(QUICK_SECTION, "wins", 0))
+
+
+## The win screen's line: whether this win paid one of the day's Bone Drops.
+func _quick_text(cfg: ConfigFile) -> String:
+	var wins := quick_wins(cfg)
+	if wins <= QUICK_DROPS:
+		return "+1 Bone Drop  (Quick Play drop %d of %d today)" % [wins, QUICK_DROPS]
+	return "Coins, bones and Mastery count.\nQuick Play's Bone Drops come back tomorrow."
 
 
 ## Version 169: the 3-room tutorial gives 2 blessings where the old 5 rooms gave 5. Going
@@ -3288,6 +3392,9 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	if dive and is_instance_valid(boss):
 		boss.max_health *= DIVE_BOSS_HP
 		boss.health = boss.max_health
+	if quick and is_instance_valid(boss):
+		boss.max_health *= QUICK_BOSS_HP   # version 310: a two-minute run's boss
+		boss.health = boss.max_health
 	# Champion's Door: a purple elite is waiting.
 	if _door.get("kind", "") == "champion":
 		for a: Actor in Actor.all:
@@ -3343,7 +3450,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 ## so it can be continued if the game is closed. Not during the first run or the Queen Hunt.
 ## `loop_end`: saved on the end-of-loop screen, which CONTINUE comes back to.
 func _checkpoint(next_floor := false, loop_end := false) -> void:
-	if first_run or race or dive or event == "hunt" or hero == null or hero.dead:
+	if first_run or race or _side_run() or event == "hunt" or hero == null or hero.dead:
 		return
 	var h := RunSave.hero_state(hero)
 	if next_floor:
@@ -4130,9 +4237,9 @@ func _win() -> void:
 	# A floor's boss beaten for the first time (not in the Daily Crypt): worth sharing,
 	# unless it's the tutorial.
 	var prev_boss := _best_boss(cfg)
-	_share_reason = "boss" if not daily and event == "" and not first_run and not dive and floor_num > prev_boss else ""
+	_share_reason = "boss" if not daily and event == "" and not first_run and not _side_run() and floor_num > prev_boss else ""
 	_note_floor_one(cfg, true)
-	if not daily and event == "" and not dive and floor_num > prev_boss:
+	if not daily and event == "" and not _side_run() and floor_num > prev_boss:
 		cfg.set_value("stats", "best_boss", floor_num)
 	# The event: shards for the boss, the Queen's fall counted, a hunt's win saved (the day's
 	# first on a tier pays a Moon Casket too), and a casket for every Blood Moon run cleared.
@@ -4160,7 +4267,12 @@ func _win() -> void:
 	cfg.set_value("stats", "wins", int(cfg.get_value("stats", "wins", 0)) + 1)
 	# Version 217 (review 3 fix #2): in the Queen Hunt only the day's first win (the one with
 	# the Hunt casket) pays a Bone Drop; it paid one per 1-2 minute fight with no cap.
-	if event != "hunt" or bool(hunt.get("casket", false)):
+	# Version 310: Quick Play pays one on the day's first QUICK_DROPS wins only (a two-minute
+	# win every time would be the fastest Bone Drops in the game).
+	if quick:
+		if _quick_drop(cfg):
+			_earn_drop(cfg)
+	elif event != "hunt" or bool(hunt.get("casket", false)):
 		_earn_drop(cfg)   # every boss beaten, the tutorial's too (saved just below)
 	# Version 218: a repeat Hunt win (no casket) pays a third of the bones and Mastery too;
 	# both ladders pay Bone Drops, so full pay kept the drop farm open.
@@ -4199,15 +4311,16 @@ func _win() -> void:
 	first_run = false   # from here it's a normal run: saved, with doors and each floor's own skeletons
 	Music.play("dungeon")
 	_daily_done = daily and floor_num >= Curses.DAILY_FLOORS
-	_free_end = not daily and event == "" and not dive and floor_num >= Store.FREE_FLOORS and not Store.owned()
+	_free_end = not daily and event == "" and not _side_run() and floor_num >= Store.FREE_FLOORS and not Store.owned()
 	if _free_end:
 		Telemetry.step("free_end_seen")   # v219 (review 4 fix 22): how many reach the Pass offer
 	_dive_done = dive
 	if _dive_done:
 		Telemetry.step("dive_won")
-	_loop_choice = not daily and event == "" and not dive and not _free_end and Loops.loop_end(floor_num)
-	if dive:
-		pass   # the Free Dive saves nothing, and a saved run stays as it was
+	_quick_done = quick
+	_loop_choice = not daily and event == "" and not _side_run() and not _free_end and Loops.loop_end(floor_num)
+	if _side_run():
+		pass   # the Free Dive and Quick Play save nothing, and a saved run stays as it was
 	elif _daily_done or _event_done:
 		RunSave.clear()
 	elif _loop_choice or _free_end:
@@ -4230,6 +4343,8 @@ func _win() -> void:
 		extra += "\n\n" + Events.word("fallen") + (("  +1 %s (today's)" % Events.word("casket")) if _caskets_run > 0 else "")
 	elif _loop_choice:
 		extra += "\n\n" + _loop_text()
+	elif _quick_done:
+		extra += "\n\n" + _quick_text(cfg)
 	for m: Dictionary in rewards:
 		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
 	if race_new:
@@ -4239,11 +4354,15 @@ func _win() -> void:
 	_celebrating = false
 	hud.hero_quiet()   # the bubble would show through the end screen
 	var tap := "Tap to return to the title" if _daily_done or _event_done or _dive_done else "Tap to descend to floor %d" % (floor_num + 1)
+	if _quick_done:
+		tap = "Tap for another Quick Play"
 	if _event_done and Events.active():
 		tap = Hud.EVENT_TAP   # v221: a green BACK TO EVENT (the road and the next Hunt)
 	if shards > 0:
 		extra = "\n%s  +%d" % [Events.word("shards"), shards] + extra
-	var fallen := "%s has fallen." % boss_name if event == "hunt" else "%s of floor %d has fallen." % [boss_name, floor_num]
+	var fallen := "%s has fallen." % boss_name if event == "hunt" or quick else "%s of floor %d has fallen." % [boss_name, floor_num]
+	if quick:
+		fallen = "QUICK PLAY WON!\n" + fallen
 	# Version 213 (hardest review fix #18): at the end of the free game, what the Pass opens
 	# comes first (it was the last line, ~3.6 s after the counts).
 	if _free_end:
@@ -4251,7 +4370,7 @@ func _win() -> void:
 	elif _dive_done:
 		fallen = _dive_text(true)
 	var offer := _free_end or (_dive_done and not Store.owned())
-	hud.end_hide_best = dive
+	hud.end_hide_best = _side_run()
 	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, _heroic_tag(), bones, extra],
 		tap, false, score, best, offer)
 	if _dive_done:
@@ -4273,7 +4392,7 @@ func _win() -> void:
 			pcfg.set_value("shown", "pass_card_win", true)
 			write_save(pcfg)
 			hud.show_pass_card(true, pass_hero_def())
-	hud.show_end_title(not _daily_done and not _free_end and not _event_done and not _dive_done, "TITLE  (RUN SAVED)")
+	hud.show_end_title(not _daily_done and not _free_end and not _event_done and not _dive_done, "TITLE" if quick else "TITLE  (RUN SAVED)")
 	hud.show_end_loop(_loop_choice, _bank_bonus(), Loops.loop_of(floor_num) + 1)
 	if _daily_done:
 		hud.set_end_goal(_daily_goal())
@@ -4282,7 +4401,7 @@ func _win() -> void:
 	hud.set_drops(Drops.waiting(_load_save()))
 	_show_share_card()
 	_state_time = 0.0
-	var won := "Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else (" (the Free Dive)" if dive else ""))]
+	var won := "Beat floor %d%s" % [floor_num, " (end of the free game)" if _free_end else (" (Daily Crypt cleared)" if _daily_done else (" (the Free Dive)" if dive else (" (Quick Play)" if quick else "")))]
 	if event == "hunt":
 		won = "Won the %s %s (event day %d)" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name), Events.day()]
 	elif event != "":
@@ -4305,7 +4424,7 @@ func on_hero_died() -> void:
 		_race_end(false)   # (a racer is knocked down, not killed: this is only a safety net)
 		return
 	_set_state(State.DEAD)
-	if not dive:
+	if not _side_run():
 		RunSave.clear()
 	var brave := _brave_coins()
 	if brave > 0:
@@ -4319,8 +4438,8 @@ func on_hero_died() -> void:
 	# tutorial (its win gives the first one). Never for losing a Queen Hunt (version 218: the
 	# Hunt sets floor_num to its tier's floor, so every quick loss paid a drop).
 	# (Version 280: in the Free Dive only room 3 or further, or a fall in room 1 paid one each time.)
-	if not first_run and event != "hunt" and (_room_index >= 2 or (floor_num > 1 and not dive)):
-		_earn_drop(cfg)
+	if not first_run and event != "hunt" and not quick and (_room_index >= 2 or (floor_num > 1 and not dive)):
+		_earn_drop(cfg)   # (version 310: never for a Quick Play fall, only its wins)
 	var bones := _bank_bones(cfg)
 	var shards := _bank_shards(cfg)
 	var mastery := _bank_mastery(cfg)
@@ -4331,12 +4450,14 @@ func on_hero_died() -> void:
 	var was_first := first_run
 	if was_first and not bool(cfg.get_value("stats", "first_run_done", false)):
 		Telemetry.step("died%d_%s" % [int(cfg.get_value("stats", "tutorial_deaths", 0)) + 1, _step_room()])
-	_share_reason = "best" if not daily and event == "" and not dive and not was_first and score > best and score > 0 else ""
+	_share_reason = "best" if not daily and event == "" and not _side_run() and not was_first and score > best and score > 0 else ""
 	var day_bonus := _claim_day_bonus()
 	var tutorial_again := first_run and _tutorial_retry()
 	if not tutorial_again:
 		_finish_first_run()
 	var where := "the throne room" if _in_boss_room() else "room %d of %d" % [_room_index + 1, _combat_rooms()]
+	if quick:
+		where = "Quick Play, " + where
 	if event == "hunt":
 		where = "the %s (%s)" % [Events.word("hunt"), str(Events.tiers()[event_tier - 1].name).capitalize()]
 	elif floor_num > 1:
@@ -4365,7 +4486,7 @@ func on_hero_died() -> void:
 	if dive:
 		why = "\n\n" + _dive_text(false) + why
 		again = dive_ready()   # TRY AGAIN only while the Free Dive is still there
-	hud.end_hide_best = dive
+	hud.end_hide_best = _side_run()
 	hud.show_end(true, false, "You fell in %s.%s\n\nTime  %s\nSkeletons destroyed  %d\n%s" % [where, why, _format_time(_run_time), _kills, coin_line],
 		"Tap to try again" if again or not dive else "Tap to return to the title", again, score, best)
 	hud.show_mastery(mastery)
@@ -4997,7 +5118,7 @@ func _boss_feats() -> void:
 	var no_hit := int(_rep.hits) == _room_hits
 	# Version 217 (review 3 fix #3): the floor Feats need a normal run. The Queen Hunt sets
 	# floor_num to its tier's floor, so one Hunt fight gave "Beat the boss of floor 5".
-	var normal := event == "" and not dive   # (v280: the Free Dive's floor 6 isn't one reached)
+	var normal := event == "" and not _side_run()   # (v280: the Free Dive's floor 6 isn't one reached; v310 nor Quick Play's)
 	if normal and floor_num >= 3 and _run_time - float(_rep.room_start) < 30.0:
 		_feat("bossbreaker", cfg)
 	var specials := int(_rep.special) - _room_special
@@ -5115,7 +5236,7 @@ func _save_coins() -> void:
 	if _perfect_total >= 0:
 		cfg.set_value("stats", "perfect_total", _perfect_total)
 	write_save(cfg)
-	if state != State.TITLE and not race and not dive:
+	if state != State.TITLE and not race and not _side_run():
 		RunSave.bank(run_coins)   # (v280: a race or the Free Dive set a saved run's coins to its own)
 
 
@@ -6664,8 +6785,8 @@ func _save_score(cfg: ConfigFile) -> int:
 			_submit_score("daily")
 		return day_best
 	var best := int(cfg.get_value("stats", "best_score", 0))
-	if dive:
-		return best   # version 280: the Free Dive's score is no best and goes on no board
+	if _side_run():
+		return best   # version 280: the Free Dive's score is no best and goes on no board (v310: nor Quick Play's)
 	if event == "" and not first_run:
 		_submit_score("best")
 	if score > best:
@@ -6681,8 +6802,8 @@ func _submit_score(key: String) -> void:
 
 
 func _save_best(cfg: ConfigFile, room_reached: int) -> void:
-	if dive:
-		write_save(cfg)   # version 280: the Free Dive's floor 6 is no record
+	if _side_run():
+		write_save(cfg)   # version 280: the Free Dive's floor 6 is no record (v310: nor Quick Play's floor)
 		return
 	if floor_num > int(cfg.get_value("stats", "best_floor", 1)):
 		cfg.set_value("stats", "best_floor", floor_num)

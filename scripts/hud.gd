@@ -41,6 +41,7 @@ signal resume_pressed
 signal quit_run_pressed
 signal retry_pressed
 signal start_floor_pressed   # version 309: the title's start-floor button
+signal quick_pressed   # version 310: the title's QUICK PLAY button
 signal music_toggled(on: bool)
 signal sounds_toggled(on: bool)
 signal graphics_toggled(level: int)
@@ -390,6 +391,8 @@ var _shop_curses := false
 var _title_free: Label
 var _title_play: Button
 var _title_start: Button   # version 309
+var _title_quick: Button   # version 310
+var _title_small_row: Control   # version 310: START ON FLOOR and QUICK PLAY side by side
 var _end_retry: Button   # version 309
 var _title_continue: Control
 var _continue_where: Label
@@ -1923,12 +1926,29 @@ func _build_title() -> void:
 	col.add_child(_centered(play))
 	# Version 309: which floor a new run starts on, once floor 3 has been reached (a tap
 	# goes on to the next open floor, then back to floor 1).
-	var start := button("START ON FLOOR 1  >", 19, Color(0.16, 0.12, 0.2, 0.95), Color(1.0, 0.85, 0.5))
-	start.custom_minimum_size = Vector2(260, 46)
+	var start := button("START ON FLOOR 1  >", 17, Color(0.1, 0.09, 0.12, 0.95), Color(0.55, 0.5, 0.45))   # (slate: a quiet choice)
+	start.custom_minimum_size = Vector2(238, 50)
+	start.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
 	start.pressed.connect(func(): start_floor_pressed.emit())
 	start.visible = false
 	_title_start = start
-	col.add_child(_centered(start))
+	# Version 310 (short sessions, part 2): QUICK PLAY beside it, two rooms and a boss.
+	var quick := button("QUICK PLAY  2 MIN", 17, Color(0.25, 0.1, 0.6, 0.95), Color(0.85, 0.7, 1.0))   # (purple)
+	quick.custom_minimum_size = Vector2(238, 50)
+	quick.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	quick.pressed.connect(func(): quick_pressed.emit())   # (no guard: a saved run stays saved)
+	quick.visible = false
+	_title_quick = quick
+	var small := HBoxContainer.new()
+	small.alignment = BoxContainer.ALIGNMENT_CENTER
+	small.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	small.add_theme_constant_override("separation", 10)
+	small.custom_minimum_size.y = 58   # (room under it for the HEROES and ARMORY tags)
+	small.add_child(start)
+	small.add_child(quick)
+	small.visible = false
+	_title_small_row = small
+	col.add_child(small)
 	var heroes := button("HEROES", 26)
 	heroes.custom_minimum_size = Vector2(222, 74)
 	heroes.pressed.connect(func(): heroes_pressed.emit())
@@ -4921,10 +4941,12 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	# room for it (the hero would be hidden), so NEW RUN names the floor instead.
 	var start_line := Game.start_text() if v and not locked else ""
 	var show_start := start_line != "" and not _title_continue.visible
-	_title_start.text = start_line
-	_title_start.get_parent().visible = show_start
+	_title_start.text = start_line.replace("START ON FLOOR", "START: FLOOR")
 	_title_start.visible = show_start
-	if show_start:
+	# Version 310: QUICK PLAY from the second run, also beside a saved run's CONTINUE.
+	_title_quick.visible = v and not locked and Game.quick_open(tcfg)
+	_title_small_row.visible = show_start or _title_quick.visible
+	if _title_small_row.visible:
 		_title_spacer.visible = false
 	if start_line != "" and _title_continue.visible and Game.chosen_start(tcfg) > 1:
 		_title_play.text = "NEW RUN: FLOOR %d" % Game.chosen_start(tcfg)
