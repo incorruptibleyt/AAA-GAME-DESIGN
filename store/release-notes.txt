@@ -1,3 +1,4 @@
-Version 334: Legend Vault looks get better (5 of 6)
-- Starfall crown upgraded: silver arches studded with pearls cross over it to a big star on top, with sapphires round the band, so it looks like a real crown.
-- Stardust Steps upgraded: each step leaves a twinkling sparkle of starlight instead of a toy star.
+Version 335: Legend Vault looks get better (6 of 6)
+- Mimic: gold glows inside its mouth, coins on its lip and a little pile of gold at its feet in the shop.
+- Gold Rush: the coins flash and sparkle as they fly.
+- Bone Emperor: a wider, grander bone throne that frames your hero.

@@ -6,7 +6,8 @@ extends RefCounted
 ##                 raised rim, a crowned skull stamped on each face) burst up out of it,
 ##                 spinning, bounce once on the floor with a glint, then zip into the hero one
 ##                 after another, each with a chink and a sparkle (version 320: they were flat
-##                 yellow dots that fell and vanished). (Only a show: the coins it really drops
+##                 yellow dots that fell and vanished); version 335: glints flash off the
+##                 coins as they spin through the air. (Only a show: the coins it really drops
 ##                 are the usual ones.)
 ##   soul_harvest: Soul Harvest. A rune ring flares on the floor where the skeleton fell and a
 ##                 pillar of pale light stands up out of it; the skeleton's ghost is torn out of
@@ -185,6 +186,7 @@ class Jackpot extends Node3D:
 	var _ring_mat: StandardMaterial3D
 	var _star: MeshInstance3D
 	var _star_mat: StandardMaterial3D
+	var _sparks: CPUParticles3D   # (version 335: glints flashing off the coins as they fly)
 
 	const COUNT := 12
 	const BOUNCE_UNTIL := 0.6
@@ -207,6 +209,32 @@ class Jackpot extends Node3D:
 		_star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_star.position = Vector3(0, from_y, 0)
 		add_child(_star)
+		# Glints that flash off the coins as they spin through the air: one emitter, moved from
+		# coin to coin each frame, its sparks left hanging where they caught the light.
+		_sparks = CPUParticles3D.new()
+		_sparks.mesh = Fx._shaped("glint")
+		_sparks.amount = 36
+		_sparks.lifetime = 0.4
+		_sparks.local_coords = false
+		_sparks.direction = Vector3.UP
+		_sparks.spread = 180.0
+		_sparks.gravity = Vector3.ZERO
+		_sparks.initial_velocity_min = 0.0
+		_sparks.initial_velocity_max = 0.3
+		_sparks.scale_amount_min = 0.5 * _size
+		_sparks.scale_amount_max = 0.85 * _size
+		var sc := Curve.new()
+		sc.add_point(Vector2(0.0, 0.2))
+		sc.add_point(Vector2(0.3, 1.0))
+		sc.add_point(Vector2(1.0, 0.0))
+		_sparks.scale_amount_curve = sc
+		var sg := Gradient.new()
+		sg.set_color(0, Color(1.0, 1.0, 0.92, 1.0))
+		sg.set_color(1, Color(1.0, 0.8, 0.3, 0.0))
+		_sparks.color_ramp = sg
+		_sparks.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_sparks)
+		_sparks.position = Vector3(0, from_y, 0)
 		for i in COUNT:
 			var c := MeshInstance3D.new()
 			c.mesh = LegendFinish.coin_mesh()
@@ -282,6 +310,14 @@ class Jackpot extends Node3D:
 					if _run:
 						Fx._burst(goal, 3, Color(1.0, 0.88, 0.4), 0.3, 2.0, 0.25, 0.0, true, "glint")
 						Sfx.play("coin", 0.18, randf_range(1.2, 1.6))
+		# The glints: on a coin still in the air, picked afresh each frame.
+		var flying: Array[Node3D] = []
+		for c: Dictionary in _coins:
+			if not c.home and (c.node as Node3D).visible:
+				flying.append(c.node)
+		_sparks.emitting = _t < 1.25 and not flying.is_empty()
+		if _sparks.emitting:
+			_sparks.global_position = flying[randi() % flying.size()].global_position
 		if done and _t > 0.5:
 			queue_free()
 

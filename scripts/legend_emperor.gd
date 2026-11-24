@@ -486,33 +486,37 @@ static func throne() -> Node3D:
 	_mats()
 	var t := Node3D.new()
 	t.name = "BoneThrone"
+	# (Version 335: wider and grander, so on a pedestal it frames the hero instead of hiding
+	# behind them: a broader step and seat, a wide velvet back in a gold frame with gold
+	# finials, a fan of bones spread out past the hero's shoulders, and taller armrests.)
 	# The step: dark stone, edged in gold at the front.
-	U.box(t, Vector3(1.9, 0.14, 1.3), _stone, Vector3(0, 0.07, 0.15))
-	U.box(t, Vector3(1.92, 0.045, 0.05), _gold, Vector3(0, 0.15, -0.5))
+	U.box(t, Vector3(2.5, 0.14, 1.4), _stone, Vector3(0, 0.07, 0.15))
+	U.box(t, Vector3(2.52, 0.045, 0.05), _gold, Vector3(0, 0.15, -0.55))
 	# The seat with a velvet cushion, a gold skull on its front.
-	U.box(t, Vector3(1.25, 0.5, 0.78), _stone, Vector3(0, 0.39, 0.2))
-	U.box(t, Vector3(1.16, 0.12, 0.7), _velvet, Vector3(0, 0.7, 0.2))
-	U.box(t, Vector3(1.27, 0.05, 0.05), _gold, Vector3(0, 0.64, -0.19))
-	skull(t, 0.26, Vector3(0, 0.42, -0.2), true, _gold)
-	# The back: a velvet panel in a gold frame, and a fan of long bones rising behind it, each
-	# topped with a skull; the middle one tallest, with the biggest skull.
-	U.box(t, Vector3(1.2, 1.55, 0.08), _velvet, Vector3(0, 1.45, 0.55))
-	for x in [-0.62, 0.62]:
-		U.box(t, Vector3(0.06, 1.6, 0.1), _gold, Vector3(x, 1.45, 0.55))
-	U.box(t, Vector3(1.3, 0.06, 0.1), _gold, Vector3(0, 2.24, 0.55))
-	for i in 7:
-		var k := (i - 3) / 3.0
-		var top := Vector3(k * 0.95, 2.62 - absf(k) * 0.45, 0.62 + absf(k) * 0.05)
-		long_bone(t, Vector3(k * 0.42, 0.66, 0.62), top, 0.055 if i != 3 else 0.07)
-		skull(t, 0.42 if i == 3 else 0.27, top + Vector3(0, 0.14 if i == 3 else 0.1, -0.04), i == 3 or i % 2 == 0)
+	U.box(t, Vector3(1.5, 0.5, 0.8), _stone, Vector3(0, 0.39, 0.2))
+	U.box(t, Vector3(1.4, 0.12, 0.72), _velvet, Vector3(0, 0.7, 0.2))
+	U.box(t, Vector3(1.52, 0.05, 0.05), _gold, Vector3(0, 0.64, -0.2))
+	skull(t, 0.26, Vector3(0, 0.42, -0.21), true, _gold)
+	# The back: a wide velvet panel in a gold frame with gold finials, and a fan of long bones
+	# rising behind it, each topped with a skull; the middle one tallest, with the biggest skull.
+	U.box(t, Vector3(1.7, 1.55, 0.08), _velvet, Vector3(0, 1.45, 0.55))
+	for x in [-0.87, 0.87]:
+		U.box(t, Vector3(0.08, 1.62, 0.12), _gold, Vector3(x, 1.45, 0.55))
+		U.sphere(t, 0.07, _gold, Vector3(x, 2.3, 0.55))
+	U.box(t, Vector3(1.82, 0.07, 0.12), _gold, Vector3(0, 2.24, 0.55))
+	for i in 9:
+		var k := (i - 4) / 4.0
+		var top := Vector3(k * 1.45, 2.62 - absf(k) * 0.6, 0.62 + absf(k) * 0.05)
+		long_bone(t, Vector3(k * 0.6, 0.66, 0.62), top, 0.055 if i != 4 else 0.07)
+		skull(t, 0.42 if i == 4 else 0.27, top + Vector3(0, 0.14 if i == 4 else 0.1, -0.04), i == 4 or i % 2 == 0)
 	# The armrests: a bone on two bone legs each side, a skull on a gold cap at the front.
 	for sd in [-1.0, 1.0]:
-		var x: float = sd * 0.72
-		long_bone(t, Vector3(x, 0.92, -0.18), Vector3(x, 0.92, 0.5), 0.05)
-		long_bone(t, Vector3(x, 0.14, -0.1), Vector3(x, 0.9, -0.1), 0.045)
-		long_bone(t, Vector3(x, 0.14, 0.45), Vector3(x, 0.9, 0.45), 0.045)
-		U.cylinder(t, 0.09, 0.05, _gold, Vector3(x, 0.94, -0.24))
-		skull(t, 0.24, Vector3(x, 1.08, -0.26))
+		var x: float = sd * 0.86
+		long_bone(t, Vector3(x, 1.0, -0.2), Vector3(x, 1.0, 0.5), 0.055)
+		long_bone(t, Vector3(x, 0.14, -0.12), Vector3(x, 0.98, -0.12), 0.05)
+		long_bone(t, Vector3(x, 0.14, 0.45), Vector3(x, 0.98, 0.45), 0.05)
+		U.cylinder(t, 0.1, 0.05, _gold, Vector3(x, 1.02, -0.26))
+		skull(t, 0.3, Vector3(x, 1.18, -0.28))
 	for mi in t.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return t

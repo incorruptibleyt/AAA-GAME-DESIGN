@@ -202,7 +202,7 @@ func _throne_now() -> void:
 		var pivot := get_parent().get_parent() if get_parent() else null
 		if _staged and pivot and pivot.get_parent() is Node3D:
 			pivot.get_parent().add_child(_throne)
-			_throne.transform = Transform3D(Basis(Vector3.UP, PI).scaled(Vector3.ONE * 0.78), Vector3(0, 0, -0.62))
+			_throne.transform = Transform3D(Basis(Vector3.UP, PI).scaled(Vector3.ONE * 0.86), Vector3(0, 0, -0.7))   # (v335: bigger)
 		else:
 			get_parent().add_child(_throne)
 			_throne.position = Vector3(0, 0, 0.8)

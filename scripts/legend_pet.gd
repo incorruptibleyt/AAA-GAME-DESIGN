@@ -1113,6 +1113,7 @@ static var _mimic_wood_mat: ShaderMaterial
 var _legs: Array[Node3D] = []
 var _eyes: Array[Node3D] = []
 var _treasure_glint: StandardMaterial3D
+var _treasure_light: MeshInstance3D
 var _lunge := false
 var _gold_pool: StandardMaterial3D
 
@@ -1198,6 +1199,19 @@ func _build_mimic() -> void:
 		c.rotation = Vector3(0.3 * (i % 2) - 0.15, i * 1.1, 0.2 * ((i + 1) % 3 - 1))
 		c.scale = Vector3.ONE * 0.62
 		box.add_child(c)
+	# (version 335: two more coins caught on the lip between the fangs, about to spill out)
+	for i in 2:
+		var c := MeshInstance3D.new()
+		c.mesh = LegendFinish.coin_mesh()
+		c.material_override = LegendFinish.coin_material()
+		c.position = Vector3(-0.135 + i * 0.27, h + 0.045, -d * 0.5 + 0.085)
+		c.rotation = Vector3(1.1, 0.25 - i * 0.5, 0.2 - i * 0.4)
+		c.scale = Vector3.ONE * 0.6
+		box.add_child(c)
+	# The treasure's glow: gold light welling up out of the gap, brighter as the lid opens.
+	_treasure_light = LegendGrand._glow(box, 0.24, Color(1.0, 0.72, 0.22), 0.9)
+	_treasure_light.position = Vector3(0, h + 0.05, 0.06)
+	_treasure_light.scale = Vector3(0.3, 0.12, 0.22)
 	_treasure_glint = _add_mat(Color(1.0, 0.9, 0.5, 0.0), true)
 	_treasure_glint.albedo_texture = U.glint()
 	var tg := MeshInstance3D.new()
@@ -1214,11 +1228,7 @@ func _build_mimic() -> void:
 		ball.scale = Vector3(1.0, 0.9, 0.85)
 		var slit := U.box(e, Vector3(0.02, 0.1, 0.02), black, Vector3(0, 0, -0.06))
 		slit.name = "Slit"
-		var eg := MeshInstance3D.new()
-		eg.mesh = _quad(0.34)
-		eg.material_override = _add_mat(Color(1.0, 0.75, 0.2, 0.55), true)
-		eg.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		e.add_child(eg)
+		LegendGrand._glow(e, 0.13, Color(1.0, 0.72, 0.2), 0.75)   # (v335: the flat glints never showed in a run)
 		_eyes.append(e)
 	# A long tongue in three parts that lolls out over the front and swings.
 	_tongue = Node3D.new()
@@ -1286,6 +1296,22 @@ func _build_mimic() -> void:
 				var cl := _tube(leg, 0.012, 0.0, 0.06, gold, Vector3((c - 1) * 0.025, -0.1, -0.03))
 				cl.rotation.x = -1.2
 			_legs.append(leg)
+	if _staged:
+		# On a pedestal: a little heap of the gold it has eaten, at its feet (never in a run,
+		# where gold on the floor is gold to pick up).
+		# (a short stack, coins leaning on it tipped up to the camera, one on its edge)
+		var heap := [[Vector3(0.0, 0.012, 0.0), Vector3(PI / 2.0, 0.0, 0.0)], [Vector3(0.0, 0.04, 0.0), Vector3(PI / 2.0, 0.5, 0.0)],
+			[Vector3(0.01, 0.068, 0.0), Vector3(PI / 2.0, 1.0, 0.0)], [Vector3(-0.13, 0.05, -0.04), Vector3(0.55, 0.4, 0.0)],
+			[Vector3(0.14, 0.05, -0.05), Vector3(0.6, -0.5, 0.0)], [Vector3(0.0, 0.05, -0.15), Vector3(0.5, 0.1, 0.0)],
+			[Vector3(-0.07, 0.1, 0.1), Vector3(0.15, -0.3, 0.0)]]
+		for hp in heap:
+			var c := MeshInstance3D.new()
+			c.mesh = LegendFinish.coin_mesh()
+			c.material_override = LegendFinish.coin_material()
+			c.position = Vector3(0.5, 0.0, -0.1) + (hp[0] as Vector3)
+			c.rotation = hp[1]
+			c.scale = Vector3.ONE * 0.7
+			add_child(c)
 	# A warm gold pool on the floor under it, so the camera far above finds it on any floor.
 	if not _staged:
 		_gold_pool = _add_mat(Color(1.0, 0.7, 0.25, 0.32), false)
@@ -1379,6 +1405,7 @@ func _mimic(delta: float) -> void:
 		e.scale = Vector3(1.0, blink, 1.0)
 	# The treasure inside glints now and then.
 	_treasure_glint.albedo_color.a = pow(maxf(0.0, sin(_t * 1.7)), 12.0) * (0.4 + open)
+	_treasure_light.scale = Vector3(0.3, 0.12 + 0.16 * open, 0.22) * (1.0 + 0.06 * sin(_t * 3.0))
 	# Legs: they dangle in the air and splay as it lands.
 	for i in _legs.size():
 		var lg := _legs[i]
