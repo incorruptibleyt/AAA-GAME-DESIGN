@@ -1232,6 +1232,8 @@ class Icon extends Control:
 	func _gold_rush() -> void:
 		var cycle := fmod(_t, 1.6) / 1.6
 		_glow(Vector2(0, 8), 40, Color(1.0, 0.75, 0.25, 0.55 * (1.0 - cycle)))
+		# (version 320) the gold shockwave ringing out from the skull
+		draw_arc(Vector2(0, 34), 6.0 + 34.0 * minf(1.0, cycle * 3.0), 0.0, TAU, 40, Color(1.0, 0.82, 0.35, 0.9 * (1.0 - minf(1.0, cycle * 2.2))), 3.0)
 		_skull(Vector2(0, 30), 13.0, 1.0 - smoothstep(0.0, 0.25, cycle) * 0.6)
 		# Coins spring up out of the skull and rain down to both sides, spinning as they go.
 		for i in 9:

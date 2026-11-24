@@ -1,9 +1,13 @@
 class_name LegendFinish
 extends RefCounted
 ## Version 314 (Legend Vault, legends.gd): finishers, what happens when a skeleton falls.
-##   gold_rush:    Gold Rush. The skeleton bursts into a fountain of gold coins that spin up
-##                 out of it and rain down around it, with a glint and a chink. (Only a show:
-##                 the coins it really drops are the usual ones.)
+##   gold_rush:    Gold Rush. A jackpot: a gold shockwave rings out across the floor and a
+##                 star of light flashes where the skeleton fell; a dozen fat gold coins (a
+##                 raised rim, a crowned skull stamped on each face) burst up out of it,
+##                 spinning, bounce once on the floor with a glint, then zip into the hero one
+##                 after another, each with a chink and a sparkle (version 320: they were flat
+##                 yellow dots that fell and vanished). (Only a show: the coins it really drops
+##                 are the usual ones.)
 ##   soul_harvest: Soul Harvest. A rune ring flares on the floor where the skeleton fell and a
 ##                 pillar of pale light stands up out of it; the skeleton's ghost is torn out of
 ##                 the bones, wailing (a real ghost: a round head, big eyes, an open mouth,
@@ -24,7 +28,7 @@ static func play(kind: String, at: Vector3, world: Node3D, hero: Node3D) -> void
 		return
 	match kind:
 		"gold_rush":
-			_gold_rush(at, world)
+			_gold_rush(at, world, hero)
 		"soul_harvest":
 			if hero and _souls < MAX_SOULS:
 				_soul(at, world, hero)
@@ -32,105 +36,254 @@ static func play(kind: String, at: Vector3, world: Node3D, hero: Node3D) -> void
 
 # ---------------------------------------------------------------- Gold Rush
 
-static var _coin_pool: Array = []
+static var _jackpots := 0
+const MAX_JACKPOTS := 6   # (bursts on screen at once: a Bomber's blast can fell a crowd)
 
 
-static func _gold_rush(at: Vector3, world: Node3D) -> void:
-	# (At most three fountains a frame: a Bomber's blast can fell a whole crowd at once.)
+static func _gold_rush(at: Vector3, world: Node3D, hero: Node3D) -> void:
+	# (At most three a frame, and six at once.)
 	var f := Engine.get_process_frames()
 	if f != _coin_frame:
 		_coin_frame = f
 		_coin_bursts = 0
 	_coin_bursts += 1
-	if _coin_bursts > 3:
+	if _coin_bursts > 3 or _jackpots >= MAX_JACKPOTS:
 		return
-	var p: CPUParticles3D = null
-	while not _coin_pool.is_empty():
-		var old: Variant = _coin_pool.pop_back()
-		if is_instance_valid(old) and (old as Node).get_parent() == world:
-			p = old
-			break
-	if p == null:
-		p = _coin_fountain()
-		world.add_child(p)
-		p.finished.connect(func():
-			if is_instance_valid(p) and _coin_pool.size() < 12:
-				_coin_pool.append(p)
-			elif is_instance_valid(p):
-				p.queue_free())
+	var j := Jackpot.new()
+	j.hero = hero
+	world.add_child(j)
 	var run := world == Game.world
-	# In a run, a tall fountain the camera far above can see; on a pedestal, a small one beside
-	# the hero.
-	p.initial_velocity_min = 4.2 if run else 2.6
-	p.initial_velocity_max = 6.5 if run else 3.6
-	p.gravity = Vector3(0, -13.0 if run else -9.0, 0)
-	p.scale_amount_min = 1.1 if run else 0.9
-	p.scale_amount_max = 1.5 if run else 1.15
-	p.global_position = at + Vector3(0, 0.6 if run else 0.25, 0)
-	p.restart()
-	if run:   # (not on a pedestal: Fx bursts belong to the run's world)
-		Fx._burst(at + Vector3(0, 0.8, 0), 10, Color(1.0, 0.85, 0.35), 0.5, 3.0, 0.5, 0.0, true, "glint")
-		Sfx.play("coin", 0.35, randf_range(0.95, 1.25))
+	j.global_position = Vector3(at.x, 0.03 if run else world.global_position.y + 0.02, at.z)
+	j.from_y = 0.7 if run else (at.y - world.global_position.y) + 0.25
+	if run:
+		Sfx.play("coin", 0.45, randf_range(0.95, 1.15))
 
 
 static var _coin_mesh: Mesh
+static var _coin_mat: StandardMaterial3D
+static var _coin_tex: ImageTexture
 
 
-## A fountain of gold coins that spring up out of the skeleton and rain down around it, each
-## one standing on its edge and spinning, so it flashes face on and edge on as it flies.
-static func _coin_fountain() -> CPUParticles3D:
-	var p := CPUParticles3D.new()
-	p.one_shot = true
-	p.emitting = false
-	p.amount = 16
-	p.lifetime = 1.15
-	p.explosiveness = 0.8
-	p.direction = Vector3.UP
-	p.spread = 26.0
-	p.particle_flag_rotate_y = true
-	p.angular_velocity_min = -720.0
-	p.angular_velocity_max = 720.0
-	p.angle_min = 0.0
-	p.angle_max = 360.0
-	if _coin_mesh == null:
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(1.0, 0.78, 0.25)
-		m.metallic = 0.6
-		m.roughness = 0.3
-		m.emission_enabled = true
-		m.emission = Color(1.0, 0.62, 0.12)
-		m.emission_energy_multiplier = 1.1
-		_coin_mesh = _coin_disc(0.13, 0.035, m)
-	p.mesh = _coin_mesh
-	return p
-
-
-## A coin standing up: a disc facing +Z and -Z with a rim, its middle at the origin.
-static func _coin_disc(r: float, thick: float, m: Material) -> Mesh:
+## A fat gold coin standing up (faces towards +Z and -Z), its middle at the origin: a raised
+## lip round each face, and the face itself stamped with a crowned skull (coin_face).
+static func coin_mesh() -> Mesh:
+	if _coin_mesh:
+		return _coin_mesh
+	var r := 0.15
+	var h := 0.03   # half its thickness at the lip
+	var inner := r * 0.8
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var n := 14
-	var h := thick * 0.5
+	var n := 20
 	for i in n:
 		var a0 := TAU * i / n
 		var a1 := TAU * (i + 1) / n
-		var p0 := Vector3(cos(a0) * r, sin(a0) * r, 0)
-		var p1 := Vector3(cos(a1) * r, sin(a1) * r, 0)
+		var c0 := Vector2(cos(a0), sin(a0))
+		var c1 := Vector2(cos(a1), sin(a1))
 		for face in [1.0, -1.0]:
-			var z := Vector3(0, 0, h * face)
-			var tri := [z, p1 + z, p0 + z] if face > 0.0 else [z, p0 + z, p1 + z]   # (front faces turn clockwise)
-			for v: Vector3 in tri:
-				st.set_normal(Vector3(0, 0, face))
+			var fz: float = face
+			var zf := h * 0.7 * fz   # (the face sits a little below the lip)
+			var zl := h * fz
+			# The face, mapped to the whole stamp picture.
+			var tri := [[Vector3.ZERO, Vector2(0.5, 0.5)], [Vector3(c1.x * inner, c1.y * inner, 0), c1], [Vector3(c0.x * inner, c0.y * inner, 0), c0]]
+			if fz < 0.0:
+				tri = [tri[0], tri[2], tri[1]]
+			for v in tri:
+				var pv: Vector3 = v[0]
+				var uvp: Vector2 = v[1]
+				st.set_normal(Vector3(0, 0, fz))
+				st.set_uv(Vector2(0.5, 0.5) if pv == Vector3.ZERO else Vector2(0.5 + uvp.x * 0.5 * fz, 0.5 - uvp.y * 0.5))
+				st.add_vertex(pv + Vector3(0, 0, zf))
+			# The lip: a ring sloping up from the face to the rim's top, plain gold.
+			var i0 := Vector3(c0.x * inner, c0.y * inner, zf)
+			var i1 := Vector3(c1.x * inner, c1.y * inner, zf)
+			var o0 := Vector3(c0.x * r, c0.y * r, zl)
+			var o1 := Vector3(c1.x * r, c1.y * r, zl)
+			var quad := [i0, o1, o0, i0, i1, o1] if fz > 0.0 else [i0, o0, o1, i0, o1, i1]
+			for v: Vector3 in quad:
+				st.set_normal((Vector3(v.x, v.y, 0).normalized() * 0.6 + Vector3(0, 0, fz)).normalized())
+				st.set_uv(Vector2(0.02, 0.02))
 				st.add_vertex(v)
-		var e0 := Vector3(cos(a0), sin(a0), 0)
-		var e1 := Vector3(cos(a1), sin(a1), 0)
-		var zf := Vector3(0, 0, h)
-		for q in [[p0 - zf, e0], [p0 + zf, e0], [p1 + zf, e1], [p0 - zf, e0], [p1 + zf, e1], [p1 - zf, e1]]:
+		# The rim round the edge.
+		var e0 := Vector3(c0.x, c0.y, 0)
+		var e1 := Vector3(c1.x, c1.y, 0)
+		var p0 := e0 * r
+		var p1 := e1 * r
+		var zh := Vector3(0, 0, h)
+		for q in [[p0 - zh, e0], [p0 + zh, e0], [p1 + zh, e1], [p0 - zh, e0], [p1 + zh, e1], [p1 - zh, e1]]:
 			st.set_normal(q[1])
+			st.set_uv(Vector2(0.02, 0.02))
 			st.add_vertex(q[0])
-	var mesh := st.commit()
-	mesh.surface_set_material(0, m)
-	return mesh
+	_coin_mesh = st.commit()
+	return _coin_mesh
+
+
+static func coin_material() -> StandardMaterial3D:
+	if _coin_mat:
+		return _coin_mat
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(1.0, 0.82, 0.3)
+	m.albedo_texture = coin_face()
+	m.metallic = 0.75
+	m.roughness = 0.28
+	m.emission_enabled = true
+	m.emission = Color(1.0, 0.6, 0.12)
+	m.emission_energy_multiplier = 0.55
+	m.rim_enabled = true
+	m.rim = 0.5
+	m.rim_tint = 0.2
+	_coin_mat = m
+	return m
+
+
+## The coin's stamp: bright gold, with a crowned skull pressed into it in darker gold.
+static func coin_face() -> ImageTexture:
+	if _coin_tex:
+		return _coin_tex
+	var w := 64
+	var img := Image.create(w, w, false, Image.FORMAT_RGBA8)
+	for y in w:
+		for x in w:
+			var p := Vector2(x + 0.5, y + 0.5) / w * 2.0 - Vector2.ONE   # (-1..1, y down)
+			var v := 1.0
+			# The skull: a round head, a jaw, two eye holes and a nose.
+			var head := Vector2(p.x / 0.42, (p.y - 0.05) / 0.4).length()
+			var jaw := Vector2(p.x / 0.26, (p.y - 0.42) / 0.16).length()
+			if head < 1.0 or jaw < 1.0:
+				v = 0.72
+			for sx in [-1.0, 1.0]:
+				if Vector2((p.x - 0.17 * sx) / 0.12, (p.y - 0.05) / 0.13).length() < 1.0:
+					v = 0.42
+			if Vector2(p.x / 0.06, (p.y - 0.25) / 0.07).length() < 1.0:
+				v = 0.45
+			# The crown on top of it: a band and three points.
+			if p.y > -0.5 and p.y < -0.34 and absf(p.x) < 0.36:
+				v = 0.68
+			for k in 3:
+				var cx := -0.26 + 0.26 * k
+				if p.y <= -0.5 and p.y > -0.75 and absf(p.x - cx) < 0.09 * (p.y + 0.75) / 0.25 + 0.005:
+					v = 0.68
+			# A ring of dots near the edge.
+			var d := p.length()
+			if d > 0.82:
+				v = 0.85
+			img.set_pixel(x, y, Color(v, v * 0.97, v * 0.9))
+	img.generate_mipmaps()
+	_coin_tex = ImageTexture.create_from_image(img)
+	return _coin_tex
+
+
+## One Gold Rush: the shockwave and flash on the floor, and the coins.
+class Jackpot extends Node3D:
+	var hero: Node3D
+	var from_y := 0.7
+	var _t := 0.0
+	var _run := false
+	var _size := 1.0
+	var _coins: Array[Dictionary] = []
+	var _ring: MeshInstance3D
+	var _ring_mat: StandardMaterial3D
+	var _star: MeshInstance3D
+	var _star_mat: StandardMaterial3D
+
+	const COUNT := 12
+	const BOUNCE_UNTIL := 0.6
+	const ZIP := 0.3
+
+	func _ready() -> void:
+		LegendFinish._jackpots += 1
+		_run = get_parent() == Game.world
+		_size = 1.35 if _run else 0.75
+		_ring_mat = LegendFinish.Flare._flat(U.ring())
+		_ring_mat.albedo_color = Color(1.0, 0.8, 0.3, 0.0)
+		_ring = U.floor_quad(self, Vector2.ONE * 1.6, _ring_mat, Vector3(0, 0.01, 0))
+		_star_mat = LegendFinish.Flare._flat(U.glint())
+		_star_mat.albedo_color = Color(1.0, 0.9, 0.55, 0.0)
+		_star_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		_star_mat.billboard_keep_scale = true
+		_star = MeshInstance3D.new()
+		_star.mesh = LegendPet._quad(1.0)
+		_star.material_override = _star_mat
+		_star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_star.position = Vector3(0, from_y, 0)
+		add_child(_star)
+		for i in COUNT:
+			var c := MeshInstance3D.new()
+			c.mesh = LegendFinish.coin_mesh()
+			c.material_override = LegendFinish.coin_material()
+			c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			c.top_level = true
+			add_child(c)
+			var ang := TAU * (float(i) + randf() * 0.6) / COUNT
+			var out := randf_range(1.2, 2.4) * _size
+			var up := randf_range(4.2, 6.0) * (_size if _run else 0.8)
+			_coins.append({"node": c, "pos": Vector3(0, from_y, 0), "vel": Vector3(cos(ang) * out, up, sin(ang) * out),
+				"spin": randf_range(10.0, 16.0) * (1.0 if randf() < 0.5 else -1.0), "yaw": randf() * TAU,
+				"bounced": false, "zip_at": BOUNCE_UNTIL + i * 0.035, "home": false})
+
+	func _exit_tree() -> void:
+		LegendFinish._jackpots -= 1
+
+	func _process(delta: float) -> void:
+		_t += delta
+		# The shockwave and the flash.
+		var open := 1.0 - pow(1.0 - minf(1.0, _t / 0.3), 3.0)
+		_ring.scale = Vector3.ONE * _size * (0.3 + 1.4 * open)
+		_ring_mat.albedo_color.a = 0.95 * (1.0 - smoothstep(0.1, 0.45, _t))
+		var flash := 1.0 - smoothstep(0.0, 0.3, _t)
+		_star.scale = Vector3.ONE * _size * (0.6 + 1.6 * minf(1.0, _t / 0.08)) * (0.4 + 0.6 * flash)
+		_star.rotation.z = _t * 3.0
+		_star_mat.albedo_color.a = flash
+		var g := -16.0 * (_size if _run else 0.8)
+		var done := true
+		var goal := Vector3.ZERO
+		var have_hero := hero != null and is_instance_valid(hero)
+		if have_hero:
+			goal = hero.global_position + Vector3(0, (1.0 if _run else 0.7), 0)
+		for c: Dictionary in _coins:
+			if c.home:
+				continue
+			done = false
+			var node: MeshInstance3D = c.node
+			var p: Vector3 = c.pos
+			if _t < c.zip_at or not have_hero:
+				# Burst out and up, spinning; bounce once on the floor, then sit and wobble.
+				var v: Vector3 = c.vel
+				v.y += g * delta
+				p += v * delta
+				if p.y < 0.12 * _size:
+					p.y = 0.12 * _size
+					if not c.bounced:
+						c.bounced = true
+						v = Vector3(v.x * 0.35, absf(v.y) * 0.35, v.z * 0.35)
+					else:
+						v = Vector3(v.x * 0.8, 0.0, v.z * 0.8)
+				c.vel = v
+				c.pos = p
+				c.yaw += c.spin * delta
+				node.global_position = global_position + p
+				node.global_basis = (Basis(Vector3.UP, c.yaw) * Basis(Vector3.RIGHT, -0.55)).scaled(Vector3.ONE * _size)   # (tipped back: the camera above sees its face)
+				if _t > 1.6:
+					c.home = true
+					node.visible = false
+			else:
+				# Zip into the hero, faster and faster, shrinking as it arrives.
+				if not c.has("zip_from"):
+					c.zip_from = global_position + p
+				var k := minf(1.0, (_t - c.zip_at) / ZIP)
+				var from: Vector3 = c.zip_from
+				var at := from.lerp(goal, k * k) + Vector3.UP * sin(k * PI) * 0.9 * _size
+				node.global_position = at
+				c.yaw += c.spin * 1.6 * delta
+				node.global_basis = (Basis(Vector3.UP, c.yaw) * Basis(Vector3.RIGHT, -0.55)).scaled(Vector3.ONE * _size * (1.0 - 0.5 * k * k))
+				if k >= 1.0:
+					c.home = true
+					node.visible = false
+					if _run:
+						Fx._burst(goal, 3, Color(1.0, 0.88, 0.4), 0.3, 2.0, 0.25, 0.0, true, "glint")
+						Sfx.play("coin", 0.18, randf_range(1.2, 1.6))
+		if done and _t > 0.5:
+			queue_free()
 
 
 # ---------------------------------------------------------------- Soul Harvest

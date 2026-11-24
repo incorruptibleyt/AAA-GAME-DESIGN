@@ -1,3 +1,3 @@
-Version 319: Legend Vault, Supercell pass 2 of 10
-- Crypt Raven rebuilt: real feathered wings with glowing violet tips, a big skull head that caws, and it now dives at skeletons and pecks them. A violet glow follows it so you can always see it.
-- Version 318: Soul Harvest rebuilt with a wailing ghost that streaks into you.
+Version 320: Legend Vault, Supercell pass 3 of 10
+- Gold Rush rebuilt: a gold shockwave and flash, then a dozen fat stamped gold coins burst out, bounce and zip into you with a chink.
+- Also new: Soul Harvest (318) and Crypt Raven (319) rebuilt.
