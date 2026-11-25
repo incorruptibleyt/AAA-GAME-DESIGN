@@ -177,6 +177,8 @@ func _ready() -> void:
 			hero_lineup = true
 		elif a.begins_with("hero="):
 			_hero_choice = a.substr(5)
+		elif a.begins_with("outfit="):
+			HeroStyle.robot_outfit = a.substr(7)   # (version 353: the outfits' own shapes in a run)
 		elif a.begins_with("perks="):
 			_perks = a.substr(6).split(",")
 		elif a.begins_with("omens="):
@@ -425,6 +427,8 @@ func _process(delta: float) -> void:
 		Game.coins += Heroes.get_hero(_hero_choice).cost
 		Game._pick_hero(_hero_choice)
 		Game.hud.show_heroes(false)
+		if HeroStyle.robot_outfit != "":
+			Game._swap_hero(_hero_choice, true)   # (built before the outfit was read: dress it again)
 		print("[autoplay] hero %s hp=%d" % [Game.hero.hero_id, Game.hero.max_health])
 		_hero_choice = ""
 	_t += delta

@@ -1,3 +1,6 @@
-Version 352: bosses checked in real fights
-- The Forgemaster's smokestacks stand out past its clock gear, smoke rising.
-- The Cinder Colossus's lava vents burn taller and brighter.
+Version 353: outfits that change shape (part 1)
+- Velvet: puffed, gold-slashed sleeves and tailcoat tails.
+- Forest: a mantle of leaves on the shoulders and back.
+- Midnight: a tall starred collar with a silver moon.
+- Ivory: stacked paladin shoulder plates.
+- The Mage's hat wears the outfit too: a gold plume, leaves, stars and moon, or plates.

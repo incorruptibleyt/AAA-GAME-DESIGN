@@ -543,7 +543,13 @@ static func item_level(id: String, slot: String, key: String) -> int:
 
 ## The look hero `id` wears in `slot` ("" = Classic). A look that isn't unlocked (an edited
 ## save) is worn as Classic.
+## The test robot's `outfit=KEY` (autoplay.gd, version 353): every hero wears it.
+static var robot_outfit := ""
+
+
 static func worn(cfg: ConfigFile, id: String, slot: String) -> String:
+	if slot == "outfit" and robot_outfit != "":
+		return robot_outfit
 	var key := str(cfg.get_value(SECTION, "%s_%s" % [id, slot], ""))
 	if not has_look(cfg, id, slot, key):
 		return ""   # (a Crypt King look after a refund, too)
@@ -721,6 +727,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		style.outfit = {"a": outfit.a, "b": b}
 		if outfit.has("pat"):
 			style.outfit.pat = int(outfit.pat)
+		style.outfit.key = str(p.get("outfit", ""))   # its own shapes (outfit_shapes.gd, v353)
 	var head: Dictionary = PASS_HEAD if is_pass(p.get("head", "")) else HEADS.get(p.get("head", ""), extra("head", p.get("head", "")))
 	var has_hat := OWN_HAT.has(id)
 	if not head.is_empty():
@@ -827,6 +834,9 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 	var outfit: Dictionary = style.get("outfit", {})
 	if not outfit.is_empty():
 		_recolour(skel, id, outfit)
+	if outfit.has("key"):   # version 353 (visual review fix 9): the outfit's own shapes
+		var legend: Dictionary = style.get("legend", {})
+		OutfitShapes.dress(skel, str(outfit.key), str(legend.get("wings", "")) != "")
 	# (Version 175: every weapon, with or without a finish or Glow. The weapon material gives
 	# it a lit edge, and weapons are a quarter bigger: from the camera above they could not
 	# be seen at all.)
