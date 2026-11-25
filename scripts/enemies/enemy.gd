@@ -625,7 +625,7 @@ func _think(_hero: Hero, _delta: float) -> void:
 
 
 static func bones(key: String, height: float, eyes: Color) -> Dictionary:
-	return {"key": key, "height": height, "body": Color(0.88, 0.86, 0.78), "accent": Color(0.3, 0.27, 0.3), "eyes": eyes}
+	return {"key": key, "height": height, "body": Color(0.88, 0.86, 0.78), "accent": Color(0.3, 0.27, 0.3), "eyes": eyes, "skull_paint": eyes}
 
 
 func ready_to_fight() -> bool:

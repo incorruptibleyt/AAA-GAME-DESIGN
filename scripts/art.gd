@@ -177,6 +177,125 @@ void fragment() {
 	return sm
 
 
+## Version 376 (visual review of 375, fix 1): skulls. Seen from above, a skeleton's head
+## was the back of a smooth, plain cranium: the biggest, brightest, emptiest shape on screen,
+## the same on every kind, so a crowd was a clump of white balls and swallowed the hero. A
+## bare head (the KayKit "_Head" / "_Skull" mesh) now gets its own material: old ivory that
+## darkens toward the back and sides, one dark crack across the crown, and a painted band
+## round the brow in the skeleton kind's own colour, so a crowd reads as many different
+## skulls. (Stripes and seams over the crown were tried first: from above they read as
+## watermelons.) The pattern sits on the skull's rest shape (stored in the
+## vertex colours of a copy of the head mesh), so it stays put while the head moves.
+const SKULL_PAINT_MIX := 0.62
+static var _skull_shader: Shader
+static var _skull_meshes := {}
+static var _skull_mats := {}
+
+
+static func is_skull_mesh(mi: MeshInstance3D) -> bool:
+	var n := String(mi.name)
+	return n.ends_with("_Head") or n.ends_with("_Skull")
+
+
+## A copy of a skull mesh whose vertex colours hold each vertex's rest position, scaled into
+## the head's box (0..1), for the skull shader's pattern. One copy per head mesh.
+static func skull_mesh(mesh: Mesh) -> Mesh:
+	if _skull_meshes.has(mesh):
+		return _skull_meshes[mesh]
+	var out := ArrayMesh.new()
+	var box := mesh.get_aabb()
+	for i in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(i)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var cols := PackedColorArray()
+		cols.resize(verts.size())
+		for v in verts.size():
+			var q := (verts[v] - box.position) / box.size
+			cols[v] = Color(q.x, q.y, q.z, 1.0)
+		arrays[Mesh.ARRAY_COLOR] = cols
+		var fmt: int = mesh.surface_get_format(i) & Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays, [], {}, fmt)
+		out.surface_set_material(i, mesh.surface_get_material(i))
+	_skull_meshes[mesh] = out
+	return out
+
+
+## The skull material for one skeleton kind: `paint` is that kind's colour.
+static func skull_material(base: Material, paint: Color) -> Material:
+	var key := "%s|%s" % [base.get_instance_id(), paint.to_html()]
+	if _skull_mats.has(key):
+		return _skull_mats[key]
+	var bm := base_material(base)
+	if bm == null or bm.albedo_texture == null:
+		return base
+	if _skull_shader == null:
+		_skull_shader = Shader.new()
+		_skull_shader.code = """
+shader_type spatial;
+render_mode cull_back;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform vec4 paint : source_color = vec4(0.5, 0.8, 0.4, 1.0);
+uniform float tone = 0.8;
+uniform float ink = 0.62;
+uniform float paint_mix = 0.72;
+varying vec3 rest;
+void vertex() {
+	rest = COLOR.rgb * 2.0 - 1.0;   // -1..1 across the head's box; +z is the face
+}
+float seam(float d, float w) {
+	return 1.0 - smoothstep(w * 0.5, w, abs(d));
+}
+void fragment() {
+	vec3 c = texture(tex, UV).rgb * tint.rgb * tone;
+	vec3 p = rest;
+	// Old ivory: a warm crown, darker and browner toward the back and down the sides.
+	c *= vec3(1.0, 0.93, 0.8);
+	float back = smoothstep(0.2, -0.9, p.z);
+	float low = smoothstep(0.1, -0.7, p.y);
+	c *= 1.0 - 0.32 * back - 0.25 * low;
+	// A painted band round the brow in the kind's colour, just above the eyes.
+	float band = seam(p.y - 0.06, 0.2);
+	c = mix(c, paint.rgb * 0.8, band * paint_mix);
+	// One old crack across the crown, with a short branch.
+	float crown = smoothstep(0.1, 0.4, p.y);
+	float k1 = seam(p.x - 0.18 + 0.35 * p.z + 0.07 * sin(p.z * 17.0), 0.07) * crown * smoothstep(0.75, 0.35, p.z) * smoothstep(-0.7, -0.3, p.z);
+	float k2 = seam(p.z + 0.05 - 0.6 * (p.x - 0.25), 0.055) * crown * step(0.25, p.x) * step(p.x, 0.6);
+	c = mix(c, vec3(0.18, 0.11, 0.08), clamp(max(k1, k2), 0.0, 1.0) * 0.8);
+	// Edges turning away from the camera go dark, like a soft cartoon line.
+	float edge = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	c *= 1.0 - ink * smoothstep(0.5, 0.95, edge);
+	ALBEDO = c;
+	ROUGHNESS = 0.8;
+	SPECULAR = 0.2;
+}
+"""
+	var sm := ShaderMaterial.new()
+	sm.shader = _skull_shader
+	sm.set_shader_parameter("tex", bm.albedo_texture)
+	sm.set_shader_parameter("tint", bm.albedo_color)
+	sm.set_shader_parameter("tone", BONE_TONE)
+	sm.set_shader_parameter("ink", BONE_INK)
+	sm.set_shader_parameter("paint", paint)
+	sm.set_shader_parameter("paint_mix", SKULL_PAINT_MIX)
+	_skull_mats[key] = sm
+	_bone_src[sm] = bm
+	return sm
+
+
+## Give every bare skull under `model` the skull look in the kind's colour (see above).
+static func dress_skulls(model: Node, paint: Color) -> void:
+	var mi := model as MeshInstance3D
+	if mi and mi.visible and mi.mesh and is_skull_mesh(mi):
+		var base := mi.mesh.surface_get_material(0)
+		if _bone_src.has(base) or _bone_material(base) != null:
+			mi.mesh = skull_mesh(mi.mesh)
+			for i in mi.mesh.get_surface_count():
+				mi.set_surface_override_material(i, skull_material(mi.mesh.surface_get_material(i), paint))
+	for c in model.get_children():
+		dress_skulls(c, paint)
+
+
 ## The plain material a bone material was made from (for code that dyes weapons).
 static func base_material(m: Material) -> BaseMaterial3D:
 	return _bone_src.get(m, m as BaseMaterial3D)
