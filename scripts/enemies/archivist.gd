@@ -118,6 +118,9 @@ func _setup() -> void:
 	look.body = Color(0.92, 0.86, 0.7)   # bones yellowed like old paper
 	look.accent = INK
 	look.attack_anim = "Spellcast_Shoot"
+	look.shape = {"scale": {"chest": 0.85, "head": 0.95, "upperarm.l": 1.35, "upperarm.r": 1.35, "upperleg.l": 1.35, "upperleg.r": 1.35},
+		"turn": {"spine": Vector3(12, 0, 0), "head": Vector3(-8, 0, 0)}}   # (v351: a tall stooped scholar)
+	look.parts = "scholar"
 	make_visual(look)
 	_page_mat().set_shader_parameter("blaze", 0.0)
 	_dress()

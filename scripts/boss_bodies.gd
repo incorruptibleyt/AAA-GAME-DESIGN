@@ -43,6 +43,15 @@ static func _m(key: String) -> Material:
 			"fur": _mats[key] = U.mat(Color(0.25, 0.17, 0.12), 0.95)
 			"fur_frost": _mats[key] = U.mat(Color(0.75, 0.85, 0.95), 0.9, 0.1)
 			"hoof": _mats[key] = U.mat(Color(0.12, 0.1, 0.1), 0.5)
+			"ink": _mats[key] = U.mat(Color(0.1, 0.14, 0.3), 0.8)
+			"ink_rim": _mats[key] = U.mat(Color(0.3, 0.95, 0.85), 0.5, 0.6)
+			"cover_a": _mats[key] = U.mat(Color(0.5, 0.12, 0.1), 0.8)
+			"cover_b": _mats[key] = U.mat(Color(0.1, 0.3, 0.32), 0.8)
+			"page_glow": _mats[key] = U.mat(Color(0.95, 0.95, 0.85), 0.8, 0.45)
+			"iron": _mats[key] = U.mat(Color(0.26, 0.25, 0.27), 0.45)
+			"iron_dark": _mats[key] = U.mat(Color(0.12, 0.11, 0.12), 0.5)
+			"ring": _mats[key] = U.mat(Color(0.75, 0.8, 1.0), 0.3, 0.8)
+			"ring_dust": _mats[key] = U.unlit(Color(1.0, 0.95, 0.6))
 			_: return FoeBodies._m(key)
 	return _mats[key]
 
@@ -59,6 +68,9 @@ static func dress(model: Node3D, skel: Skeleton3D, kind: String) -> bool:
 		"pharaoh": _pharaoh(skel)
 		"tyrant": _tyrant(skel)
 		"goat": _goat(skel)
+		"scholar": _scholar(skel)
+		"forge": _forge(skel)
+		"planet": _planet(skel)
 		_: return false
 	return true
 
@@ -321,3 +333,86 @@ static func _goat(skel: Skeleton3D) -> void:
 		var tuft := U.sphere(h, 0.17, _m("fur_frost"), Vector3(0, -0.65, -1.0))
 		tuft.scale = Vector3(1.0, 1.4, 1.0)
 		FeatHeads.bake(h, "boss goat tail")
+
+
+## Version 351 (part 4). The Archivist: a scholar's long coat tails hanging behind it to
+## the floor, and four open books flying round it, their pages glowing.
+static func _scholar(skel: Skeleton3D) -> void:
+	var c := FoeBodies._on(skel, "chest")
+	if c:
+		for side in [-1.0, 1.0]:
+			var t := U.box(c, Vector3(0.34, 1.2, 0.05), _m("ink"), Vector3(side * 0.2, -0.75, -0.3))
+			t.rotation = Vector3(0.12, 0, side * 0.1)
+			var r := U.box(c, Vector3(0.36, 0.06, 0.06), _m("ink_rim"), Vector3(side * 0.26, -1.34, -0.37))
+			r.rotation = Vector3(0.12, 0, side * 0.1)
+		FeatHeads.bake(c, "boss scholar coat")
+	var h := FoeBodies._on(skel, "hips")
+	if h == null:
+		return
+	var orbit := FoeBodies.Orbit.new()
+	h.add_child(orbit)
+	for i in 4:
+		var ang := TAU * i / 4.0
+		var b := Node3D.new()
+		orbit.add_child(b)
+		b.position = Vector3(cos(ang) * 1.35, 0.45 + 0.15 * (i % 2), sin(ang) * 1.35)
+		b.rotation = Vector3(0, -ang, 0)
+		b.scale = Vector3.ONE * 1.6
+		for side in [-1.0, 1.0]:   # open: two covers in a V, pages on them
+			var cv := U.box(b, Vector3(0.05, 0.3, 0.36), _m("cover_a" if i % 2 == 0 else "cover_b"), Vector3(0, 0, side * 0.17))
+			cv.rotation.x = side * 0.5
+			var pg := U.box(b, Vector3(0.06, 0.27, 0.32), _m("page_glow"), Vector3(0.02, 0.02, side * 0.16))
+			pg.rotation.x = side * 0.5
+		FeatHeads.bake(b, "boss scholar book %d" % (i % 2))
+		for n in b.get_children():
+			n.set_meta("fx", true)
+
+
+## The Forgemaster: two iron smokestacks rising from its back, their mouths glowing.
+static func _forge(skel: Skeleton3D) -> void:
+	var c := FoeBodies._on(skel, "chest")
+	if c == null:
+		return
+	for side in [-1.0, 1.0]:
+		var st := Node3D.new()
+		c.add_child(st)
+		st.position = Vector3(side * 0.4, 0.05, -0.38)
+		st.rotation = Vector3(-0.15, 0, -side * 0.18)
+		U.cylinder(st, 0.15, 1.05, _m("iron"), Vector3.ZERO)
+		U.cylinder(st, 0.2, 0.12, _m("iron_dark"), Vector3(0, 1.0, 0))
+		U.cylinder(st, 0.17, 0.06, _m("iron_dark"), Vector3(0, 0.45, 0))
+		U.cylinder(st, 0.14, 0.02, _m("lava_hot"), Vector3(0, 1.115, 0))
+		var g := U.cone(st, 0.12, 0.25, _m("lava"), Vector3(0, 1.1, 0))
+		g.name = "Glow"
+		FeatHeads.bake(st, "boss forge stack")
+
+
+## The Star Eater: a ring like a planet's circling it at the waist, tilted, turning slowly,
+## grains of starlight on it.
+static func _planet(skel: Skeleton3D) -> void:
+	var h := FoeBodies._on(skel, "hips")
+	if h == null:
+		return
+	var tilt := Node3D.new()
+	h.add_child(tilt)
+	tilt.position = Vector3(0, 0.25, 0)
+	tilt.rotation = Vector3(0.3, 0, 0.12)
+	var spin := FoeBodies.Spin.new()
+	spin.speed = 0.6
+	tilt.add_child(spin)
+	var ring := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 1.0
+	tm.outer_radius = 1.28
+	tm.rings = 32
+	tm.ring_segments = 6
+	ring.mesh = tm
+	ring.material_override = _m("ring")
+	ring.scale = Vector3(1.0, 0.18, 1.0)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ring.set_meta("fx", true)
+	spin.add_child(ring)
+	for i in 9:
+		var ang := TAU * i / 9.0
+		var d := U.sphere(spin, 0.05 + 0.03 * (i % 3), _m("ring_dust"), Vector3(cos(ang) * 1.14, 0.03, sin(ang) * 1.14))
+		d.set_meta("fx", true)

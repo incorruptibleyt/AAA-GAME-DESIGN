@@ -105,6 +105,8 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_WARRIOR, 4.5, EMBER)
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	look.overlay = _iron_bones()
+	look.shape = {"scale": {"chest": Vector3(1.5, 1.2, 1.3), "head": 0.68, "upperarm.l": 1.4, "upperarm.r": 1.4, "upperleg.l": 0.8, "upperleg.r": 0.8}}   # (v351: a hulking iron giant)
+	look.parts = "forge"
 	look.attack_anim = "2H_Melee_Attack_Chop"
 	make_visual(look)
 	_dress()

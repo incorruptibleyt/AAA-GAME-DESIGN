@@ -52,6 +52,8 @@ func _setup() -> void:
 	look.accent = Color(0.14, 0.15, 0.3)
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	look.overlay = _night_bones()   # bones gone dark as the night sky, stars twinkling in them
+	look.shape = {"scale": {"chest": 0.95, "head": 0.85, "upperarm.l": 1.5, "upperarm.r": 1.5, "upperleg.l": 1.35, "upperleg.r": 1.35}}   # (v351: towering and lanky)
+	look.parts = "planet"
 	make_visual(look)
 	_dress()
 

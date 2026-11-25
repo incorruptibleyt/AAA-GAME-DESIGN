@@ -1,4 +1,4 @@
-Version 350: more bosses with their own bodies
-- The Sand Pharaoh stands tall with falcon wings of lapis and gold.
-- The Crystal Tyrant is a hulk with amethyst bursting from its shoulders.
-- Krampus hunches on goat legs and hooves, a tufted tail behind him.
+Version 351: more bosses with their own bodies
+- The Archivist stoops tall, open books flying round it.
+- The Forgemaster is a hulking iron giant with two smokestacks.
+- The Star Eater towers, a planet's ring turning round its waist.
