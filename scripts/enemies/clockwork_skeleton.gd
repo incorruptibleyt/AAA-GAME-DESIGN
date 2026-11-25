@@ -41,6 +41,12 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_WARRIOR, 2.2, Color(1.0, 0.6, 0.2))
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	look.overlay = _brass()
+	# Version 343 (visual review fix 7): built like a machine: a boxy brass chest, a small
+	# head and long stiff legs, standing bolt upright.
+	look.height = 2.45
+	look.shape = {"scale": {"chest": Vector3(1.3, 1.05, 1.1), "head": Vector3(0.78, 0.85, 0.85), "upperleg.l": 1.3, "upperleg.r": 1.3, "upperarm.l": 1.1, "upperarm.r": 1.1},
+		"turn": {"spine": Vector3(-6, 0, 0)}}
+	look.parts = "cogs"
 	make_visual(look)
 	_dress()
 

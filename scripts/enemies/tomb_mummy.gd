@@ -62,6 +62,12 @@ func _setup() -> void:
 	look.hide = ["Skeleton_Rogue_Hood", "Skeleton_Rogue_Cape"]
 	look.overlay = _wrapped_bones()
 	look.attack_anim = "1H_Melee_Attack_Chop"
+	# Version 343 (visual review fix 7): a mummy's walk: bent forward, arms out in front,
+	# long linen ends hanging from its wrists.
+	look.shape = {"scale": {"upperarm.l": 1.15, "upperarm.r": 1.15, "upperleg.l": 0.9, "upperleg.r": 0.9},
+		"turn": {"spine": Vector3(20, 0, 0), "head": Vector3(-14, 0, 6)},
+		"aim": {"upperarm.l": Vector3(-70, 0, 0), "upperarm.r": Vector3(-70, 0, 0)}}
+	look.parts = "linen"
 	make_visual(look)
 	_dress()
 

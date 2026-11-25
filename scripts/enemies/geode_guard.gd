@@ -51,6 +51,12 @@ func _setup() -> void:
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	look.overlay = _dusty_bones()
 	look.attack_anim = "2H_Melee_Attack_Chop"
+	# Version 343 (visual review fix 7): a stocky miner, broad and short-legged, with
+	# amethyst growing out of its back and shoulders.
+	look.height = 2.45
+	look.shape = {"scale": {"chest": 1.25, "head": 0.86, "upperarm.l": 1.15, "upperarm.r": 1.15, "upperleg.l": 0.72, "upperleg.r": 0.72},
+		"turn": {"spine": Vector3(8, 0, 0)}}
+	look.parts = "geode"
 	make_visual(look)
 	_dress()
 

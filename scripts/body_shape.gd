@@ -10,12 +10,15 @@ extends SkeletonModifier3D
 ##   "scale": {"head": 1.3, "upperleg.l": 0.8, ...}   # a bone and everything on it (a number,
 ##                                                     # or a Vector3 for one axis)
 ##   "turn": {"spine": Vector3(18, 0, 0)}              # degrees, added to the animation's pose
+##   "aim": {"upperarm.l": Vector3(-75, 0, 0)}         # degrees, turned in the body's own space
+##                                                     # (x: +down/-forward, the model faces +Z)
 ##   "lift": 0.2                                       # raised off the floor (a hovering mage)
 ## }
 ## Legs made shorter or longer keep the feet on the floor by themselves.
 
 var scales := {}   # bone index -> Vector3
 var turns := {}    # bone index -> Quaternion added on top of the animation
+var aims := {}     # bone index -> Quaternion in the skeleton's space
 var _wrote := {}   # bone index -> the rotation written last frame
 
 
@@ -37,6 +40,12 @@ static func apply(model: Node3D, shape: Dictionary) -> BodyShape:
 		if i >= 0:
 			var d: Vector3 = tu[b]
 			m.turns[i] = Quaternion.from_euler(d * (PI / 180.0))
+	var ai: Dictionary = shape.get("aim", {})
+	for b: String in ai:
+		var i := skel.find_bone(b)
+		if i >= 0:
+			var d: Vector3 = ai[b]
+			m.aims[i] = Quaternion.from_euler(d * (PI / 180.0))
 	skel.add_child(m)
 	# Feet back on the floor: shorter legs would leave them in the air, longer ones in it.
 	var to_parent := _to_parent(model, skel)
@@ -71,5 +80,14 @@ func _process_modification_with_delta(_delta: float) -> void:
 		if _wrote.has(i) and now.is_equal_approx(_wrote[i]):
 			continue   # the animation left it alone since (a held death pose): already turned
 		var q: Quaternion = now * turns[i]
+		s.set_bone_pose_rotation(i, q)
+		_wrote[i] = q
+	for i: int in aims:
+		var now := s.get_bone_pose_rotation(i)
+		if _wrote.has(i) and now.is_equal_approx(_wrote[i]):
+			continue
+		var par := s.get_bone_parent(i)
+		var p := s.get_bone_global_pose(par).basis.get_rotation_quaternion() if par >= 0 else Quaternion.IDENTITY
+		var q: Quaternion = p.inverse() * (aims[i] as Quaternion) * p * now
 		s.set_bone_pose_rotation(i, q)
 		_wrote[i] = q

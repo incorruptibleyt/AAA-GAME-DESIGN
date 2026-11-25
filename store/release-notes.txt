@@ -1,5 +1,4 @@
-Version 343: skeletons with their own bodies
-- Warriors are hulking brutes with spiked shoulder plates.
-- Archers are tall and thin, with a quiver of arrows.
-- Mages float in ragged robes with orbs circling them.
-- Bombers are round barrels, Bone Spitters have huge spiky skulls, and Minions are hunched little imps.
+Version 344: more skeletons with their own bodies
+- Tomb Mummies shamble bent over with their arms reaching for you, linen trailing.
+- Geode Guards are stocky miners with amethyst growing out of their backs.
+- Clockwork Skeletons are boxy machines on long legs with brass cogs turning on their shoulders.

@@ -17,6 +17,12 @@ static func _m(key: String) -> Material:
 			"bone": _mats[key] = U.mat(Color(0.92, 0.88, 0.78), 0.75)
 			"leather": _mats[key] = U.mat(Color(0.42, 0.26, 0.14), 0.85)
 			"fletch": _mats[key] = U.mat(Color(1.0, 0.82, 0.2), 0.6, 0.6)
+			"linen": _mats[key] = U.mat(Color(0.88, 0.84, 0.72), 0.95)
+			"amethyst": _mats[key] = U.mat(Color(0.72, 0.42, 1.0), 0.25, 0.8)
+			"amethyst_pale": _mats[key] = U.mat(Color(0.9, 0.75, 1.0), 0.2, 0.6)
+			"brass": _mats[key] = U.mat(Color(1.0, 0.72, 0.3), 0.3, 0.25)
+			"steel": _mats[key] = U.mat(Color(0.4, 0.4, 0.45), 0.35)
+			"rock": _mats[key] = U.mat(Color(0.3, 0.27, 0.32), 0.9)
 			"robe": _mats[key] = U.mat(Color(0.3, 0.16, 0.44), 0.85)
 			"robe_hem": _mats[key] = U.mat(Color(0.55, 0.3, 0.85), 0.6, 0.5)
 			"orb": _mats[key] = U.unlit(Color(0.85, 0.6, 1.0))
@@ -46,6 +52,9 @@ static func dress(model: Node3D, kind: String) -> void:
 		"quiver": _quiver(skel)
 		"robe": _robe(model, skel)
 		"crest": _crest(skel)
+		"linen": _linen(skel)
+		"geode": _geode(skel)
+		"cogs": _cogs(skel)
 
 
 ## The Skeleton Warrior: a big round iron plate on each shoulder, wider than its head, with
@@ -125,6 +134,67 @@ static func _crest(skel: Skeleton3D) -> void:
 		s.position = Vector3(0.0, 0.92 - f * f * 0.14, f * 0.3)
 		s.rotation = Vector3(-0.35 + f * 0.25, 0, 0)
 	FeatHeads.bake(a, "foe crest")
+
+
+## The Tomb Mummy: long ends of linen hanging from its wrists as it reaches for you.
+static func _linen(skel: Skeleton3D) -> void:
+	for side in ["l", "r"]:
+		var a := _on(skel, "lowerarm." + side)
+		if a == null:
+			continue
+		for k in 2:
+			var s := U.box(a, Vector3(0.1, 0.55 - 0.15 * k, 0.025), _m("linen"), Vector3.ZERO)
+			s.position = Vector3(0.05 - 0.1 * k, 0.2, 0.06 * k)
+			s.rotation = Vector3(PI * 0.5 + 0.2 * k, 0.3 * k, 0)
+		FeatHeads.bake(a, "foe linen")
+
+
+## The Geode Guard: amethyst crystals grown out of its back and shoulders, on rock.
+static func _geode(skel: Skeleton3D) -> void:
+	var a := _on(skel, "chest")
+	if a == null:
+		return
+	var rock := U.sphere(a, 0.3, _m("rock"), Vector3(0, 0.25, -0.22))
+	rock.scale = Vector3(1.5, 0.8, 0.9)
+	var spots := [Vector3(-0.38, 0.38, -0.12), Vector3(0.4, 0.42, -0.1), Vector3(-0.15, 0.42, -0.35), Vector3(0.18, 0.5, -0.32), Vector3(0.0, 0.32, -0.42), Vector3(0.45, 0.28, -0.3)]
+	var tilt := [Vector3(-0.3, 0, 0.6), Vector3(-0.2, 0, -0.7), Vector3(-0.7, 0, 0.2), Vector3(-0.6, 0, -0.3), Vector3(-1.0, 0, 0), Vector3(-0.5, 0, -0.9)]
+	for i in spots.size():
+		var h := 0.62 if i < 2 else 0.5
+		var c := U.cone(a, 0.15, h, _m("amethyst" if i % 2 == 0 else "amethyst_pale"), Vector3.ZERO)
+		c.position = spots[i]
+		c.rotation = tilt[i]
+	FeatHeads.bake(a, "foe geode")
+	for c in a.get_children():
+		c.set_meta("fx", true)   # (its dusty overlay would dull the crystals)
+
+
+## The Clockwork Skeleton: a big brass cog turning on each shoulder, past its head on
+## either side, so its outline is a machine's from above too.
+static func _cogs(skel: Skeleton3D) -> void:
+	var a := _on(skel, "chest")
+	if a == null:
+		return
+	for side in [-1.0, 1.0]:
+		var spin := Spin.new()
+		spin.speed = 1.6 * side
+		spin.position = Vector3(side * 0.5, 0.22, 0.0)
+		spin.rotation.z = PI * 0.5
+		a.add_child(spin)
+		U.cylinder(spin, 0.3, 0.08, _m("brass"), Vector3(0, -0.04, 0))
+		U.cylinder(spin, 0.1, 0.16, _m("steel"), Vector3(0, -0.08, 0))
+		for k in 8:
+			var ang := TAU * k / 8.0
+			var tooth := U.box(spin, Vector3(0.12, 0.08, 0.12), _m("brass"), Vector3(cos(ang) * 0.34, -0.04, sin(ang) * 0.34))
+			tooth.rotation.y = -ang
+		FeatHeads.bake(spin, "foe cog")
+
+
+## A part turning round and round (the clockwork's cogs).
+class Spin extends Node3D:
+	var speed := 1.0
+
+	func _process(delta: float) -> void:
+		rotate_object_local(Vector3.UP, speed * delta)
 
 
 ## Two orbs going round and round (the mage).
