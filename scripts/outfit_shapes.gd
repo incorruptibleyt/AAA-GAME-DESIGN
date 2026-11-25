@@ -77,7 +77,7 @@ static func _keep(root: Node3D) -> void:
 
 ## The outfits whose shapes are switched on (the rest come one build at a time).
 const READY := ["crimson", "forest", "midnight", "ivory", "shadow", "royal", "ember", "frost",
-	"rose", "sea", "gold", "bone"]
+	"rose", "sea", "gold", "bone", "diamond", "mythic", "legend"]
 
 
 ## Puts outfit `key`'s shapes on a hero's skeleton. `wings`: the hero wears Legend wings
@@ -264,12 +264,77 @@ static func _hat(skel: Skeleton3D, o: String) -> void:
 			for e in [-1.0, 1.0]:
 				U.sphere(root, 0.05, _m(o, "black"), Vector3(e * 0.075, 0.35, -0.72))
 			U.box(root, Vector3(0.14, 0.05, 0.08), _m(o, "black"), Vector3(0, 0.22, -0.68))
+		"diamond":   # a crown of diamonds turning round the brim, a big one over the tip
+			var spin := _hat_spin(hat, 0.7)
+			for i in 7:
+				var ang := TAU * i / 7.0
+				var g := Node3D.new()
+				spin.add_child(g)
+				g.position = Vector3(cos(ang) * 0.86, 0.3, sin(ang) * 0.86)
+				_gem(g, o, 1.7 if i % 2 == 0 else 1.3)
+			var top := Node3D.new()
+			spin.add_child(top)
+			top.position = Vector3(0, 1.35, -0.2)
+			_gem(top, o, 2.4)
+		"mythic":   # a glowing rune ring round the crown and a small one round the tip
+			for r in 2:
+				var tilt := Node3D.new()
+				tilt.name = "OutfitHatRing%d" % r
+				hat.add_child(tilt)
+				tilt.position = Vector3(0, 0.3 + 0.5 * r, -0.1 * r)
+				tilt.rotation = Vector3(0.2 * (1 - 2 * r), 0, 0.12)
+				var spin := FoeBodies.Spin.new()
+				spin.speed = 1.1 * (1 - 2 * r)
+				tilt.add_child(spin)
+				var rad := 0.82 - 0.5 * r
+				var ring := MeshInstance3D.new()
+				var tm := TorusMesh.new()
+				tm.inner_radius = rad - 0.05
+				tm.outer_radius = rad
+				tm.rings = 32
+				tm.ring_segments = 4
+				ring.mesh = tm
+				ring.material_override = _m(o, "b", 0.3, 1.0)
+				ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+				ring.set_meta("fx", true)
+				spin.add_child(ring)
+				for i in 10 - 5 * r:
+					var ang := TAU * i / (10.0 - 5.0 * r)
+					var rune := U.box(spin, Vector3(0.07, 0.17, 0.03), _m(o, "b", 0.3, 1.4), Vector3(cos(ang) * rad, 0.0, sin(ang) * rad))
+					rune.rotation.y = -ang + PI * 0.5
+					rune.set_meta("fx", true)
+		"legend":   # gold flames rising all round the brim and off the tip
+			for k in 10:
+				var a := TAU * k / 10.0
+				var out := Vector3(cos(a), 0.0, sin(a))
+				_ray(root, 0.11 if k % 2 == 0 else 0.08, 0.55 if k % 2 == 0 else 0.38, _m(o, "b" if k % 2 == 0 else "fire", 0.5, 1.6), out * 0.88 + Vector3(0, 0.03, 0), out * 0.35 + Vector3(0, 1.0, 0))
+			_ray(root, 0.13, 0.5, _m(o, "b", 0.5, 1.6), Vector3(0, 0.85, -0.2), Vector3(0, 1.0, -0.2))
 	if root.get_child_count() == 0:
 		hat.remove_child(root)
 		root.free()
 		return
 	FeatHeads.bake(root, "outfit hat %s" % o)
 	_keep(root)
+
+
+## A turning holder on a wizard's hat for parts that go round (not baked: it moves).
+static func _hat_spin(hat: Node3D, speed: float) -> Node3D:
+	var spin := FoeBodies.Spin.new()
+	spin.name = "OutfitHatSpin"
+	spin.speed = speed
+	hat.add_child(spin)
+	return spin
+
+
+## A cut diamond (a short deep blue crown on a long pale point), `k` times its size.
+static func _gem(g: Node3D, o: String, k: float) -> void:
+	# (v356: the deep blue on top: the camera looks down, and pale crowns vanished on the
+	# white Diamond outfit)
+	U.cone(g, 0.1 * k, 0.12 * k, _m(o, "diamond_deep", 0.1, 0.9), Vector3.ZERO)
+	var low := U.cone(g, 0.1 * k, 0.2 * k, _m(o, "ice", 0.1, 0.9), Vector3.ZERO)
+	low.transform = Transform3D(Basis(Vector3.RIGHT, PI), Vector3(0, -0.1 * k, 0))
+	FeatHeads.bake(g, "outfit diamond %.1f" % k)
+	_keep(g)
 
 
 ## Velvet: big puffed and slashed sleeves at the shoulders, gold showing through the slashes,
@@ -562,11 +627,7 @@ static func _diamond(skel: Skeleton3D, o: String) -> void:
 		spin.add_child(g)
 		g.position = Vector3(cos(ang) * 0.6, 0.3 + 0.08 * (i % 2), sin(ang) * 0.55)
 		var k := 1.6 if i % 2 == 0 else 1.2
-		U.cone(g, 0.1 * k, 0.12 * k, _m(o, "ice", 0.1, 0.9), Vector3(0, 0.0, 0))
-		var low := U.cone(g, 0.1 * k, 0.2 * k, _m(o, "diamond_deep", 0.1, 0.9), Vector3.ZERO)
-		low.transform = Transform3D(Basis(Vector3.RIGHT, PI), Vector3(0, -0.1 * k, 0))
-		FeatHeads.bake(g, "outfit diamond %d" % (i % 2))
-		_keep(g)
+		_gem(g, o, k)
 
 
 ## Mythic: two rings of glowing runes circling the hero, tilted, turning opposite ways.

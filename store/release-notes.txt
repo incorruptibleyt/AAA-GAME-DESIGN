@@ -1,6 +1,5 @@
-Version 355: outfits that change shape (part 3)
-- Lilac: a ruff of petals, shoulder flowers and a big bloom on the back.
-- Sea: spiral shells, fins and a gold starfish.
-- Gilded: a sunburst behind the shoulders and gold plates.
-- Bone: ribs, bone spikes and little skulls.
-- The Mage's hat wears each one too.
+Version 356: outfits that change shape (part 4, all 15 done)
+- Diamond: diamonds turning round the shoulders.
+- Mythic: two rings of glowing runes circling the hero.
+- Legend: tall gold flames rising off the shoulders.
+- The Mage's hat wears each one too: a diamond crown, rune rings or a ring of flames.
