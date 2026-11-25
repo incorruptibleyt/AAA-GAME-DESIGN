@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-25h"
+const BUILD := "2026-11-25i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -6764,7 +6764,7 @@ func _armory_rows() -> Array:
 	for d: Dictionary in Legends.LIST:
 		rows.append({"id": "legend", "legend": d.id, "title": d.name, "text": d.text, "slot": d.slot,
 			"cost": -1 if Legends.owns(cfg, d.id) else int(d.price), "ready": bool(d.ready),
-			"worn": Legends.is_worn(cfg, d.id), "level": 0, "max": 1})
+			"worn": Legends.is_worn(cfg, d.id), "level": 0, "max": 1, "hero": Heroes.selected(cfg)})
 	return rows
 
 

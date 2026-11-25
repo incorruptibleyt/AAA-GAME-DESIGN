@@ -21,6 +21,7 @@ static var _me: LookShots
 
 var _vp: SubViewport
 var _cam: Camera3D
+var _stage: Node3D   # (the pivot's parent, as on a HeroStage: a Legend throne stands on it)
 var _pivot: Node3D
 var _ring: MeshInstance3D
 var _queue: Array = []   # [key, def, slot, Callable]
@@ -69,8 +70,23 @@ func _want(id: String, slot: String, key: String, done: Callable) -> void:
 	var base := Heroes.get_hero(id)
 	if base.is_empty():
 		return
-	var def := HeroStyle.dressed(base, {slot: key})
+	var def := legend_def(base, key) if slot == "legend" else HeroStyle.dressed(base, {slot: key})
+	if def.is_empty():
+		return
 	_queue.append([k, def, slot])
+
+
+## Version 362 (visual review v357 fix 5): hero `base` in their classic look wearing Legend
+## Vault look `id` (as in the Vault's preview, game.gd _legend_preview).
+static func legend_def(base: Dictionary, id: String) -> Dictionary:
+	var d := Legends.def(id)
+	if d.is_empty():
+		return {}
+	var legend := {str(d.slot): id}
+	var def := HeroStyle.dressed(base, HeroStyle.grand_head({}, legend))
+	def.style.legend = legend
+	HeroStyle.crown_grand(def, legend)
+	return def
 
 
 func _path(k: String) -> String:
@@ -116,9 +132,11 @@ func _ready() -> void:
 	rim.light_energy = 0.8
 	rim.light_color = Color(0.7, 0.8, 1.0)
 	_vp.add_child(rim)
+	_stage = Node3D.new()
+	_vp.add_child(_stage)
 	_pivot = Node3D.new()
 	_pivot.rotation.y = HeroStage.FRONT
-	_vp.add_child(_pivot)
+	_stage.add_child(_pivot)
 	# A glow's ring of light at the feet, as on the pedestal and in a run.
 	_ring = LookFx.ring(Color.WHITE, null, "flow", 1.5, 0.52)
 	_ring.position = Vector3(0, 0.02, 0)
@@ -159,18 +177,51 @@ func _take(job: Array) -> void:
 	v.build(Heroes.look(def, true))
 	if def.has("aura") and slot == "aura":
 		v.add_child(LookFx.aura_fx(def.aura, true))
-	v.attack(def.id == "mage")
+		if not def.aura.get("sigil", false):
+			# (Version 362: the aura's own mark on the floor, again and bolder: on a small card
+			# it is what tells one aura from the next.)
+			var mk := LookFx.mark(def.aura, 1.5, 1.05, true)
+			mk.position = Vector3(0, 0.036, 0)
+			v.add_child(mk)
+	var lslot := ""
+	if slot == "legend":
+		lslot = str(def.style.legend.keys()[0])
+	if lslot == "":
+		v.attack(def.id == "mage")
 	if v._anim:
 		v._anim.advance(0.0)
 	var col: Color = def.ring
-	_ring.visible = slot in ["glow", "aura", "outfit"]
+	# (Version 362: no glow ring under an aura: every aura card showed the same yellow ring,
+	# over the aura's own mark on the floor, which is what tells one aura from another.)
+	_ring.visible = slot in ["glow", "outfit"]
 	LookFx.set_ring(_ring.material_override, col, def.get("ring2"), str(def.get("ring_fx", "flow")), int(def.get("ring_tier", 0)))
+	_pivot.rotation.y = HeroStage.FRONT + (PI * 0.78 if lslot == "wings" else 0.0)   # (wings: seen from behind)
 	var f := _frame(slot, v, def)
+	if OS.has_environment("LS_FRAME"):   # (lab only)
+		var n := Array(OS.get_environment("LS_FRAME").split(",")).map(func(x: String) -> float: return float(x))
+		f = [Vector3(n[0], n[1], n[2]), Vector3(n[3], n[4], n[5])]
 	_cam.transform = Transform3D(Basis.looking_at(f[1] - f[0]), f[0])
+	# A Legend look moves: its pet flies in, its steps are put down, its finisher bursts.
+	# Let it play a moment before the picture (nodes run while the viewport isn't drawn).
+	if lslot != "":
+		if lslot == "finisher":
+			for sh in v.find_children("*", "Node3D", false, false):
+				if sh is LegendFinish.Show:
+					sh._t = 0.88   # (its burst comes at 0.95 in each 2.2 s)
+		var lid := str(def.style.legend.values()[0])
+		var wait: float = {"pet": 1.0, "steps": 1.75, "finisher": 1.0, "wings": 0.6, "grand": 0.8}.get(lslot, 0.6)
+		wait = {"wisp": 0.4, "gold_rush": 0.55}.get(lid, wait)
+		if OS.has_environment("LS_WAIT"):
+			wait = float(OS.get_environment("LS_WAIT"))
+		await get_tree().create_timer(wait, true).timeout
+		if not is_instance_valid(v):
+			_busy = false
+			return
 	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
 	await RenderingServer.frame_post_draw
 	var img := _vp.get_texture().get_image()
-	v.queue_free()
+	for c in _pivot.get_children():
+		c.queue_free()   # (the hero, and whatever a finisher left flying)
 	var cbs: Array = _waiting.get(k, [])
 	_waiting.erase(k)
 	_busy = false
@@ -206,7 +257,29 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 				return [Vector3(-0.55, 1.35, 4.6), Vector3(-0.5, 0.95, 0)]
 			return [Vector3(0.2, 1.2, 3.0), Vector3(-0.05, 0.95, 0)]
 		"aura":
-			return [Vector3(0, 2.3, 5.4), Vector3(0, 0.75, 0)]
+			# (Version 362: from higher up, so the aura's own mark on the floor shows whole.)
+			return [Vector3(0, 3.6, 5.1), Vector3(0, 0.36, 0)]
+		"legend":
+			# Close on the prize itself (a pet flies, and a finisher bursts, at the hero's right on
+			# the screen); the hero is half in the picture, to show it is worn.
+			var lid := str(def.style.legend.values()[0])
+			var own := {
+				"wisp": [Vector3(0.25, 1.5, 3.9), Vector3(0.2, 1.0, 0)],
+				"raven": [Vector3(0.4, 1.8, 3.9), Vector3(0.35, 1.25, 0)],
+				"mimic": [Vector3(0.45, 1.3, 3.6), Vector3(0.4, 0.6, 0)],
+				"wyrm": [Vector3(1.0, 2.0, 4.3), Vector3(0.85, 1.4, 0)],
+				"gold_rush": [Vector3(1.15, 1.5, 3.5), Vector3(1.05, 0.95, 0)],
+				"soul_harvest": [Vector3(1.05, 1.7, 3.7), Vector3(0.95, 1.05, 0)],
+			}
+			if own.has(lid):
+				return own[lid]
+			match str(def.style.legend.keys()[0]):
+				"steps":
+					return [Vector3(0.0, 2.64, 3.7), Vector3(0, 0.45, 0)]
+				"wings":
+					return [Vector3(-0.2, 1.6, 4.2), Vector3(-0.25, 1.15, 0)]
+				"grand":
+					return [Vector3(0.0, 1.52, 4.64), Vector3(0, 1.0, 0)]
 	return [Vector3(0, 1.4, 4.9), Vector3(0, 0.9, 0)]
 
 

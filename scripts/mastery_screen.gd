@@ -287,6 +287,23 @@ func _row(id: String, l: int, lv: int, p: int) -> Control:
 		if r.kind == "lucky":
 			need += "  ·  free blessings"
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if next else (DONE if got else DIM), HORIZONTAL_ALIGNMENT_LEFT))
+	var items := HeroStyle.level_items(id, l)
+	if not items.is_empty():
+		# Version 362 (visual review v357 fix 5): a picture of the hero in the look this level
+		# gives (the words alone, "Looks: Mythic glow", didn't show the prize).
+		var pic := TextureRect.new()
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pic.custom_minimum_size = Vector2(74, 74)
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		pic.material = HeroStage._see_through()
+		pic.modulate = Color.WHITE if got or next else Color(0.55, 0.53, 0.6)
+		h.add_child(pic)
+		var it: Dictionary = items[-1]   # (the grandest when a level gives two)
+		LookShots.want(id, str(it.slot), str(it.key), func(t: Texture2D) -> void:
+			if is_instance_valid(pic):
+				pic.texture = t)
 	return panel
 
 

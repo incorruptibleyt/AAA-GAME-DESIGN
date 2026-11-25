@@ -2176,6 +2176,13 @@ class Icon extends Control:
 	var slot := ""
 	var locked := false
 	var _t := 0.0
+	## Version 362 (visual review v357 fix 5): a real 3D picture of the hero wearing this look
+	## (LookShots), drawn in the gold-edged circle in place of the drawn symbol once it's taken.
+	var picture: Texture2D:
+		set(t):
+			picture = t
+			material = HeroStage._see_through() if t else null
+			queue_redraw()
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2194,6 +2201,12 @@ class Icon extends Control:
 		draw_arc(Vector2.ZERO, 54, 0, TAU, 48, Color(1.0, 0.8, 0.3, 0.9) if not locked else Color(0.35, 0.32, 0.4), 3.0, true)
 		if locked:
 			_shadow()
+			return
+		if picture:
+			# (A warm light behind the hero, then the picture, a little over the circle's top.)
+			for i in 4:
+				draw_circle(Vector2(0, 6), 50 - i * 9, Color(0.07, 0.05, 0.02, 0.07))   # (premultiplied)
+			draw_texture_rect(picture, Rect2(-60, -66, 120, 120), false)
 			return
 		match kind:
 			"wisp":

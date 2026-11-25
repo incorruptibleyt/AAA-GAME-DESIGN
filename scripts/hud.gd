@@ -5667,7 +5667,8 @@ func _legend_row(r: Dictionary, coins: int) -> Button:
 	var gold := Legends.GOLD
 	var edge := gold if (afford or r.worn) else (Color(0.5, 0.42, 0.3, 0.8) if ready else Color(0.3, 0.28, 0.34, 0.7))
 	var b := button("", 20, Color(0.15, 0.1, 0.04, 0.98) if ready else Color(0.08, 0.07, 0.1, 0.98), edge)
-	b.custom_minimum_size = Vector2(0, 150 if str(r.text).length() <= 80 else 172)   # (3 lines of words)
+	var n := str(r.text).length()
+	b.custom_minimum_size = Vector2(0, 150 if n <= 80 else (172 if n <= 118 else 194))   # (3 or 4 lines of words; v362: the price was cut off under 4)
 	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4 if r.worn else (3 if afford else 2))
 	var id: String = r.legend
 	if ready:
@@ -5691,6 +5692,11 @@ func _legend_row(r: Dictionary, coins: int) -> Button:
 	pic.custom_minimum_size = Vector2(112, 112)
 	pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(pic)
+	if ready and str(r.get("hero", "")) != "":
+		# (Version 362: the chosen hero really wearing it, in place of the drawn symbol.)
+		LookShots.want(str(r.hero), "legend", id, func(t: Texture2D) -> void:
+			if is_instance_valid(pic):
+				pic.picture = t)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
