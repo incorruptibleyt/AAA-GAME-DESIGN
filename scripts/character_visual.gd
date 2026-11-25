@@ -262,6 +262,7 @@ func hit() -> void:
 	if _dead or _held:
 		return
 	var now := Time.get_ticks_msec()
+	_hit_punch(now)
 	if now - _last_flash_ms < int((SOFT_FLASH_GAP if soft_flash else FLASH_GAP) * 1000.0):
 		return
 	_last_flash_ms = now
@@ -273,10 +274,36 @@ func hit() -> void:
 		_hero_flash_mat.set_shader_parameter("white", 1.0)
 
 
+## Version 339 (visual review fix 4, "kills that pop"): a hit squashes the body for a blink
+## (wider and shorter, then a springy bounce back), so every hit lands with a jolt as well as
+## the glow. Skeletons with real animations only (the simple models already squash); bosses
+## a little, the hero not at all. At most about 8 times a second.
+var _punch_tw: Tween
+var _punch_ms := -100000
+var _base_scale := Vector3.ZERO
+
+func _hit_punch(now: int) -> void:
+	if _anim == null or _model == null or hero_flash or now - _punch_ms < 120:
+		return
+	_punch_ms = now
+	if _base_scale == Vector3.ZERO:
+		_base_scale = _model.scale
+	if _punch_tw and _punch_tw.is_valid():
+		_punch_tw.kill()
+	var k := 0.06 if soft_flash else 0.16
+	_model.scale = _base_scale * Vector3(1.0 + k, 1.0 - k, 1.0 + k)
+	_punch_tw = create_tween()
+	_punch_tw.tween_property(_model, "scale", _base_scale, 0.16).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+
+
 func die() -> void:
 	if _dead:
 		return
 	_dead = true
+	if _punch_tw and _punch_tw.is_valid():
+		_punch_tw.kill()
+	if _base_scale != Vector3.ZERO and _model:
+		_model.scale = _base_scale
 	_set_flash(false)
 	_calm(true)
 	if _anim and _anim_names.has("death"):

@@ -545,6 +545,97 @@ static func bones(pos: Vector3) -> void:
 	_burst(pos + Vector3.UP * 0.6, 22, Color(0.95, 0.92, 0.82), 0.42, 6.0, 0.8, 2.0, true, "dot")
 
 
+## Version 339 (visual review fix 4, "kills that pop"): real little bones, not only dots.
+## A kill throws `count` chunky bones (a shaft with two knobs at each end) up and out; they
+## tumble, fall and shrink away in about 0.8 s. Their own small pool of emitters, so the
+## shared burst pool's settings are never changed.
+static var _bone_mesh: ArrayMesh
+static var _bone_mats := {}
+static var _bone_curve: Curve
+static var _bone_pool: Array = []
+static var _bone_next := 0
+const BONE_EMITTERS := 10
+
+static func bone_chunks(pos: Vector3, count := 7, color := Color(0.96, 0.92, 0.8)) -> void:
+	var world := Game.world
+	if world == null:
+		return
+	if _bone_mesh == null:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var tilt := Basis(Vector3.RIGHT, 0.7)   # tilted, so a spin round Y reads as a tumble
+		var shaft := CylinderMesh.new()
+		shaft.top_radius = 0.06
+		shaft.bottom_radius = 0.06
+		shaft.height = 0.42
+		shaft.radial_segments = 6
+		shaft.rings = 1
+		st.append_from(shaft, 0, Transform3D(tilt, Vector3.ZERO))
+		var knob := SphereMesh.new()
+		knob.radius = 0.085
+		knob.height = 0.17
+		knob.radial_segments = 6
+		knob.rings = 3
+		for y in [-0.21, 0.21]:
+			for x in [-0.06, 0.06]:
+				st.append_from(knob, 0, Transform3D(tilt, tilt * Vector3(x, y, 0.0)))
+		st.generate_normals()
+		_bone_mesh = st.commit()
+		_bone_curve = Curve.new()
+		_bone_curve.add_point(Vector2(0, 1))
+		_bone_curve.add_point(Vector2(0.65, 1))
+		_bone_curve.add_point(Vector2(1, 0))
+	var key := color.to_html()
+	if not _bone_mats.has(key):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = color
+		m.roughness = 0.7
+		m.emission_enabled = true
+		m.emission = color * 0.25   # a touch of glow so bones read on dark floors
+		_bone_mats[key] = m
+	_bone_pool = _bone_pool.filter(func(n): return is_instance_valid(n) and (n as Node).get_parent() == world)
+	var p: CPUParticles3D
+	if _bone_pool.size() < BONE_EMITTERS:
+		p = CPUParticles3D.new()
+		p.one_shot = true
+		p.explosiveness = 1.0
+		p.emitting = false
+		p.mesh = _bone_mesh
+		p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		p.direction = Vector3.UP
+		p.spread = 60.0
+		p.lifetime = 0.8
+		p.damping_min = 0.5
+		p.damping_max = 1.5
+		p.gravity = Vector3(0, -9.8 * 2.2, 0)
+		p.particle_flag_rotate_y = true
+		p.angle_min = 0.0
+		p.angle_max = 360.0
+		p.angular_velocity_min = -720.0
+		p.angular_velocity_max = 720.0
+		p.scale_amount_min = 0.85
+		p.scale_amount_max = 1.3
+		p.scale_amount_curve = _bone_curve
+		p.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
+		p.emission_sphere_radius = 0.2
+		world.add_child(p)
+		_bone_pool.append(p)
+	else:
+		p = _bone_pool[_bone_next % _bone_pool.size()]
+		_bone_next += 1
+	p.material_override = _bone_mats[key]
+	p.amount = count
+	p.initial_velocity_min = 4.0
+	p.initial_velocity_max = 7.5
+	p.global_position = pos + Vector3.UP * 0.7
+	p.restart()
+
+
+## Version 339: a few four-pointed gold glints where coins burst out of a kill.
+static func glints(pos: Vector3, color: Color, count := 6) -> void:
+	_burst(pos, count, color, 0.55, 4.5, 0.45, 0.6, true, "glint")
+
+
 static func dust(pos: Vector3, count := 14) -> void:
 	_burst(pos + Vector3.UP * 0.2, count, Color(0.62, 0.58, 0.68, 0.5), 1.4, 1.6, 0.9, -0.05, false, "soft")
 

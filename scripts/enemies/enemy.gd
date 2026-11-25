@@ -1146,11 +1146,14 @@ func _on_death() -> void:
 	_telegraphs.clear()
 	visual.die()
 	Fx.bones(global_position)
+	# Version 339 (visual review fix 4): real bones fly, and a white pop of light at the body.
+	Fx.bone_chunks(global_position, 6 if radius < 0.8 else 10)
+	Fx.impact(center(), Color(1, 0.97, 0.9), 2.4 if radius < 0.8 else 3.4)
 	# The crunch climbs as the chain grows (x3 is about two semitones up), so a good streak
 	# sounds like one.
 	Sfx.play(die_sound, 0.8, 1.0 + 0.065 * clampf(Game.chain - 1.0, 0.0, 3.0))
-	Game.hit_stop(0.035)
-	Game.shake(0.12)
+	Game.hit_stop(0.055)   # v339: a tiny freeze you can feel (was 0.035)
+	Game.shake(0.14)
 	if _bar:
 		_bar.queue_free()
 	if Game.hero:

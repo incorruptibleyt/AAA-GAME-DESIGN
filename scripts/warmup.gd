@@ -270,7 +270,8 @@ static func run(core := false, from := 0) -> bool:
 		Pickup.drop_coins(at + Vector3(0, 0, -1), 3))
 	steps.append(func():
 		Fx.sparks(at + Vector3.UP)
-		Fx.bones(at))
+		Fx.bones(at)
+		Fx.bone_chunks(at))   # v339: the kill's flying bones
 	steps.append(func():
 		Fx.dust(at)
 		Fx.trail(at + Vector3.UP, Color(0.45, 0.8, 1.0)))

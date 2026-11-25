@@ -1,6 +1,5 @@
-Version 338: cleaner fight screen
-- Your hero's face now sits by the health bar.
-- Waves show as dots under the room name.
-- The chain, multiplier and score are one neat strip.
-- The special button is your hero's colour, fills up as you kill, and shows your hero's move.
-- Tips are smaller and cover less of the fight.
+Version 339: kills that pop
+- Skeletons burst into real little bones that tumble through the air.
+- A white flash and a tiny freeze on every kill, so each one lands.
+- Skeletons squash and bounce back when you hit them.
+- Coins hop out of a kill with a gold sparkle.

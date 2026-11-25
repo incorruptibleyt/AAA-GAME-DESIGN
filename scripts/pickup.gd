@@ -19,6 +19,8 @@ var _gem: Node3D
 var _homing := false
 var _speed := 0.0
 var _vel := Vector3.ZERO
+var _hop := 0.0   # how high a dropped coin hops (m); 0 = no hop
+const HOP_TIME := 0.42
 
 
 static func drop(pos: Vector3) -> void:
@@ -40,7 +42,11 @@ static func drop_coins(pos: Vector3, total: int) -> void:
 		p.value = total / pieces + (1 if i < total % pieces else 0)
 		Room.current.add_child(p)
 		p.global_position = Vector3(pos.x, 0.0, pos.z)
-		p._vel = Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU) * randf_range(1.5, 3.5)
+		# Version 339 (visual review fix 4): coins spray out in a little hop (they used to
+		# slide flat out of the body).
+		p._vel = Vector3.FORWARD.rotated(Vector3.UP, randf() * TAU) * randf_range(2.5, 5.0)
+		p._hop = randf_range(0.9, 1.4)
+	Fx.glints(Vector3(pos.x, 0.9, pos.z), Color(1.0, 0.84, 0.3), 3 + pieces * 2)
 
 
 func _enter_tree() -> void:
@@ -170,6 +176,9 @@ static func collect_all() -> void:
 func _process(delta: float) -> void:
 	_t += delta
 	_gem.position.y = (0.55 if coin else 0.75) + sin(_t * 3.0) * 0.12
+	if _hop > 0.0 and _t < HOP_TIME:
+		var u := _t / HOP_TIME
+		_gem.position.y += 4.0 * _hop * u * (1.0 - u)
 	_gem.rotation.y = _t * (5.0 if coin else 2.0)
 	if _vel.length_squared() > 0.01:
 		# Coins skid out a little when they drop.
