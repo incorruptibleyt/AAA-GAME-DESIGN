@@ -21,11 +21,20 @@ const TILE := 300.0
 const THEMES := {
 	"crypt": {"key": Color(0.55, 0.45, 1.0), "stone": Color(0.62, 0.58, 0.78), "ambient": Color(0.075, 0.06, 0.13), "dust": Color(1.0, 0.85, 0.65)},
 	"gold": {"key": Color(1.0, 0.72, 0.32), "stone": Color(0.7, 0.6, 0.72), "ambient": Color(0.085, 0.06, 0.12), "dust": Color(1.0, 0.85, 0.45)},
-	"forge": {"key": Color(1.0, 0.42, 0.14), "stone": Color(0.7, 0.56, 0.58), "ambient": Color(0.09, 0.05, 0.07), "dust": Color(1.0, 0.55, 0.2), "embers": true},
+	"forge": {"key": Color(1.0, 0.42, 0.14), "stone": Color(0.7, 0.56, 0.58), "ambient": Color(0.09, 0.05, 0.07), "dust": Color(1.0, 0.55, 0.2), "embers": true, "wall": 1, "pieces": "chains"},
 	"teal": {"key": Color(0.3, 0.9, 1.0), "stone": Color(0.56, 0.64, 0.74), "ambient": Color(0.05, 0.075, 0.11), "dust": Color(0.65, 1.0, 1.0)},
 	"blood": {"key": Color(1.0, 0.28, 0.3), "stone": Color(0.66, 0.56, 0.64), "ambient": Color(0.09, 0.04, 0.07), "dust": Color(1.0, 0.6, 0.55)},
 	"frost": {"key": Color(0.5, 0.82, 1.0), "stone": Color(0.6, 0.66, 0.8), "ambient": Color(0.045, 0.065, 0.12), "dust": Color(0.92, 0.97, 1.0)},   # v243: Frostfall
-	"bone": {"key": Color(0.8, 0.86, 1.0), "stone": Color(0.62, 0.62, 0.74), "ambient": Color(0.07, 0.065, 0.12), "dust": Color(0.9, 0.95, 1.0)},
+	"bone": {"key": Color(0.8, 0.86, 1.0), "stone": Color(0.62, 0.62, 0.74), "ambient": Color(0.07, 0.065, 0.12), "dust": Color(0.9, 0.95, 1.0), "wall": 3},
+	# Version 357 (visual review fix 10, "menus with places of their own"): every screen sat
+	# on the same stone wall. Now some are places: the Armory a forge of riveted iron plates
+	# with glowing seams and chains, the Crypt Pass a vault of gold bricks with vault wheels,
+	# the Bone Road an ossuary wall of skulls and bones, Records a library's shelves, the
+	# Crypt Race strung with pennants, Mastery hung with banners in the hero's colour.
+	"vault": {"key": Color(1.0, 0.78, 0.4), "stone": Color(0.7, 0.6, 0.72), "ambient": Color(0.09, 0.065, 0.06), "dust": Color(1.0, 0.88, 0.5), "wall": 2, "pieces": "wheels"},
+	"library": {"key": Color(1.0, 0.72, 0.42), "stone": Color(0.7, 0.6, 0.6), "ambient": Color(0.08, 0.06, 0.07), "dust": Color(1.0, 0.9, 0.7), "wall": 4},
+	"race": {"key": Color(0.3, 0.9, 1.0), "stone": Color(0.56, 0.64, 0.74), "ambient": Color(0.05, 0.075, 0.11), "dust": Color(0.65, 1.0, 1.0), "pieces": "pennants"},
+	"hall": {"key": Color(0.55, 0.45, 1.0), "stone": Color(0.62, 0.58, 0.78), "ambient": Color(0.075, 0.06, 0.13), "dust": Color(1.0, 0.85, 0.65), "pieces": "banners"},
 }
 const TORCH := Color(1.0, 0.52, 0.2)
 
@@ -45,6 +54,7 @@ var _key_to := Color.WHITE
 ## On a screen of lists with a big empty stretch below them (version 136): a shrine fills
 ## it, the Bone Chain carved in the wall and glowing, with candles on the floor before it.
 var _shrine: _Shrine
+var _pieces: _Pieces   # version 357: a place's own things (chains, vault wheels, pennants, banners)
 var _t := 0.0
 
 static var _shader: Shader
@@ -120,6 +130,8 @@ func _init() -> void:
 	_shrine = _Shrine.new()
 	_shrine.visible = false
 	add_child(_shrine)
+	_pieces = _Pieces.new()
+	add_child(_pieces)
 	resized.connect(_layout)
 
 
@@ -129,6 +141,9 @@ func _ready() -> void:
 	_key_to = th.key
 	_mat.set_shader_parameter("stone", th.stone)
 	_mat.set_shader_parameter("ambient", th.ambient)
+	_mat.set_shader_parameter("kind", int(th.get("wall", 0)))
+	_pieces.kind = str(th.get("pieces", ""))
+	_pieces.visible = _pieces.kind != ""
 	var ramp := Gradient.new()
 	var dc: Color = th.dust
 	ramp.set_color(0, Color(dc, 0.0))
@@ -173,6 +188,8 @@ func show_off(c, light_at := Vector2(0.5, 0.45), floor_at := 0.86, arch := 0.62)
 ## Turns the key light toward `c` over a moment (a new hero picked).
 func set_key(c: Color, now := false) -> void:
 	_key_to = c
+	_pieces.key = c
+	_pieces.queue_redraw()
 	if now:
 		_key = c
 
@@ -197,6 +214,9 @@ func _layout() -> void:
 		return
 	_mat.set_shader_parameter("size", s)
 	_mat.set_shader_parameter("tile", TILE)
+	_pieces.size = s
+	_pieces.key = _key_to
+	_pieces.queue_redraw()
 	_dust.position = s * 0.5
 	_dust.emission_rect_extents = s * 0.5
 	var key_pos: Vector3
@@ -342,6 +362,125 @@ uniform float torch_radius = 400.0;
 uniform float horizon = -1.0;
 uniform vec3 arch = vec3(0.0);
 uniform bool cheap = false;
+uniform int kind = 0;   // the wall: 0 crypt stones, 1 forge plates, 2 gold bricks, 3 skulls and bones, 4 bookshelves
+
+float h1(vec2 c) { return fract(sin(dot(c, vec2(12.9898, 78.233))) * 43758.5453); }
+
+// A bevelled block of size cs at f (pixels inside it): its edge distance and slope.
+float block(vec2 f, vec2 cs, float bev, out vec2 nn) {
+	vec2 e2 = min(f, cs - f);
+	float e = min(e2.x, e2.y);
+	vec2 dir = vec2(f.x < cs.x * 0.5 ? -1.0 : 1.0, f.y < cs.y * 0.5 ? -1.0 : 1.0);
+	nn = (e2.x < e2.y ? vec2(dir.x, 0.0) : vec2(0.0, dir.y)) * (1.0 - smoothstep(0.0, bev, e)) * 0.75;
+	return e;
+}
+
+// A place's own wall (version 357), in place of the crypt stones.
+void place_wall(vec2 p, inout float alb, inout vec2 nn, inout vec3 tint, inout vec3 emit) {
+	if (kind == 1) {
+		// The forge: riveted iron plates, some seams glowing hot.
+		vec2 cs = vec2(tile * 0.62, tile * 0.42);
+		float row = floor(p.y / cs.y);
+		vec2 q = vec2(p.x + mod(row, 2.0) * cs.x * 0.5, p.y);
+		vec2 cell = floor(q / cs);
+		vec2 f = q - cell * cs;
+		float r = h1(cell);
+		float e = block(f, cs, 10.0, nn);
+		alb = 0.62 + 0.16 * r + 0.05 * sin(f.x * 0.07 + r * 6.0) * sin(f.y * 0.09);
+		float seam = 1.0 - smoothstep(2.0, 5.0, e);
+		alb = mix(alb, 0.03, seam);
+		float hot = step(0.35, h1(cell + 7.0));
+		emit += vec3(1.0, 0.4, 0.08) * seam * hot * (0.6 + 0.4 * sin(TIME * 1.6 + r * 9.0)) * 1.3;
+		vec2 rp = vec2(f.x < cs.x * 0.5 ? 15.0 : cs.x - 15.0, f.y < cs.y * 0.5 ? 15.0 : cs.y - 15.0);
+		vec2 d = (f - rp) / 6.5;
+		if (dot(d, d) < 1.0) { nn = d * 0.85; alb = 0.95; }
+		tint = vec3(0.72, 0.7, 0.76);
+	} else if (kind == 2) {
+		// The vault: gold bricks with a slow shine passing over them.
+		vec2 cs = vec2(tile * 0.4, tile * 0.16);
+		float row = floor(p.y / cs.y);
+		vec2 q = vec2(p.x + mod(row, 2.0) * cs.x * 0.5, p.y);
+		vec2 cell = floor(q / cs);
+		vec2 f = q - cell * cs;
+		float r = h1(cell);
+		float e = block(f, cs, 7.0, nn);
+		float joint = 1.0 - smoothstep(1.5, 3.0, e);
+		alb = mix(0.62 + 0.18 * r, 0.06, joint);
+		float sh = smoothstep(0.93, 1.0, sin((p.x + p.y * 0.6) * 0.008 - TIME * 0.5));
+		emit += vec3(1.0, 0.85, 0.5) * sh * 0.22 * (1.0 - joint);
+		tint = vec3(1.0, 0.74, 0.32);
+	} else if (kind == 3) {
+		// An ossuary: rows of skulls between rows of stacked long bones.
+		float H = tile * 0.26;
+		float row = floor(p.y / H);
+		float fy = (p.y - row * H) / H;
+		alb = 0.1;
+		nn = vec2(0.0);
+		if (mod(row, 2.0) < 1.0) {
+			float W = H * 0.92;
+			float x = p.x + mod(row, 4.0) * W * 0.25;
+			float cx = floor(x / W);
+			vec2 u = vec2((x - cx * W) / W, fy);
+			vec2 c = u - vec2(0.5, 0.42);
+			float R = 0.36;
+			bool jaw = abs(u.x - 0.5) < 0.2 && u.y > 0.6 && u.y < 0.88;
+			if (dot(c, c) < R * R || jaw) {
+				alb = 0.58 + 0.08 * h1(vec2(cx, row));
+				nn = jaw ? vec2(0.0, 0.3) : c / R * 0.8;
+				vec2 el = u - vec2(0.36, 0.5);
+				vec2 er = u - vec2(0.64, 0.5);
+				if (dot(el, el) < 0.011 || dot(er, er) < 0.011) { alb = 0.04; nn = -nn * 0.5; }
+				vec2 no = (u - vec2(0.5, 0.66)) * vec2(1.0, 0.7);
+				if (dot(no, no) < 0.0016) alb = 0.05;
+				if (jaw && abs(fract(u.x * 10.0) - 0.5) < 0.08) alb = 0.25;
+			}
+		} else {
+			float sub = floor(fy * 2.0);
+			float sy = fract(fy * 2.0);
+			float W = H * 2.4;
+			float x = p.x + h1(vec2(row, sub)) * W;
+			float cx = floor(x / W);
+			float ux = (x - cx * W) / W;
+			float shaft = abs(sy - 0.5);
+			float k1 = length(vec2((ux - 0.07) * 4.0, (sy - 0.5) * 1.1));
+			float k2 = length(vec2((ux - 0.93) * 4.0, (sy - 0.5) * 1.1));
+			if ((ux > 0.07 && ux < 0.93 && shaft < 0.27) || k1 < 0.5 || k2 < 0.5) {
+				alb = 0.5 + 0.08 * h1(vec2(cx, row + sub));
+				nn = vec2(0.0, (sy - 0.5) * 1.5);
+			}
+		}
+		tint = vec3(0.95, 0.9, 0.8);
+	} else if (kind == 4) {
+		// A library: shelves of books, a board under each row.
+		float H = tile * 0.42;
+		float row = floor(p.y / H);
+		float fy = p.y - row * H;
+		if (fy > H - 14.0) {
+			alb = 0.55;
+			nn = vec2(0.0, fy > H - 4.0 ? 0.5 : -0.25);
+			tint = vec3(0.55, 0.35, 0.2);
+		} else {
+			float w = 23.0;
+			float x = p.x + row * 41.0;
+			float bi = floor(x / w);
+			float u = (x - bi * w) / w;
+			float r = h1(vec2(bi, row));
+			float top = 8.0 + 30.0 * h1(vec2(row, bi + 3.0));
+			if (fy < top || u < 0.05 || u > 0.95) {
+				alb = 0.06;
+				tint = vec3(0.4, 0.3, 0.25);
+			} else {
+				alb = 0.72;
+				nn = vec2((u - 0.5) * 1.3, 0.0);
+				float pick = floor(r * 6.0);
+				tint = pick < 1.0 ? vec3(0.7, 0.16, 0.13) : pick < 2.0 ? vec3(0.16, 0.45, 0.24) : pick < 3.0 ? vec3(0.2, 0.28, 0.62)
+					: pick < 4.0 ? vec3(0.55, 0.34, 0.16) : pick < 5.0 ? vec3(0.42, 0.2, 0.55) : vec3(0.15, 0.48, 0.5);
+				float b = fy - top;
+				if ((b > 9.0 && b < 13.0) || (fy > H - 32.0 && fy < H - 28.0)) tint = vec3(1.0, 0.78, 0.36);
+			}
+		}
+	}
+}
 
 vec3 lamp(vec3 lp, vec3 col, float radius, vec3 p, vec3 n) {
 	vec3 l = lp - p;
@@ -361,6 +500,8 @@ void fragment() {
 	float alb;
 	float depth = 0.0;     // how far back (the floor's far end, the arch's inside)
 	float lift = 0.0;      // light that the floor pool and the arch rim add
+	vec3 tint = stone;     // the wall's own colour
+	vec3 emit = vec3(0.0); // what glows by itself (the forge's hot seams, the vault's shine)
 	if (horizon > 0.0 && p.y > horizon) {
 		// The floor: the same stones laid flat, in perspective, fading into the dark far off.
 		float dy = p.y - horizon;
@@ -379,6 +520,9 @@ void fragment() {
 		vec3 t = texture(wall, p / tile).rgb;
 		alb = t.r;
 		vec2 nn = t.gb * 2.0 - 1.0;
+		if (kind > 0) {
+			place_wall(p, alb, nn, tint, emit);
+		}
 		n = vec3(nn, sqrt(max(1.0 - dot(nn, nn), 0.0)));
 		if (arch.z > 0.0) {
 			vec2 q = p - arch.xy;
@@ -418,7 +562,7 @@ void fragment() {
 	light += lamp(torch_l, torch_col_l, torch_radius, p3, n);
 	light += lamp(torch_r, torch_col_r, torch_radius, p3, n);
 	light += key_col * lift;
-	vec3 c = alb * stone * light * (1.0 - depth);
+	vec3 c = alb * tint * light * (1.0 - depth) + emit;
 	// A soft shaft of light from above, in the air in front of the wall.
 	if (!cheap) {
 		float sx = abs(p.x - size.x * 0.5) / (size.x * 0.16 + p.y * 0.3);
@@ -627,3 +771,108 @@ class _Glows extends Node2D:
 			draw_texture_rect(dot, Rect2(tip - Vector2(g, g) * 0.5, Vector2(g, g)), false, Color(1.0, 0.5, 0.18, 0.28))
 			draw_texture_rect(dot, Rect2(tip - Vector2(7, 11) * f, Vector2(14, 22) * f), false, Color(1.0, 0.72, 0.3, 0.95))
 			draw_texture_rect(dot, Rect2(tip - Vector2(3.5, 5) * f + Vector2(0, 3), Vector2(7, 10) * f), false, Color(1.0, 0.97, 0.85, 1.0))
+
+
+## Version 357: a place's own things at the top of the screen, over its wall and behind the
+## menu: the forge's hanging chains, the vault's great wheels, the race's pennants, the hall's
+## banners in the hero's colour (`key`).
+class _Pieces extends Control:
+	var kind := ""
+	var key := Color.WHITE
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _draw() -> void:
+		var s := size
+		match kind:
+			"chains":
+				for side in [0.045, 0.955]:
+					_chain(Vector2(s.x * side, -10.0), s.y * 0.34)
+			"wheels":
+				_wheel(Vector2(0.0, s.y * 0.07), s.x * 0.17)
+				_wheel(Vector2(s.x, s.y * 0.07), s.x * 0.17)
+			"pennants":
+				_string(Vector2(-10.0, s.y * 0.005), Vector2(s.x + 10.0, s.y * 0.005), s.y * 0.035, 0)
+				_string(Vector2(-10.0, s.y * 0.04), Vector2(s.x + 10.0, s.y * 0.04), s.y * 0.03, 1)
+			"banners":
+				for side in [0.1, 0.9]:
+					_banner(Vector2(s.x * side, 0.0), s.x * 0.075, s.y * 0.085)
+
+	## An iron chain hanging from `top`, `length` long, a hook at its end.
+	func _chain(top: Vector2, length: float) -> void:
+		var iron := Color(0.13, 0.1, 0.1)
+		var lit := Color(0.85, 0.42, 0.18)   # the forge's light on its edges
+		var y := top.y
+		var i := 0
+		while y < top.y + length:
+			if i % 2 == 0:   # a link seen face on: an open oval
+				draw_set_transform(Vector2(top.x, y + 16.0), 0.0, Vector2(0.62, 1.0))
+				draw_arc(Vector2.ZERO, 17.0, 0.0, TAU, 20, iron, 10.0)
+				draw_arc(Vector2.ZERO, 17.0, PI * 0.85, PI * 1.65, 8, lit, 3.5)
+				draw_set_transform(Vector2.ZERO)
+			else:   # side on: a bar
+				draw_rect(Rect2(top.x - 4.5, y + 2.0, 9.0, 28.0), iron)
+				draw_rect(Rect2(top.x - 4.5, y + 2.0, 3.0, 28.0), lit)
+			y += 25.0
+			i += 1
+		draw_arc(Vector2(top.x + 9.0, y + 14.0), 12.0, PI * 0.1, PI * 1.25, 12, iron, 7.0)
+		draw_arc(Vector2(top.x + 9.0, y + 14.0), 12.0, PI * 0.8, PI * 1.25, 6, lit, 2.0)
+
+	## A vault door's great gold handwheel, centred at `c`.
+	func _wheel(c: Vector2, r: float) -> void:
+		var dark := Color(0.35, 0.22, 0.06)
+		var gold := Color(0.95, 0.72, 0.3)
+		var hi := Color(1.0, 0.92, 0.6)
+		draw_arc(c, r * 1.25, 0.0, TAU, 48, Color(0.1, 0.07, 0.05, 0.85), r * 0.18)   # the door's rim
+		for k in 12:   # its bolts
+			var a := TAU * k / 12.0
+			draw_circle(c + Vector2(cos(a), sin(a)) * r * 1.25, r * 0.05, gold.darkened(0.2))
+		for k in 6:
+			var a := TAU * k / 6.0 + 0.26
+			var d := Vector2(cos(a), sin(a))
+			draw_line(c + d * r * 0.2, c + d * r, dark, r * 0.12)
+			draw_line(c + d * r * 0.2, c + d * r, gold, r * 0.07)
+			draw_circle(c + d * r * 1.05, r * 0.1, gold)   # a grip on each spoke
+			draw_circle(c + d * r * 1.05 + Vector2(-0.3, -0.3) * r * 0.05, r * 0.04, hi)
+		draw_arc(c, r, 0.0, TAU, 48, dark, r * 0.14)
+		draw_arc(c, r, 0.0, TAU, 48, gold, r * 0.09)
+		draw_arc(c, r, PI * 1.05, PI * 1.45, 12, hi, r * 0.03)
+		draw_circle(c, r * 0.22, dark)
+		draw_circle(c, r * 0.17, gold)
+
+	## A string of pennants from `a` to `b`, sagging `sag` in the middle.
+	func _string(a: Vector2, b: Vector2, sag: float, row: int) -> void:
+		var cols := [Color(0.25, 0.85, 0.95), Color(1.0, 0.78, 0.3), Color(0.95, 0.35, 0.4), Color(0.65, 0.5, 1.0)]
+		var n := 30
+		var pts := PackedVector2Array()
+		for i in n + 1:
+			var t := float(i) / n
+			pts.append(a.lerp(b, t) + Vector2(0, sag * 4.0 * t * (1.0 - t)))
+		draw_polyline(pts, Color(0.12, 0.1, 0.12), 3.0)
+		var step := 2
+		for i in range(1, n, step):
+			var p0: Vector2 = pts[i - 1].lerp(pts[i], 0.5)
+			var p1: Vector2 = pts[i].lerp(pts[i + 1], 0.5)
+			var mid := (p0 + p1) * 0.5 + Vector2(0, 28.0)
+			var col: Color = cols[(i / step + row) % cols.size()]
+			draw_colored_polygon(PackedVector2Array([p0, p1, mid]), col.darkened(0.15))
+			draw_colored_polygon(PackedVector2Array([p0, p0.lerp(p1, 0.45), mid]), col)
+
+	## A hanging banner in the hero's colour, `w` wide and `h` long, from `top`.
+	func _banner(top: Vector2, w: float, h: float) -> void:
+		var cloth := key.darkened(0.25)
+		var gold := Color(1.0, 0.8, 0.35)
+		draw_line(top + Vector2(-w * 0.75, 6.0), top + Vector2(w * 0.75, 6.0), Color(0.3, 0.2, 0.12), 7.0)
+		var pts := PackedVector2Array([top + Vector2(-w * 0.5, 6.0), top + Vector2(w * 0.5, 6.0), top + Vector2(w * 0.5, h),
+			top + Vector2(0.0, h - w * 0.45), top + Vector2(-w * 0.5, h)])
+		draw_colored_polygon(pts, cloth)
+		draw_colored_polygon(PackedVector2Array([pts[0], top + Vector2(-w * 0.2, 6.0), top + Vector2(-w * 0.2, h - w * 0.3), pts[4]]), cloth.lightened(0.12))
+		var edge := pts.duplicate()
+		edge.append(pts[0])
+		draw_polyline(edge, gold, 3.0)
+		var c := top + Vector2(0.0, h * 0.45)
+		draw_circle(c, w * 0.3, gold)
+		draw_circle(c, w * 0.22, cloth.darkened(0.3))
+		draw_line(c + Vector2(-w * 0.13, -w * 0.13), c + Vector2(w * 0.13, w * 0.13), gold, 4.0)   # crossed bones
+		draw_line(c + Vector2(w * 0.13, -w * 0.13), c + Vector2(-w * 0.13, w * 0.13), gold, 4.0)

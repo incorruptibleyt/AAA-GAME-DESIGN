@@ -79,7 +79,7 @@ var _road_from_result := false
 
 func _init() -> void:
 	color = Color(0.02, 0.04, 0.06, 0.97)
-	Hud.backdrop(self, "teal")
+	Hud.backdrop(self, "race")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	process_mode = Node.PROCESS_MODE_ALWAYS   # the result shows over a paused game

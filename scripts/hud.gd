@@ -1572,8 +1572,8 @@ func _build_cards() -> void:
 		halo.texture = _card_halo_tex()
 		halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		halo.stretch_mode = TextureRect.STRETCH_SCALE
-		halo.size = Vector2(176, 176)
-		halo.position = Vector2((CARD_SIZE.x - 176) * 0.5, 16)
+		halo.size = Vector2(196, 196)
+		halo.position = Vector2((CARD_SIZE.x - 196) * 0.5, 16)
 		b.add_child(halo)
 		var band := Panel.new()
 		band.name = "Band"
@@ -1593,21 +1593,24 @@ func _build_cards() -> void:
 		var niche := Panel.new()
 		niche.name = "Niche"
 		niche.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		niche.size = Vector2(112, 112)
-		niche.position = Vector2((CARD_SIZE.x - 112) * 0.5, 48)
+		# (Version 357: a bigger badge, and the words centred in the space under it: the
+		# bottom half of every card stood empty.)
+		niche.size = Vector2(136, 136)
+		niche.position = Vector2((CARD_SIZE.x - 136) * 0.5, 46)
 		b.add_child(niche)
 		var icon := BlessingIcon.new()
 		icon.name = "Icon"
-		icon.zoom = 1.5
-		icon.position = Vector2((CARD_SIZE.x - 96) * 0.5, 56)
+		icon.zoom = 1.85
+		icon.position = Vector2((CARD_SIZE.x - 64 * 1.85) * 0.5, 55)
 		b.add_child(icon)
 		# The name (one or two lines) with the words straight under it.
 		var words := VBoxContainer.new()
 		words.name = "Words"
 		words.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		words.add_theme_constant_override("separation", 4)
-		words.position = Vector2(6, 164)
-		words.size = Vector2(CARD_SIZE.x - 12, CARD_SIZE.y - 164 - 54)
+		words.alignment = BoxContainer.ALIGNMENT_CENTER
+		words.position = Vector2(6, 186)
+		words.size = Vector2(CARD_SIZE.x - 12, CARD_SIZE.y - 186 - 52)
 		b.add_child(words)
 		var t := label("", 24, Color.WHITE)
 		t.name = "Title"
@@ -2245,7 +2248,7 @@ func show_modes(v: bool) -> void:
 
 ## RECORDS on the title: lifetime bests and totals (rows of [name, value] from game.gd).
 func _build_records() -> void:
-	_records_box = overlay(Color(0.03, 0.02, 0.05, 0.95))
+	_records_box = overlay(Color(0.03, 0.02, 0.05, 0.95), "library")
 	add_child(_records_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3113,7 +3116,7 @@ func _shop_tap(b: Button, act: Callable) -> void:
 ## opens, which the old screen never showed), three smaller tiles, then the price (the full
 ## one struck through during the deal) and buy / restore. Pictures in art/ui.
 func _build_pass() -> void:
-	_pass_box = overlay(Color(0.03, 0.02, 0.05, 0.97), "gold")
+	_pass_box = overlay(Color(0.03, 0.02, 0.05, 0.97), "vault")
 	add_child(_pass_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4742,7 +4745,7 @@ func _fill_have(taken: Dictionary) -> void:
 ## the top, the lit niche behind the badge, the ribbon. `bright` (rare and up) gets a deeper
 ## tint and a glow; `synergy` (it completes one) a gold frame and a gold glow.
 func _paint_card(b: Button, col: Color, bright: bool, synergy := false) -> void:
-	var face := Color(0.13, 0.1, 0.19).lerp(col.darkened(0.6), 0.32 if bright else 0.14)
+	var face := Color(0.13, 0.1, 0.19).lerp(col.darkened(0.55), 0.45 if bright else 0.3)   # (v357: every card its rarity's colour)
 	var edge := GOLD if synergy else (col if bright else col.darkened(0.15))
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = face
