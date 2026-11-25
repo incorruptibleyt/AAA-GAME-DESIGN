@@ -10,6 +10,9 @@ const CELL := 4.0 / 3.0
 const HALF_W := Layouts.COLUMNS * CELL * 0.5   # 6
 const HALF_L := Layouts.ROWS * CELL * 0.5      # 10
 const LEDGE_DEPTH := 4.5   # v336: the near ledge, deep enough to fill the bottom of the screen
+## Version 358: the near wall is a low parapet this tall and deep; the place goes on past it.
+const PARAPET_H := 0.5
+const PARAPET_D := 0.7
 const WALL_H := 2.6
 const DOOR_HALF := 1.2
 
@@ -77,8 +80,17 @@ func _build_shell() -> void:
 	# of a wall instead of a flat coloured bar.
 	# Version 336 (visual review fix 1): the ledge runs 4.5 m deep toward the camera, so the
 	# bottom of the phone shows the top of a thick stone wall instead of a black strip.
-	var ledge_d := LEDGE_DEPTH
-	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.5, ledge_d), _wall_material(look, _ledge_material(look)), Vector3(0, 0.25, HALF_L + ledge_d / 2))
+	# Version 358 (review of 357, fix 1): that ledge still read as a flat dark bar across the
+	# bottom quarter of the phone. Now it is a low parapet, and past it the place carries on
+	# (its own floor, a little darker, with its own things lying about: Props.dress_gallery),
+	# so the bottom of the screen shows more of the place instead of a strip with no fight.
+	U.box(self, Vector3(HALF_W * 2 + t * 2, PARAPET_H, PARAPET_D), _wall_material(look, _ledge_material(look)), Vector3(0, PARAPET_H / 2, HALF_L + PARAPET_D / 2))
+	# A slim rim of the place's trim along its inner edge (all of the top in trim read as a
+	# loud coloured bar).
+	U.box(self, Vector3(HALF_W * 2 + t * 2, 0.07, 0.14), trim, Vector3(0, PARAPET_H + 0.035, HALF_L + 0.07))
+	var gal := Vector2(HALF_W * 2 + t * 2, LEDGE_DEPTH)
+	var gz := HALF_L + PARAPET_D + gal.y / 2 - 0.05
+	U.floor_quad(self, gal, _gallery_material(look, gz), Vector3(0, 0, gz))
 	var side := HALF_W - DOOR_HALF
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(-DOOR_HALF - side / 2, WALL_H / 2, -HALF_L - t / 2))
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(DOOR_HALF + side / 2, WALL_H / 2, -HALF_L - t / 2))
@@ -203,6 +215,10 @@ uniform float torch_amount = 0.0;
 // 1 on the near ledge's box: its front face takes the pattern from its own plane and
 // keeps its real normal.
 uniform float ledge = 0.0;
+// Version 358: the floor past the near parapet (the gallery) is its own quad: where its
+// middle sits in the room, and how much darker it is than the room.
+uniform vec2 shift = vec2(0.0);
+uniform float dim = 1.0;
 // Version 337: calmer floors. The floor stone's usual brightness (0 = leave as drawn), how
 // deep darker marks may stay (share of their depth) and how much colour is kept.
 uniform float calm_mid = 0.0;
@@ -310,7 +326,7 @@ float spike(vec2 p, float w, float ht) {
 
 void vertex() {
 	up = NORMAL.y;
-	pos = (ledge > 0.5 && abs(NORMAL.y) < 0.5) ? VERTEX.xy : VERTEX.xz;
+	pos = ((ledge > 0.5 && abs(NORMAL.y) < 0.5) ? VERTEX.xy : VERTEX.xz) + shift;
 }
 
 void fragment() {
@@ -1411,7 +1427,7 @@ void fragment() {
 		c *= 1.0 + torch_glow.rgb * tpool * torch_amount;
 	}
 
-	ALBEDO = clamp(c, 0.0, 1.0);
+	ALBEDO = clamp(c * dim, 0.0, 1.0);
 	ROUGHNESS = rough;
 	if (up > 0.5) {
 		NORMAL = normalize(mat3(VIEW_MATRIX) * mat3(MODEL_MATRIX) * n);
@@ -1424,7 +1440,7 @@ void fragment() {
 		em += seam.rgb * max(gap, crack) * sp2 * mix(0.6, 1.2, r) * mix(0.0, 1.1, heat);
 		em += seam.rgb * pit * (1.0 - bar) * (0.7 + 0.3 * sp2) * 0.2;
 	}
-	EMISSION = em * shade;
+	EMISSION = em * shade * dim;
 }
 """
 
@@ -1924,6 +1940,20 @@ static func _ledge_material(look: Dictionary) -> Material:
 	m.set_shader_parameter("ledge", 1.0)
 	m.set_shader_parameter("torch_amount", 0.0)
 	return m
+
+
+## Version 358: the place's own floor carried on past the near parapet, a little darker
+## (out of the fight), without blood or torchlight.
+static func _gallery_material(look: Dictionary, centre_z: float) -> Material:
+	var m := _floor_material(look) as ShaderMaterial
+	m.set_shader_parameter("shift", Vector2(0, centre_z))
+	m.set_shader_parameter("dim", GALLERY_DIM)
+	m.set_shader_parameter("blood", 0.0)
+	m.set_shader_parameter("torch_amount", 0.0)
+	return m
+
+
+const GALLERY_DIM := 0.72
 
 
 ## Every light costs a lot on phones, so High keeps the far and near pairs of torch

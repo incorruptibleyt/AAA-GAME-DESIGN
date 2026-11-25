@@ -163,6 +163,7 @@ static func dress(room: Room, layout: Array) -> void:
 					_no_shadow(_mesh(n, _great_chain()))
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
+	dress_gallery(room, "moon" if moon else kind)
 	# Two more on the far wall, either side of the door.
 	for x in [-3.6, 3.6]:
 		match kind:
@@ -272,16 +273,7 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 			if not room.leaves_gap(Vector3(side * Room.HALF_W, 0, z), 0.7):
 				continue
 			if own:
-				var own_mesh: ArrayMesh
-				match str(pick[0]):
-					"@jar": own_mesh = _jar()
-					"@ore": own_mesh = _ore_pile()
-					"@books": own_mesh = _wall_books()
-					"@float": own_mesh = _floating_rocks()
-					"@star": own_mesh = _fallen_star()
-					"@candles": own_mesh = _crypt_candles()
-					"@bones": own_mesh = _crypt_bones()
-					_: own_mesh = _wall_cogs()
+				var own_mesh := _own_mesh(str(pick[0]))
 				var own_node := _place(room, at)
 				if str(pick[0]) in ["@candles", "@bones"]:
 					own_node.rotation.y = 0.0 if side < 0 else PI   # along the wall
@@ -291,6 +283,89 @@ static func _dress_kit(room: Room, layout: Array, kind: String) -> void:
 			else:
 				_no_shadow(Art.place_prop(scene, _place(room, at), pick[1]))
 			room._add_obstacle(Vector3(side * Room.HALF_W, 0, z), 0.7)
+
+
+## The meshes behind the "@" names in KIT.
+static func _own_mesh(key: String) -> ArrayMesh:
+	match key:
+		"@jar": return _jar()
+		"@ore": return _ore_pile()
+		"@books": return _wall_books()
+		"@float": return _floating_rocks()
+		"@star": return _fallen_star()
+		"@candles": return _crypt_candles()
+		"@bones": return _crypt_bones()
+	return _wall_cogs()
+
+
+## Version 358 (review of 357, fix 1): the strip past the near parapet (Room's gallery, the
+## bottom of the phone) is dressed like the rest of the place: five of its own things along
+## it, low enough never to hide the fight, and its small bits lying about. All without
+## shadows or collision (nobody walks there).
+static func dress_gallery(room: Room, kind: String) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242 + Game.floor_num * 131
+	var z0 := Room.HALF_L + Room.PARAPET_D
+	var bits := "bone" if kind == "moon" else kind
+	var parts := []
+	# Dimmer than the bones in the room, so nothing out here looks like something to pick up.
+	var bone := U.mat(Color(0.5, 0.47, 0.4), 0.9)
+	var dark := U.mat(Color(0.06, 0.05, 0.05), 1.0)
+	for i in GALLERY_BITS:
+		var p := Vector3(rng.randf_range(-6.6, 6.6), 0, z0 + rng.randf_range(0.25, 2.8))
+		_scatter_piece(parts, bits, p, Basis(Vector3.UP, rng.randf() * TAU), rng, bone, dark)
+	if not parts.is_empty():
+		_no_shadow(_mesh(_place(room, Vector3.ZERO, false), _bake(parts)))
+	if not KIT.has(kind):
+		return
+	var side: Array = KIT[kind].side
+	var xs := [-5.4, -2.8, -0.2, 2.5, 5.1]
+	for i in xs.size():
+		var pick: Array = side[(i * 3 + Game.floor_num) % side.size()]
+		var at := Vector3(xs[i] + rng.randf_range(-0.5, 0.5), 0, z0 + rng.randf_range(0.8, 1.6))
+		var n := _place(room, at)
+		var big := _gallery_mesh(bits) if i % 2 == 0 else null
+		if big:
+			n.scale = Vector3.ONE * 0.6
+			_no_shadow(_mesh(n, big))
+		elif str(pick[0]).begins_with("@"):
+			_no_shadow(_mesh(n, _own_mesh(str(pick[0]))))
+			if str(pick[0]) == "@candles":
+				_glow_pool(n, 2.0, Color(1.0, 0.6, 0.25, 0.18))
+		else:
+			# Only broken stone and candles from the KayKit pieces out here: boxes, barrels,
+			# coins and bottles looked like loot nobody could reach.
+			var name := str(pick[0]) if str(pick[0]) in ["rubble_half", "candle_triple"] else "rubble_half"
+			var scene := Art.get_model(name)
+			if scene:
+				_no_shadow(Art.place_prop(scene, n, 0.5))
+	match kind:
+		"fungus":
+			for x in [-3.9, 3.7]:
+				_glow_pool(_place(room, Vector3(x, 0, z0 + 1.3), false), 2.2)
+		"ember":
+			for x in [-1.5, 3.8]:
+				_glow_pool(_place(room, Vector3(x, 0, z0 + 1.2), false), 2.0, Color(1.0, 0.45, 0.15, 0.2))
+		"abyss":
+			for x in [-4.2, 1.2]:
+				_glow_pool(_place(room, Vector3(x, 0, z0 + 1.4), false), 2.0, Color(0.55, 0.6, 1.0, 0.16))
+
+
+const GALLERY_BITS := 14
+
+
+## Each place's own bigger piece for the gallery (shown at 0.6 of its size), or null.
+static func _gallery_mesh(kind: String) -> ArrayMesh:
+	match kind:
+		"bone": return _skull_pile(false)
+		"ice": return _crystals()
+		"fungus": return _mushroom_clump()
+		"sand": return _sand_heap()
+		"mine": return _crystal_cluster()
+		"library": return _book_pile()
+		"abyss": return _fallen_star()
+		"ember": return _skull_pile(false)
+	return null
 
 
 ## Pieces flat against a wall cast no shadow worth its cost (a second draw each on High).
