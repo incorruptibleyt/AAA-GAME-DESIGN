@@ -17,7 +17,10 @@ func _setup() -> void:
 	contact_damage = 8.0
 	radius = 0.5
 	center_height = 1.0
-	var look := bones(Art.SKELETON_ROGUE, 2.0, Color(1.0, 0.85, 0.2))
+	var look := bones(Art.SKELETON_ROGUE, 2.1, Color(1.0, 0.85, 0.2))
+	# Version 343: tall and thin, long legs and arms, a quiver of arrows on its back.
+	look.shape = {"scale": {"chest": 0.8, "head": 1.1, "upperarm.l": 1.3, "upperarm.r": 1.3, "upperleg.l": 1.5, "upperleg.r": 1.5}}
+	look.parts = "quiver"
 	look.bow = true
 	look.hood = true
 	look.accent = Color(0.2, 0.35, 0.2)

@@ -15,6 +15,10 @@ func _setup() -> void:
 	center_height = 0.8
 	knockback_scale = 0.0
 	var look := bones(Art.SKELETON_MINION, 1.8, Color(0.5, 1.0, 0.3))
+	# Version 343: a squat turret, a huge skull on a low body and a crest of bone spikes.
+	look.shape = {"scale": {"head": 1.5, "upperleg.l": 0.6, "upperleg.r": 0.6, "upperarm.l": 0.8, "upperarm.r": 0.8},
+		"turn": {"spine": Vector3(12, 0, 0), "head": Vector3(-14, 0, 0)}}
+	look.parts = "crest"
 	look.tint = Color(0.1, 0.35, 0.05, 1.0)
 	look.horns = true
 	look.accent = Color(0.2, 0.35, 0.15)

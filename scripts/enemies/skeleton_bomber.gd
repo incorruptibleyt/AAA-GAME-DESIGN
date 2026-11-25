@@ -16,7 +16,9 @@ func _setup() -> void:
 	radius = 0.45
 	center_height = 0.75
 	drop_chance = 0.075
-	var look := bones(Art.SKELETON_MINION, 1.55, Color(1.0, 0.55, 0.1))
+	var look := bones(Art.SKELETON_MINION, 1.6, Color(1.0, 0.55, 0.1))
+	# Version 343: round and squat, a barrel chest with a little head and stumpy legs.
+	look.shape = {"scale": {"chest": 1.35, "head": 0.72, "upperleg.l": 0.7, "upperleg.r": 0.7, "upperarm.l": 0.85, "upperarm.r": 0.85}}
 	look.bomb = true
 	look.tint = Color(0.3, 0.12, 0.0, 1.0)
 	look.accent = Color(0.45, 0.25, 0.1)

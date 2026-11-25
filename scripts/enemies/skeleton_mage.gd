@@ -15,6 +15,9 @@ func _setup() -> void:
 	radius = 0.5
 	center_height = 1.0
 	var look := bones(Art.SKELETON_MAGE, 2.0, Color(0.7, 0.4, 1.0))
+	# Version 343: no legs: a ragged robe hanging from the hips, hovering, orbs circling it.
+	look.shape = {"scale": {"head": 1.1}, "lift": 0.18}
+	look.parts = "robe"
 	look.hat = true
 	look.accent = Color(0.3, 0.18, 0.45)
 	look.weapon = "Skeleton_Staff"

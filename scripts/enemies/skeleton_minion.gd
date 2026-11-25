@@ -15,6 +15,9 @@ func _setup() -> void:
 	center_height = 0.75
 	_wobble = randf() * 10.0
 	var look := bones(Art.SKELETON_MINION, 1.55, Color(0.4, 1.0, 0.5))
+	# Version 343: a hunched little imp, all skull and long arms on short legs.
+	look.shape = {"scale": {"head": 1.35, "upperarm.l": 1.2, "upperarm.r": 1.2, "upperleg.l": 0.75, "upperleg.r": 0.75},
+		"turn": {"spine": Vector3(16, 0, 0), "head": Vector3(-12, 0, 0)}}
 	look.weapon = "Skeleton_Blade"
 	look.attack_anim = "1H_Melee_Attack_Chop"
 	make_visual(look)

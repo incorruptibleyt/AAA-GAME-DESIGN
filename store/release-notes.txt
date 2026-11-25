@@ -1,4 +1,5 @@
-Version 342: see your hero again
-- The home screen is cleaner: the event is a slim strip above the logo, so your hero stands in full view.
-- Today's coin bonus is a tag on PLAY. Settings is a gear.
-- The Crypt Pass sits in the top bar. Heroes, Armory and Modes share one row.
+Version 343: skeletons with their own bodies
+- Warriors are hulking brutes with spiked shoulder plates.
+- Archers are tall and thin, with a quiver of arrows.
+- Mages float in ragged robes with orbs circling them.
+- Bombers are round barrels, Bone Spitters have huge spiky skulls, and Minions are hunched little imps.

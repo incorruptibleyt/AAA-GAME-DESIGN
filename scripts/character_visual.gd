@@ -190,6 +190,11 @@ func _dress_model(look: Dictionary) -> void:
 		att.bone_name = "chest"
 		U.sphere(att, 0.42, U.mat(Color(0.08, 0.08, 0.1), 0.4), Vector3(0, 0.25, -0.45))
 		U.sphere(att, 0.1, U.mat(Color(1.0, 0.6, 0.1), 0.5, 4.0), Vector3(0, 0.72, -0.5))
+	# Version 343 (visual review fix 7): a skeleton kind's own parts and build.
+	if look.has("parts"):
+		FoeBodies.dress(_model, look.parts)
+	if look.has("shape"):
+		BodyShape.apply(_model, look.shape)
 
 
 func _find_anim(n: Node) -> AnimationPlayer:

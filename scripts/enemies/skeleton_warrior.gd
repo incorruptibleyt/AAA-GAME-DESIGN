@@ -20,7 +20,12 @@ func _setup() -> void:
 	radius = 0.6
 	center_height = 1.15
 	knockback_scale = 0.4
-	var look := bones(Art.SKELETON_WARRIOR, 2.3, Color(1.0, 0.35, 0.2))
+	var look := bones(Art.SKELETON_WARRIOR, 2.5, Color(1.0, 0.35, 0.2))
+	# Version 343: a hulking brute, a broad chest and huge arms under a small head, and
+	# spiked plates on its shoulders.
+	look.shape = {"scale": {"chest": 1.3, "head": 0.78, "upperarm.l": 1.1, "upperarm.r": 1.1, "upperleg.l": 0.85, "upperleg.r": 0.85},
+		"turn": {"spine": Vector3(10, 0, 0), "head": Vector3(-8, 0, 0)}}
+	look.parts = "brute"
 	look.helmet = true
 	look.shield = true
 	look.accent = Color(0.5, 0.15, 0.12)
