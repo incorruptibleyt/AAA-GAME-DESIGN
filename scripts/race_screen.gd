@@ -698,11 +698,13 @@ func _road_row(cfg: ConfigFile, i: int, b: int) -> Control:
 	at.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(at)
 	if look:
-		var sw := Swatch.new()
-		sw.slot = str(s.slot)
-		sw.look = HeroStyle.extra(s.slot, s.key)
-		sw.custom_minimum_size = Vector2(54, 54)
+		# Version 341 (visual review fix 5): the look on the chosen hero, as a real picture
+		# (StyleScreen.Swatch asks LookShots), bigger than the old 54 px symbol.
+		var hid := Heroes.selected(cfg)
+		var sw := StyleScreen.Swatch.new()
+		sw.custom_minimum_size = Vector2(76, 76)
 		sw.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		sw.setup(hid, str(s.slot), str(s.key), Heroes.get_hero(hid))
 		h.add_child(sw)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE

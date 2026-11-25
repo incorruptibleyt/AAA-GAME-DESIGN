@@ -417,27 +417,11 @@ func _card(it: Dictionary) -> Button:
 			(b.get_theme_stylebox("normal") as StyleBoxFlat).border_color = Hud.GOLD
 	var sw := Swatch.new()
 	sw.custom_minimum_size = Vector2(0, PIC_H)
+	sw.pic_grow = Vector2(12, 6)   # the picture reaches up under the NEW tag's row
 	sw.setup(_id, it.slot, it.key, _base)
 	# (Special looks stay bright when locked: they are what the player is working toward.)
 	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.9 if HeroStyle.is_special(it) else 0.5)
 	v.add_child(sw)
-	# Version 340 (visual review fix 5): a real 3D picture of the look (LookShots) over the
-	# drawn symbol, which stays until the picture is ready (or if it can't be taken).
-	var pic := TextureRect.new()
-	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	pic.material = HeroStage._see_through()
-	Hud.full(pic)
-	pic.offset_top = -12
-	pic.offset_bottom = 6
-	sw.add_child(pic)
-	var want_id := _id
-	LookShots.want(_id, it.slot, it.key, func(tex: Texture2D):
-		if is_instance_valid(pic) and is_instance_valid(sw) and _id == want_id:
-			pic.texture = tex
-			sw.picture = true
-			sw.queue_redraw())
 	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got or HeroStyle.is_special(it) else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
@@ -590,6 +574,41 @@ class Swatch extends Control:
 					elif shape == "heavy" and finish == "crypt":
 						shape = "king_bow"   # (v253: the Crypt King's arms are whole weapons, CryptArms)
 		queue_redraw()
+		_ask_picture(id)
+
+	## Version 340-341 (visual review fix 5): a real 3D picture of the look (LookShots) over
+	## the drawn symbol, wherever a look is shown: Style cards, the event road, Feats, the
+	## Bone Bazaar. The symbol shows until the picture is ready, or if it can't be taken.
+	## `pic_grow`: extra room the picture may use above (x) and below (y) the swatch.
+	var pic_grow := Vector2.ZERO
+	var _pic: TextureRect
+	var _asked := ""
+
+	func _ask_picture(id: String) -> void:
+		if id == "":
+			return
+		if _pic == null:
+			_pic = TextureRect.new()
+			_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+			_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+			_pic.material = HeroStage._see_through()
+			add_child(_pic)
+		_pic.set_anchors_preset(Control.PRESET_FULL_RECT)
+		_pic.offset_top = -pic_grow.x
+		_pic.offset_bottom = pic_grow.y
+		_pic.offset_left = 0
+		_pic.offset_right = 0
+		_pic.texture = null
+		picture = false
+		var me := LookShots.shot_key(id, slot, key)
+		_asked = me
+		LookShots.want(id, slot, key, func(tex: Texture2D):
+			if _asked == me and _pic:
+				_pic.texture = tex
+				picture = true
+				set_process(false)
+				queue_redraw())
 
 	func _draw() -> void:
 		var c := size * 0.5

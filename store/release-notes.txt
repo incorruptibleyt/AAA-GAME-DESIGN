@@ -1,4 +1,3 @@
-Version 340: real pictures of looks
-- Every Style card now shows a real 3D picture of the look on your hero: outfits, headwear, weapons, glows and auras.
-- You can see what a look is before you tap it, instead of a coloured circle.
-- Pictures are made once and kept, so the screen opens fast next time.
+Version 341: real pictures everywhere
+- Looks on the event road, the Feats list, the Bone Bazaar and the Crypt Race road now show a real 3D picture on your hero.
+- See exactly what each prize looks like before you play for it or buy it.
