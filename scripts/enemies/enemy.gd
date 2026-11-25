@@ -66,6 +66,8 @@ var _mended_at := -100.0   # (Game._run_time of the last mend it got: menders do
 var _ward_hits := 0
 var _ward_left := 0.0
 var _bubble: MeshInstance3D
+var _pool: MeshInstance3D
+var _parts := {}
 var _bubble_mat: StandardMaterial3D
 ## Set when it falls because its boss fell: no split or burst then.
 var _crumbling := false
@@ -241,9 +243,11 @@ func make_elite(pick := "") -> void:
 	radius *= 1.15
 	drop_chance = maxf(drop_chance, 0.5)
 	visual.scale *= 1.22
-	visual.set_tint(Color(0.22, 0.04, 0.32))
-	var glow := U.floor_quad(self, Vector2(2.4, 2.4), U.unlit(Color(0.7, 0.3, 1.0, 0.5), U.soft_circle()), Vector3(0, 0.05, 0))
-	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# Version 372 (visual review fix 5): no purple wash. A purple glow round its edges and a
+	# purple pool with the kind's sign on the floor, and the kind's own pieces (EliteParts).
+	visual.set_rim(Color(0.78, 0.38, 1.0, 0.7), 3.2)
+	_pool = U.floor_quad(self, Vector2(EliteParts.SIGN, EliteParts.SIGN), EliteParts.sign_mat(elite_move), Vector3(0, 0.05, 0))
+	_parts = EliteParts.dress(self, elite_move)
 	if _bar:
 		_bar.queue_free()
 		_bar = HealthBar.attach(self)
@@ -265,69 +269,14 @@ func make_elite(pick := "") -> void:
 	_tag.position.y = center_height * 2.0 + 0.95   # just over its health bar
 	_tag.visible = false   # shown once it has climbed out of the floor
 	add_child(_tag)
-	_build_emblem(elite_move, info.col)
 	if elite_move == "ward":
 		_ward_hits = WARD_HITS
-		_bubble_mat = U.unlit(Color(info.col, 0.24)).duplicate() as StandardMaterial3D
+		# (v372: clear in the middle, bright at the edge, so the skeleton inside still shows)
+		_bubble_mat = U.unlit(Color(info.col, 0.14)).duplicate() as StandardMaterial3D
+		_bubble_mat.next_pass = CharacterVisual.rim_material(Color(info.col, 0.9), 2.2)
 		_bubble = U.sphere(self, maxf(0.85, radius * 1.55), _bubble_mat, Vector3(0, center_height * 1.05, 0))
 		_bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_bubble.visible = false   # with the tag, once it is out of the floor
-
-
-## Version 296 (deep review fix 4): each kind of elite wears its own sign, a shape that
-## floats over its health bar, so it can be told apart without reading: Splitter two orbs
-## (it breaks in two), Burst a star of spikes, Fury two horns, Mender a green cross. (A
-## Warded elite has its bubble.) The name tag over it shows only until that kind has been
-## explained once; after that the sign alone tells it.
-var _emblem: Node3D
-
-func _build_emblem(move: String, col: Color) -> void:
-	if move == "ward" or move == "":
-		return
-	_emblem = Node3D.new()
-	_emblem.position.y = center_height * 2.0 + 1.05
-	_emblem.visible = false
-	add_child(_emblem)
-	var mat := U.unlit(col)
-	var dark := U.unlit(Color(0.06, 0.02, 0.08))
-	var parts: Array[MeshInstance3D] = []
-	match move:
-		"split":
-			for side: float in [-1.0, 1.0]:
-				parts.append(U.sphere(_emblem, 0.2, dark, Vector3(side * 0.24, 0, 0)))
-				parts.append(U.sphere(_emblem, 0.15, mat, Vector3(side * 0.24, 0, 0.06)))
-		"burst":
-			parts.append(U.sphere(_emblem, 0.13, mat))
-			for k in 8:
-				var a := TAU * k / 8.0
-				var spike := U.box(_emblem, Vector3(0.08, 0.3, 0.08), mat, Vector3(sin(a) * 0.27, cos(a) * 0.27, 0))
-				spike.rotation.z = -a
-				parts.append(spike)
-		"fury":
-			var cone := CylinderMesh.new()
-			cone.top_radius = 0.15
-			cone.bottom_radius = 0.0
-			cone.height = 0.62
-			cone.radial_segments = 8
-			cone.rings = 1
-			for side: float in [-1.0, 1.0]:
-				var horn := MeshInstance3D.new()
-				horn.mesh = cone
-				horn.material_override = mat
-				_emblem.add_child(horn)
-				horn.position = Vector3(side * 0.22, 0.12, 0)
-				horn.rotation.z = -side * 0.38
-				parts.append(horn)
-		"mender":
-			parts.append(U.box(_emblem, Vector3(0.58, 0.2, 0.08), dark, Vector3(0, 0, -0.02)))
-			parts.append(U.box(_emblem, Vector3(0.2, 0.58, 0.08), dark, Vector3(0, 0, -0.02)))
-			parts.append(U.box(_emblem, Vector3(0.46, 0.13, 0.08), mat, Vector3(0, 0, 0.02)))
-			parts.append(U.box(_emblem, Vector3(0.13, 0.46, 0.08), mat, Vector3(0, 0, 0.02)))
-	for m in parts:
-		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Stood up to face the fight camera, which looks down at the room.
-	_emblem.rotation.x = -deg_to_rad(Game.CAMERA_PITCH)
-	_emblem.scale = Vector3.ONE * 1.5
 
 
 ## The tutorial's elites stay plain. Bloodbats come in threes and never split.
@@ -353,9 +302,6 @@ func _elite_tick(delta: float) -> void:
 	if _tag and not _tag.visible:
 		# Version 296: the tag only until this kind of elite has been explained once.
 		_tag.visible = not Game.taught("elite_" + elite_move)
-		if _emblem:
-			_emblem.visible = true
-			_tag.position.y = center_height * 2.0 + 1.75   # above the sign
 		if not _tag.visible:
 			_tag.queue_free()
 			_tag = null
@@ -367,8 +313,6 @@ func _elite_tick(delta: float) -> void:
 		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0)
 	if _tag:
 		_fade_tag(delta)
-	if _emblem and _emblem.visible != _emblem_shown():
-		_emblem.visible = not _emblem.visible
 	match elite_move:
 		"fury":
 			if not _furious and health < max_health * FURY_AT:
@@ -376,6 +320,9 @@ func _elite_tick(delta: float) -> void:
 			elif _furious and randf() < delta * 10.0:
 				Fx.magic(center(), ELITE_MOVES.fury.col, 1)
 		"mender":
+			if _parts.has("halo"):
+				var halo := _parts.halo as Node3D
+				halo.position.y = center_height * 2.0 + 0.75 + sin(Time.get_ticks_msec() * 0.003 + get_instance_id()) * 0.06
 			_mend_left -= delta
 			if _mend_left <= 0.0:
 				_mend_left = MEND_EVERY
@@ -388,14 +335,6 @@ func _elite_tick(delta: float) -> void:
 			elif _bubble:
 				var s := 1.0 + sin(Time.get_ticks_msec() * 0.004 + get_instance_id()) * 0.04
 				_bubble.scale = Vector3(s, s, s)
-
-
-## The sign hides while it is up under the top bar, like the name tag.
-func _emblem_shown() -> bool:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null or Game.hud == null:
-		return true
-	return cam.unproject_position(_emblem.global_position).y >= Game.hud.top_band()
 
 
 ## Version 278: the name tag fades out while it is up under the top bar (health, room and
@@ -422,9 +361,12 @@ func _fury() -> void:
 	Fx.magic(center(), col, 26)
 	Fx.shockwave(global_position, col, 2.2)
 	if visual:
-		visual.set_tint(Color(0.42, 0.06, 0.0))   # purple turns to an angry red
-		visual.enrage(col)
+		visual.set_rim(Color(col, 1.0), 1.8)   # its purple edge turns to an angry red
 		_punch_scale(1.14, 0.08, 0.25)
+	if _parts.has("flames"):
+		(_parts.flames as Node3D).visible = true   # (v372) a mane of flames
+	if _pool:
+		_pool.material_override = EliteParts.sign_mat("fury_hot")
 	if _tag:
 		_tag.text = "FURY!"
 
@@ -470,7 +412,7 @@ func _ward_block() -> void:
 		_bar.reveal()
 	if _ward_hits > 0:
 		Sfx.play("block", 0.4, 1.3)
-		_bubble_mat.albedo_color.a = 0.1 + 0.05 * _ward_hits
+		_bubble_mat.albedo_color.a = 0.05 + 0.03 * _ward_hits
 		if _bubble:
 			var tw := _bubble.create_tween()
 			_bubble.scale = Vector3.ONE * 1.15
@@ -491,7 +433,7 @@ func _ward_up() -> void:
 	var col: Color = ELITE_MOVES.ward.col
 	_ward_regrown += 1
 	_ward_hits = WARD_HITS
-	_bubble_mat.albedo_color.a = 0.24
+	_bubble_mat.albedo_color.a = 0.14
 	Sfx.play("shimmer", 0.3, 1.2)
 	Fx.magic(center(), col, 16)
 	if _bubble:
@@ -1239,11 +1181,12 @@ func _on_death() -> void:
 			_splinters(Game.hero)
 	if _tag:
 		_tag.visible = false
-	if _emblem:
-		_emblem.queue_free()
-		_emblem = null
 	if _bubble:
 		_bubble.visible = false
+	if _parts.has("halo"):
+		(_parts.halo as Node3D).visible = false
+	if _pool:
+		_pool.visible = false
 	# An elite's last move (not when it crumbles because its boss fell). Before the game
 	# counts it as gone, so its split skeletons keep the room from ending.
 	if not _crumbling and Game.state == Game.State.PLAYING and Room.current:

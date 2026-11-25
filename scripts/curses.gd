@@ -13,7 +13,7 @@ class_name Curses
 const LIST := [
 	{"id": "heroic", "title": "Heroic", "text": "Skeletons +35% health and damage, +50% coins", "level": 2, "free": true, "unlock_boss": 5},
 	{"id": "restless", "title": "Restless Dead", "text": "Skeletons move 20% faster", "level": 1, "free": true},
-	{"id": "gilded", "title": "Gilded Horde", "text": "Twice as many purple elites", "level": 1},
+	{"id": "gilded", "title": "Gilded Horde", "text": "Twice as many elites", "level": 1},
 	{"id": "narrow", "title": "Narrow Path", "text": "Two blessings to choose from, no reroll", "level": 1},
 	{"id": "blood", "title": "Blood Price", "text": "Your special costs a quarter of your health", "level": 1},
 	{"id": "fragile", "title": "Fragile Chain", "text": "The Bone Chain drains twice as fast", "level": 2},

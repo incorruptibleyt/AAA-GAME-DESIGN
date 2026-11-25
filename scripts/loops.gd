@@ -27,7 +27,7 @@ const OMENS := [
 	{"id": "bones", "title": "Omen of Bones", "text": "Skeletons have 25% more health"},
 	{"id": "blades", "title": "Omen of Blades", "text": "Skeletons hit 25% harder"},
 	{"id": "horde", "title": "Omen of the Horde", "text": "One more skeleton every wave"},
-	{"id": "gold", "title": "Omen of Gold", "text": "Twice the purple elites, +50% coins"},
+	{"id": "gold", "title": "Omen of Gold", "text": "Twice the elites, +50% coins"},
 ]
 
 

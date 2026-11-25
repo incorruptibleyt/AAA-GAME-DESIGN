@@ -440,6 +440,26 @@ func set_tint(col: Color) -> void:
 	_set_flash(false)
 
 
+## Version 372: an elite's glow round its edges in `col`, on top of the overlay its kind
+## already wears; the skeleton keeps its own colours (it used to be washed purple). Set
+## again (a Fury elite raging), the new glow takes the old one's place.
+var _under_rim: Material
+var _has_rim := false
+
+func set_rim(col: Color, power := 1.6) -> void:
+	if not _has_rim:
+		_under_rim = _tint_mat
+		_has_rim = true
+	var rim := rim_material(col, power)
+	if _under_rim == null:
+		_tint_mat = rim
+	else:
+		var m: Material = _under_rim.duplicate()
+		m.next_pass = rim
+		_tint_mat = m
+	_set_flash(false)
+
+
 ## A boss's second phase (version 121): a lasting glow in `col` round its edges, on top of
 ## whatever tint or overlay it already wears.
 func enrage(col: Color) -> void:

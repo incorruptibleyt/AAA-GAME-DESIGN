@@ -75,7 +75,7 @@ static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 			return {"title": "Shrine", "text": text, "color": Color(0.6, 0.75, 1.0),
 				"icon": "door_shrine", "family": "bolt"}
 		"champion":
-			return {"title": "Champion's Door", "text": "A purple elite waits.\nNext pick: rare\nor better",
+			return {"title": "Champion's Door", "text": "An elite waits.\nNext pick: rare\nor better",
 				"color": Color(1.0, 0.55, 0.3), "icon": "door_champion", "family": "bolt"}
 		"dark":
 			return {"title": "Dark Room", "text": "Lit only round you.\nPick 2 blessings\nafter it",
@@ -111,7 +111,7 @@ static func room_tip(door: Dictionary) -> String:
 		"treasure":
 			return "Treasure Room: +%d%% coins here" % roundi(TREASURE_COINS * 100)
 		"champion":
-			return "Champion's Door: a purple elite waits"
+			return "Champion's Door: an elite waits"
 		"dark":
 			return "Dark Room: only your lantern lights it. Two blessings after!"
 		"traps":
