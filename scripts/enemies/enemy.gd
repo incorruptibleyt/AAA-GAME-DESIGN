@@ -165,6 +165,11 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	parent.add_child(e)
 	e.global_position = pos
 	e._setup()
+	if not e.is_boss and e.visual:
+		# Version 365 (visual review v357 fix 7): skeletons a fifth bigger, near the hero's
+		# size; from the run camera they were small grey shapes. (Their reach is unchanged.)
+		e.visual.scale *= FOE_GROW
+		e.center_height *= FOE_GROW
 	# Deeper floors make skeletons tougher and a little quicker.
 	# Bosses get an extra 30% per floor on top, up to 2.2x from floor 5 (version 124: uncapped,
 	# the floor 20 King took 18 minutes). The tutorial's King has 50% (version 169, was 70%).
@@ -175,6 +180,30 @@ static func create(kind: String, parent: Node, pos: Vector3) -> Enemy:
 	e._bar = HealthBar.attach(e)
 	Fx.dust(pos, 18)
 	return e
+
+
+## How much bigger than their build every skeleton but a boss is drawn (version 365).
+const FOE_GROW := 1.2
+
+var _live_t := randf() * 10.0
+var _live_step := 0.0
+var _live_rear := 0.0
+
+
+## Version 365 (visual review v357 fix 7, "livelier skeletons"): a skeleton bounces on each
+## step and leans into its run, swaying side to side; standing, it breathes; winding up a
+## swipe, it rears back. (Bosses have their own moves.) Scripts that lift the body (a
+## hover, a hop) set or add to visual.position.y after this.
+func _liven(delta: float) -> void:
+	if is_boss or visual == null:
+		return
+	_live_t += delta
+	var moving := visual._moving and _frozen_left <= 0.0
+	_live_step = move_toward(_live_step, 1.0 if moving else 0.0, delta * 5.0)
+	_live_rear = move_toward(_live_rear, 1.0 if is_instance_valid(_swipe) else 0.0, delta * 4.0)
+	visual.position.y = absf(sin(_live_t * 8.5)) * 0.11 * _live_step + sin(_live_t * 2.4) * 0.02 * (1.0 - _live_step)
+	visual.rotation.x = -0.17 * _live_step + 0.3 * _live_rear
+	visual.rotation.z = sin(_live_t * 4.25) * 0.09 * _live_step
 
 
 func _setup() -> void:
@@ -680,13 +709,18 @@ func can_be_hit() -> bool:
 func _process(delta: float) -> void:
 	delta = minf(delta, MAX_STEP)   # v282 (Tweaks report #7): a long frame is a short slow-down, never a jump
 	if dead:
+		if visual and visual.rotation.x != 0.0:
+			visual.rotation = Vector3(0.0, visual.rotation.y, 0.0)
 		return
 	if _spawn_timer > 0.0:
 		_spawn_timer -= delta
 		var k := 1.0 - clampf(_spawn_timer / 0.9, 0.0, 1.0)
-		visual.position.y = -(1.0 - k) * 1.8
+		# (Version 365: it bursts up out of the floor and overshoots a little, a hop.)
+		var e := 1.0 + 2.70158 * pow(k - 1.0, 3.0) + 1.70158 * pow(k - 1.0, 2.0)
+		visual.position.y = -(1.0 - e) * 1.8
 		return
 	visual.position.y = 0.0
+	_liven(delta)
 	_slow_left -= delta
 	if _frozen_left > 0.0:
 		_frozen_left -= delta
