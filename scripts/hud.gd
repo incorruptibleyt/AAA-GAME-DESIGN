@@ -298,6 +298,7 @@ var _broken_label: Label
 var _broken_time := 0.0
 var _tip: Label
 var _tip_time := 0.0
+var _tip_tag: Label
 var _tip_delay := 0.0
 var _shown_score := 0.0
 var _end_score: Label
@@ -658,6 +659,24 @@ static func backdrop(r: ColorRect, theme := "crypt") -> void:
 
 
 ## A soft dark panel behind teaching text, so it reads on any floor.
+## Version 360 (review of 357, fix 3): tips are a designed card, not a black box: deep
+## violet with a warm gold edge and a soft shadow, a little name tag on top (Hud.tip).
+static func _tip_panel() -> StyleBoxFlat:
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.14, 0.08, 0.22, 0.94)
+	sb.set_corner_radius_all(18)
+	sb.border_color = Color(0.98, 0.78, 0.42, 0.95)
+	sb.set_border_width_all(3)
+	sb.shadow_color = Color(0, 0, 0, 0.4)
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0, 3)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 18
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 9
+	return sb
+
+
 static func _text_panel() -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.02, 0.01, 0.04, 0.62)
@@ -1120,11 +1139,14 @@ func _build_hud() -> void:
 	# run starts, and the special button's name.)
 	# (Version 216: DASH and the special sit at y ~1066-1156 and the hero just above them, so
 	# the tip goes above the hero.)
-	_hint.offset_top = -446
-	_hint.offset_bottom = -406
+	# (Version 360, review of 357 fix 3: down in the tip's place, over the strip past the near
+	# wall; at -446 it sat on the hero's head where each run starts. A tip takes its place
+	# while one shows.)
+	_hint.offset_top = -198
+	_hint.offset_bottom = -158
 	_hint.grow_vertical = Control.GROW_DIRECTION_BEGIN   # two lines grow up, never off the bottom
 	_hint.label_settings.outline_size = 7
-	_hint.add_theme_stylebox_override("normal", _text_panel())
+	_hint.add_theme_stylebox_override("normal", _tip_panel())
 	_hint.set_script(Pulse)
 	_hint.set("low", 0.75)   # a lesson must stay readable at every point of the pulse
 	_hint.visible = false
@@ -1246,11 +1268,18 @@ func _build_hud() -> void:
 	_tip.offset_top = -198
 	_tip.offset_bottom = -158
 	_tip.grow_vertical = Control.GROW_DIRECTION_BEGIN   # longer tips grow up, clear of the buttons
-	_tip.label_settings.outline_size = 7
-	_tip.label_settings.outline_color = Color(0, 0, 0, 0.9)
-	_tip.add_theme_stylebox_override("normal", _text_panel())
+	_tip.label_settings.outline_size = 5
+	_tip.label_settings.outline_color = Color(0.06, 0.02, 0.1, 0.9)
+	_tip.add_theme_stylebox_override("normal", _tip_panel())
 	_tip.visible = false
 	root.add_child(_tip)
+	_tip_tag = label("", 15, Color(1, 0.97, 0.9))
+	chunky(_tip_tag.label_settings)
+	_tip_tag.label_settings.outline_size = 4
+	_tip_tag.label_settings.outline_color = Color(0.2, 0.04, 0.04)
+	_tip_tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_tip_tag.position = Vector2(16, -15)
+	_tip.add_child(_tip_tag)
 
 	_callout = label("", 46, Color(0.6, 0.95, 1.0))
 	_callout.set_anchors_preset(Control.PRESET_CENTER)
@@ -4139,11 +4168,15 @@ func _process(delta: float) -> void:
 	# blessing cards cover it, so they never show through ("PERFECT!" over the cards).
 	var covered := 0.0 if _overlay_open() else 1.0
 	_tip.self_modulate.a = covered
+	_tip_tag.self_modulate.a = covered
 	_hint.self_modulate.a = covered
+	_hint.visible = _hint_on and not _tip.visible
 	_callout.self_modulate.a = covered
 	if _tip_delay > 0.0:
 		_tip_delay -= delta
 		_tip.visible = _tip_delay <= 0.0
+		if _tip.visible:
+			_pop_tip()
 	elif _tip_time > 0.0:
 		_tip_time -= delta
 		_tip.modulate.a = clampf(_tip_time / 0.4, 0.0, 1.0)
@@ -4398,11 +4431,43 @@ func chain_broken(was: float) -> void:
 ## A short line under the chain meter, for teaching the first run. 0 seconds clears it.
 ## `delay` waits for the room banner to clear first, so the two don't overlap.
 func tip(text: String, seconds := 5.0, delay := 0.0) -> void:
-	_tip.text = text
+	# Version 360: "BOMBER: runs in..." puts the skeleton's name in a red tag on top of the
+	# card and the rest in the card; any other lesson gets a gold TIP tag.
+	var tag := "TIP"
+	var body := text
+	var colon := text.find(": ")
+	if colon > 0 and text.substr(0, colon) == text.substr(0, colon).to_upper() and colon < 28:
+		tag = text.substr(0, colon)
+		body = text.substr(colon + 2)
+		body = body.substr(0, 1).to_upper() + body.substr(1)
+	_tip.text = body
+	_tip_tag.text = tag
+	var tsb := StyleBoxFlat.new()
+	tsb.bg_color = Color(0.78, 0.2, 0.2) if tag != "TIP" else Color(0.86, 0.6, 0.16)
+	tsb.set_corner_radius_all(9)
+	tsb.content_margin_left = 9
+	tsb.content_margin_right = 9
+	tsb.content_margin_top = 1
+	tsb.content_margin_bottom = 1
+	tsb.border_color = Color(0.06, 0.02, 0.1, 0.9)
+	tsb.set_border_width_all(2)
+	_tip_tag.add_theme_stylebox_override("normal", tsb)
+	_tip_tag.size = Vector2.ZERO
 	_tip_delay = delay if text != "" and seconds > 0.0 else 0.0
+	var was := _tip.visible
 	_tip.visible = text != "" and seconds > 0.0 and _tip_delay <= 0.0
 	_tip.modulate.a = 1.0
 	_tip_time = seconds if text != "" else 0.0
+	if _tip.visible and not was:
+		_pop_tip()
+
+
+## The tip card springs up into place when it appears.
+func _pop_tip() -> void:
+	_tip.pivot_offset = Vector2(_tip.size.x * 0.5, _tip.size.y)
+	_tip.scale = Vector2(0.82, 0.82)
+	var tw := _tip.create_tween()
+	tw.tween_property(_tip, "scale", Vector2.ONE, 0.28).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 ## A tip is showing, or waiting to show.
@@ -5921,7 +5986,11 @@ func _shop_chip(text: String, col: Color) -> Label:
 
 func show_hint(text: String) -> void:
 	_hint.text = text
-	_hint.visible = text != ""
+	_hint_on = text != ""
+	_hint.visible = _hint_on and not _tip.visible
+
+
+var _hint_on := false
 
 
 ## `score` counts up from zero on the end screen; `best` is the best score before this run.

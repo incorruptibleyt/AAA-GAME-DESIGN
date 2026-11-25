@@ -28,7 +28,7 @@ func _process(_delta: float) -> void:
 			_hero_id = h.hero_id
 			_label.text = Heroes.get_hero(h.hero_id).special
 		var charged := h.special_ready()
-		_label.modulate.a = 1.0 if charged else 0.6
+		_label.modulate.a = 1.0 if charged else 0.75
 		var now := [h.get_instance_id(), charged, snappedf(h.special_charge, 0.005), h.bolt_color, size]
 		if charged or now != _drawn:   # a full button pulses, so it draws every frame
 			_drawn = now
@@ -47,10 +47,17 @@ func _draw() -> void:
 	# Version 338 (visual review fix 3): the button is the hero's own colour all the time
 	# (it was a dark grey disc with a dim star until full), dark while it charges, with the
 	# colour filling up from the bottom as you kill, and the hero's own move drawn on it.
-	var dark := col.darkened(0.7)
-	Hud.draw_round_button(self, c, r * pulse, col.darkened(0.1) if charged else Color(dark, 0.95), true)
+	# Version 360 (review of 357, fix 3): it still read as a dark grey disc while charging
+	# (the colour taken 70% to black). Now a deep tone of the hero's colour with the hero's
+	# colour round it as a track the charge runs along, and a glow behind it once full.
+	var dark := col.darkened(0.3)
+	if charged:
+		draw_circle(c, r * pulse + 16.0, Color(col, 0.16 + 0.08 * sin(Time.get_ticks_msec() * 0.01)))
+	Hud.draw_round_button(self, c, r * pulse, col.darkened(0.05) if charged else Color(dark, 0.96), true)
+	if not charged:
+		draw_arc(c, r + 5.0, 0.0, TAU, 48, Color(col, 0.45), 6.0, true)
 	if not charged and h.special_charge > 0.0:
-		_draw_fill(c, r - 3.0, clampf(h.special_charge, 0.0, 1.0), Color(col.darkened(0.15), 0.85))
+		_draw_fill(c, r - 3.0, clampf(h.special_charge, 0.0, 1.0), Color(col.darkened(0.12), 0.9))
 		draw_arc(c, r * pulse + 5.0, -PI / 2.0, -PI / 2.0 + TAU * h.special_charge, 48, col, 6.0, true)
 	elif charged:
 		draw_arc(c, r * pulse + 6.0, 0.0, TAU, 48, Color(1, 1, 1, 0.5 + 0.4 * sin(Time.get_ticks_msec() * 0.01)), 4.0, true)
