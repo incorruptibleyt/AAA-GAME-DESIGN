@@ -1,4 +1,3 @@
-Version 351: more bosses with their own bodies
-- The Archivist stoops tall, open books flying round it.
-- The Forgemaster is a hulking iron giant with two smokestacks.
-- The Star Eater towers, a planet's ring turning round its waist.
+Version 352: bosses checked in real fights
+- The Forgemaster's smokestacks stand out past its clock gear, smoke rising.
+- The Cinder Colossus's lava vents burn taller and brighter.

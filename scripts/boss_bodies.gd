@@ -49,6 +49,7 @@ static func _m(key: String) -> Material:
 			"cover_b": _mats[key] = U.mat(Color(0.1, 0.3, 0.32), 0.8)
 			"page_glow": _mats[key] = U.mat(Color(0.95, 0.95, 0.85), 0.8, 0.45)
 			"iron": _mats[key] = U.mat(Color(0.26, 0.25, 0.27), 0.45)
+			"smoke": _mats[key] = U.mat(Color(0.42, 0.4, 0.42), 1.0)
 			"iron_dark": _mats[key] = U.mat(Color(0.12, 0.11, 0.12), 0.5)
 			"ring": _mats[key] = U.mat(Color(0.75, 0.8, 1.0), 0.3, 0.8)
 			"ring_dust": _mats[key] = U.unlit(Color(1.0, 0.95, 0.6))
@@ -155,8 +156,9 @@ static func _magma(skel: Skeleton3D) -> void:
 		b.position = spots[i]
 		b.rotation = tilt[i]
 		U.cone(b, 0.3 * k, 0.5 * k, _m("basalt"), Vector3.ZERO, 0.12 * k)   # a vent: a cut-off cone
-		U.cylinder(b, 0.11 * k, 0.05, _m("lava_hot"), Vector3(0, 0.48 * k, 0))
-		U.cone(b, 0.1 * k, 0.32 * k, _m("lava"), Vector3(0, 0.5 * k, 0))
+		U.cylinder(b, 0.13 * k, 0.05, _m("lava_hot"), Vector3(0, 0.48 * k, 0))
+		U.cone(b, 0.14 * k, 0.5 * k, _m("lava"), Vector3(0, 0.5 * k, 0))   # (v352: taller, it read black on lava)
+		U.cone(b, 0.07 * k, 0.3 * k, _m("lava_hot"), Vector3(0, 0.52 * k, 0))
 		FeatHeads.bake(b, "boss magma %d" % i)
 		for n in b.get_children():
 			n.set_meta("fx", true)   # (its charring overlay and the hit flash leave the lava bright)
@@ -376,15 +378,22 @@ static func _forge(skel: Skeleton3D) -> void:
 	for side in [-1.0, 1.0]:
 		var st := Node3D.new()
 		c.add_child(st)
-		st.position = Vector3(side * 0.4, 0.05, -0.38)
-		st.rotation = Vector3(-0.15, 0, -side * 0.18)
-		U.cylinder(st, 0.15, 1.05, _m("iron"), Vector3.ZERO)
-		U.cylinder(st, 0.2, 0.12, _m("iron_dark"), Vector3(0, 1.0, 0))
-		U.cylinder(st, 0.17, 0.06, _m("iron_dark"), Vector3(0, 0.45, 0))
-		U.cylinder(st, 0.14, 0.02, _m("lava_hot"), Vector3(0, 1.115, 0))
-		var g := U.cone(st, 0.12, 0.25, _m("lava"), Vector3(0, 1.1, 0))
+		st.position = Vector3(side * 0.55, 0.1, -0.32)   # (v352: out past its clock gear)
+		st.rotation = Vector3(-0.1, 0, -side * 0.22)
+		U.cylinder(st, 0.11, 0.9, _m("iron"), Vector3.ZERO)
+		U.cylinder(st, 0.15, 0.1, _m("iron_dark"), Vector3(0, 0.86, 0))
+		U.cylinder(st, 0.13, 0.05, _m("iron_dark"), Vector3(0, 0.4, 0))
+		U.cylinder(st, 0.1, 0.02, _m("lava_hot"), Vector3(0, 0.965, 0))
+		var g := U.cone(st, 0.09, 0.22, _m("lava"), Vector3(0, 0.95, 0))
 		g.name = "Glow"
 		FeatHeads.bake(st, "boss forge stack")
+		var smoke := Node3D.new()   # (a puff of smoke above it: its own, the iron look leaves it alone)
+		st.add_child(smoke)
+		for k in 3:
+			U.sphere(smoke, 0.12 + 0.04 * k, _m("smoke"), Vector3(0.05 * k, 1.2 + 0.22 * k, -0.04 * k))
+		FeatHeads.bake(smoke, "boss forge smoke")
+		for n in smoke.get_children():
+			n.set_meta("fx", true)
 
 
 ## The Star Eater: a ring like a planet's circling it at the waist, tilted, turning slowly,
