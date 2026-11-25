@@ -18,6 +18,7 @@ const RACE := Color(0.4, 0.92, 1.0)   # Crypt Race looks (version 153)
 const ROAD := Color(1.0, 0.85, 0.55)   # the Bone Road's last prize (version 254)
 ## The pedestal's height; on short (16:9) screens it shrinks so the looks keep their room.
 const STAGE_H := 300.0
+const PIC_H := 92.0   # v340: a card's picture (was a 58 px drawn symbol)
 const STAGE_MIN := 190.0
 
 var _id := ""
@@ -383,7 +384,7 @@ func _card(it: Dictionary) -> Button:
 		bg = Color(0.24, 0.16, 0.04, 0.98)   # the Crypt King looks: gold cards, always bright
 		edge = Hud.GOLD if worn or trying else Color(1.0, 0.8, 0.35, 0.8)
 	var b := Hud.button("", 16, bg, edge)
-	b.custom_minimum_size = Vector2(0, 146)   # room for three tag lines at the bigger size (version 121)
+	b.custom_minimum_size = Vector2(0, 180)   # room for the picture and three tag lines (v121, v340)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(3 if worn or trying else 2)
 	var v := VBoxContainer.new()
@@ -415,11 +416,28 @@ func _card(it: Dictionary) -> Button:
 		if not worn and not trying:
 			(b.get_theme_stylebox("normal") as StyleBoxFlat).border_color = Hud.GOLD
 	var sw := Swatch.new()
-	sw.custom_minimum_size = Vector2(0, 58)
+	sw.custom_minimum_size = Vector2(0, PIC_H)
 	sw.setup(_id, it.slot, it.key, _base)
 	# (Special looks stay bright when locked: they are what the player is working toward.)
 	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.9 if HeroStyle.is_special(it) else 0.5)
 	v.add_child(sw)
+	# Version 340 (visual review fix 5): a real 3D picture of the look (LookShots) over the
+	# drawn symbol, which stays until the picture is ready (or if it can't be taken).
+	var pic := TextureRect.new()
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.material = HeroStage._see_through()
+	Hud.full(pic)
+	pic.offset_top = -12
+	pic.offset_bottom = 6
+	sw.add_child(pic)
+	var want_id := _id
+	LookShots.want(_id, it.slot, it.key, func(tex: Texture2D):
+		if is_instance_valid(pic) and is_instance_valid(sw) and _id == want_id:
+			pic.texture = tex
+			sw.picture = true
+			sw.queue_redraw())
 	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got or HeroStyle.is_special(it) else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	v.add_child(name_l)
@@ -455,7 +473,7 @@ func _card(it: Dictionary) -> Button:
 	# Version 226: a card with more lines than fit grows taller instead of letting the last
 	# line fall out below it (a long name on two lines, or several tags).
 	v.minimum_size_changed.connect(func():
-		b.custom_minimum_size.y = maxf(146.0, v.get_combined_minimum_size().y + 12.0))
+		b.custom_minimum_size.y = maxf(180.0, v.get_combined_minimum_size().y + 12.0))
 	# The finger can drag the list from on top of a card (PASS lets the list see the drag),
 	# and a card the list was dragged on isn't worn when the finger lifts.
 	b.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -504,6 +522,7 @@ class Swatch extends Control:
 	var tier := 0   # how grand a glow's ring is (HeroStyle.glow_tier)
 	var fx := ""   # a glow's ring shape (flame, frost, storm, stars, runes)
 	var a2 = null   # a Legend road glow's second colour (it shimmers between the two)
+	var picture := false   # v340: a real picture of the look covers this; draw only a soft spot under it
 	var _t := 0.0
 
 	func _init() -> void:
@@ -575,6 +594,13 @@ class Swatch extends Control:
 	func _draw() -> void:
 		var c := size * 0.5
 		var r := minf(size.x, size.y) * 0.42
+		if picture:
+			# Under the picture: a soft round spot of light in the look's own colour.
+			var tint := a if slot in ["outfit", "glow", "aura"] else Color(0.75, 0.7, 0.9)
+			for i in 6:
+				var k := 1.0 - i / 6.0
+				draw_circle(c + Vector2(0, 4), r * (0.55 + 0.6 * k), Color(tint, 0.05))
+			return
 		match slot:
 			"outfit":
 				draw_circle(c, r, b)
@@ -850,7 +876,7 @@ class Swatch extends Control:
 		draw_colored_polygon(pts, Color(1.0, 0.95, 0.75, 0.3 * (1.0 - absf(f))))
 
 	func _process(delta: float) -> void:
-		if not (aura.get("cycle", false) or aura.has("ink2") or shine or a2 != null or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown", "candle_crown"]):
+		if picture or not (aura.get("cycle", false) or aura.has("ink2") or shine or a2 != null or shape in ["crypt_crown", "pattern", "storm_halo", "star_circlet", "flame_crown", "candle_crown"]):
 			set_process(false)   # only a pulsing aura's swatch is redrawn every frame
 			return
 		_t += delta

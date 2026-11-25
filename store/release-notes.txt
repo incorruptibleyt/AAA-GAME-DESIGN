@@ -1,5 +1,4 @@
-Version 339: kills that pop
-- Skeletons burst into real little bones that tumble through the air.
-- A white flash and a tiny freeze on every kill, so each one lands.
-- Skeletons squash and bounce back when you hit them.
-- Coins hop out of a kill with a gold sparkle.
+Version 340: real pictures of looks
+- Every Style card now shows a real 3D picture of the look on your hero: outfits, headwear, weapons, glows and auras.
+- You can see what a look is before you tap it, instead of a coloured circle.
+- Pictures are made once and kept, so the screen opens fast next time.
