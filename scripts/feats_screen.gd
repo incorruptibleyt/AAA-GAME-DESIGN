@@ -114,7 +114,8 @@ func _row(id: String, base: Dictionary, look: Array, title: String, lines: Array
 	var sw := StyleScreen.Swatch.new()
 	sw.custom_minimum_size = Vector2(78, 78)
 	sw.setup(id, str(look[0]), str(look[1]), base)
-	sw.modulate = Color.WHITE if got else Color(1, 1, 1, 0.55)
+	if not got:
+		sw.set_locked(true, 0.62)   # (v375: the real look, darker, with a padlock)
 	hb.add_child(sw)
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE

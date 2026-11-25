@@ -30,6 +30,9 @@ var _mem := {}   # key -> ImageTexture
 var _order: Array = []   # keys, oldest first
 var _busy := false
 var _blank := 0   # pictures that came out blank; after 3 the shots stop for this session
+var _pre: Array = []   # v375: [id, slot, key] still to make ahead of time (prewarm)
+var _pre_wait := 0.0
+const PRE_GAP := 0.3   # seconds between two pictures made ahead (a slow phone keeps its frames)
 
 
 ## Asks for the picture of hero `id` wearing `key` in `slot`; `done` is called with the
@@ -67,6 +70,23 @@ static func prize_rect(kind: String, px: float, dim := false) -> TextureRect:
 		if is_instance_valid(pic):
 			pic.texture = t)
 	return pic
+
+
+## Version 375 (visual review of 366, fix 8): pictures made ahead of time. `jobs` is a list
+## of [hero id, slot, key]; they are taken quietly, one at a time with a pause between,
+## while the title screen or a menu is up (never in a run), and only saved (not kept in
+## memory), so a list opened later shows real pictures at once. The Legend Vault's twelve
+## each need a second or so for the look to play before its picture: its list opened on
+## drawn symbols that turned into pictures one by one.
+static func prewarm(jobs: Array) -> void:
+	if _me == null:
+		var tree := Engine.get_main_loop() as SceneTree
+		if tree == null:
+			return
+		_me = LookShots.new()
+		tree.root.add_child.call_deferred(_me)
+	_me._pre = jobs.duplicate()
+	_me._pre_wait = 1.5
 
 
 static func shot_key(id: String, slot: String, key: String) -> String:
@@ -187,11 +207,47 @@ static func _wipe(path: String) -> void:
 	DirAccess.remove_absolute(path)
 
 
-func _process(_delta: float) -> void:
-	if _busy or _queue.is_empty() or _vp == null:
+func _process(delta: float) -> void:
+	if _busy or _vp == null:
+		return
+	if _queue.is_empty():
+		_pre_tick(delta)
 		return
 	_busy = true
 	_take(_queue.pop_front())
+
+
+## The next picture to make ahead of time, if this is a quiet moment.
+func _pre_tick(delta: float) -> void:
+	if _pre.is_empty() or _blank >= 3:
+		return
+	if Game.state != Game.State.TITLE:
+		_pre_wait = 1.0   # (in a run: wait for the title to come back)
+		return
+	_pre_wait -= delta
+	if _pre_wait > 0.0:
+		return
+	# (skips the ones already made: a few file checks a frame at most)
+	for n in 6:
+		if _pre.is_empty():
+			return
+		var j: Array = _pre.pop_front()
+		var id := str(j[0])
+		var slot := str(j[1])
+		var key := str(j[2])
+		var k := shot_key(id, slot, key)
+		if _mem.has(k) or _waiting.has(k) or FileAccess.file_exists(_path(k)):
+			continue
+		var base := Heroes.get_hero(id)
+		if base.is_empty():
+			continue
+		var def := legend_def(base, key) if slot == "legend" else HeroStyle.dressed(base, {slot: key})
+		if def.is_empty():
+			continue
+		_waiting[k] = []
+		_queue.append([k, def, slot])
+		_pre_wait = PRE_GAP
+		return
 
 
 func _take(job: Array) -> void:
@@ -261,6 +317,8 @@ func _take(job: Array) -> void:
 		return
 	img.resize(SIZE.x, SIZE.y, Image.INTERPOLATE_LANCZOS)
 	img.save_png(_path(k))
+	if cbs.is_empty():
+		return   # (v375: made ahead of time: saved, and loaded when a list asks for it)
 	var tex := ImageTexture.create_from_image(img)
 	_keep(k, tex)
 	for cb: Callable in cbs:
@@ -362,6 +420,8 @@ func _take_prize(k: String, kind: String) -> void:
 		return
 	img.resize(SIZE.x, SIZE.y, Image.INTERPOLATE_LANCZOS)
 	img.save_png(_path(k))
+	if cbs.is_empty():
+		return   # (v375: made ahead of time: saved, and loaded when a list asks for it)
 	var tex := ImageTexture.create_from_image(img)
 	_keep(k, tex)
 	for cb: Callable in cbs:

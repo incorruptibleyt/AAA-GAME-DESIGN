@@ -4404,6 +4404,10 @@ func _process(delta: float) -> void:
 		_title_box.get_child(0).visible = not (_modes_box.visible or _daily_box.visible or _armory_box.visible \
 			or _pass_box.visible or _heroes_box.visible or _records_box.visible or _omen_box.visible or _drops.visible or _road.visible \
 			or _event.visible or _splash.visible or _leaders.visible or (_settings_only and _pause_box.visible))
+		# v375: the PASS button is lifted over the event strip (z 1), which also lifted it
+		# over a screen opened straight over the title (Rewards, Today's Goals, Mastery).
+		if is_instance_valid(_title_pass_row):
+			_title_pass_row.z_index = 0 if covers_world() else 1
 	# The OPEN BONE DROP buttons glow gently, so a drop waiting isn't missed.
 	if _title_drops.is_visible_in_tree() or _end_drop.is_visible_in_tree():
 		var glow := 1.0 + 0.16 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.2))
@@ -6069,7 +6073,7 @@ func _legend_row(r: Dictionary, coins: int) -> Button:
 	var edge := gold if (afford or r.worn) else (Color(0.5, 0.42, 0.3, 0.8) if ready else Color(0.3, 0.28, 0.34, 0.7))
 	var b := button("", 20, Color(0.15, 0.1, 0.04, 0.98) if ready else Color(0.08, 0.07, 0.1, 0.98), edge)
 	var n := str(r.text).length()
-	b.custom_minimum_size = Vector2(0, 150 if n <= 80 else (172 if n <= 118 else 194))   # (3 or 4 lines of words; v362: the price was cut off under 4)
+	b.custom_minimum_size = Vector2(0, 152 if n <= 80 else (176 if n <= 118 else 202))   # (3 or 4 lines of words; v362: the price was cut off under 4)
 	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4 if r.worn else (3 if afford else 2))
 	var id: String = r.legend
 	if ready:

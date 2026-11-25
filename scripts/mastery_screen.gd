@@ -304,6 +304,14 @@ func _row(id: String, l: int, lv: int, p: int) -> Control:
 		LookShots.want(id, str(it.slot), str(it.key), func(t: Texture2D) -> void:
 			if is_instance_valid(pic):
 				pic.texture = t)
+		if not got:
+			# (v375: a padlock on a look still to earn; the next one keeps its light)
+			var lock := StyleScreen.Padlock.new()
+			lock.size = Vector2(26, 26)
+			lock.position = Vector2(74 - 24, 74 - 26)
+			pic.add_child(lock)
+			pic.self_modulate = pic.modulate
+			pic.modulate = Color.WHITE
 	return panel
 
 

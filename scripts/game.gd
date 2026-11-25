@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-25u"
+const BUILD := "2026-11-25v"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -5252,6 +5252,31 @@ func _give_mastery_on_title() -> String:
 func _title_hero_line(id: String, trial := false) -> void:
 	var cfg := _load_save()
 	hud.set_title_hero(Heroes.full_name(Heroes.get_hero(id)) + (" (free trial run)" if trial else ""), HeroMastery.level(cfg, id), HeroMastery.has_frame(cfg, id))
+	_prewarm_looks(id)
+
+
+## Version 375 (visual review of 366, fix 8): the pictures the menus will ask for are made
+## ahead of time while the title is up (LookShots.prewarm): the Legend Vault's twelve on
+## this hero first (each takes about a second), then this hero's looks for the Style cards.
+## Not before the first run (a new phone is still warming up), and on Low graphics only
+## the Vault's (a slow phone keeps its frames for the title).
+var _prewarmed := ""
+
+func _prewarm_looks(id: String) -> void:
+	if id == _prewarmed or first_run_pending() or bench:
+		return
+	_prewarmed = id
+	var jobs: Array = []
+	for d: Dictionary in Legends.LIST:
+		if d.get("ready", false):
+			jobs.append([id, "legend", str(d.id)])
+	if graphics_level > 0:
+		var event_on := Events.active() or not Events.coming().is_empty()
+		for it: Dictionary in HeroStyle.items(id):
+			if it.has("event") and not event_on:
+				continue
+			jobs.append([id, str(it.slot), str(it.key)])
+	LookShots.prewarm(jobs)
 
 
 func _open_road() -> void:

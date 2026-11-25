@@ -420,7 +420,10 @@ func _card(it: Dictionary) -> Button:
 	sw.pic_grow = Vector2(12, 6)   # the picture reaches up under the NEW tag's row
 	sw.setup(_id, it.slot, it.key, _base)
 	# (Special looks stay bright when locked: they are what the player is working toward.)
-	sw.modulate = Color.WHITE if got or paid else Color(1, 1, 1, 0.9 if HeroStyle.is_special(it) else 0.5)
+	# v375: a look not owned yet is its real picture, darker, with a padlock (a Crypt King
+	# look keeps all its light: its gold card is the offer).
+	if not got:
+		sw.set_locked(true, 1.0 if paid else (0.85 if HeroStyle.is_special(it) else 0.5))
 	v.add_child(sw)
 	var name_l := Hud.label(it.name, 16, Color(1.0, 0.9, 0.6) if paid else (TEXT if got or HeroStyle.is_special(it) else DIM))
 	name_l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -492,6 +495,42 @@ func _tap(it: Dictionary) -> void:
 
 ## The little picture on a look's card: the outfit's colours, the glow's ring, or a simple
 ## drawing of the hat or weapon.
+## Version 375: the padlock on a look (or a prize) not owned yet: a gold lock on a dark
+## round badge with an ink edge, drawn to fill this control.
+class Padlock extends Control:
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		custom_minimum_size = Vector2(22, 22)
+
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := minf(size.x, size.y) * 0.5
+		draw_circle(c + Vector2(0, r * 0.12), r, Color(0, 0, 0, 0.4))
+		draw_circle(c, r, Hud.INK)
+		draw_circle(c, r - 2.0, Color(0.17, 0.13, 0.25))
+		draw_arc(c, r - 2.0, 0.0, TAU, 28, Color(1.0, 0.82, 0.5, 0.55), 1.2, true)
+		var steel := Color(0.86, 0.87, 0.95)
+		var gold := Color(1.0, 0.78, 0.3)
+		# the shackle: two legs and the bow over them
+		var sw := r * 0.3
+		var top := c + Vector2(0, -r * 0.22)
+		draw_arc(top, sw, PI, TAU, 12, steel, r * 0.17, true)
+		for sx: float in [-1.0, 1.0]:
+			draw_line(top + Vector2(sx * sw, 0), top + Vector2(sx * sw, r * 0.24), steel, r * 0.17, true)
+		# the body, with a darker lip and a keyhole
+		var body := Rect2(c + Vector2(-r * 0.5, -r * 0.06), Vector2(r, r * 0.66))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = gold
+		sb.border_color = gold.darkened(0.35)
+		sb.border_width_bottom = maxi(1, roundi(r * 0.12))
+		sb.set_corner_radius_all(maxi(2, roundi(r * 0.16)))
+		sb.anti_aliasing_size = 1.0
+		draw_style_box(sb, body)
+		var kc := body.get_center() + Vector2(0, -r * 0.05)
+		draw_circle(kc, r * 0.11, Hud.INK)
+		draw_line(kc, kc + Vector2(0, r * 0.2), Hud.INK, r * 0.1, true)
+
+
 class Swatch extends Control:
 	var slot := ""
 	var key := ""
@@ -508,6 +547,35 @@ class Swatch extends Control:
 	var a2 = null   # a Legend road glow's second colour (it shimmers between the two)
 	var picture := false   # v340: a real picture of the look covers this; draw only a soft spot under it
 	var _t := 0.0
+	var _dim := Color.WHITE   # v375: a look not owned yet is darker (set_locked)
+	var _lock: Padlock
+
+	## Version 375 (visual review of 366, fix 8): a look not owned yet keeps its real picture,
+	## darker and cooler, with a padlock on its corner. It was faded to half see-through
+	## before, which read as a ghost of the look and let the card show through it.
+	## `bright`: how much of its light it keeps (1 = as an owned one, only the padlock).
+	func set_locked(on: bool, bright := 0.5) -> void:
+		_dim = Color(bright, bright * 0.97, minf(1.0, bright * 1.12)) if on else Color.WHITE
+		modulate = Color.WHITE
+		self_modulate = _dim
+		if _pic:
+			_pic.modulate = _dim
+		if on and _lock == null:
+			_lock = Padlock.new()
+			add_child(_lock)
+			resized.connect(_place_lock)
+		if _lock:
+			_lock.visible = on
+			_place_lock()
+
+	func _place_lock() -> void:
+		if _lock == null:
+			return
+		var r := minf(size.x, size.y + pic_grow.x + pic_grow.y) * 0.5
+		var d := clampf(r * 0.56, 22.0, 34.0)
+		_lock.size = Vector2(d, d)
+		_lock.position = size * 0.5 + Vector2(r * 0.52, r * 0.38) - _lock.size * 0.5
+		move_child(_lock, -1)
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -593,7 +661,9 @@ class Swatch extends Control:
 			_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			_pic.material = HeroStage._see_through()
+			_pic.modulate = _dim
 			add_child(_pic)
+			_place_lock()
 		_pic.set_anchors_preset(Control.PRESET_FULL_RECT)
 		_pic.offset_top = -pic_grow.x
 		_pic.offset_bottom = pic_grow.y
