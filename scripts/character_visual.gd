@@ -478,12 +478,30 @@ func _set_flash(on: bool) -> void:
 	if _outline_set.is_empty():
 		_pick_outline_meshes()
 	var seen: Material = _with_xray(lined) if xray and not _dead else lined
+	# Version 361 (review of 357, fix 4): the hero's other pieces (shield, weapon, small
+	# parts with no outline) mark where they are seen too. Unmarked, the ghost was drawn
+	# over the hero's own shield and sword, so the hero looked see-through cyan with
+	# nothing in front of them.
+	var plain: Material = _marked_chain(mat) if xray and not _dead else mat
 	for m in _meshes:
 		if is_instance_valid(m):
-			m.material_overlay = seen if _outline_set.has(m) else mat
+			m.material_overlay = seen if _outline_set.has(m) else plain
 	for m in _marked:
 		if is_instance_valid(m):
 			m.material_overlay = _xray_mark if xray and not _dead else null
+
+
+## `inner` (may be null) after the stencil mark that says "the hero is seen here".
+func _marked_chain(inner: Material) -> Material:
+	_with_xray(null if inner == null else inner)   # makes the shared materials
+	if inner == null:
+		return _xray_mark
+	var key := "mark:%d" % inner.get_instance_id()
+	if not _xrayed.has(key):
+		var head := _xray_mark.duplicate() as ShaderMaterial
+		head.next_pass = inner
+		_xrayed[key] = head
+	return _xrayed[key]
 
 
 ## The pale flicker of a hero who can't be hurt just now (see _blink_off): a see-through
@@ -521,10 +539,12 @@ shader_type spatial;
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_back, shadows_disabled;
 stencil_mode read, compare_not_equal, 2;
 uniform vec4 col : source_color = vec4(0.4, 0.95, 1.0, 1.0);
+// Version 361 (review of 357, fix 4): a bright edge with only a faint fill (it was a
+// solid cyan body at 38% that hid the outfit), so a hidden hero reads as an outline.
 void fragment() {
 	float rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
-	ALBEDO = mix(col.rgb * 0.55, vec3(0.9, 1.0, 1.0), pow(rim, 2.0));
-	ALPHA = clamp(0.38 + pow(rim, 1.5) * 0.6, 0.0, 0.92);
+	ALBEDO = mix(col.rgb, vec3(0.92, 1.0, 1.0), pow(rim, 3.0));
+	ALPHA = clamp(0.1 + smoothstep(0.45, 0.85, rim) * 0.85, 0.0, 0.92);
 }
 """
 		_xray_mat = ShaderMaterial.new()

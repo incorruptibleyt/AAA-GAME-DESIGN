@@ -4430,9 +4430,10 @@ func chain_broken(was: float) -> void:
 
 ## A short line under the chain meter, for teaching the first run. 0 seconds clears it.
 ## `delay` waits for the room banner to clear first, so the two don't overlap.
-func tip(text: String, seconds := 5.0, delay := 0.0) -> void:
-	# Version 360: "BOMBER: runs in..." puts the skeleton's name in a red tag on top of the
-	# card and the rest in the card; any other lesson gets a gold TIP tag.
+func tip(text: String, seconds := 5.0, delay := 0.0, foe := false) -> void:
+	# Version 360: "BOMBER: runs in..." puts the name in a tag on top of the card and the
+	# rest in the card (red for a skeleton's first-meeting line, `foe`; gold otherwise); any
+	# other line gets a gold TIP tag.
 	var tag := "TIP"
 	var body := text
 	var colon := text.find(": ")
@@ -4443,7 +4444,7 @@ func tip(text: String, seconds := 5.0, delay := 0.0) -> void:
 	_tip.text = body
 	_tip_tag.text = tag
 	var tsb := StyleBoxFlat.new()
-	tsb.bg_color = Color(0.78, 0.2, 0.2) if tag != "TIP" else Color(0.86, 0.6, 0.16)
+	tsb.bg_color = Color(0.78, 0.2, 0.2) if foe else Color(0.86, 0.6, 0.16)
 	tsb.set_corner_radius_all(9)
 	tsb.content_margin_left = 9
 	tsb.content_margin_right = 9
