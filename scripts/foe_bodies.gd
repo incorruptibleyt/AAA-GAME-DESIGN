@@ -14,10 +14,10 @@ static func _m(key: String) -> Material:
 		match key:
 			"iron_light": _mats[key] = U.mat(Color(0.55, 0.56, 0.62), 0.35)
 			"rust": _mats[key] = U.mat(Color(0.55, 0.2, 0.12), 0.7)
-			"bone": _mats[key] = U.mat(Color(0.92, 0.88, 0.78), 0.75)
+			"bone": _mats[key] = U.mat(Color(0.8, 0.76, 0.66), 0.75)   # (v367: a little darker, it blew out white)
 			"leather": _mats[key] = U.mat(Color(0.42, 0.26, 0.14), 0.85)
 			"fletch": _mats[key] = U.mat(Color(1.0, 0.82, 0.2), 0.6, 0.6)
-			"linen": _mats[key] = U.mat(Color(0.88, 0.84, 0.72), 0.95)
+			"linen": _mats[key] = U.mat(Color(0.78, 0.7, 0.55), 0.95)   # (v367: aged wraps, not white)
 			"amethyst": _mats[key] = U.mat(Color(0.72, 0.42, 1.0), 0.25, 0.8)
 			"amethyst_pale": _mats[key] = U.mat(Color(0.9, 0.75, 1.0), 0.2, 0.6)
 			"brass": _mats[key] = U.mat(Color(1.0, 0.72, 0.3), 0.3, 0.25)

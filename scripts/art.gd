@@ -96,7 +96,11 @@ static func _share_in(n: Node) -> void:
 	if mi:
 		if mi.mesh:
 			for i in mi.mesh.get_surface_count():
-				_share_material(mi.mesh.surface_get_material(i))
+				var m := mi.mesh.surface_get_material(i)
+				_share_material(m)
+				var bone := _bone_material(m)
+				if bone:
+					mi.mesh.surface_set_material(i, bone)
 		_share_material(mi.material_override)
 	for c in n.get_children():
 		_share_in(c)
@@ -121,6 +125,61 @@ static func _share_material(m: Material) -> void:
 			if first != tex and first.get_size() == tex.get_size():
 				bm.albedo_texture = first
 			return
+
+
+## Version 367 (visual review of 366, fix 1): the skeletons' bone (bodies and their
+## weapons, all on the one skeleton texture) blew out to flat white under the room lights and
+## glow, so a crowd was one white blob. Their own material now keeps the bone a little darker,
+## with soft shine, and inks the edges that turn away from the camera: each skull and rib cage
+## keeps its shape, and overlapping skeletons split apart. It replaces the material (no extra
+## pass), so it costs nothing per skeleton.
+const BONE_TONE := 0.8
+const BONE_INK := 0.62
+static var _bone_shader: Shader
+static var _bone_mats := {}
+static var _bone_src := {}
+
+static func _bone_material(m: Material) -> Material:
+	var bm := m as BaseMaterial3D
+	if bm == null or bm.albedo_texture == null:
+		return null
+	if not bm.albedo_texture.resource_path.get_file().to_lower().ends_with("skeleton_texture.png"):
+		return null
+	if _bone_mats.has(bm):
+		return _bone_mats[bm]
+	if _bone_shader == null:
+		_bone_shader = Shader.new()
+		_bone_shader.code = """
+shader_type spatial;
+render_mode cull_back;
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform vec4 tint : source_color = vec4(1.0);
+uniform float tone = 0.8;
+uniform float ink = 0.62;
+void fragment() {
+	vec3 c = texture(tex, UV).rgb * tint.rgb * tone;
+	// Edges turning away from the camera go dark, like a soft cartoon line.
+	float edge = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
+	c *= 1.0 - ink * smoothstep(0.5, 0.95, edge);
+	ALBEDO = c;
+	ROUGHNESS = 0.8;
+	SPECULAR = 0.2;
+}
+"""
+	var sm := ShaderMaterial.new()
+	sm.shader = _bone_shader
+	sm.set_shader_parameter("tex", bm.albedo_texture)
+	sm.set_shader_parameter("tint", bm.albedo_color)
+	sm.set_shader_parameter("tone", BONE_TONE)
+	sm.set_shader_parameter("ink", BONE_INK)
+	_bone_mats[bm] = sm
+	_bone_src[sm] = bm
+	return sm
+
+
+## The plain material a bone material was made from (for code that dyes weapons).
+static func base_material(m: Material) -> BaseMaterial3D:
+	return _bone_src.get(m, m as BaseMaterial3D)
 
 
 static func has_model(key: String) -> bool:

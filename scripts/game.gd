@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-25m"
+const BUILD := "2026-11-25n"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1035,7 +1035,10 @@ func _setup_environment() -> void:
 	env.ambient_light_color = Color(0.2, 0.19, 0.28)
 	env.ambient_light_energy = 1.0
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env.tonemap_exposure = 1.05
+	# Version 367 (visual review of 366, fix 1): whites roll off instead of clipping, so a
+	# silver helmet or a skull keeps its shading under bright light (exposure up to match).
+	env.tonemap_exposure = 1.2
+	env.tonemap_white = 2.5
 	# A touch more colour and contrast, so the brighter rooms stay rich, not milky.
 	env.adjustment_enabled = true
 	env.adjustment_saturation = 1.25
@@ -1635,6 +1638,9 @@ const NEAR_EXTRA := 2.3   # v219 (review 4 fix 20): was 1.5; feet by the near wa
 ## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
 const LOBBY_PITCH := 24.0
 const LOBBY_FILL := 0.8
+## Version 367: the lobby lamp's strength (was 5) and how much of the moon is left under it.
+const LOBBY_LAMP := 2.2
+const LOBBY_MOON := 0.3
 
 
 ## Where the lobby camera stands (looking down at `pitch` radians) so the hero, facing it,
@@ -1754,10 +1760,18 @@ func _update_camera(real_delta: float) -> void:
 	_lobby = lerpf(_lobby, 1.0 if lobby else 0.0, 1.0 - exp(-5.0 * real_delta))
 	if _lobby < 0.002:
 		_lobby = 0.0
+	var was_lobby := _lobby_light.visible
 	_lobby_light.visible = _lobby > 0.0
 	if _lobby_light.visible:
-		_lobby_light.light_energy = 5.0 * _lobby
+		# Version 367 (visual review of 366, fix 1): the hero on the title was lit by the
+		# room's moon, the lobby lamp and its own lantern at once, and a silver Knight came out
+		# flat white. The lamp is the light there now: the moon dims under it, the lamp is softer.
+		_lobby_light.light_energy = LOBBY_LAMP * _lobby
 		_lobby_light.global_position = hero.global_position + Vector3(0, 6.5, 0.4)
+		if _moon:
+			_moon.light_energy = _moon_energy * lerpf(1.0, LOBBY_MOON, _lobby)
+	elif was_lobby and _moon:
+		_moon.light_energy = _moon_energy
 	if lobby:
 		hero.rotation.y = lerp_angle(hero.rotation.y, PI, 1.0 - exp(-6.0 * real_delta))   # turned to face us
 	_zoom_hold -= real_delta

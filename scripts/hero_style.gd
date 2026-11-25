@@ -855,7 +855,7 @@ static func _arm(skel: Skeleton3D, finish: String, glow: Variant, book: Variant 
 		for w in att.get_children():
 			var mi := w as MeshInstance3D
 			if mi and mi.mesh:
-				var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
+				var src := Art.base_material(mi.mesh.surface_get_material(0))
 				if src and src.albedo_texture:
 					mi.material_override = LookFx.weapon(src, finish, glow, book if str(mi.name).begins_with("Spellbook") else null)
 				if str(mi.name) == "1H_Wand" and not mi.has_meta("big"):

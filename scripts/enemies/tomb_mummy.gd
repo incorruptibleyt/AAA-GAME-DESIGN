@@ -15,7 +15,7 @@ extends Enemy
 
 enum Mode { APPROACH, AIM, LASH, REEL, STAGGER }
 
-const LINEN := Color(0.86, 0.82, 0.7)
+const LINEN := Color(0.76, 0.68, 0.54)
 const TURQUOISE := Color(0.3, 0.95, 0.85)
 const GOLD := Color(1.0, 0.76, 0.3)
 const LAPIS := Color(0.1, 0.2, 0.58)
@@ -105,13 +105,16 @@ void fragment() {
 	float ang = atan(lp.z, lp.x);
 	float torn = step(0.86, hash(vec2(band, floor(ang * 1.6 + band * 0.7))));
 	float stain = smoothstep(0.65, 0.98, hash(floor(lp.xz * 6.0) + band * 0.13));
-	vec3 linen = vec3(0.93, 0.89, 0.78) * (0.88 + 0.12 * hash(vec2(band, 1.0)));
+	// (Version 367: aged, darker linen with inked edges; the bright wraps blew out white.)
+	vec3 linen = vec3(0.8, 0.72, 0.57) * (0.88 + 0.12 * hash(vec2(band, 1.0)));
 	linen = mix(linen, vec3(0.62, 0.5, 0.34), stain * 0.4);
 	vec3 col = mix(linen, vec3(0.36, 0.27, 0.18), seam * 0.7);
-	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.6);
+	float edge = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float rim = pow(edge, 2.6);
+	col *= 1.0 - 0.5 * smoothstep(0.5, 0.95, edge);
 	ALBEDO = col;
 	ROUGHNESS = 0.95;
-	EMISSION = col * 0.12 + vec3(0.3, 0.95, 0.85) * rim * 0.3;
+	EMISSION = vec3(0.3, 0.95, 0.85) * rim * 0.3;
 	ALPHA = (1.0 - torn) * 0.97;
 }
 """
