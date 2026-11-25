@@ -28,6 +28,11 @@ func _setup() -> void:
 	look.attack_anim = "Spellcast_Summon"
 	# No pointed hat: the root crown instead, so it reads as its own kind, not a mage.
 	look.hide = ["Skeleton_Mage_Hat"]
+	# Version 346 (visual review fix 7): half tree: no legs, a trunk of roots spreading over
+	# the floor under it, long branching arms.
+	look.height = 2.25
+	look.shape = {"scale": {"chest": 1.1, "upperarm.l": 1.35, "upperarm.r": 1.35}}
+	look.parts = "roots"
 	make_visual(look)
 	_dress()
 

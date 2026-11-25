@@ -26,6 +26,10 @@ func _setup() -> void:
 	# No cloak: bare mossy bones (and the toadstool for a hat) keep it apart from the
 	# plain minions.
 	look.hide = ["Skeleton_Minion_Cloak"]
+	# Version 346 (visual review fix 7): a squat little toddler of a thing, all cap and
+	# skull on stubby legs, more mushrooms sprouting from its shoulders.
+	look.shape = {"scale": {"head": 1.4, "upperleg.l": 0.55, "upperleg.r": 0.55, "upperarm.l": 0.85, "upperarm.r": 0.85}}
+	look.parts = "sprouts"
 	make_visual(look)
 	_dress()
 

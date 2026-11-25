@@ -31,6 +31,15 @@ static func _m(key: String) -> Material:
 			"weed": _mats[key] = U.mat(Color(0.2, 0.5, 0.3), 0.7, 0.25)
 			"weed_dark": _mats[key] = U.mat(Color(0.12, 0.32, 0.22), 0.8)
 			"barnacle": _mats[key] = U.mat(Color(0.75, 0.75, 0.68), 0.9)
+			"flame": _mats[key] = U.unlit(Color(1.0, 0.55, 0.12))
+			"flame_hot": _mats[key] = U.unlit(Color(1.0, 0.85, 0.35))
+			"ice": _mats[key] = U.mat(Color(0.6, 0.9, 1.0), 0.1, 1.0)
+			"ice_deep": _mats[key] = U.mat(Color(0.4, 0.7, 1.0), 0.15, 0.6)
+			"cap_red": _mats[key] = U.mat(Color(0.85, 0.2, 0.2), 0.6, 0.15)
+			"cap_spot": _mats[key] = U.mat(Color(1.0, 0.95, 0.85), 0.7)
+			"stem": _mats[key] = U.mat(Color(0.9, 0.85, 0.72), 0.8)
+			"bark": _mats[key] = U.mat(Color(0.5, 0.34, 0.2), 0.9)
+			"bark_moss": _mats[key] = U.mat(Color(0.45, 0.6, 0.18), 0.85, 0.25)
 			"rock": _mats[key] = U.mat(Color(0.3, 0.27, 0.32), 0.9)
 			"robe": _mats[key] = U.mat(Color(0.3, 0.16, 0.44), 0.85)
 			"robe_hem": _mats[key] = U.mat(Color(0.55, 0.3, 0.85), 0.6, 0.5)
@@ -67,6 +76,10 @@ static func dress(model: Node3D, kind: String) -> void:
 		"voidtail": _voidtail(model, skel)
 		"books": _books(skel)
 		"seaweed": _seaweed(skel)
+		"embers": _embers(skel)
+		"icicles": _icicles(model, skel)
+		"sprouts": _sprouts(skel)
+		"roots": _roots(model, skel)
 
 
 ## The Skeleton Warrior: a big round iron plate on each shoulder, wider than its head, with
@@ -265,6 +278,93 @@ static func _seaweed(skel: Skeleton3D) -> void:
 				s.position = Vector3(side * (0.3 + 0.08 * k), 0.05, 0.05 - 0.12 * k)
 				s.rotation = Vector3(0.1, 0, side * 0.25)
 		FeatHeads.bake(c, "foe weed chest")
+
+
+## The Cinder Skeleton: tongues of flame standing up along its back and shoulders.
+static func _embers(skel: Skeleton3D) -> void:
+	var a := _on(skel, "chest")
+	if a == null:
+		return
+	# (wider than the skull, which hides anything near the neck from above)
+	var spots := [Vector3(-0.5, 0.18, 0.0), Vector3(0.5, 0.18, 0.0), Vector3(-0.42, 0.0, -0.3), Vector3(0.42, 0.0, -0.3), Vector3(0, -0.05, -0.45)]
+	var tilt := [Vector3(-0.1, 0, 0.55), Vector3(-0.1, 0, -0.55), Vector3(-0.7, 0, 0.5), Vector3(-0.7, 0, -0.5), Vector3(-1.1, 0, 0)]
+	for i in spots.size():
+		var h := 0.75 if i < 2 else 0.6
+		var f := U.cone(a, 0.17, h, _m("flame"), Vector3.ZERO)
+		f.position = spots[i]
+		f.rotation = tilt[i]
+		var core := U.cone(a, 0.09, h * 0.7, _m("flame_hot"), Vector3.ZERO)
+		core.position = spots[i] + Vector3(0, -0.02, 0.05)
+		core.rotation = tilt[i]
+	FeatHeads.bake(a, "foe embers")
+	for c in a.get_children():
+		c.set_meta("fx", true)   # (fire: its charring overlay and the hit flash leave it alone)
+
+
+## The Frost Wraith: a collar of ice spikes on its shoulders, icicles hanging under it.
+static func _icicles(model: Node3D, skel: Skeleton3D) -> void:
+	var c := _on(skel, "chest")
+	if c:
+		for side in [-1.0, 1.0]:   # a cluster of ice spikes on each shoulder, past the skull
+			for k in 3:
+				var s := U.cone(c, 0.13 - 0.02 * k, 0.75 - 0.15 * k, _m("ice" if k != 1 else "ice_deep"), Vector3.ZERO)
+				s.position = Vector3(side * (0.5 + 0.06 * k), 0.12, -0.15 + 0.15 * k)
+				s.rotation = Vector3(-0.4 + 0.35 * k, 0, -side * (0.7 + 0.15 * k))
+		FeatHeads.bake(c, "foe ice collar")
+	var h := _on(skel, "hips")
+	if h:
+		var robe := U.cone(h, 0.42, 0.5, _m("ice_deep"), Vector3(0, -0.5, 0), 0.3)
+		robe.name = "Robe"
+		for i in 6:
+			var ang := TAU * i / 6.0
+			var s := U.cone(h, 0.08, 0.38 - 0.1 * (i % 2), _m("ice"), Vector3.ZERO)
+			s.position = Vector3(cos(ang) * 0.34, -0.52, sin(ang) * 0.34)
+			s.rotation = Vector3(PI, 0, 0)
+		FeatHeads.bake(h, "foe icicles")
+
+
+## The Sporeling: little red-capped mushrooms sprouting from its shoulders and back.
+static func _sprouts(skel: Skeleton3D) -> void:
+	var a := _on(skel, "chest")
+	if a == null:
+		return
+	var spots := [Vector3(-0.46, 0.05, 0.0), Vector3(0.48, 0.0, -0.08), Vector3(0.1, -0.1, -0.42), Vector3(-0.3, -0.2, -0.36)]
+	var size := [1.5, 1.2, 1.35, 1.0]
+	for i in spots.size():
+		var k: float = size[i]
+		var base: Vector3 = spots[i]
+		U.cylinder(a, 0.04 * k, 0.22 * k, _m("stem"), base)
+		var cap := U.sphere(a, 0.16 * k, _m("cap_red"), base + Vector3(0, 0.24 * k, 0))
+		cap.scale = Vector3(1.0, 0.6, 1.0)
+		U.sphere(a, 0.035 * k, _m("cap_spot"), base + Vector3(0.06 * k, 0.32 * k, 0.04 * k))
+	FeatHeads.bake(a, "foe sprouts")
+	var h := _on(skel, "head")   # and a ring of little ones round its big cap, seen from above
+	if h:
+		for i in 4:
+			var ang := PI * (0.15 + 0.7 * i / 3.0)
+			var base := Vector3(cos(ang) * 0.5, 0.55, -sin(ang) * 0.42)
+			var k := 1.1 - 0.15 * (i % 2)
+			U.cylinder(h, 0.04 * k, 0.24 * k, _m("stem"), base)
+			var cap := U.sphere(h, 0.17 * k, _m("cap_red"), base + Vector3(0, 0.26 * k, 0))
+			cap.scale = Vector3(1.0, 0.6, 1.0)
+		FeatHeads.bake(h, "foe sprouts head")
+
+
+## The Rootbinder: no legs; a trunk of bark from its hips to the floor and roots spreading
+## out over it (they show from above), moss on them.
+static func _roots(model: Node3D, skel: Skeleton3D) -> void:
+	Art.hide_parts(model, ["Skeleton_Mage_LegLeft", "Skeleton_Mage_LegRight"])
+	var a := _on(skel, "hips")
+	if a == null:
+		return
+	U.cone(a, 0.36, 0.5, _m("bark"), Vector3(0, -0.45, 0), 0.24)
+	for i in 6:
+		var ang := TAU * i / 6.0 + 0.3
+		var r := U.cone(a, 0.19, 1.0, _m("bark" if i % 2 == 0 else "bark_moss"), Vector3.ZERO)
+		r.position = Vector3(cos(ang) * 0.62, -0.38, sin(ang) * 0.62)
+		r.rotation = Vector3(0, -ang, 0)
+		r.rotate_object_local(Vector3.FORWARD, PI * 0.5 - 0.25)   # lying out along the floor, pointing away
+	FeatHeads.bake(a, "foe roots")
 
 
 ## A part turning round and round (the clockwork's cogs).

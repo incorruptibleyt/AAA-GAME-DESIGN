@@ -1,4 +1,5 @@
-Version 345: even more skeletons with their own bodies
-- Void Walkers float on a tail of the void, with no legs and long arms.
-- Hush Keepers are bent double under a tall stack of books.
-- Drowned Skeletons are swollen with sea water, weed hanging from their skulls.
+Version 346: more skeletons with their own bodies
+- Cinder Skeletons are lean, with flames licking up their shoulders.
+- Frost Wraiths float tall, with ice on their shoulders and robes.
+- Sporelings are squat, with mushrooms sprouting from them.
+- Rootbinders stand on spreading roots instead of legs.

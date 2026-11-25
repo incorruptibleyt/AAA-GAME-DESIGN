@@ -26,6 +26,11 @@ func _setup() -> void:
 	look.accent = Color(0.5, 0.2, 0.1)
 	# Bare burnt bones: no cloak, so it doesn't look like a plain Skeleton.
 	look.hide = ["Skeleton_Minion_Cloak"]
+	# Version 346 (visual review fix 7): lean and long-armed, crouched to spring, with
+	# tongues of flame along its back and shoulders.
+	look.shape = {"scale": {"chest": 0.88, "upperarm.l": 1.3, "upperarm.r": 1.3, "upperleg.l": 1.1, "upperleg.r": 1.1},
+		"turn": {"spine": Vector3(18, 0, 0), "head": Vector3(-14, 0, 0)}}
+	look.parts = "embers"
 	make_visual(look)
 	_dress()
 

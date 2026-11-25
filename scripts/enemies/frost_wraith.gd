@@ -30,6 +30,11 @@ func _setup() -> void:
 	look.weapon = "Skeleton_Staff"
 	# No hat and no legs: a hood and a cloak instead, so it reads as a ghost, not a mage.
 	look.hide = ["Skeleton_Mage_Hat", "Skeleton_Mage_LegLeft", "Skeleton_Mage_LegRight"]
+	# Version 346 (visual review fix 7): a tall, thin ghost of ice: long arms, floating, a
+	# collar of ice spikes on its shoulders and icicles hanging from its hem.
+	look.height = 2.2
+	look.shape = {"scale": {"chest": 0.9, "upperarm.l": 1.3, "upperarm.r": 1.3}, "lift": 0.22}
+	look.parts = "icicles"
 	make_visual(look)
 	_dress()
 
