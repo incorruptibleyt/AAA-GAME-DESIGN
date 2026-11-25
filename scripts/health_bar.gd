@@ -17,9 +17,10 @@ static func attach(a: Actor) -> HealthBar:
 	a.add_child(bar)
 	# Top-level so the bar ignores the skeleton's turning; we follow it in _process.
 	bar.top_level = true
-	# A chunky bar: a thick ink frame around a bright fill.
-	_quad(bar, Vector2(bar._width + 0.14, 0.26), Color(0.07, 0.035, 0.1, 0.9))
-	bar._fill = _quad(bar, Vector2(bar._width, 0.14), Color(1.0, 0.25, 0.22))
+	# A slim bar: a thin ink frame around a bright fill. Version 358 (review of 357, fix 2):
+	# half as tall (0.26 m frame, 0.14 m fill read as blocks over every hurt skeleton).
+	_quad(bar, Vector2(bar._width + 0.08, 0.15), Color(0.07, 0.035, 0.1, 0.85))
+	bar._fill = _quad(bar, Vector2(bar._width, 0.085), Color(1.0, 0.25, 0.22))
 	# Pivot the fill on its left edge so it shrinks towards the left.
 	(bar._fill.mesh as QuadMesh).center_offset = Vector3(bar._width * 0.5, 0, 0)
 	bar._fill.position.x = -bar._width * 0.5

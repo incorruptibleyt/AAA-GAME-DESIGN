@@ -286,8 +286,10 @@ var _stick_start := Vector2.ZERO
 var _stick_start_ms := 0
 var _chain_box: Control
 ## Where the slim chain row sits under the top bar, and how tall it is (version 135).
-const CHAIN_TOP := 90.0   # v338: one strip under the coins (was 80)
-const CHAIN_H := 62.0
+const CHAIN_TOP := 52.0   # v358: up in the top bar, beside the coins (v338: 90)
+const CHAIN_H := 34.0
+const CHAIN_X := 158.0
+const CHAIN_W := 200.0
 var _chain_label: Label
 var _chain_pop := 0.0
 var _spine: ChainSpine
@@ -980,7 +982,7 @@ func _build_hud() -> void:
 	# Moon Shards earned this run, in an event (events.gd), under the coins.
 	_shard_box = HBoxContainer.new()
 	_shard_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_shard_box.position = Vector2(192, 54)   # v338: beside the coins, clear of the chain strip
+	_shard_box.position = Vector2(64, 86)   # v358: under the coins (the chain strip sits beside them)
 	_shard_box.size = Vector2(200, 32)
 	(_shard_box as HBoxContainer).add_theme_constant_override("separation", 6)
 	_shard_box.visible = false
@@ -1018,7 +1020,7 @@ func _build_hud() -> void:
 	_room_label.offset_bottom = 48
 	root.add_child(_room_label)
 	race_bar = RaceScreen.Bar.new()
-	race_bar.position = Vector2(4, 140)   # v338: under the chain strip (was 104)
+	race_bar.position = Vector2(4, 92)   # v358: under the top bar (the chain strip moved up into it)
 	race_bar.visible = false
 	root.add_child(race_bar)
 
@@ -1173,64 +1175,61 @@ func _build_hud() -> void:
 	# Version 135: one slim row (it used to stack three rows down into the room).
 	_chain_box = Control.new()
 	_chain_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_chain_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	# Version 338 (visual review fix 3, clean HUD): chain, multiplier and score are one
-	# strip on one dark pill (the score was a loose second line floating over the room).
-	_chain_box.offset_left = -190
-	_chain_box.offset_right = 190
-	_chain_box.offset_top = CHAIN_TOP
-	_chain_box.offset_bottom = CHAIN_TOP + CHAIN_H
+	# Version 358 (review of 357, fix 2): the strip moved up into the top bar, between the
+	# coins and the room's name, at about half its old size, so nothing of it hangs over
+	# the far end of the room where skeletons walk in (it sat 180-276 px down the phone).
+	_chain_box.position = Vector2(CHAIN_X, CHAIN_TOP)
+	_chain_box.size = Vector2(CHAIN_W, CHAIN_H)
 	_chain_box.modulate.a = 0.0
 	root.add_child(_chain_box)
 	var pill := Panel.new()
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var psb := StyleBoxFlat.new()
-	psb.bg_color = Color(0.03, 0.02, 0.06, 0.5)
-	psb.set_corner_radius_all(22)
+	psb.bg_color = Color(0.03, 0.02, 0.06, 0.42)
+	psb.set_corner_radius_all(16)
 	psb.border_color = Color(1, 1, 1, 0.08)
 	psb.set_border_width_all(2)
 	pill.add_theme_stylebox_override("panel", psb)
-	pill.position = Vector2(-6, -4)
-	pill.size = Vector2(392, 48)
+	pill.position = Vector2(-4, -2)
+	pill.size = Vector2(CHAIN_W + 8, CHAIN_H + 4)
 	_chain_box.add_child(pill)
 	_spine = ChainSpine.new()
-	_spine.position = Vector2(4, 0)
-	_spine.size = Vector2(196, 40)
+	_spine.position = Vector2(2, 3)
+	_spine.size = Vector2(88, 28)
 	_chain_box.add_child(_spine)
-	_chain_label = label("x1.0", 34, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
-	_chain_label.position = Vector2(204, -4)
-	_chain_label.size = Vector2(90, 46)
-	_chain_label.pivot_offset = Vector2(32, 23)
+	_chain_label = label("x1.0", 23, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
+	_chain_label.position = Vector2(92, -2)
+	_chain_label.size = Vector2(54, 36)
+	_chain_label.pivot_offset = Vector2(22, 18)
 	_chain_box.add_child(_chain_label)
 	var divider := ColorRect.new()
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	divider.color = Color(1, 1, 1, 0.14)
-	divider.position = Vector2(292, 4)
-	divider.size = Vector2(2, 32)
+	divider.position = Vector2(146, 5)
+	divider.size = Vector2(2, 24)
 	_chain_box.add_child(divider)
-	var caption := label("SCORE", 12, Color(0.9, 0.87, 0.8, 0.75))
+	var caption := label("SCORE", 10, Color(0.9, 0.87, 0.8, 0.75))
 	chunky(caption.label_settings)
 	caption.label_settings.outline_size = 3
 	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
-	caption.position = Vector2(296, -3)
-	caption.size = Vector2(88, 18)
+	caption.position = Vector2(148, -2)
+	caption.size = Vector2(CHAIN_W - 148, 14)
 	_chain_box.add_child(caption)
-	# Version 213 (hardest review fix #7): 20 px (was 15, about 7 dp tall on a phone).
-	_score_label = label("", 20, Color(0.9, 0.87, 0.8))
+	_score_label = label("", 16, Color(0.95, 0.92, 0.84))
 	chunky(_score_label.label_settings)
 	_score_label.label_settings.outline_size = 5
 	_score_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_score_label.position = Vector2(296, 14)
-	_score_label.size = Vector2(88, 26)
+	_score_label.position = Vector2(148, 10)
+	_score_label.size = Vector2(CHAIN_W - 148, 24)
 	_chain_box.add_child(_score_label)
 	# Version 227: chunky and edged like the number it replaces (thin red letters were hard
 	# to read over a busy floor).
-	_broken_label = label("", 24, Color(1, 0.38, 0.32))
+	_broken_label = label("", 19, Color(1, 0.38, 0.32))
 	chunky(_broken_label.label_settings)
-	_broken_label.label_settings.outline_size = 7
+	_broken_label.label_settings.outline_size = 6
 	_broken_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_broken_label.position = Vector2(0, 0)
-	_broken_label.size = Vector2(380, 36)
+	_broken_label.size = Vector2(CHAIN_W, CHAIN_H)
 	_broken_label.modulate.a = 0.0
 	_chain_box.add_child(_broken_label)
 
@@ -4107,8 +4106,7 @@ func _process(delta: float) -> void:
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
 	_see_through(delta)
-	_chain_box.offset_top = CHAIN_TOP + (34.0 if _boss_box.visible else 0.0)
-	_chain_box.offset_bottom = _chain_box.offset_top + CHAIN_H
+	_chain_box.position.y = CHAIN_TOP + (64.0 if _boss_box.visible else 0.0)
 	# Hidden behind the pause menu, where it would cross "Paused".
 	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.UPGRADE]
 	# With no chain going it stays faint (it sits over the far end of the room).
@@ -4321,7 +4319,8 @@ func _draw_wave_pips() -> void:
 	var n := _wave_total
 	if n < 2:
 		return
-	var gap := 22.0
+	# Version 358: closer together for long rooms, so they stay clear of the chain strip.
+	var gap := minf(20.0, 66.0 / float(n - 1))
 	var y := 10.0
 	for i in n:
 		var x := _wave_pips.size.x - 9.0 - float(n - 1 - i) * gap
