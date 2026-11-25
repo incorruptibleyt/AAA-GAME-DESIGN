@@ -1,3 +1,4 @@
-Version 341: real pictures everywhere
-- Looks on the event road, the Feats list, the Bone Bazaar and the Crypt Race road now show a real 3D picture on your hero.
-- See exactly what each prize looks like before you play for it or buy it.
+Version 342: see your hero again
+- The home screen is cleaner: the event is a slim strip above the logo, so your hero stands in full view.
+- Today's coin bonus is a tag on PLAY. Settings is a gear.
+- The Crypt Pass sits in the top bar. Heroes, Armory and Modes share one row.

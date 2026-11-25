@@ -1883,16 +1883,19 @@ func _build_title() -> void:
 	full(holder)
 	_title_box.add_child(holder)
 	# Sound, screen shake, vibration and reports can be set before the first run too.
-	var settings := button("SETTINGS", 18)
-	settings.custom_minimum_size = Vector2(150, 66)
+	# Version 342 (visual review fix 6): a gear, not a word, so the top bar has room for the
+	# Crypt Pass and the middle of the screen stays the hero's.
+	var settings := button(" ", 18)
+	settings.custom_minimum_size = Vector2(66, 66)
 	settings.position = Vector2(20, 20)
+	settings.draw.connect(func(): _draw_gear(settings))
 	settings.pressed.connect(func(): show_settings(true))
 	holder.add_child(settings)
 	# REWARDS (version 116): the Bone Road, Bone Drops, Feats and Records in one place, so
 	# the returning title has 7 buttons, not 9.
 	var records := button("REWARDS", 18, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	records.custom_minimum_size = Vector2(150, 66)
-	records.position = Vector2(184, 20)
+	records.custom_minimum_size = Vector2(134, 66)
+	records.position = Vector2(96, 20)
 	records.pressed.connect(func(): show_rewards(true))
 	holder.add_child(records)
 	_rewards_badge = _badge_pill("")
@@ -1900,6 +1903,24 @@ func _build_title() -> void:
 	records.add_child(_rewards_badge)
 	_title_records = records
 	_title_settings = settings
+	# The Crypt Pass sits in the top bar (version 342), its deal tag hanging under it.
+	var pass_button := button("PASS", 20, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	pass_button.custom_minimum_size = Vector2(100, 66)
+	pass_button.position = Vector2(240, 20)
+	pass_button.pressed.connect(func(): pass_pressed.emit())
+	holder.add_child(pass_button)
+	_title_pass_badge = _deal_pill()
+	_title_pass_badge.label_settings.font_size = 13
+	_title_pass_badge.anchor_left = 0.0
+	_title_pass_badge.anchor_right = 0.0
+	_title_pass_badge.offset_left = -10
+	_title_pass_badge.offset_right = 110
+	_title_pass_badge.offset_top = 50
+	_title_pass_badge.offset_bottom = 72
+	pass_button.z_index = 1   # (its tag hangs over the event strip)
+	_title_pass_badge.grow_horizontal = Control.GROW_DIRECTION_END
+	pass_button.add_child(_title_pass_badge)
+	_title_pass_row = pass_button
 	_place_title_buttons()
 	var top := VBoxContainer.new()
 	_title_top = top
@@ -1920,10 +1941,13 @@ func _build_title() -> void:
 	top.add_child(_title_logo)
 	# The Blood Moon (events.gd): the event's banner under the logo while it's on, and a
 	# countdown to it the week before.
+	# Version 342: a slim strip above the logo, not a big card over the hero's head.
 	_title_event = EventArt.Banner.new()
+	_title_event.slim()
 	_title_event.visible = false
 	_title_event.pressed.connect(func(): event_pressed.emit())
 	top.add_child(_title_event)
+	top.move_child(_title_event, _title_gap.get_index() + 1)
 	_title_hint = label("Drag to move. Lift to shoot.", 20, Color(0.85, 0.85, 0.9))
 	top.add_child(_title_hint)
 	# Said up front, so nobody is surprised when the free floors end.
@@ -2007,36 +2031,33 @@ func _build_title() -> void:
 	small.visible = false
 	_title_small_row = small
 	col.add_child(small)
-	var heroes := button("HEROES", 26)
-	heroes.custom_minimum_size = Vector2(222, 74)
+	# Version 342: HEROES, ARMORY and MODES in one row (two rows of big buttons covered the
+	# hero's feet; the Pass moved to the top bar).
+	var heroes := button("HEROES", 21)
+	heroes.custom_minimum_size = Vector2(152, 72)
 	heroes.pressed.connect(func(): heroes_pressed.emit())
 	_title_heroes = heroes
 	# A gold tag when a hero has new looks to try on the Style screen.
 	_title_heroes_badge = _badge_pill("NEW LOOKS")
 	heroes.add_child(_title_heroes_badge)
-	var armory := button("ARMORY", 26)
-	armory.custom_minimum_size = Vector2(222, 74)
+	var armory := button("ARMORY", 21)
+	armory.custom_minimum_size = Vector2(152, 72)
 	armory.pressed.connect(func(): armory_pressed.emit())
 	_title_armory = armory
 	_title_armory_badge = _badge_pill("UPGRADE")
 	armory.add_child(_title_armory_badge)
 	_title_shop_row = _pair(heroes, armory)
+	(_title_shop_row as HBoxContainer).add_theme_constant_override("separation", 10)
 	col.add_child(_title_shop_row)
 	# MODES holds the Daily Crypt, Curses and the tutorial run; then the Crypt Pass.
-	var modes := button("MODES", 26)
-	modes.custom_minimum_size = Vector2(222, 74)
+	var modes := button("MODES", 21)
+	modes.custom_minimum_size = Vector2(152, 72)
 	modes.pressed.connect(func(): show_modes(true))
 	# A little gold tag when today's Daily Crypt is waiting.
 	_title_modes_badge = _badge_pill("DAILY READY")
 	modes.add_child(_title_modes_badge)
-	var pass_button := button("CRYPT PASS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	pass_button.custom_minimum_size = Vector2(222, 74)
-	pass_button.pressed.connect(func(): pass_pressed.emit())
-	_title_pass_badge = _deal_pill()
-	pass_button.add_child(_title_pass_badge)
-	_title_pass_row = pass_button
-	_title_modes_row = _pair(modes, pass_button)
-	col.add_child(_title_modes_row)
+	_title_shop_row.add_child(modes)
+	_title_modes_row = modes
 	_title_lock = label("Finish the tutorial to open\nHeroes and the Armory", 20, Color(0.7, 0.68, 0.62))
 	col.add_child(_title_lock)
 
@@ -2470,6 +2491,20 @@ func _pair(a: Control, b: Control) -> Control:
 	row.add_child(a)
 	row.add_child(b)
 	return row
+
+
+## Version 342: the title's settings gear, drawn on its button: eight teeth and a hole.
+func _draw_gear(b: Control) -> void:
+	var c := b.size * 0.5 - Vector2(0, 3)
+	var pts := PackedVector2Array()
+	for i in 48:
+		var a := TAU * i / 48.0
+		var tooth := fmod(i, 6.0) < 3.0
+		pts.append(c + Vector2.from_angle(a) * (19.0 if tooth else 14.5))
+	b.draw_colored_polygon(pts, Color.WHITE)
+	pts.append(pts[0])
+	b.draw_polyline(pts, INK, 3.0, true)
+	b.draw_circle(c, 6.5, INK)
 
 
 func _centered(c: Control) -> Control:
@@ -3888,7 +3923,10 @@ func _place_title_buttons() -> void:
 	var top := float(_safe.get_theme_constant("margin_top"))
 	_title_settings.position = Vector2(20 + left, 20 + top)
 	if is_instance_valid(_title_records):
-		_title_records.position = Vector2(184 + left, 20 + top)
+		_title_records.position = Vector2(96 + left, 20 + top)
+	if is_instance_valid(_title_pass_row):
+		var rec_on := is_instance_valid(_title_records) and _title_records.visible
+		_title_pass_row.position = Vector2((240.0 if rec_on else 96.0) + left, 20 + top)
 	# Version 125: the coins, logo and the button column keep clear of the notch and the
 	# gesture bar too (the corner buttons above already did).
 	if is_instance_valid(_title_top):
@@ -5135,6 +5173,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_fill_deal_pill(_title_pass_badge)
 	_title_modes_row.visible = stage >= 3 or has_pass
 	_title_records.visible = stage >= 3
+	_place_title_buttons()
 	_title_road.visible = stage >= 2
 	if v:
 		var cfg := tcfg
@@ -5168,6 +5207,15 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	_title_continue.visible = where != "" and not locked
 	# On short screens a saved run's CONTINUE button leaves room for one gold line only.
 	var goal := Game.title_goal() if v else ""
+	# Version 342: today's first-run bonus is a tag on PLAY, not a line over the hero.
+	var heroic := v and not locked and Curses.chosen(tcfg, has_pass).has("heroic")
+	var day_tag := v and not locked and not heroic and Game.day_bonus_ready()
+	if day_tag:
+		var keep := []
+		for line in goal.split("\n"):
+			if not line.begins_with("Today's first run"):
+				keep.append(line)
+		goal = "\n".join(keep)
 	var view := get_viewport().get_visible_rect().size
 	if _title_continue.visible and view.y < view.x * 1.9:
 		goal = goal.get_slice("\n", 0).trim_suffix(",")
@@ -5176,8 +5224,10 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	# Short screens: the how-to line makes room for the Bone Road row, so the hero shows.
 	var tight := view.y < view.x * 1.9 and _title_rewards_row.visible
 	_title_hint.visible = locked and not tight   # the lobby keeps words few once the tutorial is done
-	_title_best.visible = not tight   # (the Records screen has it)
-	_title_gap.custom_minimum_size.y = 14.0 if tight else 40.0
+	# Version 342: the records line is in REWARDS > Records; the lobby keeps it off the hero.
+	_title_best.visible = not tight and locked and best != ""
+	# Version 342: with the event's strip above the logo, the gap only clears the top bar.
+	_title_gap.custom_minimum_size.y = 8.0 if _title_event.visible else (14.0 if tight else 40.0)
 	_continue_where.text = where
 	_title_spacer.visible = not _title_continue.visible
 	_title_play.text = "NEW RUN" if _title_continue.visible else "PLAY"
@@ -5194,7 +5244,8 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 		_title_spacer.visible = false
 	if start_line != "" and _title_continue.visible and Game.chosen_start(tcfg) > 1:
 		_title_play.text = "NEW RUN: FLOOR %d" % Game.chosen_start(tcfg)
-	_title_play_badge.visible = v and not locked and Curses.chosen(tcfg, has_pass).has("heroic")
+	_title_play_badge.text = "HEROIC" if heroic else "+%d%% COINS" % roundi(Game.DAY_BONUS * 100)
+	_title_play_badge.visible = heroic or day_tag
 	_title_play.add_theme_font_size_override("font_size", (26 if _title_play.text.length() > 8 else 32) if _title_continue.visible else 38)
 	_title_play.remove_meta("armed")
 

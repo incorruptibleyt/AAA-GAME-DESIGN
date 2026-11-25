@@ -302,6 +302,7 @@ class Banner extends Button:
 	var _badge: Label
 	var _t := 0.0
 	var hot := false
+	var _slim := false
 
 	func _init() -> void:
 		focus_mode = Control.FOCUS_NONE
@@ -337,6 +338,22 @@ class Banner extends Button:
 		add_child(_badge)
 		Hud.squash(self)
 
+	## Version 342 (visual review fix 6): the title's thin strip above the logo, so the event
+	## no longer sits on the hero's head as a big card.
+	func slim() -> void:
+		_slim = true
+		custom_minimum_size = Vector2(400, 54)
+		_moon.position = Vector2(-4, -6)
+		_moon.size = Vector2(66, 66)
+		_name.label_settings.font_size = 22
+		_name.position = Vector2(66, 1)
+		_name.size = Vector2(300, 28)
+		_sub.label_settings.font_size = 16
+		_sub.position = Vector2(67, 26)
+		_sub.size = Vector2(300, 22)
+		_badge.label_settings.font_size = 13
+		_badge.position = Vector2(300, -12)
+
 	## `sub`: the line under the name ("Ends in 6d 4h"); `badge`: a gold tag ("CLAIM!", "2X").
 	func set_info(title: String, sub: String, badge: String, eclipse: bool) -> void:
 		_name.text = title
@@ -346,7 +363,7 @@ class Banner extends Button:
 		_moon.eclipse = eclipse
 		hot = badge != ""
 		_badge.reset_size()
-		_badge.position.x = size.x - _badge.size.x + 6.0 if size.x > 0.0 else 330.0
+		_badge.position.x = size.x - _badge.size.x + 6.0 if size.x > 0.0 else (300.0 if _slim else 330.0)
 
 	func _process(delta: float) -> void:
 		if is_visible_in_tree():
@@ -360,14 +377,15 @@ class Banner extends Button:
 		var p := EventArt.pal()
 		sb.bg_color = Color(p.bg.r, p.bg.g, p.bg.b, 0.96)
 		sb.border_color = (p.hot as Color).lerp(Color.WHITE, 0.25 * glow) if hot else p.edge
-		sb.set_border_width_all(3)
-		sb.border_width_bottom = 7
-		sb.set_corner_radius_all(20)
+		sb.set_border_width_all(2 if _slim else 3)
+		sb.border_width_bottom = 4 if _slim else 7
+		sb.set_corner_radius_all(14 if _slim else 20)
 		sb.shadow_color = Color(p.shadow.r, p.shadow.g, p.shadow.b, 0.25 + 0.2 * glow)
-		sb.shadow_size = 10
+		sb.shadow_size = 6 if _slim else 10
 		draw_style_box(sb, r)
 		# A gold line along the top, like the event's marble.
-		draw_line(Vector2(84, 7), Vector2(r.size.x - 18, 7), Color(1.0, 0.78, 0.4, 0.45), 2.0, true)
+		var x0 := 60.0 if _slim else 84.0
+		draw_line(Vector2(x0, 5 if _slim else 7), Vector2(r.size.x - 18, 5 if _slim else 7), Color(1.0, 0.78, 0.4, 0.45), 2.0, true)
 
 
 ## Version 135: the big moment when an event (or a new chapter of it) begins, shown once on
