@@ -183,7 +183,7 @@ func _dress_model(look: Dictionary) -> void:
 		var att := BoneAttachment3D.new()
 		skel.add_child(att)
 		att.bone_name = "head"
-		_boss_crown(att, 0.6, 1.25)
+		_boss_crown(att, 0.6, float(look.get("crown_y", 1.25)))   # (v348: lower on a bare skull)
 	if look.get("bomb", false) and skel.find_bone("chest") >= 0:
 		var att := BoneAttachment3D.new()
 		skel.add_child(att)

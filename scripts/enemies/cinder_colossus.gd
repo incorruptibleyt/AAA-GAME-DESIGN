@@ -41,6 +41,9 @@ func _setup() -> void:
 	look.offhand = "Skeleton_Axe"
 	look.attack_anim = "Dualwield_Melee_Attack_Chop"
 	look.hide = ["Skeleton_Warrior_Cloak"]
+	look.shape = {"scale": {"chest": 1.5, "head": 0.65, "upperarm.l": 1.5, "upperarm.r": 1.5, "upperleg.l": 0.72, "upperleg.r": 0.72},
+		"turn": {"spine": Vector3(18, 0, 0), "head": Vector3(-16, 0, 0)}}   # (v348: an ape of a giant)
+	look.parts = "magma"
 	make_visual(look)
 	_dress()
 

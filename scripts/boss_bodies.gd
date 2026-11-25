@@ -1,0 +1,127 @@
+class_name BossBodies
+extends RefCounted
+## Version 348 (visual review fix 8, "bosses with their own bodies"): the bosses were the
+## same four chibi bodies as their skeletons, only bigger and with a hat. Each boss's build
+## (bones scaled, see BodyShape) is in its own script's _setup as look.shape, and these are
+## its look.parts: big shapes that change its outline from the run camera high above.
+
+static var _mats := {}
+
+
+static func _m(key: String) -> Material:
+	if not _mats.has(key):
+		match key:
+			"gold": _mats[key] = U.mat(Color(1.0, 0.76, 0.25), 0.25, 0.2)
+			"velvet": _mats[key] = U.mat(Color(0.62, 0.06, 0.1), 0.8)
+			"velvet_dark": _mats[key] = U.mat(Color(0.38, 0.03, 0.07), 0.85)
+			"ermine": _mats[key] = U.mat(Color(0.96, 0.95, 0.92), 0.9)
+			"ermine_spot": _mats[key] = U.mat(Color(0.08, 0.08, 0.1), 0.9)
+			"lich_robe": _mats[key] = U.mat(Color(0.1, 0.12, 0.22), 0.85)
+			"lich_hem": _mats[key] = U.mat(Color(0.3, 0.95, 1.0), 0.4, 0.9)
+			"soul": _mats[key] = U.unlit(Color(0.55, 1.0, 1.0))
+			"soul_glow":
+				var g := U.unlit(Color(0.3, 0.9, 1.0, 0.5), U.soft_circle(), true).duplicate()
+				g.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+				_mats[key] = g
+			"basalt": _mats[key] = U.mat(Color(0.16, 0.12, 0.11), 0.9)
+			"lava": _mats[key] = U.unlit(Color(1.0, 0.5, 0.1))
+			"lava_hot": _mats[key] = U.unlit(Color(1.0, 0.85, 0.35))
+			_: return FoeBodies._m(key)
+	return _mats[key]
+
+
+## Puts the parts named `kind` on `model` (a KayKit character); false if it isn't a boss's.
+static func dress(model: Node3D, skel: Skeleton3D, kind: String) -> bool:
+	match kind:
+		"king": _king(skel)
+		"lich": _lich(model, skel)
+		"magma": _magma(skel)
+		_: return false
+	return true
+
+
+## The Skeleton King: great gold pauldrons spiked with bone, and a long red royal cape
+## trimmed with ermine, spreading out behind him to the floor.
+static func _king(skel: Skeleton3D) -> void:
+	var c := FoeBodies._on(skel, "chest")
+	if c == null:
+		return
+	for side in [-1.0, 1.0]:
+		var p := U.sphere(c, 0.25, _m("gold"), Vector3(side * 0.5, 0.16, 0.0))
+		p.scale = Vector3(1.1, 0.85, 1.1)
+		var rim := U.sphere(c, 0.27, _m("velvet_dark"), Vector3(side * 0.5, 0.1, 0.0))
+		rim.scale = Vector3(1.1, 0.4, 1.1)
+		for k in 3:
+			var s := U.cone(c, 0.08, 0.45 - 0.08 * absf(k - 1), _m("bone"), Vector3(side * (0.52 + 0.05 * k), 0.3, -0.15 + 0.15 * k))
+			s.rotation = Vector3(0.3 - 0.3 * k, 0, -side * 0.5)
+	# the cape: wide at the floor, from the shoulders down behind him
+	var cape := U.cone(c, 0.78, 1.05, _m("velvet"), Vector3(0, -0.85, -0.3), 0.36)
+	cape.scale = Vector3(1.0, 1.0, 0.16)   # (flat: a cape, not a drum)
+	var collar := U.cylinder(c, 0.44, 0.14, _m("ermine"), Vector3(0, 0.14, -0.12))
+	collar.scale = Vector3(1.0, 1.0, 0.75)
+	var hem := U.cylinder(c, 0.8, 0.08, _m("ermine"), Vector3(0, -0.87, -0.3))
+	hem.scale = Vector3(1.0, 1.0, 0.18)
+	for i in 6:
+		var ang := PI * (0.12 + 0.76 * i / 5.0)
+		U.sphere(c, 0.03, _m("ermine_spot"), Vector3(cos(ang) * 0.4, 0.29, -0.12 - sin(ang) * 0.3))
+	FeatHeads.bake(c, "boss king")
+
+
+## The Lich: no legs, floating on a long tattered robe with a soul-light hem; a mantle of
+## bone spikes on its shoulders and three souls circling it.
+static func _lich(model: Node3D, skel: Skeleton3D) -> void:
+	Art.hide_parts(model, ["Skeleton_Mage_LegLeft", "Skeleton_Mage_LegRight"])
+	var h := FoeBodies._on(skel, "hips")
+	if h:
+		U.cone(h, 0.62, 0.78, _m("lich_robe"), Vector3(0, -0.76, 0), 0.32)
+		U.cone(h, 0.66, 0.07, _m("lich_hem"), Vector3(0, -0.79, 0), 0.62)
+		for i in 9:
+			var ang := TAU * i / 9.0
+			var t := U.cone(h, 0.14, 0.42 - 0.12 * (i % 2), _m("lich_robe"), Vector3.ZERO)
+			t.position = Vector3(cos(ang) * 0.52, -0.8, sin(ang) * 0.52)
+			t.rotation = Vector3(PI, 0, 0)
+		FeatHeads.bake(h, "boss lich robe")
+		var orbit := FoeBodies.Orbit.new()
+		h.add_child(orbit)
+		for i in 3:
+			var ang := TAU * i / 3.0
+			var o := U.sphere(orbit, 0.16, _m("soul"), Vector3(cos(ang) * 1.25, 0.2, sin(ang) * 1.25))
+			o.name = "Soul%d" % i
+			var halo := U.sphere(o, 0.3, _m("soul_glow"))
+			halo.set_meta("fx", true)
+			o.set_meta("fx", true)
+	var c := FoeBodies._on(skel, "chest")
+	if c:
+		for side in [-1.0, 1.0]:
+			for k in 4:
+				var s := U.cone(c, 0.12 - 0.012 * k, 0.95 - 0.12 * k, _m("bone"), Vector3(side * (0.45 + 0.06 * k), 0.2 - 0.04 * k, -0.24 + 0.1 * k))
+				s.rotation = Vector3(-0.35 + 0.12 * k, 0, -side * (0.75 + 0.22 * k))
+		for side in [-1.0, 1.0]:   # a high stiff collar standing up behind its skull
+			var panel := U.box(c, Vector3(0.55, 1.0, 0.06), _m("lich_robe"), Vector3(side * 0.3, 0.62, -0.28))
+			panel.rotation = Vector3(-0.25, side * 0.45, -side * 0.3)
+			var lining := U.box(c, Vector3(0.45, 0.88, 0.02), _m("lich_hem"), Vector3(side * 0.29, 0.6, -0.24))
+			lining.rotation = Vector3(-0.25, side * 0.45, -side * 0.3)
+		FeatHeads.bake(c, "boss lich mantle")
+
+
+## The Cinder Colossus: hunched like an ape under a back of black basalt, cracked open in
+## vents that glow with lava, the biggest on its shoulders.
+static func _magma(skel: Skeleton3D) -> void:
+	var c := FoeBodies._on(skel, "chest")
+	if c == null:
+		return
+	var spots := [Vector3(-0.58, 0.12, 0.0), Vector3(0.58, 0.12, 0.0), Vector3(-0.32, 0.05, -0.4), Vector3(0.32, 0.05, -0.4), Vector3(0.0, -0.1, -0.5), Vector3(0.0, 0.25, -0.3)]
+	var tilt := [Vector3(-0.1, 0, 0.5), Vector3(-0.1, 0, -0.5), Vector3(-0.8, 0, 0.35), Vector3(-0.8, 0, -0.35), Vector3(-1.1, 0, 0), Vector3(-0.5, 0, 0)]
+	var size := [0.75, 0.75, 0.6, 0.6, 0.55, 0.5]   # (the chest is scaled 1.5: so are these)
+	for i in spots.size():
+		var k: float = size[i]
+		var b := Node3D.new()
+		c.add_child(b)
+		b.position = spots[i]
+		b.rotation = tilt[i]
+		U.cone(b, 0.3 * k, 0.5 * k, _m("basalt"), Vector3.ZERO, 0.12 * k)   # a vent: a cut-off cone
+		U.cylinder(b, 0.11 * k, 0.05, _m("lava_hot"), Vector3(0, 0.48 * k, 0))
+		U.cone(b, 0.1 * k, 0.32 * k, _m("lava"), Vector3(0, 0.5 * k, 0))
+		FeatHeads.bake(b, "boss magma %d" % i)
+		for n in b.get_children():
+			n.set_meta("fx", true)   # (its charring overlay and the hit flash leave the lava bright)

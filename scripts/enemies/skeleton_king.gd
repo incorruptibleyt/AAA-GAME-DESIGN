@@ -29,6 +29,8 @@ func _setup() -> void:
 	look.weapon = "Skeleton_Axe"
 	look.offhand = "Skeleton_Shield_Large_A"
 	look.attack_anim = "1H_Melee_Attack_Chop"
+	look.shape = {"scale": {"chest": Vector3(1.35, 1.1, 1.2), "head": 0.9, "upperarm.l": 1.25, "upperarm.r": 1.25, "upperleg.l": 0.9, "upperleg.r": 0.9}}   # (v348: a broad king)
+	look.parts = "king"
 	make_visual(look)
 
 

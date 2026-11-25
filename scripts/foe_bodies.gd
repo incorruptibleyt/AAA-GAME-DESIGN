@@ -92,6 +92,7 @@ static func dress(model: Node3D, kind: String) -> void:
 		"snowpack": _snowpack(skel)
 		"ears": _ears(skel)
 		"shade": _shade(model, skel)
+		_: BossBodies.dress(model, skel, kind)
 
 
 ## The Skeleton Warrior: a big round iron plate on each shoulder, wider than its head, with

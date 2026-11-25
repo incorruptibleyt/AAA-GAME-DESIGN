@@ -1,6 +1,4 @@
-Version 347: event skeletons with their own bodies
-- Moon Howlers have wolf ears, a red mane and a tail.
-- Bell Ringers carry a yoke of gold bells.
-- Snow Rollers are broad, with snow heaped on their shoulders.
-- Gift Thieves have long imp ears and run on long legs.
-- The Queen's Shades float on a long red gown.
+Version 348: bosses with their own bodies
+- The Skeleton King wears gold pauldrons and a royal cape.
+- The Lich floats on a tattered robe, a crowned skull in a high collar, souls circling it.
+- The Cinder Colossus is a hunched giant with lava vents on its back.

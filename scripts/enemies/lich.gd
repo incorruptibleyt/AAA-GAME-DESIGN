@@ -30,11 +30,14 @@ func _setup() -> void:
 	knockback_scale = 0.0
 	drop_chance = 0.0
 	var look := bones(Art.SKELETON_MAGE, 3.6, Color(0.4, 0.9, 1.0))
-	look.hat = true
+	look.hide = ["Skeleton_Mage_Hat"]   # (v348: a bare crowned skull, not a big mage)
+	look.crown_y = 0.82
 	look.crown = true
 	look.accent = Color(0.18, 0.12, 0.32)
 	look.weapon = "Skeleton_Staff"
 	look.tint = Color(0.05, 0.18, 0.35, 1.0)
+	look.shape = {"scale": {"chest": 0.85, "upperarm.l": 1.4, "upperarm.r": 1.4}, "lift": 0.4}   # (v348: floating, long-armed)
+	look.parts = "lich"
 	make_visual(look)
 
 
