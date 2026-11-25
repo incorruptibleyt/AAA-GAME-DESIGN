@@ -37,6 +37,12 @@ static func _m(key: String) -> Material:
 			"gown_gold": _mats[key] = U.mat(Color(1.0, 0.7, 0.25), 0.3, 0.4)
 			"wing": _mats[key] = U.mat(Color(0.22, 0.02, 0.05), 0.75, 0.1)
 			"wing_rim": _mats[key] = U.unlit(Color(1.0, 0.2, 0.15))
+			"kilt": _mats[key] = U.mat(Color(0.95, 0.92, 0.82), 0.85)
+			"lapis": _mats[key] = U.mat(Color(0.12, 0.25, 0.75), 0.35, 0.25)
+			"turq": _mats[key] = U.mat(Color(0.2, 0.8, 0.75), 0.35, 0.3)
+			"fur": _mats[key] = U.mat(Color(0.25, 0.17, 0.12), 0.95)
+			"fur_frost": _mats[key] = U.mat(Color(0.75, 0.85, 0.95), 0.9, 0.1)
+			"hoof": _mats[key] = U.mat(Color(0.12, 0.1, 0.1), 0.5)
 			_: return FoeBodies._m(key)
 	return _mats[key]
 
@@ -50,6 +56,9 @@ static func dress(model: Node3D, skel: Skeleton3D, kind: String) -> bool:
 		"fungal": _fungal(model, skel)
 		"tide": _tide(model, skel)
 		"queen": _queen(model, skel)
+		"pharaoh": _pharaoh(skel)
+		"tyrant": _tyrant(skel)
+		"goat": _goat(skel)
 		_: return false
 	return true
 
@@ -238,3 +247,77 @@ static func _queen(model: Node3D, skel: Skeleton3D) -> void:
 		mem.rotation = Vector3(-PI * 0.5, 0, 0)   # (the slab is made flat: stand it up)
 		w.add_child(mem)
 		FeatHeads.bake(w, "boss queen wing")
+
+
+## Version 350 (part 3). The Sand Pharaoh: a pleated kilt banded in gold, and a falcon's
+## wings of gold and lapis folded down its back, their tips flaring out past its shoulders.
+static func _pharaoh(skel: Skeleton3D) -> void:
+	var h := FoeBodies._on(skel, "hips")
+	if h:
+		U.cone(h, 0.5, 0.42, _m("kilt"), Vector3(0, -0.36, 0), 0.32)
+		U.cylinder(h, 0.34, 0.08, _m("gold"), Vector3(0, 0.0, 0))
+		var apron := U.box(h, Vector3(0.22, 0.4, 0.05), _m("gold"), Vector3(0, -0.2, 0.42))
+		apron.rotation.x = -0.35
+		for i in 3:
+			U.box(h, Vector3(0.23, 0.04, 0.06), _m("lapis"), Vector3(0, -0.08 - 0.12 * i, 0.43 - 0.04 * i))
+		FeatHeads.bake(h, "boss pharaoh kilt")
+	var c := FoeBodies._on(skel, "chest")
+	if c == null:
+		return
+	for side in [-1.0, 1.0]:
+		var w := Node3D.new()
+		c.add_child(w)
+		w.position = Vector3(side * 0.25, 0.2, -0.32)
+		w.rotation = Vector3(-0.3, side * -0.25, 0)
+		w.scale = Vector3(side, 1.0, 1.0)
+		U.box(w, Vector3(0.75, 0.16, 0.08), _m("gold"), Vector3(0.36, 0.12, 0)).rotation.z = 0.35
+		for k in 5:   # long feathers hanging from the wing's arm, lapis and turquoise by turns
+			var x := 0.12 + 0.15 * k
+			var len := 0.6 + 0.12 * k
+			var f := U.box(w, Vector3(0.2, len, 0.05), _m("lapis" if k % 2 == 0 else "turq"), Vector3(x + 0.08 * k, 0.08 + 0.05 * k - len * 0.5, -0.01))
+			f.rotation.z = 0.3 + 0.08 * k
+			U.box(w, Vector3(0.21, 0.06, 0.055), _m("gold"), Vector3(x + 0.08 * k + 0.02 * k, 0.1 + 0.05 * k, -0.01)).rotation.z = 0.3 + 0.08 * k
+		FeatHeads.bake(w, "boss pharaoh wing")
+		for n in w.get_children():
+			n.set_meta("fx", true)   # (its linen wraps overlay would stripe the feathers)
+
+
+## The Crystal Tyrant: clusters of amethyst burst from both shoulders, wider than its skull.
+static func _tyrant(skel: Skeleton3D) -> void:
+	var c := FoeBodies._on(skel, "chest")
+	if c == null:
+		return
+	for side in [-1.0, 1.0]:
+		for k in 4:
+			var s := U.cone(c, 0.16 - 0.025 * k, 0.8 - 0.14 * k, FoeBodies._m("amethyst" if k % 2 == 0 else "amethyst_pale"), Vector3(side * (0.48 + 0.06 * k), 0.12, -0.2 + 0.14 * k))
+			s.rotation = Vector3(-0.35 + 0.2 * k, 0.3 * k, -side * (0.45 + 0.2 * k))
+	FeatHeads.bake(c, "boss tyrant shoulders")
+	for n in c.get_children():
+		n.set_meta("fx", true)
+
+
+## Krampus: a goat's shaggy legs ending in black hooves, and a long tufted tail.
+static func _goat(skel: Skeleton3D) -> void:
+	for side in ["l", "r"]:
+		var up := FoeBodies._on(skel, "upperleg." + side)
+		if up:
+			U.cone(up, 0.24, 0.42, _m("fur"), Vector3(0, 0.0, 0), 0.2)
+			U.cone(up, 0.26, 0.12, _m("fur_frost"), Vector3(0, 0.36, 0), 0.22)
+			FeatHeads.bake(up, "boss goat thigh")
+		var low := FoeBodies._on(skel, "lowerleg." + side)
+		if low:
+			U.cone(low, 0.2, 0.3, _m("fur"), Vector3(0, 0.0, 0), 0.14)
+			FeatHeads.bake(low, "boss goat shin")
+		var foot := FoeBodies._on(skel, "foot." + side)
+		if foot:
+			var hoof := U.cylinder(foot, 0.16, 0.14, _m("hoof"), Vector3(0, -0.06, 0.04))
+			hoof.scale = Vector3(1.0, 1.0, 1.3)
+			U.box(foot, Vector3(0.03, 0.15, 0.3), _m("fur"), Vector3(0, 0.0, 0.08))
+			FeatHeads.bake(foot, "boss goat hoof")
+	var h := FoeBodies._on(skel, "hips")
+	if h:
+		var t := U.cone(h, 0.07, 1.1, _m("fur"), Vector3(0, 0.0, -0.25))
+		t.rotation = Vector3(-2.2, 0, 0)
+		var tuft := U.sphere(h, 0.17, _m("fur_frost"), Vector3(0, -0.65, -1.0))
+		tuft.scale = Vector3(1.0, 1.4, 1.0)
+		FeatHeads.bake(h, "boss goat tail")

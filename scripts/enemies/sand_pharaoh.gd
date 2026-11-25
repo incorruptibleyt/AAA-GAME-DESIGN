@@ -93,6 +93,8 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_WARRIOR, 4.6, TURQUOISE)
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	look.overlay = _royal_wraps()
+	look.shape = {"scale": {"chest": Vector3(1.25, 1.05, 1.0), "head": 0.9, "upperarm.l": 1.15, "upperarm.r": 1.15, "upperleg.l": 1.3, "upperleg.r": 1.3}}   # (v350: tall, broad-shouldered)
+	look.parts = "pharaoh"
 	look.attack_anim = "1H_Melee_Attack_Chop"
 	make_visual(look)
 	_dress()

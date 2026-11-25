@@ -56,6 +56,9 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_WARRIOR, 4.3, ICE)
 	look.accent = Color(0.22, 0.14, 0.1)
 	look.overlay = _frost_overlay()   # old, dark bone with frost on it
+	look.shape = {"scale": {"chest": 1.4, "head": 0.76, "upperarm.l": 1.4, "upperarm.r": 1.4, "upperleg.l": 0.9, "upperleg.r": 0.9},
+		"turn": {"spine": Vector3(20, 0, 0), "head": Vector3(-16, 0, 0)}}   # (v350: hunched, long-armed)
+	look.parts = "goat"
 	look.attack_anim = "1H_Melee_Attack_Slice_Diagonal"
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	make_visual(look)

@@ -1,4 +1,4 @@
-Version 349: more bosses with their own bodies
-- The Sporemother grows out of a toadstool, a ring of glowing toadstools round her.
-- The Tidecaller rises from a turning whirlpool, shells on its shoulders.
-- The Blood Moon Queen floats in a red gown with bat wings spread.
+Version 350: more bosses with their own bodies
+- The Sand Pharaoh stands tall with falcon wings of lapis and gold.
+- The Crystal Tyrant is a hulk with amethyst bursting from its shoulders.
+- Krampus hunches on goat legs and hooves, a tufted tail behind him.

@@ -93,6 +93,9 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_MINION, 4.5, AMETHYST)
 	look.hide = ["Skeleton_Minion_Cloak"]
 	look.overlay = _crystal_bones()
+	look.shape = {"scale": {"chest": 1.45, "head": 0.72, "upperarm.l": 1.3, "upperarm.r": 1.6, "upperleg.l": 0.8, "upperleg.r": 0.8},
+		"turn": {"spine": Vector3(15, 0, 0), "head": Vector3(-12, 0, 0)}}   # (v350: a hulk, its crystal fist long)
+	look.parts = "tyrant"
 	look.attack_anim = "1H_Melee_Attack_Chop"
 	make_visual(look)
 	_dress()
