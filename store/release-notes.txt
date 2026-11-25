@@ -1,6 +1,7 @@
-Version 353: outfits that change shape (part 1)
-- Velvet: puffed, gold-slashed sleeves and tailcoat tails.
-- Forest: a mantle of leaves on the shoulders and back.
-- Midnight: a tall starred collar with a silver moon.
-- Ivory: stacked paladin shoulder plates.
-- The Mage's hat wears the outfit too: a gold plume, leaves, stars and moon, or plates.
+Version 354: outfits that change shape (part 2)
+- Shadow: a torn mantle of violet-tipped strips and rising wisps.
+- Royal: an ermine collar and a long royal mantle.
+- Ember: glowing coal on the shoulders, with flames.
+- Frost: a fur collar, blue ice crystals and icicles.
+- The Mage's hat wears each one too.
+- Long capes no longer show a ghost of the hero through them.

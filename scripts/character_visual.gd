@@ -24,6 +24,10 @@ var _dead := false
 var _flash := 0.0
 var _last_flash_ms := -100000
 var _meshes: Array[GeometryInstance3D] = []
+## Version 354: an outfit's own solid parts (meta "mark", OutfitShapes): they keep their
+## colours, but count as the hero for the see-through silhouette. (A long mantle covered the
+## hero's body, so the silhouette drew the body through it, a ghost over the cape.)
+var _marked: Array[GeometryInstance3D] = []
 static var _flash_mat: StandardMaterial3D
 static var _soft_flash_mat: StandardMaterial3D
 ## Bosses take many hits a second, so theirs is a soft glow, less often (see hit()).
@@ -210,6 +214,8 @@ func _find_anim(n: Node) -> AnimationPlayer:
 func _collect_meshes(n: Node) -> void:
 	if n is GeometryInstance3D and not n.has_meta("fx"):   # not glow quads: the hit flash made them white squares
 		_meshes.append(n)
+	elif n is GeometryInstance3D and n.has_meta("mark"):
+		_marked.append(n)
 	for c in n.get_children():
 		_collect_meshes(c)
 
@@ -475,6 +481,9 @@ func _set_flash(on: bool) -> void:
 	for m in _meshes:
 		if is_instance_valid(m):
 			m.material_overlay = seen if _outline_set.has(m) else mat
+	for m in _marked:
+		if is_instance_valid(m):
+			m.material_overlay = _xray_mark if xray and not _dead else null
 
 
 ## The pale flicker of a hero who can't be hurt just now (see _blink_off): a see-through

@@ -30,6 +30,7 @@ static func _m(outfit: String, tone: String, rough := 0.7, glow := 0.12) -> Mate
 			"fire": c = Color(1.0, 0.55, 0.12)
 			"fire_hot": c = Color(1.0, 0.85, 0.4)
 			"ice": c = Color(0.65, 0.9, 1.0)
+			"glacier": c = Color(0.18, 0.45, 0.95)   # (v354: pale ice vanished on the pale Frost outfit)
 			"bone": c = Color(0.92, 0.88, 0.78)
 			"shell": c = Color(0.97, 0.82, 0.7)
 			"shell_in": c = Color(0.95, 0.5, 0.55)
@@ -71,10 +72,11 @@ static func _ray(parent: Node3D, r: float, length: float, mat: Material, from: V
 static func _keep(root: Node3D) -> void:
 	for n in root.get_children():
 		n.set_meta("fx", true)
+		n.set_meta("mark", true)   # (but they hide the hero's body: see CharacterVisual._marked)
 
 
 ## The outfits whose shapes are switched on (the rest come one build at a time).
-const READY := ["crimson", "forest", "midnight", "ivory"]
+const READY := ["crimson", "forest", "midnight", "ivory", "shadow", "royal", "ember", "frost"]
 
 
 ## Puts outfit `key`'s shapes on a hero's skeleton. `wings`: the hero wears Legend wings
@@ -171,6 +173,57 @@ static func _hat(skel: Skeleton3D, o: String) -> void:
 				trim.scale = Vector3(1.0, 0.14, 1.0)
 				U.sphere(root, 0.055, _m(o, "gold", 0.3, 0.3), at * 0.78 + Vector3(0, 0.1, 0))
 			U.sphere(root, 0.13, _m(o, "gold", 0.3, 0.3), Vector3(0, 1.0, -0.22))
+		"shadow":   # a brim torn into ragged strips, violet-tipped, wisps rising off the tip
+			for k in 11:
+				var a := TAU * k / 11.0
+				var out := Vector3(cos(a), 0.0, sin(a))
+				_ray(root, 0.13, 0.42 + 0.12 * (k % 2), _m(o, "a" if k % 2 == 0 else "b", 0.6, 0.0 if k % 2 == 0 else 0.6), out * 0.88 + Vector3(0, 0.03, 0), out + Vector3(0, -0.45, 0))
+			for k in 3:
+				_ray(root, 0.08, 0.5 + 0.12 * (k % 2), _m(o, "b", 0.4, 0.8), Vector3(0, 0.9, -0.2), Vector3(0.6 * (k - 1), 1.0, -0.5))
+		"royal":   # an ermine trim all round the brim and a small gold crown on the tip
+			var ring := MeshInstance3D.new()
+			var torus := TorusMesh.new()
+			torus.inner_radius = 0.84
+			torus.outer_radius = 1.12
+			ring.mesh = torus
+			ring.material_override = _m(o, "ermine", 0.9, 0.1)
+			ring.position = Vector3(0, 0.02, 0)
+			ring.scale = Vector3(1.0, 0.6, 1.0)
+			root.add_child(ring)
+			for k in 14:
+				var a := TAU * k / 14.0
+				var sp := U.sphere(root, 0.04, _m(o, "black"), Vector3(cos(a) * 0.98, 0.11, sin(a) * 0.98))
+				sp.scale = Vector3(1.0, 0.6, 1.8)
+				sp.rotation.y = -a
+			U.cylinder(root, 0.22, 0.1, _m(o, "gold", 0.3, 0.35), Vector3(0, 0.82, -0.18))
+			for k in 5:
+				var a := TAU * k / 5.0
+				U.cone(root, 0.06, 0.2, _m(o, "gold", 0.3, 0.35), Vector3(cos(a) * 0.2, 0.86, -0.18 + sin(a) * 0.2))
+				U.sphere(root, 0.04, _m(o, "a_light", 0.3, 0.5), Vector3(cos(a) * 0.2, 1.08, -0.18 + sin(a) * 0.2))
+		"ember":   # lumps of glowing coal on the brim, flames licking up, a flame for a tip
+			for k in 7:
+				var a := TAU * k / 7.0 + 0.2
+				var at := Vector3(cos(a) * 0.82, 0.08, sin(a) * 0.82)
+				var lump := U.sphere(root, 0.17, _m(o, "coal", 0.9, 0.0), at)
+				lump.scale = Vector3(1.2, 0.7, 1.0)
+				lump.rotation.y = a
+				var crack := U.box(root, Vector3(0.28, 0.03, 0.04), _m(o, "fire", 0.4, 1.4), at + Vector3(0, 0.1, 0))
+				crack.rotation.y = -a + 0.6
+				if k % 2 == 0:
+					U.cone(root, 0.09, 0.32, _m(o, "fire_hot" if k % 4 == 0 else "fire", 0.4, 1.6), at + Vector3(0, 0.1, 0))
+			U.cone(root, 0.14, 0.45, _m(o, "fire", 0.4, 1.6), Vector3(0, 0.85, -0.2))
+			U.cone(root, 0.08, 0.32, _m(o, "fire_hot", 0.4, 1.8), Vector3(0, 0.9, -0.2))
+		"frost":   # a white fur band, ice crystals on the brim, icicles hanging from its edge
+			U.cylinder(root, 0.55, 0.2, _m(o, "ermine", 0.95, 0.1), Vector3(0, 0.14, 0))
+			for k in 6:
+				var a := TAU * k / 6.0 + 0.5
+				var at := Vector3(cos(a) * 0.78, 0.05, sin(a) * 0.78)
+				var out := Vector3(cos(a), 0.0, sin(a))
+				_ray(root, 0.1, 0.45, _m(o, "glacier", 0.2, 0.6), at, out * 0.5 + Vector3(0, 1.0, 0))
+				_ray(root, 0.07, 0.3, _m(o, "ice", 0.2, 0.6), at, out + Vector3(0.4, 0.6, 0))
+			for k in 12:
+				var a := TAU * k / 12.0
+				_ray(root, 0.06, 0.22 + 0.1 * (k % 2), _m(o, "ice", 0.2, 0.6), Vector3(cos(a), -0.02, sin(a)) * Vector3(0.98, 1.0, 0.98), Vector3.DOWN)
 	if root.get_child_count() == 0:
 		hat.remove_child(root)
 		root.free()
@@ -352,7 +405,7 @@ static func _frost(skel: Skeleton3D, o: String) -> void:
 	fur.scale = Vector3(1.0, 1.0, 0.85)
 	for side in [-1.0, 1.0]:
 		for k in 4:
-			_ray(root, 0.1 - 0.012 * k, 0.55 - 0.08 * k, _m(o, "ice", 0.15, 0.6), Vector3(side * (0.4 + 0.04 * k), 0.2, -0.15 + 0.12 * k), Vector3(side * (0.5 + 0.3 * k), 1.0, -0.4 + 0.3 * k))
+			_ray(root, 0.1 - 0.012 * k, 0.55 - 0.08 * k, _m(o, "glacier" if k % 2 == 0 else "ice", 0.15, 0.6), Vector3(side * (0.4 + 0.04 * k), 0.2, -0.15 + 0.12 * k), Vector3(side * (0.5 + 0.3 * k), 1.0, -0.4 + 0.3 * k))
 		for k in 3:
 			_ray(root, 0.04, 0.2 - 0.04 * (k % 2), _m(o, "ice", 0.15, 0.6), Vector3(side * (0.4 + 0.07 * k), 0.1, -0.08 + 0.1 * k), Vector3.DOWN)
 	FeatHeads.bake(root, "outfit frost")
