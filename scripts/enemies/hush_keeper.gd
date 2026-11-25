@@ -42,6 +42,11 @@ func _setup() -> void:
 	look.overlay = _script_bones()
 	look.accent = ROBE
 	look.attack_anim = "Spellcast_Shoot"
+	# Version 344 (visual review fix 7): an old librarian bent double under a tall stack of
+	# books strapped to its back, its skull pushed forward.
+	look.shape = {"scale": {"head": 1.1, "upperleg.l": 0.85, "upperleg.r": 0.85},
+		"turn": {"spine": Vector3(26, 0, 0), "chest": Vector3(10, 0, 0), "head": Vector3(-26, 0, 0)}}
+	look.parts = "books"
 	make_visual(look)
 	_dress()
 

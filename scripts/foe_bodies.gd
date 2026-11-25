@@ -22,6 +22,15 @@ static func _m(key: String) -> Material:
 			"amethyst_pale": _mats[key] = U.mat(Color(0.9, 0.75, 1.0), 0.2, 0.6)
 			"brass": _mats[key] = U.mat(Color(1.0, 0.72, 0.3), 0.3, 0.25)
 			"steel": _mats[key] = U.mat(Color(0.4, 0.4, 0.45), 0.35)
+			"void": _mats[key] = U.mat(Color(0.12, 0.14, 0.35), 0.5, 0.6)
+			"void_rim": _mats[key] = U.mat(Color(0.55, 0.65, 1.0), 0.3, 1.2)
+			"book_a": _mats[key] = U.mat(Color(0.55, 0.12, 0.12), 0.8)
+			"book_b": _mats[key] = U.mat(Color(0.12, 0.3, 0.35), 0.8)
+			"book_c": _mats[key] = U.mat(Color(0.35, 0.22, 0.45), 0.8)
+			"pages": _mats[key] = U.mat(Color(0.95, 0.9, 0.75), 0.9)
+			"weed": _mats[key] = U.mat(Color(0.2, 0.5, 0.3), 0.7, 0.25)
+			"weed_dark": _mats[key] = U.mat(Color(0.12, 0.32, 0.22), 0.8)
+			"barnacle": _mats[key] = U.mat(Color(0.75, 0.75, 0.68), 0.9)
 			"rock": _mats[key] = U.mat(Color(0.3, 0.27, 0.32), 0.9)
 			"robe": _mats[key] = U.mat(Color(0.3, 0.16, 0.44), 0.85)
 			"robe_hem": _mats[key] = U.mat(Color(0.55, 0.3, 0.85), 0.6, 0.5)
@@ -55,6 +64,9 @@ static func dress(model: Node3D, kind: String) -> void:
 		"linen": _linen(skel)
 		"geode": _geode(skel)
 		"cogs": _cogs(skel)
+		"voidtail": _voidtail(model, skel)
+		"books": _books(skel)
+		"seaweed": _seaweed(skel)
 
 
 ## The Skeleton Warrior: a big round iron plate on each shoulder, wider than its head, with
@@ -187,6 +199,72 @@ static func _cogs(skel: Skeleton3D) -> void:
 			var tooth := U.box(spin, Vector3(0.12, 0.08, 0.12), _m("brass"), Vector3(cos(ang) * 0.34, -0.04, sin(ang) * 0.34))
 			tooth.rotation.y = -ang
 		FeatHeads.bake(spin, "foe cog")
+
+
+## The Void Walker: no legs, a long tail of the starry void trailing to a point under it.
+static func _voidtail(model: Node3D, skel: Skeleton3D) -> void:
+	Art.hide_parts(model, ["Skeleton_Warrior_LegLeft", "Skeleton_Warrior_LegRight"])
+	var a := _on(skel, "hips")
+	if a == null:
+		return
+	var top := U.cone(a, 0.1, 0.75, _m("void"), Vector3(0, -0.72, 0), 0.38)
+	top.name = "Tail"
+	var tip := U.cone(a, 0.1, 0.4, _m("void"), Vector3.ZERO)
+	tip.position = Vector3(0, -0.72, 0.02)
+	tip.rotation = Vector3(PI - 0.6, 0, 0)
+	var band := U.cylinder(a, 0.37, 0.05, _m("void_rim"), Vector3(0, -0.02, 0))
+	band.name = "Band"
+	for i in 3:   # wisps
+		var ang := TAU * i / 3.0 + 0.4
+		var w := U.cone(a, 0.08, 0.35, _m("void_rim"), Vector3.ZERO)
+		w.position = Vector3(cos(ang) * 0.3, -0.42, sin(ang) * 0.3)
+		w.rotation = Vector3(PI - 0.5 * sin(ang), 0, 0.5 * cos(ang))
+	FeatHeads.bake(a, "foe voidtail")
+
+
+## The Hush Keeper: a tall stack of old books strapped to its bent back, above its head.
+static func _books(skel: Skeleton3D) -> void:
+	var a := _on(skel, "chest")
+	if a == null:
+		return
+	var y := 0.1
+	var sizes := [Vector3(0.72, 0.22, 0.5), Vector3(0.64, 0.2, 0.46), Vector3(0.7, 0.24, 0.5), Vector3(0.58, 0.18, 0.44), Vector3(0.66, 0.22, 0.48), Vector3(0.5, 0.16, 0.4)]
+	var mats := ["book_a", "book_b", "book_c", "book_b", "book_a", "book_c"]
+	for i in sizes.size():
+		var s: Vector3 = sizes[i]
+		var x := 0.05 * ((i % 2) * 2 - 1)
+		var b := U.box(a, s, _m(mats[i]), Vector3(x, y + s.y * 0.5, -0.5))
+		b.rotation.y = 0.18 * ((i % 3) - 1)
+		var p := U.box(a, Vector3(s.x - 0.08, s.y - 0.05, 0.04), _m("pages"), Vector3(x, y + s.y * 0.5, -0.5 + s.z * 0.5))
+		p.rotation.y = b.rotation.y
+		y += s.y
+	var strap := U.box(a, Vector3(0.08, y, 0.56), _m("leather"), Vector3(0, y * 0.5 + 0.05, -0.47))
+	strap.name = "Strap"
+	FeatHeads.bake(a, "foe books")
+	for c in a.get_children():
+		c.set_meta("fx", true)   # (its see-through script overlay would hide the covers)
+
+
+## The Drowned Skeleton: weed hanging from its skull and shoulders, barnacles on its bones.
+static func _seaweed(skel: Skeleton3D) -> void:
+	var h := _on(skel, "head")
+	if h:
+		for i in 5:
+			var ang := -1.2 + 0.6 * i
+			var s := U.box(h, Vector3(0.09, 0.6 - 0.08 * (i % 2), 0.02), _m("weed" if i % 2 == 0 else "weed_dark"), Vector3.ZERO)
+			s.position = Vector3(sin(ang) * 0.42, 0.55, cos(ang) * 0.3 - 0.1)
+			s.rotation = Vector3(0.25, ang, 0.15 * sin(ang))
+		for i in 3:
+			U.sphere(h, 0.07, _m("barnacle"), Vector3(-0.25 + 0.22 * i, 0.9, 0.1 * (i - 1)))
+		FeatHeads.bake(h, "foe weed head")
+	var c := _on(skel, "chest")
+	if c:
+		for side in [-1.0, 1.0]:
+			for k in 2:
+				var s := U.box(c, Vector3(0.1, 0.55, 0.02), _m("weed" if k == 0 else "weed_dark"), Vector3.ZERO)
+				s.position = Vector3(side * (0.3 + 0.08 * k), 0.05, 0.05 - 0.12 * k)
+				s.rotation = Vector3(0.1, 0, side * 0.25)
+		FeatHeads.bake(c, "foe weed chest")
 
 
 ## A part turning round and round (the clockwork's cogs).

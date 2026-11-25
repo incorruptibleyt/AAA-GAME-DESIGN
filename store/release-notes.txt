@@ -1,4 +1,4 @@
-Version 344: more skeletons with their own bodies
-- Tomb Mummies shamble bent over with their arms reaching for you, linen trailing.
-- Geode Guards are stocky miners with amethyst growing out of their backs.
-- Clockwork Skeletons are boxy machines on long legs with brass cogs turning on their shoulders.
+Version 345: even more skeletons with their own bodies
+- Void Walkers float on a tail of the void, with no legs and long arms.
+- Hush Keepers are bent double under a tall stack of books.
+- Drowned Skeletons are swollen with sea water, weed hanging from their skulls.

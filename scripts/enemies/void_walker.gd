@@ -39,6 +39,12 @@ func _setup() -> void:
 	var look := bones(Art.SKELETON_WARRIOR, 2.15, SKY)
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	look.overlay = _overlay()
+	# Version 344 (visual review fix 7): a gaunt spectre: no legs, a tail of the void
+	# trailing under it, long thin arms, floating.
+	look.height = 2.4
+	look.shape = {"scale": {"chest": 0.85, "head": 0.95, "upperarm.l": 1.45, "upperarm.r": 1.45}, "lift": 0.3,
+		"turn": {"spine": Vector3(10, 0, 0)}}
+	look.parts = "voidtail"
 	make_visual(look)
 	_dress()
 
