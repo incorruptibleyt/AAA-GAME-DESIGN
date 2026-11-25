@@ -62,4 +62,4 @@ func _spit(d: Vector3) -> void:
 		var dir := d.rotated(Vector3.UP, angle)
 		# Shards fly at 7 m/s (were 8), easier to dodge: they were a top-three damage source on
 		# floor 3 in every run report.
-		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + dir * 0.6, dir, 10.0, 7.0, Color(0.6, 1.0, 0.4), 0.22, "Bone Spitter")
+		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 0.9 + dir * 0.6, dir, 10.0, 7.0, Color(0.6, 1.0, 0.4), 0.22, "Bone Spitter", ShotLook.place_shot())

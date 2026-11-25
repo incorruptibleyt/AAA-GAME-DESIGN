@@ -537,7 +537,7 @@ static func _dart_fan(at: Vector3, hero_at: Vector3, src: String) -> void:
 	for i in DART_LINES:
 		var d := Vector3.FORWARD.rotated(Vector3.UP, turn + TAU * i / DART_LINES)
 		var fly := func():
-			var p := Projectile.fire(Team.UNDEAD, at + Vector3.UP * 0.9 + d * 0.4, d, DART_DAMAGE, DART_SPEED, col, 0.24, src)
+			var p := Projectile.fire(Team.UNDEAD, at + Vector3.UP * 0.9 + d * 0.4, d, DART_DAMAGE, DART_SPEED, col, 0.24, src, "dart")
 			p.life = DART_LENGTH / DART_SPEED
 		Telegraph.line(at + d * 0.3, d, DART_LENGTH, 0.45, DART_WARN, fly, 0.6 if i == 0 else 0.0)
 

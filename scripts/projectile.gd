@@ -85,12 +85,13 @@ var _spent := false
 
 
 ## `style` picks a hero shot's look ("shard" for bone shards); empty means the hero's own.
+## For an undead shot it picks what is in the orb's middle (ShotLook.SHOT_KIND, version 370).
 static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd: float, col: Color, size := 0.22, src := "Shot", style := "") -> Projectile:
 	var hero_shot := team == Actor.Team.HERO
 	if hero_shot and style == "":
 		style = ShotLook.HERO_KIND.get(Game.hero.hero_id if Game.hero else "", "bolt")
 	# Undead orbs put their floor glow at the height they were fired from.
-	var key := "h%s|%s|%.3f" % [style, col.to_html(), size] if hero_shot else "u%.3f|%.1f" % [size, origin.y]
+	var key := "h%s|%s|%.3f" % [style, col.to_html(), size] if hero_shot else "u%s|%.3f|%.1f" % [style, size, origin.y]
 	var p := _take(key)
 	var fresh := p == null
 	if fresh:
@@ -117,7 +118,7 @@ static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd
 			if p._glow:
 				p._glow_size = p._glow.scale.x
 		else:
-			p._look = ShotLook.danger(p, maxf(size, 0.2) * 1.3, origin.y)
+			p._look = ShotLook.danger(p, maxf(size, 0.2) * 1.3, origin.y, style)
 	if p._glow:
 		p._glow.scale = Vector3(p._glow_size * 2.2, p._glow_size * 2.2, 1.0)   # muzzle flash: starts big, settles
 	if p._look:

@@ -28,6 +28,41 @@ static var _mats := {}
 static var _flat: QuadMesh
 static var _card: QuadMesh
 static var _danger_mat: ShaderMaterial
+static var _danger_mats := {}
+
+## Version 370 (visual review fix 4): what sits in the middle of an undead shot. Every one
+## keeps the pink edge, glow and floor light, so danger still reads at a glance; the middle
+## and the tail tell you what was shot. The numbers are the shader's `kind`.
+const SHOT_KIND := {"arrow": 1, "bone": 2, "ice": 3, "fire": 4, "water": 5, "spore": 6, "moon": 7, "sand": 8,
+	"crystal": 9, "ink": 10, "gear": 11, "star": 12, "dart": 13, "snow": 14}
+## The comet tail behind each (the plain orb's is the danger pink).
+const SHOT_TAIL := {"arrow": Color(1.0, 0.45, 0.55), "bone": Color(1.0, 0.5, 0.6), "ice": Color(0.4, 0.75, 1.0),
+	"fire": Color(1.0, 0.45, 0.1), "water": Color(0.15, 0.8, 0.9), "spore": Color(0.55, 1.0, 0.25),
+	"moon": Color(1.0, 0.2, 0.15), "sand": Color(1.0, 0.72, 0.3), "crystal": Color(0.7, 0.4, 1.0),
+	"ink": Color(0.5, 0.35, 1.0), "gear": Color(1.0, 0.6, 0.2), "star": Color(0.75, 0.8, 1.0),
+	"dart": Color(1.0, 0.75, 0.35), "snow": Color(0.7, 0.9, 1.0)}
+## What a Bone Spitter spits in each place (in the order of Floors.THEMES).
+const PLACE_SHOT := ["bone", "ice", "fire", "water", "spore", "moon", "snow", "sand", "crystal", "ink", "gear", "star"]
+
+
+## The shot of the place the run is in.
+static func place_shot() -> String:
+	return PLACE_SHOT[clampi(Floors.index(Game.floor_num), 0, PLACE_SHOT.size() - 1)]
+
+
+## The orb's card for a style ("" = the plain orb).
+static func danger_mat(style: String) -> ShaderMaterial:
+	_shaders()
+	if not SHOT_KIND.has(style):
+		return _danger_mat
+	if not _danger_mats.has(style):
+		var m := ShaderMaterial.new()
+		m.shader = _danger_shader
+		m.set_shader_parameter("col", DANGER)
+		m.set_shader_parameter("kind", SHOT_KIND[style])
+		m.render_priority = 1
+		_danger_mats[style] = m
+	return _danger_mats[style]
 static var _floor_mats := {}
 
 
@@ -114,27 +149,159 @@ void fragment() {
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 uniform vec4 col : source_color = vec4(1.0, 0.12, 0.38, 1.0);
+uniform int kind = 0;
 varying vec2 q;
+varying vec2 fdir;
 void vertex() {
+	// (which way the shot flies, as the screen sees it, so its shape points that way)
+	vec3 f = (VIEW_MATRIX * vec4(-MODEL_MATRIX[2].xyz, 0.0)).xyz;
+	fdir = normalize(f.xy + vec2(0.0, 0.0001));
 	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
 	MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
 		vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));
 	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
 	q = VERTEX.xy * 2.0;
 }
+float seg(vec2 p, vec2 a, vec2 b) {
+	vec2 pa = p - a;
+	vec2 ba = b - a;
+	return length(pa - ba * clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0));
+}
+vec2 turn(vec2 p, float a) {
+	float c = cos(a);
+	float s = sin(a);
+	return vec2(p.x * c - p.y * s, p.x * s + p.y * c);
+}
 void fragment() {
 	float r = length(q) / (1.0 + 0.07 * sin(TIME * 14.0));
-	float ang = atan(q.y, q.x);
-	float sw = 0.5 + 0.5 * sin(ang * 2.0 - TIME * 10.0 + r * 10.0);
-	float core = 1.0 - smoothstep(0.1, 0.34, r);
 	float inner = 1.0 - smoothstep(0.54, 0.58, r);
 	float ring = 1.0 - smoothstep(0.66, 0.70, r);
 	float g = 1.0 - smoothstep(0.62, 1.0, r);
-	vec3 body = mix(col.rgb, vec3(1.0, 0.62, 0.78), sw * 0.45 * (1.0 - smoothstep(0.2, 0.55, r)));
-	body = mix(body, vec3(1.0, 0.97, 0.98), core);
-	vec3 c = mix(vec3(0.05, 0.0, 0.03), body, inner);
-	ALBEDO = mix(col.rgb, c, ring);
-	ALPHA = max(ring, g * g * 0.65);
+	vec3 dark = vec3(0.05, 0.0, 0.03);
+	if (kind == 0) {
+		float ang0 = atan(q.y, q.x);
+		float sw = 0.5 + 0.5 * sin(ang0 * 2.0 - TIME * 10.0 + r * 10.0);
+		float core = 1.0 - smoothstep(0.1, 0.34, r);
+		vec3 body = mix(col.rgb, vec3(1.0, 0.62, 0.78), sw * 0.45 * (1.0 - smoothstep(0.2, 0.55, r)));
+		body = mix(body, vec3(1.0, 0.97, 0.98), core);
+		vec3 c0 = mix(dark, body, inner);
+		ALBEDO = mix(col.rgb, c0, ring);
+		ALPHA = max(ring, g * g * 0.65);
+	} else {
+		// Version 370: the pink edge stays, the middle is the shot's own shape. `u` is
+		// the card turned so +y is the way the shot flies; `d` is how far outside the
+		// shape a point is, `mc` the shape's colour and `bg` the middle behind it.
+		vec2 u = vec2(q.x * fdir.y - q.y * fdir.x, dot(q, fdir));
+		float rr = length(u);
+		float ang = atan(u.y, u.x);
+		float d = 1.0;
+		vec3 mc = vec3(1.0);
+		vec3 bg = vec3(0.16, 0.0, 0.07);
+		if (kind == 1) {
+			// Arrow: shaft, steel head, pink feathers. Longer than the orb.
+			float shaft = seg(u, vec2(0.0, -0.8), vec2(0.0, 0.5)) - 0.05;
+			float head = max((abs(u.x) - 0.3 * (0.98 - u.y) / 0.5) * 0.85, 0.48 - u.y);
+			vec2 fa = vec2(abs(u.x), u.y);
+			float fl = min(seg(fa, vec2(0.0, -0.44), vec2(0.2, -0.66)), seg(fa, vec2(0.0, -0.66), vec2(0.2, -0.88))) - 0.045;
+			d = min(shaft, min(head, fl));
+			mc = head <= d ? vec3(0.9, 0.96, 1.0) : (fl <= d ? vec3(1.0, 0.5, 0.68) : vec3(1.0, 0.84, 0.5));
+		} else if (kind == 2) {
+			// Bone: a little bone, tumbling.
+			vec2 b = turn(u, TIME * 7.0);
+			d = seg(b, vec2(-0.24, 0.0), vec2(0.24, 0.0)) - 0.08;
+			d = min(d, length(vec2(abs(b.x) - 0.3, abs(b.y) - 0.1)) - 0.125);
+			mc = vec3(1.0, 0.94, 0.78);
+			bg = vec3(0.2, 0.01, 0.1);
+		} else if (kind == 3) {
+			// Ice: a long shard with two small ones beside it.
+			d = (abs(u.x) / 0.2 + abs(u.y - 0.04) / 0.5 - 1.0) * 0.18;
+			d = min(d, (abs(abs(u.x) - 0.31) / 0.1 + abs(u.y + 0.14) / 0.26 - 1.0) * 0.09);
+			mc = u.x > 0.0 ? vec3(0.95, 1.0, 1.0) : vec3(0.4, 0.78, 1.0);
+			bg = vec3(0.01, 0.06, 0.3);
+		} else if (kind == 4) {
+			// Fire: a ball with a licking tail.
+			vec2 h = u - vec2(0.0, 0.14);
+			float t = clamp(-h.y / 0.66, 0.0, 1.0);
+			float wob = sin(u.y * 13.0 + TIME * 20.0) * 0.07 * t;
+			d = h.y > 0.0 ? length(h) - 0.3 : abs(u.x + wob) - 0.3 * (1.0 - t * t);
+			d = max(d, -0.54 - u.y);
+			mc = mix(vec3(1.0, 0.95, 0.5), vec3(1.0, 0.36, 0.03), smoothstep(0.05, 0.36, length(h * vec2(1.0, 0.6))));
+			bg = vec3(0.26, 0.01, 0.0);
+		} else if (kind == 5) {
+			// Water: a drop with a glint and two small bubbles behind.
+			d = length(u - vec2(0.0, 0.1)) - 0.3;
+			d = min(d, length(u - vec2(-0.2, -0.36)) - 0.09);
+			d = min(d, length(u - vec2(0.17, -0.42)) - 0.06);
+			mc = mix(vec3(0.85, 1.0, 1.0), vec3(0.05, 0.75, 0.95), smoothstep(0.06, 0.12, length(u - vec2(-0.1, 0.2))));
+			bg = vec3(0.0, 0.07, 0.22);
+		} else if (kind == 6) {
+			// Spore: a puff with six seeds going round it.
+			vec2 sp = turn(u, TIME * 2.0);
+			float a6 = mod(atan(sp.y, sp.x), TAU / 6.0) - TAU / 12.0;
+			d = min(rr - 0.2, length(rr * vec2(cos(a6), sin(a6)) - vec2(0.38, 0.0)) - 0.085);
+			mc = vec3(0.66, 1.0, 0.2);
+			bg = vec3(0.02, 0.14, 0.04);
+		} else if (kind == 7) {
+			// Moon: a crescent, horns behind.
+			d = max(rr - 0.42, 0.34 - length(u - vec2(0.0, -0.2)));
+			mc = vec3(1.0, 0.93, 0.76);
+			bg = vec3(0.3, 0.0, 0.02);
+		} else if (kind == 8) {
+			// Sand: a turning swirl.
+			float sw8 = sin(ang * 2.0 + rr * 12.0 - TIME * 7.0);
+			d = min(max(rr - 0.5, (0.15 - sw8) * 0.08), rr - 0.1);
+			mc = vec3(1.0, 0.78, 0.3);
+			bg = vec3(0.22, 0.1, 0.01);
+		} else if (kind == 9) {
+			// Crystal: a cut gem.
+			vec2 a9 = abs(vec2(u.x, u.y * 0.78));
+			d = max(a9.x, a9.x * 0.5 + a9.y * 0.866) - 0.3;
+			mc = mix(vec3(0.6, 0.32, 1.0), vec3(1.0, 0.9, 1.0), step(0.0, u.x) * 0.55 + step(0.1, u.y) * 0.45);
+			bg = vec3(0.1, 0.01, 0.24);
+		} else if (kind == 10) {
+			// Ink: a black blot on a round of parchment.
+			d = rr - (0.25 + 0.08 * sin(ang * 5.0 + TIME * 3.0) + 0.04 * sin(ang * 9.0 - TIME * 5.0));
+			d = min(d, length(u - vec2(0.3, -0.28)) - 0.06);
+			d = min(d, length(u - vec2(-0.33, 0.2)) - 0.05);
+			mc = mix(vec3(0.015, 0.0, 0.05), vec3(0.4, 0.25, 0.9), 1.0 - smoothstep(0.0, 0.1, length(u - vec2(-0.08, 0.1))));
+			bg = vec3(0.86, 0.72, 0.45);
+		} else if (kind == 11) {
+			// Gear: a brass cog, turning.
+			vec2 gq = turn(u, TIME * 4.0);
+			d = max(rr - (0.32 + 0.1 * smoothstep(-0.3, 0.3, sin(atan(gq.y, gq.x) * 8.0))), 0.11 - rr);
+			mc = vec3(1.0, 0.66, 0.18);
+			bg = vec3(0.1, 0.05, 0.01);
+		} else if (kind == 12) {
+			// Star: four points, slowly turning.
+			vec2 a12 = abs(turn(u, TIME * 1.5)) + 0.0001;
+			d = (pow(a12.x, 0.6) + pow(a12.y, 0.6) - pow(0.52, 0.6)) * 0.4;
+			mc = vec3(1.0, 0.98, 0.72);
+			bg = vec3(0.07, 0.0, 0.16);
+		} else if (kind == 13) {
+			// Bone dart: one long spike.
+			float w = u.y > 0.35 ? 0.2 * (0.98 - u.y) / 0.63 : 0.2 * (u.y + 0.9) / 1.25;
+			d = (abs(u.x) - w) * 0.9;
+			mc = mix(vec3(1.0, 0.8, 0.36), vec3(1.0, 1.0, 0.88), 1.0 - smoothstep(0.0, 0.07, abs(u.x)));
+			bg = vec3(0.2, 0.07, 0.0);
+		} else {
+			// Snow: a six-armed flake, slowly turning.
+			vec2 sn = turn(u, TIME * 1.2);
+			float a14 = mod(atan(sn.y, sn.x) + TAU / 12.0, TAU / 6.0) - TAU / 12.0;
+			vec2 fs = rr * vec2(cos(a14), abs(sin(a14)));
+			d = min(seg(fs, vec2(0.0), vec2(0.46, 0.0)) - 0.045, seg(fs, vec2(0.27, 0.0), vec2(0.39, 0.11)) - 0.035);
+			mc = vec3(0.95, 1.0, 1.0);
+			bg = vec3(0.03, 0.22, 0.5);
+		}
+		// (the middle glows a little in the shape's own colour, so it is a light, not a badge)
+		// (a dark line round the middle, then a solid band of the danger pink, then the glow)
+		vec3 c = mix(dark, mix(bg * 0.8, bg * 2.1 + mc * 0.28, 1.0 - smoothstep(0.0, 0.5, r)), 1.0 - smoothstep(0.49, 0.52, r));
+		c = mix(c, mix(col.rgb, vec3(1.0), 0.12), smoothstep(0.545, 0.575, r));
+		float line = 1.0 - smoothstep(0.04, 0.075, d);
+		float fill = 1.0 - smoothstep(-0.012, 0.012, d);
+		c = mix(c, dark, line);
+		ALBEDO = mix(c, mc, fill);
+		ALPHA = max(max(1.0 - smoothstep(0.68, 0.71, r), g * g * 0.65), line);
+	}
 }
 """
 	_danger_mat = ShaderMaterial.new()
@@ -184,14 +351,15 @@ static func _put(parent: Node3D, mesh: Mesh, mat: Material, size: Vector3, pos :
 
 
 ## Builds an undead orb on `p` (which faces the way it flies). `r` is about the size it
-## hits. Returns the node that grows in when the shot appears.
-static func danger(p: Projectile, r: float, height: float) -> Node3D:
+## hits, `style` what is in its middle (see SHOT_KIND; "" = the plain orb). Returns the node that grows in when the shot appears.
+static func danger(p: Projectile, r: float, height: float, style := "") -> Node3D:
 	_shaders()
 	var look := Node3D.new()
 	p.add_child(look)
 	var d := r * 1.35 / 0.70 * 2.0   # the dark edge sits a little outside what it hits
-	_put(look, _card, _danger_mat, Vector3(d, d, 1.0))
-	_put(p, _flat, hero_mat(K_TAIL, Color(DANGER.r, DANGER.g, DANGER.b, 0.85)), Vector3(r * 1.9, 1.0, r * 6.5), Vector3(0, 0, r * 3.0))
+	_put(look, _card, danger_mat(style), Vector3(d, d, 1.0))
+	var tail: Color = SHOT_TAIL.get(style, DANGER)
+	_put(p, _flat, hero_mat(K_TAIL, Color(tail.r, tail.g, tail.b, 0.85)), Vector3(r * 1.9, 1.0, r * 6.5), Vector3(0, 0, r * 3.0))
 	_put(p, _flat, floor_mat(Color(1.0, 0.15, 0.4, 0.55)), Vector3(r * 5.0, 1.0, r * 5.0), Vector3(0, 0.05 - height, 0))
 	return look
 
