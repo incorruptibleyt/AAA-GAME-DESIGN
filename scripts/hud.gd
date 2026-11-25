@@ -196,6 +196,19 @@ var _pause_rows: Array[Control] = []
 var _more_button: Button
 var _quit_armed := false
 var _pause_title: Label
+const PAUSE_VEIL := Color(0.02, 0.015, 0.06, 0.5)   # v374: over a paused room (was black at 0.7 and a purple wash)
+var _pause_run: Control       # v374: the run card (hero, place, room, coins, blessings)
+var _pause_hero: Label
+var _pause_where: Label
+var _pause_room: Label
+var _pause_coins: Label
+var _pause_score: Label
+var _pause_bless_head: Label
+var _pause_bless: HFlowContainer
+var _pause_hp: Label
+var _pause_hp_fill: Control
+var _room_text := ""          # "Room 3 / 5" or "Boss room", as the top bar counts it
+var _hud_before_pause := true
 var _pause_head: Label   # SETTINGS over the switches' card (hidden on the title's Settings)
 var _resume_button: Button
 var _settings_back: Button
@@ -1846,53 +1859,67 @@ func _draw_card_back(c: Control) -> void:
 
 
 ## Two tall arched doors side by side, each with a picture, a name and what it promises.
+## Version 374 (visual review of 366, fix 7): the doors are real archways now, standing in a
+## hall of the floor's own stone (DoorHall, seen by the game's camera); this screen only
+## writes the words into the two doorways. The drawn arches on a dark screen stay as the
+## fallback when there is no hall.
+var _doors_head: VBoxContainer
+var _doors_shade: TextureRect
+var _doors_curtain: ColorRect
+
 func _build_doors() -> void:
 	_doors_box = overlay(Color(0.02, 0.01, 0.04, 0.8))
 	add_child(_doors_box)
+	# Over the hall: the top of the screen darkens behind the title.
+	_doors_shade = TextureRect.new()
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.02, 0.01, 0.05, 0.92))
+	grad.set_color(1, Color(0.02, 0.01, 0.05, 0.0))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	gt.width = 4
+	gt.height = 64
+	_doors_shade.texture = gt
+	_doors_shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_doors_shade.stretch_mode = TextureRect.STRETCH_SCALE
+	_doors_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_doors_shade.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_doors_box.add_child(_doors_shade)
 	var col := VBoxContainer.new()
+	_doors_head = col
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	full(col)
+	col.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	col.offset_left = 20
 	col.offset_right = -20
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 16)
+	col.add_theme_constant_override("separation", 8)
 	_doors_box.add_child(col)
 	col.add_child(label("CHOOSE YOUR DOOR", 40, Color(1, 0.85, 0.55)))
-	_doors_next = label("", 18, Color(0.78, 0.78, 0.86))
+	_doors_next = label("", 18, Color(0.86, 0.86, 0.93))
 	col.add_child(_doors_next)
 	_doors_clock = label("", 20, Color(1.0, 0.62, 0.62))
 	chunky(_doors_clock.label_settings)
 	_doors_clock.label_settings.outline_size = 5
 	_doors_clock.visible = false
 	col.add_child(_doors_clock)
-	var row := HBoxContainer.new()
-	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 16)
-	col.add_child(row)
-	row.add_theme_constant_override("separation", 12)
 	for i in 2:
 		# Version 161: each door is a carved stone archway (DoorArch) glowing with the
 		# colour of what waits behind it; the button itself is invisible, only for the tap.
 		var b := Button.new()
 		b.focus_mode = Control.FOCUS_NONE
-		b.custom_minimum_size = Vector2(240, 400)
 		for sb_name in ["normal", "hover", "pressed", "hover_pressed", "focus", "disabled"]:
 			b.add_theme_stylebox_override(sb_name, StyleBoxEmpty.new())
 		var arch := DoorArch.new()
 		full(arch)
 		b.add_child(arch)
-		b.button_down.connect(arch.set_pressed.bind(true))
-		b.button_up.connect(arch.set_pressed.bind(false))
+		var idx := i
+		b.button_down.connect(func(): _door_press(idx, true))
+		b.button_up.connect(func(): _door_press(idx, false))
 		_door_arches.append(arch)
 		var inner := VBoxContainer.new()
 		inner.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		full(inner)
-		# Version 227: the words stay inside the dark doorway (they ran onto the stones).
-		inner.offset_left = DOOR_TEXT_PAD
-		inner.offset_right = -DOOR_TEXT_PAD
-		inner.offset_top = 62
-		inner.offset_bottom = -30
 		inner.add_theme_constant_override("separation", 12)
 		b.add_child(inner)
 		var icon := BlessingIcon.new()
@@ -1902,24 +1929,77 @@ func _build_doors() -> void:
 		chunky(name_l.label_settings)
 		name_l.label_settings.outline_size = 6
 		inner.add_child(name_l)
-		inner.add_child(label("", 16, Color(0.9, 0.9, 0.95)))
-		var idx := i
+		var text_l := label("", 16, Color(0.93, 0.93, 0.97))
+		text_l.label_settings.outline_size = 5
+		text_l.label_settings.outline_color = Color(0.03, 0.02, 0.06, 0.95)
+		inner.add_child(text_l)
 		b.pressed.connect(func(): _on_door(idx))
-		row.add_child(b)
+		_doors_box.add_child(b)
 		_door_buttons.append(b)
+	# The hall comes up out of the dark.
+	_doors_curtain = ColorRect.new()
+	_doors_curtain.color = Color(0.01, 0.005, 0.02, 0.0)
+	_doors_curtain.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(_doors_curtain)
+	_doors_box.add_child(_doors_curtain)
+
+
+func _door_press(i: int, on: bool) -> void:
+	_door_arches[i].set_pressed(on)
+	if DoorHall.showing():
+		DoorHall.current.press(i, on)
 
 
 ## doors: Doors.describe() of each door. `boss_next`: the boss waits behind them.
 func show_doors(doors: Array, boss_next := false) -> void:
 	DamageNumber.clear_all()
 	_doors_next.text = "The boss waits beyond either one" if boss_next else "Both lead on to the next room"
+	var screen := get_viewport().get_visible_rect().size
+	# Where each doorway is: in the hall the camera shows (DoorHall), or two drawn arches
+	# side by side in the middle of a dark screen.
+	var hall := DoorHall.showing() and get_viewport().get_camera_3d() != null
+	var rects: Array[Rect2] = []
+	if hall:
+		var cam := get_viewport().get_camera_3d()
+		DoorHall.current.pose(cam, true)
+		for i in 2:
+			rects.append(DoorHall.current.door_rect(cam, i))
+	else:
+		# Version 160: on a tall phone the doors stand taller (up to half the screen).
+		var tall := clampf(screen.y * 0.5, 400.0, 620.0)
+		for i in 2:
+			rects.append(Rect2(screen.x * 0.5 - 246.0 + 252.0 * i, (screen.y - tall) * 0.5 + 50.0, 240.0, tall))
+	(_doors_box as ColorRect).color.a = 0.0 if hall else 0.8
+	var bg := _doors_box.get_node_or_null("Glow") as CanvasItem
+	if bg:
+		bg.visible = not hall
+	_doors_shade.visible = hall
+	_doors_shade.offset_bottom = maxf(rects[0].position.y - 10.0, 160.0)
+	# The title sits over the stone above the doorways.
+	_doors_head.offset_top = maxf(rects[0].position.y - (150.0 if hall else 130.0), _safe.offset_top + 54.0)
 	for i in _door_buttons.size():
 		var b := _door_buttons[i]
 		b.visible = i < doors.size()
 		if not b.visible:
 			continue
 		var d: Dictionary = doors[i]
-		var inner := b.get_child(1)
+		var r := rects[i]
+		b.position = r.position
+		b.size = r.size
+		var inner := b.get_child(1) as Control
+		_door_arches[i].visible = not hall
+		# Version 227: the words stay inside the doorway (they ran onto the stones).
+		var pad := 10.0 if hall else DOOR_TEXT_PAD
+		inner.offset_left = pad
+		inner.offset_right = -pad
+		# (a door with four lines of words, the Cursed Door, starts higher with a smaller
+		# badge, so its last line stays inside the doorway; the door beside it matches)
+		var long: bool = hall and doors.any(func(x: Dictionary) -> bool: return str(x.text).count("\n") >= 3)
+		inner.offset_top = r.size.y * (0.1 if long else 0.19) if hall else 62.0
+		inner.offset_bottom = -30.0
+		inner.add_theme_constant_override("separation", 7 if long else 12)
+		(inner.get_child(0).get_child(0) as BlessingIcon).zoom = 1.3 if long else 1.6
+		(inner as VBoxContainer).alignment = BoxContainer.ALIGNMENT_BEGIN
 		_door_arches[i].color = d.color
 		_door_arches[i].press = 0.0
 		_door_arches[i].lit = -0.2 * i   # the light comes on behind each door in turn
@@ -1930,16 +2010,25 @@ func show_doors(doors: Array, boss_next := false) -> void:
 		# a long name ("Champion's Door") shrinks to one line inside the doorway
 		var fs := 25
 		var font: Font = t.label_settings.font if t.label_settings.font else ThemeDB.fallback_font
-		var room := b.custom_minimum_size.x - DOOR_TEXT_PAD * 2.0 - 8.0
-		while fs > 19 and font.get_string_size(t.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + t.label_settings.outline_size > room:
+		var room := r.size.x - pad * 2.0 - 8.0
+		while fs > 17 and font.get_string_size(t.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + t.label_settings.outline_size > room:
 			fs -= 1
 		t.label_settings.font_size = fs
 		(inner.get_child(2) as Label).text = d.text
-	# Version 160: on a tall phone the doors stand taller (up to half the screen), so the
-	# screen is two great doorways instead of two small ones in an empty purple field.
-	var tall := clampf(get_viewport().get_visible_rect().size.y * 0.5, 400.0, 620.0)
-	for b in _door_buttons:
-		b.custom_minimum_size.y = tall
+		if hall:
+			# the words come up as the light does
+			inner.modulate.a = 0.0
+			var tw := inner.create_tween()
+			tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			tw.tween_interval(0.25 + 0.2 * i)
+			tw.tween_property(inner, "modulate:a", 1.0, 0.35)
+		else:
+			inner.modulate.a = 1.0
+	_doors_curtain.color.a = 1.0 if hall else 0.0
+	if hall:
+		var cw := _doors_curtain.create_tween()
+		cw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+		cw.tween_property(_doors_curtain, "color:a", 0.0, 0.35)
 	_doors_box.visible = true
 	_doors_age = 0.0
 
@@ -2757,6 +2846,9 @@ func _build_pause() -> void:
 	_pause_box.add_child(col)
 	_pause_title = label("PAUSED", 52, Color(1, 0.85, 0.55))
 	col.add_child(_pause_title)
+	# Version 374 (visual review of 366, fix 7): whose run this is, over the frozen fight.
+	_pause_run = _build_pause_run()
+	col.add_child(_centered(_pause_run))
 	var resume := button("RESUME", 32, Color(0.45, 0.16, 0.12, 0.97), Color(1, 0.75, 0.4))
 	resume.custom_minimum_size = Vector2(300, 86)
 	resume.pressed.connect(_on_resume_pressed)
@@ -2907,6 +2999,129 @@ func _build_pause() -> void:
 	_settings_back.pressed.connect(_on_resume_pressed)
 	_settings_back.visible = false
 	_pause_box.add_child(_settings_back)
+
+
+## The pause menu's run card (version 374): the hero's face and name, where the run stands
+## (place, floor, room), what it has earned, and every blessing taken so far. The fight
+## stays in sight behind a lighter veil, so pausing reads as "the game holds its breath",
+## not "a menu opened".
+func _build_pause_run() -> Control:
+	var card := PanelContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.custom_minimum_size = Vector2(452, 0)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.11, 0.07, 0.19, 0.93)
+	sb.border_color = Color(1, 0.8, 0.45, 0.8)
+	sb.set_border_width_all(3)
+	sb.set_corner_radius_all(22)
+	sb.shadow_color = Color(0, 0, 0, 0.45)
+	sb.shadow_size = 8
+	sb.shadow_offset = Vector2(0, 4)
+	sb.content_margin_left = 14
+	sb.content_margin_right = 14
+	sb.content_margin_top = 12
+	sb.content_margin_bottom = 12
+	card.add_theme_stylebox_override("panel", sb)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_theme_constant_override("separation", 8)
+	card.add_child(v)
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.add_theme_constant_override("separation", 14)
+	v.add_child(top)
+	var face := HeroBadge.new()
+	face.custom_minimum_size = Vector2(88, 88)
+	face.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	top.add_child(face)
+	var words := VBoxContainer.new()
+	words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	words.add_theme_constant_override("separation", 3)
+	top.add_child(words)
+	_pause_hero = label("", 24, Color(1, 0.93, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
+	chunky(_pause_hero.label_settings)
+	_pause_hero.label_settings.outline_size = 6
+	_pause_hero.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_pause_hero.clip_text = true
+	words.add_child(_pause_hero)
+	# the health, as the bar the fight shows it (the fight's own bars are away while paused)
+	var hp := Control.new()
+	hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hp.custom_minimum_size = Vector2(0, 28)
+	words.add_child(hp)
+	_pause_hp_fill = _bar(hp, Color(0.92, 0.2, 0.24))
+	_pause_hp = label("", 17)
+	chunky(_pause_hp.label_settings)
+	_pause_hp.label_settings.outline_size = 5
+	_pause_hp.label_settings.shadow_size = 0
+	_pause_hp.autowrap_mode = TextServer.AUTOWRAP_OFF
+	full(_pause_hp)
+	hp.add_child(_pause_hp)
+	_pause_where = label("", 17, Color(0.86, 0.82, 0.98), HORIZONTAL_ALIGNMENT_LEFT)
+	_pause_where.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_pause_where.clip_text = true
+	words.add_child(_pause_where)
+	var stats := HBoxContainer.new()
+	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stats.add_theme_constant_override("separation", 16)
+	words.add_child(stats)
+	_pause_room = label("", 17, Color(1, 0.95, 0.85), HORIZONTAL_ALIGNMENT_LEFT)
+	_pause_room.autowrap_mode = TextServer.AUTOWRAP_OFF
+	stats.add_child(_pause_room)
+	_pause_coins = coin_row(17, stats)
+	_pause_score = label("", 17, Color(0.75, 0.9, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
+	_pause_score.autowrap_mode = TextServer.AUTOWRAP_OFF
+	stats.add_child(_pause_score)
+	# the blessings taken this run
+	_pause_bless_head = label("YOUR BLESSINGS", 14, Color(1, 0.85, 0.55, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
+	v.add_child(_pause_bless_head)
+	_pause_bless = HFlowContainer.new()
+	_pause_bless.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_bless.add_theme_constant_override("h_separation", 3)
+	_pause_bless.add_theme_constant_override("v_separation", 3)
+	v.add_child(_pause_bless)
+	return card
+
+
+## Fills the run card for the run as it stands now.
+func _fill_pause_run() -> void:
+	var h := Game.hero
+	if h == null or not is_instance_valid(h):
+		return
+	_pause_hero.text = Heroes.full_name(Heroes.get_hero(h.hero_id))
+	var look := Floors.current()
+	_pause_where.text = "Floor %d  ·  %s" % [Game.floor_num, str(look.get("name", "Crypt"))]
+	_pause_room.text = _room_text
+	_pause_hp.text = "%d / %d" % [ceili(h.health), roundi(h.max_health)]
+	_pause_hp_fill.anchor_right = clampf(h.health / maxf(h.max_health, 1.0), 0.0, 1.0)
+	_pause_coins.text = "+%d" % Game.run_coins
+	_pause_score.text = "Score %d" % Game.score
+	for c in _pause_bless.get_children():
+		_pause_bless.remove_child(c)
+		c.queue_free()
+	var taken: Dictionary = Game._taken
+	for id in taken:
+		var u := Upgrades.get_def(str(id))
+		if u.is_empty():
+			continue
+		var holder := Control.new()
+		holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		holder.custom_minimum_size = Vector2(40, 40)
+		var ic := BlessingIcon.new()
+		ic.show_for(u)
+		ic.scale = Vector2(0.62, 0.62)
+		holder.add_child(ic)
+		if int(taken[id]) > 1:
+			var n := label("x%d" % int(taken[id]), 13, Color.WHITE)
+			n.position = Vector2(20, 22)
+			n.size = Vector2(24, 18)
+			holder.add_child(n)
+		_pause_bless.add_child(holder)
+	var any := _pause_bless.get_child_count() > 0
+	_pause_bless.visible = any
+	_pause_bless_head.text = "YOUR BLESSINGS" if any else "No blessings yet: clear a room to choose one."
 
 
 ## SEND FEEDBACK (pause menu and settings): testers type a note that goes to the
@@ -4368,6 +4583,7 @@ func _see_through(delta: float) -> void:
 
 func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
 	_room_label.text = "Boss" if boss else "Room %d / %d" % [index, total]
+	_room_text = "Boss room" if boss else _room_label.text
 	var heroic := Game.curses.has("heroic")
 	_heroic_crest.visible = heroic
 	_room_label.label_settings.font_color = Color(1.0, 0.86, 0.5) if heroic else Color(1, 0.95, 0.85)
@@ -6797,7 +7013,15 @@ func show_pause(v: bool, settings_only := false) -> void:
 		_callout_queue.clear()   # v216: old words never show over the next screen
 	if v:
 		_hide_phase()
+	var was_run_pause := _pause_box.visible and not _settings_only
 	_settings_only = v and settings_only
+	# v374: the fight's own bars and buttons step away while a run is paused (the run card
+	# shows the hero's health), so the frozen fight is all there is behind the menu.
+	if v and not _settings_only and not was_run_pause:
+		_hud_before_pause = _safe.visible
+		_safe.visible = false
+	elif not v and was_run_pause:
+		_safe.visible = _hud_before_pause
 	_pause_title.text = "SETTINGS" if _settings_only else ("RACE ON!" if Game.race else "PAUSED")
 	_resume_button.text = "BACK" if _settings_only else ("BACK TO THE RACE" if Game.race else "RESUME")
 	_quit_button.text = _quit_text()
@@ -6812,7 +7036,14 @@ func show_pause(v: bool, settings_only := false) -> void:
 		_pause_more = false
 	_show_pause_rows()
 	# Darker over the busy title screen than over a paused room.
-	(_pause_box as ColorRect).color.a = 0.9 if _settings_only else 0.7
+	# v374: a paused room keeps its fight in sight (a lighter, cooler veil with no purple
+	# wash); the run card over it says whose run it is.
+	(_pause_box as ColorRect).color = Color(0, 0, 0, 0.9) if _settings_only else PAUSE_VEIL
+	var wash := _pause_box.get_node_or_null("Glow") as CanvasItem
+	if wash:
+		wash.visible = _settings_only
+	if v and not _settings_only:
+		_fill_pause_run()
 	_pause_box.visible = v
 	if v:
 		_pause_build.text = "Build %s  ·  Install %s" % [Game.BUILD, Telemetry.install_id(Game._load_save())]
@@ -6825,6 +7056,8 @@ func _show_pause_rows() -> void:
 	var all := _settings_only or _pause_more
 	for r in _pause_rows:
 		r.visible = all
+	if _pause_run:
+		(_pause_run.get_parent() as Control).visible = not all   # (the long list needs the room)
 	if _more_button:
 		(_more_button.get_parent() as Control).visible = not all
 

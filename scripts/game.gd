@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-25t"
+const BUILD := "2026-11-25u"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1742,6 +1742,9 @@ func _room_focus() -> Vector3:
 
 
 func _place_camera() -> void:
+	if DoorHall.showing():
+		DoorHall.current.pose(_camera)   # v374: the two doors, in the passage beyond the room
+		return
 	var p := deg_to_rad(CAMERA_PITCH)
 	_camera.rotation = Vector3(-p, 0, 0)
 	var pos := _cam_focus + Vector3(0, sin(p), cos(p)) * _cam_distance() * (1.0 - 0.32 * _zoom)
@@ -4347,7 +4350,12 @@ func _on_card_picked(i: int) -> void:
 	# Then two doors to the next room (still paused), except in the first run.
 	_doors = _door_offer()
 	if not _doors.is_empty():
-		hud.show_doors(_doors.map(func(d): return Doors.describe(d, rerolls)), _room_index + 2 >= _run.size())
+		var shown := _doors.map(func(d): return Doors.describe(d, rerolls))
+		# Version 374: the doors stand in the passage beyond this room (DoorHall), and the
+		# camera looks at them there until the next room is built.
+		DoorHall.open(Room.current, shown.map(func(d): return d.color))
+		_place_camera()
+		hud.show_doors(shown, _room_index + 2 >= _run.size())
 		return
 	_leave_room()
 
