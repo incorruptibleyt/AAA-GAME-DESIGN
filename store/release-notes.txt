@@ -1,4 +1,4 @@
-Version 348: bosses with their own bodies
-- The Skeleton King wears gold pauldrons and a royal cape.
-- The Lich floats on a tattered robe, a crowned skull in a high collar, souls circling it.
-- The Cinder Colossus is a hunched giant with lava vents on its back.
+Version 349: more bosses with their own bodies
+- The Sporemother grows out of a toadstool, a ring of glowing toadstools round her.
+- The Tidecaller rises from a turning whirlpool, shells on its shoulders.
+- The Blood Moon Queen floats in a red gown with bat wings spread.

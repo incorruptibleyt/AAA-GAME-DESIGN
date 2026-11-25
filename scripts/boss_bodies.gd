@@ -26,6 +26,17 @@ static func _m(key: String) -> Material:
 			"basalt": _mats[key] = U.mat(Color(0.16, 0.12, 0.11), 0.9)
 			"lava": _mats[key] = U.unlit(Color(1.0, 0.5, 0.1))
 			"lava_hot": _mats[key] = U.unlit(Color(1.0, 0.85, 0.35))
+			"spore_cap": _mats[key] = U.mat(Color(1.0, 0.45, 0.75), 0.5, 0.9)
+			"spore_gill": _mats[key] = U.mat(Color(0.95, 0.82, 0.86), 0.8, 0.2)
+			"moss": _mats[key] = U.mat(Color(0.32, 0.48, 0.22), 0.9, 0.1)
+			"water": _mats[key] = U.mat(Color(0.15, 0.6, 0.7), 0.15, 0.35)
+			"foam": _mats[key] = U.mat(Color(0.85, 1.0, 1.0), 0.6, 0.5)
+			"shell": _mats[key] = U.mat(Color(0.95, 0.75, 0.62), 0.5, 0.1)
+			"shell_in": _mats[key] = U.mat(Color(0.95, 0.45, 0.5), 0.5, 0.15)
+			"gown": _mats[key] = U.mat(Color(0.45, 0.02, 0.06), 0.7, 0.15)
+			"gown_gold": _mats[key] = U.mat(Color(1.0, 0.7, 0.25), 0.3, 0.4)
+			"wing": _mats[key] = U.mat(Color(0.22, 0.02, 0.05), 0.75, 0.1)
+			"wing_rim": _mats[key] = U.unlit(Color(1.0, 0.2, 0.15))
 			_: return FoeBodies._m(key)
 	return _mats[key]
 
@@ -36,6 +47,9 @@ static func dress(model: Node3D, skel: Skeleton3D, kind: String) -> bool:
 		"king": _king(skel)
 		"lich": _lich(model, skel)
 		"magma": _magma(skel)
+		"fungal": _fungal(model, skel)
+		"tide": _tide(model, skel)
+		"queen": _queen(model, skel)
 		_: return false
 	return true
 
@@ -125,3 +139,102 @@ static func _magma(skel: Skeleton3D) -> void:
 		FeatHeads.bake(b, "boss magma %d" % i)
 		for n in b.get_children():
 			n.set_meta("fx", true)   # (its charring overlay and the hit flash leave the lava bright)
+
+
+## Version 349 (part 2). The Sporemother: no legs; she grows out of a huge frilled
+## mushroom skirt, and a ring of tall glowing toadstools stands round her (seen from above,
+## a fairy ring that walks with her).
+static func _fungal(model: Node3D, skel: Skeleton3D) -> void:
+	Art.hide_parts(model, ["Skeleton_Mage_LegLeft", "Skeleton_Mage_LegRight"])
+	var h := FoeBodies._on(skel, "hips")
+	if h == null:
+		return
+	U.cone(h, 0.42, 0.62, _m("moss"), Vector3(0, -0.6, 0), 0.3)   # the stalk
+	var gills := U.cone(h, 0.78, 0.14, _m("spore_gill"), Vector3(0, -0.2, 0), 0.25)
+	gills.name = "Gills"
+	var dome := U.sphere(h, 0.82, _m("spore_cap"), Vector3(0, -0.08, 0))   # a toadstool's cap for a skirt
+	dome.scale = Vector3(1.0, 0.32, 1.0)
+	for i in 6:
+		var ang := TAU * i / 6.0 + 0.5
+		U.sphere(h, 0.07, _m("cap_spot"), Vector3(cos(ang) * 0.6, 0.08, sin(ang) * 0.6))
+	for i in 7:   # the ring of toadstools at her feet
+		var ang := TAU * i / 7.0 + 0.2
+		var k := 1.0 + 0.35 * float(i % 2)
+		var base := Vector3(cos(ang) * 1.08, -0.64, sin(ang) * 1.08)
+		U.cylinder(h, 0.07 * k, 0.2 * k, _m("stem"), base)
+		var cap := U.sphere(h, 0.24 * k, _m("spore_cap"), base + Vector3(0, 0.22 * k, 0))
+		cap.scale = Vector3(1.0, 0.55, 1.0)
+		U.sphere(h, 0.05 * k, _m("cap_spot"), base + Vector3(0.1 * k, 0.32 * k, 0.04))
+	FeatHeads.bake(h, "boss fungal")
+	for n in h.get_children():
+		n.set_meta("fx", true)   # (her pale fungal overlay would wash the glowing caps out)
+
+
+## The Tidecaller: hulking, its legs gone into a whirlpool of water that turns round it,
+## spiral shells on its shoulders.
+static func _tide(model: Node3D, skel: Skeleton3D) -> void:
+	Art.hide_parts(model, ["Skeleton_Rogue_LegLeft", "Skeleton_Rogue_LegRight"])
+	var h := FoeBodies._on(skel, "hips")
+	if h:
+		U.cone(h, 0.75, 0.72, _m("water"), Vector3(0, -0.66, 0), 0.32)
+		U.cylinder(h, 0.8, 0.05, _m("foam"), Vector3(0, -0.66, 0))
+		FeatHeads.bake(h, "boss tide column")
+		var spin := FoeBodies.Spin.new()
+		spin.speed = 2.2
+		h.add_child(spin)
+		for i in 4:   # wave crests curling round it
+			var ang := TAU * i / 4.0
+			var w := Node3D.new()
+			spin.add_child(w)
+			w.position = Vector3(cos(ang) * 0.72, -0.45, sin(ang) * 0.72)
+			w.rotation = Vector3(0, -ang, 0)
+			var crest := U.cone(w, 0.17, 0.62, _m("water"), Vector3.ZERO)
+			crest.rotation = Vector3(0, 0, -0.9)
+			var tip := U.cone(w, 0.1, 0.3, _m("foam"), Vector3(0.48, 0.38, 0))
+			tip.rotation = Vector3(0, 0, -2.0)
+	var c := FoeBodies._on(skel, "chest")
+	if c:
+		for side in [-1.0, 1.0]:   # a spiral shell on each shoulder, past its hood
+			for k in 4:
+				var r := 0.26 - 0.055 * k
+				var sh := U.sphere(c, r, _m("shell" if k % 2 == 0 else "shell_in"), Vector3(side * (0.56 + 0.04 * k), 0.16 + 0.11 * k, -0.04 * k))
+				sh.scale = Vector3(1.0, 0.75, 1.0)
+			var horn := U.cone(c, 0.07, 0.36, _m("shell"), Vector3(side * 0.7, 0.55, -0.15))
+			horn.rotation = Vector3(-0.3, 0, -side * 0.4)
+		FeatHeads.bake(c, "boss tide shells")
+
+
+## The Blood Moon Queen: floating in a great red ball gown hemmed with gold, and a bat's
+## wings spread from her back, wider than she is (from above too).
+static func _queen(model: Node3D, skel: Skeleton3D) -> void:
+	Art.hide_parts(model, ["Skeleton_Mage_LegLeft", "Skeleton_Mage_LegRight"])
+	var h := FoeBodies._on(skel, "hips")
+	if h:
+		U.cone(h, 0.82, 0.74, _m("gown"), Vector3(0, -0.72, 0), 0.3)
+		U.cone(h, 0.86, 0.08, _m("gown_gold"), Vector3(0, -0.75, 0), 0.82)
+		U.cone(h, 0.5, 0.06, _m("gown_gold"), Vector3(0, -0.2, 0), 0.47)   # a gold band round her waist-high skirt
+		FeatHeads.bake(h, "boss queen gown")
+	var c := FoeBodies._on(skel, "chest")
+	if c == null:
+		return
+	for side in [-1.0, 1.0]:
+		var w := Node3D.new()
+		c.add_child(w)
+		w.position = Vector3(side * 0.22, 0.22, -0.3)
+		w.rotation = Vector3(-0.45, side * -0.3, 0)
+		w.scale = Vector3(side, 1.0, 1.0)   # (the left wing is the right one mirrored)
+		var angles := [55.0, 25.0, -5.0]
+		var lengths := [1.25, 1.4, 1.1]
+		var tips := []
+		for k in 3:
+			var a := deg_to_rad(angles[k])
+			tips.append(Vector2(cos(a), sin(a)) * float(lengths[k]))
+			var bone := U.cone(w, 0.05, lengths[k], _m("bone"), Vector3.ZERO)
+			bone.rotation = Vector3(0, 0, a - PI * 0.5)
+		var poly := [Vector2(0.05, 0.0), Vector2(0.2, 0.6), tips[0], (tips[0] + tips[1]) * 0.36, tips[1], (tips[1] + tips[2]) * 0.36, tips[2], Vector2(0.45, -0.32)]
+		var mem := MeshInstance3D.new()
+		mem.mesh = Props._poly_slab(poly, -0.015, 0.015)
+		mem.material_override = _m("wing")
+		mem.rotation = Vector3(-PI * 0.5, 0, 0)   # (the slab is made flat: stand it up)
+		w.add_child(mem)
+		FeatHeads.bake(w, "boss queen wing")

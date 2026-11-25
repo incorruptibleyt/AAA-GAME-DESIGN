@@ -50,6 +50,8 @@ func _setup() -> void:
 	look.weapon = "Skeleton_Staff"
 	look.attack_anim = "Spellcast_Shoot"
 	look.hide = ["Skeleton_Mage_Hat"]
+	look.shape = {"scale": {"chest": 0.9, "upperarm.l": 1.35, "upperarm.r": 1.35}, "lift": 0.25}   # (v349: growing from a mushroom)
+	look.parts = "fungal"
 	make_visual(look)
 	_dress()
 

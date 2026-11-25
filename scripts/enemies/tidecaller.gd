@@ -45,6 +45,9 @@ func _setup() -> void:
 	look.accent = Color(0.1, 0.24, 0.2)
 	look.weapon = "Skeleton_Staff"
 	look.attack_anim = "Spellcast_Shoot"
+	look.shape = {"scale": {"chest": 1.4, "head": 0.85, "upperarm.l": 1.45, "upperarm.r": 1.45},
+		"turn": {"spine": Vector3(14, 0, 0), "head": Vector3(-12, 0, 0)}, "lift": 0.25}   # (v349: a hulk rising from a whirlpool)
+	look.parts = "tide"
 	make_visual(look)
 	_dress()
 
