@@ -1,5 +1,6 @@
-Version 346: more skeletons with their own bodies
-- Cinder Skeletons are lean, with flames licking up their shoulders.
-- Frost Wraiths float tall, with ice on their shoulders and robes.
-- Sporelings are squat, with mushrooms sprouting from them.
-- Rootbinders stand on spreading roots instead of legs.
+Version 347: event skeletons with their own bodies
+- Moon Howlers have wolf ears, a red mane and a tail.
+- Bell Ringers carry a yoke of gold bells.
+- Snow Rollers are broad, with snow heaped on their shoulders.
+- Gift Thieves have long imp ears and run on long legs.
+- The Queen's Shades float on a long red gown.

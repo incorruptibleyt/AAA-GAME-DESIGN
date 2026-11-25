@@ -30,6 +30,8 @@ func _setup() -> void:
 	look.helmet = true
 	look.attack_anim = "1H_Melee_Attack_Chop"
 	look.hide = ["Skeleton_Warrior_Cloak"]
+	look.shape = {"scale": {"chest": Vector3(1.4, 1.1, 1.25), "head": 0.85, "upperarm.l": 1.35, "upperarm.r": 1.35, "upperleg.l": 0.75, "upperleg.r": 0.75}}   # (v347: broad, short-legged)
+	look.parts = "snowpack"
 	make_visual(look)
 	_ball = MeshInstance3D.new()
 	_ball.mesh = Snowball._mesh()

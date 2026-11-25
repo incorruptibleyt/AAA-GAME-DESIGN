@@ -29,6 +29,8 @@ func _setup() -> void:
 	look.accent = Color(0.25, 0.4, 0.55)
 	look.attack_anim = "Spellcast_Shoot"
 	look.hide = ["Skeleton_Mage_Hat"]
+	look.shape = {"scale": {"chest": 0.85, "head": 0.9, "upperarm.l": 1.2, "upperarm.r": 1.2, "upperleg.l": 1.4, "upperleg.r": 1.4}}   # (v347: tall and thin)
+	look.parts = "yoke"
 	make_visual(look)
 	_dress()
 

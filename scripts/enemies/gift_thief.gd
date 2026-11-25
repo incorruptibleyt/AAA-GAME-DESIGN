@@ -26,6 +26,9 @@ func _setup() -> void:
 	_swerve = randf() * TAU
 	var look := bones(Art.SKELETON_MINION, 1.4, GOLD)
 	look.accent = Color(0.6, 0.08, 0.08)
+	look.shape = {"scale": {"head": 1.2, "upperarm.l": 1.3, "upperarm.r": 1.3, "upperleg.l": 1.25, "upperleg.r": 1.25},
+		"turn": {"spine": Vector3(18, 0, 0)}}   # (v347: a hunched runner, long-legged)
+	look.parts = "ears"
 	make_visual(look)
 	_dress()
 

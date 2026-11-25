@@ -41,6 +41,13 @@ static func _m(key: String) -> Material:
 			"bark": _mats[key] = U.mat(Color(0.5, 0.34, 0.2), 0.9)
 			"bark_moss": _mats[key] = U.mat(Color(0.45, 0.6, 0.18), 0.85, 0.25)
 			"rock": _mats[key] = U.mat(Color(0.3, 0.27, 0.32), 0.9)
+			"fur_dark": _mats[key] = U.mat(Color(0.28, 0.07, 0.09), 0.9)
+			"fur_red": _mats[key] = U.mat(Color(0.8, 0.12, 0.1), 0.8, 0.35)
+			"wood": _mats[key] = U.mat(Color(0.45, 0.28, 0.16), 0.85)
+			"bell_gold": _mats[key] = U.mat(Color(1.0, 0.78, 0.28), 0.25, 0.3)
+			"snow": _mats[key] = U.mat(Color(0.93, 0.97, 1.0), 0.9, 0.15)
+			"shade": _mats[key] = U.mat(Color(0.32, 0.02, 0.05), 0.7, 0.35)
+			"shade_rim": _mats[key] = U.unlit(Color(1.0, 0.18, 0.15))
 			"robe": _mats[key] = U.mat(Color(0.3, 0.16, 0.44), 0.85)
 			"robe_hem": _mats[key] = U.mat(Color(0.55, 0.3, 0.85), 0.6, 0.5)
 			"orb": _mats[key] = U.unlit(Color(0.85, 0.6, 1.0))
@@ -80,6 +87,11 @@ static func dress(model: Node3D, kind: String) -> void:
 		"icicles": _icicles(model, skel)
 		"sprouts": _sprouts(skel)
 		"roots": _roots(model, skel)
+		"howl": _howl(skel)
+		"yoke": _yoke(skel)
+		"snowpack": _snowpack(skel)
+		"ears": _ears(skel)
+		"shade": _shade(model, skel)
 
 
 ## The Skeleton Warrior: a big round iron plate on each shoulder, wider than its head, with
@@ -365,6 +377,118 @@ static func _roots(model: Node3D, skel: Skeleton3D) -> void:
 		r.rotation = Vector3(0, -ang, 0)
 		r.rotate_object_local(Vector3.FORWARD, PI * 0.5 - 0.25)   # lying out along the floor, pointing away
 	FeatHeads.bake(a, "foe roots")
+
+
+## Version 347 (part 5, the event foes).
+## The Moon Howler: a wolf's tall ears on its skull, a red mane bristling on its shoulders
+## and a bushy tail behind it.
+static func _howl(skel: Skeleton3D) -> void:
+	var h := _on(skel, "head")
+	if h:
+		for side in [-1.0, 1.0]:
+			var e := U.cone(h, 0.17, 0.62, _m("fur_dark"), Vector3(side * 0.3, 0.78, -0.05))
+			e.rotation = Vector3(-0.2, 0, -side * 0.35)
+			var inner := U.cone(h, 0.09, 0.45, _m("fur_red"), Vector3(side * 0.3, 0.8, 0.04))
+			inner.rotation = Vector3(-0.2, 0, -side * 0.35)
+		FeatHeads.bake(h, "foe howl ears")
+	var c := _on(skel, "chest")
+	if c:
+		var spots := [Vector3(-0.48, 0.15, -0.05), Vector3(0.48, 0.15, -0.05), Vector3(-0.32, 0.12, -0.32), Vector3(0.32, 0.12, -0.32), Vector3(0.0, 0.05, -0.45)]
+		var tilt := [Vector3(-0.5, 0, 0.6), Vector3(-0.5, 0, -0.6), Vector3(-0.9, 0, 0.4), Vector3(-0.9, 0, -0.4), Vector3(-1.1, 0, 0)]
+		for i in spots.size():
+			for k in 2:
+				var m := U.cone(c, 0.15 - 0.05 * k, 0.6 - 0.15 * k, _m("fur_dark" if k == 0 else "fur_red"), spots[i] + Vector3(0, 0.02 * k, 0.04 * k))
+				m.rotation = tilt[i]
+		FeatHeads.bake(c, "foe howl mane")
+	var hp := _on(skel, "hips")
+	if hp:
+		var t := U.cone(hp, 0.27, 0.85, _m("fur_dark"), Vector3(0, 0.05, -0.2))
+		t.rotation = Vector3(-1.05, 0, 0)
+		var tip := U.cone(hp, 0.17, 0.35, _m("fur_red"), Vector3(0, 0.45, -0.88))
+		tip.rotation = Vector3(-1.05, 0, 0)
+		FeatHeads.bake(hp, "foe howl tail")
+
+
+## The Bell Ringer: a wooden yoke across its shoulders, a gold bell hanging from each end.
+static func _yoke(skel: Skeleton3D) -> void:
+	var c := _on(skel, "chest")
+	if c == null:
+		return
+	# (high and wide, so it shows past the hood from above)
+	U.box(c, Vector3(2.0, 0.1, 0.12), _m("wood"), Vector3(0, 0.5, -0.22))
+	for side in [-1.0, 1.0]:
+		var x: float = side * 0.92
+		U.cylinder(c, 0.025, 0.2, _m("wood"), Vector3(x, 0.32, -0.22))
+		U.cone(c, 0.27, 0.36, _m("bell_gold"), Vector3(x, -0.06, -0.22), 0.1)
+		U.cylinder(c, 0.29, 0.05, _m("bell_gold"), Vector3(x, -0.08, -0.22))
+		U.sphere(c, 0.08, _m("iron_light"), Vector3(x, -0.12, -0.22))
+		U.sphere(c, 0.09, _m("bell_gold"), Vector3(x, 0.32, -0.22))
+		U.box(c, Vector3(0.16, 0.16, 0.16), _m("bell_gold"), Vector3(x * 0.98, 0.5, -0.22))
+	FeatHeads.bake(c, "foe yoke")
+
+
+## The Snow Roller: drifts of snow heaped on its broad shoulders and helmet.
+static func _snowpack(skel: Skeleton3D) -> void:
+	var c := _on(skel, "chest")
+	if c:
+		for side in [-1.0, 1.0]:
+			var a := U.sphere(c, 0.3, _m("snow"), Vector3(side * 0.52, 0.2, -0.02))
+			a.scale = Vector3(1.0, 0.75, 1.0)
+			var b := U.sphere(c, 0.2, _m("snow"), Vector3(side * 0.6, 0.34, -0.15))
+			b.scale = Vector3(1.0, 0.8, 1.0)
+			U.sphere(c, 0.17, _m("snow"), Vector3(side * 0.38, 0.28, -0.25))
+			for k in 3:   # icicles hanging off the drift
+				var ic := U.cone(c, 0.05, 0.24 - 0.05 * (k % 2), _m("ice"), Vector3(side * (0.4 + 0.13 * k), 0.02, 0.18))
+				ic.rotation = Vector3(PI, 0, 0)
+		FeatHeads.bake(c, "foe snowpack")
+	var h := _on(skel, "head")
+	if h:
+		var cap := U.sphere(h, 0.34, _m("snow"), Vector3(0.05, 0.9, -0.05))
+		cap.scale = Vector3(1.15, 0.5, 1.0)
+		U.sphere(h, 0.18, _m("snow"), Vector3(-0.12, 1.02, 0.02))
+		FeatHeads.bake(h, "foe snowcap")
+
+
+## The Gift Thief: long pointed imp's ears sticking out sideways from under its cap.
+static func _ears(skel: Skeleton3D) -> void:
+	var h := _on(skel, "head")
+	if h == null:
+		return
+	for side in [-1.0, 1.0]:
+		var e := U.cone(h, 0.17, 0.85, _m("bone"), Vector3(side * 0.45, 0.45, -0.05))
+		e.rotation = Vector3(-0.2, 0, -side * 0.8)
+		var inner := U.cone(h, 0.1, 0.6, _m("cap_red"), Vector3(side * 0.47, 0.47, 0.03))
+		inner.rotation = Vector3(-0.2, 0, -side * 0.8)
+	FeatHeads.bake(h, "foe ears")
+
+
+## The Queen's Shade: no legs, a long dark red gown trailing ragged tails, and the Queen's
+## high fan collar of spikes behind its skull.
+static func _shade(model: Node3D, skel: Skeleton3D) -> void:
+	Art.hide_parts(model, ["Skeleton_Mage_LegLeft", "Skeleton_Mage_LegRight"])
+	var hp := _on(skel, "hips")
+	if hp:
+		U.cone(hp, 0.55, 0.7, _m("shade"), Vector3(0, -0.68, 0), 0.3)
+		U.cone(hp, 0.58, 0.06, _m("shade_rim"), Vector3(0, -0.7, 0), 0.56)
+		for i in 8:
+			var ang := TAU * i / 8.0
+			var t := U.cone(hp, 0.13, 0.36 - 0.1 * (i % 2), _m("shade"), Vector3.ZERO)
+			t.position = Vector3(cos(ang) * 0.46, -0.72, sin(ang) * 0.46)
+			t.rotation = Vector3(PI, 0, 0)
+		FeatHeads.bake(hp, "foe shade gown")
+	var c := _on(skel, "chest")
+	if c:
+		for i in 7:
+			var f := (i - 3) / 3.0
+			var ang := f * 1.25
+			var base := Vector3(sin(ang) * 0.42, 0.25, -cos(ang) * 0.25 - 0.08)
+			var s := U.cone(c, 0.11, 0.85 - absf(f) * 0.25, _m("shade"), base)
+			s.rotation = Vector3(-0.35, 0, -f * 0.9)
+			var r := U.cone(c, 0.05, 0.7 - absf(f) * 0.2, _m("shade_rim"), base + Vector3(0, 0.03, -0.03))
+			r.rotation = Vector3(-0.35, 0, -f * 0.9)
+		FeatHeads.bake(c, "foe shade collar")
+		for n in c.get_children():
+			n.set_meta("fx", true)
 
 
 ## A part turning round and round (the clockwork's cogs).

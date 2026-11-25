@@ -24,6 +24,8 @@ func _setup() -> void:
 	look.weapon = "Skeleton_Staff"
 	look.attack_anim = "Spellcast_Shoot"
 	look.hide = ["Skeleton_Mage_Hat"]
+	look.shape = {"scale": {"head": 0.9, "upperarm.l": 1.3, "upperarm.r": 1.3}, "lift": 0.3}   # (v347: a floating ghost of the Queen)
+	look.parts = "shade"
 	make_visual(look)
 	_cast = randf_range(1.0, 1.8)
 

@@ -34,6 +34,9 @@ func _setup() -> void:
 	look.accent = Color(0.35, 0.05, 0.08)
 	look.weapon = "Skeleton_Blade"
 	look.attack_anim = "1H_Melee_Attack_Stab"
+	look.shape = {"scale": {"chest": 0.85, "upperarm.l": 1.35, "upperarm.r": 1.35, "upperleg.l": 1.15, "upperleg.r": 1.15},
+		"turn": {"spine": Vector3(22, 0, 0), "head": Vector3(-18, 0, 0)}}   # (v347: a lean wolf, hunched to pounce)
+	look.parts = "howl"
 	make_visual(look)
 	_timer = randf_range(1.2, 2.2)
 
