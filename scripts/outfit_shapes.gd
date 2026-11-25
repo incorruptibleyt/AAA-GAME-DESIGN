@@ -76,7 +76,8 @@ static func _keep(root: Node3D) -> void:
 
 
 ## The outfits whose shapes are switched on (the rest come one build at a time).
-const READY := ["crimson", "forest", "midnight", "ivory", "shadow", "royal", "ember", "frost"]
+const READY := ["crimson", "forest", "midnight", "ivory", "shadow", "royal", "ember", "frost",
+	"rose", "sea", "gold", "bone"]
 
 
 ## Puts outfit `key`'s shapes on a hero's skeleton. `wings`: the hero wears Legend wings
@@ -224,6 +225,45 @@ static func _hat(skel: Skeleton3D, o: String) -> void:
 			for k in 12:
 				var a := TAU * k / 12.0
 				_ray(root, 0.06, 0.22 + 0.1 * (k % 2), _m(o, "ice", 0.2, 0.6), Vector3(cos(a), -0.02, sin(a)) * Vector3(0.98, 1.0, 0.98), Vector3.DOWN)
+		"rose":   # the brim opens into a lilac flower, a little flower on the tip
+			for k in 10:
+				var a := TAU * k / 10.0
+				var petal := U.sphere(root, 0.26, _m(o, "a" if k % 2 == 0 else "b", 0.6, 0.15), Vector3.ZERO)
+				petal.transform = Transform3D(Basis(Vector3.UP, -a + PI * 0.5) * Basis(Vector3.RIGHT, -0.35) * Basis.from_scale(Vector3(0.8, 0.12, 1.3)), Vector3(cos(a), 0.1, sin(a)) * Vector3(0.95, 1.0, 0.95))
+			for k in 5:
+				var a := TAU * k / 5.0
+				var pt := U.sphere(root, 0.12, _m(o, "a_light", 0.6, 0.2), Vector3.ZERO)
+				pt.transform = Transform3D(Basis(Vector3.UP, -a + PI * 0.5) * Basis(Vector3.RIGHT, -0.6) * Basis.from_scale(Vector3(0.8, 0.2, 1.4)), Vector3(cos(a) * 0.14, 0.9, -0.2 + sin(a) * 0.14))
+			U.sphere(root, 0.08, _m(o, "gold", 0.4, 0.4), Vector3(0, 0.95, -0.2))
+		"sea":   # a spiral shell and a starfish on the brim, fins round its edge
+			for k in 4:
+				var sh := U.sphere(root, 0.26 - 0.05 * k, _m(o, "shell" if k % 2 == 0 else "a", 0.5, 0.1), Vector3(-0.62 + 0.03 * k, 0.12 + 0.12 * k, -0.35 - 0.02 * k))
+				sh.scale = Vector3(1.0, 0.75, 1.0)
+			_ray(root, 0.07, 0.3, _m(o, "shell", 0.5, 0.1), Vector3(-0.58, 0.5, -0.4), Vector3(-0.3, 1.0, -0.2))
+			for k in 8:
+				var a := TAU * k / 8.0 + 0.4
+				var out := Vector3(cos(a), 0.0, sin(a))
+				_ray(root, 0.09, 0.36, _m(o, "a", 0.4, 0.3), out * 0.9 + Vector3(0, 0.03, 0), out + Vector3(0, 0.15, 0))
+			for i in 5:
+				var ang := TAU * i / 5.0
+				var arm := U.box(root, Vector3(0.1, 0.05, 0.3), _m(o, "b", 0.4, 0.4), Vector3(0.55 + cos(ang) * 0.13, 0.1, -0.45 + sin(ang) * 0.13))
+				arm.rotation.y = -ang + PI * 0.5
+		"gold":   # a sunburst: white and gold rays all round the brim
+			for k in 14:
+				var a := TAU * k / 14.0
+				var out := Vector3(cos(a), 0.0, sin(a))
+				_ray(root, 0.1 if k % 2 == 0 else 0.07, 0.5 if k % 2 == 0 else 0.34, _m(o, "b" if k % 2 == 0 else "gold", 0.3, 0.5), out * 0.92 + Vector3(0, 0.03, 0), out + Vector3(0, 0.1, 0))
+			U.cylinder(root, 0.58, 0.12, _m(o, "gold", 0.25, 0.4), Vector3(0, 0.12, 0))
+		"bone":   # bone spikes standing round the brim, a skull on the back of the hat
+			for k in 9:
+				var a := TAU * k / 9.0
+				var out := Vector3(cos(a), 0.0, sin(a))
+				_ray(root, 0.08, 0.34 + 0.1 * (k % 2), _m(o, "bone", 0.7, 0.1), out * 0.86 + Vector3(0, 0.04, 0), out * 0.5 + Vector3(0, 1.0, 0))
+			var skull := U.sphere(root, 0.2, _m(o, "bone", 0.7, 0.1), Vector3(0, 0.32, -0.55))
+			skull.scale = Vector3(1.0, 0.9, 0.9)
+			for e in [-1.0, 1.0]:
+				U.sphere(root, 0.05, _m(o, "black"), Vector3(e * 0.075, 0.35, -0.72))
+			U.box(root, Vector3(0.14, 0.05, 0.08), _m(o, "black"), Vector3(0, 0.22, -0.68))
 	if root.get_child_count() == 0:
 		hat.remove_child(root)
 		root.free()
@@ -422,15 +462,19 @@ static func _lilac(skel: Skeleton3D, o: String) -> void:
 	for i in 10:
 		var ang := TAU * i / 10.0
 		var d := Vector3(cos(ang), 0.0, sin(ang) * 0.85)
-		var petal := U.sphere(root, 0.17, _m(o, "a" if i % 2 == 0 else "b", 0.6, 0.15), Vector3.ZERO)
-		petal.scale = Vector3(0.75, 0.12, 1.3)
-		petal.transform = Transform3D(Basis(Vector3.UP, -ang + PI * 0.5) * Basis(Vector3.RIGHT, -0.5) * Basis.from_scale(petal.scale), d * 0.45 + Vector3(0, 0.2, 0))
+		var petal := U.sphere(root, 0.22, _m(o, "a" if i % 2 == 0 else "b", 0.6, 0.15), Vector3.ZERO)
+		petal.transform = Transform3D(Basis(Vector3.UP, -ang + PI * 0.5) * Basis(Vector3.RIGHT, -0.5) * Basis.from_scale(Vector3(0.75, 0.12, 1.3)), d * 0.5 + Vector3(0, 0.2, 0))
 	for side in [-1.0, 1.0]:
 		for k in 5:
 			var ang := TAU * k / 5.0
-			var p2 := U.sphere(root, 0.08, _m(o, "a", 0.6, 0.15), Vector3(side * 0.5 + cos(ang) * 0.09, 0.28, sin(ang) * 0.09))
+			var p2 := U.sphere(root, 0.13, _m(o, "a", 0.6, 0.15), Vector3(side * 0.52 + cos(ang) * 0.14, 0.3, sin(ang) * 0.14))
 			p2.scale = Vector3(1.0, 0.35, 1.0)
-		U.sphere(root, 0.05, _m(o, "gold", 0.4, 0.4), Vector3(side * 0.5, 0.31, 0.0))
+		U.sphere(root, 0.08, _m(o, "gold", 0.4, 0.4), Vector3(side * 0.52, 0.34, 0.0))
+	for k in 6:   # (v355: and a big bloom pinned on the back, where the camera looks)
+		var ang := TAU * k / 6.0
+		var pt := U.sphere(root, 0.17, _m(o, "a" if k % 2 == 0 else "b", 0.6, 0.15), Vector3.ZERO)
+		pt.transform = Transform3D(Basis(Vector3.BACK, ang) * Basis.from_scale(Vector3(0.75, 1.3, 0.15)), Vector3(-sin(ang) * 0.2, -0.02 + cos(ang) * 0.2, -0.42))
+	U.sphere(root, 0.09, _m(o, "gold", 0.4, 0.4), Vector3(0, -0.02, -0.46))
 	FeatHeads.bake(root, "outfit lilac")
 	_keep(root)
 

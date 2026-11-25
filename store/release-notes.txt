@@ -1,7 +1,6 @@
-Version 354: outfits that change shape (part 2)
-- Shadow: a torn mantle of violet-tipped strips and rising wisps.
-- Royal: an ermine collar and a long royal mantle.
-- Ember: glowing coal on the shoulders, with flames.
-- Frost: a fur collar, blue ice crystals and icicles.
+Version 355: outfits that change shape (part 3)
+- Lilac: a ruff of petals, shoulder flowers and a big bloom on the back.
+- Sea: spiral shells, fins and a gold starfish.
+- Gilded: a sunburst behind the shoulders and gold plates.
+- Bone: ribs, bone spikes and little skulls.
 - The Mage's hat wears each one too.
-- Long capes no longer show a ghost of the hero through them.
