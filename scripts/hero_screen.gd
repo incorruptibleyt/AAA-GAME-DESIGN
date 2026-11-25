@@ -57,7 +57,7 @@ const STAGE_MIN := 130.0
 
 func _init() -> void:
 	color = Color(0.03, 0.02, 0.05, 1.0)
-	Hud.backdrop(self)
+	Hud.backdrop(self, "keep_bare")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
@@ -151,6 +151,7 @@ func _build_stage() -> Control:
 	_stage_box = box
 	_stage = HeroStage.new(Vector2(504, STAGE_H))
 	_stage.custom_minimum_size = Vector2.ZERO   # the box sets the size (_fit)
+	_stage.close = 0.8   # (v364: a bigger hero)
 	Hud.full(_stage)
 	box.add_child(_stage)
 	for side in [-1, 1]:

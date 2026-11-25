@@ -35,6 +35,17 @@ const THEMES := {
 	"library": {"key": Color(1.0, 0.72, 0.42), "stone": Color(0.7, 0.6, 0.6), "ambient": Color(0.08, 0.06, 0.07), "dust": Color(1.0, 0.9, 0.7), "wall": 4},
 	"race": {"key": Color(0.3, 0.9, 1.0), "stone": Color(0.56, 0.64, 0.74), "ambient": Color(0.05, 0.075, 0.11), "dust": Color(0.65, 1.0, 1.0), "pieces": "pennants"},
 	"hall": {"key": Color(0.55, 0.45, 1.0), "stone": Color(0.62, 0.58, 0.78), "ambient": Color(0.075, 0.06, 0.13), "dust": Color(1.0, 0.85, 0.65), "pieces": "banners"},
+	# Version 364 (visual review v357 fix 6): the last menus on the plain wall get places too:
+	# Today's Goals a board of planks with the day's notes pinned up, Rewards a trophy hall of
+	# red velvet in a gold lattice with shields and swords, the Bone Drops a treasure cave
+	# (rock veined with gold, gems twinkling), Modes the iron gate of a passage with signs
+	# hung at its sides, the hero screens a castle keep with shields in the hero's colour.
+	"board": {"key": Color(1.0, 0.78, 0.45), "stone": Color(0.7, 0.6, 0.6), "ambient": Color(0.085, 0.065, 0.06), "dust": Color(1.0, 0.88, 0.6), "wall": 5, "pieces": "notes"},
+	"trophy": {"key": Color(1.0, 0.72, 0.36), "stone": Color(0.7, 0.6, 0.72), "ambient": Color(0.09, 0.05, 0.06), "dust": Color(1.0, 0.85, 0.45), "wall": 6, "pieces": "trophies"},
+	"cave": {"key": Color(1.0, 0.74, 0.36), "stone": Color(0.7, 0.6, 0.72), "ambient": Color(0.075, 0.06, 0.1), "dust": Color(1.0, 0.85, 0.45), "wall": 7},
+	"gate": {"key": Color(0.6, 0.5, 1.0), "stone": Color(0.62, 0.58, 0.78), "ambient": Color(0.07, 0.06, 0.12), "dust": Color(0.9, 0.85, 1.0), "wall": 8, "pieces": "signs"},
+	"keep": {"key": Color(0.55, 0.45, 1.0), "stone": Color(0.7, 0.66, 0.66), "ambient": Color(0.08, 0.07, 0.1), "dust": Color(1.0, 0.9, 0.7), "wall": 9, "pieces": "heraldry"},
+	"keep_bare": {"key": Color(0.55, 0.45, 1.0), "stone": Color(0.7, 0.66, 0.66), "ambient": Color(0.08, 0.07, 0.1), "dust": Color(1.0, 0.9, 0.7), "wall": 9},   # (Heroes: its tabs are where the shields hang)
 }
 const TORCH := Color(1.0, 0.52, 0.2)
 
@@ -479,6 +490,106 @@ void place_wall(vec2 p, inout float alb, inout vec2 nn, inout vec3 tint, inout v
 				if ((b > 9.0 && b < 13.0) || (fy > H - 32.0 && fy < H - 28.0)) tint = vec3(1.0, 0.78, 0.36);
 			}
 		}
+	} else if (kind == 5) {
+		// A board of upright planks, the grain running down them, a nail at each end.
+		float W = tile * 0.2;
+		float col = floor(p.x / W);
+		float L = tile * 1.4;
+		float py = p.y + h1(vec2(col, 3.0)) * L;
+		float row = floor(py / L);
+		vec2 f = vec2(p.x - col * W, py - row * L);
+		vec2 cs = vec2(W, L);
+		float r = h1(vec2(col, row));
+		float e = block(f, cs, 7.0, nn);
+		float gap = 1.0 - smoothstep(1.5, 3.5, e);
+		float grain = 0.5 + 0.5 * sin(f.x * 0.45 + sin(f.y * 0.018 + r * 6.0) * 3.5 + r * 10.0);
+		alb = mix(0.5 + 0.16 * r + 0.1 * grain, 0.03, gap);
+		tint = vec3(0.8, 0.54, 0.32);
+		vec2 n1 = f - vec2(W * 0.5, 16.0);
+		vec2 n2 = f - vec2(W * 0.5, L - 16.0);
+		vec2 nl = dot(n1, n1) < dot(n2, n2) ? n1 : n2;
+		if (dot(nl, nl) < 20.0) { alb = 0.8; nn = nl / 4.5 * 0.7; tint = vec3(0.62, 0.62, 0.68); }
+	} else if (kind == 6) {
+		// Red velvet in a gold lattice of diamonds, a gold stud where its lines cross.
+		vec2 d = vec2(tile * 0.26, tile * 0.36);
+		vec2 q = vec2(p.x / d.x + p.y / d.y, p.x / d.x - p.y / d.y) * 0.5;
+		vec2 fq = fract(q) - 0.5;
+		float line = min(0.5 - abs(fq.x), 0.5 - abs(fq.y));
+		float lw = smoothstep(0.025, 0.05, line);
+		alb = 0.42 + 0.05 * sin(p.x * 0.8) * sin(p.y * 0.6);
+		float cen = length(fq);
+		alb += 0.12 * (1.0 - smoothstep(0.05, 0.16, cen));   // a raised flower in each diamond
+		nn = fq * 0.5 * (1.0 - smoothstep(0.1, 0.4, cen));
+		tint = vec3(0.66, 0.1, 0.14);
+		if (lw < 1.0) {
+			alb = mix(0.78, alb, lw);
+			tint = mix(vec3(1.0, 0.75, 0.34), tint, lw);
+			nn = mix(vec2(0.0), nn, lw);
+		}
+		vec2 cr = fract(q + 0.5) - 0.5;
+		if (length(cr) < 0.07) { alb = 0.95; tint = vec3(1.0, 0.82, 0.42); nn = cr / 0.07 * 0.7; }
+	} else if (kind == 7) {
+		// A treasure cave: lumpy rock, cracks between the lumps, some running with gold, and
+		// here and there a gem that catches the light.
+		vec2 cs = vec2(tile * 0.3);
+		vec2 cell = floor(p / cs);
+		float best = 1e9;
+		float second = 1e9;
+		vec2 bc = cell;
+		vec2 bd = vec2(0.0);
+		for (int j = -1; j <= 1; j++) {
+			for (int i = -1; i <= 1; i++) {
+				vec2 c = cell + vec2(float(i), float(j));
+				vec2 pt = (c + vec2(h1(c), h1(c + 19.0)) * 0.8 + 0.1) * cs;
+				vec2 dd = p - pt;
+				float dl = dot(dd, dd);
+				if (dl < best) { second = best; best = dl; bc = c; bd = dd; }
+				else if (dl < second) { second = dl; }
+			}
+		}
+		float edge = sqrt(second) - sqrt(best);
+		alb = 0.36 + 0.16 * h1(bc);
+		nn = clamp(bd / (cs.x * 0.55), vec2(-1.0), vec2(1.0)) * 0.65;
+		float crack = 1.0 - smoothstep(2.0, 7.0, edge);
+		alb = mix(alb, 0.03, crack);
+		tint = vec3(0.5, 0.46, 0.55);
+		float vein = step(0.55, h1(bc + 5.0)) * (1.0 - smoothstep(0.5, 3.0, edge));
+		emit += vec3(1.0, 0.7, 0.22) * vein * (0.5 + 0.15 * sin(TIME * 1.3 + h1(bc) * 9.0));
+		if (h1(bc + 11.0) > 0.7) {
+			vec2 g = bd - vec2(cs.x * 0.08, -cs.y * 0.06);
+			if (abs(g.x) + abs(g.y) < 11.0) {
+				float pick = floor(h1(bc + 2.0) * 3.0);
+				vec3 gc = pick < 1.0 ? vec3(0.3, 0.9, 0.5) : pick < 2.0 ? vec3(0.95, 0.25, 0.35) : vec3(0.4, 0.6, 1.0);
+				alb = 0.9;
+				tint = gc;
+				nn = sign(g) * 0.6;
+				emit += gc * (0.25 + 0.9 * pow(sin(TIME * 1.7 + h1(bc) * 30.0) * 0.5 + 0.5, 6.0));
+			}
+		}
+	} else if (kind == 8) {
+		// An iron gate over the dark of a passage: bars, cross bars, rivets where they meet.
+		float G = tile * 0.24;
+		vec2 f = mod(p, vec2(G));
+		vec2 c = f - G * 0.5;
+		alb = 0.05 + 0.04 * h1(floor(p / 40.0));
+		tint = vec3(0.45, 0.42, 0.55);
+		nn = vec2(0.0);
+		float bw = 7.5;
+		if (abs(c.y) < bw * 0.8) { alb = 0.34; nn = vec2(0.0, c.y / (bw * 0.8) * 0.8); tint = vec3(0.5, 0.5, 0.58); }
+		if (abs(c.x) < bw) { alb = 0.4; nn = vec2(c.x / bw * 0.8, 0.0); tint = vec3(0.52, 0.52, 0.6); }
+		if (length(c) < bw * 1.15) { alb = 0.7; nn = c / (bw * 1.15) * 0.75; }
+	} else if (kind == 9) {
+		// A castle keep: big blocks of pale dressed stone with fine joints.
+		vec2 cs = vec2(tile * 0.5, tile * 0.25);
+		float row = floor(p.y / cs.y);
+		vec2 q = vec2(p.x + mod(row, 2.0) * cs.x * 0.5, p.y);
+		vec2 cell = floor(q / cs);
+		vec2 f = q - cell * cs;
+		float r = h1(cell);
+		float e = block(f, cs, 5.0, nn);
+		float joint = 1.0 - smoothstep(1.2, 2.6, e);
+		alb = mix(0.6 + 0.14 * r + 0.04 * sin(f.x * 0.3 + r * 8.0) * sin(f.y * 0.21), 0.1, joint);
+		tint = vec3(0.86, 0.8, 0.74);
 	}
 }
 
@@ -798,6 +909,19 @@ class _Pieces extends Control:
 			"banners":
 				for side in [0.1, 0.9]:
 					_banner(Vector2(s.x * side, 0.0), s.x * 0.075, s.y * 0.085)
+			"notes":
+				_note(Vector2(s.x * 0.075, s.y * 0.055), -0.13, s.x * 0.11, 0)
+				_note(Vector2(s.x * 0.935, s.y * 0.05), 0.1, s.x * 0.1, 1)
+				_note(Vector2(s.x * 0.93, s.y * 0.9), -0.08, s.x * 0.09, 2)
+			"trophies":
+				for side in [0.09, 0.91]:
+					_shield(Vector2(s.x * side, s.y * 0.06), s.x * 0.1, Color(0.6, 0.08, 0.12), side < 0.5)
+			"heraldry":
+				for side in [0.09, 0.91]:
+					_shield(Vector2(s.x * side, s.y * 0.06), s.x * 0.095, key.darkened(0.35), side < 0.5)
+			"signs":
+				_sign(Vector2(s.x * 0.08, 0.0), s.x * 0.12, s.y * 0.05, -1.0)
+				_sign(Vector2(s.x * 0.92, 0.0), s.x * 0.12, s.y * 0.07, 1.0)
 
 	## An iron chain hanging from `top`, `length` long, a hook at its end.
 	func _chain(top: Vector2, length: float) -> void:
@@ -858,6 +982,71 @@ class _Pieces extends Control:
 			var col: Color = cols[(i / step + row) % cols.size()]
 			draw_colored_polygon(PackedVector2Array([p0, p1, mid]), col.darkened(0.15))
 			draw_colored_polygon(PackedVector2Array([p0, p0.lerp(p1, 0.45), mid]), col)
+
+	## A note pinned to the board, `w` wide, turned `rot`, centred at `c`: a scrawl and a seal.
+	func _note(c: Vector2, rot: float, w: float, seed_i: int) -> void:
+		var h := w * 1.25
+		draw_set_transform(c, rot)
+		draw_rect(Rect2(-w * 0.5 + 3.0, -h * 0.5 + 4.0, w, h), Color(0, 0, 0, 0.45))   # its shadow
+		draw_rect(Rect2(-w * 0.5, -h * 0.5, w, h), Color(0.86, 0.77, 0.58))
+		draw_rect(Rect2(-w * 0.5, -h * 0.5, w, h * 0.12), Color(0.78, 0.68, 0.5))
+		var ink := Color(0.35, 0.22, 0.14, 0.85)
+		for i in 4:
+			var y := -h * 0.22 + i * h * 0.15
+			var ln := w * (0.72 - 0.18 * float((i + seed_i) % 3) / 2.0)
+			draw_line(Vector2(-w * 0.36, y), Vector2(-w * 0.36 + ln, y), ink, 2.5)
+		if seed_i % 2 == 0:   # a tick, the goal done
+			draw_polyline(PackedVector2Array([Vector2(w * 0.08, h * 0.32), Vector2(w * 0.18, h * 0.42), Vector2(w * 0.36, h * 0.2)]), Color(0.2, 0.55, 0.25), 4.0)
+		draw_circle(Vector2(0, -h * 0.44), w * 0.09, Color(0.62, 0.1, 0.1))   # the wax that pins it
+		draw_circle(Vector2(-w * 0.025, -h * 0.455), w * 0.035, Color(0.85, 0.3, 0.25))
+		draw_set_transform(Vector2.ZERO)
+
+	## A shield on the wall (`col`, gold-rimmed) with two swords crossed behind it.
+	func _shield(c: Vector2, w: float, col: Color, left: bool) -> void:
+		var steel := Color(0.72, 0.74, 0.8)
+		var gold := Color(1.0, 0.78, 0.35)
+		for sgn in [-1.0, 1.0]:
+			var a := c + Vector2(-w * 0.85 * sgn, -w * 0.85)
+			var b := c + Vector2(w * 0.85 * sgn, w * 1.05)
+			draw_line(a, b, Color(0.15, 0.15, 0.2), 9.0)
+			draw_line(a, b, steel, 5.0)
+			var hilt := b.lerp(a, 0.12)
+			var dir := (a - b).normalized()
+			var side := Vector2(-dir.y, dir.x)
+			draw_line(hilt - side * w * 0.22, hilt + side * w * 0.22, gold, 6.0)
+			draw_circle(b, 6.0, gold)
+		var pts := PackedVector2Array([c + Vector2(-w * 0.5, -w * 0.55), c + Vector2(w * 0.5, -w * 0.55), c + Vector2(w * 0.5, w * 0.05),
+			c + Vector2(w * 0.3, w * 0.42), c + Vector2(0.0, w * 0.62), c + Vector2(-w * 0.3, w * 0.42), c + Vector2(-w * 0.5, w * 0.05)])
+		draw_colored_polygon(pts, col)
+		draw_colored_polygon(PackedVector2Array([pts[0], c + Vector2(0.0, -w * 0.55), c + Vector2(0.0, w * 0.62), pts[5], pts[6]]), col.lightened(0.12))
+		var edge := pts.duplicate()
+		edge.append(pts[0])
+		draw_polyline(edge, gold, 4.0)
+		# its charge: a chevron and a skull's two eyes
+		draw_polyline(PackedVector2Array([c + Vector2(-w * 0.32, w * 0.12), c + Vector2(0.0, -w * 0.14), c + Vector2(w * 0.32, w * 0.12)]), gold, 5.0)
+		draw_circle(c + Vector2(0.0, -w * 0.33), w * 0.1, gold)
+
+	## A wooden sign hung on two chains from the top, `w` wide, its board `drop` down, an
+	## arrow painted on it pointing `dir` (-1 left, 1 right).
+	func _sign(top: Vector2, w: float, drop: float, dir: float) -> void:
+		var iron := Color(0.15, 0.13, 0.15)
+		var y := top.y + drop
+		for sx in [-0.35, 0.35]:
+			draw_line(Vector2(top.x + w * sx, top.y), Vector2(top.x + w * sx, y), iron, 4.0)
+		var h := w * 0.42
+		draw_rect(Rect2(top.x - w * 0.5 + 3.0, y + 4.0, w, h), Color(0, 0, 0, 0.45))
+		draw_rect(Rect2(top.x - w * 0.5, y, w, h), Color(0.42, 0.26, 0.14))
+		draw_rect(Rect2(top.x - w * 0.5, y + h * 0.48, w, 2.0), Color(0.25, 0.15, 0.08))
+		draw_rect(Rect2(top.x - w * 0.5, y, w, h), Color(0.25, 0.15, 0.08), false, 3.0)
+		# (painted with a skull and crossed bones: an arrow on it read as a button)
+		var ac := Vector2(top.x, y + h * 0.48)
+		var col := Color(0.95, 0.88, 0.72)
+		draw_line(ac + Vector2(-w * 0.22, -h * 0.28), ac + Vector2(w * 0.22, h * 0.3), col, 4.0)
+		draw_line(ac + Vector2(w * 0.22, -h * 0.28), ac + Vector2(-w * 0.22, h * 0.3), col, 4.0)
+		draw_circle(ac + Vector2(0, -h * 0.04), h * 0.24, col)
+		draw_rect(Rect2(ac.x - h * 0.12, ac.y + h * 0.12, h * 0.24, h * 0.12), col)
+		for ex in [-1.0, 1.0]:
+			draw_circle(ac + Vector2(ex * h * 0.09, -h * 0.05), h * 0.06, Color(0.25, 0.15, 0.08))
 
 	## A hanging banner in the hero's colour, `w` wide and `h` long, from `top`.
 	func _banner(top: Vector2, w: float, h: float) -> void:

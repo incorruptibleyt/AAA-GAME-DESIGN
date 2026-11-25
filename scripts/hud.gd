@@ -2145,7 +2145,7 @@ func drops_visible() -> bool:
 ## Daily Crypt, Curses and the tutorial run, all behind MODES on the title screen.
 ## The screens they open sit on top, so BACK from them lands here again.
 func _build_modes() -> void:
-	_modes_box = overlay(Color(0.03, 0.02, 0.05, 0.95))
+	_modes_box = overlay(Color(0.03, 0.02, 0.05, 0.95), "gate")
 	add_child(_modes_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2341,7 +2341,7 @@ func records_visible() -> bool:
 # ---------------------------------------------------------------- today's goals (version 311)
 
 func _build_today() -> void:
-	_today_box = overlay(Color(0.03, 0.02, 0.05, 1.0), "gold")
+	_today_box = overlay(Color(0.03, 0.02, 0.05, 1.0), "board")
 	add_child(_today_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -5018,7 +5018,7 @@ var _rw_road_sub: Label
 
 
 func _build_rewards() -> void:
-	_rewards_box = overlay(Color(0.03, 0.02, 0.05, 1.0), "gold")
+	_rewards_box = overlay(Color(0.03, 0.02, 0.05, 1.0), "trophy")
 	add_child(_rewards_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE

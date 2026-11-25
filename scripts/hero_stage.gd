@@ -112,8 +112,19 @@ func _frame_camera(tall: bool) -> void:
 	_cam.transform = Transform3D(Basis.looking_at(f[1] - f[0]), f[0])
 
 
+## Version 364 (visual review v357 fix 6): the camera this much nearer (the Heroes screen's
+## stage is short and wide, and the hero stood small in it).
+var close := 1.0
+
+
 ## The camera's usual place and the point it looks at.
 func _framing() -> Array:
+	var f := _framing_far()
+	var down := Vector3(0, -(1.0 - close) * 0.55, 0)   # (nearer, it looks a little lower: the feet stay in)
+	return [f[1] + (f[0] - f[1]) * close + down, f[1] + down]
+
+
+func _framing_far() -> Array:
 	if _wide:
 		var y := 0.15 if _tall else 0.0
 		return [Vector3(-0.45, 1.5 + y, 6.4 + y * 4.0), Vector3(-0.45, 0.92 + y, 0)]

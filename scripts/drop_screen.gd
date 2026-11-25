@@ -75,7 +75,7 @@ const BAZAAR := Color(1.0, 0.62, 0.3)
 
 func _init() -> void:
 	color = Color(0.02, 0.01, 0.04, 0.96)
-	Hud.backdrop(self, "gold")
+	Hud.backdrop(self, "cave")
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	visible = false
