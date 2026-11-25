@@ -152,6 +152,9 @@ var _boss_fill: Control
 var _banner: Label
 var _banner_w := 0.0   # the banner's text width, so its pop-in can stay on screen
 var _wave_label: Label
+var _wave_pips: Control
+var _wave_now := 0
+var _wave_total := 0
 var _banner_time := 0.0
 var _shown_hp := 1.0
 
@@ -283,7 +286,7 @@ var _stick_start := Vector2.ZERO
 var _stick_start_ms := 0
 var _chain_box: Control
 ## Where the slim chain row sits under the top bar, and how tall it is (version 135).
-const CHAIN_TOP := 80.0
+const CHAIN_TOP := 90.0   # v338: one strip under the coins (was 80)
 const CHAIN_H := 62.0
 var _chain_label: Label
 var _chain_pop := 0.0
@@ -948,8 +951,9 @@ func _build_hud() -> void:
 
 	var hp := Control.new()
 	hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hp.position = Vector2(14, 14)
-	hp.size = Vector2(240, 36)
+	# Version 338 (visual review fix 3, clean HUD): the bar starts under the hero badge.
+	hp.position = Vector2(46, 14)
+	hp.size = Vector2(212, 36)
 	root.add_child(hp)
 	_hp_fill = _bar(hp, Color(0.92, 0.2, 0.24))
 	_hp_label = label("100 / 100", 20)
@@ -958,10 +962,15 @@ func _build_hud() -> void:
 	_hp_label.label_settings.shadow_size = 0
 	full(_hp_label)
 	hp.add_child(_hp_label)
+	# The hero's face at the left end of the health bar (hero_badge.gd).
+	var badge := HeroBadge.new()
+	badge.position = Vector2(6, 5)
+	badge.size = Vector2(54, 54)
+	root.add_child(badge)
 
 	var coins := Control.new()
 	coins.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	coins.position = Vector2(18, 56)
+	coins.position = Vector2(64, 54)
 	coins.size = Vector2(200, 30)
 	root.add_child(coins)
 	_coin_label = coin_row(24, coins)
@@ -971,7 +980,7 @@ func _build_hud() -> void:
 	# Moon Shards earned this run, in an event (events.gd), under the coins.
 	_shard_box = HBoxContainer.new()
 	_shard_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_shard_box.position = Vector2(16, 88)
+	_shard_box.position = Vector2(192, 54)   # v338: beside the coins, clear of the chain strip
 	_shard_box.size = Vector2(200, 32)
 	(_shard_box as HBoxContainer).add_theme_constant_override("separation", 6)
 	_shard_box.visible = false
@@ -1009,7 +1018,7 @@ func _build_hud() -> void:
 	_room_label.offset_bottom = 48
 	root.add_child(_room_label)
 	race_bar = RaceScreen.Bar.new()
-	race_bar.position = Vector2(4, 104)
+	race_bar.position = Vector2(4, 140)   # v338: under the chain strip (was 104)
 	race_bar.visible = false
 	root.add_child(race_bar)
 
@@ -1023,6 +1032,17 @@ func _build_hud() -> void:
 	_wave_label.offset_bottom = 74
 	_wave_label.visible = false
 	root.add_child(_wave_label)
+	# Version 338: waves as a row of pips under the room name instead of "Wave 2 / 3" words.
+	_wave_pips = Control.new()
+	_wave_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_wave_pips.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	_wave_pips.offset_left = -284
+	_wave_pips.offset_right = -88
+	_wave_pips.offset_top = 48
+	_wave_pips.offset_bottom = 68
+	_wave_pips.visible = false
+	_wave_pips.draw.connect(_draw_wave_pips)
+	root.add_child(_wave_pips)
 
 	# The Hourglass curse's countdown, under the wave counter.
 	_timer_label = label("", 20, Color(1, 0.75, 0.5), HORIZONTAL_ALIGNMENT_RIGHT)
@@ -1154,27 +1174,54 @@ func _build_hud() -> void:
 	_chain_box = Control.new()
 	_chain_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_chain_box.set_anchors_preset(Control.PRESET_CENTER_TOP)
-	_chain_box.offset_left = -150
-	_chain_box.offset_right = 150
+	# Version 338 (visual review fix 3, clean HUD): chain, multiplier and score are one
+	# strip on one dark pill (the score was a loose second line floating over the room).
+	_chain_box.offset_left = -190
+	_chain_box.offset_right = 190
 	_chain_box.offset_top = CHAIN_TOP
 	_chain_box.offset_bottom = CHAIN_TOP + CHAIN_H
 	_chain_box.modulate.a = 0.0
 	root.add_child(_chain_box)
+	var pill := Panel.new()
+	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(0.03, 0.02, 0.06, 0.5)
+	psb.set_corner_radius_all(22)
+	psb.border_color = Color(1, 1, 1, 0.08)
+	psb.set_border_width_all(2)
+	pill.add_theme_stylebox_override("panel", psb)
+	pill.position = Vector2(-6, -4)
+	pill.size = Vector2(392, 48)
+	_chain_box.add_child(pill)
 	_spine = ChainSpine.new()
-	_spine.position = Vector2(-6, 0)
-	_spine.size = Vector2(222, 40)
+	_spine.position = Vector2(4, 0)
+	_spine.size = Vector2(196, 40)
 	_chain_box.add_child(_spine)
-	_chain_label = label("x1.0", 36, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
-	_chain_label.position = Vector2(218, -4)
-	_chain_label.size = Vector2(100, 46)
-	_chain_label.pivot_offset = Vector2(34, 23)
+	_chain_label = label("x1.0", 34, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
+	_chain_label.position = Vector2(204, -4)
+	_chain_label.size = Vector2(90, 46)
+	_chain_label.pivot_offset = Vector2(32, 23)
 	_chain_box.add_child(_chain_label)
+	var divider := ColorRect.new()
+	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	divider.color = Color(1, 1, 1, 0.14)
+	divider.position = Vector2(292, 4)
+	divider.size = Vector2(2, 32)
+	_chain_box.add_child(divider)
+	var caption := label("SCORE", 12, Color(0.9, 0.87, 0.8, 0.75))
+	chunky(caption.label_settings)
+	caption.label_settings.outline_size = 3
+	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	caption.position = Vector2(296, -3)
+	caption.size = Vector2(88, 18)
+	_chain_box.add_child(caption)
 	# Version 213 (hardest review fix #7): 20 px (was 15, about 7 dp tall on a phone).
 	_score_label = label("", 20, Color(0.9, 0.87, 0.8))
 	chunky(_score_label.label_settings)
 	_score_label.label_settings.outline_size = 5
-	_score_label.position = Vector2(0, 38)
-	_score_label.size = Vector2(300, 26)
+	_score_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_score_label.position = Vector2(296, 14)
+	_score_label.size = Vector2(88, 26)
 	_chain_box.add_child(_score_label)
 	# Version 227: chunky and edged like the number it replaces (thin red letters were hard
 	# to read over a busy floor).
@@ -1182,7 +1229,7 @@ func _build_hud() -> void:
 	chunky(_broken_label.label_settings)
 	_broken_label.label_settings.outline_size = 7
 	_broken_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_broken_label.position = Vector2(-40, 0)
+	_broken_label.position = Vector2(0, 0)
 	_broken_label.size = Vector2(380, 36)
 	_broken_label.modulate.a = 0.0
 	_chain_box.add_child(_broken_label)
@@ -1192,10 +1239,11 @@ func _build_hud() -> void:
 	# a small screen can read them over the fight. Version 240 (whole-game review fix 15):
 	# low on the screen, just over DASH and the special. Under the chain meter they were a
 	# dark strip over the top of the room, just where new skeletons come in.
-	_tip = label("", 27, Color(1, 0.96, 0.84))
+	# Version 338 (clean HUD): a smaller pill (was 27 over 500 wide) so it covers less fight.
+	_tip = label("", 23, Color(1, 0.96, 0.84))
 	_tip.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	_tip.offset_left = -250
-	_tip.offset_right = 250
+	_tip.offset_left = -220
+	_tip.offset_right = 220
 	_tip.offset_top = -198
 	_tip.offset_bottom = -158
 	_tip.grow_vertical = Control.GROW_DIRECTION_BEGIN   # longer tips grow up, clear of the buttons
@@ -4043,7 +4091,7 @@ func _process(delta: float) -> void:
 	var shown := roundi(_shown_score)
 	if shown != _score_shown:   # version 147: new text only when the number changes
 		_score_shown = shown
-		_score_label.text = "SCORE  " + Hud.thousands(shown)
+		_score_label.text = Hud.thousands(shown)
 	if _broken_time > 0.0:
 		_broken_time -= delta
 		_broken_label.modulate.a = clampf(_broken_time / 0.4, 0.0, 1.0)
@@ -4214,8 +4262,40 @@ func _hide_phase() -> void:
 
 ## "Wave 2 / 3" under the room name; hidden in one-wave rooms.
 func set_wave(wave: int, total: int) -> void:
-	_wave_label.visible = total > 1
+	_wave_label.visible = false
 	_wave_label.text = "Wave %d / %d" % [wave, total]
+	_wave_pips.visible = total > 1
+	if wave != _wave_now and wave > 1 and _wave_pips.visible:
+		var tw := _wave_pips.create_tween()
+		_wave_pips.pivot_offset = Vector2(_wave_pips.size.x, 10)
+		_wave_pips.scale = Vector2(1.25, 1.25)
+		tw.tween_property(_wave_pips, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK)
+	_wave_now = wave
+	_wave_total = total
+	_wave_pips.queue_redraw()
+
+
+## One pip per wave, right-aligned: done waves dim, this wave big and lit, later ones hollow.
+func _draw_wave_pips() -> void:
+	var n := _wave_total
+	if n < 2:
+		return
+	var gap := 22.0
+	var y := 10.0
+	for i in n:
+		var x := _wave_pips.size.x - 9.0 - float(n - 1 - i) * gap
+		var w := i + 1
+		var p := Vector2(x, y)
+		if w < _wave_now:
+			_wave_pips.draw_circle(p, 6.5, INK)
+			_wave_pips.draw_circle(p, 4.5, Color(1, 0.62, 0.45, 0.55))
+		elif w == _wave_now:
+			_wave_pips.draw_circle(p, 9.0, INK)
+			_wave_pips.draw_circle(p, 6.8, Color(1, 0.62, 0.45))
+			_wave_pips.draw_circle(p + Vector2(-1.8, -2.0), 2.2, Color(1, 0.92, 0.8))
+		else:
+			_wave_pips.draw_circle(p, 6.5, INK)
+			_wave_pips.draw_arc(p, 4.2, 0.0, TAU, 16, Color(1, 0.62, 0.45, 0.8), 2.0, true)
 
 
 ## The Hourglass countdown. Below zero hides it.

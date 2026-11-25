@@ -1,4 +1,6 @@
-Version 337: calmer floors
-- Every place's floor is calmer: the dark lines between stones are softer, there is about half the soot and dirt, and the colours are a little gentler.
-- Glowing seams, water and fungus light keep their full glow.
-- Heroes and skeletons stand out more from the ground.
+Version 338: cleaner fight screen
+- Your hero's face now sits by the health bar.
+- Waves show as dots under the room name.
+- The chain, multiplier and score are one neat strip.
+- The special button is your hero's colour, fills up as you kill, and shows your hero's move.
+- Tips are smaller and cover less of the fight.

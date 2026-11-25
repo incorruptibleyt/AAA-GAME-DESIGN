@@ -44,17 +44,91 @@ func _draw() -> void:
 	var charged := h.special_ready()
 	var col := h.bolt_color.lerp(Color.WHITE, 0.25)
 	var pulse := 1.0 + (0.06 * sin(Time.get_ticks_msec() * 0.01) if charged else 0.0)
-	Hud.draw_round_button(self, c, r * pulse, col.darkened(0.1), charged)
+	# Version 338 (visual review fix 3): the button is the hero's own colour all the time
+	# (it was a dark grey disc with a dim star until full), dark while it charges, with the
+	# colour filling up from the bottom as you kill, and the hero's own move drawn on it.
+	var dark := col.darkened(0.7)
+	Hud.draw_round_button(self, c, r * pulse, col.darkened(0.1) if charged else Color(dark, 0.95), true)
 	if not charged and h.special_charge > 0.0:
+		_draw_fill(c, r - 3.0, clampf(h.special_charge, 0.0, 1.0), Color(col.darkened(0.15), 0.85))
 		draw_arc(c, r * pulse + 5.0, -PI / 2.0, -PI / 2.0 + TAU * h.special_charge, 48, col, 6.0, true)
 	elif charged:
 		draw_arc(c, r * pulse + 6.0, 0.0, TAU, 48, Color(1, 1, 1, 0.5 + 0.4 * sin(Time.get_ticks_msec() * 0.01)), 4.0, true)
-	# A star in the middle so it reads as "power": white with an ink edge once ready.
-	var star := PackedVector2Array()
-	for i in 10:
-		var rr := (r * 0.46 if i % 2 == 0 else r * 0.21) * pulse
-		var a := TAU * i / 10.0 - PI / 2.0
-		star.append(c + Vector2(cos(a), sin(a)) * rr)
-	draw_colored_polygon(star, Color.WHITE if charged else Color(col.r, col.g, col.b, 0.55))
-	star.append(star[0])
-	draw_polyline(star, Hud.INK, 3.0, true)
+	var ink := Color.WHITE if charged else Color(0.94, 0.94, 1.0, 0.88)
+	_draw_move(_hero_id, c, r * pulse, ink)
+
+
+## The charge, as colour filling the button from the bottom up to `k` (0..1).
+func _draw_fill(c: Vector2, r: float, k: float, fill: Color) -> void:
+	var level := c.y + r - 2.0 * r * k
+	var dy := clampf((level - c.y) / r, -1.0, 1.0)
+	var a0 := asin(dy)   # where the level meets the right side
+	var pts := PackedVector2Array()
+	var n := 24
+	for i in n + 1:
+		var a := lerpf(a0, PI - a0, float(i) / n)
+		pts.append(c + Vector2(cos(a), sin(a)) * r)
+	if pts.size() >= 3:
+		draw_colored_polygon(pts, fill)
+
+
+## Each hero's special as a picture: the Knight's shield, the Barbarian's whirl, the
+## Rogue's fan of bolts, the Mage's meteor (a star for anyone else).
+func _draw_move(id: String, c: Vector2, r: float, ink: Color) -> void:
+	var edge := Hud.INK
+	match id:
+		"knight":
+			var w := r * 0.42
+			var shield := PackedVector2Array([c + Vector2(-w, -r * 0.42), c + Vector2(w, -r * 0.42), c + Vector2(w, r * 0.02),
+				c + Vector2(w * 0.55, r * 0.3), c + Vector2(0, r * 0.48), c + Vector2(-w * 0.55, r * 0.3), c + Vector2(-w, r * 0.02)])
+			draw_colored_polygon(shield, ink)
+			shield.append(shield[0])
+			draw_polyline(shield, edge, 3.0, true)
+			draw_line(c + Vector2(0, -r * 0.3), c + Vector2(0, r * 0.32), edge, 3.0, true)
+			draw_line(c + Vector2(-w * 0.7, -r * 0.08), c + Vector2(w * 0.7, -r * 0.08), edge, 3.0, true)
+		"barbarian":
+			for i in 3:
+				var a := TAU * i / 3.0
+				draw_arc(c, r * (0.2 + 0.11 * i), a, a + PI * 1.25, 18, edge, 7.0, true)
+				draw_arc(c, r * (0.2 + 0.11 * i), a, a + PI * 1.25, 18, ink, 4.0, true)
+			draw_circle(c, r * 0.09, ink)
+		"rogue":
+			# Three bolts fanning up from one hand point, so they never cross.
+			var base := c + Vector2(0, r * 0.46)
+			for i in 3:
+				var a := -PI / 2.0 + (i - 1) * 0.55
+				var d := Vector2(cos(a), sin(a))
+				var tail := base + d * r * 0.18
+				var tip := base + d * r * 0.8
+				draw_line(tail, tip, edge, 8.0, true)
+				draw_line(tail, tip, ink, 4.0, true)
+				var side := Vector2(-d.y, d.x) * r * 0.14
+				var head := PackedVector2Array([tip + d * r * 0.12, tip - d * r * 0.12 + side, tip - d * r * 0.12 - side])
+				draw_colored_polygon(head, ink)
+				head.append(head[0])
+				draw_polyline(head, edge, 2.5, true)
+		"mage":
+			# A big rock falling down-left with three tapering flame tails behind it.
+			var rock := c + Vector2(-r * 0.2, r * 0.2)
+			var back := Vector2(1, -1).normalized()
+			var side := Vector2(back.y, -back.x)
+			for i: int in [-1, 1, 0]:
+				var root := rock + side * r * 0.15 * i
+				var length := r * (0.95 if i == 0 else 0.72)
+				var w := r * (0.2 if i == 0 else 0.13)
+				var tail := PackedVector2Array([root + side * w, root + back * length + side * i * r * 0.06, root - side * w])
+				draw_colored_polygon(tail, edge)
+				var inner := PackedVector2Array([root + side * w * 0.6, root + back * (length - 5.0) + side * i * r * 0.06, root - side * w * 0.6])
+				draw_colored_polygon(inner, ink)
+			draw_circle(rock, r * 0.3, edge)
+			draw_circle(rock, r * 0.25, ink)
+			draw_circle(rock + Vector2(-r * 0.07, -r * 0.07), r * 0.07, Color(edge, 0.35))
+		_:
+			var star := PackedVector2Array()
+			for i in 10:
+				var rr := r * 0.46 if i % 2 == 0 else r * 0.21
+				var a := TAU * i / 10.0 - PI / 2.0
+				star.append(c + Vector2(cos(a), sin(a)) * rr)
+			draw_colored_polygon(star, ink)
+			star.append(star[0])
+			draw_polyline(star, edge, 3.0, true)
