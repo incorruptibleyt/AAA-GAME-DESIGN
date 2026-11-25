@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-25n"
+const BUILD := "2026-11-25o"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1712,13 +1712,25 @@ func _room_focus() -> Vector3:
 	# Version 296 (deep review fix 4): in a boss fight the camera also leans towards the boss,
 	# so its body stays below the top bar (it stood under the score and its own health bar),
 	# as long as the hero stays above the bottom 26% of the screen (DASH and the special).
+	# Version 368 (visual review of 366, fix 2): the camera also leans toward the skeletons
+	# ahead of the hero, so they come in below the top bar instead of under the health bar,
+	# and the hero sits lower, with the empty floor behind them out of the picture. The same
+	# limit as for bosses keeps the hero above the DASH and special buttons. The lean eases in
+	# and out (_foe_k), and follows the farthest skeleton slowly (_foe_far), so a kill never
+	# jerks the camera.
+	var a_bot := p + atan((0.74 - 0.5) * 2.0 * tan(half_v))
+	var keep_hero := hero.global_position.z - (d * cos(p) - d * sin(p) / tan(a_bot))
+	if _foe_k > 0.0 and not _intro_focus:
+		# (The hero's feet stay above 64% of the screen here: lower, and a tip covered them.)
+		var a_low := p + atan((FOE_HERO_LOW - 0.5) * 2.0 * tan(half_v))
+		var low_hero := hero.global_position.z - (d * cos(p) - d * sin(p) / tan(a_low))
+		var lean := maxf(minf(z, _foe_far - (d * cos(p) - d * sin(p) / tan(a_min))), minf(z, low_hero))
+		z = lerpf(z, lean, _foe_k)
 	var far_boss := INF
 	for b in _bosses:
 		if is_instance_valid(b) and not b.dead:
 			far_boss = minf(far_boss, b.global_position.z - 2.0)   # its head and shoulders too
 	if far_boss != INF and not _intro_focus:
-		var a_bot := p + atan((0.74 - 0.5) * 2.0 * tan(half_v))
-		var keep_hero := hero.global_position.z - (d * cos(p) - d * sin(p) / tan(a_bot))
 		z = maxf(minf(z, far_boss - (d * cos(p) - d * sin(p) / tan(a_min))), minf(z, keep_hero))
 	var x_room := maxf(0.0, Room.HALF_W + 0.6 - VIEW_HALF_WIDTH)
 	# Version 219 (review 4 fix 20): the wall clamp used the width seen at the middle of the
@@ -1751,6 +1763,24 @@ func _snap_camera() -> void:
 ## so the boss, the hero and the warnings fit together under the top bars (eased in and out).
 const BOSS_PULL := 1.12
 var _boss_pull := 1.0
+## Version 368: the farthest skeleton ahead of the hero (its head), followed slowly, and how
+## much the camera leans toward it (see _room_focus).
+const FOE_HEAD := 1.5
+const FOE_HERO_LOW := 0.64
+var _foe_far := 0.0
+var _foe_k := 0.0
+
+
+## Where the head of the farthest living skeleton ahead of the hero is (INF: none).
+func _far_foe_z() -> float:
+	var far := INF
+	for a in Actor.all:
+		var e := a as Enemy
+		if e == null or e.dead or e.is_boss or not e.is_visible_in_tree():
+			continue
+		if e.global_position.z < hero.global_position.z:
+			far = minf(far, e.global_position.z - FOE_HEAD)
+	return far
 
 
 func _update_camera(real_delta: float) -> void:
@@ -1778,6 +1808,10 @@ func _update_camera(real_delta: float) -> void:
 	# The close-up punch follows the Screen shake setting (the boss intro's camera move doesn't).
 	var zoom_goal := shake_scale if _zoom_hold > 0.0 else ((-0.5 if _intro_wide else 0.55) if _intro_focus else 0.0)
 	_zoom = lerpf(_zoom, zoom_goal, 1.0 - exp(-(10.0 if zoom_goal > _zoom else 4.0) * real_delta))
+	var foe := _far_foe_z() if state == State.PLAYING and hero != null else INF
+	if foe != INF:
+		_foe_far = foe if _foe_k <= 0.0 else lerpf(_foe_far, foe, 1.0 - exp(-2.5 * real_delta))
+	_foe_k = move_toward(_foe_k, 1.0 if foe != INF else 0.0, real_delta * 1.2)
 	_cam_focus = _cam_focus.lerp(_focus_goal(), 1.0 - exp(-8.0 * real_delta))
 	_shake = move_toward(_shake, 0.0, real_delta * 2.5)
 	_place_camera()
