@@ -844,6 +844,7 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 	_arm(skel, str(style.get("finish", "")), style.get("enchant"), cover, float(style.get("weapon_size", WEAPON_SIZE)))
 	for extra: String in style.get("extras", []):
 		_extra(skel, id, extra, bool(style.get("hat", false)), float(style.get("hat_h", 0.45)), style)
+	HeroTops.dress(skel, id, style)   # version 369: each hero's own top, seen from the run camera
 
 
 ## Everything in the hero's hands takes the weapon material (LookFx.weapon).
