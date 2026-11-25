@@ -186,7 +186,7 @@ func _process(delta: float) -> void:
 			_spring()
 			if not _said:
 				_said = true
-				Game.danger_warn("caps", "BOING!", "BOUNCE CAPS throw you where their arrows point, and you land with a stamp. A dash skims over them.", PINK)
+				Game.danger_warn("caps", "BOING!", "BOUNCE CAPS: they throw you along their arrows!", PINK)
 			h.global_position = Vector3(global_position.x, h.global_position.y, global_position.z)
 			h.fling(aim * THROW / FLY, FLY)
 			return

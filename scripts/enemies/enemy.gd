@@ -34,13 +34,13 @@ const ELITE_MOVES := {
 	"split": {"tag": "SPLITTER", "word": "Splitter", "col": Color(1.0, 0.52, 0.92),
 		"tip": "SPLITTER ELITE: breaks into 2 skeletons when it dies!"},
 	"burst": {"tag": "BURST", "word": "Burst", "col": Color(1.0, 0.84, 0.5),
-		"tip": "BURST ELITE: shoots bone darts as it dies. Step off the lines!"},
+		"tip": "BURST ELITE: fires darts as it dies. Leave the lines!"},
 	"fury": {"tag": "FURY", "word": "Fury", "col": Color(1.0, 0.36, 0.22),
-		"tip": "FURY ELITE: gets fast at half health. Finish it quick!"},
+		"tip": "FURY ELITE: fast at half health. Finish it quick!"},
 	"mender": {"tag": "MENDER", "word": "Mender", "col": Color(0.5, 1.0, 0.42),
-		"tip": "MENDER ELITE: heals skeletons near it. Kill it first!"},
+		"tip": "MENDER ELITE: heals the others. Kill it first!"},
 	"ward": {"tag": "WARDED", "word": "Warded", "col": Color(0.72, 0.88, 1.0),
-		"tip": "WARDED ELITE: its bubble stops 3 hits, then grows back."},
+		"tip": "WARDED ELITE: its bubble stops 3 hits, then regrows."},
 }
 const ELITE_HEALTH := 2.2
 const WARD_HEALTH := 1.8   # the bubble is extra toughness, so a little less health under it
@@ -307,10 +307,10 @@ func _elite_tick(delta: float) -> void:
 			_tag = null
 		if _bubble and _ward_hits > 0:
 			_bubble.visible = true
-		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0)
+		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0, "elite_" + elite_move)
 	elif _tag and Engine.get_process_frames() % 15 == 0 and not Game.taught("elite_" + elite_move):
 		# Version 298: the line may have waited for a calmer moment (Game.TIP_GAP); try again.
-		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0)
+		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0, "elite_" + elite_move)
 	if _tag:
 		_fade_tag(delta)
 	match elite_move:

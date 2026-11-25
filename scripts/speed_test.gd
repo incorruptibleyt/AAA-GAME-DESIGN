@@ -57,7 +57,7 @@ func _ready() -> void:
 	Game.vibration = false
 	Game.bench_begin()
 	_build_ui()
-	Game.hud.tip("SPEED TEST: one minute, the game plays itself.\nNothing is saved.", 3.0, 0.6)
+	Game.hud.tip("SPEED TEST: one minute of self-play. Nothing is saved.", 3.0, 0.6)
 	_next_room()
 
 

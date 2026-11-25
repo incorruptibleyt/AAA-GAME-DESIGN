@@ -160,7 +160,7 @@ func _process(delta: float) -> void:
 			Sfx.play("ignite", 0.35, 0.6)
 			if not _said:
 				_said = true
-				Game.danger_warn("fire", "FIRE!", "When a crack glows, a WALL OF FIRE rises from it. It burns you and stops every shot. Step off, or dash through.", HOT)
+				Game.danger_warn("fire", "FIRE!", "WALL OF FIRE: rises from glowing cracks. Step off!", HOT)
 		s._show(k)
 	elif _t < CALM + WARN + BURN:
 		if not s.burning:

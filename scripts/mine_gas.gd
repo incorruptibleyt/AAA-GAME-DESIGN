@@ -171,7 +171,7 @@ func _process(delta: float) -> void:
 				Sfx.play("splash", 0.25, 0.5)   # a low hiss
 				if not _said:
 					_said = true
-					Game.danger_warn("gas", "GAS!", "MINE GAS blows up when any shot flies through it. Shoot it when skeletons are inside; step out when it flares orange.", GAS)
+					Game.danger_warn("gas", "GAS!", "MINE GAS: any shot blows it up. Out when orange!", GAS)
 	for c in all.duplicate():
 		if not is_instance_valid(c.node) or (c.node as Node).get_parent() != self:
 			continue

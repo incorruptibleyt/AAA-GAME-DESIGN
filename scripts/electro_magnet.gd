@@ -139,7 +139,7 @@ func _process(delta: float) -> void:
 				Sfx.play("beam", 0.3, 0.6)
 				if not _said:
 					_said = true
-					Game.danger_warn("magnet", "MAGNET!", "When a MAGNET hums it switches on: it pulls everyone in and bends your shots. Don't let it drag you to the coil.", BLUE)
+					Game.danger_warn("magnet", "MAGNET!", "MAGNET: it pulls you in and bends your shots!", BLUE)
 		if _t >= OFF:
 			_t = 0.0
 			_on = true

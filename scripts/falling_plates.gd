@@ -154,7 +154,7 @@ func _process(delta: float) -> void:
 				Sfx.play("crack", 0.45, 0.7)
 				if not _said and Game.hero and covers(Game.hero.global_position, Game.hero.radius * 0.3):
 					_said = true
-					Game.danger_warn("plates", "MOVE!", "CRACKED PLATES fall away a moment after you step on them. Keep moving, and dash over the holes.", STAR)
+					Game.danger_warn("plates", "MOVE!", "CRACKED PLATES: they fall once stepped on. Keep moving!", STAR)
 		1:
 			_t += delta
 			var k := _t / GIVE

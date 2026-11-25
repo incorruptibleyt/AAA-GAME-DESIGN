@@ -103,7 +103,7 @@ func _process(delta: float) -> void:
 		Game.shake(0.25)
 		if not _said:
 			_said = true
-			Game.danger_warn("tide", "TIDE!", "When THE TIDE rumbles, a wave sweeps down the room. Stand right behind a pillar or crate, or dash through the wave.", SEA)
+			Game.danger_warn("tide", "TIDE!", "THE TIDE: a wave is coming. Hide behind a pillar!", SEA)
 		else:
 			Game.hud.callout_at_hero("TIDE!", SEA)
 	if _warned and randf() < delta * 14.0:

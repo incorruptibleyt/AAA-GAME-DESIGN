@@ -299,6 +299,8 @@ var _broken_time := 0.0
 var _tip: Label
 var _tip_time := 0.0
 var _tip_tag: Label
+var _tip_pic: TextureRect
+var _tip_sb: StyleBoxFlat
 var _tip_delay := 0.0
 var _shown_score := 0.0
 var _end_score: Label
@@ -1270,9 +1272,20 @@ func _build_hud() -> void:
 	_tip.grow_vertical = Control.GROW_DIRECTION_BEGIN   # longer tips grow up, clear of the buttons
 	_tip.label_settings.outline_size = 5
 	_tip.label_settings.outline_color = Color(0.06, 0.02, 0.1, 0.9)
-	_tip.add_theme_stylebox_override("normal", _tip_panel())
+	_tip.autowrap_mode = TextServer.AUTOWRAP_OFF   # v373: a tip is one line (_fit_tip)
+	_tip_sb = _tip_panel()
+	_tip.add_theme_stylebox_override("normal", _tip_sb)
 	_tip.visible = false
 	root.add_child(_tip)
+	# Version 373 (visual review v366 fix 6): a small round picture of the skeleton, danger
+	# or hero the tip is about, standing out of the card's left end.
+	_tip_pic = TextureRect.new()
+	_tip_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_tip_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_tip_pic.size = TIP_PIC
+	_tip_pic.visible = false
+	_tip.add_child(_tip_pic)
 	_tip_tag = label("", 15, Color(1, 0.97, 0.9))
 	chunky(_tip_tag.label_settings)
 	_tip_tag.label_settings.outline_size = 4
@@ -4479,18 +4492,19 @@ func chain_broken(was: float) -> void:
 
 ## A short line under the chain meter, for teaching the first run. 0 seconds clears it.
 ## `delay` waits for the room banner to clear first, so the two don't overlap.
-func tip(text: String, seconds := 5.0, delay := 0.0, foe := false) -> void:
-	# Version 360: "BOMBER: runs in..." puts the name in a tag on top of the card and the
-	# rest in the card (red for a skeleton's first-meeting line, `foe`; gold otherwise); any
-	# other line gets a gold TIP tag.
-	var tag := "TIP"
-	var body := text
-	var colon := text.find(": ")
-	if colon > 0 and text.substr(0, colon) == text.substr(0, colon).to_upper() and colon < 28:
-		tag = text.substr(0, colon)
-		body = text.substr(colon + 2)
-		body = body.substr(0, 1).to_upper() + body.substr(1)
-	_tip.text = body
+## Version 373 (visual review v366 fix 6, "tips are a paragraph in the middle of a fight"):
+## a tip is ONE line, sized to fit the phone, with a small picture of what it is about.
+## `pic`: "foe_<class>", "elite_<move>", "danger_<key>" (art/ui/tips/<pic>.png) or "hero"
+## (the hero in play); "" for none.
+const TIP_PIC := Vector2(68, 76)   # the picture on screen (the files are twice that)
+const TIP_FONT := 23
+const TIP_FONT_MIN := 18
+const TIP_WIDE := 508.0
+
+func tip(text: String, seconds := 5.0, delay := 0.0, foe := false, pic := "") -> void:
+	var parts := Hud.tip_parts(text)
+	var tag: String = parts[0]
+	_tip.text = parts[1]
 	_tip_tag.text = tag
 	var tsb := StyleBoxFlat.new()
 	tsb.bg_color = Color(0.78, 0.2, 0.2) if foe else Color(0.86, 0.6, 0.16)
@@ -4503,6 +4517,9 @@ func tip(text: String, seconds := 5.0, delay := 0.0, foe := false) -> void:
 	tsb.set_border_width_all(2)
 	_tip_tag.add_theme_stylebox_override("normal", tsb)
 	_tip_tag.size = Vector2.ZERO
+	_tip_pic.texture = Hud.tip_picture(pic) if text != "" else null
+	_tip_pic.visible = _tip_pic.texture != null
+	_fit_tip()
 	_tip_delay = delay if text != "" and seconds > 0.0 else 0.0
 	var was := _tip.visible
 	_tip.visible = text != "" and seconds > 0.0 and _tip_delay <= 0.0
@@ -4510,6 +4527,76 @@ func tip(text: String, seconds := 5.0, delay := 0.0, foe := false) -> void:
 	_tip_time = seconds if text != "" else 0.0
 	if _tip.visible and not was:
 		_pop_tip()
+
+
+## A tip's name tag and its one line. "BOMBER: runs in..." or "Dark Room: lantern..." puts
+## the name in the tag (a short name before the first colon of the first line); a card with
+## a title line of its own ("DAILY CRYPT #12  ·  Score x1.5", then the curses) puts that
+## line in the tag; anything else gets a TIP tag. Later lines join the one line.
+static func tip_parts(text: String) -> Array:
+	var lines := text.split("\n", false)
+	if lines.is_empty():
+		return ["TIP", ""]
+	var tag := "TIP"
+	var first: String = lines[0]
+	var colon := first.find(": ")
+	var name := first.substr(0, maxi(colon, 0))
+	if colon > 0 and colon < 28 and not (name.contains(".") or name.contains("!") or name.contains("?")):
+		tag = first.substr(0, colon).to_upper()
+		lines[0] = first.substr(colon + 2)
+	elif lines.size() > 1:
+		tag = first
+		lines.remove_at(0)
+	var body := " ".join(lines)
+	return [tag, body.substr(0, 1).to_upper() + body.substr(1)]
+
+
+## The picture for a tip (see tip), or null: the file is small and loaded when first shown.
+static func tip_picture(pic: String) -> Texture2D:
+	if pic == "":
+		return null
+	if pic == "hero":
+		pic = "hero_" + (str(Game.hero.hero_id) if Game.hero and is_instance_valid(Game.hero) else "")
+	var path := "res://art/ui/tips/%s.png" % pic
+	return load(path) as Texture2D if ResourceLoader.exists(path) else null
+
+
+## Sizes the tip card to its one line: the text shrinks (to TIP_FONT_MIN) until it fits the
+## phone; only a line too long even then (a long list of curses) wraps to a second line.
+func _fit_tip() -> void:
+	var has_pic := _tip_pic.visible
+	var left := 60.0 if has_pic else 18.0
+	_tip_sb.content_margin_left = left
+	# (a centred Label centres on its whole width, margins or not: beside a picture the line
+	# starts at the margin instead)
+	_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT if has_pic else HORIZONTAL_ALIGNMENT_CENTER
+	var font := _tip.get_theme_font("font")
+	var edge := float(_tip.label_settings.outline_size) * 2.0
+	var wide := minf(get_viewport().get_visible_rect().size.x - 28.0, TIP_WIDE)
+	var room := wide - left - 18.0
+	var fs := TIP_FONT
+	var w := font.get_string_size(_tip.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + edge
+	while w > room and fs > TIP_FONT_MIN:
+		fs -= 1
+		w = font.get_string_size(_tip.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + edge
+	var wrap := w > room
+	if wrap:
+		fs = 20
+		w = room
+	_tip.label_settings.font_size = fs
+	_tip.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if wrap else TextServer.AUTOWRAP_OFF
+	var tag_font := _tip_tag.label_settings.font if _tip_tag.label_settings.font else font
+	var tag_w := tag_font.get_string_size(_tip_tag.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _tip_tag.label_settings.font_size).x + 40.0
+	var card := clampf(maxf(w, tag_w) + left + 18.0, 200.0, wide)
+	_tip.offset_left = -card * 0.5 + (7.0 if has_pic else 0.0)   # (the picture stands 14 out on the left)
+	_tip.offset_right = card * 0.5 + (7.0 if has_pic else 0.0)
+	_tip.offset_top = -198
+	_tip.offset_bottom = -158
+	_tip_tag.position = Vector2(left - 2.0 if has_pic else 16.0, -15)
+	# The picture's ring (64 across, its middle 44 down the picture) sits on the card's
+	# middle line, standing out above, below and to the left of the card.
+	var card_h := font.get_height(fs) * (2.0 if wrap else 1.0) + _tip_sb.content_margin_top + _tip_sb.content_margin_bottom
+	_tip_pic.position = Vector2(-16.0, card_h * 0.5 - 44.0)
 
 
 ## The tip card springs up into place when it appears.
@@ -6091,6 +6178,19 @@ func _shop_chip(text: String, col: Color) -> Label:
 
 func show_hint(text: String) -> void:
 	_hint.text = text
+	# Version 373: the standing hint is one line too, shrunk until it fits the phone.
+	var font := _hint.label_settings.font if _hint.label_settings.font else _hint.get_theme_font("font")
+	var room := minf(get_viewport().get_visible_rect().size.x - 28.0, TIP_WIDE) - 36.0
+	var fs := 27
+	while fs > 20 and font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + _hint.label_settings.outline_size * 2.0 > room:
+		fs -= 1
+	_hint.label_settings.font_size = fs
+	_hint.autowrap_mode = TextServer.AUTOWRAP_OFF
+	var half := minf(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + 60.0, room + 36.0) * 0.5
+	_hint.offset_left = -half
+	_hint.offset_right = half
+	_hint.offset_top = -198
+	_hint.offset_bottom = -158
 	_hint_on = text != ""
 	_hint.visible = _hint_on and not _tip.visible
 

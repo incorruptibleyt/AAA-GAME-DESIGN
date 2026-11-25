@@ -113,9 +113,9 @@ static func room_tip(door: Dictionary) -> String:
 		"champion":
 			return "Champion's Door: an elite waits"
 		"dark":
-			return "Dark Room: only your lantern lights it. Two blessings after!"
+			return "Dark Room: lantern light only. Two blessings after!"
 		"traps":
-			return "Trap Hall: keep off the red rows. Lead skeletons onto them!"
+			return "Trap Hall: keep off the red rows. Lure skeletons on!"
 		"cursed":
 			var o: Dictionary = {}
 			for x: Dictionary in Loops.OMENS:

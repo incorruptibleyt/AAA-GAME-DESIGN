@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-25s"
+const BUILD := "2026-11-25t"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -482,7 +482,7 @@ func danger_warn(key: String, word: String, lesson: String, col: Color) -> void:
 			hud.tip("", 0.0)   # this matters more than a tip already showing
 		mark_taught("danger_" + key)
 		_tip_shown()   # (a danger is never held back, but the next tip waits after it)
-		hud.tip(lesson, 5.0)
+		hud.tip(lesson, 5.0, 0.0, false, "danger_" + key)
 		print("[teach] " + lesson)
 	hud.callout_at_hero(word, col)
 
@@ -507,12 +507,12 @@ func _tip_shown() -> void:
 	_room_tips += 1
 
 
-func _teach(key: String, text: String, seconds := 3.5) -> bool:
+func _teach(key: String, text: String, seconds := 3.5, pic := "hero") -> bool:
 	if taught(key) or first_run or race or hud.tip_busy() or state != State.PLAYING or not _tip_room():
 		return false
 	mark_taught(key)
 	_tip_shown()
-	hud.tip(text, seconds)
+	hud.tip(text, seconds, 0.0, false, pic)
 	print("[teach] " + text)
 	return true
 
@@ -520,29 +520,31 @@ func _teach(key: String, text: String, seconds := 3.5) -> bool:
 ## Version 170 (change 2): the first time each kind of skeleton shows up, one line on what it
 ## does and what to do about it (the tutorial's minions, warriors and archers are already
 ## taught there; bosses have their own title card).
+## Version 373 (visual review v366 fix 6): every line fits on ONE line of the tip card,
+## beside a small picture of the skeleton (art/ui/tips/foe_<class>.png).
 const MEET_LINES := {
 	"SkeletonArcher": "ARCHER: shoots arrows. Dash through them!",
 	"BoneSpitter": "BONE SPITTER: spits shards. Hide behind pillars!",
 	"SkeletonMage": "SKELETON MAGE: blows up circles. Keep moving!",
-	"BoneSpider": "BONE SPIDER: pounces when its strip FILLS IN. Step aside!",
+	"BoneSpider": "BONE SPIDER: pounces down its strip. Step aside!",
 	"SkeletonBomber": "BOMBER: runs in and explodes. Kill it first!",
 	"FrostWraith": "FROST WRAITH: fires an ice beam. Step off its line!",
 	"CinderSkeleton": "CINDER SKELETON: leaves fire. Don't stand in it!",
 	"DrownedSkeleton": "DROWNED SKELETON: bursts up in a circle. Step out!",
-	"Sporeling": "SPORELING: bursts into spores. Step back after the kill!",
+	"Sporeling": "SPORELING: bursts into spores. Step back!",
 	"Rootbinder": "ROOTBINDER: roots crawl after you. Step aside!",
-	"VoidWalker": "VOID WALKER: steps out of a rift by you. Get away from it!",
-	"ClockworkSkeleton": "CLOCKWORK SKELETON: charges and bounces off a wall. Hit it when it runs down!",
-	"HushKeeper": "HUSH KEEPER: its circle of letters silences your weapon. Step out to fight!",
-	"GeodeGuard": "GEODE GUARD: its geode blocks shots from the front. Hit its side or back!",
-	"TombMummy": "TOMB MUMMY: throws its bandage down the strip to reel you in. DASH to snap it!",
-	"InkDouble": "INK DOUBLE: copies your steps like a mirror. Keep off the middle, and break it!",
+	"VoidWalker": "VOID WALKER: steps out of a rift by you. Get away!",
+	"ClockworkSkeleton": "CLOCKWORK SKELETON: charges, then runs down. Hit it then!",
+	"HushKeeper": "HUSH KEEPER: its circle silences you. Step out!",
+	"GeodeGuard": "GEODE GUARD: blocks front shots. Hit its back!",
+	"TombMummy": "TOMB MUMMY: its bandage reels you in. DASH free!",
+	"InkDouble": "INK DOUBLE: mirrors your steps. Break it!",
 	"Bloodbat": "BLOODBATS: swoop along a strip. Dash through!",
 	"MoonHowler": "MOON HOWLER: pounces along a strip. Step aside!",
 	# Version 278: Frostfall's own skeletons had no line (the Blood Moon's two did).
-	"SnowRoller": "SNOW ROLLER: rolls a snowball down its strip. Step aside!",
-	"BellRinger": "BELL RINGER: its bell sends out a ring of frost. Dash through it!",
-	"GiftThief": "GIFT THIEF: runs off with gifts. Catch it before it vanishes!",
+	"SnowRoller": "SNOW ROLLER: rolls a snowball. Step aside!",
+	"BellRinger": "BELL RINGER: rings out frost. Dash through it!",
+	"GiftThief": "GIFT THIEF: runs off with gifts. Catch it!",
 }
 var _meet_queue: Array[String] = []
 
@@ -561,7 +563,7 @@ func _meet_tick() -> void:
 	if not taught("meet_" + n):
 		mark_taught("meet_" + n)
 		_tip_shown()
-		hud.tip(MEET_LINES[n], 3.5, 0.0, true)
+		hud.tip(MEET_LINES[n], 3.5, 0.0, true, "foe_" + n)
 		print("[teach] " + MEET_LINES[n])
 
 
@@ -1943,7 +1945,7 @@ func _dash_nudge_check() -> void:
 	cfg.set_value("tips", "dash_nudges", shown + 1)
 	write_save(cfg)
 	_nudge_left = DASH_NUDGE_TIME
-	hud.tip("Tap DASH to dodge!\nYou can't be hit mid-dash.", DASH_NUDGE_TIME)
+	hud.tip("DASH: tap it. You can't be hit mid-dash!", DASH_NUDGE_TIME, 0.0, false, "hero")
 
 
 func _end_dash_lesson() -> void:
@@ -2358,9 +2360,9 @@ func _mode_banner() -> void:
 		hud.tip("CRYPT RACE  ·  vs %s\nRace Kit: %s" % [_race.rival.name, Race.kit_text(_race.kit)], 4.0, 0.3)
 	elif event == "run":
 		if Floors.frostfall():
-			hud.tip("FROSTFALL  ·  %s\nKill skeletons in a Blizzard for bonus snowflakes.\nStand in a brazier's ring to stay warm!" % str(Events.chapter_info().name), 5.5, 1.8)
+			hud.tip("FROSTFALL  ·  %s\nKill in a Blizzard for bonus snowflakes!" % str(Events.chapter_info().name), 5.5, 1.8)
 		else:
-			hud.tip("BLOOD MOON  ·  %s\nKill skeletons during a Moon Surge for bonus shards!" % str(Events.chapter_info().name), 5.0, 1.8)
+			hud.tip("BLOOD MOON  ·  %s\nKill in a Moon Surge for bonus shards!" % str(Events.chapter_info().name), 5.0, 1.8)
 	elif event == "hunt":
 		hud.tip("%s  ·  %s\n%d blessings to start. %s" % [Events.word("hunt").to_upper(), str(Events.tiers()[event_tier - 1].name), int(Events.tiers()[event_tier - 1].gifts), Events.word("down")], 4.5, 1.8)
 	elif daily:
@@ -3407,7 +3409,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 		_ftue_room_intro()
 	else:
 		# Version 148: only in a player's first few runs (it showed on every floor 1 forever).
-		hud.show_hint("Drag to move. Lift to shoot.\nFlick your thumb to dash!" if floor_num == 1 and index == 0 and _newcomer else "")
+		hud.show_hint("Drag: move. Lift: shoot. Flick: dash!" if floor_num == 1 and index == 0 and _newcomer else "")
 	var boss_track := Events.word("music") if event != "" and boss_kind() == str(Events.ev().get("boss", "Q")) else "boss"
 	Music.play((boss_track if Music.TRACKS.has(boss_track) else "boss") if _in_boss_room() else "dungeon")
 	if race and _race and not _race.over and _in_boss_room():
@@ -3656,7 +3658,7 @@ func _continue_run() -> void:
 		# The event ended while the title was up: its run can't go on.
 		RunSave.clear()
 		hud._title_continue.visible = false
-		hud.tip("%s That run ended with the event." % Events.word("over"), 4.0)
+		hud.tip("%s That run ended with it." % Events.word("over"), 4.0)
 		return
 	Sfx.play("click")
 	Floors.lobby = false
@@ -3763,11 +3765,11 @@ func _ftue_room_intro() -> void:
 		# button itself pulses. Room 2 is the dash room: slow arrows, the slow-motion lesson,
 		# and the hero can't fall anywhere in the tutorial.
 		2:
-			hud.tip("NEW: DASH! Flick or tap DASH.", 4.0, 1.8)
+			hud.tip("NEW: DASH! Flick or tap DASH.", 4.0, 1.8, false, "hero")
 			_nudge_left = TUTORIAL_DASH_PULSE
 		3:
 			hero.special_charge = 1.0
-			hud.tip("Star button = special move!", 4.0, 3.5)
+			hud.tip("Star button = special move!", 4.0, 3.5, false, "hero")
 		_: hud.tip("", 0.0)
 
 
@@ -4050,9 +4052,9 @@ func on_enemy_died(e: Enemy) -> void:
 	if hero:
 		hero.add_charge(0.3 if e.elite else 0.1)
 	if chain >= 1.5 and chain_unlocked():
-		_teach("chain", "CHAIN! Kill fast to hit harder.")
+		_teach("chain", "CHAIN: kill fast to hit harder!")
 	if hero and special_unlocked() and hero.special_ready():
-		_teach("special", "Star button ready: tap it for a special move!")
+		_teach("special", "SPECIAL: star button ready. Tap it!")
 	if before < chain_max() and chain >= chain_max():
 		Sfx.play("vo_combo", 0.8)
 	if not _rep.is_empty():
@@ -5008,7 +5010,7 @@ func _settle_events() -> void:
 		parts.append("%d road prize%s" % [r.prizes, "" if int(r.prizes) == 1 else "s"])
 	if int(r.caskets) > 0:
 		parts.append("%d %s" % [r.caskets, r.casket if int(r.caskets) == 1 else r.casket_n])
-	hud.tip("The %s is over.\nYou hadn't claimed %s: +%d coins" % [str(r.name).capitalize(), " and ".join(parts), int(r.coins)], 6.0, 1.2)
+	hud.tip("The %s is over.\nUnclaimed %s: +%d coins" % [str(r.name).capitalize(), " and ".join(parts), int(r.coins)], 6.0, 1.2)
 	hud.set_drops(Drops.waiting(_load_save()))
 
 
@@ -5594,7 +5596,7 @@ func _check_reminders_allowed() -> void:
 	var blocked := PhoneReminders.blocked(cfg)
 	hud.set_reminders_label(PhoneReminders.on(cfg), blocked)
 	if blocked and not _rem_blocked_said and state != State.PLAYING:
-		hud.tip("Your phone is blocking Bone Chain's reminders. Allow notifications for Bone Chain in the phone's Settings.", 5.0, 0.3)
+		hud.tip("REMINDERS BLOCKED: allow notifications in phone Settings.", 5.0, 0.3)
 	_rem_blocked_said = blocked
 
 
@@ -5817,7 +5819,7 @@ func _watch_frame_rate(fps: float) -> void:
 			_auto_seen = 0
 			print("[graphics] frame rate %d: stepped down to %s" % [roundi(sorted[4]), GRAPHICS_NAMES[graphics_level]])
 			if not first_run and first:
-				hud.tip("Graphics set to %s, for a smoother game. Change it in Settings." % GRAPHICS_NAMES[graphics_level], 4.0)
+				hud.tip("GRAPHICS: set to %s for a smoother game." % GRAPHICS_NAMES[graphics_level], 4.0)
 			return
 	if _auto_seen >= 180:
 		_auto_graphics = false
@@ -6289,7 +6291,7 @@ func _open_race() -> void:
 	var cfg := _load_save()
 	Sfx.play("click")
 	if not Race.unlocked(cfg):
-		hud.tip("The Crypt Race opens after %d floor 1 wins.\nYou have %d so far." % [Race.UNLOCK_CLEARS, mini(f1_clears(cfg), Race.UNLOCK_CLEARS)], 3.5)
+		hud.tip("CRYPT RACE: opens after %d floor 1 wins. You have %d." % [Race.UNLOCK_CLEARS, mini(f1_clears(cfg), Race.UNLOCK_CLEARS)], 3.5)
 		return
 	hud.race_screen.open_lobby(cfg, _race_note)
 	_race_note = ""

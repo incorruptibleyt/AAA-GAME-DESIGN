@@ -354,7 +354,7 @@ func _process(delta: float) -> void:
 			var away := a.global_position - global_position if not Game.hero else a.global_position - Game.hero.global_position
 			away.y = 0.0
 			a.take_damage(damage * crit_mult if crit else damage, away.normalized() if away.length_squared() > 0.01 else -dir, push * 0.3, crit)
-			Game._teach("barbarian_axe", "AXES come back to your hand: skeletons in the way get cut again!")
+			Game._teach("barbarian_axe", "AXES: they fly back and cut again!")
 		else:
 			a.take_damage(damage * crit_mult if crit else damage, dir, push, crit)
 		if burn_dps > 0.0 and not a.dead:
@@ -534,7 +534,7 @@ func _ricochet(from: Actor) -> bool:
 	life = maxf(life, 1.2)
 	Fx.sparks(global_position, _col.lerp(Color.WHITE, 0.4))
 	Sfx.play("block", 0.18, 1.6)
-	Game._teach("rogue_ricochet", "RICOCHET: your knives and bolts bounce on to the next skeleton!")
+	Game._teach("rogue_ricochet", "RICOCHET: shots bounce to the next skeleton!")
 	return true
 
 
@@ -585,7 +585,7 @@ func _explode(at: Vector3, target: int, already: Actor) -> void:
 			# Version 239: Burning Ground. A bigger charge leaves a wider pool.
 			FirePatch.spawn_hero(at, 1.0 + 0.8 * charged, 3.0, maxf(h.burn_dps, 6.0 + h.damage * 0.4))
 			Sfx.play("ignite", 0.35)
-			Game._teach("mage_ground", "BURNING GROUND: your charged orbs leave fire behind!")
+			Game._teach("mage_ground", "BURNING GROUND: charged orbs leave fire!")
 	for a: Actor in Actor.all.duplicate():
 		if a == already or a.team != target or not a.can_be_hit():
 			continue

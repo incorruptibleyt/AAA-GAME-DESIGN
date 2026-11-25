@@ -205,7 +205,7 @@ func _process(delta: float) -> void:
 				m.rotation.z = -PI / 2 if _dir > 0.0 else PI / 2
 			if not _said:
 				_said = true
-				Game.danger_warn("shelves", "SHELVES!", "When the books rattle, the bookcase rolls along its brass rails. Keep off the rails, or hide behind it from shots.", GLOW)
+				Game.danger_warn("shelves", "SHELVES!", "ROLLING SHELVES: they roll down the rails. Keep off!", GLOW)
 		if _t >= REST:
 			_t = 0.0
 			_rolling = true

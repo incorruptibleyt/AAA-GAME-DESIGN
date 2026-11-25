@@ -543,7 +543,7 @@ func _shadow_volley() -> void:
 				p.recall_after(QUIVER_TURN if perks.has("quiver") else 0.0))   # Shadow Quiver (version 308)
 	if perks.has("quiver"):
 		get_tree().create_timer(QUIVER_TURN + 0.05, false).timeout.connect(func():
-			Game._teach("quiver", "SHADOW QUIVER: the knives come back to you, cutting again!"))
+			Game._teach("quiver", "SHADOW QUIVER: knives fly back, cutting again!"))
 
 
 func _shield_slam() -> void:
@@ -562,7 +562,7 @@ func _shield_slam() -> void:
 			Game.shake(0.3)
 			Sfx.play("boom", 0.55, 0.8)
 			_slam(slam_reach * AFTERSHOCK_REACH, 2.0, 9.0)
-			Game._teach("aftershock", "AFTERSHOCK: Shield Slam slams again a second later!"))
+			Game._teach("aftershock", "AFTERSHOCK: Shield Slam hits a second time!"))
 
 
 func _slam(reach: float, mult: float, push: float) -> void:
@@ -810,7 +810,7 @@ func _process(delta: float) -> void:
 	if on_ice:
 		# v290: on ice the stick only slowly changes the slide, and a slide carries on.
 		if _ice_vel.length() > 1.0:
-			Game.danger_warn("ice", "ICE!", "BLACK ICE: you slide on it and keep gliding when you let go. Skeletons slip and slow down on it.", IcePatch.ICE)
+			Game.danger_warn("ice", "ICE!", "BLACK ICE: you slide and keep gliding on it!", IcePatch.ICE)
 		_ice_vel = _ice_vel.move_toward(want, (IcePatch.GRIP if _moving else IcePatch.DRAG) * delta)
 		if not _moving and _ice_vel.length() > 0.3:
 			move_by(_ice_vel * delta, delta)
@@ -914,7 +914,7 @@ func _shoot(fwd: Vector3) -> void:
 		charged_shots += 1
 		Sfx.play("cast", 0.4 + 0.3 * boost, 1.15 - 0.2 * boost)
 		Fx.magic(origin, bolt_color, int(8 + 14 * boost))
-		Game._teach("mage_charge", "CHARGE: moving charges your magic. Stop, and the first orb is a big blast!")
+		Game._teach("mage_charge", "CHARGE: move to charge, stop for a big blast!")
 	for i in front_bolts:
 		var offset := (i - (front_bolts - 1) * 0.5) * 0.35
 		_fire(origin + right * offset, fwd, col, share, boost)
@@ -958,7 +958,7 @@ func _run_knives(delta: float) -> void:
 	p.bounce = int(perks.get("ricochet", 0))
 	p.wall_bounce = int(perks.get("bounce", 0))
 	Sfx.play("swing", 0.25, 1.6)
-	Game._teach("rogue_knives", "KNIVES: the Rogue throws knives while running. Stand still for the crossbow!")
+	Game._teach("rogue_knives", "KNIVES: knives on the run, crossbow standing!")
 
 
 ## Bone Storm: every third volley (or swing) also throws a ring of piercing bone shards.
@@ -1036,7 +1036,7 @@ func _swing(fwd: Vector3) -> void:
 	if perks.has("cutting_wind"):
 		_cutting_wind(fwd, col, cut)
 	_bone_storm(fwd, global_position + Vector3.UP * 1.1 + fwd * 0.6)
-	Game._teach("knight_swing", "SWORD: up close, one swing cuts every skeleton in front!")
+	Game._teach("knight_swing", "SWORD: up close, one swing cuts them all!")
 
 
 ## Cutting Wind: the swing's arc flies on as a wide sword wave through every skeleton behind
@@ -1200,7 +1200,7 @@ func on_block(at: Vector3) -> void:
 	Fx.sparks(at, Color(1.0, 0.92, 0.6))
 	Sfx.play("block", 0.75, randf_range(0.94, 1.08))
 	add_charge(0.03)   # every blocked shot builds a little toward Shield Slam
-	Game._teach("knight_shield", "SHIELD: stand still and shots from the front clang off!")
+	Game._teach("knight_shield", "SHIELD: stand still to block front shots!")
 	if perks.has("riposte"):
 		_riposte(at)
 
@@ -1231,7 +1231,7 @@ func _riposte(at: Vector3) -> void:
 	p.burn_dps = burn_dps
 	p.frost = frost
 	Fx.sparks(origin, RIPOSTE_COL)
-	Game._teach("knight_riposte", "RIPOSTE: shots your shield blocks fly straight back!")
+	Game._teach("knight_riposte", "RIPOSTE: blocked shots fly straight back!")
 
 
 ## Twin Shots: each pick adds a forward shot and 40% to the forward volley, shared between
@@ -1293,7 +1293,7 @@ func _thunder_catch() -> void:
 		d.y = 0.0
 		a.take_damage(dmg, d.normalized() if d.length_squared() > 0.01 else -global_transform.basis.z, 12.0)
 		Fx.sparks(a.center(), Color(1.0, 0.85, 0.55))
-	Game._teach("barbarian_thunder", "THUNDER CATCH: catch your axe close to skeletons to slam them back!")
+	Game._teach("barbarian_thunder", "THUNDER CATCH: catch your axe by skeletons!")
 
 
 ## Shadow Step: the shadow stands where this dash began.
@@ -1301,7 +1301,7 @@ func _shadow_step() -> void:
 	if not is_instance_valid(_shadow):
 		_shadow = ShadowStep.make(self)
 	_shadow.appear(global_position, rotation.y)
-	Game._teach("rogue_shadow", "SHADOW STEP: every dash leaves a shadow that throws knives!")
+	Game._teach("rogue_shadow", "SHADOW STEP: each dash leaves a knife shadow!")
 
 
 ## Frost Orbit: while the Mage moves in a fight, ice orbs circle round, chilling and hurting
@@ -1343,7 +1343,7 @@ func _update_orbit(delta: float) -> void:
 			if not a.dead and a is Enemy:
 				(a as Enemy).chill(1.2)
 			Fx.sparks(at, ORBIT_COL)
-			Game._teach("mage_orbit", "FROST ORBIT: keep moving, and your ice orbs chill skeletons!")
+			Game._teach("mage_orbit", "FROST ORBIT: keep moving to chill skeletons!")
 			break   # (an orb can't spend itself on one crowd in a single frame)
 
 
@@ -1396,7 +1396,7 @@ func spark_from(a: Actor) -> void:
 		from = to
 	if done.size() > 1:
 		Sfx.play("zap", 0.35, randf_range(0.9, 1.15))
-		Game._teach("spark", "STATIC SHOTS: every hit throws lightning on to the next skeleton!")
+		Game._teach("spark", "STATIC SHOTS: hits throw lightning onward!")
 
 
 ## Storm Bounce (version 308): a shot bouncing off a wall or pillar throws lightning at the
@@ -1460,7 +1460,7 @@ func _update_bones(delta: float) -> void:
 				spark_from(a)   # Thunder Bones (version 308)
 			Fx.sparks(at, BONE_COL)
 			Sfx.play("swing", 0.2, 1.7)
-			Game._teach("orbit", "SPINNING BONES: walk into skeletons and the blades cut them!")
+			Game._teach("orbit", "SPINNING BONES: walk into skeletons to cut!")
 			break
 
 
@@ -1508,7 +1508,7 @@ func _phantom_cuts() -> void:
 			(a as Enemy).freeze_solid(FROST_GHOST_TIME)   # Frost Ghost (version 308)
 		Fx.impact(a.center(), Color(0.75, 0.6, 1.0), 1.6)
 		Sfx.play("swing", 0.6, 1.3)
-		Game._teach("phantom", "PHANTOM DASH: dash straight through skeletons to cut them!")
+		Game._teach("phantom", "PHANTOM DASH: dash through skeletons to cut!")
 
 
 ## Blazing Dash (version 307): a line of fire patches from where the dash began to where it ended.
@@ -1519,7 +1519,7 @@ func _blaze_trail() -> void:
 	var dps := maxf(burn_dps, 6.0 + 0.4 * damage)
 	for i in steps + 1:
 		FirePatch.spawn_hero(_dash_from + path * (float(i) / steps), 0.8, 2.5, dps)
-	Game._teach("blaze_dash", "BLAZING DASH: lead skeletons over your trail of fire!")
+	Game._teach("blaze_dash", "BLAZING DASH: lead skeletons over the fire!")
 
 
 ## Cold Snap (version 307): the special freezes every skeleton near the hero solid.
