@@ -34,13 +34,18 @@ static var _danger_mats := {}
 ## keeps the pink edge, glow and floor light, so danger still reads at a glance; the middle
 ## and the tail tell you what was shot. The numbers are the shader's `kind`.
 const SHOT_KIND := {"arrow": 1, "bone": 2, "ice": 3, "fire": 4, "water": 5, "spore": 6, "moon": 7, "sand": 8,
-	"crystal": 9, "ink": 10, "gear": 11, "star": 12, "dart": 13, "snow": 14}
+	"crystal": 9, "ink": 10, "gear": 11, "star": 12, "dart": 13, "snow": 14,
+	# Version 371: each boss its own.
+	"crown": 15, "magma": 16, "skull": 17, "hex": 18, "wisp": 19, "trident": 20, "bat": 21, "quill": 22}
 ## The comet tail behind each (the plain orb's is the danger pink).
 const SHOT_TAIL := {"arrow": Color(1.0, 0.45, 0.55), "bone": Color(1.0, 0.5, 0.6), "ice": Color(0.4, 0.75, 1.0),
 	"fire": Color(1.0, 0.45, 0.1), "water": Color(0.15, 0.8, 0.9), "spore": Color(0.55, 1.0, 0.25),
 	"moon": Color(1.0, 0.2, 0.15), "sand": Color(1.0, 0.72, 0.3), "crystal": Color(0.7, 0.4, 1.0),
 	"ink": Color(0.5, 0.35, 1.0), "gear": Color(1.0, 0.6, 0.2), "star": Color(0.75, 0.8, 1.0),
-	"dart": Color(1.0, 0.75, 0.35), "snow": Color(0.7, 0.9, 1.0)}
+	"dart": Color(1.0, 0.75, 0.35), "snow": Color(0.7, 0.9, 1.0),
+	"crown": Color(1.0, 0.7, 0.2), "magma": Color(1.0, 0.4, 0.05), "skull": Color(0.45, 1.0, 0.8),
+	"hex": Color(0.7, 0.4, 1.0), "wisp": Color(0.3, 0.85, 1.0), "trident": Color(0.2, 0.85, 0.85),
+	"bat": Color(1.0, 0.15, 0.2), "quill": Color(0.6, 0.5, 1.0)}
 ## What a Bone Spitter spits in each place (in the order of Floors.THEMES).
 const PLACE_SHOT := ["bone", "ice", "fire", "water", "spore", "moon", "snow", "sand", "crystal", "ink", "gear", "star"]
 
@@ -283,7 +288,7 @@ void fragment() {
 			d = (abs(u.x) - w) * 0.9;
 			mc = mix(vec3(1.0, 0.8, 0.36), vec3(1.0, 1.0, 0.88), 1.0 - smoothstep(0.0, 0.07, abs(u.x)));
 			bg = vec3(0.2, 0.07, 0.0);
-		} else {
+		} else if (kind == 14) {
 			// Snow: a six-armed flake, slowly turning.
 			vec2 sn = turn(u, TIME * 1.2);
 			float a14 = mod(atan(sn.y, sn.x) + TAU / 12.0, TAU / 6.0) - TAU / 12.0;
@@ -291,6 +296,63 @@ void fragment() {
 			d = min(seg(fs, vec2(0.0), vec2(0.46, 0.0)) - 0.045, seg(fs, vec2(0.27, 0.0), vec2(0.39, 0.11)) - 0.035);
 			mc = vec3(0.95, 1.0, 1.0);
 			bg = vec3(0.03, 0.22, 0.5);
+		} else if (kind == 15) {
+			// Version 371, the bosses. Crown (the Skeleton King): a gold band, three points, a
+			// red gem. Upright on the screen whichever way it flies.
+			float top = 0.34 - 1.4 * abs(mod(q.x + 0.15, 0.3) - 0.15);
+			d = max(max(abs(q.x) - 0.34, -0.28 - q.y), (q.y - top) * 0.55);
+			mc = mix(vec3(1.0, 0.1, 0.12), vec3(1.0, 0.78, 0.2), smoothstep(0.05, 0.08, length(q - vec2(0.0, -0.14))));
+			bg = vec3(0.16, 0.0, 0.1);
+		} else if (kind == 16) {
+			// Magma (the Cinder Colossus): a lump of black rock with glowing cracks.
+			d = rr - 0.43 - 0.035 * sin(ang * 5.0 + 1.0);
+			float crack = min(abs(sin(u.x * 5.0 + sin(u.y * 6.0) * 1.3 + 0.5)), abs(sin(u.y * 4.5 + sin(u.x * 7.0) * 1.1 + 1.2)));
+			mc = mix(vec3(1.0, 0.75, 0.15), vec3(0.2, 0.09, 0.06), smoothstep(0.06, 0.2, crack));
+			bg = vec3(0.55, 0.1, 0.0);
+		} else if (kind == 17) {
+			// Skull (the Lich's souls): upright on the screen whichever way it drifts.
+			d = min(length(q - vec2(0.0, 0.08)) - 0.3, max(abs(q.x) - 0.17, max(q.y - 0.0, -0.36 - q.y)));
+			float eyes = min(length(vec2(abs(q.x) - 0.12, q.y - 0.05)) - 0.085, max(abs(q.x) - 0.025, abs(q.y + 0.13) - 0.05));
+			eyes = min(eyes, max(abs(abs(q.x) - 0.075) - 0.012, abs(q.y + 0.3) - 0.06));
+			mc = mix(vec3(0.02, 0.1, 0.1), vec3(0.8, 1.0, 0.9), smoothstep(-0.01, 0.015, eyes));
+			bg = vec3(0.0, 0.14, 0.13);
+		} else if (kind == 18) {
+			// Hex (the Lich's bolts): a violet eye with a slit, across the way it flies.
+			d = max(length(u - vec2(0.0, 0.3)), length(u + vec2(0.0, 0.3))) - 0.52;
+			mc = mix(vec3(0.03, 0.0, 0.08), mix(vec3(1.0, 0.92, 1.0), vec3(0.72, 0.38, 1.0), smoothstep(0.08, 0.2, rr)),
+				smoothstep(0.035, 0.06, max(abs(u.x), abs(u.y) - 0.13)));
+			bg = vec3(0.1, 0.0, 0.2);
+		} else if (kind == 19) {
+			// Wisp (the Lich's spirals): a cold ghost flame with two eyes.
+			vec2 hw = u - vec2(0.0, 0.14);
+			float tw = clamp(-hw.y / 0.66, 0.0, 1.0);
+			float wobw = sin(u.y * 11.0 + TIME * 14.0) * 0.08 * tw;
+			d = hw.y > 0.0 ? length(hw) - 0.3 : abs(u.x + wobw) - 0.3 * (1.0 - tw * tw);
+			d = max(d, -0.54 - u.y);
+			mc = mix(vec3(0.0, 0.08, 0.14), mix(vec3(0.9, 1.0, 1.0), vec3(0.2, 0.85, 1.0), smoothstep(0.0, 0.5, -hw.y + 0.1)),
+				smoothstep(0.065, 0.09, length(vec2(abs(u.x) - 0.12, u.y - 0.2))));
+			bg = vec3(0.0, 0.08, 0.18);
+		} else if (kind == 20) {
+			// Trident (the Tidecaller): three prongs first.
+			vec2 ta = vec2(abs(u.x), u.y);
+			d = min(seg(u, vec2(0.0, -0.5), vec2(0.0, 0.52)), min(seg(ta, vec2(0.27, 0.0), vec2(0.27, 0.42)), seg(ta, vec2(0.0, 0.0), vec2(0.27, 0.0)))) - 0.06;
+			mc = vec3(0.65, 1.0, 0.92);
+			bg = vec3(0.0, 0.1, 0.24);
+		} else if (kind == 21) {
+			// Bat (the Blood Moon Queen): black wings across a pale moon.
+			float ba = abs(u.x);
+			d = max(ba - 0.5, max(u.y - (0.2 - 0.3 * ba), (-0.2 + 0.5 * ba + 0.1 * abs(sin(ba * TAU * 2.0)) - u.y)) * 0.8);
+			d = min(d, min(length(u - vec2(0.0, 0.14)) - 0.12, length(vec2(ba - 0.08, u.y - 0.27)) - 0.05));
+			mc = mix(vec3(1.0, 0.1, 0.1), vec3(0.03, 0.0, 0.02), smoothstep(0.02, 0.035, length(vec2(ba - 0.05, u.y - 0.15))));
+			bg = vec3(0.8, 0.5, 0.42);
+		} else {
+			// Quill (the Ink Double): a white feather, black nib first. Longer than the orb.
+			float tq = clamp((u.y + 0.85) / 1.25, 0.0, 1.0);
+			float feather = max(abs(u.x) - 0.24 * sin(tq * PI) * (0.55 + 0.45 * tq), max(-0.85 - u.y, u.y - 0.4));
+			float nib = max((abs(u.x) - 0.09 * (0.95 - u.y) / 0.55) * 0.9, 0.4 - u.y);
+			d = min(feather, nib);
+			mc = nib <= d ? vec3(0.02, 0.0, 0.06) : mix(vec3(0.55, 0.4, 0.95), vec3(0.96, 0.96, 1.0), smoothstep(0.015, 0.04, abs(u.x)));
+			bg = vec3(0.07, 0.03, 0.2);
 		}
 		// (the middle glows a little in the shape's own colour, so it is a light, not a badge)
 		// (a dark line round the middle, then a solid band of the danger pink, then the glow)

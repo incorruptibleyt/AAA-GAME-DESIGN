@@ -53,4 +53,4 @@ func _think(hero: Hero, delta: float) -> void:
 		var d := to.normalized() if to.length() > 0.01 else Vector3.FORWARD
 		for i in 3:
 			var dir := d.rotated(Vector3.UP, (i - 1) * 0.35)
-			Projectile.fire(Team.UNDEAD, center() + dir * 0.6, dir, 10.0, 6.0, RED, 0.34, "The Blood Moon Queen")
+			Projectile.fire(Team.UNDEAD, center() + dir * 0.6, dir, 10.0, 6.0, RED, 0.34, "The Blood Moon Queen", "bat")

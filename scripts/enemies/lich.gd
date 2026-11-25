@@ -115,7 +115,7 @@ func _seeking_souls() -> void:
 		visual.attack(true)
 		# A wide fan toward the hero: the outer souls swing in from the sides.
 		var d := aim.rotated(Vector3.UP, (i - (n - 1) * 0.5) * 0.95)
-		var p := Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.2, d, 12.0, SOUL_SPEED, SOUL, 0.36, "Lich")
+		var p := Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.2, d, 12.0, SOUL_SPEED, SOUL, 0.36, "Lich", "skull")
 		p.seek = SOUL_TURN
 		p.life = 5.0
 		Fx.magic(global_position + Vector3.UP * 1.2 + d * 1.2, SOUL, 14)
@@ -142,7 +142,7 @@ func _blink_volley() -> void:
 		for side in [-0.5, 0.5]:
 			for angle in [-0.12, 0.0, 0.12]:
 				var dir := d.rotated(Vector3.UP, side + angle)
-				Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + dir * 1.0, dir, 12.0, 9.0, Color(0.7, 0.5, 1.0), 0.24, "Lich")
+				Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + dir * 1.0, dir, 12.0, 9.0, Color(0.7, 0.5, 1.0), 0.24, "Lich", "hex")
 		Sfx.play("shoot", 0.8)
 		await _wait(0.6)
 
@@ -157,7 +157,7 @@ func _spiral() -> void:
 			return
 		for a in arms:
 			var d := Vector3.FORWARD.rotated(Vector3.UP, spin + a * TAU / arms)
-			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 6.0, Color(0.4, 0.9, 1.0), 0.25, "Lich")
+			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 6.0, Color(0.4, 0.9, 1.0), 0.25, "Lich", "wisp")
 		spin += 0.33
 		if i % 3 == 0:
 			Sfx.play("shoot", 0.5)
@@ -192,7 +192,7 @@ func _teleport() -> void:
 	var count := (12 if _enraged else 9) if _gentle() else (14 if _enraged else 10)
 	for i in count:
 		var d := Vector3.FORWARD.rotated(Vector3.UP, i * TAU / count)
-		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 7.0, Color(0.5, 0.95, 1.0), 0.25, "Lich")
+		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 7.0, Color(0.5, 0.95, 1.0), 0.25, "Lich", "wisp")
 	await _wait(0.5)
 
 
@@ -225,7 +225,7 @@ func _volleys() -> void:
 		d = d.normalized()
 		for angle in [-0.36, -0.18, 0.0, 0.18, 0.36]:
 			var dir := d.rotated(Vector3.UP, angle)
-			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + dir * 1.0, dir, 12.0, 9.0, Color(0.7, 0.5, 1.0), 0.24, "Lich")
+			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + dir * 1.0, dir, 12.0, 9.0, Color(0.7, 0.5, 1.0), 0.24, "Lich", "hex")
 		Sfx.play("shoot", 0.8)
 		await _wait(0.55)
 

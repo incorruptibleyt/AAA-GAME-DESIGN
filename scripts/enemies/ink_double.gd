@@ -107,7 +107,7 @@ func _fling(d: Vector3) -> void:
 	if dead:
 		return
 	Sfx.play("ink", 0.5, 1.3)
-	Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.0 + d * 0.5, d, BLOT_DAMAGE, BLOT_SPEED, BLOT, 0.34, "Ink Double")
+	Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.0 + d * 0.5, d, BLOT_DAMAGE, BLOT_SPEED, BLOT, 0.34, "Ink Double", "quill")
 
 
 ## Its time is up: it runs back into a puddle of ink and is gone (no reward).

@@ -285,7 +285,7 @@ func _nova() -> void:
 		var offset := w * (PI / count) + randf() * 0.3
 		for i in count:
 			var dir := Vector3.FORWARD.rotated(Vector3.UP, offset + i * TAU / count)
-			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP + dir * 1.2, dir, 11.0, 5.5, SHOT, 0.34, DISPLAY_NAME)
+			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP + dir * 1.2, dir, 11.0, 5.5, SHOT, 0.34, DISPLAY_NAME, "magma")
 		Sfx.play("shoot", 0.8)
 		await _wait(0.55)
 	await _wait(0.6)

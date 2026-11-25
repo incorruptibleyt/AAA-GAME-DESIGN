@@ -221,7 +221,7 @@ func _spray() -> void:
 		var spread := deg_to_rad(52.0)
 		for i in count:
 			var dir := d.rotated(Vector3.UP, -spread * 0.5 + spread * i / (count - 1))
-			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.4 + dir * 1.3, dir, 10.0, 8.0, SHOT, 0.3, DISPLAY_NAME)
+			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.4 + dir * 1.3, dir, 10.0, 8.0, SHOT, 0.3, DISPLAY_NAME, "trident")
 		Sfx.play("shoot", 0.8, 0.8)
 		Sfx.play("splash", 0.3, 1.4)
 		await _wait(0.5)
@@ -377,7 +377,7 @@ func _dive() -> void:
 	var turn := randf() * TAU
 	for i in count:
 		var dir := Vector3.FORWARD.rotated(Vector3.UP, turn + i * TAU / count)
-		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.0 + dir * 1.4, dir, 10.0, 6.0, SHOT, 0.32, DISPLAY_NAME)
+		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.0 + dir * 1.4, dir, 10.0, 6.0, SHOT, 0.32, DISPLAY_NAME, "trident")
 	Sfx.play("shoot", 0.8, 0.7)
 	await _wait(0.9)
 
