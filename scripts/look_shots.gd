@@ -44,6 +44,31 @@ static func want(id: String, slot: String, key: String, done: Callable) -> void:
 	_me._want(id, slot, key, done)
 
 
+## Version 363 (visual review v357 fix 5): a picture of a prize that isn't a look: "coins"
+## (a heap of skull coins), "coin" (one), "drop" (the Bone Drop's bone reliquary) or "lucky"
+## (a Lucky Start's green star). Kept like the looks' pictures.
+static func want_prize(kind: String, done: Callable) -> void:
+	want("", "prize", kind, done)
+
+
+## A square picture of prize `kind` (want_prize), `px` points across, for a row or a button;
+## empty until the picture is ready. `dim`: a prize not reached yet, darker.
+static func prize_rect(kind: String, px: float, dim := false) -> TextureRect:
+	var pic := TextureRect.new()
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.custom_minimum_size = Vector2(px, px)
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	pic.material = HeroStage._see_through()
+	if dim:
+		pic.modulate = Color(0.5, 0.48, 0.56)
+	want_prize(kind, func(t: Texture2D) -> void:
+		if is_instance_valid(pic):
+			pic.texture = t)
+	return pic
+
+
 static func shot_key(id: String, slot: String, key: String) -> String:
 	return "%s_%s_%s" % [id, slot, key if key != "" else "classic"]
 
@@ -67,6 +92,9 @@ func _want(id: String, slot: String, key: String, done: Callable) -> void:
 		_waiting[k].append(done)
 		return
 	_waiting[k] = [done]
+	if slot == "prize":
+		_queue.append([k, {}, "prize:" + key])
+		return
 	var base := Heroes.get_hero(id)
 	if base.is_empty():
 		return
@@ -170,6 +198,9 @@ func _take(job: Array) -> void:
 	var k: String = job[0]
 	var def: Dictionary = job[1]
 	var slot: String = job[2]
+	if slot.begins_with("prize:"):
+		_take_prize(k, slot.substr(6))
+		return
 	var v := CharacterVisual.new()
 	v.outline_me = true
 	v.aura_boost = 1.8
@@ -222,6 +253,107 @@ func _take(job: Array) -> void:
 	var img := _vp.get_texture().get_image()
 	for c in _pivot.get_children():
 		c.queue_free()   # (the hero, and whatever a finisher left flying)
+	var cbs: Array = _waiting.get(k, [])
+	_waiting.erase(k)
+	_busy = false
+	if img == null or img.is_empty() or _empty(img):
+		_blank += 1
+		return
+	img.resize(SIZE.x, SIZE.y, Image.INTERPOLATE_LANCZOS)
+	img.save_png(_path(k))
+	var tex := ImageTexture.create_from_image(img)
+	_keep(k, tex)
+	for cb: Callable in cbs:
+		if cb.is_valid():
+			cb.call(tex)
+
+
+func _take_prize(k: String, kind: String) -> void:
+	var img: Image
+	if kind == "drop":
+		# The Bone Drop's own chest, as on its screen: its viewport is borrowed for one picture.
+		var r := Reliquary.new()
+		r.reset()
+		var vp: SubViewport = r._vp
+		r.remove_child(vp)
+		add_child(vp)
+		vp.size = SIZE * DRAW
+		vp.msaa_3d = Viewport.MSAA_DISABLED
+		r.cam_eye = Vector3(0, 1.75, 3.1)
+		r.cam_at = Vector3(0, 0.55, 0)
+		r.cam_zoom = 1.45
+		r._place_camera()
+		vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+		await RenderingServer.frame_post_draw
+		img = vp.get_texture().get_image()
+		vp.queue_free()
+		r.queue_free()
+	else:
+		_ring.visible = false
+		_pivot.rotation.y = 0.0
+		var thing := Node3D.new()
+		_pivot.add_child(thing)
+		var cm := LegendFinish.coin_mesh()
+		var mat := LegendFinish.coin_material()
+		match kind:
+			"coins":
+				# A heap: coins lying in a mound, two standing up in front.
+				var rng := RandomNumberGenerator.new()
+				rng.seed = 7
+				for i in 14:
+					var a := TAU * i / 7.0 + rng.randf() * 0.4
+					var rr := 0.06 + 0.17 * float(i % 7) / 6.0 if i < 7 else 0.1 * rng.randf()
+					var c := MeshInstance3D.new()
+					c.mesh = cm
+					c.material_override = mat
+					c.position = Vector3(cos(a) * rr, 0.03 + (0.0 if i < 7 else 0.07 + 0.03 * (i % 3)), sin(a) * rr)
+					c.rotation = Vector3(-PI / 2.0 + rng.randf_range(-0.35, 0.35), rng.randf() * TAU, 0)
+					thing.add_child(c)
+				for x in [-0.12, 0.14]:
+					var c := MeshInstance3D.new()
+					c.mesh = cm
+					c.material_override = mat
+					c.position = Vector3(x, 0.13, 0.24)
+					c.rotation = Vector3(-0.55, x * 2.5, x)
+					c.scale = Vector3.ONE * 0.8
+					thing.add_child(c)
+				_cam.transform = Transform3D(Basis.looking_at(Vector3(0, 0.1, 0.03) - Vector3(0, 0.78, 1.1)), Vector3(0, 0.78, 1.1))
+			"coin":
+				var c := MeshInstance3D.new()
+				c.mesh = cm
+				c.material_override = mat
+				c.position = Vector3(0, 0.15, 0)
+				c.rotation = Vector3(0, 0.45, 0)
+				thing.add_child(c)
+				_cam.transform = Transform3D(Basis.looking_at(Vector3(0, 0.15, 0) - Vector3(0, 0.2, 0.75)), Vector3(0, 0.2, 0.75))
+			_:
+				# A Lucky Start: a cut star of green glass with a gold rim light.
+				var st := SurfaceTool.new()
+				st.begin(Mesh.PRIMITIVE_TRIANGLES)
+				var sp := PackedVector2Array()
+				for i in 10:
+					sp.append(Vector2.from_angle(PI / 2.0 + TAU * i / 10.0) * (0.36 if i % 2 == 0 else 0.155))
+				ChestShow._extrude(st, sp, Vector2.ZERO, 0.05, 0.1)
+				st.generate_normals()
+				var m := StandardMaterial3D.new()
+				m.albedo_color = Color(0.35, 0.95, 0.45)
+				m.metallic = 0.35
+				m.roughness = 0.16
+				m.emission_enabled = true
+				m.emission = Color(0.15, 0.6, 0.2)
+				m.rim_enabled = true
+				m.rim = 0.8
+				var mi := MeshInstance3D.new()
+				mi.mesh = st.commit()
+				mi.material_override = m
+				mi.position = Vector3(0, 0.4, 0)
+				mi.rotation = Vector3(-0.15, 0.45, 0.15)
+				thing.add_child(mi)
+				_cam.transform = Transform3D(Basis.looking_at(Vector3(0, 0.4, 0) - Vector3(0, 0.62, 1.75)), Vector3(0, 0.62, 1.75))
+		_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+		await RenderingServer.frame_post_draw
+		img = _vp.get_texture().get_image()
+		thing.queue_free()
 	var cbs: Array = _waiting.get(k, [])
 	_waiting.erase(k)
 	_busy = false

@@ -2360,6 +2360,15 @@ func _build_today() -> void:
 	gap.custom_minimum_size = Vector2(0, 6)
 	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(gap)
+	# Version 363 (visual review v357 fix 5): what the Today Chest holds, as pictures: a heap of
+	# coins and a Bone Drop.
+	var inside := HBoxContainer.new()
+	inside.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	inside.alignment = BoxContainer.ALIGNMENT_CENTER
+	inside.add_theme_constant_override("separation", -10)
+	col.add_child(inside)
+	inside.add_child(LookShots.prize_rect("coins", 120))
+	inside.add_child(LookShots.prize_rect("drop", 170))
 	_today_chest = button("OPEN THE TODAY CHEST", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	_today_chest.custom_minimum_size = Vector2(420, 78)
 	_today_chest.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
@@ -2429,6 +2438,7 @@ func _today_card(g: Dictionary, done: bool, progress: String, k: float) -> Contr
 	var what := label(("DONE  " if done else "") + str(g.text), 22, Color(0.6, 1.0, 0.65) if done else Color(0.95, 0.93, 1.0), HORIZONTAL_ALIGNMENT_LEFT)
 	what.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	top.add_child(what)
+	top.add_child(LookShots.prize_rect("coin", 30))   # (v363: the prize as a picture)
 	var pay := label("+%d" % Today.GOAL_COINS, 20, GOLD, HORIZONTAL_ALIGNMENT_RIGHT)
 	pay.autowrap_mode = TextServer.AUTOWRAP_OFF
 	top.add_child(pay)
@@ -5035,6 +5045,8 @@ func _build_rewards() -> void:
 	_rw_drops = button("BONE DROPS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	_rw_drops.pressed.connect(func(): drops_pressed.emit())
 	col.add_child(_reward_row(_rw_drops, null))
+	_reward_pic(_rw_today, "coin")   # (v363: the prizes as pictures, at the buttons' left)
+	_reward_pic(_rw_drops, "drop")
 	_rw_drops_sub = col.get_child(col.get_child_count() - 1).get_child(1)
 	_rw_feats = button("FEATS", 24, Color(0.05, 0.16, 0.2, 0.97), Color(0.5, 0.95, 1.0))
 	_rw_feats.pressed.connect(func(): feats_pressed.emit())
@@ -5152,6 +5164,14 @@ static func back_corner(back: Button) -> Button:
 	back.offset_top = -96
 	back.offset_bottom = -24
 	return back
+
+
+## Version 363: a prize's picture over a REWARDS button's left end, sticking out of it.
+func _reward_pic(b: Control, kind: String) -> void:
+	var pic := LookShots.prize_rect(kind, 84)
+	pic.position = Vector2(-34, -6)
+	pic.size = Vector2(84, 84)
+	b.add_child(pic)
 
 
 ## One REWARDS row: the 420 x 78 button and a small status line under it.

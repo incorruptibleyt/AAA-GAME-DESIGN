@@ -174,6 +174,8 @@ func _row(cfg: ConfigFile, i: int, b: int) -> Control:
 	at.custom_minimum_size = Vector2(64, 0)
 	at.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(at)
+	# Version 363 (visual review v357 fix 5): a picture of the prize, not just its name.
+	h.add_child(LookShots.prize_rect({"drop": "drop", "lucky": "lucky"}.get(str(s.kind), "coins"), 62, not reached))
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
