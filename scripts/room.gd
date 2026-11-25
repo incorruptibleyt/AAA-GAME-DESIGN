@@ -1967,6 +1967,22 @@ func apply_graphics(high: bool) -> void:
 		_torch_lights[i].light_energy = Floors.current().torch_energy * (1.0 if high else 1.2) * torch_k
 
 
+## Version 366 (boss entrances): the wall torches blaze up in `col` and settle back.
+func flare(col: Color, seconds := 1.2) -> void:
+	for l in _torch_lights:
+		if not is_instance_valid(l) or not (l is Flicker):
+			continue
+		var f := l as Flicker
+		var base := f._base
+		var was := f.light_color
+		f._base = base * 3.2
+		f.light_color = was.lerp(col, 0.75)
+		var tw := f.create_tween().set_parallel(true)
+		tw.set_ignore_time_scale(true)
+		tw.tween_property(f, "_base", base, seconds).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+		tw.tween_property(f, "light_color", was, seconds)
+
+
 func _build_door(trim: Material, dark: Material) -> void:
 	var door := Node3D.new()
 	door.position = Vector3(0, 0, -HALF_L)

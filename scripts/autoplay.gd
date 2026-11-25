@@ -66,6 +66,10 @@ var _force_special := false
 var _perks: PackedStringArray = []
 var _omens: PackedStringArray = []   # v241: `omens=graves,stalker,night` from the first room
 var _card_shot := false
+var _intro_shots := OS.get_environment("INTRO_AT") != ""
+var _intro_at := float(OS.get_environment("INTRO_AT"))
+var _intro_from := 0
+var _intro_last := 0
 var _cards_shot := false
 var _door_kind := ""
 var _door_shot := false
@@ -505,8 +509,17 @@ func _process(delta: float) -> void:
 	if shots_dir != "" and _perfect_shots < 2 and Game.hud._callout_time > 0.85:
 		_perfect_shots += 1
 		_shot()
-	if shots_dir != "" and not _card_shot and Game.hud._boss_card.visible and Game.hud._boss_card.modulate.a > 0.95:
+	if shots_dir != "" and not _card_shot and not _intro_shots and Game.hud._boss_card.visible and absf(Game.hud._boss_slide.position.x) < 2.0 \
+			and Game.hud._boss_card_title.scale.x < 1.02:
 		_card_shot = true
+		_shot()
+	# INTRO_AT=s: one picture s seconds into a boss's entrance (to check each moment of it).
+	if shots_dir != "" and _intro_shots and Game._intro_stage == 1 and _intro_last == 0:
+		_intro_last = 1
+		_intro_from = Time.get_ticks_msec()
+	if shots_dir != "" and _intro_shots and _intro_last == 1 and Time.get_ticks_msec() - _intro_from >= _intro_at * 1000.0:
+		_intro_last = 2
+		print("[intro] picture at %.2f s, stage %d" % [(Time.get_ticks_msec() - _intro_from) / 1000.0, Game._intro_stage])
 		_shot()
 
 	match Game.state:

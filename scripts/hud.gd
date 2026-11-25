@@ -1301,6 +1301,18 @@ func _build_hud() -> void:
 
 
 ## The big title card when a boss appears: black bars, the name, and a line under it.
+## Version 366 (visual review fix 8, boss entrances): the black bars slide in like a film,
+## and the name rides in on a slanted band in the boss's own colour, under a BOSS tag,
+## with a shine passing over it.
+var _boss_bars: Array[ColorRect] = []
+var _boss_slide: Control
+var _boss_band_sb: StyleBoxFlat
+var _boss_tag: Label
+var _boss_tag_sb: StyleBoxFlat
+var _boss_shine: ColorRect
+var _boss_tw: Tween
+const BOSS_BAR := 110.0
+
 func _build_boss_card() -> void:
 	_boss_card = Control.new()
 	_boss_card.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1309,37 +1321,64 @@ func _build_boss_card() -> void:
 	add_child(_boss_card)
 	for top in [true, false]:
 		var bar := ColorRect.new()
-		bar.color = Color(0, 0, 0, 0.85)
+		bar.color = Color(0, 0, 0, 0.9)
 		bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		bar.set_anchors_preset(Control.PRESET_TOP_WIDE if top else Control.PRESET_BOTTOM_WIDE)
-		if top:
-			bar.offset_bottom = 110
-		else:
-			bar.offset_top = -110
 		_boss_card.add_child(bar)
-	var stripe := ColorRect.new()
-	stripe.color = Color(0, 0, 0, 0.6)
-	stripe.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	stripe.set_anchors_preset(Control.PRESET_CENTER)
-	stripe.offset_left = -400
-	stripe.offset_right = 400
-	stripe.offset_top = 130
-	stripe.offset_bottom = 250
-	_boss_card.add_child(stripe)
-	_boss_card_title = label("", 46, Color(1, 0.35, 0.25))
+		_boss_bars.append(bar)
+	_boss_slide = Control.new()
+	_boss_slide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	full(_boss_slide)
+	_boss_card.add_child(_boss_slide)
+	var band := Panel.new()
+	band.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	band.clip_contents = true
+	band.set_anchors_preset(Control.PRESET_CENTER)
+	band.offset_left = -430
+	band.offset_right = 430
+	band.offset_top = 30
+	band.offset_bottom = 160
+	_boss_band_sb = StyleBoxFlat.new()
+	_boss_band_sb.bg_color = Color(0.035, 0.02, 0.05, 0.9)
+	_boss_band_sb.border_width_top = 5
+	_boss_band_sb.border_width_bottom = 5
+	_boss_band_sb.skew = Vector2(0.2, 0.0)
+	_boss_band_sb.shadow_color = Color(0, 0, 0, 0.5)
+	_boss_band_sb.shadow_size = 10
+	band.add_theme_stylebox_override("panel", _boss_band_sb)
+	_boss_slide.add_child(band)
+	_boss_shine = ColorRect.new()
+	_boss_shine.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_boss_shine.size = Vector2(70, 260)
+	_boss_shine.position = Vector2(-200, -60)
+	_boss_shine.rotation = 0.35
+	band.add_child(_boss_shine)
+	_boss_tag = label("BOSS", 20, Color(0.08, 0.03, 0.04))
+	_boss_tag.set_anchors_preset(Control.PRESET_CENTER)
+	_boss_tag.offset_left = -62
+	_boss_tag.offset_right = 62
+	_boss_tag.offset_top = 10
+	_boss_tag.offset_bottom = 46
+	_boss_tag.label_settings.outline_size = 0
+	_boss_tag_sb = StyleBoxFlat.new()
+	_boss_tag_sb.set_corner_radius_all(8)
+	_boss_tag_sb.skew = Vector2(0.2, 0.0)
+	_boss_tag.add_theme_stylebox_override("normal", _boss_tag_sb)
+	_boss_slide.add_child(_boss_tag)
+	_boss_card_title = label("", 50, Color(1, 0.35, 0.25))
 	_boss_card_title.set_anchors_preset(Control.PRESET_CENTER)
-	_boss_card_title.offset_left = -270
-	_boss_card_title.offset_right = 270
-	_boss_card_title.offset_top = 136
-	_boss_card_title.offset_bottom = 200
-	_boss_card.add_child(_boss_card_title)
-	_boss_card_sub = label("", 20, Color(0.9, 0.85, 0.8))
+	_boss_card_title.offset_left = -300
+	_boss_card_title.offset_right = 300
+	_boss_card_title.offset_top = 46
+	_boss_card_title.offset_bottom = 112
+	_boss_slide.add_child(_boss_card_title)
+	_boss_card_sub = label("", 20, Color(0.93, 0.89, 0.84))
 	_boss_card_sub.set_anchors_preset(Control.PRESET_CENTER)
-	_boss_card_sub.offset_left = -270
-	_boss_card_sub.offset_right = 270
-	_boss_card_sub.offset_top = 200
-	_boss_card_sub.offset_bottom = 240
-	_boss_card.add_child(_boss_card_sub)
+	_boss_card_sub.offset_left = -300
+	_boss_card_sub.offset_right = 300
+	_boss_card_sub.offset_top = 110
+	_boss_card_sub.offset_bottom = 150
+	_boss_slide.add_child(_boss_card_sub)
 
 
 ## Version 121: Phase 2 gets its own banner across the screen, on a dark plate so it reads
@@ -4617,30 +4656,69 @@ func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
 	_flash.color = Color(col.r, col.g, col.b, strength * Game.flash_scale)   # v219: its own setting
 
 
-func show_boss_card(title: String, subtitle: String) -> void:
+func show_boss_card(title: String, subtitle: String, col := Color(1, 0.35, 0.25)) -> void:
 	clear_banner()   # a blessing banner from the last pick would sit on top of the card
 	_boss_card_title.text = title.to_upper()
 	_boss_card_sub.text = subtitle
+	var bright := col.lerp(Color.WHITE, 0.18)
+	_boss_card_title.label_settings.font_color = bright
+	_boss_band_sb.border_color = bright
+	_boss_tag_sb.bg_color = bright
+	_boss_shine.color = Color(bright.r, bright.g, bright.b, 0.3)
 	_boss_card.visible = true
-	_boss_card.modulate.a = 0.0
-	_boss_card_title.scale = Vector2(1.6, 1.6)
+	_boss_card.modulate.a = 1.0
+	if _boss_tw:
+		_boss_tw.kill()
+	var w := get_viewport().get_visible_rect().size.x
+	_boss_slide.position.x = -w * 1.2
+	_boss_slide.modulate.a = 1.0
+	_boss_bars[0].offset_top = 0.0
+	_boss_bars[0].offset_bottom = 0.0
+	_boss_bars[1].offset_top = 0.0
+	_boss_bars[1].offset_bottom = 0.0
+	_boss_card_title.scale = Vector2(1.5, 1.5)
 	_boss_card_title.pivot_offset = _boss_card_title.size * 0.5
-	var tw := create_tween().set_parallel(true)
-	tw.set_ignore_time_scale(true)
-	tw.tween_property(_boss_card, "modulate:a", 1.0, 0.25)
-	tw.tween_property(_boss_card_title, "scale", Vector2.ONE, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_boss_shine.position.x = -200.0
+	_boss_tw = create_tween().set_parallel(true)
+	_boss_tw.set_ignore_time_scale(true)
+	_boss_tw.tween_property(_boss_bars[0], "offset_bottom", BOSS_BAR, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_boss_tw.tween_property(_boss_bars[1], "offset_top", -BOSS_BAR, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_boss_tw.tween_property(_boss_slide, "position:x", 0.0, 0.32).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	_boss_tw.tween_property(_boss_card_title, "scale", Vector2.ONE, 0.4).set_delay(0.12).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_boss_tw.tween_property(_boss_shine, "position:x", 1000.0, 0.55).set_delay(0.3).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
 
 
 func hide_boss_card() -> void:
 	if not _boss_card.visible:
 		return
-	var tw := create_tween()
-	tw.set_ignore_time_scale(true)
-	tw.tween_property(_boss_card, "modulate:a", 0.0, 0.35)
-	tw.tween_callback(func(): _boss_card.visible = false)
+	if _boss_tw:
+		_boss_tw.kill()
+	var w := get_viewport().get_visible_rect().size.x
+	_boss_tw = create_tween().set_parallel(true)
+	_boss_tw.set_ignore_time_scale(true)
+	_boss_tw.tween_property(_boss_slide, "position:x", w * 1.2, 0.3).set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_IN)
+	_boss_tw.tween_property(_boss_bars[0], "offset_bottom", 0.0, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_boss_tw.tween_property(_boss_bars[1], "offset_top", 0.0, 0.35).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_boss_tw.chain().tween_callback(func(): _boss_card.visible = false)
+
+
+## Version 366: the fight bars fade away while a boss makes its entrance, and come back.
+var _hud_tw: Tween
+
+func fade_hud(on: bool) -> void:
+	if _hud_tw:
+		_hud_tw.kill()
+	if on:
+		_safe.visible = true
+	_hud_tw = _safe.create_tween()
+	_hud_tw.set_ignore_time_scale(true)
+	_hud_tw.tween_property(_safe, "modulate:a", 1.0 if on else 0.0, 0.25)
 
 
 func show_hud(v: bool) -> void:
+	if _hud_tw:
+		_hud_tw.kill()
+	_safe.modulate.a = 1.0
 	_safe.visible = v
 
 

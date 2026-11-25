@@ -712,6 +712,8 @@ func _process(delta: float) -> void:
 		if visual and visual.rotation.x != 0.0:
 			visual.rotation = Vector3(0.0, visual.rotation.y, 0.0)
 		return
+	if _entrance_held:
+		return
 	if _spawn_timer > 0.0:
 		_spawn_timer -= delta
 		var k := 1.0 - clampf(_spawn_timer / 0.9, 0.0, 1.0)
@@ -774,6 +776,46 @@ func returning() -> bool:
 
 
 ## The new attack's name when this boss is back (for its title card), or "".
+## Version 366 (visual review fix 8, boss entrances): a boss waits under the floor while
+## the ground shakes (hold_under), then bursts up out of it (burst_up). The entrance runs on
+## real time, like the rest of the boss intro, so a slow phone can't leave it half-risen.
+var _entrance_held := false
+var _rise_depth := 1.8
+
+func hold_under() -> void:
+	_entrance_held = true
+	_rise_depth = maxf(3.0, center_height * 3.2)
+	_spawn_timer = 1.0   # (can't be hit while it is down there)
+	visual.position.y = -_rise_depth
+
+
+func burst_up(rise: float, delay := 0.0) -> void:
+	var tw := create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_interval(delay)
+	tw.tween_property(visual, "position:y", 0.0, rise).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(release_up)
+
+
+func release_up() -> void:
+	_entrance_held = false
+	_spawn_timer = 0.0
+	if visual:
+		visual.position.y = 0.0
+
+
+## Each boss's own colour, for its entrance (the light, the rings and its name card).
+const BOSS_COLORS := {"SkeletonKing": Color(1.0, 0.36, 0.26), "Lich": Color(0.5, 1.0, 0.55),
+	"CinderColossus": Color(1.0, 0.52, 0.16), "Sporemother": Color(1.0, 0.45, 0.82),
+	"Tidecaller": Color(0.32, 0.9, 1.0), "StarEater": Color(0.62, 0.55, 1.0),
+	"SandPharaoh": Color(1.0, 0.77, 0.3), "CrystalTyrant": Color(0.9, 0.45, 1.0),
+	"Archivist": Color(0.35, 1.0, 0.82), "Forgemaster": Color(1.0, 0.64, 0.26),
+	"BloodQueen": Color(1.0, 0.24, 0.2), "Krampus": Color(0.55, 0.9, 1.0)}
+
+func boss_color() -> Color:
+	return BOSS_COLORS.get(str(get_script().get_global_name()), Color(1.0, 0.36, 0.26))
+
+
 func encore_name() -> String:
 	return str(ENCORES.get(str(get_script().get_global_name()), "")) if returning() else ""
 

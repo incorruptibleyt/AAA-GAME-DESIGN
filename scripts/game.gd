@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-25l"
+const BUILD := "2026-11-25m"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1663,6 +1663,9 @@ func _focus_goal() -> Vector3:
 	if hero == null:
 		return Vector3.ZERO
 	if _intro_focus and is_instance_valid(boss):
+		if _intro_wide:   # (Version 366: then pulled back to show the boss and the hero together)
+			return Vector3(lerpf(boss.global_position.x, hero.global_position.x, 0.5) * 0.5, 0,
+				lerpf(boss.global_position.z, hero.global_position.z, 0.42))
 		return Vector3(boss.global_position.x * 0.5, 0, boss.global_position.z + 1.5)
 	var goal := _room_focus()
 	if _zoom_hold > 0.0:
@@ -1759,7 +1762,7 @@ func _update_camera(real_delta: float) -> void:
 		hero.rotation.y = lerp_angle(hero.rotation.y, PI, 1.0 - exp(-6.0 * real_delta))   # turned to face us
 	_zoom_hold -= real_delta
 	# The close-up punch follows the Screen shake setting (the boss intro's camera move doesn't).
-	var zoom_goal := shake_scale if _zoom_hold > 0.0 else (0.5 if _intro_focus else 0.0)
+	var zoom_goal := shake_scale if _zoom_hold > 0.0 else ((-0.5 if _intro_wide else 0.55) if _intro_focus else 0.0)
 	_zoom = lerpf(_zoom, zoom_goal, 1.0 - exp(-(10.0 if zoom_goal > _zoom else 4.0) * real_delta))
 	_cam_focus = _cam_focus.lerp(_focus_goal(), 1.0 - exp(-8.0 * real_delta))
 	_shake = move_toward(_shake, 0.0, real_delta * 2.5)
@@ -3721,19 +3724,65 @@ func _ftue_room_intro() -> void:
 
 
 ## The camera swings to the boss, which roars, and its name slams onto the screen.
+## Version 366 (visual review fix 8, boss entrances): the fight bars fade, the floor shakes
+## and a ring in the boss's colour opens where it stands; it bursts up out of the floor in
+## rubble, and as it lands the torches blaze in its colour, a shockwave rolls out and the
+## camera pulls back to show it and the hero together, while its name rides in on a band.
+const INTRO_WAIT := 0.75   # the ground shaking before it bursts out
+const INTRO_RISE := 0.6
+var _intro_wide := false
+var _intro_stage := 0   # 1 the ground shakes, 2 it bursts out, 3 it lands (the robot's pictures)
+## INTRO_PACE=k runs the entrance k times slower, so the robot's slow frames can picture it.
+var _intro_pace := maxf(1.0, float(OS.get_environment("INTRO_PACE")))
+
 func _boss_intro() -> void:
 	_set_state(State.TRANSITION)
 	_intro_focus = true
+	_intro_wide = false
 	var b := boss
-	await get_tree().create_timer(0.6, true, false, true).timeout
+	var col := b.boss_color()
+	var spot := b.global_position
+	for e: Enemy in _bosses:
+		if is_instance_valid(e):
+			e.hold_under()
+	hud.fade_hud(false)
+	_intro_stage = 1
+	var sigil := _intro_sigil(spot, col)
+	Sfx.play("slam", 0.55, 0.55)
+	for i in 3:
+		get_tree().create_timer(0.25 * i * _intro_pace, true, false, true).timeout.connect(func():
+			shake(0.14)
+			Fx.dust(spot + Vector3(randf_range(-1.2, 1.2), 0, randf_range(-1.0, 1.0)), 10))
+	await get_tree().create_timer(INTRO_WAIT * _intro_pace, true, false, true).timeout
 	if not is_instance_valid(b) or state != State.TRANSITION:
-		_intro_focus = false
+		_end_intro(sigil)
 		return
+	# It bursts out: rubble, dust and a first ring.
+	_intro_stage = 2
+	for e: Enemy in _bosses:
+		if is_instance_valid(e):
+			e.burst_up(INTRO_RISE * _intro_pace, (0.0 if e == b else 0.18) * _intro_pace)
+	Sfx.play("crack", 1.0, 0.6)
+	Fx.bone_chunks(spot + Vector3.UP * 0.3, 12, Color(0.55, 0.5, 0.5))
+	Fx.dust(spot, 26)
+	Fx.shockwave(spot, col, 4.0)
+	shake(0.3)
+	await get_tree().create_timer(INTRO_RISE * 0.8 * _intro_pace, true, false, true).timeout
+	if not is_instance_valid(b) or state != State.TRANSITION:
+		_end_intro(sigil)
+		return
+	# It lands and roars.
+	_intro_stage = 3
 	Sfx.play(b.roar_sound)   # each boss in its own voice (version 251)
 	Sfx.play("slam")
 	get_tree().create_timer(0.7, true, false, true).timeout.connect(func(): Sfx.play("vo_prepare", 0.8))
-	shake(0.5)
-	hud.flash(Color(1, 0.3, 0.2), 0.3)
+	shake(0.6)
+	hud.flash(col, 0.3)
+	Fx.shockwave(spot, col, 9.0)
+	_intro_burst_light(spot, col)
+	if Room.current:
+		Room.current.flare(col, 1.4)
+	_intro_wide = true
 	# Version 278: the card names the boss's place too, now that each place has its own.
 	var sub := "Ruler of the %s  ·  floor %d" % [str(Floors.current().get("name", "Crypt")), floor_num]
 	if event == "hunt":
@@ -3752,13 +3801,61 @@ func _boss_intro() -> void:
 			if b.encore_name() != "":
 				sub = "Together  ·  new attack: %s" % b.encore_name()
 			hud.set_boss_name(title)
-	hud.show_boss_card(title, sub)
-	await get_tree().create_timer(1.8, true, false, true).timeout
+	hud.show_boss_card(title, sub, col)
+	await get_tree().create_timer(1.9 * _intro_pace, true, false, true).timeout
 	hud.hide_boss_card()
-	_intro_focus = false
+	_end_intro(sigil)
 	await get_tree().create_timer(0.35, true, false, true).timeout
 	if state == State.TRANSITION:
 		_set_state(State.PLAYING)
+
+
+func _end_intro(sigil: Node3D) -> void:
+	_intro_stage = 0
+	for e: Enemy in _bosses:
+		if is_instance_valid(e) and e._entrance_held:
+			e.release_up()
+	_intro_focus = false
+	_intro_wide = false
+	if state == State.TRANSITION:   # (not after a quit to the title mid-entrance)
+		hud.fade_hud(true)
+	if is_instance_valid(sigil):
+		var tw := sigil.create_tween()
+		tw.set_ignore_time_scale(true)
+		tw.tween_property(sigil, "scale", sigil.scale * 1.25, 0.4)
+		tw.parallel().tween_property(sigil.material_override, "albedo_color:a", 0.0, 0.4)
+		tw.tween_callback(sigil.queue_free)
+
+
+## A glowing ring in the boss's colour that opens on the floor where it will come up.
+func _intro_sigil(spot: Vector3, col: Color) -> Node3D:
+	var m := U.unlit(Color(col.r, col.g, col.b, 0.0), RoomMood._ring_tex()).duplicate() as StandardMaterial3D
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	m.render_priority = -1
+	var q := U.floor_quad(Room.current if Room.current else world, Vector2(1.0, 1.0), m, Vector3(spot.x, 0.05, spot.z))
+	q.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	q.material_override = m
+	q.scale = Vector3(1.2, 1.0, 1.2)
+	var tw := q.create_tween().set_parallel(true)
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(q, "scale", Vector3(5.2, 1.0, 5.2), (INTRO_WAIT + INTRO_RISE) * _intro_pace).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tw.tween_property(m, "albedo_color:a", 0.95, 0.35)
+	return q
+
+
+## A flash of the boss's colour lighting the room as it lands.
+func _intro_burst_light(spot: Vector3, col: Color) -> void:
+	var l := OmniLight3D.new()
+	l.light_color = col
+	l.light_energy = 6.0
+	l.omni_range = 9.0
+	l.shadow_enabled = false
+	world.add_child(l)
+	l.global_position = spot + Vector3.UP * 2.0
+	var tw := l.create_tween()
+	tw.set_ignore_time_scale(true)
+	tw.tween_property(l, "light_energy", 0.0, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_callback(l.queue_free)
 
 
 ## How full the boss health bar is (both bosses together with Twin Wardens).
