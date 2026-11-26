@@ -44,7 +44,7 @@ const LIST := [
 	{"id": "deepfreeze", "family": "frost", "rarity": "rare", "title": "Deep Freeze", "text": "Chilled skeletons shatter at 20% health (bosses take +30%)", "max": 1, "needs": "frost"},
 	{"id": "vitality", "family": "bone", "rarity": "common", "title": "Vitality", "text": "+30 max health and heal 30 (more on deeper floors)", "max": 12},
 	{"id": "boots", "family": "bone", "rarity": "common", "title": "Swift Boots", "text": "+12% move speed", "max": 3},
-	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Hearts heal 30% more, and fly to you from twice as far", "max": 1},
+	{"id": "magnet", "family": "bone", "rarity": "common", "title": "Treasure Magnet", "text": "Hearts heal 30% more and fly in from twice as far", "max": 1},
 	{"id": "greed", "family": "bone", "rarity": "common", "title": "Golden Touch", "text": "+30% coins from skeletons", "max": 2},
 	{"id": "harvest", "family": "bone", "rarity": "rare", "title": "Bone Harvest", "text": "Heal 1% of your health per kill at chain x2+, up to 4% each room", "max": 3},
 	{"id": "ward", "family": "bone", "rarity": "rare", "title": "Bone Ward", "text": "Block the first hit in every room", "max": 2},
@@ -55,7 +55,7 @@ const LIST := [
 	# the Barbarian's axes, which already come back off walls, have no use for it).
 	{"id": "bounce", "heroes": ["rogue", "mage"], "family": "bolt", "rarity": "rare", "title": "Bouncing Shots", "text": "Shots bounce off walls and pillars once", "max": 1},
 	{"id": "spark", "family": "bolt", "rarity": "rare", "title": "Static Shots", "text": "Every hit throws a spark of lightning to the next skeleton", "max": 2},
-	{"id": "orbit", "family": "bone", "rarity": "rare", "title": "Spinning Bones", "text": "Two bone blades circle you, cutting every skeleton they touch", "max": 2},
+	{"id": "orbit", "family": "bone", "rarity": "rare", "title": "Spinning Bones", "text": "Two bone blades circle you, cutting skeletons", "max": 2},
 	{"id": "blaze_dash", "family": "flame", "rarity": "rare", "title": "Blazing Dash", "text": "Your dash leaves a trail of fire that burns skeletons", "max": 1},
 	{"id": "phantom", "family": "bone", "rarity": "rare", "title": "Phantom Dash", "text": "Dash through skeletons to cut every one you pass", "max": 1},
 	{"id": "cold_snap", "family": "frost", "rarity": "rare", "title": "Cold Snap", "text": "Your special freezes every skeleton near you solid", "max": 1},
@@ -63,16 +63,16 @@ const LIST := [
 	# 8): two of each hero's three were plain number bumps (Nimble, Backstab, Bulwark, Broad
 	# Swing, Bloodlust, Heavy Axes, Volatile Orbs, Arcane Flow). Now each one changes how that
 	# hero's own attack works (see hero.gd and projectile.gd).
-	{"id": "shadowstep", "hero": "rogue", "family": "bone", "rarity": "rare", "title": "Shadow Step", "text": "Dashing leaves your shadow behind: it throws knives for 2 seconds", "max": 1},
+	{"id": "shadowstep", "hero": "rogue", "family": "bone", "rarity": "rare", "title": "Shadow Step", "text": "Your dash leaves a shadow that throws knives for 2 seconds", "max": 1},
 	{"id": "ricochet", "hero": "rogue", "family": "bolt", "rarity": "rare", "title": "Ricochet", "text": "Knives and bolts bounce on to 1 more skeleton", "max": 2},
 	{"id": "quiver", "hero": "rogue", "family": "bolt", "rarity": "epic", "title": "Shadow Quiver", "text": "Shadow Volley's knives fly back to you, cutting again", "max": 1},
 	{"id": "riposte", "hero": "knight", "family": "bone", "rarity": "rare", "title": "Riposte", "text": "Shots your shield blocks fly back as sword waves", "max": 1},
 	{"id": "cutting_wind", "hero": "knight", "family": "bolt", "rarity": "common", "title": "Cutting Wind", "text": "Every swing also throws a wide wave through the skeletons behind", "max": 1},
 	{"id": "aftershock", "hero": "knight", "family": "bone", "rarity": "epic", "title": "Aftershock", "text": "Shield Slam slams again a second later, even bigger", "max": 1},
 	{"id": "thunder_catch", "hero": "barbarian", "family": "bone", "rarity": "rare", "title": "Thunder Catch", "text": "Catching an axe slams the ground, throwing back skeletons near you", "max": 1},
-	{"id": "buzzsaw", "hero": "barbarian", "family": "bolt", "rarity": "common", "title": "Buzzsaw", "text": "Axes stop and spin at the far end, grinding skeletons, then fly back", "max": 1},
+	{"id": "buzzsaw", "hero": "barbarian", "family": "bolt", "rarity": "common", "title": "Buzzsaw", "text": "Axes spin at the far end, grinding skeletons, then fly back", "max": 1},
 	{"id": "whirl", "hero": "barbarian", "family": "bolt", "rarity": "epic", "title": "Endless Whirl", "text": "Whirlwind lasts longer and drags skeletons in to you", "max": 1},
-	{"id": "burning_ground", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Burning Ground", "text": "Charged orbs leave a pool of fire that burns skeletons", "max": 1},
+	{"id": "burning_ground", "hero": "mage", "family": "flame", "rarity": "rare", "title": "Burning Ground", "text": "Charged orbs leave a pool of fire on the floor", "max": 1},
 	{"id": "frost_orbit", "hero": "mage", "family": "frost", "rarity": "common", "title": "Frost Orbit", "text": "While you move, ice orbs circle you, chilling skeletons they touch", "max": 1},
 	{"id": "meteors", "hero": "mage", "family": "flame", "rarity": "epic", "title": "Meteor Storm", "text": "Every meteor leaves a burning crater behind", "max": 1},
 	# Event blessings: only offered in that event's runs and hunts ("event" is its id). The
@@ -85,7 +85,7 @@ const LIST := [
 	{"id": "hearth", "event": "frostfall", "family": "yule", "rarity": "common", "title": "Hearthkeeper", "text": "Fires warm 50% farther; in a Blizzard their warmth heals you", "max": 1},
 	{"id": "furs", "event": "frostfall", "family": "yule", "rarity": "common", "title": "Thick Furs", "text": "The cold builds 40% slower", "max": 2},
 	{"id": "gifthunter", "event": "frostfall", "family": "yule", "rarity": "rare", "title": "Gift Hunter", "text": "Gift Thieves never get away; Blizzard kills pay 2 more Snowflakes", "max": 1},
-	{"id": "winters_heart", "event": "frostfall", "family": "yule", "rarity": "epic", "title": "Winter's Heart", "text": "The cold can't freeze you; in a Blizzard your hits chill skeletons", "max": 1},
+	{"id": "winters_heart", "event": "frostfall", "family": "yule", "rarity": "epic", "title": "Winter's Heart", "text": "Cold can't freeze you. Blizzard hits chill skeletons", "max": 1},
 	# Vault blessings: bought once with coins in the Armory, then they can turn up in runs.
 	{"id": "siphon", "vault": true, "family": "bone", "rarity": "rare", "title": "Soul Siphon", "text": "Perfect dodges heal 10, up to 12% of your health each room", "max": 2},
 	{"id": "frozen_ground", "vault": true, "family": "frost", "rarity": "rare", "title": "Frozen Ground", "text": "Perfect dodges chill skeletons near you", "max": 1},

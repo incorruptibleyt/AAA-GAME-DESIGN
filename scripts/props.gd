@@ -47,7 +47,7 @@ static func dress(room: Room, layout: Array) -> void:
 			ck = partner
 		_corner(room, n, p, ck)
 		if Game.daily and Game.event == "":
-			_glow_pool(n, 2.8, Color(0.75, 0.45, 1.0, 0.2))   # v387: the Daily Crypt's violet light
+			_glow_pool(n, 3.0, Color(1.0, 0.7, 0.3, 0.24))   # v388: the Daily Crypt's gold light
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of

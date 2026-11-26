@@ -11,11 +11,12 @@ var _drawn := []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_label = Hud.label("", 16, Color(1, 0.95, 0.85))
+	# Version 388 (v383 review fix 10): bigger and whiter (16 read as small grey text in a fight).
+	_label = Hud.label("", 19, Color(1, 0.98, 0.94))
 	Hud.chunky(_label.label_settings)
-	_label.label_settings.outline_size = 5
-	_label.position = Vector2(-20, 106)
-	_label.size = Vector2(140, 22)
+	_label.label_settings.outline_size = 6
+	_label.position = Vector2(-35, 104)
+	_label.size = Vector2(170, 26)
 	_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	add_child(_label)
 

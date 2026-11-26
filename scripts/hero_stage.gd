@@ -8,6 +8,16 @@ extends TextureRect
 const RENDER_SCALE := 2.0
 ## Facing the camera, turned a little to the side.
 const FRONT := PI - 0.35
+## Version 388 (visual review of v383, fix 9): looks worn on the back (wings, a grand
+## mantle) are shown from behind, turned a little to the side, with the shield put away
+## (the Knight's shield hid the Phoenix Wings on sale).
+const BACK := 0.5
+var show_back := false
+var back_angle := BACK   # (a grand set: from the side, so its mantle and crown both show)
+
+
+func _rest() -> float:
+	return back_angle if show_back else FRONT
 
 var _vp: SubViewport
 var _full_size: Vector2i
@@ -99,7 +109,12 @@ func _make_viewport() -> void:
 func _ready() -> void:
 	texture = _vp.get_texture()
 	if not solid:
-		material = _see_through()
+		material = _see_through(soft_edge)
+
+
+## Version 388 (visual review of v383, fix 9): the picture fades out at its edges, so a
+## pedestal ring or a weapon reaching past it doesn't stop in a hard-cut box.
+var soft_edge := false
 
 
 var _cam: Camera3D
@@ -213,7 +228,7 @@ func _build_scene() -> void:
 	_glow_ring.position = Vector3(0, 0.02, 0)
 	_root.add_child(_glow_ring)
 	_pivot = Node3D.new()
-	_pivot.rotation.y = FRONT
+	_pivot.rotation.y = _rest()
 	_root.add_child(_pivot)
 	# A reveal's burst of sparks, rising from the pedestal round the hero.
 	_sparks = CPUParticles3D.new()
@@ -286,7 +301,14 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	_visual.attack(def.id == "mage")
 	if _visual._anim:
 		_visual._anim.advance(0.0)   # pose them now, so they never flash up in a T-pose
-	_pivot.rotation.y = FRONT
+	if show_back:
+		for n in _visual.find_children("*hield*", "Node3D", true, false):
+			(n as Node3D).visible = false
+		if back_angle == BACK:
+			# (wings: the hero's own cape or cloak hid the wings' roots as a big blob)
+			for n in _visual.find_children("*_Cape", "MeshInstance3D", true, false) + _visual.find_children("*_Cloak", "MeshInstance3D", true, false):
+				(n as Node3D).visible = false
+	_pivot.rotation.y = _rest()
 	_hold = 0.0
 	_time = 0.0
 	_reveal_t = -1.0
@@ -350,7 +372,7 @@ func _update_reveal(delta: float) -> void:
 	var x := clampf(_reveal_t / _reveal_len, 0.0, 1.0)
 	# One full turn, fast at first and slowing to a stop facing the front.
 	var s := clampf(_reveal_t / (_reveal_len * 0.55), 0.0, 1.0)
-	_pivot.rotation.y = FRONT + TAU * (1.0 - pow(1.0 - s, 3.0))
+	_pivot.rotation.y = _rest() + TAU * (1.0 - pow(1.0 - s, 3.0))
 	# In, hold, back out.
 	var z := smoothstep(0.0, 0.18, x) * (1.0 - smoothstep(0.8, 1.0, x))
 	var a := _framing()
@@ -424,7 +446,7 @@ func _show_live(live: bool) -> void:
 		material = null
 	else:
 		texture = _vp.get_texture()
-		material = _solid_mat if solid else _see_through()
+		material = _solid_mat if solid else _see_through(soft_edge)
 
 
 ## A ready-made picture of the hero on show (art/ui/heroes/<id>.png), or null.
@@ -570,7 +592,21 @@ const BACKDROP := Color(0.17, 0.12, 0.31)
 ## Version 230: the see-through picture is drawn premultiplied, so glowing weapon fire and
 ## light added over nothing still shows, and soft edges have no dark fringe.
 static var _premult: CanvasItemMaterial
-static func _see_through() -> CanvasItemMaterial:
+static var _soft: ShaderMaterial
+static func _see_through(soft := false) -> Material:
+	if soft:
+		if _soft == null:
+			var sh := Shader.new()
+			sh.code = """shader_type canvas_item;
+render_mode blend_premul_alpha;
+void fragment() {
+	vec2 d = abs(UV - 0.5) * 2.0;
+	float m = (1.0 - smoothstep(0.72, 1.0, d.x)) * (1.0 - smoothstep(0.8, 1.0, d.y));
+	COLOR = texture(TEXTURE, UV) * m;
+}"""
+			_soft = ShaderMaterial.new()
+			_soft.shader = sh
+		return _soft
 	if _premult == null:
 		_premult = CanvasItemMaterial.new()
 		_premult.blend_mode = CanvasItemMaterial.BLEND_MODE_PREMULT_ALPHA
@@ -608,7 +644,7 @@ func _process(delta: float) -> void:
 	if _hold > 0.0:
 		_hold -= delta
 		return
-	var target := FRONT + sin(_time * 0.6) * 0.4
+	var target := _rest() + sin(_time * 0.6) * (0.55 if show_back else 0.4)
 	_pivot.rotation.y = lerp_angle(_pivot.rotation.y, target, minf(1.0, delta * 2.0))
 
 

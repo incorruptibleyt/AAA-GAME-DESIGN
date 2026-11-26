@@ -283,6 +283,10 @@ func _take(job: Array) -> void:
 	_ring.visible = slot in ["glow", "outfit"]
 	LookFx.set_ring(_ring.material_override, col, def.get("ring2"), str(def.get("ring_fx", "flow")), int(def.get("ring_tier", 0)))
 	_pivot.rotation.y = HeroStage.FRONT + (PI * 0.78 if lslot == "wings" else 0.0)   # (wings: seen from behind)
+	# (Version 388, fix 9: the Starfall Mantle from the side, its starry mantle sweeping out
+	# behind; from the front it was a hat over a Knight, like the Bone Emperor's card.)
+	if lslot == "grand" and str(def.style.legend.values()[0]) == "starfall":
+		_pivot.rotation.y = HeroStage.FRONT + PI * 0.5
 	var f := _frame(slot, v, def)
 	if OS.has_environment("LS_FRAME"):   # (lab only)
 		var n := Array(OS.get_environment("LS_FRAME").split(",")).map(func(x: String) -> float: return float(x))

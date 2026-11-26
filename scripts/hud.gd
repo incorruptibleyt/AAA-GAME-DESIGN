@@ -339,6 +339,19 @@ var _tally: PackedStringArray = []
 var _tally_i := -1          # the line counting up now (-1: not started or done)
 var _tally_t := 0.0
 var _tally_wait := false    # waiting for the score to finish counting
+## Version 388 (v383 review fix 10): after a boss win the end screen is a reward moment: the
+## hero cheering on a pedestal in gold light, the run's numbers in tiles that count up, and
+## DESCEND as the one big button (the looks and Bone Drop buttons are small, side by side).
+## Game sets `end_hero_def` (the hero as dressed) just before show_end of a win.
+var end_hero_def := {}
+var _end_hero: HeroStage
+var _end_hero_box: Control
+var _end_tiles: HBoxContainer
+var _end_tile_vals: Array = []   # [value Label, note Label] per tile
+var _end_after: Label   # the lines under the tiles (tips, unlocks)
+var _end_extras: HBoxContainer   # SEE NEW LOOKS and OPEN BONE DROP, side by side
+var _tile_of := {}   # tally line index -> tile index (this end screen)
+const END_TILES := {"Time": "TIME", "Skeletons destroyed": "SKELETONS", "Coins this run": "COINS", "Bone Road": "BONES"}
 var _title_heroes: Control
 var _title_armory: Control
 var _title_lock: Label
@@ -1077,7 +1090,7 @@ func _build_hud() -> void:
 	_heroic_crest.offset_bottom = 94
 	_heroic_crest.visible = false
 	root.add_child(_heroic_crest)
-	_room_label = label("", 22, Color(1, 0.95, 0.85), HORIZONTAL_ALIGNMENT_RIGHT)
+	_room_label = label("", 24, Color(1, 0.97, 0.9), HORIZONTAL_ALIGNMENT_RIGHT)   # v388: 22 -> 24
 	chunky(_room_label.label_settings)
 	_room_label.label_settings.outline_size = 6
 	_room_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -1229,7 +1242,7 @@ func _build_hud() -> void:
 	_boss_fill.get_parent().add_child(_boss_trail)
 	_boss_fill.get_parent().move_child(_boss_trail, 0)
 	_boss_trail.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_boss_hp = label("", 17, Color(1, 0.97, 0.92))
+	_boss_hp = label("", 18, Color(1, 0.98, 0.95))
 	chunky(_boss_hp.label_settings)
 	_boss_hp.label_settings.outline_size = 6
 	_boss_hp.label_settings.outline_color = Color(0.1, 0.02, 0.03)
@@ -2773,15 +2786,38 @@ func _build_end() -> void:
 	_end_box.resized.connect(_fit_end)
 	_end_title = label("", 60)
 	col.add_child(_end_title)
+	_end_hero_box = Control.new()
+	_end_hero_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_end_hero_box.custom_minimum_size = Vector2(360, 250)
+	_end_hero_box.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_end_hero_box.draw.connect(_draw_end_rays)
+	_end_hero = HeroStage.new(Vector2(260, 260))
+	_end_hero.soft_edge = true
+	_end_hero.custom_minimum_size = Vector2(260, 260)
+	_end_hero.size = Vector2(260, 260)
+	_end_hero.position = Vector2(50, -6)
+	_end_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_end_hero_box.add_child(_end_hero)
+	_end_hero_box.visible = false
+	col.add_child(_end_hero_box)
 	_end_score = label("", 40, Color(1, 0.85, 0.45))
 	col.add_child(_end_score)
 	_end_best = label("", 20, Color(0.8, 0.78, 0.7))
 	col.add_child(_end_best)
-	_end_stats = label("", 22, Color(0.85, 0.85, 0.9))
+	_end_stats = label("", 23, Color(0.97, 0.94, 0.88))   # v388: whiter (it read as grey)
 	col.add_child(_end_stats)
 	# Version 227: the words keep clear of the screen's edges (a long death tip ran from
 	# edge to edge and left one word alone on the last line).
-	for l: Label in [_end_best, _end_stats]:
+	_end_tiles = HBoxContainer.new()
+	_end_tiles.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_end_tiles.alignment = BoxContainer.ALIGNMENT_CENTER
+	_end_tiles.add_theme_constant_override("separation", 10)
+	_end_tiles.visible = false
+	col.add_child(_end_tiles)
+	_end_after = label("", 22, Color(0.95, 0.93, 0.88))
+	_end_after.visible = false
+	col.add_child(_end_after)
+	for l: Label in [_end_best, _end_stats, _end_after]:
 		l.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		l.custom_minimum_size.x = END_TEXT_W
 	# Hero Mastery: the run's points filling the hero's bar (mastery_bar.gd).
@@ -2789,27 +2825,35 @@ func _build_end() -> void:
 	_end_mastery.custom_minimum_size = Vector2(470, 84)
 	_end_mastery.visible = false
 	col.add_child(_centered(_end_mastery))
-	_end_looks = button("SEE 3 NEW LOOKS", 20, Color(0.22, 0.14, 0.3, 0.97), GOLD)
-	_end_looks.custom_minimum_size = Vector2(300, 64)
+	_end_looks = button("SEE 3 NEW LOOKS", 18, Color(0.22, 0.14, 0.3, 0.97), GOLD)
+	_end_looks.custom_minimum_size = Vector2(226, 58)
 	_end_looks.visible = false
 	_end_looks.pressed.connect(func():
 		if not _end_looks_for.is_empty():
 			see_looks.emit(str(_end_looks_for.id), int(_end_looks_for.level)))
-	col.add_child(_centered(_end_looks))
 	_end_goal = label("", 22, Color(1.0, 0.82, 0.42))
 	_end_goal.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_end_goal.custom_minimum_size.x = END_TEXT_W
 	_end_goal.visible = false
 	col.add_child(_end_goal)
 	_end_drop = _drop_button()
-	col.add_child(_centered(_end_drop))
+	_end_drop.add_theme_font_size_override("font_size", 20)
+	_end_drop.custom_minimum_size = Vector2(226, 58)
+	_end_extras = HBoxContainer.new()
+	_end_extras.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_end_extras.alignment = BoxContainer.ALIGNMENT_CENTER
+	_end_extras.add_theme_constant_override("separation", 14)
+	_end_extras.add_child(_end_looks)
+	_end_extras.add_child(_end_drop)
+	col.add_child(_end_extras)
 	_build_pass_card(col)
 	# Daily Crypt: the result card, and the same as text to paste anywhere.
 	_share_card = ShareCard.new()
 	_share_card.visible = false
 	col.add_child(_share_card)
-	_share_button = button("SHARE RESULT", 20, Color(0.3, 0.2, 0.06, 0.97), GOLD)
-	_share_button.custom_minimum_size = Vector2(240, 64)
+	_share_button = button("SHARE RESULT", 18, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	paint(_share_button, "slate")   # v388: a quiet extra, so DESCEND stays the one big button
+	_share_button.custom_minimum_size = Vector2(240, 58)
 	_share_button.pressed.connect(func():
 		_share_button.disabled = true
 		share_pressed.emit())
@@ -3768,6 +3812,9 @@ func show_pass_card(v: bool, def := {}) -> void:
 	# v218: on the free-end offer the big priced button below is the only way to the Pass.
 	_pass_card_btn.visible = not _end_offer.visible
 	_pass_card_stage.set_active(_pass_card.visible)
+	if _pass_card.visible and _end_hero_box.visible:
+		_end_hero_box.visible = false   # v388: one hero on the end screen, the one in the set
+		_end_hero.set_active(false)
 	if _pass_card.visible:
 		_pass_card_stage.show_hero(def)
 		_pass_card_line.text = "%s in the\nCrypt King set.\nEndless floors, every\nhero and more." % Heroes.hero_name(def)
@@ -4537,6 +4584,8 @@ func _process(delta: float) -> void:
 			_tip.visible = false
 	_update_end_count(delta)
 	_update_tally(delta)
+	if _end_hero_box.visible:
+		_end_hero_box.queue_redraw()
 	# Version 213 (hardest review fix #9): one word at a time over the action. A callout that
 	# came while another word, the room banner or the phase card was up waits its turn.
 	# (v216: only during play, and only once the banner is fully gone.)
@@ -5176,6 +5225,62 @@ func set_cards_clock(text: String) -> void:
 			l.text = text
 
 
+## Version 388 (v383 review fix 10): a card's words always fit. The last two words of each
+## line of text are held together (no word alone on the last line), a name with a word too
+## long for the card steps down in size, and words that would run past the card's bottom
+## step down a size or two (never below 14).
+const CARD_WORDS_H := CARD_SIZE.y - 186.0 - 52.0
+
+
+static func no_widow(text: String) -> String:
+	var out := []
+	for line: String in text.split("\n"):
+		var i := line.rfind(" ")
+		if i > 0 and line.count(" ") >= 2:
+			line = line.substr(0, i) + "\u00a0" + line.substr(i + 1)
+		out.append(line)
+	return "\n".join(out)
+
+
+func _fit_card_words(b: Control) -> void:
+	var words := b.get_node("Words") as VBoxContainer
+	var t := words.get_node("Title") as Label
+	var d := words.get_node("Desc") as Label
+	t.text = no_widow(t.text)
+	d.text = no_widow(d.text)
+	var w := CARD_SIZE.x - 12.0
+	var font: Font = t.label_settings.font if t.label_settings.font else ThemeDB.fallback_font
+	var ts := 24
+	while ts > 18:
+		var widest := 0.0
+		for word: String in t.text.replace("\u00a0", " ").replace("\n", " ").split(" ", false):
+			widest = maxf(widest, font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, ts).x + t.label_settings.outline_size)
+		if widest <= w:
+			break
+		ts -= 2
+	t.label_settings.font_size = ts
+	var ds := 16
+	d.label_settings.font_size = ds
+	while ds > 14 and _words_height(t, d, ts, ds, w) > CARD_WORDS_H:
+		ds -= 1
+		d.label_settings.font_size = ds
+	while ts > 18 and _words_height(t, d, ts, ds, w) > CARD_WORDS_H:
+		ts -= 2
+		t.label_settings.font_size = ts
+
+
+## How tall the card's name and words are at these sizes (what the labels will wrap to).
+func _words_height(t: Label, d: Label, ts: int, ds: int, w: float) -> float:
+	var h := 4.0
+	for pair: Array in [[t, ts], [d, ds]]:
+		var l := pair[0] as Label
+		var f: Font = l.label_settings.font if l.label_settings.font else ThemeDB.fallback_font
+		var sz := f.get_multiline_string_size(l.text, HORIZONTAL_ALIGNMENT_CENTER, w, int(pair[1]), -1, TextServer.BREAK_MANDATORY | TextServer.BREAK_WORD_BOUND)
+		var lines := maxf(1.0, roundf(sz.y / maxf(1.0, f.get_height(int(pair[1])))))
+		h += sz.y + l.label_settings.line_spacing * (lines - 1.0)
+	return h
+
+
 func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = null, taken: Dictionary = {}) -> void:
 	DamageNumber.clear_all()
 	_fill_have(taken)
@@ -5207,6 +5312,7 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		title.text = u.title
 		title.label_settings.font_color = Upgrades.color(u)
 		(b.get_node("Words/Desc") as Label).text = Upgrades.card_text(u)
+		_fit_card_words(b)
 		(b.get_node("Icon") as BlessingIcon).show_for(u)
 		var kind: String = Heroes.get_hero(u.hero).title.to_upper() if u.has("hero") else Upgrades.FAMILIES[u.family].name.to_upper()
 		(b.get_node("Kind") as Label).text = kind
@@ -6573,6 +6679,14 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_show_deal(_end_deal)
 	_end_deal.visible = _end_deal.visible and v and offer
 	_end_loop.visible = false
+	var big := v and victory and not offer and not end_hero_def.is_empty()
+	_end_hero_box.visible = big
+	_end_hero.set_active(big)
+	if big:
+		_end_hero.show_hero(end_hero_def)
+		_end_hero.emote(end_hero_def.get("emote", ["Cheer"]))
+	_end_tiles.visible = v and victory and not offer
+	end_hero_def = {}
 	if not v:
 		end_hide_best = false
 		_drops.visible = false   # (never left over a run that's starting)
@@ -6601,6 +6715,8 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_share_button.visible = false
 	_share_card.visible = false
 	_end_spacer.custom_minimum_size.y = 100.0 if not buttons else 24.0
+	if victory and not offer:
+		_end_spacer.custom_minimum_size.y = 12.0   # v388: the hero and the tiles take that room
 	_end_title.text = "VICTORY" if victory else "YOU DIED"
 	# Version 219 (review 4 fix 19): after a fall TRY AGAIN is the one bright button; the
 	# Bone Drop button goes quiet (slate) so the two don't fight. After a win it stays gold.
@@ -6942,6 +7058,7 @@ func _fit_end() -> void:
 	# Version 219 (review 4 fix 19): the empty SHARE/COPY row took a gap of its own between
 	# the Bone Drop button and TRY AGAIN; it now only takes room when it shows something.
 	(_share_button.get_parent() as Control).visible = _share_button.visible or _copy_button.visible
+	_end_extras.visible = _end_looks.visible or _end_drop.visible
 	# Fill the box again first. Moving the column (below) fixes its size at whatever it was
 	# then, so after one tall end screen the next ones stayed stretched past the bottom and
 	# their buttons were centred off the screen.
@@ -6992,7 +7109,100 @@ func _start_tally(stats: String, after_score: bool) -> void:
 	_tally_wait = after_score
 	_tally_i = -1 if after_score else 0
 	_tally_t = 0.0
-	_end_stats.text = _tally_text(-1, 0.0)
+	_tile_of = {}
+	for c in _end_tiles.get_children():
+		c.queue_free()
+	_end_tile_vals = []
+	if _end_tiles.visible:
+		for i in _tally.size():
+			var line: String = _tally[i]
+			var cut := line.find("  ")
+			if cut > 0 and END_TILES.has(line.substr(0, cut)) and _end_tile_vals.size() < 4:
+				_tile_of[i] = _end_tile_vals.size()
+				_end_tile_vals.append(_end_tile(str(END_TILES[line.substr(0, cut)])))
+	_end_tiles.visible = not _tile_of.is_empty()
+	_show_tally(_tally_text(-1, 0.0))
+
+
+## One of the win screen's number tiles: a dark gold-edged card, the number big, its name under.
+func _end_tile(caption: String) -> Array:
+	var p := PanelContainer.new()
+	p.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.13, 0.08, 0.04, 0.9)
+	sb.border_color = Color(1.0, 0.78, 0.35, 0.85)
+	sb.set_border_width_all(2)
+	sb.border_width_bottom = 5
+	sb.set_corner_radius_all(14)
+	sb.content_margin_top = 6
+	sb.content_margin_bottom = 6
+	sb.content_margin_left = 4
+	sb.content_margin_right = 4
+	p.add_theme_stylebox_override("panel", sb)
+	p.custom_minimum_size = Vector2(114, 96)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 0)
+	p.add_child(v)
+	var val := label("0", 34, Color.WHITE)
+	val.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(val)
+	var cap := label(caption, 16, Color(1.0, 0.84, 0.5))
+	cap.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(cap)
+	var note := label("", 16, Color(0.95, 0.9, 0.75))
+	note.autowrap_mode = TextServer.AUTOWRAP_OFF
+	note.visible = false
+	v.add_child(note)
+	_end_tiles.add_child(p)
+	return [val, note]
+
+
+## Puts the tally's text on the end screen: tile lines into their tiles (the number only,
+## with what follows it, like "Heroic +50%", as a small note), the lines before the tiles
+## above them and the rest under them.
+func _show_tally(text: String) -> void:
+	if _tile_of.is_empty():
+		_end_stats.text = text
+		_end_after.visible = false
+		return
+	var before := []
+	var after := []
+	var lines := text.split("\n")
+	for i in lines.size():
+		var line: String = lines[i]
+		if _tile_of.has(i):
+			var parts := line.substr(line.find("  ")).strip_edges().split("  ", false)
+			var t: Array = _end_tile_vals[int(_tile_of[i])]
+			(t[0] as Label).text = str(parts[0]).trim_suffix(" bones") if parts.size() > 0 else ""
+			var rest := []
+			for k in range(1, parts.size()):
+				rest.append(str(parts[k]).strip_edges().trim_prefix("(").trim_suffix(")"))
+			(t[1] as Label).text = "\n".join(rest)
+			(t[1] as Label).visible = not rest.is_empty()
+		elif i < int(_tile_of.keys().min()):
+			before.append(line)
+		else:
+			after.append(line)
+	_end_stats.text = "\n".join(before).strip_edges()
+	_end_after.text = "\n".join(after).strip_edges()
+	_end_after.visible = _end_after.text != ""
+
+
+## The gold light behind the hero on the win screen: soft rays turning slowly.
+func _draw_end_rays() -> void:
+	var c := _end_hero_box.size * Vector2(0.5, 0.52)
+	var t := Time.get_ticks_msec() / 1000.0
+	var glow := Color(1.0, 0.8, 0.38)
+	for i in 14:
+		var a := t * 0.22 + TAU * i / 14.0
+		var w := 0.1
+		var r := 190.0
+		var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
+		_end_hero_box.draw_polygon(pts, PackedColorArray([Color(glow, 0.34), Color(glow, 0.0), Color(glow, 0.0)]))
+	for k in 4:
+		_end_hero_box.draw_circle(c, 120.0 - k * 26.0, Color(glow, 0.06))
 
 
 ## A line like "Coins this run  45" or "Bone Road  +12 bones" counts up; text lines (and
@@ -7034,7 +7244,7 @@ func _update_tally(delta: float) -> void:
 	while _tally_i < _tally.size() and _tally[_tally_i].strip_edges() == "":
 		_tally_i += 1   # blank lines take no time
 	if _tally_i >= _tally.size():
-		_end_stats.text = "\n".join(_tally)
+		_show_tally("\n".join(_tally))
 		_tally_i = -1
 		_fit_end.call_deferred()   # a long line that wraps once shown can make it taller
 		return
@@ -7045,7 +7255,7 @@ func _update_tally(delta: float) -> void:
 	if counts and int(was * 16.0) != int(_tally_t * 16.0) and _tally_t < dur:
 		Sfx.play("tick", 0.35, 1.0 + _tally_t)
 	if _tally_t >= dur:
-		_end_stats.text = _tally_text(_tally_i + 1, 0.0)
+		_show_tally(_tally_text(_tally_i + 1, 0.0))
 		if counts:
 			Sfx.play("coin", 0.5, 1.25)
 			if Game.vibration:
@@ -7053,7 +7263,7 @@ func _update_tally(delta: float) -> void:
 		_tally_i += 1
 		_tally_t = 0.0
 	else:
-		_end_stats.text = _tally_text(_tally_i, _tally_t / dur)
+		_show_tally(_tally_text(_tally_i, _tally_t / dur))
 
 
 ## Daily Crypt runs get their result card (rows of ShareCard codes) and a SHARE RESULT
@@ -7122,6 +7332,9 @@ func show_end_loop(v: bool, bonus := 0, next_loop := 2, just_bought := false) ->
 func set_end_stats(text: String) -> void:
 	_tally_i = -1
 	_tally_wait = false
+	_tile_of = {}
+	_end_tiles.visible = false
+	_end_after.visible = false
 	_end_stats.text = text
 	_fit_end_soon()
 

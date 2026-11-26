@@ -46,7 +46,9 @@ static func _mats() -> void:
 	_gold.emission_energy_multiplier = 0.45   # (version 329: it read as tan from above)
 	_gold.cull_mode = BaseMaterial3D.CULL_DISABLED   # (the open crown band is seen from inside)
 	_dark = _hero_mat(Color(0.07, 0.04, 0.03), 0.85, 0.0)
-	_velvet = _hero_mat(Color(0.27, 0.07, 0.45), 1.0, 0.0)
+	# (Version 388, review of v383 fix 9: crimson, was purple like the Starfall Mantle's, so the
+	# two dearest looks no longer read alike on a card: gold, bone and blood red here.)
+	_velvet = _hero_mat(Color(0.42, 0.04, 0.07), 1.0, 0.0)
 	_velvet.cull_mode = BaseMaterial3D.CULL_DISABLED
 	_eye = _hero_mat(Color(1.0, 0.62, 0.16), 1.0, 0.0)
 	_eye.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED

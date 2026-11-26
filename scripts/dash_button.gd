@@ -8,11 +8,11 @@ var _label: Label
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_label = Hud.label("DASH", 16, Color(0.9, 0.97, 1.0))
+	_label = Hud.label("DASH", 19, Color(0.96, 0.99, 1.0))   # v388: bigger and whiter
 	Hud.chunky(_label.label_settings)
-	_label.label_settings.outline_size = 5
-	_label.position = Vector2(-20, 84)
-	_label.size = Vector2(120, 22)
+	_label.label_settings.outline_size = 6
+	_label.position = Vector2(-25, 82)
+	_label.size = Vector2(130, 26)
 	_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	add_child(_label)
 

@@ -13,7 +13,7 @@ var _drawn := []
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_label = Hud.label("SURGE", 16, RaceScreen.TEAL.lightened(0.35))
+	_label = Hud.label("SURGE", 19, RaceScreen.TEAL.lightened(0.5))   # v388: bigger
 	Hud.chunky(_label.label_settings)
 	_label.label_settings.outline_size = 5
 	_label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -24,7 +24,7 @@ func _ready() -> void:
 
 func _place_label() -> void:
 	_label.position = Vector2(-30, size.y + 2.0)
-	_label.size = Vector2(size.x + 60.0, 22)
+	_label.size = Vector2(size.x + 60.0, 26)
 
 
 func ready_now() -> bool:

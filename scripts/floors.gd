@@ -372,9 +372,10 @@ const REMIX_LOOK := {
 	ABYSS: {"name": "Crimson Abyss", "spores": Color(1.0, 0.45, 0.55, 1.0), "ambient": Color(0.25, 0.15, 0.18), "moon": Color(1.0, 0.62, 0.66),
 		"torch": Color(1.0, 0.52, 0.56), "motes": [Color(1.0, 0.6, 0.65, 0.55), Color(1.0, 0.85, 0.55, 0.3)], "banner": Color(1.0, 0.6, 0.62)},
 }
-## Version 387: the Daily Crypt's own light, violet with gold candle sparks.
-const DAILY_LOOK := {"ambient": Color(0.25, 0.17, 0.32), "moon": Color(0.82, 0.58, 1.0), "torch": Color(1.0, 0.76, 0.4),
-	"motes": [Color(1.0, 0.82, 0.4, 0.6), Color(0.8, 0.6, 1.0, 0.3)], "banner": Color(0.85, 0.62, 1.0)}
+## Version 387: the Daily Crypt's own light. Version 388: warm gold, like a sunrise (the
+## violet of 387 was too close to floor 1's own cool light to tell apart).
+const DAILY_LOOK := {"ambient": Color(0.3, 0.22, 0.13), "moon": Color(1.0, 0.76, 0.42), "torch": Color(1.0, 0.7, 0.3),
+	"motes": [Color(1.0, 0.84, 0.4, 0.65), Color(1.0, 0.95, 0.7, 0.3)], "banner": Color(1.0, 0.8, 0.4)}
 
 
 ## Version 219 (review 4 fix 28): the Crypt Pass's own takes on the three free crypts it

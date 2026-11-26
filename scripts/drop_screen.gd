@@ -143,6 +143,7 @@ func _init() -> void:
 	_art.add_child(_chest)
 	_chest_small()
 	_look = HeroStage.new(Vector2(320, 320))
+	_look.soft_edge = true   # (v388: no hard-cut box round the hero)
 	_look.custom_minimum_size = Vector2(440, LOOK_TALL)   # the chest's size, so nothing jumps
 	_look.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_look.visible = false
@@ -275,6 +276,7 @@ func _init() -> void:
 func open_screen(waiting: int, is_casket := false) -> void:
 	casket = is_casket
 	_offer = {}
+	_look.show_back = false
 	_feat_mode = false
 	_feat_queue.clear()
 	_left = waiting
@@ -291,6 +293,9 @@ func close() -> void:
 		return
 	_land_all()
 	_show_look(false)
+	_look.show_back = false
+	_odds.visible = false
+	_odds_dim.visible = false
 	_feat_mode = false
 	_feat_queue.clear()
 	_offer = {}
@@ -355,6 +360,11 @@ func show_offer(o: Dictionary) -> void:
 	_rarity.text = str(o.name).to_upper()
 	_rarity.label_settings.font_color = (Legends.GOLD if legend else BAZAAR).lightened(0.3)
 	_prize.label_settings.font_size = 22
+	_odds.visible = false   # (v388: the Bone Drop's odds never stay open over a look on sale)
+	_odds_dim.visible = false
+	var slot := str(Legends.def(str(o.look[1])).get("slot", "")) if legend and o.look.size() >= 2 else ""
+	_look.show_back = slot in ["wings", "grand"]
+	_look.back_angle = 1.35 if slot == "grand" else HeroStage.BACK
 	_show_look(true)
 	_wear.visible = true
 	_offer_buttons()
@@ -414,6 +424,9 @@ func _next_feat() -> void:
 	_prize.text = "NEW LOOK: %s\nEarned, never sold. Wear it in HEROES > STYLE > NEW." % str(f.label)
 	_prize.label_settings.font_color = Color(0.75, 0.97, 1.0)
 	_prize.label_settings.font_size = 22
+	_odds.visible = false
+	_odds_dim.visible = false
+	_look.show_back = false
 	_show_look(true)
 	_wear.visible = true
 	_wear.disabled = false

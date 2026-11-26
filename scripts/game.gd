@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26k"
+const BUILD := "2026-11-26l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1681,13 +1681,85 @@ func _lobby_camera_position(pitch: float) -> Vector3:
 	var b := Basis.from_euler(Vector3(-pitch, 0, 0))
 	var centre := hero.global_position + Vector3(0, 0.95, 0)
 	var below := (space.get_center().y - vp.y * 0.5) / vp.y * 2.0 * d * tan_half
-	return centre + b.z * d + b.y * below
+	var pos := centre + b.z * d + b.y * below
+	# Version 388 (visual review of v383, fix 10): a safe box. Everything the hero wears and
+	# holds (a hat's tip, a staff held out toward the camera, a crown) is projected through
+	# this camera; if it spills out of the free space the camera steps back, then centres it.
+	# On a tall phone the Mage's staff reached down over the hero's name and into PLAY.
+	var box := _lobby_points()
+	if not box.is_empty():
+		var room := Vector2(vp.x * 0.94, space.size.y * 0.97)
+		for step in 2:
+			var ext := _lobby_extent(box, pos, b, vp, tan_half)
+			if ext.size.x <= 0.0:
+				break
+			var k := clampf(maxf(ext.size.y / room.y, ext.size.x / room.x), 1.0, 1.4)
+			if step == 0 and k > 1.001:
+				pos = centre + b.z * (d * k) + b.y * (below * k)
+				d *= k
+				continue
+			var shift := (ext.get_center().y - space.get_center().y) / vp.y * 2.0 * d * tan_half
+			pos -= b.y * shift
+			break
+	return pos
+
+
+const WIDEST := 0.5625
+
+
+var _lobby_pts := PackedVector3Array()
+var _lobby_of := 0
+var _lobby_frames := 0
+
+
+## The corners of everything the title hero wears and holds, relative to their feet, taken on
+## a few frames of their first second and a half (the pose sways, and held things only reach
+## the hands after a frame), then kept.
+func _lobby_points() -> PackedVector3Array:
+	if hero == null or hero.visual == null:
+		return PackedVector3Array()
+	if _lobby_of != hero.get_instance_id():
+		_lobby_of = hero.get_instance_id()
+		_lobby_pts = PackedVector3Array()
+		_lobby_frames = 0
+	_lobby_frames += 1
+	if not _lobby_frames in [3, 30, 60, 90]:
+		return _lobby_pts
+	for mi in hero.visual.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		if m.mesh == null or not m.is_visible_in_tree() or m.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			continue
+		var bx := m.global_transform * m.get_aabb()
+		if bx.size.length() > 6.0:
+			continue   # (a ground effect, not the hero)
+		for i in 8:
+			_lobby_pts.append(bx.get_endpoint(i) - hero.global_position)
+	return _lobby_pts
+
+
+## Where `pts` (relative to the hero's feet) land on screen, in pixels, seen from `pos`.
+func _lobby_extent(pts: PackedVector3Array, pos: Vector3, b: Basis, vp: Vector2, tan_half: float) -> Rect2:
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	var inv := b.transposed()
+	var aspect := vp.x / maxf(vp.y, 1.0)
+	for p in pts:
+		var r := inv * (hero.global_position + p - pos)
+		if r.z > -0.05:
+			return Rect2()
+		var sp := Vector2(vp.x * 0.5 * (1.0 + r.x / (-r.z * tan_half * aspect)), vp.y * 0.5 * (1.0 - r.y / (-r.z * tan_half)))
+		lo = lo.min(sp)
+		hi = hi.max(sp)
+	return Rect2(lo, hi - lo)
 
 
 func _cam_distance() -> float:
 	# The same visible width on every phone shape, so characters are the same size.
 	var vp := get_viewport().get_visible_rect().size
-	var aspect := vp.x / maxf(vp.y, 1.0)
+	# Version 388 (visual review of v383, fix 10): no nearer than on a 9:16 phone. On a wide
+	# screen (a tablet, a folding phone) the same width filled less height, so the camera came
+	# in until the hero filled a third of the screen; now it shows more of the room instead.
+	var aspect := minf(vp.x / maxf(vp.y, 1.0), WIDEST)
 	var half_h := atan(tan(deg_to_rad(CAMERA_FOV) * 0.5) * aspect)
 	return VIEW_HALF_WIDTH / tan(half_h) * _boss_pull
 
@@ -1765,7 +1837,9 @@ func _room_focus() -> Vector3:
 			far_boss = minf(far_boss, b.global_position.z - 2.0)   # its head and shoulders too
 	if far_boss != INF and not _intro_focus:
 		z = maxf(minf(z, far_boss - (d * cos(p) - d * sin(p) / tan(a_min))), minf(z, keep_hero))
-	var x_room := maxf(0.0, Room.HALF_W + 0.6 - VIEW_HALF_WIDTH)
+	var vp := get_viewport().get_visible_rect().size
+	var seen := VIEW_HALF_WIDTH * maxf(1.0, vp.x / maxf(vp.y, 1.0) / WIDEST)   # (v388: wider on a wide screen)
+	var x_room := maxf(0.0, Room.HALF_W + 0.6 - seen)
 	# Version 219 (review 4 fix 20): the wall clamp used the width seen at the middle of the
 	# screen, but rows nearer the camera see less, so a hero in a near corner sat half off the
 	# edge. Keeping the hero in view now wins over hiding the wall.
@@ -4657,6 +4731,8 @@ func _win() -> void:
 		fallen = _dive_text(true)
 	var offer := _free_end or (_dive_done and not Store.owned())
 	hud.end_hide_best = _side_run()
+	if hero and is_instance_valid(hero):
+		hud.end_hero_def = HeroStyle.styled(_load_save(), Heroes.get_hero(hero.hero_id))   # v388: the hero cheers on the win screen
 	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, _heroic_tag(), bones, extra],
 		tap, false, score, best, offer)
 	if _dive_done:
