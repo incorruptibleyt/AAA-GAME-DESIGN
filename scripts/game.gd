@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26e"
+const BUILD := "2026-11-26f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1645,6 +1645,8 @@ const LOBBY_FILL := 0.8
 ## Version 367: the lobby lamp's strength (was 5) and how much of the moon is left under it.
 const LOBBY_LAMP := 2.2
 const LOBBY_MOON := 0.3
+const LOBBY_RIM := 0.25   # v382: the edge glow on the title hero (1 = as in a run)
+var _lobby_rim := 1.0
 
 
 ## Where the lobby camera stands (looking down at `pitch` radians) so the hero, facing it,
@@ -1811,6 +1813,16 @@ func _update_camera(real_delta: float) -> void:
 		_moon.light_energy = _moon_energy
 	if lobby:
 		hero.rotation.y = lerp_angle(hero.rotation.y, PI, 1.0 - exp(-6.0 * real_delta))   # turned to face us
+	# Version 382 (visual review of 375, fix 7): on the title the hero is seen up close from
+	# the front, where the run's bright edge glow (added light) washed a silver Knight milky
+	# and the bright cyan "this is you" line read as a sticker's cut edge. Both belong to the
+	# run camera: in the lobby the glow is a quarter as strong and the line is the dark ink.
+	if hero != null and is_instance_valid(hero.visual):
+		var rim_k := lerpf(1.0, LOBBY_RIM, clampf(_lobby, 0.0, 1.0))
+		if absf(rim_k - _lobby_rim) > 0.01 or (rim_k == 1.0 and _lobby_rim != 1.0):
+			_lobby_rim = rim_k
+			hero.visual.rim_boost(rim_k)
+		hero.visual.set_run_marks(_lobby < 0.5)
 	_zoom_hold -= real_delta
 	# The close-up punch follows the Screen shake setting (the boss intro's camera move doesn't).
 	var zoom_goal := shake_scale if _zoom_hold > 0.0 else ((-0.5 if _intro_wide else 0.55) if _intro_focus else 0.0)

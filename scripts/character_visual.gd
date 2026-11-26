@@ -124,6 +124,19 @@ func build(look: Dictionary) -> void:
 var _rim_alpha := -1.0
 var _aura_width := -1.0
 
+## Version 382: the hero's run marks on or off: the bright "this is you" line (off = the dark
+## ink line) and the see-through ghost when something hides them. Off on the title, where
+## the hero stands close: the bright line looked like a sticker's edge, and the ghost drew a
+## cyan seam where the helmet overlaps the face.
+func set_run_marks(on: bool) -> void:
+	if team_line == on and xray == on:
+		return
+	team_line = on
+	xray = on
+	_outlined.clear()
+	_set_flash(false)
+
+
 ## A look's reveal on the pedestal (version 131): the hero's edge glow `k` times as bright,
 ## and a Master aura's line a little wider while it's brighter than usual.
 func rim_boost(k: float) -> void:
