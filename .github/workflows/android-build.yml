@@ -7,7 +7,7 @@
 #    the locked file as signing/upload-keystore.p12.enc. Without the password it's useless.
 # When it finishes, the newest files are always at:
 #   https://github.com/incorruptibleyt/AAA-GAME-DESIGN/releases/tag/latest-build
-# (it's also attached to each run on the Actions tab, under "Artifacts").
+# Older builds are not kept here; Google Play keeps every AAB you upload.
 
 name: Build Android
 
@@ -230,13 +230,8 @@ jobs:
           rm -f "$RUNNER_TEMP/upload.p12"
           if [ "$MODE" != "real" ]; then rm build/crypt-crawl.aab; echo "Test Play build worked (not published)."; fi
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: CryptCrawl-Android
-          path: |
-            build/crypt-crawl.apk
-            build/crypt-crawl.aab
-          if-no-files-found: ignore
+      # No copy is kept on the Actions tab any more: each one was ~220 MB and they filled
+      # the account's 0.5 GB Actions storage (Nov 2026). The download page below has the files.
 
       - name: Publish to the "latest-build" download page
         env:
