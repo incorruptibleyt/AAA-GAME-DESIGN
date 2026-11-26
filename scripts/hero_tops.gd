@@ -54,11 +54,21 @@ static func dress(skel: Skeleton3D, id: String, style: Dictionary) -> void:
 		_helm(bear)
 	if id == "mage" and wizard and wizard.visible and own_hat and not outfit.has("key"):
 		_stars(wizard)
+	if id == "rogue" and outfit.is_empty():
+		_night_cape(skel)
+	if chest and id == "rogue" and str(legend.get("wings", "")) == "":
+		_quiver(chest)   # version 377: on every Rogue look, the shape that says "Rogue" from above
 	if chest and outfit.is_empty() and str(legend.get("wings", "")) == "":
 		match id:
 			"knight": _pauldrons(chest)
 			"barbarian": _fur_pads(chest)
 			"rogue": _guards(chest)
+
+
+## How far behind the chest bone the quiver hangs (the chest bone's -z is the back).
+const QUIVER_BACK := -0.42
+const QX := 15.0
+const QZ := -20.0
 
 
 static func _holder(parent: Node3D, scale := 1.0) -> Node3D:
@@ -214,6 +224,59 @@ static func _fur_pads(chest: Node3D) -> void:
 
 ## The Rogue: layered leather guards that end in a point: dark under, pale steel-blue over
 ## (her hood is blue already: the same blue again was one blue lump), with a silver stud.
+## Version 377: the classic Rogue's cape in deep navy, so the bright hood stands apart from
+## it (both were the same blue: one egg from above). Outfits colour the cape themselves.
+static var _cape_mat: StandardMaterial3D
+
+static func _night_cape(skel: Skeleton3D) -> void:
+	for c in skel.find_children("*_Cape", "MeshInstance3D", true, false):
+		var mi := c as MeshInstance3D
+		if mi.material_override != null and mi.material_override != _cape_mat:
+			continue
+		var src := mi.mesh.surface_get_material(0) as BaseMaterial3D
+		if src == null:
+			continue
+		if _cape_mat == null:
+			_cape_mat = src.duplicate() as StandardMaterial3D
+			_cape_mat.albedo_color = src.albedo_color * Color(0.42, 0.42, 0.55)
+		mi.material_override = _cape_mat
+
+
+## Version 377 (visual review of 375, fix 2): from above, the Rogue was one blue hood over
+## a blue cape, a plain blue egg. A leather quiver now crosses his back, bolts with bright
+## orange flights sticking up past his shoulder: a dark shape across the blue and a spot
+## of warm colour that only the Rogue has, seen from behind as he runs up the screen.
+static func _quiver(chest: Node3D) -> void:
+	var root := _holder(chest, 1.45)
+	root.name = "HeroTopQuiver"
+	var leather := U.mat(Color(0.3, 0.17, 0.09), 0.75)
+	var dark := U.mat(Color(0.13, 0.08, 0.05), 0.8)
+	var gold := U.mat(Color(0.95, 0.72, 0.3), 0.35)
+	var shaft := U.mat(Color(0.55, 0.42, 0.28), 0.7)
+	var flight := U.mat(Color(1.0, 0.5, 0.12), 0.6, 0.35)
+	var tube := root   # every piece straight under the holder, so they bake into one mesh
+	tube.position = Vector3(0.22, 0.3, QUIVER_BACK)
+	tube.rotation = Vector3(deg_to_rad(QX), 0.0, deg_to_rad(QZ))
+	U.cylinder(tube, 0.16, 0.78, leather, Vector3(0, -0.4, 0))
+	U.cylinder(tube, 0.175, 0.07, gold, Vector3(0, 0.3, 0))
+	U.cylinder(tube, 0.175, 0.07, dark, Vector3(0, -0.36, 0))
+	for k in 4:
+		var a := TAU * k / 4.0 + 0.4
+		var at := Vector3(cos(a) * 0.075, 0.38, sin(a) * 0.075)
+		U.cylinder(tube, 0.022, 0.32 + 0.05 * (k % 2), shaft, at)
+		var tip := at + Vector3(0, 0.3 + 0.05 * (k % 2), 0)
+		for side in [-1.0, 1.0]:
+			_blade(tube, 0.09, 0.28, flight, tip - Vector3(0, 0.24, 0), Vector3(side * 0.4, 1.0, 0.0), Vector3(0, 0, 1), 0.3)
+	FeatHeads.bake(root, "herotop quiver")
+	OutfitShapes._keep(root)
+	# the strap across the chest
+	var band := _holder(chest, 1.0)
+	band.name = "HeroTopQuiverStrap"
+	var strap := U.box(band, Vector3(0.08, 0.95, 0.05), dark, Vector3(0.0, 0.08, 0.0))
+	strap.rotation.z = deg_to_rad(-34.0)
+	OutfitShapes._keep(band)
+
+
 static func _guards(chest: Node3D) -> void:
 	var root := _holder(chest, 1.45)
 	var pale := U.mat(Heroes.get_hero("rogue").ring.lightened(0.45), 0.45, 0.2)

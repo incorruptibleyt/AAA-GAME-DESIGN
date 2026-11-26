@@ -566,7 +566,8 @@ uniform vec4 col : source_color = vec4(0.4, 0.95, 1.0, 1.0);
 void fragment() {
 	float rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
 	ALBEDO = mix(col.rgb, vec3(0.92, 1.0, 1.0), pow(rim, 3.0));
-	ALPHA = clamp(0.1 + smoothstep(0.45, 0.85, rim) * 0.85, 0.0, 0.92);
+	// Version 377: thinner still, no fill (a hidden Rogue read as a see-through blue egg).
+	ALPHA = clamp(smoothstep(0.6, 0.88, rim) * 0.95, 0.0, 0.95);
 }
 """
 		_xray_mat = ShaderMaterial.new()
