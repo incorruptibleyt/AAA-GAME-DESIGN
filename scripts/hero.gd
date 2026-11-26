@@ -286,6 +286,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	elif h._master or HeroStyle.worn(cfg, def.id, "glow") in ["gold", HeroStyle.PASS_KEY]:
 		h._build_sparkles()   # Masters (and the Gold glow) leave a trail of gold sparkles
 	h._build_dash_ring()
+	h._build_find_ring()
 	if h.guard:
 		h._build_guard_mark()
 	if h.charges:
@@ -516,7 +517,13 @@ func use_special() -> void:
 		"knight": _shield_slam()
 		"barbarian":
 			_spin_left = whirl_time * (WHIRL_LONGER if perks.has("whirl") else 1.0)
+			_spin_waves = 0
 			Sfx.play("dash", 0.9)
+			# Version 386: the spin starts with a wave, a pop of light and cracks, like a slam.
+			Fx.slam_wave(global_position, bolt_color, WHIRL_R, 0.4)
+			Fx.floor_cracks(global_position, bolt_color, WHIRL_R * 0.8, 1.3)
+			Fx.impact(center(), bolt_color.lerp(Color.WHITE, 0.35), 2.0)
+			Game.hud.flash(bolt_color, 0.12)
 		"mage": _meteors()
 		_: _shadow_volley()
 	if perks.has("cold_snap"):
@@ -537,7 +544,7 @@ func _shadow_volley() -> void:
 			Sfx.play("shoot", 0.9)
 			for i in 12:
 				var d := Vector3.FORWARD.rotated(Vector3.UP, TAU * (i + wave * 0.33) / 12.0)
-				var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.4 * Game.chain, bolt_speed, bolt_color.lerp(Color(0.6, 0.3, 1.0), 0.4), bolt_size)
+				var p := Projectile.fire(Team.HERO, global_position + Vector3.UP * 1.1 + d * 0.5, d, damage * 1.4 * Game.chain, bolt_speed, bolt_color.lerp(Color(0.6, 0.3, 1.0), 0.4), bolt_size, "Shot", "volley")
 				p.pierce = pierce + 1
 				p.push = bolt_push
 				p.recall_after(QUIVER_TURN if perks.has("quiver") else 0.0))   # Shadow Quiver (version 308)
@@ -554,7 +561,7 @@ func _shield_slam() -> void:
 	if perks.has("aftershock"):
 		# Aftershock (version 308): the floor answers a second later with a bigger slam,
 		# reaching the skeletons the first one threw back.
-		Fx.shockwave(global_position, AFTERSHOCK_COL, slam_reach * AFTERSHOCK_REACH)
+		Fx.slam_wave(global_position, AFTERSHOCK_COL, slam_reach * AFTERSHOCK_REACH, 0.7)
 		get_tree().create_timer(AFTERSHOCK_DELAY, false).timeout.connect(func():
 			if dead or Game.state != Game.State.PLAYING:
 				return
@@ -566,7 +573,13 @@ func _shield_slam() -> void:
 
 
 func _slam(reach: float, mult: float, push: float) -> void:
-	Fx.shockwave(global_position, Color(1, 0.9, 0.6), reach)
+	# Version 386 (visual review of v383, fix 5): a thick wave in the hero's colour, a pop of
+	# light, a quick tint over the screen and cracks torn in the floor (a thin see-through
+	# ring before, which no picture of the fight could find).
+	Fx.slam_wave(global_position, bolt_color, reach, 0.45)
+	Fx.floor_cracks(global_position, bolt_color, minf(reach * 0.65, 2.8), 1.5)
+	Fx.impact(center(), bolt_color.lerp(Color.WHITE, 0.35), 2.2)
+	Game.hud.flash(bolt_color, 0.14)
 	Fx.dust(global_position, 30)
 	for a: Actor in Actor.all.duplicate():
 		if a.team != Team.UNDEAD or not a.can_be_hit():
@@ -638,12 +651,14 @@ func _meteor(spot: Vector3) -> void:
 		rock.queue_free()
 		warn.queue_free()
 		shadow.queue_free()
-		Fx.shockwave(spot, Color(1, 0.55, 0.2), 2.8)
+		# Version 386: a thick wave of fire and a cracked, burnt crater that stays a moment.
+		Fx.slam_wave(spot, Color(1.0, 0.5, 0.15), 2.8, 0.45)
+		Fx.floor_cracks(spot, Color(1.0, 0.55, 0.15), 2.4, 2.6, 1.0)
 		Fx.impact(spot + Vector3.UP * 0.6, Color(1.0, 0.7, 0.3), 3.2)
 		Fx.magic(spot + Vector3.UP * 0.5, Color(1, 0.6, 0.2), 20)
 		Fx.sparks(spot + Vector3.UP * 0.4, Color(1.0, 0.7, 0.3))
 		Fx.dust(spot, 12)
-		_scorch(spot, 3.8, 1.8)
+		_scorch(spot, 3.8, 2.6)
 		Sfx.play("boom", 0.7)
 		Game.shake(0.2)
 		for a: Actor in Actor.all.duplicate():
@@ -703,6 +718,7 @@ func _crater(spot: Vector3) -> void:
 const WHIRL_R := 2.8
 static var _storm_mat: ShaderMaterial
 var _storm: MeshInstance3D
+var _spin_waves := 0
 
 func _storm_show(on: bool) -> void:
 	if not on:
@@ -714,25 +730,31 @@ func _storm_show(on: bool) -> void:
 			var sh := Shader.new()
 			sh.code = """
 shader_type spatial;
-render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 uniform vec4 col : source_color = vec4(1.0, 0.82, 0.55, 1.0);
 void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
 	float r = length(p);
 	float a = atan(p.y, p.x) / 6.2831853;
-	// three curved blades of wind racing round, brightest toward the outside
+	// Version 386: three thick curved blades in the hero's colour race round, white on
+	// their leading edge with a dark line ahead (beige light added to the floor before,
+	// which disappeared on orange floors), and a solid rim where the spin reaches.
 	float blade = fract(a * 3.0 + r * 0.9 + TIME * 3.2);
-	float arcs = smoothstep(0.0, 0.08, blade) * (1.0 - smoothstep(0.08, 0.42, blade));
-	float body = smoothstep(0.25, 0.75, r) * (1.0 - smoothstep(0.9, 1.0, r));
-	float edge = smoothstep(0.9, 0.95, r) * (1.0 - smoothstep(0.96, 1.0, r));
-	float k = arcs * body * 0.75 + edge * 0.45;
-	ALBEDO = col.rgb * k;
-	ALPHA = clamp(k, 0.0, 1.0);
+	float arcs = smoothstep(0.05, 0.09, blade) * (1.0 - smoothstep(0.12, 0.5, blade));
+	float ink = smoothstep(0.0, 0.025, blade) * (1.0 - smoothstep(0.035, 0.07, blade));
+	float body = smoothstep(0.22, 0.6, r) * (1.0 - smoothstep(0.9, 0.99, r));
+	float edge = smoothstep(0.88, 0.92, r) * (1.0 - smoothstep(0.95, 0.99, r));
+	float a1 = max(arcs * body * 0.85, edge * 0.75);
+	float ai = ink * body * 0.55;
+	vec3 c = mix(col.rgb, vec3(1.0), (1.0 - smoothstep(0.08, 0.2, blade)) * 0.6 * body);
+	ALBEDO = mix(vec3(0.05, 0.03, 0.03), c, a1 / max(a1 + ai, 0.001));
+	ALPHA = clamp(a1 + ai, 0.0, 1.0);
 }
 """
 			_storm_mat = ShaderMaterial.new()
 			_storm_mat.shader = sh
 		_storm = U.floor_quad(self, Vector2(WHIRL_R * 2.0, WHIRL_R * 2.0), _storm_mat, Vector3.UP * 0.12)
+	_storm_mat.set_shader_parameter("col", bolt_color)
 	_storm.visible = true
 
 
@@ -743,7 +765,10 @@ func _whirlwind(delta: float) -> void:
 	_spin_tick -= delta
 	if _spin_tick <= 0.0:
 		_spin_tick = 0.16
-		Fx.trail(center(), Color(1, 0.7, 0.4))
+		Fx.trail(center(), bolt_color)
+		_spin_waves += 1
+		if _spin_waves % 3 == 0:
+			Fx.slam_wave(global_position, bolt_color, WHIRL_R, 0.42)   # v386: a thick wave every half second
 		var hit_any := false
 		for a: Actor in Actor.all.duplicate():
 			if a.team == Team.UNDEAD and a.can_be_hit() and a.global_position.distance_to(global_position) < 2.8 + a.radius:
@@ -821,6 +846,7 @@ func _process(delta: float) -> void:
 		return
 	_update_ward_bubble()
 	_update_dash_ring()
+	_update_find_ring(delta)
 	_update_guard_mark(delta)
 	_update_charge(delta)
 	_thunder_cd -= delta
@@ -1772,6 +1798,53 @@ func _build_feet_marker(col: Color, col2: Variant = null, fx := "flow", tier := 
 	ring.position = Vector3(0, 0.04, 0)
 	add_child(ring)
 	_rings.append(ring)
+
+
+## Version 386 (visual review of v383, fix 3: always find your hero): with skeletons
+## pressing in, a bright ring in the "this is you" colour shows at the hero's feet, drawn
+## over everything (skulls, bars, numbers), so the hero is found at a glance in a crowd. It
+## fades in only while two or more skeletons are close, so open floor stays calm.
+var _find_ring: MeshInstance3D
+var _find_k := 0.0
+var _find_t := 0.0
+static var _find_tex: ImageTexture
+const FIND_NEAR := 2.6
+const FIND_SIZE := 1.9
+
+func _build_find_ring() -> void:
+	if _find_tex == null:
+		var n := 128
+		var img := Image.create(n, n, false, Image.FORMAT_RGBA8)
+		for y in n:
+			for x in n:
+				var d := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0).length() / (n / 2.0)
+				var rim := clampf((1.0 - absf(d - 0.84) / 0.1) * 1.6, 0.0, 1.0)
+				var halo := clampf(1.0 - absf(d - 0.84) / 0.2, 0.0, 1.0) * 0.4
+				img.set_pixel(x, y, Color(1, 1, 1, maxf(rim, halo)))
+		_find_tex = ImageTexture.create_from_image(img)
+	var m := U.unlit(Color(CharacterVisual.TEAM_INK, 1.0), _find_tex).duplicate() as StandardMaterial3D
+	m.no_depth_test = true
+	m.render_priority = 20
+	_find_ring = U.floor_quad(self, Vector2(FIND_SIZE, FIND_SIZE), m, Vector3(0, 0.08, 0))
+	_find_ring.visible = false
+	_rings.append(_find_ring)
+
+
+func _update_find_ring(delta: float) -> void:
+	if _find_ring == null:
+		return
+	var crowd := 0
+	if Game.state == Game.State.PLAYING:
+		for a: Actor in Actor.all:
+			if a is Enemy and not a.dead and a.global_position.distance_squared_to(global_position) < FIND_NEAR * FIND_NEAR:
+				crowd += 1
+	_find_k = move_toward(_find_k, 1.0 if crowd >= 2 else 0.0, delta * 3.0)
+	_find_ring.visible = _find_k > 0.01
+	if _find_ring.visible:
+		_find_t += delta
+		var beat := 0.85 + 0.15 * sin(_find_t * 6.0)
+		(_find_ring.material_override as StandardMaterial3D).albedo_color.a = _find_k * beat
+		_find_ring.scale = Vector3.ONE * (1.0 + 0.05 * sin(_find_t * 6.0))
 
 
 ## Hero Mastery level 10: a thin gold ring just inside the one in the hero's colour.

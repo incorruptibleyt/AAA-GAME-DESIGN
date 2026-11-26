@@ -60,6 +60,7 @@ const WARD_REGROW := 5.0
 const WARD_REGROWS := 2   # v298: then it stays broken (a slow hero was stuck on one for 10 min)
 var _ward_regrown := 0
 var _tag: Label3D
+var _tag_a := 1.0   # the tag's own fade (under the top bar), before the fade by the hero
 var _furious := false
 var _mend_left := MEND_EVERY
 var _mended_at := -100.0   # (Game._run_time of the last mend it got: menders don't stack)
@@ -345,7 +346,9 @@ func _fade_tag(delta: float) -> void:
 	if cam == null or Game.hud == null:
 		return
 	var under := cam.unproject_position(_tag.global_position).y < Game.hud.top_band()
-	_tag.modulate.a = move_toward(_tag.modulate.a, 0.0 if under else 1.0, delta * 6.0)
+	_tag_a = move_toward(_tag_a, 0.0 if under else 1.0, delta * 6.0)
+	# Version 386 (fix 3): see-through right by the hero, so a crowd's tags don't bury it.
+	_tag.modulate.a = _tag_a * (1.0 - 0.65 * HealthBar.near_hero(global_position))
 	_tag.outline_modulate.a = _tag.modulate.a
 
 
@@ -1163,10 +1166,13 @@ func _on_death() -> void:
 			t.cancel()
 	_telegraphs.clear()
 	visual.die()
-	Fx.bones(global_position)
-	# Version 339 (visual review fix 4): real bones fly, and a white pop of light at the body.
-	Fx.bone_chunks(global_position, 6 if radius < 0.8 else 10)
-	Fx.impact(center(), Color(1, 0.97, 0.9), 2.4 if radius < 0.8 else 3.4)
+	# Version 339 (visual review fix 4): real bones fly, and a pop of light at the body.
+	# Version 386 (visual review of v383, fix 5): a kill read as a white puff (a big white pop
+	# and 22 white dots). Now it is mostly bones: more of them, fewer dots, and a smaller pop
+	# in the chain's colour (bone, then gold, then red-hot), so a streak shows in every kill.
+	Fx.bones(global_position, 9)
+	Fx.bone_chunks(global_position, 9 if radius < 0.8 else 13)
+	Fx.impact(center(), ChainSpine.color_for(Game.chain).lerp(Color.WHITE, 0.15), 1.5 if radius < 0.8 else 2.4)
 	# The crunch climbs as the chain grows (x3 is about two semitones up), so a good streak
 	# sounds like one.
 	Sfx.play(die_sound, 0.8, 1.0 + 0.065 * clampf(Game.chain - 1.0, 0.0, 3.0))

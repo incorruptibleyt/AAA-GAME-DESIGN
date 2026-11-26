@@ -51,7 +51,11 @@ const HERO_OFFSET := Vector3(1.15, 2.2, 0)   # v220: above the shoulder, off the
 static func hit(who: Actor, amount: float, crit: bool) -> void:
 	# Version 213 (hardest review fix #10/#17): the hero's own hits are white on a dark red
 	# edge (red on the red and orange floors could not be read), on the hero's far side.
-	_add(who, "hit", amount, Color(1, 0.96, 0.9) if who.team == Actor.Team.HERO else Color.WHITE, "", crit)
+	# Version 386 (visual review of v383, fix 5): one style for every hit. White with the ink
+	# edge, gold and bigger for a critical hit; the hero's own hits are the same white with a
+	# minus in front (a red edge and numbers growing to nearly twice the size before read as
+	# three different styles).
+	_add(who, "hit", amount, Color.WHITE, "-" if who.team == Actor.Team.HERO else "", crit)
 
 
 static func healed(who: Actor, amount: float) -> void:
@@ -74,7 +78,7 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 	if is_instance_valid(n) and n._age < merge:
 		n._total += amount
 		n._age = 0.0
-		n._size = minf(n._size + 0.06, 1.8)
+		n._size = minf(n._size + 0.03, maxf(n._size, 1.2))   # v386: a growing total only grows a little (1.8 before)
 	else:
 		_trim()
 		n = null
@@ -95,7 +99,7 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 			Game.world.add_child(n)
 			n.tree_exiting.connect(n._gone)
 		n.modulate = col
-		n.outline_modulate = Color(0.45, 0.02, 0.04) if who.team == Actor.Team.HERO and kind == "hit" else Hud.INK
+		n.outline_modulate = Hud.INK
 		n._age = 0.0
 		n._shown = 0.0
 		n._size = 1.0
@@ -115,7 +119,7 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		_live[key] = n
 	if crit:
 		n.modulate = Color(1, 0.8, 0.12)
-		n._size = maxf(n._size, 1.55)
+		n._size = maxf(n._size, 1.4)
 	n.text = n._prefix + str(maxi(1, roundi(n._total)))
 
 
@@ -190,6 +194,10 @@ func _process(delta: float) -> void:
 		pop = lerpf(0.9, 1.0, (k - 0.1) / 0.1)
 	scale = Vector3.ONE * _size * pop
 	modulate.a = 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
+	# Version 386: a skeleton's number right by the hero is see-through, so a crowd's numbers
+	# don't bury the hero (the hero's own numbers stay as they are).
+	if is_instance_valid(_follow) and _follow != Game.hero:
+		modulate.a *= 1.0 - 0.6 * HealthBar.near_hero(_follow.global_position)
 	outline_modulate.a = modulate.a
 
 

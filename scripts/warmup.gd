@@ -250,9 +250,9 @@ static func run(core := false, from := 0) -> bool:
 	# phone never spends long on one frame (Android closes an app that stops answering),
 	# and a report from a phone that dies here names the very effect (Game.loading).
 	steps.append(func():
-		for i in 5:   # every hero's shot (the Barbarian's axe model loads here too)
+		for i in 6:   # every hero's shot (the Barbarian's axe model loads here too)
 			Projectile.fire(Actor.Team.HERO, at + Vector3(-1 - i * 0.4, 1, 1), Vector3.FORWARD, 0.0, 0.0, hero.bolt_color, 0.3, "Shot",
-				["bolt", "wave", "axe", "orb", "shard"][i]))
+				["bolt", "wave", "axe", "orb", "shard", "volley"][i]))
 	steps.append(func():
 		Fx.impact(at + Vector3.UP, hero.bolt_color)
 		Projectile.fire(Actor.Team.UNDEAD, at + Vector3(1, 1, 1), Vector3.FORWARD, 0.0, 0.0, Color.WHITE))
@@ -277,7 +277,9 @@ static func run(core := false, from := 0) -> bool:
 		Fx.trail(at + Vector3.UP, Color(0.45, 0.8, 1.0)))
 	steps.append(func():
 		Fx.magic(at + Vector3.UP, Color(1, 0.6, 0.2))
-		Fx.shockwave(at, Color(1, 0.9, 0.6), 2.0))
+		Fx.shockwave(at, Color(1, 0.9, 0.6), 2.0)
+		Fx.slam_wave(at, Color(1, 0.9, 0.6), 2.0)   # v386: the specials' thick wave and cracks
+		Fx.floor_cracks(at, Color(1, 0.9, 0.6), 2.0))
 	steps.append(func():
 		Fx.flame(holder, Vector2(0.5, 0.7), at + Vector3(0, 0, 0.6))
 		Fx.wisps(holder, Color(0.6, 1.0, 0.85), 2, 1.0, 1.0))   # the room's wisps (version 136)

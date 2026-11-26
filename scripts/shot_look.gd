@@ -381,6 +381,44 @@ void fragment() {
 	_danger_mat.render_priority = 1
 
 
+static var _volley_shader: Shader
+static var _volley_mats := {}
+
+## The dark blade inside a Shadow Volley knife (drawn over the glow, not added to it).
+static func _volley_mat(col: Color) -> ShaderMaterial:
+	var key := col.to_html()
+	if _volley_mats.has(key):
+		return _volley_mats[key]
+	if _volley_shader == null:
+		_volley_shader = Shader.new()
+		_volley_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 rim : source_color = vec4(0.8, 0.5, 1.0, 1.0);
+varying vec2 q;
+void vertex() { q = VERTEX.xz * 2.0; }
+void fragment() {
+	vec2 p = q;   // -y is the way it flies: the point is at the front
+	float y = p.y;
+	float w = y < -0.3 ? 0.9 * (y + 1.0) / 0.7 : 0.9 * (0.75 - y) / 1.05;
+	w = max(w, 0.0);
+	float ax = abs(p.x);
+	float inside = 1.0 - smoothstep(w - 0.12, w, ax);
+	float deep = smoothstep(0.1, 0.65, (w - ax) / max(w, 0.01));
+	vec3 dark = vec3(0.17, 0.04, 0.3);
+	vec3 edge = mix(rim.rgb, vec3(1.0), 0.35);
+	ALBEDO = mix(edge, dark, deep);
+	ALPHA = inside * step(-1.0, y) * step(y, 0.75);
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = _volley_shader
+	m.set_shader_parameter("rim", col)
+	m.render_priority = 2
+	_volley_mats[key] = m
+	return m
+
+
 static func hero_mat(kind: int, col: Color, bill := false) -> ShaderMaterial:
 	_shaders()
 	var key := "%d%s%s" % [kind, col.to_html(), bill]
@@ -466,6 +504,13 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 		"shard":
 			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 1.6, 1.0, size * 6.0), Vector3(0, 0, size * 6.0 * 0.41))
 			glow = 2.0
+		"volley":
+			# Version 386 (visual review of v383, fix 5): Shadow Volley's knives were all white
+			# light. Now each is a dark purple blade with a bright violet edge, flying inside
+			# the glow of the Rogue's colour, so a ring of them reads as knives, not sparks.
+			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 3.0, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
+			_put(p, _flat, _volley_mat(col), Vector3(size * 1.9, 1.0, size * 4.6))
+			glow = 2.4
 		_:
 			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 2.4, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
 	# (No pool of light on the floor under hero shots: a Mage with Twin Shots and Fan of Shots

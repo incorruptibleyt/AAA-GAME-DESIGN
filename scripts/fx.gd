@@ -541,8 +541,8 @@ static func sparks(pos: Vector3, color := Color(1.0, 0.85, 0.5)) -> void:
 	_burst(pos, 10, color, 0.4, 7.0, 0.35, 0.5, true, "dot")
 
 
-static func bones(pos: Vector3) -> void:
-	_burst(pos + Vector3.UP * 0.6, 22, Color(0.95, 0.92, 0.82), 0.42, 6.0, 0.8, 2.0, true, "dot")
+static func bones(pos: Vector3, count := 22) -> void:
+	_burst(pos + Vector3.UP * 0.6, count, Color(0.95, 0.92, 0.82), 0.42, 6.0, 0.8, 2.0, true, "dot")
 
 
 ## Version 339 (visual review fix 4, "kills that pop"): real little bones, not only dots.
@@ -793,6 +793,106 @@ static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
 	tw.tween_property(m, "albedo_color:a", 0.0, 0.6)
 	tw.chain().tween_callback(ring.queue_free)
 
+
+
+## Version 386 (visual review of v383, fix 5: hits and specials with punch). Shield Slam and
+## Whirlwind were one thin see-through ring that vanished on the orange and sand floors. A
+## special's wave is now a thick band in the hero's own colour that rushes out over the floor,
+## white on its leading edge with a thin dark line in front of it, so it reads on any floor.
+const SLAM_WAVE := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0, 0.85, 0.5, 1.0);
+uniform float t = 0.0;
+void fragment() {
+	float r = length(UV * 2.0 - 1.0);
+	float e = 1.0 - pow(1.0 - t, 2.6);
+	float front = mix(0.1, 0.97, e);
+	float thick = mix(0.14, 0.36, e);
+	float x = (front - r) / thick;   // 0 on the leading edge, 1 at the back of the band
+	float band = step(0.0, x) * (1.0 - smoothstep(0.3, 1.0, x));
+	float lead = 1.0 - smoothstep(0.0, 0.16, abs(x - 0.06));
+	float ink = (1.0 - smoothstep(0.0, 0.07, abs(x + 0.07))) * (1.0 - band);
+	float body = band * (0.5 + 0.5 * (1.0 - x));
+	float a1 = max(body * 0.92, lead);
+	vec3 c = mix(col.rgb, vec3(1.0), lead * 0.7);
+	float ai = ink * 0.6;
+	float fade = 1.0 - smoothstep(0.6, 1.0, t);
+	ALBEDO = mix(vec3(0.05, 0.03, 0.03), c, a1 / max(a1 + ai, 0.001));
+	ALPHA = clamp((a1 + ai) * fade, 0.0, 1.0);
+}
+"""
+## Cracks torn into the floor where a special struck: dark jagged lines out from the middle,
+## glowing in `glow` while fresh, then cooling and fading (Shield Slam, Whirlwind, Meteor).
+const FLOOR_CRACKS := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 glow : source_color = vec4(1.0, 0.8, 0.4, 1.0);
+uniform float t = 0.0;
+uniform float seed = 0.0;
+uniform float burn = 0.0;
+float h(float n) { return fract(sin(n * 12.9898 + seed * 78.233) * 43758.5453); }
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) / 6.2831853 + 0.5;
+	float n = 9.0;
+	float k = a * n + h(0.0);
+	float id = floor(k);
+	float len = 0.5 + 0.45 * h(id + 1.0);
+	// a zigzag, not a wave: cracks break in straight bits (smooth waves read as hairs)
+	float zz = abs(fract(r * 6.0 + h(id + 5.0)) - 0.5) - 0.25;
+	float wob = zz * (0.22 + 0.12 * h(id + 7.0)) / max(r * 3.0, 0.4);
+	float f = fract(k) - 0.5 + wob * smoothstep(0.05, 0.3, r);
+	float d = abs(f) * 6.2831853 * r / n;
+	float w = mix(0.075, 0.012, clamp(r / len, 0.0, 1.0));
+	// (they start out from under the hero's feet: thin cracks right at the body read as legs)
+	float line = (1.0 - smoothstep(w * 0.45, w, d)) * step(r, len) * smoothstep(0.2, 0.3, r);
+	float pit = burn * (1.0 - smoothstep(0.1, 0.75, r)) * 0.6;
+	float hot = (1.0 - smoothstep(0.0, 0.45, t)) * (1.0 - smoothstep(w * 0.1, w * 0.55, d)) * step(r, len);
+	vec3 dark = vec3(0.04, 0.025, 0.02);
+	vec3 c = mix(dark, mix(glow.rgb, vec3(1.0), 0.25), hot);
+	float fade = 1.0 - smoothstep(0.55, 1.0, t);
+	ALBEDO = c;
+	ALPHA = clamp(max(line * 0.95, pit * 0.75) * fade, 0.0, 1.0);
+}
+"""
+static var _slam_shader: Shader
+static var _crack_shader: Shader
+
+
+static func _floor_fx(code: String, pos: Vector3, radius: float, life: float, params: Dictionary, y := 0.13) -> void:
+	var parent: Node3D = Room.current if Room.current else Game.world
+	if parent == null:
+		return
+	if code == SLAM_WAVE and _slam_shader == null:
+		_slam_shader = Shader.new()
+		_slam_shader.code = SLAM_WAVE
+	if code == FLOOR_CRACKS and _crack_shader == null:
+		_crack_shader = Shader.new()
+		_crack_shader.code = FLOOR_CRACKS
+	var m := ShaderMaterial.new()
+	m.shader = _slam_shader if code == SLAM_WAVE else _crack_shader
+	for k in params:
+		m.set_shader_parameter(k, params[k])
+	var q := U.floor_quad(parent, Vector2(2.0, 2.0), m, Vector3.ZERO)
+	q.global_position = Vector3(pos.x, y, pos.z)
+	q.scale = Vector3(radius, 1.0, radius)
+	var tw := q.create_tween()
+	tw.tween_method(func(v: float): m.set_shader_parameter("t", v), 0.0, 1.0, life)
+	tw.tween_callback(q.queue_free)
+
+
+## A thick wave in `color` rushing out to `radius` metres.
+static func slam_wave(pos: Vector3, color: Color, radius: float, life := 0.5) -> void:
+	radius *= lerpf(0.75, 1.0, minf(1.0, Game.shake_scale / 0.35))   # calmer with Screen shake off
+	_floor_fx(SLAM_WAVE, pos, radius * 1.04, life, {"col": color}, 0.15)
+
+
+## Cracks in the floor, `radius` metres out, glowing in `glow` for a moment. `burn` darkens
+## the ground round the middle too (a meteor's scorch).
+static func floor_cracks(pos: Vector3, glow: Color, radius: float, life := 1.6, burn := 0.0) -> void:
+	_floor_fx(FLOOR_CRACKS, pos, radius, life, {"glow": glow, "seed": randf() * 50.0, "burn": burn}, 0.11)
 
 ## Slowly drifting embers and dust in the air of a room.
 ## Drifting motes that give each floor its mood: embers rise, frost flakes fall.

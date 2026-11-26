@@ -76,9 +76,9 @@ func _draw() -> void:
 	var h := size.y * 0.62
 	# The spinal cord behind the bones, which drains like a fuse.
 	var cord_y := size.y * 0.42
-	draw_line(Vector2(6, cord_y), Vector2(size.x - 6, cord_y), Color(0, 0, 0, 0.6), 8.0)
+	draw_line(Vector2(6, cord_y), Vector2(size.x - 6, cord_y), Color(0, 0, 0, 0.75), 9.0)
 	if mult > 1.01:
-		draw_line(Vector2(6, cord_y), Vector2(6 + (size.x - 12) * drain, cord_y), Color(col.r, col.g, col.b, 0.9), 4.0)
+		draw_line(Vector2(6, cord_y), Vector2(6 + (size.x - 12) * drain, cord_y), Color(col.r, col.g, col.b, 1.0), 5.0)
 	for i in COUNT:
 		var amount := clampf(lit - i, 0.0, 1.0)
 		var c := _center(i)
@@ -88,11 +88,15 @@ func _draw() -> void:
 		s += glow * 0.08 * amount
 		var w := _step() * 0.62 * s
 		var hh := h * s
-		var dark := Color(0.08, 0.06, 0.07, 0.85)
-		var fill := dark.lerp(col, amount)
+		# Version 386 (visual review of v383, fix 4): an empty vertebra is a faint bone with a
+		# pale edge, not a black one on the dark pill, so the six slots to fill always read;
+		# the one filling up now glows brighter as it fills.
+		var empty := Color(0.55, 0.5, 0.45, 0.42)
+		var fill := empty.lerp(col, amount)
 		if amount > 0.0 and amount < 1.0:
-			fill = dark.lerp(col, 0.25 + amount * 0.35)
-		_vertebra(c, w, hh, fill, Color(0, 0, 0, 0.9) if amount < 1.0 else col.lerp(Color.WHITE, 0.4 + glow * 0.4))
+			fill = empty.lerp(col, 0.3 + amount * 0.45)
+		var edge := Color(0.95, 0.9, 0.8, 0.55) if amount < 1.0 else col.lerp(Color.WHITE, 0.45 + glow * 0.4)
+		_vertebra(c, w, hh, fill, edge)
 	for sh in _shards:
 		var a: float = sh.life
 		var pts := PackedVector2Array()

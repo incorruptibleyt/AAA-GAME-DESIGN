@@ -492,10 +492,12 @@ func _set_flash(on: bool) -> void:
 	if _flash_mat == null:
 		# Version 296 (deep review fix 4): the skeletons' hit flash brightens them instead of
 		# painting them solid white: a crowd hit by a volley turned into one white blob.
-		_flash_mat = U.unlit(Color(0.62, 0.58, 0.52)).duplicate() as StandardMaterial3D
+		# Version 386 (visual review of v383, fix 5): a warm hot-orange tint, not near-white:
+		# added to pale bone, white made a hit skull one bright blob with no face.
+		_flash_mat = U.unlit(Color(0.5, 0.26, 0.08)).duplicate() as StandardMaterial3D
 		_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 		_soft_flash_mat = _flash_mat.duplicate()
-		_soft_flash_mat.albedo_color = Color(0.24, 0.22, 0.19)
+		_soft_flash_mat.albedo_color = Color(0.24, 0.13, 0.05)
 		_soft_flash_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	if _hero_flash_mat == null:
 		# Version 216 (review 2 fix #4): a red edge round the hero, painted over (not added

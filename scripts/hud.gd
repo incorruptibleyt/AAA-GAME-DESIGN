@@ -149,6 +149,13 @@ var _heroic_crest: Label   # version 152: a gold HEROIC under the pause button w
 var _title_play_badge: Label   # HEROIC on PLAY while it's switched on
 var _boss_box: Control
 var _boss_fill: Control
+## Version 386 (visual review of v383, fix 4): a pale trail behind the boss bar's fill that
+## catches up a moment after each hit, so every hit shows as a chunk coming off, and the
+## health left as a number on the bar.
+var _boss_trail: Panel
+var _boss_hp: Label
+var _trail_hold := 0.0
+var _trail_last := 1.0
 var _banner: Label
 var _banner_w := 0.0   # the banner's text width, so its pop-in can stay on screen
 var _wave_label: Label
@@ -1213,6 +1220,22 @@ func _build_hud() -> void:
 	bar_holder.offset_top = -26
 	_boss_box.add_child(bar_holder)
 	_boss_fill = _bar(bar_holder, Color(0.75, 0.1, 0.12))
+	_boss_trail = Panel.new()
+	_boss_trail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tsb := StyleBoxFlat.new()
+	tsb.bg_color = Color(1.0, 0.93, 0.8, 0.9)
+	tsb.set_corner_radius_all(6)
+	_boss_trail.add_theme_stylebox_override("panel", tsb)
+	_boss_fill.get_parent().add_child(_boss_trail)
+	_boss_fill.get_parent().move_child(_boss_trail, 0)
+	_boss_trail.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_boss_hp = label("", 17, Color(1, 0.97, 0.92))
+	chunky(_boss_hp.label_settings)
+	_boss_hp.label_settings.outline_size = 6
+	_boss_hp.label_settings.outline_color = Color(0.1, 0.02, 0.03)
+	_boss_hp.autowrap_mode = TextServer.AUTOWRAP_OFF
+	full(_boss_hp)
+	_boss_hp.offset_top = -2
 	# Version 121: a notch at half health shows from the start where Phase 2 begins, and a
 	# white flash lights the bar when it does.
 	var notch := ColorRect.new()
@@ -1231,6 +1254,7 @@ func _build_hud() -> void:
 	_boss_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	full(_boss_flash)
 	bar_holder.add_child(_boss_flash)
+	bar_holder.add_child(_boss_hp)
 	# Version 380 (visual review of 375, fix 5): a broken chain in a boss fight is told just
 	# under the boss bar. Before, the chain strip faded in over the boss's name to say it.
 	_boss_broken = label("", 18, Color(1, 0.38, 0.32))
@@ -1259,9 +1283,9 @@ func _build_hud() -> void:
 	var pill := Panel.new()
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var psb := StyleBoxFlat.new()
-	psb.bg_color = Color(0.03, 0.02, 0.06, 0.42)
+	psb.bg_color = Color(0.03, 0.02, 0.06, 0.72)   # v386: was 0.42, the bones were lost on the floor
 	psb.set_corner_radius_all(16)
-	psb.border_color = Color(1, 1, 1, 0.08)
+	psb.border_color = Color(1.0, 0.85, 0.55, 0.28)
 	psb.set_border_width_all(2)
 	pill.add_theme_stylebox_override("panel", psb)
 	pill.position = Vector2(-4, -2)
@@ -1269,11 +1293,14 @@ func _build_hud() -> void:
 	_chain_box.add_child(pill)
 	_spine = ChainSpine.new()
 	_spine.position = Vector2(2, 3)
-	_spine.size = Vector2(88, 28)
+	_spine.size = Vector2(82, 28)
 	_chain_box.add_child(_spine)
-	_chain_label = label("x1.0", 23, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
-	_chain_label.position = Vector2(92, -2)
-	_chain_label.size = Vector2(54, 36)
+	_chain_label = label("x1.0", 26, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
+	chunky(_chain_label.label_settings)   # v386: big chunky number, like the score
+	_chain_label.label_settings.outline_size = 7
+	_chain_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_chain_label.position = Vector2(84, -3)
+	_chain_label.size = Vector2(62, 38)
 	_chain_label.pivot_offset = Vector2(22, 18)
 	_chain_box.add_child(_chain_label)
 	var divider := ColorRect.new()
@@ -1282,14 +1309,14 @@ func _build_hud() -> void:
 	divider.position = Vector2(146, 5)
 	divider.size = Vector2(2, 24)
 	_chain_box.add_child(divider)
-	var caption := label("SCORE", 10, Color(0.9, 0.87, 0.8, 0.75))
+	var caption := label("SCORE", 12, Color(1.0, 0.85, 0.55, 0.95))
 	chunky(caption.label_settings)
 	caption.label_settings.outline_size = 3
 	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
 	caption.position = Vector2(148, -2)
 	caption.size = Vector2(CHAIN_W - 148, 14)
 	_chain_box.add_child(caption)
-	_score_label = label("", 16, Color(0.95, 0.92, 0.84))
+	_score_label = label("", 18, Color(1.0, 0.97, 0.9))
 	chunky(_score_label.label_settings)
 	_score_label.label_settings.outline_size = 5
 	_score_label.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -4549,7 +4576,19 @@ func _process(delta: float) -> void:
 		_beat_phase = phase
 	var boss := Game.boss
 	if boss and is_instance_valid(boss):
-		_boss_fill.anchor_right = Game.boss_bar()
+		var k := Game.boss_bar()
+		_boss_fill.anchor_right = k
+		# Version 386: the pale trail waits a moment after a hit, then slides down to the fill.
+		if k < _trail_last - 0.0005:
+			_trail_hold = 0.45
+		elif k > _boss_trail.anchor_right:
+			_boss_trail.anchor_right = k   # (healed, or a new boss)
+		_trail_last = k
+		_trail_hold -= delta
+		if _trail_hold <= 0.0:
+			_boss_trail.anchor_right = move_toward(_boss_trail.anchor_right, k, delta * 0.7)
+		_boss_trail.anchor_right = maxf(_boss_trail.anchor_right, k)
+		_boss_hp.text = Hud.thousands(ceili(Game.boss_hp_left()))
 	if _banner_time > 0.0:
 		_banner_time -= delta
 		_banner.modulate.a = clampf(_banner_time / 0.4, 0.0, 1.0)
@@ -4642,6 +4681,8 @@ func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
 
 func set_boss_name(n: String) -> void:
 	_boss_name.text = n
+	_boss_trail.anchor_right = 1.0
+	_trail_last = 1.0
 	_boss_name.label_settings.font_color = Color(1, 0.8, 0.6)
 
 
@@ -4925,9 +4966,29 @@ func _show_callout(text: String, col: Color, fight := false) -> void:
 	_callout.label_settings.font_size = 46 if text.length() <= 10 else 34
 	# A-7: while a room banner shows, the callout drops just below it instead of on it.
 	var drop := 60.0 if _banner_time > 0.3 else 0.0
+	drop += _callout_clear_of_hero(-160.0 + drop)
 	_callout.offset_top = -190.0 + drop
 	_callout.offset_bottom = -130.0 + drop
 	_callout_time = 1.1
+
+
+## Version 386 (visual review of v383, fix 3): how far to move a callout (SHIELD SLAM!,
+## METEOR!) whose middle sits `mid` from the screen's centre so it doesn't cover the hero:
+## above their head if there's room under the top bar, else below their feet.
+func _callout_clear_of_hero(mid: float) -> float:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or Game.hero == null or not is_instance_valid(Game.hero):
+		return 0.0
+	var h := get_viewport().get_visible_rect().size.y
+	var at := h * 0.5 + mid
+	var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.4).y
+	var feet := cam.unproject_position(Game.hero.global_position).y
+	if at + 34.0 < head - 10.0 or at - 34.0 > feet + 10.0:
+		return 0.0
+	var above := head - 50.0
+	if above - 30.0 > top_band():
+		return above - at
+	return feet + 60.0 - at
 
 
 ## The hero talking in a run (version 129): one of their lines ("hello" at the start of a

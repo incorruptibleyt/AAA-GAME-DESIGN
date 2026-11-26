@@ -6,6 +6,7 @@ var _owner_actor: Actor
 var _fill: MeshInstance3D
 var _width := 1.0
 var _timer := 0.0
+var _keep := 1.0
 
 
 static func attach(a: Actor) -> HealthBar:
@@ -34,7 +35,10 @@ static func _quad(parent: Node3D, size: Vector2, col: Color) -> MeshInstance3D:
 	m.size = size
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
-	mi.material_override = U.unlit(col, null, true)
+	# (Version 386: its own copy, so a bar by the hero can fade on its own; the Compatibility
+	# renderer ignores GeometryInstance3D.transparency.)
+	mi.material_override = U.unlit(col, null, true).duplicate()
+	mi.set_meta("a", col.a)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(mi)
 	return mi
@@ -44,11 +48,29 @@ func reveal() -> void:
 	_timer = 3.0
 
 
+## Version 386 (visual review of v383, fix 3: always find your hero): how much a floating
+## mark at `pos` (a skeleton's bar, number or name) should step back because it would sit
+## over the hero: 1 right beside them, 0 from 2.6 m away. In a close fight the bars, tags
+## and numbers of the skeletons around the hero stacked over them and hid them.
+static func near_hero(pos: Vector3) -> float:
+	var h := Game.hero
+	if h == null or not is_instance_valid(h) or h.dead:
+		return 0.0
+	var d := Vector2(pos.x - h.global_position.x, pos.z - h.global_position.z).length()
+	return 1.0 - smoothstep(1.2, 2.6, d)
+
+
 func _process(delta: float) -> void:
 	_timer -= delta
 	visible = _timer > 0.0
 	if not visible:
 		return
 	global_position = _owner_actor.global_position + Vector3.UP * (_owner_actor.center_height * 2.0 + 0.5)
+	var keep := 1.0 - 0.75 * near_hero(_owner_actor.global_position)
+	if absf(keep - _keep) > 0.02:
+		_keep = keep
+		for c in get_children():
+			var m := (c as MeshInstance3D).material_override as StandardMaterial3D
+			m.albedo_color.a = float(c.get_meta("a", 1.0)) * keep
 	var k := clampf(_owner_actor.health / _owner_actor.max_health, 0.0, 1.0)
 	_fill.scale = Vector3(maxf(k, 0.001), 1, 1)

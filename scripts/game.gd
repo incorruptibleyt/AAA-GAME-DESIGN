@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26i"
+const BUILD := "2026-11-26j"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1703,13 +1703,15 @@ func _focus_goal() -> Vector3:
 
 
 ## Version 219 (review 4 fix 20): moves the camera's aim `goal` sideways just enough that the
-## hero stays 12% of the screen inside each edge. The width seen at the hero's own screen row
+## hero stays 18% of the screen inside each edge (v386; 12% before). The width seen at the hero's own screen row
 ## counts (rows nearer the camera see less), and `near` is the close-up's distance factor.
 func _keep_hero(goal: Vector3, near := 1.0) -> Vector3:
 	var p := deg_to_rad(CAMERA_PITCH)
 	var d := _cam_distance() * near
 	var depth := d + (goal.z - hero.global_position.z) * cos(p)
-	var room := maxf(0.0, VIEW_HALF_WIDTH * near * depth / d * 0.76)
+	# (Version 386, review of v383 fix 3: 18% inside each edge, was 12%; a hero by the wall
+	# was lost at the screen's edge in close fights.)
+	var room := maxf(0.0, VIEW_HALF_WIDTH * near * depth / d * 0.64)
 	goal.x = clampf(goal.x, hero.global_position.x - room, hero.global_position.x + room)
 	return goal
 
@@ -3942,6 +3944,15 @@ func _intro_burst_light(spot: Vector3, col: Color) -> void:
 
 
 ## How full the boss health bar is (both bosses together with Twin Wardens).
+## Version 386: the health the boss (or bosses) have left, for the number on the boss bar.
+func boss_hp_left() -> float:
+	var hp := 0.0
+	for b in _bosses:
+		if is_instance_valid(b):
+			hp += maxf(0.0, b.health)
+	return hp
+
+
 func boss_bar() -> float:
 	var hp := 0.0
 	var top := _boss_lost
