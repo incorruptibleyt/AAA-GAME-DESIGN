@@ -349,7 +349,7 @@ var _end_hero_box: Control
 var _end_tiles: HBoxContainer
 var _end_tile_vals: Array = []   # [value Label, note Label] per tile
 var _end_after: Label   # the lines under the tiles (tips, unlocks)
-var _end_extras: HBoxContainer   # SEE NEW LOOKS and OPEN BONE DROP, side by side
+var _end_extras: HFlowContainer   # SEE NEW LOOKS, OPEN BONE DROP and SHARE, side by side (v389: wraps)
 var _tile_of := {}   # tally line index -> tile index (this end screen)
 const END_TILES := {"Time": "TIME", "Skeletons destroyed": "SKELETONS", "Coins this run": "COINS", "Bone Road": "BONES"}
 var _title_heroes: Control
@@ -455,7 +455,6 @@ var _share_button: Button
 var _share_card: ShareCard
 var _end_pass: Control
 var _pass_card: Control
-var _pass_card_stage: HeroStage
 var _pass_card_line: Label
 var _end_spacer: Control
 var _daily_box: Control
@@ -1251,17 +1250,25 @@ func _build_hud() -> void:
 	_boss_hp.offset_top = -2
 	# Version 121: a notch at half health shows from the start where Phase 2 begins, and a
 	# white flash lights the bar when it does.
-	var notch := ColorRect.new()
-	notch.color = Color(1.0, 0.92, 0.75, 0.9)
-	notch.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	notch.anchor_left = 0.5
-	notch.anchor_right = 0.5
-	notch.anchor_bottom = 1.0
-	notch.offset_left = -2
-	notch.offset_right = 2
-	notch.offset_top = 1
-	notch.offset_bottom = -1
-	bar_holder.add_child(notch)
+	# v389 (review v388 fix 1): a small gold diamond under the bar's middle marks Phase 2; a
+	# line from edge to edge ran through the HP number there.
+	# A dark edge round it keeps it seen over a bright boss (the Star Eater's gold crown).
+	for d: Array in [[8.0, Color(0.1, 0.02, 0.03)], [5.0, Color(1.0, 0.86, 0.5)]]:
+		var r: float = d[0]
+		var notch := ColorRect.new()
+		notch.color = d[1]
+		notch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		notch.anchor_left = 0.5
+		notch.anchor_right = 0.5
+		notch.anchor_top = 1.0
+		notch.anchor_bottom = 1.0
+		notch.offset_left = -r
+		notch.offset_right = r
+		notch.offset_top = 5.0 - r
+		notch.offset_bottom = 5.0 + r
+		notch.pivot_offset = Vector2(r, r)
+		notch.rotation = PI / 4.0
+		bar_holder.add_child(notch)
 	_boss_flash = ColorRect.new()
 	_boss_flash.color = Color(1, 1, 1, 0)
 	_boss_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -2839,21 +2846,24 @@ func _build_end() -> void:
 	_end_drop = _drop_button()
 	_end_drop.add_theme_font_size_override("font_size", 20)
 	_end_drop.custom_minimum_size = Vector2(226, 58)
-	_end_extras = HBoxContainer.new()
+	# v389 (fix 1 critic): SHARE RESULT joins this row (it was a row of its own), so the
+	# column has fewer stacked buttons and DESCEND stands out; three wrap onto two rows.
+	_end_extras = HFlowContainer.new()
 	_end_extras.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_end_extras.alignment = BoxContainer.ALIGNMENT_CENTER
-	_end_extras.add_theme_constant_override("separation", 14)
+	_end_extras.alignment = FlowContainer.ALIGNMENT_CENTER
+	_end_extras.add_theme_constant_override("h_separation", 14)
+	_end_extras.add_theme_constant_override("v_separation", 12)
 	_end_extras.add_child(_end_looks)
 	_end_extras.add_child(_end_drop)
-	col.add_child(_end_extras)
-	_build_pass_card(col)
-	# Daily Crypt: the result card, and the same as text to paste anywhere.
+	# Daily Crypt: the result card (above its SHARE button), and the same as text to paste anywhere.
 	_share_card = ShareCard.new()
 	_share_card.visible = false
 	col.add_child(_share_card)
+	col.add_child(_end_extras)
 	_share_button = button("SHARE RESULT", 18, Color(0.3, 0.2, 0.06, 0.97), GOLD)
 	paint(_share_button, "slate")   # v388: a quiet extra, so DESCEND stays the one big button
-	_share_button.custom_minimum_size = Vector2(240, 58)
+	_share_button.custom_minimum_size = Vector2(226, 58)
+	_end_extras.add_child(_share_button)
 	_share_button.pressed.connect(func():
 		_share_button.disabled = true
 		share_pressed.emit())
@@ -2864,7 +2874,7 @@ func _build_end() -> void:
 	_copy_button.pressed.connect(func():
 		_copy_button.text = "Copied!"
 		copy_report_pressed.emit())
-	col.add_child(_pair(_share_button, _copy_button))
+	col.add_child(_centered(_copy_button))
 	var spacer := Control.new()
 	spacer.custom_minimum_size = Vector2(0, 100)
 	_end_spacer = spacer
@@ -2900,6 +2910,7 @@ func _build_end() -> void:
 	_end_pass.visible = false
 	buttons.add_child(_end_pass)
 	_end_buttons = buttons
+	_build_pass_card(col)   # v389: a slim strip under the buttons (it pushed the hero off before)
 	# Back to the title from the death screen, or after a win (the run stays saved).
 	_end_title_btn = button("TITLE", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_end_title_btn.custom_minimum_size = Vector2(222, 66)
@@ -3760,67 +3771,60 @@ func _pass_bosses() -> Control:
 	return panel
 
 
-## Version 122: the Crypt Pass on the end screen is a card with your own hero wearing the
-## Crypt King set on a little pedestal (it was two grey lines of text).
+## Version 122: the Crypt Pass on the end screen showed your hero in the Crypt King set.
+## v389 (review v388 fix 1): it is a slim gold strip under the buttons, words and a small
+## SEE button, so the win screen's own hero on its rays always shows (the card hid it).
 func _build_pass_card(col: Control) -> void:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.16, 0.11, 0.04, 0.97)
+	sb.bg_color = Color(0.16, 0.11, 0.04, 0.95)
 	sb.border_color = GOLD
-	sb.set_border_width_all(3)
-	sb.set_corner_radius_all(16)
-	sb.content_margin_left = 8
-	sb.content_margin_right = 14
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 6
-	sb.shadow_color = Color(1.0, 0.75, 0.25, 0.3)
-	sb.shadow_size = 10
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 18
+	sb.content_margin_right = 10
+	sb.content_margin_top = 8
+	sb.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", sb)
 	var row := HBoxContainer.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_theme_constant_override("separation", 10)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 14)
 	panel.add_child(row)
-	_pass_card_stage = HeroStage.new(Vector2(170, 196))
-	_pass_card_stage.custom_minimum_size = Vector2(170, 196)
-	_pass_card_stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(_pass_card_stage)
 	var v := VBoxContainer.new()
 	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_theme_constant_override("separation", 6)
+	v.add_theme_constant_override("separation", 0)
 	row.add_child(v)
-	var t := label("CRYPT PASS", 30, GOLD)
+	var t := label("CRYPT PASS", 24, GOLD)
 	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	t.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	v.add_child(t)
-	_pass_card_line = label("", 16, Color(0.95, 0.9, 0.8))
-	_pass_card_line.custom_minimum_size = Vector2(250, 0)
+	_pass_card_line = label("", 17, Color(0.97, 0.93, 0.84))
+	_pass_card_line.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_pass_card_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	v.add_child(_pass_card_line)
-	var b := button("SEE THE PASS", 22, Color(0.45, 0.3, 0.08, 0.98), GOLD)
-	b.custom_minimum_size = Vector2(240, 64)
+	var b := button("SEE", 22, Color(0.45, 0.3, 0.08, 0.98), GOLD)
+	b.custom_minimum_size = Vector2(120, 58)
 	b.pressed.connect(func(): pass_pressed.emit())
-	_pass_card_btn = _centered(b)
-	v.add_child(_pass_card_btn)
+	_pass_card_btn = b
+	row.add_child(b)
 	_pass_card = _centered(panel)
 	_pass_card.visible = false
 	col.add_child(_pass_card)
 
 
-## Shows the card with `def` (the hero dressed in the set), or hides it.
+## Shows the strip (`def`, the hero dressed in the set, says the Pass is worth showing), or hides it.
 func show_pass_card(v: bool, def := {}) -> void:
 	_pass_card.visible = v and not def.is_empty()
 	# v218: on the free-end offer the big priced button below is the only way to the Pass.
 	_pass_card_btn.visible = not _end_offer.visible
-	_pass_card_stage.set_active(_pass_card.visible)
-	if _pass_card.visible and _end_hero_box.visible:
-		_end_hero_box.visible = false   # v388: one hero on the end screen, the one in the set
-		_end_hero.set_active(false)
 	if _pass_card.visible:
-		_pass_card_stage.show_hero(def)
-		_pass_card_line.text = "%s in the\nCrypt King set.\nEndless floors, every\nhero and more." % Heroes.hero_name(def)
+		_pass_card_line.text = "Endless floors and every hero"
 		var deal := Store.deal_now()
 		if not deal.is_empty():   # version 279
-			_pass_card_line.text += "\n%d%% OFF for a short time!" % int(deal.pct)
+			_pass_card_line.text = "%d%% OFF for a short time!" % int(deal.pct)
 	_fit_end_soon()
 
 
@@ -4378,7 +4382,8 @@ func _input(event: InputEvent) -> void:
 					and not (_end_looks.visible and _end_looks.get_global_rect().has_point(t.position)) and not _style.visible \
 					and not _copy_button.get_global_rect().has_point(t.position) \
 					and not (_end_title_button.visible and _end_title_btn.get_global_rect().has_point(t.position)) \
-					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)):
+					and not (_share_button.visible and _share_button.get_global_rect().has_point(t.position)) \
+					and not (_pass_card.visible and _pass_card_btn.is_visible_in_tree() and _pass_card_btn.get_global_rect().has_point(t.position)):
 				screen_tapped.emit()
 				return
 			# The pause button looks small but answers a little way around it too. Version 282
@@ -7057,8 +7062,8 @@ func _fit_end() -> void:
 				c.visible = false
 	# Version 219 (review 4 fix 19): the empty SHARE/COPY row took a gap of its own between
 	# the Bone Drop button and TRY AGAIN; it now only takes room when it shows something.
-	(_share_button.get_parent() as Control).visible = _share_button.visible or _copy_button.visible
-	_end_extras.visible = _end_looks.visible or _end_drop.visible
+	(_copy_button.get_parent() as Control).visible = _copy_button.visible
+	_end_extras.visible = _end_looks.visible or _end_drop.visible or _share_button.visible
 	# Fill the box again first. Moving the column (below) fixes its size at whatever it was
 	# then, so after one tall end screen the next ones stayed stretched past the bottom and
 	# their buttons were centred off the screen.
@@ -7105,7 +7110,17 @@ func _update_end_count(delta: float) -> void:
 
 
 func _start_tally(stats: String, after_score: bool) -> void:
-	_tally = stats.split("\n")
+	_tally = PackedStringArray()
+	# v389 (review v388 fix 1): a tile that would say 0 (BONES +0 on a Daily, COINS 0) is
+	# left out with its line; only the time always shows.
+	for line: String in stats.split("\n"):
+		var cut := line.find("  ")
+		if cut > 0 and END_TILES.has(line.substr(0, cut)) and line.substr(0, cut) != "Time":
+			var first := line.substr(cut).strip_edges().split(" ", false)
+			var num := str(first[0]).trim_prefix("+").replace(",", "") if first.size() > 0 else ""
+			if num.is_valid_int() and int(num) == 0:
+				continue
+		_tally.append(line)
 	_tally_wait = after_score
 	_tally_i = -1 if after_score else 0
 	_tally_t = 0.0

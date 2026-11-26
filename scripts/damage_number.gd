@@ -196,8 +196,10 @@ func _process(delta: float) -> void:
 	modulate.a = 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
 	# Version 386: a skeleton's number right by the hero is see-through, so a crowd's numbers
 	# don't bury the hero (the hero's own numbers stay as they are).
-	if is_instance_valid(_follow) and _follow != Game.hero:
-		modulate.a *= 1.0 - 0.6 * HealthBar.near_hero(_follow.global_position)
+	# v389 (review v388 fix 1): up to 60% see-through made them unreadable. The number now
+	# shows whole while it pops and thins by at most a quarter after.
+	if is_instance_valid(_follow) and _follow != Game.hero and k > 0.25:
+		modulate.a *= 1.0 - 0.25 * HealthBar.near_hero(_follow.global_position)
 	outline_modulate.a = modulate.a
 
 

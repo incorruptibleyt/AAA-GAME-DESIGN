@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26l"
+const BUILD := "2026-11-26m"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -4704,13 +4704,22 @@ func _win() -> void:
 		extra += "\n\n" + _loop_text()
 	elif _quick_done:
 		extra += "\n\n" + _quick_text(cfg)
-	extra += _today_lines()
-	for m: Dictionary in rewards:
-		extra += "\n\nNew reward for the %s: %s!" % [Heroes.get_hero(hero.hero_id).title, m.title]
+	# v389 (review v388 fix 1): the win screen gives one piece of news, the biggest, in a
+	# short line (up to five paragraphs stacked under the counts before).
+	var news := []
 	if race_new:
-		extra += "\n\nCRYPT RACE unlocked! Race a rival through the same crypt.\nFind it in MODES."
+		news.append("CRYPT RACE unlocked! Find it in MODES.")
 	if heroic_new:
-		extra += "\n\nHEROIC unlocked! Harder runs, +50% coins.\nTurn it on in MODES, then CURSES."
+		news.append("HEROIC unlocked in MODES: +50% coins!")
+	for m: Dictionary in rewards:
+		news.append("New reward: %s!" % m.title)
+	var today := _today_lines().strip_edges()
+	if today.contains("Today Chest"):
+		news.append("All 3 goals done: open the Today Chest!")
+	elif today != "":
+		news.append("Today's goal done  +%d coins" % (Today.GOAL_COINS * today.count("Today's goal done")))
+	if not news.is_empty():
+		extra += "\n\n" + str(news[0])
 	_celebrating = false
 	hud.hero_quiet()   # the bubble would show through the end screen
 	var tap := "Tap to return to the title" if _daily_done or _event_done or _dive_done else "Tap to descend to floor %d" % (floor_num + 1)
@@ -7002,7 +7011,9 @@ func _show_share_card() -> void:
 	if not daily and _share_reason == "":
 		hud.show_share(false)
 		return
-	hud.show_share(true, _share_rows(), _share_caption())
+	# v389 (review v388 fix 1): the beige grid of squares is the Daily's result card; on
+	# other wins (new best, boss) only the SHARE button shows.
+	hud.show_share(true, _share_rows() if daily else [], _share_caption())
 
 
 func _share_caption() -> String:
