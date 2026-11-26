@@ -47,6 +47,8 @@ const SHOT_TAIL := {"arrow": Color(1.0, 0.45, 0.55), "bone": Color(1.0, 0.5, 0.6
 	"hex": Color(0.7, 0.4, 1.0), "wisp": Color(0.3, 0.85, 1.0), "trident": Color(0.2, 0.85, 0.85),
 	"bat": Color(1.0, 0.15, 0.2), "quill": Color(0.6, 0.5, 1.0)}
 ## What a Bone Spitter spits in each place (in the order of Floors.THEMES).
+## Shots that are fire and fly as streaks of flame.
+const FLAMING := ["fire", "magma"]
 const PLACE_SHOT := ["bone", "ice", "fire", "water", "spore", "moon", "snow", "sand", "crystal", "ink", "gear", "star"]
 
 
@@ -65,6 +67,7 @@ static func danger_mat(style: String) -> ShaderMaterial:
 		m.shader = _danger_shader
 		m.set_shader_parameter("col", DANGER)
 		m.set_shader_parameter("kind", SHOT_KIND[style])
+		m.set_shader_parameter("glowc", SHOT_TAIL.get(style, DANGER))
 		m.render_priority = 1
 		_danger_mats[style] = m
 	return _danger_mats[style]
@@ -154,6 +157,7 @@ void fragment() {
 shader_type spatial;
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 uniform vec4 col : source_color = vec4(1.0, 0.12, 0.38, 1.0);
+uniform vec4 glowc : source_color = vec4(1.0, 0.12, 0.38, 1.0);
 uniform int kind = 0;
 varying vec2 q;
 varying vec2 fdir;
@@ -196,7 +200,8 @@ void fragment() {
 		// Version 370: the pink edge stays, the middle is the shot's own shape. `u` is
 		// the card turned so +y is the way the shot flies; `d` is how far outside the
 		// shape a point is, `mc` the shape's colour and `bg` the middle behind it.
-		vec2 u = vec2(q.x * fdir.y - q.y * fdir.x, dot(q, fdir));
+		vec2 Q = q * 0.82;
+		vec2 u = vec2(Q.x * fdir.y - Q.y * fdir.x, dot(Q, fdir));
 		float rr = length(u);
 		float ang = atan(u.y, u.x);
 		float d = 1.0;
@@ -224,13 +229,14 @@ void fragment() {
 			mc = u.x > 0.0 ? vec3(0.95, 1.0, 1.0) : vec3(0.4, 0.78, 1.0);
 			bg = vec3(0.01, 0.06, 0.3);
 		} else if (kind == 4) {
-			// Fire: a ball with a licking tail.
-			vec2 h = u - vec2(0.0, 0.14);
-			float t = clamp(-h.y / 0.66, 0.0, 1.0);
-			float wob = sin(u.y * 13.0 + TIME * 20.0) * 0.07 * t;
-			d = h.y > 0.0 ? length(h) - 0.3 : abs(u.x + wob) - 0.3 * (1.0 - t * t);
-			d = max(d, -0.54 - u.y);
-			mc = mix(vec3(1.0, 0.95, 0.5), vec3(1.0, 0.36, 0.03), smoothstep(0.05, 0.36, length(h * vec2(1.0, 0.6))));
+			// Fire (Version 379): a blazing head trailing a long licking flame, not a badge.
+			vec2 h = u - vec2(0.0, 0.32);
+			float t = clamp(-h.y / 1.05, 0.0, 1.0);
+			float wob = (sin(u.y * 11.0 + TIME * 22.0) * 0.06 + sin(u.y * 23.0 - TIME * 31.0) * 0.025) * t;
+			d = h.y > 0.0 ? length(h) - 0.27 : abs(u.x + wob) - 0.27 * (1.0 - t) * (1.0 - 0.35 * t);
+			d = max(d, -0.8 - u.y);
+			mc = mix(vec3(1.0, 0.97, 0.7), vec3(1.0, 0.55, 0.06), smoothstep(0.02, 0.3, length(h * vec2(1.3, 0.55))));
+			mc = mix(mc, vec3(0.85, 0.12, 0.02), smoothstep(0.45, 1.0, t));
 			bg = vec3(0.26, 0.01, 0.0);
 		} else if (kind == 5) {
 			// Water: a drop with a glint and two small bubbles behind.
@@ -299,9 +305,9 @@ void fragment() {
 		} else if (kind == 15) {
 			// Version 371, the bosses. Crown (the Skeleton King): a gold band, three points, a
 			// red gem. Upright on the screen whichever way it flies.
-			float top = 0.34 - 1.4 * abs(mod(q.x + 0.15, 0.3) - 0.15);
-			d = max(max(abs(q.x) - 0.34, -0.28 - q.y), (q.y - top) * 0.55);
-			mc = mix(vec3(1.0, 0.1, 0.12), vec3(1.0, 0.78, 0.2), smoothstep(0.05, 0.08, length(q - vec2(0.0, -0.14))));
+			float top = 0.34 - 1.4 * abs(mod(Q.x + 0.15, 0.3) - 0.15);
+			d = max(max(abs(Q.x) - 0.34, -0.28 - Q.y), (Q.y - top) * 0.55);
+			mc = mix(vec3(1.0, 0.1, 0.12), vec3(1.0, 0.78, 0.2), smoothstep(0.05, 0.08, length(Q - vec2(0.0, -0.14))));
 			bg = vec3(0.16, 0.0, 0.1);
 		} else if (kind == 16) {
 			// Magma (the Cinder Colossus): a lump of black rock with glowing cracks.
@@ -311,9 +317,9 @@ void fragment() {
 			bg = vec3(0.55, 0.1, 0.0);
 		} else if (kind == 17) {
 			// Skull (the Lich's souls): upright on the screen whichever way it drifts.
-			d = min(length(q - vec2(0.0, 0.08)) - 0.3, max(abs(q.x) - 0.17, max(q.y - 0.0, -0.36 - q.y)));
-			float eyes = min(length(vec2(abs(q.x) - 0.12, q.y - 0.05)) - 0.085, max(abs(q.x) - 0.025, abs(q.y + 0.13) - 0.05));
-			eyes = min(eyes, max(abs(abs(q.x) - 0.075) - 0.012, abs(q.y + 0.3) - 0.06));
+			d = min(length(Q - vec2(0.0, 0.08)) - 0.3, max(abs(Q.x) - 0.17, max(Q.y - 0.0, -0.36 - Q.y)));
+			float eyes = min(length(vec2(abs(Q.x) - 0.12, Q.y - 0.05)) - 0.085, max(abs(Q.x) - 0.025, abs(Q.y + 0.13) - 0.05));
+			eyes = min(eyes, max(abs(abs(Q.x) - 0.075) - 0.012, abs(Q.y + 0.3) - 0.06));
 			mc = mix(vec3(0.02, 0.1, 0.1), vec3(0.8, 1.0, 0.9), smoothstep(-0.01, 0.015, eyes));
 			bg = vec3(0.0, 0.14, 0.13);
 		} else if (kind == 18) {
@@ -354,15 +360,18 @@ void fragment() {
 			mc = nib <= d ? vec3(0.02, 0.0, 0.06) : mix(vec3(0.55, 0.4, 0.95), vec3(0.96, 0.96, 1.0), smoothstep(0.015, 0.04, abs(u.x)));
 			bg = vec3(0.07, 0.03, 0.2);
 		}
-		// (the middle glows a little in the shape's own colour, so it is a light, not a badge)
-		// (a dark line round the middle, then a solid band of the danger pink, then the glow)
-		vec3 c = mix(dark, mix(bg * 0.8, bg * 2.1 + mc * 0.28, 1.0 - smoothstep(0.0, 0.5, r)), 1.0 - smoothstep(0.49, 0.52, r));
-		c = mix(c, mix(col.rgb, vec3(1.0), 0.12), smoothstep(0.545, 0.575, r));
-		float line = 1.0 - smoothstep(0.04, 0.075, d);
+		// Version 379 (visual review of 375, fix 4): no round badge behind it any more, so it
+		// reads as a thing flying, not a menu icon. The shape keeps a dark line, then a band of
+		// the danger pink that hugs the shape, then a glow in the shot's own colour.
 		float fill = 1.0 - smoothstep(-0.012, 0.012, d);
+		float line = 1.0 - smoothstep(0.03, 0.05, d);
+		float rim = 1.0 - smoothstep(0.1, 0.125, d);
+		float edge = 1.0 - smoothstep(0.8, 1.0, length(q));
+		float halo = exp(-max(d, 0.0) * 7.0) * 0.85 * edge;
+		vec3 c = mix(glowc.rgb, col.rgb, rim);
 		c = mix(c, dark, line);
 		ALBEDO = mix(c, mc, fill);
-		ALPHA = max(max(1.0 - smoothstep(0.68, 0.71, r), g * g * 0.65), line);
+		ALPHA = max(max(rim, halo), fill) * edge;
 	}
 }
 """
@@ -421,7 +430,14 @@ static func danger(p: Projectile, r: float, height: float, style := "") -> Node3
 	var d := r * 1.35 / 0.70 * 2.0   # the dark edge sits a little outside what it hits
 	_put(look, _card, danger_mat(style), Vector3(d, d, 1.0))
 	var tail: Color = SHOT_TAIL.get(style, DANGER)
-	_put(p, _flat, hero_mat(K_TAIL, Color(tail.r, tail.g, tail.b, 0.85)), Vector3(r * 1.9, 1.0, r * 6.5), Vector3(0, 0, r * 3.0))
+	if style in FLAMING:
+		# Version 379: fire flies as a streak of flame, a long bright trail and a glow round
+		# its head that lights what it passes, instead of a little picture.
+		_put(p, _flat, hero_mat(K_TAIL, Color(tail.r, tail.g, tail.b, 1.0)), Vector3(r * 2.4, 1.0, r * 10.0), Vector3(0, 0, r * 4.6))
+		_put(p, _flat, hero_mat(K_TAIL, Color(1.0, 0.85, 0.4, 0.8)), Vector3(r * 1.0, 1.0, r * 6.0), Vector3(0, 0, r * 2.6))
+		_put(look, _card, hero_mat(K_GLOW, Color(tail.r, tail.g * 0.8, tail.b, 0.7), true), Vector3(d * 1.25, d * 1.25, 1.0))
+	else:
+		_put(p, _flat, hero_mat(K_TAIL, Color(tail.r, tail.g, tail.b, 0.85)), Vector3(r * 1.9, 1.0, r * 6.5), Vector3(0, 0, r * 3.0))
 	_put(p, _flat, floor_mat(Color(1.0, 0.15, 0.4, 0.55)), Vector3(r * 5.0, 1.0, r * 5.0), Vector3(0, 0.05 - height, 0))
 	return look
 
