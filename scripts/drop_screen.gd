@@ -940,7 +940,7 @@ func _chest_full() -> void:
 func _sharp() -> float:
 	if Game.graphics_level <= 0 or Game.low_memory_phone():
 		return 1.0
-	var k := float(get_window().size.x) / maxf(1.0, get_viewport_rect().size.x)
+	var k := float(SharpScreen.draw_size(self).x) / maxf(1.0, get_viewport_rect().size.x)
 	return clampf(minf(k, sqrt(1500000.0 / maxf(1.0, size.x * size.y))), 1.0, 3.0)
 
 

@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26g"
+const BUILD := "2026-11-26h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -751,6 +751,22 @@ var _moon: DirectionalLight3D
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Version 384: on a screen wider than 1080 the game moves into a 1080-wide picture first
+	# (SharpScreen); it can only move once the root has finished adding its children.
+	if SharpScreen.needed(get_window().size) and SharpScreen.view == null:
+		process_mode = Node.PROCESS_MODE_DISABLED
+		_wrap_then_setup.call_deferred()
+		return
+	_setup()
+
+
+func _wrap_then_setup() -> void:
+	SharpScreen.wrap(self)
+	_setup()
+
+
+func _setup() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	world = Node3D.new()
 	world.name = "World"
@@ -5972,7 +5988,7 @@ static func msaa_ok() -> bool:
 
 
 func _scale_3d(level: int) -> float:
-	var win := get_window().size
+	var win := SharpScreen.draw_size(self)
 	var px := maxf(1.0, float(win.x) * float(win.y))
 	var budget: float = [PIXELS_LOW, PIXELS_LOW, PIXELS_MEDIUM, PIXELS_HIGH][level]
 	return clampf(sqrt(budget / px), 0.5, [0.7, 0.7, 0.78, 0.85][level])
@@ -5980,8 +5996,11 @@ func _scale_3d(level: int) -> float:
 
 ## The size the 3D world is drawn at, and the screen's, for run reports ("918x1969 of 1080x2316").
 func _draw_size_text() -> String:
-	var win := get_window().size
+	var win := SharpScreen.draw_size(self)
 	var k := get_viewport().scaling_3d_scale
+	var scr := get_window().size
+	if scr != win:   # version 384: "918x1969 of 1080x2316 on 1440x3088"
+		return "%dx%d of %dx%d on %dx%d" % [roundi(win.x * k), roundi(win.y * k), win.x, win.y, scr.x, scr.y]
 	return "%dx%d of %dx%d" % [roundi(win.x * k), roundi(win.y * k), win.x, win.y]
 
 
@@ -6002,7 +6021,10 @@ func _set_graphics(level: int, save := true, by_watch := false) -> void:
 	_high_graphics = high
 	Engine.max_fps = 30 if level == 0 else 60   # no need to drain the battery past what phones show
 	Actor.show_blobs(level < 3)
-	CharacterVisual.outlines = high
+	# Version 384 (review of v383, fix 2): Low keeps the dark edge, so crowds of the same
+	# skeleton (the Tomb's mummies) don't melt into one shape. Only "Low · 30 FPS", for the
+	# weakest phones, goes without.
+	CharacterVisual.outlines = level >= 1
 	MenuBackdrop.set_cheap(not high)
 	for a: Actor in Actor.all:
 		if is_instance_valid(a) and a.visual:

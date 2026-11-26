@@ -1555,6 +1555,7 @@ func _build_danger() -> void:
 	_eclipse_dim.color = Color(0.03, 0.0, 0.02, 0.0)
 	_eclipse_dim.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	full(_eclipse_dim)
+	_eclipse_dim.visible = false
 	add_child(_eclipse_dim)
 	var sg := Gradient.new()
 	sg.set_color(0, Color(1.0, 0.08, 0.05, 0))
@@ -4452,6 +4453,9 @@ func _process(delta: float) -> void:
 		_end_drop.modulate = Color(glow, glow, glow)
 	if _flash.color.a > 0.0:
 		_flash.color.a = move_toward(_flash.color.a, 0.0, delta * 2.5)
+	# Version 384: a see-through full-screen layer still costs a pass over every pixel, so
+	# each one is hidden while it shows nothing.
+	_flash.visible = _flash.color.a > 0.003
 	_see_through(delta)
 	_chain_box.position.y = CHAIN_TOP + (64.0 if _boss_box.visible else 0.0)
 	# Hidden behind the pause menu, where it would cross "Paused".
@@ -5002,6 +5006,7 @@ func _place_perfect(rise: float) -> void:
 func flash(col := Color(1, 1, 1), strength := 0.6) -> void:
 	# Version 213: with Screen shake off, flashes are almost gone (30% stayed before).
 	_flash.color = Color(col.r, col.g, col.b, strength * Game.flash_scale)   # v219: its own setting
+	_flash.visible = _flash.color.a > 0.003
 
 
 func show_boss_card(title: String, subtitle: String, col := Color(1, 0.35, 0.25)) -> void:
@@ -7118,6 +7123,7 @@ func settings_visible() -> bool:
 
 func set_fade(a: float) -> void:
 	_fade.color.a = a
+	_fade.visible = a > 0.003   # version 384: no full-screen pass while it's clear
 
 
 # ---------------------------------------------------------------- the Blood Moon event
@@ -7216,6 +7222,7 @@ func set_shards(n: int) -> void:
 func set_surge(k: float, warn: bool, eclipse := false) -> void:
 	if eclipse:
 		_eclipse_dim.color.a = 0.12 * k   # v217: was 0.5 (with k up to 0.7); v219 review: 0.3 -> 0.12
+		_eclipse_dim.visible = _eclipse_dim.color.a > 0.003   # version 384
 		return
 	_surge_warn = warn
 	_surge_edge.set_meta("k", k)
