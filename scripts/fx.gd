@@ -859,6 +859,62 @@ void fragment() {
 """
 static var _slam_shader: Shader
 static var _crack_shader: Shader
+## v393 (review v388 fix 6, "each special its own ground mark"): Shield Slam keeps the
+## cracks; Whirlwind scuffs a spiral into the floor; a meteor digs a crater with a raised
+## rim and a splash of rays.
+const FLOOR_SWIRL := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 glow : source_color = vec4(1.0, 0.8, 0.4, 1.0);
+uniform float t = 0.0;
+uniform float seed = 0.0;
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) / 6.2831853 + 0.5;
+	// four curved scuffs winding out from the feet, thick near the middle
+	// (v393 critic: thin, tapered, brown scuffs inside the spin, not black ink strokes)
+	float s = fract(a * 4.0 + r * 1.7 + seed);
+	float w = mix(0.07, 0.012, smoothstep(0.25, 0.8, r));
+	float groove = (1.0 - smoothstep(w * 0.5, w, abs(s - 0.5))) * smoothstep(0.24, 0.34, r) * (1.0 - smoothstep(0.7, 0.8, r));
+	float hot = (1.0 - smoothstep(0.0, 0.4, t)) * (1.0 - smoothstep(w * 0.1, w * 0.45, abs(s - 0.5)));
+	vec3 c = mix(vec3(0.24, 0.14, 0.08), mix(glow.rgb, vec3(1.0), 0.3), hot);
+	ALBEDO = c;
+	ALPHA = clamp(groove * 0.7 * (1.0 - smoothstep(0.55, 1.0, t)), 0.0, 1.0);
+}
+"""
+const FLOOR_CRATER := """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 glow : source_color = vec4(1.0, 0.55, 0.15, 1.0);
+uniform float t = 0.0;
+uniform float seed = 0.0;
+float h(float n) { return fract(sin(n * 12.9898 + seed * 78.233) * 43758.5453); }
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) / 6.2831853 + 0.5;
+	// a dark pit, glowing molten at the bottom while fresh
+	float pit = 1.0 - smoothstep(0.38, 0.46, r);
+	// the raised rim of thrown-up rock, lit on top
+	float rim = smoothstep(0.4, 0.47, r) * (1.0 - smoothstep(0.56, 0.66, r));
+	// rays of splashed rock out past the rim
+	float k = a * 8.0 + h(0.5);
+	float id = floor(k);
+	float len = 0.78 + 0.2 * h(id);
+	float ray = (1.0 - smoothstep(0.1, 0.24, abs(fract(k) - 0.5) * r * 2.4)) * smoothstep(0.6, 0.66, r) * (1.0 - smoothstep(len - 0.1, len, r));
+	float hot = (1.0 - smoothstep(0.0, 0.55, t));
+	vec3 pitc = mix(vec3(0.05, 0.02, 0.01), mix(glow.rgb, vec3(1.0, 0.9, 0.6), 0.4), hot * (1.0 - smoothstep(0.0, 0.32, r)));
+	// the rim lit on its top edge (v393 critic: stronger rim and rays)
+	vec3 rimc = mix(vec3(0.42, 0.3, 0.22), vec3(0.75, 0.6, 0.45), smoothstep(0.5, 0.56, r) * (1.0 - smoothstep(0.58, 0.64, r)));
+	rimc = mix(rimc, glow.rgb, hot * 0.6);
+	vec3 c = pitc * pit + rimc * rim + vec3(0.16, 0.09, 0.05) * ray;
+	float al = max(max(pit * 0.92, rim * 0.98), ray * 0.9);
+	ALBEDO = c / max(pit + rim + ray, 0.001) * min(pit + rim + ray, 1.0) + vec3(0.0);
+	ALPHA = clamp(al * (1.0 - smoothstep(0.7, 1.0, t)), 0.0, 1.0);
+}
+"""
+static var _mark_shaders := {}
 
 
 static func _floor_fx(code: String, pos: Vector3, radius: float, life: float, params: Dictionary, y := 0.13) -> void:
@@ -873,6 +929,12 @@ static func _floor_fx(code: String, pos: Vector3, radius: float, life: float, pa
 		_crack_shader.code = FLOOR_CRACKS
 	var m := ShaderMaterial.new()
 	m.shader = _slam_shader if code == SLAM_WAVE else _crack_shader
+	if code != SLAM_WAVE and code != FLOOR_CRACKS:
+		if not _mark_shaders.has(code):
+			var sh := Shader.new()
+			sh.code = code
+			_mark_shaders[code] = sh
+		m.shader = _mark_shaders[code]
 	for k in params:
 		m.set_shader_parameter(k, params[k])
 	var q := U.floor_quad(parent, Vector2(2.0, 2.0), m, Vector3.ZERO)
@@ -893,6 +955,16 @@ static func slam_wave(pos: Vector3, color: Color, radius: float, life := 0.5) ->
 ## the ground round the middle too (a meteor's scorch).
 static func floor_cracks(pos: Vector3, glow: Color, radius: float, life := 1.6, burn := 0.0) -> void:
 	_floor_fx(FLOOR_CRACKS, pos, radius, life, {"glow": glow, "seed": randf() * 50.0, "burn": burn}, 0.11)
+
+## Whirlwind's mark (v393): a spiral of scuffs, glowing in `glow` while fresh.
+static func floor_swirl(pos: Vector3, glow: Color, radius: float, life := 1.4) -> void:
+	_floor_fx(FLOOR_SWIRL, pos, radius, life, {"glow": glow, "seed": randf()}, 0.11)
+
+
+## A meteor's mark (v393): a pit with a raised rim and splashed rays, molten while fresh.
+static func floor_crater(pos: Vector3, glow: Color, radius: float, life := 2.6) -> void:
+	_floor_fx(FLOOR_CRATER, pos, radius, life, {"glow": glow, "seed": randf() * 50.0}, 0.11)
+
 
 ## Slowly drifting embers and dust in the air of a room.
 ## Drifting motes that give each floor its mood: embers rise, frost flakes fall.

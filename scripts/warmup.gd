@@ -279,7 +279,9 @@ static func run(core := false, from := 0) -> bool:
 		Fx.magic(at + Vector3.UP, Color(1, 0.6, 0.2))
 		Fx.shockwave(at, Color(1, 0.9, 0.6), 2.0)
 		Fx.slam_wave(at, Color(1, 0.9, 0.6), 2.0)   # v386: the specials' thick wave and cracks
-		Fx.floor_cracks(at, Color(1, 0.9, 0.6), 2.0))
+		Fx.floor_cracks(at, Color(1, 0.9, 0.6), 2.0)
+		Fx.floor_swirl(at, Color(1, 0.9, 0.6), 2.0)   # v393: Whirlwind's and the meteor's marks
+		Fx.floor_crater(at, Color(1, 0.55, 0.15), 2.0))
 	steps.append(func():
 		Fx.flame(holder, Vector2(0.5, 0.7), at + Vector3(0, 0, 0.6))
 		Fx.wisps(holder, Color(0.6, 1.0, 0.85), 2, 1.0, 1.0))   # the room's wisps (version 136)

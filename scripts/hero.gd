@@ -521,7 +521,7 @@ func use_special() -> void:
 			Sfx.play("dash", 0.9)
 			# Version 386: the spin starts with a wave, a pop of light and cracks, like a slam.
 			Fx.slam_wave(global_position, bolt_color, WHIRL_R, 0.4)
-			Fx.floor_cracks(global_position, bolt_color, WHIRL_R * 0.8, 1.3)
+			Fx.floor_swirl(global_position, bolt_color, WHIRL_R * 0.85, 1.4)   # v393: its own mark
 			Fx.impact(center(), bolt_color.lerp(Color.WHITE, 0.35), 2.0)
 			Game.hud.flash(bolt_color, 0.12)
 		"mage": _meteors()
@@ -607,8 +607,12 @@ func _meteors() -> void:
 ## out of the back of the room inside a burning flame, trailing fire. Its shadow grows on the
 ## floor under a thin warning ring while it falls, and where it lands it leaves a short
 ## scorch with sparks, dust and the old shockwave.
-const METEOR_FALL := 0.5
-const METEOR_FROM := Vector3(-2.6, 10.0, -4.5)   # where it falls from, seen from the landing spot
+# v393 (review v388 fix 6, "a real meteor rock"): it fell from 10 m up at the back of the
+# room, above the top of the screen, so it was on screen for a frame or two and the move
+# read as an orange disc. Now it comes in from just above the screen at a steeper slant,
+# bigger, and takes a little longer, so you watch the rock come down.
+const METEOR_FALL := 0.62
+const METEOR_FROM := Vector3(-1.6, 5.6, -1.4)   # where it falls from, seen from the landing spot
 static var _meteor_mesh: SphereMesh
 
 func _meteor(spot: Vector3) -> void:
@@ -621,19 +625,21 @@ func _meteor(spot: Vector3) -> void:
 	Room.current.add_child(rock)
 	if _meteor_mesh == null:
 		_meteor_mesh = SphereMesh.new()   # few faces: a chunk of rock, not a ball
-		_meteor_mesh.radius = 0.75
-		_meteor_mesh.height = 1.35
+		_meteor_mesh.radius = 0.8   # v393: 0.75 -> 0.8
+		_meteor_mesh.height = 1.45
 		_meteor_mesh.radial_segments = 7
 		_meteor_mesh.rings = 4
 	var body := MeshInstance3D.new()
 	body.mesh = _meteor_mesh
-	body.material_override = U.mat(Color(0.32, 0.1, 0.04), 0.9, 0.9)
+	body.material_override = U.mat(Color(0.11, 0.09, 0.09), 0.95, 0.9)   # v393: charcoal basalt, the glow is in its cracks
 	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	rock.add_child(body)
-	for k in 3:   # glowing cracks of molten rock showing through
-		var a := TAU * k / 3.0
-		U.sphere(body, 0.17, U.unlit(Color(1.0, 0.75, 0.3)), Vector3(cos(a) * 0.45, 0.15 - 0.15 * k, sin(a) * 0.45))
-	Fx.flame(rock, Vector2(1.6, 3.0), Vector3(0, -0.1, 0))   # the fire round it, trailing up behind the rock
+	for k in 6:   # glowing cracks of molten rock showing through, on its surface
+		var a := TAU * k / 6.0
+		U.sphere(body, 0.14, U.unlit(Color(1.0, 0.48, 0.1)), Vector3(cos(a) * 0.7, 0.32 * sin(a * 2.0 + 1.0), sin(a) * 0.68))
+	U.sphere(body, 0.17, U.unlit(Color(1.0, 0.62, 0.2)), Vector3(0, 0.62, 0))
+	# (v393: the flame trails up behind the rock, the way it came, not over its face)
+	Fx.flame(rock, Vector2(2.0, 3.8), METEOR_FROM.normalized() * 0.55)   # the fire round it, trailing up behind the rock
 	var from := spot + METEOR_FROM
 	rock.global_position = from
 	var tw := rock.create_tween()
@@ -641,10 +647,10 @@ func _meteor(spot: Vector3) -> void:
 	tw.tween_method(func(t: float):
 		if not is_instance_valid(rock):
 			return
-		rock.global_position = from.lerp(spot + Vector3.UP * 0.3, t * t)
+		rock.global_position = from.lerp(spot + Vector3.UP * 0.4, pow(t, 1.6))
 		body.rotation += Vector3(0.25, 0.4, 0.1)
 		shadow.scale = Vector3.ONE * lerpf(2.0, 5.0, t)
-		if t - last[0] > 0.12:
+		if t - last[0] > 0.08:
 			last[0] = t
 			Fx.trail(rock.global_position + Vector3.UP * 0.4, Color(1.0, 0.55, 0.15)), 0.0, 1.0, METEOR_FALL)
 	tw.tween_callback(func():
@@ -653,7 +659,7 @@ func _meteor(spot: Vector3) -> void:
 		shadow.queue_free()
 		# Version 386: a thick wave of fire and a cracked, burnt crater that stays a moment.
 		Fx.slam_wave(spot, Color(1.0, 0.5, 0.15), 2.8, 0.45)
-		Fx.floor_cracks(spot, Color(1.0, 0.55, 0.15), 2.4, 2.6, 1.0)
+		Fx.floor_crater(spot, Color(1.0, 0.55, 0.15), 2.5, 3.4)   # v393: a crater, not the slam's cracks
 		Fx.impact(spot + Vector3.UP * 0.6, Color(1.0, 0.7, 0.3), 3.2)
 		Fx.magic(spot + Vector3.UP * 0.5, Color(1, 0.6, 0.2), 20)
 		Fx.sparks(spot + Vector3.UP * 0.4, Color(1.0, 0.7, 0.3))
@@ -720,7 +726,60 @@ static var _storm_mat: ShaderMaterial
 var _storm: MeshInstance3D
 var _spin_waves := 0
 
+## v393 (review v388 fix 6, "the Barbarian visibly spins with axe trails"): at waist height,
+## two bright axe trails sweep round him, the blades' path drawn as a blur, so a still
+## picture shows a spin and not a man standing on a pattern.
+static var _blades_mat: ShaderMaterial
+var _blades: MeshInstance3D
+
+func _blades_show(on: bool) -> void:
+	if not on:
+		if _blades:
+			_blades.visible = false
+		return
+	if _blades == null:
+		if _blades_mat == null:
+			var sh := Shader.new()
+			sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, depth_test_disabled, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0, 0.82, 0.55, 1.0);
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) / 6.2831853;
+	// two trails, each a bright steel head with a long fading tail behind it
+	float b = fract(a * 2.0 - TIME * 3.6);
+	// (the blade's edge is a rounded tip, not a cut: the front fades over its last few degrees)
+	// v393 (critic): the axe at the front of each trail is a crescent, widest across the
+	// middle of the band and coming to points at its edges, with a white cutting edge.
+	float m = clamp(1.0 - pow((r - 0.8) / 0.11, 2.0), 0.0, 1.0);
+	float hw = 0.1 * sqrt(m);
+	float front = 1.0 - smoothstep(0.985, 1.0, b);
+	float tail = pow(b, 3.0) * (1.0 - smoothstep(1.0 - hw - 0.02, 1.0 - hw, b)) * 0.75;
+	float head = smoothstep(1.0 - hw - 0.006, 1.0 - hw, b) * front * step(0.001, m);
+	float lip = smoothstep(0.972, 0.982, b) * front * step(0.001, m);
+	float band = smoothstep(0.66, 0.72, r) * (1.0 - smoothstep(0.88, 0.95, r));
+	float inkb = smoothstep(0.6, 0.66, r) * (1.0 - smoothstep(0.95, 0.99, r)) * (1.0 - band);
+	// steel-white at the axe, the hero's colour along the blur behind it
+	vec3 steel = mix(vec3(0.55, 0.6, 0.68), vec3(1.0), lip);
+	vec3 c = head > 0.5 ? steel : mix(col.rgb, vec3(0.92, 0.96, 1.0), smoothstep(0.7, 0.95, b) * 0.5);
+	float al = max(band * tail * 0.9, head);
+	float ai = inkb * tail * 0.7;
+	ALBEDO = mix(vec3(0.06, 0.03, 0.03), c, al / max(al + ai, 0.001));
+	ALPHA = clamp(al + ai, 0.0, 1.0);
+}
+"""
+			_blades_mat = ShaderMaterial.new()
+			_blades_mat.shader = sh
+			_blades_mat.render_priority = 3
+		_blades = U.floor_quad(self, Vector2(WHIRL_R * 1.7, WHIRL_R * 1.7), _blades_mat, Vector3.UP * 0.95)
+	_blades_mat.set_shader_parameter("col", bolt_color)
+	_blades.visible = true
+
+
 func _storm_show(on: bool) -> void:
+	_blades_show(on)
 	if not on:
 		if _storm:
 			_storm.visible = false
@@ -744,7 +803,7 @@ void fragment() {
 	float ink = smoothstep(0.0, 0.025, blade) * (1.0 - smoothstep(0.035, 0.07, blade));
 	float body = smoothstep(0.22, 0.6, r) * (1.0 - smoothstep(0.9, 0.99, r));
 	float edge = smoothstep(0.88, 0.92, r) * (1.0 - smoothstep(0.95, 0.99, r));
-	float a1 = max(arcs * body * 0.85, edge * 0.75);
+	float a1 = max(arcs * body * 0.62, edge * 0.7);   // (v393: lighter, the axe trails above carry the spin)
 	float ai = ink * body * 0.55;
 	vec3 c = mix(col.rgb, vec3(1.0), (1.0 - smoothstep(0.08, 0.2, blade)) * 0.6 * body);
 	ALBEDO = mix(vec3(0.05, 0.03, 0.03), c, a1 / max(a1 + ai, 0.001));
