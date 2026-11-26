@@ -44,7 +44,18 @@ const SPARE_CAP := 16
 var _key := ""
 ## Version 213: where the number sits from its target (the hero's sit higher, off to the side).
 var _off := OFFSET
-const HERO_OFFSET := Vector3(1.15, 2.2, 0)   # v220: above the shoulder, off the body
+## v391: up and to the LEFT of the hero (skeletons' numbers go up and right), so the hero's
+## own number never lands on a skeleton's number or health bar.
+const HERO_OFFSET := Vector3(-1.2, 2.5, 0)   # v220: above the shoulder, off the body
+## v391 (review v388 fix 3): the colour of damage the hero takes.
+const TAKEN := Color(1.0, 0.3, 0.26)
+## A boss's number sits beside its head (numbers sat on boss faces), bigger.
+const BOSS_OFFSET := Vector3(1.7, 2.1, 0)
+const BOSS_SIZE := 1.3
+## How high a skeleton's number right by the hero floats up out of the crowd.
+const NEAR_UP := 1.1
+var _up := 0.0
+var _boss := false
 
 
 ## Damage taken by `who`. Hits on the hero are red; crits turn the number gold and bigger.
@@ -55,7 +66,10 @@ static func hit(who: Actor, amount: float, crit: bool) -> void:
 	# edge, gold and bigger for a critical hit; the hero's own hits are the same white with a
 	# minus in front (a red edge and numbers growing to nearly twice the size before read as
 	# three different styles).
-	_add(who, "hit", amount, Color.WHITE, "-" if who.team == Actor.Team.HERO else "", crit)
+	# v391 (review v388 fix 3): damage you take is red again (on the ink edge, which reads on
+	# the red floors too) and shakes as it pops; damage you deal stays white.
+	var mine := who.team == Actor.Team.HERO
+	_add(who, "hit", amount, TAKEN if mine else Color.WHITE, "-" if mine else "", crit)
 
 
 static func healed(who: Actor, amount: float) -> void:
@@ -95,6 +109,10 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 			n.pixel_size = 0.009
 			n.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 			n.no_depth_test = true
+			# v391 (critic of fix 3): drawn after every see-through thing (crystal shards, the
+			# boss's glow), so nothing washes a number out.
+			n.render_priority = 120
+			n.outline_render_priority = 119
 			n.fixed_size = false
 			Game.world.add_child(n)
 			n.tree_exiting.connect(n._gone)
@@ -112,14 +130,24 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 		n._prefix = prefix
 		n._total = amount
 		n._base = who.center()
-		n._off = HERO_OFFSET if who.team == Actor.Team.HERO else OFFSET
+		n._boss = who is Enemy and (who as Enemy).is_boss
+		n._off = HERO_OFFSET if who.team == Actor.Team.HERO else (BOSS_OFFSET if n._boss else OFFSET)
+		n._up = 0.0
+		if n._boss:
+			n._size = BOSS_SIZE
+			# A boss on the right half of the screen gets its number on its left side.
+			var cam := n.get_viewport().get_camera_3d()
+			if cam != null and cam.unproject_position(who.center()).x > n.get_viewport().get_visible_rect().size.x * 0.55:
+				n._off.x = -BOSS_OFFSET.x
+		elif not foe and prefix == "-":
+			n._size = 1.15   # the hurt you take, a little bigger than what you deal
 		n._lift = _free_lift(n._base + n._off)
 		n.position = n._base + n._off + Vector3(0, n._lift, 0)
 		n._key = key
 		_live[key] = n
 	if crit:
 		n.modulate = Color(1, 0.8, 0.12)
-		n._size = maxf(n._size, 1.4)
+		n._size = maxf(n._size, 1.4 * (BOSS_SIZE if n._boss else 1.0))
 	n.text = n._prefix + str(maxi(1, roundi(n._total)))
 
 
@@ -184,22 +212,27 @@ func _process(delta: float) -> void:
 	if is_instance_valid(_follow):
 		_base = _follow.center()
 	_rise = minf(_rise + delta * 1.4, 0.9)
-	position = _base + _off + Vector3(0, _rise + _lift, 0)
+	# v391 (review v388 fix 3): a skeleton's number right by the hero floats up out of the
+	# crowd, clear of the hero, instead of fading where it stands.
+	if _foe and is_instance_valid(_follow):
+		_up = move_toward(_up, NEAR_UP * HealthBar.near_hero(_follow.global_position), delta * 4.0)
+	var shake := Vector3.ZERO
+	if not _foe and _prefix == "-" and _shown < 0.3:
+		shake.x = sin(_shown * 70.0) * 0.09 * (1.0 - _shown / 0.3)   # the hero's own hurt jolts
+	position = _base + _off + shake + Vector3(0, _rise + _lift + _up, 0)
 	_keep_below_hud()
 	# Pops in big, dips a little under its size and settles: a punchy bounce.
 	var pop := 1.0
 	if k < 0.1:
-		pop = lerpf(1.7, 0.9, k / 0.1)
+		pop = lerpf(2.1 if _boss else 1.7, 0.9, k / 0.1)   # a boss hit lands with a bigger pop
 	elif k < 0.2:
 		pop = lerpf(0.9, 1.0, (k - 0.1) / 0.1)
 	scale = Vector3.ONE * _size * pop
-	modulate.a = 1.0 - clampf((k - 0.6) / 0.4, 0.0, 1.0)
-	# Version 386: a skeleton's number right by the hero is see-through, so a crowd's numbers
-	# don't bury the hero (the hero's own numbers stay as they are).
-	# v389 (review v388 fix 1): up to 60% see-through made them unreadable. The number now
-	# shows whole while it pops and thins by at most a quarter after.
-	if is_instance_valid(_follow) and _follow != Game.hero and k > 0.25:
-		modulate.a *= 1.0 - 0.25 * HealthBar.near_hero(_follow.global_position)
+	# (the hurt you take stays solid longer before it fades)
+	var hold := 0.8 if (not _foe and _prefix == "-") else 0.6
+	modulate.a = 1.0 - clampf((k - hold) / (1.0 - hold), 0.0, 1.0)
+	# (Version 386 made a number by the hero see-through, v389 only a quarter; v391 floats
+	# it up instead, above.)
 	outline_modulate.a = modulate.a
 
 
@@ -208,13 +241,23 @@ func _keep_below_hud() -> void:
 	if cam == null or Game.hud == null or not Game.hud.visible:
 		return
 	var band := Game.hud.top_band() + 24.0 * scale.y
-	var y := cam.unproject_position(global_position).y
-	if y >= band:
+	var at := cam.unproject_position(global_position)
+	if at.y < band:
+		# How many pixels down the screen one step towards the camera's bottom edge moves it.
+		var per := cam.unproject_position(global_position + Vector3(0, 0, 1)).y - at.y
+		if per > 1.0:
+			global_position.z += (band - at.y) / per
+	# v391 (critic of fix 3): never past the sides of the screen either (a boss by the wall
+	# had its number cut in half). Half the number's width plus a margin stays inside.
+	var w := get_viewport().get_visible_rect().size.x
+	var px := cam.unproject_position(global_position + Vector3(1, 0, 0)).x - at.x
+	if px <= 1.0:
 		return
-	# How many pixels down the screen one step towards the camera's bottom edge moves it.
-	var per := cam.unproject_position(global_position + Vector3(0, 0, 1)).y - y
-	if per > 1.0:
-		global_position.z += (band - y) / per
+	var half := float(text.length()) * 0.3 * px * scale.x + w * 0.06
+	if at.x < half:
+		global_position.x += (half - at.x) / px
+	elif at.x > w - half:
+		global_position.x -= (at.x - (w - half)) / px
 
 
 ## Freed with the world (or anything else): forget it.

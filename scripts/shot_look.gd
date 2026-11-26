@@ -23,6 +23,7 @@ const K_GLOW := 4
 const K_TAIL := 5
 
 static var _hero_shader: Shader
+static var _base_shader: Shader
 static var _danger_shader: Shader
 static var _mats := {}
 static var _flat: QuadMesh
@@ -46,6 +47,14 @@ const SHOT_TAIL := {"arrow": Color(1.0, 0.45, 0.55), "bone": Color(1.0, 0.5, 0.6
 	"crown": Color(1.0, 0.7, 0.2), "magma": Color(1.0, 0.4, 0.05), "skull": Color(0.45, 1.0, 0.8),
 	"hex": Color(0.7, 0.4, 1.0), "wisp": Color(0.3, 0.85, 1.0), "trident": Color(0.2, 0.85, 0.85),
 	"bat": Color(1.0, 0.15, 0.2), "quill": Color(0.6, 0.5, 1.0)}
+## v391 (review v388 fix 3, "enemy shots cut to 4 danger shapes"): a skeleton's shot is one
+## of four shapes you learn once: an ARROW (archers, the Burst elite's darts), a SHARD (bone,
+## ice, crystal, sand, snow, rivets), an EMBER (water, spores, the moon, ink, stars) or a
+## FLAME (fire). The place still shows in the shape's colour and its trail. Bosses keep
+## their own shots.
+const SKELETON_SHAPE := {"arrow": "arrow", "dart": "arrow", "bone": "ice", "ice": "ice", "crystal": "ice",
+	"sand": "ice", "snow": "ice", "gear": "ice", "water": "moon", "spore": "moon", "moon": "moon",
+	"ink": "moon", "star": "moon", "fire": "fire"}
 ## What a Bone Spitter spits in each place (in the order of Floors.THEMES).
 ## Shots that are fire and fly as streaks of flame.
 const FLAMING := ["fire", "magma"]
@@ -66,7 +75,7 @@ static func danger_mat(style: String) -> ShaderMaterial:
 		var m := ShaderMaterial.new()
 		m.shader = _danger_shader
 		m.set_shader_parameter("col", DANGER)
-		m.set_shader_parameter("kind", SHOT_KIND[style])
+		m.set_shader_parameter("kind", SHOT_KIND[SKELETON_SHAPE.get(style, style)])
 		m.set_shader_parameter("glowc", SHOT_TAIL.get(style, DANGER))
 		m.render_priority = 1
 		_danger_mats[style] = m
@@ -209,8 +218,10 @@ void fragment() {
 		vec3 bg = vec3(0.16, 0.0, 0.07);
 		if (kind == 1) {
 			// Arrow: shaft, steel head, pink feathers. Longer than the orb.
-			float shaft = seg(u, vec2(0.0, -0.8), vec2(0.0, 0.5)) - 0.05;
-			float head = max((abs(u.x) - 0.3 * (0.98 - u.y) / 0.5) * 0.85, 0.48 - u.y);
+			// (v391: a thicker shaft and a head half as big again, so it reads as an arrow
+			// at phone size, not a thin stick)
+			float shaft = seg(u, vec2(0.0, -0.8), vec2(0.0, 0.4)) - 0.085;
+			float head = max((abs(u.x) - 0.44 * (0.98 - u.y) / 0.62) * 0.85, 0.36 - u.y);
 			vec2 fa = vec2(abs(u.x), u.y);
 			float fl = min(seg(fa, vec2(0.0, -0.44), vec2(0.2, -0.66)), seg(fa, vec2(0.0, -0.66), vec2(0.2, -0.88))) - 0.045;
 			d = min(shaft, min(head, fl));
@@ -224,10 +235,11 @@ void fragment() {
 			bg = vec3(0.2, 0.01, 0.1);
 		} else if (kind == 3) {
 			// Ice: a long shard with two small ones beside it.
-			d = (abs(u.x) / 0.2 + abs(u.y - 0.04) / 0.5 - 1.0) * 0.18;
-			d = min(d, (abs(abs(u.x) - 0.31) / 0.1 + abs(u.y + 0.14) / 0.26 - 1.0) * 0.09);
-			mc = u.x > 0.0 ? vec3(0.95, 1.0, 1.0) : vec3(0.4, 0.78, 1.0);
-			bg = vec3(0.01, 0.06, 0.3);
+			// v391: one solid diamond in the place's colour, lit on one side (three thin
+			// shards side by side read as a sticker).
+			d = (abs(u.x) / 0.34 + abs(u.y - 0.02) / 0.66 - 1.0) * 0.26;
+			mc = u.x > 0.0 ? mix(glowc.rgb, vec3(1.0), 0.8) : glowc.rgb;
+			bg = glowc.rgb * 0.18;
 		} else if (kind == 4) {
 			// Fire (Version 379): a blazing head trailing a long licking flame, not a badge.
 			vec2 h = u - vec2(0.0, 0.32);
@@ -256,7 +268,8 @@ void fragment() {
 			// Version 387 (visual review of v383, fix 6): a blood-red ember, white-hot inside
 			// (a flat crescent badge before).
 			d = rr - 0.31 - 0.03 * sin(ang * 4.0 + TIME * 6.0);
-			mc = mix(vec3(0.7, 0.03, 0.05), vec3(1.0, 0.72, 0.55), smoothstep(0.02, 0.24, -d));
+			// (v391: the ember of every place, in the place's colour; the moon's stays blood red)
+			mc = mix(glowc.rgb * 0.62, mix(glowc.rgb, vec3(1.0, 0.92, 0.85), 0.65), smoothstep(0.02, 0.24, -d));
 		} else if (kind == 8) {
 			// Sand: a turning swirl.
 			float sw8 = sin(ang * 2.0 + rr * 12.0 - TIME * 7.0);
@@ -444,6 +457,72 @@ static func hero_mat(kind: int, col: Color, bill := false) -> ShaderMaterial:
 	return m
 
 
+## v391 (review v388 fix 3, "hero shots take the hero's colour"): hero shots are light
+## added to the picture, so on a pale floor (sand, ice, bone) they washed out to white and
+## vanished. Under each one now lies a solid card of the same shape in the hero's own colour,
+## full strength, with a dark ink rim: the added light glows on top of something solid.
+static func base_mat(kind: int, col: Color, bill := false) -> ShaderMaterial:
+	if _base_shader == null:
+		_base_shader = Shader.new()
+		_base_shader.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0);
+uniform int kind = 0;
+uniform bool bill = false;
+varying vec2 q;
+void vertex() {
+	if (bill) {
+		MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+		MODELVIEW_MATRIX = MODELVIEW_MATRIX * mat4(vec4(length(MODEL_MATRIX[0].xyz), 0.0, 0.0, 0.0),
+			vec4(0.0, length(MODEL_MATRIX[1].xyz), 0.0, 0.0), vec4(0.0, 0.0, length(MODEL_MATRIX[2].xyz), 0.0), vec4(0.0, 0.0, 0.0, 1.0));
+		MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+		q = VERTEX.xy * 2.0;
+	} else {
+		q = VERTEX.xz * 2.0;
+	}
+}
+float sat(float x) { return clamp(x, 0.0, 1.0); }
+void fragment() {
+	vec2 p = q;
+	float m = 0.0;
+	float inner = 0.0;
+	if (kind == 0) {
+		float t = sat((p.y + 0.82) / 1.82);
+		float w = mix(0.34, 0.03, t);
+		float ax = abs(p.x);
+		float fade = smoothstep(-1.0, -0.8, p.y) * (1.0 - smoothstep(0.55, 0.95, t));
+		m = (1.0 - smoothstep(w * 0.55, w * 0.8, ax)) * fade;
+		inner = 1.0 - smoothstep(w * 0.3, w * 0.5, ax);
+	} else if (kind == 1) {
+		float d = length(p - vec2(0.0, 1.25));
+		float tips = 1.0 - smoothstep(0.35, 0.9, abs(p.x));
+		m = (1.0 - smoothstep(0.16, 0.24, abs(d - 2.0))) * tips;
+		inner = 1.0 - smoothstep(0.06, 0.14, abs(d - 2.0));
+	} else {
+		float r = length(p);
+		m = 1.0 - smoothstep(0.5, 0.58, r);
+		inner = 1.0 - smoothstep(0.36, 0.46, r);
+	}
+	ALBEDO = mix(vec3(0.05, 0.03, 0.07), col.rgb, inner);
+	ALPHA = m * col.a;
+}
+"""
+	var key := "base%d%s%s" % [kind, col.to_html(), bill]
+	if _mats.has(key):
+		return _mats[key]
+	var m := ShaderMaterial.new()
+	m.shader = _base_shader
+	# the hero's colour at full strength (the shot's own colour is often a pale tint of it)
+	var c := Color.from_hsv(col.h, maxf(col.s, 0.7), minf(1.0, maxf(col.v, 0.85)), 0.92)
+	m.set_shader_parameter("col", c)
+	m.set_shader_parameter("kind", kind)
+	m.set_shader_parameter("bill", bill)
+	m.render_priority = -1   # under the glow
+	_mats[key] = m
+	return m
+
+
 ## A soft pool of coloured light on the floor under a shot.
 static func floor_mat(col: Color) -> StandardMaterial3D:
 	var key := col.to_html()
@@ -501,6 +580,7 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 		"wave":
 			# (The Knight's own bolt colour is the gold of the wave: a mastery color shows as is.)
 			glow_col = Color(col.r, col.g, col.b, 0.6)
+			_put(p, _flat, base_mat(K_WAVE, col), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
 			_put(p, _flat, hero_mat(K_WAVE, col), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
 			glow = 2.6
 		"axe":
@@ -509,6 +589,7 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 			_put(p, _flat, hero_mat(K_TAIL, Color(col.r, col.g, col.b, 0.45)), Vector3(size * 2.6, 1.0, size * 6.0), Vector3(0, 0, size * 3.4))
 			glow = 2.2
 		"orb":
+			_put(p, _card, base_mat(K_ORB, col, true), Vector3(size * 4.4, size * 4.4, 1.0))
 			_put(p, _card, hero_mat(K_ORB, col, true), Vector3(size * 4.4, size * 4.4, 1.0))
 			_put(p, _flat, hero_mat(K_TAIL, Color(col.r, col.g, col.b, 0.7)), Vector3(size * 2.6, 1.0, size * 7.0), Vector3(0, 0, size * 3.6))
 			glow = 0.0
@@ -523,6 +604,8 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 			_put(p, _flat, _volley_mat(col), Vector3(size * 1.9, 1.0, size * 4.6))
 			glow = 2.4
 		_:
+			# (the base is wider than the light, so its colour and ink rim show round it)
+			_put(p, _flat, base_mat(K_BOLT, col), Vector3(size * 3.8, 1.0, size * 10.0), Vector3(0, 0, size * 10.0 * 0.41))
 			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 2.4, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
 	# (No pool of light on the floor under hero shots: a Mage with Twin Shots and Fan of Shots
 	# has dozens in the air, and each pool was one more thing to draw. Undead shots keep theirs.)
