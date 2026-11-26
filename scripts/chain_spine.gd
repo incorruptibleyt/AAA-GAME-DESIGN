@@ -11,6 +11,9 @@ const HOT := Color(1.0, 0.28, 0.12)
 
 var mult := 1.0
 var drain := 0.0          # 0..1, how long the chain has left
+## v392 (review v388 fix 4): the fight's meter is a plain fuse bar under the big number
+## (seven grey bones at phone size read as nothing). The bones stay for other screens.
+var bar := false
 var _shards: Array = []   # {p, v, rot, spin, col, life}
 var _pop := 0.0
 
@@ -32,6 +35,14 @@ func set_chain(m: float) -> void:
 
 ## Every lit vertebra flies apart.
 func shatter() -> void:
+	if bar:
+		var n := 8
+		for k in n:
+			_shards.append({"p": Vector2(size.x * (k + 0.5) / n, size.y * 0.5),
+				"v": Vector2(randf_range(-120, 120), randf_range(-240, -60)), "rot": randf() * TAU,
+				"spin": randf_range(-12, 12), "col": color_for(mult), "life": 1.0})
+		mult = 1.0
+		return
 	var lit := _lit()
 	for i in COUNT:
 		var amount := clampf(lit - i, 0.0, 1.0)
@@ -54,7 +65,7 @@ func _step() -> float:
 
 
 func _center(i: int) -> Vector2:
-	return Vector2(_step() * (i + 0.5), size.y * 0.42)
+	return Vector2(_step() * (i + 0.5), size.y * (0.5 if bar else 0.42))
 
 
 func _process(delta: float) -> void:
@@ -69,6 +80,9 @@ func _process(delta: float) -> void:
 
 
 func _draw() -> void:
+	if bar:
+		_draw_bar()
+		return
 	var lit := _lit()
 	var col := color_for(mult)
 	var at_cap := mult >= Game.chain_max() - 0.01 and mult > 1.01
@@ -102,6 +116,34 @@ func _draw() -> void:
 		var pts := PackedVector2Array()
 		for k in 3:
 			pts.append(sh.p + Vector2(9, 0).rotated(sh.rot + TAU * k / 3.0) * (0.6 + k * 0.3))
+		draw_colored_polygon(pts, Color(sh.col.r, sh.col.g, sh.col.b, a))
+
+
+## The fuse: a dark rounded track; the fill is the time the chain has left, in the chain's
+## colour (bone, gold, red-hot), with a white-hot tip. It glows at the cap.
+func _draw_bar() -> void:
+	var col := color_for(mult)
+	var at_cap := mult >= Game.chain_max() - 0.01 and mult > 1.01
+	var glow := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.012) if at_cap else 0.0
+	var r := Rect2(Vector2.ZERO, size)
+	var track := StyleBoxFlat.new()
+	track.bg_color = Color(0, 0, 0, 0.8)
+	track.set_corner_radius_all(int(size.y * 0.5))
+	track.border_color = Color(1.0, 0.92, 0.8, 0.35)
+	track.set_border_width_all(1)
+	draw_style_box(track, r)
+	if mult > 1.01 and drain > 0.0:
+		var w := maxf(size.y, (size.x - 2.0) * drain)
+		var fill := StyleBoxFlat.new()
+		fill.bg_color = col.lerp(Color.WHITE, glow * 0.35)
+		fill.set_corner_radius_all(int(size.y * 0.5))
+		draw_style_box(fill, Rect2(Vector2(1, 1), Vector2(w, size.y - 2.0)))
+		draw_circle(Vector2(1.0 + w - size.y * 0.5, size.y * 0.5), size.y * 0.32 * (1.0 + _pop * 0.5), Color(1, 1, 0.95, 0.9))
+	for sh in _shards:
+		var a: float = sh.life
+		var pts := PackedVector2Array()
+		for k in 3:
+			pts.append(sh.p + Vector2(7, 0).rotated(sh.rot + TAU * k / 3.0) * (0.6 + k * 0.3))
 		draw_colored_polygon(pts, Color(sh.col.r, sh.col.g, sh.col.b, a))
 
 

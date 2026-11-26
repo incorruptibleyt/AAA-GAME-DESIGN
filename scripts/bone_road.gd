@@ -102,13 +102,13 @@ static func prize() -> Array:
 
 static func reward_text(s: Dictionary) -> String:
 	if s.has("prize"):
-		return "%s aura + %d coins" % [str(HeroStyle.extra(s.prize[0], s.prize[1]).name), int(s.n)]
+		return "%s aura + %s coins" % [str(HeroStyle.extra(s.prize[0], s.prize[1]).name), Hud.thousands(int(s.n))]
 	match str(s.kind):
 		"drop":
 			return "Bone Drop" if int(s.n) == 1 else "%d Bone Drops" % int(s.n)
 		"lucky":
 			return "Lucky Start" if int(s.n) == 1 else "%d Lucky Starts" % int(s.n)
-	return "%d coins" % int(s.n)
+	return "%s coins" % Hud.thousands(int(s.n))
 
 
 ## Claims step `i` into `cfg` (drops and Lucky Starts; the caller adds coins, which it

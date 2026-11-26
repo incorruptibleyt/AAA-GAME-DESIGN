@@ -90,7 +90,7 @@ static func odds_text(cfg: ConfigFile) -> String:
 		var extra := ""
 		if not missing_looks(cfg, i).is_empty() and int(LOOK_CHANCE[i]) > 0:
 			extra = "  ·  look %d%%" % roundi(LOOK_CHANCE[i] * 100.0 / 12.0)
-		lines.append("%s  %d%%  ·  %d coins%s" % [str(t.name).capitalize(), int(t.weight), int(t.coins), extra])
+		lines.append("%s  %d%%  ·  %s coins%s" % [str(t.name).capitalize(), int(t.weight), Hud.thousands(int(t.coins)), extra])
 	lines.append("Epic: a Lucky Start 1 in 3. Legendary: a free Armory level while any are left.")
 	if found_looks(cfg) < all_looks():
 		lines.append("A new look is certain after %d drops in a row without one." % PITY)

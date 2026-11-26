@@ -184,7 +184,7 @@ func _fill_train(cfg: ConfigFile, id: String, lv: int, coins: int) -> void:
 	if left <= 0:
 		second = "Back tomorrow: %d a day" % HeroMastery.TRAIN_PER_DAY
 	elif not afford:
-		second = "%d left today  ·  you have %d coins" % [left, coins]
+		second = "%d left today  ·  you have %s coins" % [left, Hud.thousands(coins)]
 	else:
 		second = "%d left today  ·  coins buy mastery" % left
 	_train_text.text = "TRAIN  +%d points\n%s" % [HeroMastery.TRAIN_POINTS, second]

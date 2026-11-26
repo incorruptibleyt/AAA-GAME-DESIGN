@@ -558,7 +558,7 @@ static func step_text(s: Dictionary, e: Dictionary = {}) -> String:
 			return "Lucky Start" if int(s.n) == 1 else "%d Lucky Starts" % int(s.n)
 		"look":
 			return HeroStyle.item_label("rogue", s.look[0], s.look[1])
-	return "%d coins" % int(s.n)
+	return "%s coins" % Hud.thousands(int(s.n))
 
 
 ## Version 145 (round 2 review): a Legendary Moon Casket can hand out a set look before

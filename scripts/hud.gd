@@ -310,11 +310,12 @@ const TOP_SHADE := 118.0   # v380: how far down the shade behind the top row rea
 const CHAIN_TOP := 52.0   # v358: up in the top bar, beside the coins (v338: 90)
 const CHAIN_H := 34.0
 const CHAIN_X := 158.0
-const CHAIN_W := 200.0
+const CHAIN_W := 216.0   # v392: 200 -> 216, the score on one line
 var _chain_label: Label
 var _chain_pop := 0.0
 var _spine: ChainSpine
 var _score_label: Label
+var _chain_pill: Panel   # v392: grows with the score, so no empty end on the pill
 var _broken_label: Label
 var _broken_time := 0.0
 var _top_shade: TextureRect
@@ -1118,9 +1119,9 @@ func _build_hud() -> void:
 	_wave_pips.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_wave_pips.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_wave_pips.offset_left = -284
-	_wave_pips.offset_right = -88
-	_wave_pips.offset_top = 48
-	_wave_pips.offset_bottom = 68
+	_wave_pips.offset_right = -84
+	_wave_pips.offset_top = 47
+	_wave_pips.offset_bottom = 71
 	_wave_pips.visible = false
 	_wave_pips.draw.connect(_draw_wave_pips)
 	root.add_child(_wave_pips)
@@ -1301,6 +1302,7 @@ func _build_hud() -> void:
 	_chain_box.modulate.a = 0.0
 	root.add_child(_chain_box)
 	var pill := Panel.new()
+	_chain_pill = pill
 	pill.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var psb := StyleBoxFlat.new()
 	psb.bg_color = Color(0.03, 0.02, 0.06, 0.72)   # v386: was 0.42, the bones were lost on the floor
@@ -1311,37 +1313,44 @@ func _build_hud() -> void:
 	pill.position = Vector2(-4, -2)
 	pill.size = Vector2(CHAIN_W + 8, CHAIN_H + 4)
 	_chain_box.add_child(pill)
+	# v392 (review v388 fix 4): the chain is one big number with a fuse bar under it (seven
+	# little grey bones read as nothing on a phone), and the score sits on one line,
+	# "SCORE 1,234", instead of a tiny word over a small number.
 	_spine = ChainSpine.new()
-	_spine.position = Vector2(2, 3)
-	_spine.size = Vector2(82, 28)
+	_spine.bar = true
+	_spine.position = Vector2(6, 27)
+	_spine.size = Vector2(68, 7)
 	_chain_box.add_child(_spine)
-	_chain_label = label("x1.0", 26, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_LEFT)
+	_chain_label = label("x1.0", 27, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_CENTER)
 	chunky(_chain_label.label_settings)   # v386: big chunky number, like the score
 	_chain_label.label_settings.outline_size = 7
 	_chain_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_chain_label.position = Vector2(84, -3)
-	_chain_label.size = Vector2(62, 38)
-	_chain_label.pivot_offset = Vector2(22, 18)
+	_chain_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_chain_label.position = Vector2(0, -4)
+	_chain_label.size = Vector2(80, 32)
+	_chain_label.pivot_offset = Vector2(40, 18)
 	_chain_box.add_child(_chain_label)
 	var divider := ColorRect.new()
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	divider.color = Color(1, 1, 1, 0.14)
-	divider.position = Vector2(146, 5)
+	divider.position = Vector2(83, 5)
 	divider.size = Vector2(2, 24)
 	_chain_box.add_child(divider)
-	var caption := label("SCORE", 12, Color(1.0, 0.85, 0.55, 0.95))
+	var caption := label("SCORE", 13, Color(1.0, 0.85, 0.55, 0.95))
 	chunky(caption.label_settings)
 	caption.label_settings.outline_size = 3
 	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
-	caption.position = Vector2(148, -2)
-	caption.size = Vector2(CHAIN_W - 148, 14)
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.position = Vector2(91, 2)
+	caption.size = Vector2(46, 30)
 	_chain_box.add_child(caption)
-	_score_label = label("", 18, Color(1.0, 0.97, 0.9))
+	_score_label = label("", 21, Color(1.0, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
 	chunky(_score_label.label_settings)
 	_score_label.label_settings.outline_size = 5
 	_score_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_score_label.position = Vector2(148, 10)
-	_score_label.size = Vector2(CHAIN_W - 148, 24)
+	_score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_score_label.position = Vector2(139, 1)
+	_score_label.size = Vector2(CHAIN_W - 141, 32)
 	_chain_box.add_child(_score_label)
 	# Version 227: chunky and edged like the number it replaces (thin red letters were hard
 	# to read over a busy floor).
@@ -1392,11 +1401,25 @@ func _build_hud() -> void:
 	_tip.add_child(_tip_tag)
 
 	_callout = label("", 46, Color(0.6, 0.95, 1.0))
-	_callout.set_anchors_preset(Control.PRESET_CENTER)
-	_callout.offset_left = -220
-	_callout.offset_right = 220
-	_callout.offset_top = -190
-	_callout.offset_bottom = -130
+	# v392 (review v388 fix 4): callouts have their own lane just under the top bar (or the
+	# boss bar), where no hero or skeleton number goes; in the middle of the room they sat
+	# on the skeletons coming in. See _show_callout.
+	_callout.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	_callout.offset_left = 40
+	_callout.offset_right = -40
+	_callout.offset_top = CALLOUT_LANE
+	_callout.offset_bottom = CALLOUT_LANE + 56
+	# On a dark see-through strip, so a word over a boss's head still reads and the boss
+	# still shows through (critic of fix 4).
+	var cb := StyleBoxFlat.new()
+	cb.bg_color = Color(0.03, 0.02, 0.06, 0.62)
+	cb.set_corner_radius_all(18)
+	cb.content_margin_left = 18
+	cb.content_margin_right = 18
+	cb.content_margin_top = 2
+	cb.content_margin_bottom = 2
+	_callout.add_theme_stylebox_override("normal", cb)
+	_callout.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_callout.modulate.a = 0.0
 	root.add_child(_callout)
 
@@ -3005,7 +3028,7 @@ func _build_pause() -> void:
 	var mpair := _pair(_music_button, _sounds_button)
 	mpair.add_theme_constant_override("separation", 12)
 	sc.add_child(mpair)
-	_more_button = button("More settings", 18)
+	_more_button = button("MORE SETTINGS", 18)
 	_more_button.custom_minimum_size = Vector2(436, 66)
 	_more_button.pressed.connect(func():
 		Sfx.play("click")
@@ -3077,13 +3100,13 @@ func _build_pause() -> void:
 	small.alignment = BoxContainer.ALIGNMENT_CENTER
 	small.add_theme_constant_override("separation", 8)
 	small.add_child(privacy_button(16))
-	var fb := button("Send feedback", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
+	var fb := button("SEND FEEDBACK", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
 	fb.add_theme_color_override("font_color", Color(1, 0.88, 0.62))
 	fb.custom_minimum_size = Vector2(160, 64)
 	fb.pressed.connect(show_feedback.bind(true))
 	small.add_child(fb)
 	# Rate us: opens the game's Google Play page (the in-app rating card is only for happy moments).
-	var rate := button("Rate us", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
+	var rate := button("RATE US", 16, Color(0.08, 0.07, 0.1, 0.85), Color(1, 0.8, 0.45, 0.5))
 	rate.add_theme_color_override("font_color", Color(1, 0.88, 0.62))
 	rate.custom_minimum_size = Vector2(150, 64)
 	rate.pressed.connect(func():
@@ -3094,7 +3117,7 @@ func _build_pause() -> void:
 	(small.get_child(0) as Control).custom_minimum_size = Vector2(160, 64)
 	col.add_child(small)
 	_pause_rows.append(small)
-	_quit_button = button("Quit run", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_quit_button = button("QUIT RUN", 24, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_quit_button.pressed.connect(_on_quit_pressed)
 	col.add_child(_centered(_quit_button))
 	_toggle_look(_graphics_button, true)
@@ -3103,7 +3126,7 @@ func _build_pause() -> void:
 	_toggle_look(_size_button, true)
 	_toggle_look(_dark_button, true)
 	# SPEED TEST, in the same place on the title's Settings (where there's no run to quit).
-	_speed_button = button("Speed test", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
+	_speed_button = button("SPEED TEST", 22, Color(0.1, 0.08, 0.12, 0.9), Color(0.6, 0.55, 0.6, 0.5))
 	_speed_button.pressed.connect(func():
 		Sfx.play("click")
 		speed_test_pressed.emit())
@@ -3216,7 +3239,7 @@ func _fill_pause_run() -> void:
 	_pause_room.text = _room_text
 	_pause_hp.text = "%d / %d" % [ceili(h.health), roundi(h.max_health)]
 	_pause_hp_fill.anchor_right = clampf(h.health / maxf(h.max_health, 1.0), 0.0, 1.0)
-	_pause_coins.text = "+%d" % Game.run_coins
+	_pause_coins.text = "+" + Hud.thousands(Game.run_coins)
 	_pause_score.text = "Score %d" % Game.score
 	for c in _pause_bless.get_children():
 		_pause_bless.remove_child(c)
@@ -3357,7 +3380,9 @@ func hide_choices() -> void:
 
 ## In a Crypt Race the rival doesn't stop, and leaving counts as a loss.
 func _quit_text() -> String:
-	return "Leave race (a loss)" if Game.race else "Quit run"
+	# v392 (review v388 fix 4, one capitals rule): a button that does something is in
+	# capitals (DASH, RESUME, QUIT RUN); a setting is "Name: Value".
+	return "LEAVE RACE (A LOSS)" if Game.race else "QUIT RUN"
 
 
 ## Quitting loses the run, so the first tap only asks; a second tap within 3 s quits.
@@ -3368,7 +3393,7 @@ func _on_quit_pressed() -> void:
 		quit_run_pressed.emit()
 		return
 	_quit_armed = true
-	_quit_button.text = "Tap again to quit"
+	_quit_button.text = "TAP AGAIN TO QUIT"
 	_quit_button.add_theme_color_override("font_color", Color(1, 0.45, 0.4))
 	get_tree().create_timer(3.0, true, false, true).timeout.connect(_disarm_quit)
 
@@ -3882,7 +3907,7 @@ func show_pass(v: bool, owned := false, price := "", status := "") -> void:
 	_pass_tiles[0].text = "The grandest looks,\nfor every hero"
 	_pass_tiles[1].text = "Play today's Daily\nagain and again"
 	_pass_tiles[2].text = "Curse Level %d,\nplus hero rewards" % Curses.max_level()
-	_pass_more.text = "Plus all 4 heroes now (no need to spend %d coins)." % coins_of_heroes
+	_pass_more.text = "Plus all 4 heroes now (no need to spend %s coins)." % Hud.thousands(coins_of_heroes)
 	# v220 (v219 review): the event perks while an event runs.
 	if not Events.current().is_empty():
 		_pass_more.text = "Plus all 4 heroes now, and while the event runs:\n%s, +50%% %s." % [Events.word("pass_set"), Events.word("unit")]
@@ -4561,6 +4586,9 @@ func _process(delta: float) -> void:
 	if shown != _score_shown:   # version 147: new text only when the number changes
 		_score_shown = shown
 		_score_label.text = Hud.thousands(shown)
+		var sf: Font = _score_label.label_settings.font if _score_label.label_settings.font else ThemeDB.fallback_font
+		var tw: float = sf.get_string_size(_score_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _score_label.label_settings.font_size).x
+		_chain_pill.size.x = clampf(139.0 + tw + 14.0, 190.0, CHAIN_W + 8.0)
 	if _broken_time > 0.0:
 		_broken_time -= delta
 		var fade := clampf(_broken_time / 0.4, 0.0, 1.0)
@@ -4775,22 +4803,23 @@ func _draw_wave_pips() -> void:
 	if n < 2:
 		return
 	# Version 358: closer together for long rooms, so they stay clear of the chain strip.
-	var gap := minf(20.0, 66.0 / float(n - 1))
-	var y := 10.0
+	# v392 (review v388 fix 4, "room dots too small"): a third bigger, further apart.
+	var gap := minf(26.0, 66.0 / float(n - 1))
+	var y := 11.0
 	for i in n:
-		var x := _wave_pips.size.x - 9.0 - float(n - 1 - i) * gap
+		var x := _wave_pips.size.x - 12.0 - float(n - 1 - i) * gap
 		var w := i + 1
 		var p := Vector2(x, y)
 		if w < _wave_now:
-			_wave_pips.draw_circle(p, 6.5, INK)
-			_wave_pips.draw_circle(p, 4.5, Color(1, 0.62, 0.45, 0.55))
-		elif w == _wave_now:
 			_wave_pips.draw_circle(p, 9.0, INK)
-			_wave_pips.draw_circle(p, 6.8, Color(1, 0.62, 0.45))
-			_wave_pips.draw_circle(p + Vector2(-1.8, -2.0), 2.2, Color(1, 0.92, 0.8))
+			_wave_pips.draw_circle(p, 6.5, Color(1, 0.62, 0.45, 0.6))
+		elif w == _wave_now:
+			_wave_pips.draw_circle(p, 12.0, INK)
+			_wave_pips.draw_circle(p, 9.2, Color(1, 0.62, 0.45))
+			_wave_pips.draw_circle(p + Vector2(-2.4, -2.6), 2.9, Color(1, 0.92, 0.8))
 		else:
-			_wave_pips.draw_circle(p, 6.5, INK)
-			_wave_pips.draw_arc(p, 4.2, 0.0, TAU, 16, Color(1, 0.62, 0.45, 0.8), 2.0, true)
+			_wave_pips.draw_circle(p, 9.0, INK)
+			_wave_pips.draw_arc(p, 5.8, 0.0, TAU, 20, Color(1, 0.62, 0.45, 0.85), 2.6, true)
 
 
 ## The Hourglass countdown. Below zero hides it.
@@ -5019,13 +5048,30 @@ func _show_callout(text: String, col: Color, fight := false) -> void:
 	_callout_fight = fight
 	_callout.text = text
 	_callout.label_settings.font_color = col
-	_callout.label_settings.font_size = 46 if text.length() <= 10 else 34
-	# A-7: while a room banner shows, the callout drops just below it instead of on it.
-	var drop := 60.0 if _banner_time > 0.3 else 0.0
-	drop += _callout_clear_of_hero(-160.0 + drop)
-	_callout.offset_top = -190.0 + drop
-	_callout.offset_bottom = -130.0 + drop
+	_callout.label_settings.font_size = 42 if text.length() <= 10 else 32
+	var top := _callout_lane()
+	_callout.offset_top = top
+	_callout.offset_bottom = top + 56.0
+	# The strip hugs the word (centred), never the whole width.
+	var cf: Font = _callout.label_settings.font if _callout.label_settings.font else ThemeDB.fallback_font
+	var vw := get_viewport().get_visible_rect().size.x
+	var half := minf(vw * 0.5 - 12.0, cf.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, _callout.label_settings.font_size).x * 0.5 + 30.0)
+	_callout.offset_left = vw * 0.5 - half
+	_callout.offset_right = -(vw * 0.5 - half)
 	_callout_time = 1.1
+
+
+## The callout lane (v392): under the top bar, the boss bar or the race bar, whichever is
+## lowest. Nothing else of the fight's words sits there.
+const CALLOUT_LANE := 98.0
+
+func _callout_lane() -> float:
+	var y := CALLOUT_LANE
+	if _boss_box.visible:
+		y = _boss_box.offset_bottom + 40.0
+	if race_bar != null and race_bar.visible:
+		y = maxf(y, race_bar.position.y + race_bar.size.y + 6.0)
+	return y
 
 
 ## Version 387 (visual review of v383, fix 8): the camera now lets a hero by the near wall
@@ -5043,25 +5089,6 @@ func _tip_over_hero() -> bool:
 	var box := _tip.get_global_rect().grow(6.0)
 	return box.position.y < feet.y + 8.0 and box.end.y > head.y \
 		and absf(feet.x - box.get_center().x) < box.size.x * 0.5 + 24.0
-
-
-## Version 386 (visual review of v383, fix 3): how far to move a callout (SHIELD SLAM!,
-## METEOR!) whose middle sits `mid` from the screen's centre so it doesn't cover the hero:
-## above their head if there's room under the top bar, else below their feet.
-func _callout_clear_of_hero(mid: float) -> float:
-	var cam := get_viewport().get_camera_3d()
-	if cam == null or Game.hero == null or not is_instance_valid(Game.hero):
-		return 0.0
-	var h := get_viewport().get_visible_rect().size.y
-	var at := h * 0.5 + mid
-	var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.4).y
-	var feet := cam.unproject_position(Game.hero.global_position).y
-	if at + 34.0 < head - 10.0 or at - 34.0 > feet + 10.0:
-		return 0.0
-	var above := head - 50.0
-	if above - 30.0 > top_band():
-		return above - at
-	return feet + 60.0 - at
 
 
 ## The hero talking in a run (version 129): one of their lines ("hello" at the start of a
@@ -5912,7 +5939,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	if _title_event.visible:
 		_title_free.visible = false   # (the banner takes its line; the Pass screen still says it)
 	_title_best.text = best
-	_title_coins.text = str(coins)
+	_title_coins.text = Hud.thousands(coins)
 	var where := Game.continue_text()
 	_title_continue.visible = where != "" and not locked
 	# On short screens a saved run's CONTINUE button leaves room for one gold line only.
@@ -5988,8 +6015,8 @@ func title_hero_space() -> Rect2:
 
 func set_coins(n: int) -> void:
 	_coin_target = n
-	_coin_label.text = str(n - _coins_flying)
-	_title_coins.text = str(n)
+	_coin_label.text = Hud.thousands(n - _coins_flying)
+	_title_coins.text = Hud.thousands(n)
 
 
 var _coin_target := 0
@@ -6028,7 +6055,7 @@ func fly_coin(world_pos: Vector3, value: int) -> void:
 		dot.queue_free()
 		_flights -= 1
 		_coins_flying = maxi(0, _coins_flying - value)
-		_coin_label.text = str(_coin_target - _coins_flying)
+		_coin_label.text = Hud.thousands(_coin_target - _coins_flying)
 		_bump_coins())
 
 
@@ -7334,7 +7361,7 @@ func show_end_loop(v: bool, bonus := 0, next_loop := 2, just_bought := false) ->
 	_end_tap.visible = false
 	_end_spacer.custom_minimum_size.y = 24.0
 	_loop_deeper_button.text = "DESCEND INTO LOOP %d" % next_loop
-	_loop_bank_button.text = "BANK AND LEAVE  (+%d coins)" % bonus
+	_loop_bank_button.text = "BANK AND LEAVE  (+%s COINS)" % Hud.thousands(bonus)
 	# v219 review: right after buying the Pass at the free end, the one way on is down into the
 	# Drowned Vault the offer promised. Banking comes back at the next loop end.
 	if just_bought:

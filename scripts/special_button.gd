@@ -27,7 +27,8 @@ func _process(_delta: float) -> void:
 	if visible:
 		if _hero_id != h.hero_id:   # look the name up only when the hero changes
 			_hero_id = h.hero_id
-			_label.text = Heroes.get_hero(h.hero_id).special
+			_label.text = str(Heroes.get_hero(h.hero_id).special).to_upper()   # v392: capitals, like DASH
+			_label.label_settings.font_size = 19 if _label.text.length() <= 10 else 16   # SHADOW VOLLEY fits
 		var charged := h.special_ready()
 		_label.modulate.a = 1.0 if charged else 0.75
 		var now := [h.get_instance_id(), charged, snappedf(h.special_charge, 0.005), h.bolt_color, size]

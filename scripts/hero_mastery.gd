@@ -195,7 +195,7 @@ static func grant(cfg: ConfigFile, id: String) -> Dictionary:
 static func reward_text(r: Dictionary, id: String) -> String:
 	match str(r.kind):
 		"coins":
-			return "%d coins" % int(r.n)
+			return "%s coins" % Hud.thousands(int(r.n))
 		"drop":
 			return "Bone Drop" if int(r.n) == 1 else "%d Bone Drops" % int(r.n)
 		"lucky":

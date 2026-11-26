@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26o"
+const BUILD := "2026-11-26p"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3445,7 +3445,7 @@ func _dive_text(won: bool) -> String:
 
 func _loop_text() -> String:
 	var loop := Loops.loop_of(floor_num)
-	return "Loop %d cleared! Bank the run for +%d coins,\nor descend into loop %d." % [loop, _bank_bonus(), loop + 1]
+	return "Loop %d cleared! Bank the run for +%s coins,\nor descend into loop %d." % [loop, Hud.thousands(_bank_bonus()), loop + 1]
 
 
 func enter_next_room() -> void:
@@ -4742,7 +4742,7 @@ func _win() -> void:
 	hud.end_hide_best = _side_run()
 	if hero and is_instance_valid(hero):
 		hud.end_hero_def = HeroStyle.styled(_load_save(), Heroes.get_hero(hero.hero_id))   # v388: the hero cheers on the win screen
-	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %d%s\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, run_coins, _heroic_tag(), bones, extra],
+	hud.show_end(true, true, "%s\n\nTime  %s\nSkeletons destroyed  %d\nCoins this run  %s%s\nBone Road  +%d bones%s" % [fallen, _format_time(_run_time), _kills, Hud.thousands(run_coins), _heroic_tag(), bones, extra],
 		tap, false, score, best, offer)
 	if _dive_done:
 		hud.set_offer_back("BACK TO TITLE")   # (nothing of the dive is saved)
@@ -4834,7 +4834,7 @@ func on_hero_died() -> void:
 	elif floor_num > 1:
 		where += " on floor %d" % floor_num
 	# (The brave-try top-up has its own line below, so "Coins kept" is what the run found.)
-	var coin_line := "You earned %d coins.\nSpend them in the Armory!" % run_coins if was_first else "Coins kept  %d%s" % [run_coins - brave, _heroic_tag()]
+	var coin_line := "You earned %s coins.\nSpend them in the Armory!" % Hud.thousands(run_coins) if was_first else "Coins kept  %s%s" % [Hud.thousands(run_coins - brave), _heroic_tag()]
 	if day_bonus > 0:
 		coin_line += "  (+%d first run today)" % day_bonus
 	if brave > 0:
@@ -4845,7 +4845,7 @@ func on_hero_died() -> void:
 		coin_line += "\n%s  +%d" % [Events.word("shards"), shards]
 	coin_line += _today_lines()
 	if tutorial_again:
-		coin_line = "You keep the %d coins for the Armory,\nwhich opens after the tutorial.\nYou start again in this room." % run_coins
+		coin_line = "You keep the %s coins for the Armory,\nwhich opens after the tutorial.\nYou start again in this room." % Hud.thousands(run_coins)
 	# Free players who got deep hear about the Pass once a session, never mid-run.
 	var note := not Store.owned() and floor_num >= 3 and event == "" and (not _pass_note_shown or dive)
 	if note:

@@ -345,7 +345,7 @@ static func road_text(s: Dictionary) -> String:
 			return "Lucky Start" if int(s.n) == 1 else "%d Lucky Starts" % int(s.n)
 		"look":
 			return "%s %s" % [str(HeroStyle.extra(s.slot, s.key).name), {"glow": "glow", "outfit": "outfit", "aura": "aura"}.get(str(s.slot), "")]
-	return "%d coins" % int(s.n)
+	return "%s coins" % Hud.thousands(int(s.n))
 
 
 ## Claims step `i` (the caller adds coins). Returns the step, or {} if it can't be claimed.
