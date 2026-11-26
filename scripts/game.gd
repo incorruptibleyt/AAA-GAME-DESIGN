@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26d"
+const BUILD := "2026-11-26e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1632,7 +1632,9 @@ func keyboard_move() -> Vector2:
 ## Version 336 (visual review fix 1): 4.0, was 4.4, so everyone is a tenth bigger on a phone.
 const VIEW_HALF_WIDTH := 4.0
 ## The hero sits this far above the middle of the screen, away from the thumb.
-const HERO_ABOVE_CENTRE := 0.9
+## Version 381 (visual review of 375, fix 6, "the bottom third of the fight is empty"):
+## now a little below the middle (was 0.9 above), so more of the room ahead shows.
+const HERO_ABOVE_CENTRE := -0.3
 ## Version 220: share of the screen at the top the hero is kept out of (the top HUD).
 const TOP_SAFE := 0.22
 const NEAR_EXTRA := 2.3   # v219 (review 4 fix 20): was 1.5; feet by the near wall stay clear
@@ -1771,7 +1773,7 @@ var _boss_pull := 1.0
 ## Version 368: the farthest skeleton ahead of the hero (its head), followed slowly, and how
 ## much the camera leans toward it (see _room_focus).
 const FOE_HEAD := 1.5
-const FOE_HERO_LOW := 0.64
+const FOE_HERO_LOW := 0.69   # v381: was 0.64; the empty floor under the hero was wasted
 var _foe_far := 0.0
 var _foe_k := 0.0
 
