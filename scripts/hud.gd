@@ -299,6 +299,7 @@ var _stick_start := Vector2.ZERO
 var _stick_start_ms := 0
 var _chain_box: Control
 ## Where the slim chain row sits under the top bar, and how tall it is (version 135).
+const TOP_SHADE := 118.0   # v380: how far down the shade behind the top row reaches
 const CHAIN_TOP := 52.0   # v358: up in the top bar, beside the coins (v338: 90)
 const CHAIN_H := 34.0
 const CHAIN_X := 158.0
@@ -309,6 +310,8 @@ var _spine: ChainSpine
 var _score_label: Label
 var _broken_label: Label
 var _broken_time := 0.0
+var _top_shade: TextureRect
+var _boss_broken: Label   # v380: CHAIN BROKEN in a boss fight, under the boss bar
 var _tip: Label
 var _tip_time := 0.0
 var _tip_tag: Label
@@ -984,6 +987,29 @@ func _build_hud() -> void:
 	var root := Control.new()
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_safe.add_child(root)
+	# Version 380 (visual review of 375, fix 5): a soft dark shade behind the top row, so
+	# health, coins, chain, score and the room's name read as one bar instead of stickers
+	# over whatever walks under them. It reaches up past the top (the notch strip).
+	var shade := TextureRect.new()
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var grad := Gradient.new()
+	grad.set_color(0, Color(0.02, 0.01, 0.05, 0.62))
+	grad.set_color(1, Color(0.02, 0.01, 0.05, 0.0))
+	grad.add_point(0.55, Color(0.02, 0.01, 0.05, 0.4))
+	var gt := GradientTexture2D.new()
+	gt.gradient = grad
+	gt.fill_from = Vector2(0, 0)
+	gt.fill_to = Vector2(0, 1)
+	gt.width = 4
+	gt.height = 64
+	shade.texture = gt
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.set_anchors_preset(Control.PRESET_TOP_WIDE)
+	shade.offset_top = -80
+	shade.offset_bottom = TOP_SHADE
+	root.add_child(shade)
+	_top_shade = shade
 
 	var hp := Control.new()
 	hp.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1205,6 +1231,17 @@ func _build_hud() -> void:
 	_boss_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	full(_boss_flash)
 	bar_holder.add_child(_boss_flash)
+	# Version 380 (visual review of 375, fix 5): a broken chain in a boss fight is told just
+	# under the boss bar. Before, the chain strip faded in over the boss's name to say it.
+	_boss_broken = label("", 18, Color(1, 0.38, 0.32))
+	chunky(_boss_broken.label_settings)
+	_boss_broken.label_settings.outline_size = 6
+	_boss_broken.autowrap_mode = TextServer.AUTOWRAP_OFF
+	_boss_broken.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_boss_broken.offset_top = 4
+	_boss_broken.offset_bottom = 30
+	_boss_broken.modulate.a = 0.0
+	_boss_box.add_child(_boss_broken)
 	_boss_box.visible = false
 
 	# Bone Chain: a spine of six vertebrae across the top with the multiplier beside it, and
@@ -4429,8 +4466,8 @@ func _process(delta: float) -> void:
 	# Version 305 (Supercell review fix 2): in a boss fight the chain, x1.0 and SCORE stood
 	# right over the boss in every boss picture. They step aside until the boss is down (the
 	# chain still counts; a break still flashes CHAIN BROKEN under the boss bar).
-	if Game.boss_fight_on() and _broken_time <= 0.0:
-		want = 0.0
+	if Game.boss_fight_on():
+		want = 0.0   # (v380: a break is told under the boss bar instead, _boss_broken)
 	_chain_box.modulate.a = move_toward(_chain_box.modulate.a, want, delta * (8.0 if want > 0.0 else 3.0))
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)
@@ -4443,7 +4480,10 @@ func _process(delta: float) -> void:
 		_score_label.text = Hud.thousands(shown)
 	if _broken_time > 0.0:
 		_broken_time -= delta
-		_broken_label.modulate.a = clampf(_broken_time / 0.4, 0.0, 1.0)
+		var fade := clampf(_broken_time / 0.4, 0.0, 1.0)
+		var in_boss := Game.boss_fight_on() and _boss_box.visible
+		_broken_label.modulate.a = 0.0 if in_boss else fade
+		_boss_broken.modulate.a = fade if in_boss else 0.0
 		_chain_label.modulate.a = 1.0 - _broken_label.modulate.a
 	# Tips, hints and callouts belong to the action: hide them while a menu or the
 	# blessing cards cover it, so they never show through ("PERFECT!" over the cards).
@@ -4707,6 +4747,7 @@ func chain_broken(was: float) -> void:
 	_chain_label.label_settings.font_color = ChainSpine.BONE
 	if was >= 2.0:
 		_broken_label.text = "CHAIN BROKEN  x%.1f" % was
+		_boss_broken.text = _broken_label.text
 		_broken_time = 1.3
 
 
