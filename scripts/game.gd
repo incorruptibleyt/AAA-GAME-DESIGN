@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26f"
+const BUILD := "2026-11-26g"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -5271,26 +5271,38 @@ func _title_hero_line(id: String, trial := false) -> void:
 
 ## Version 375 (visual review of 366, fix 8): the pictures the menus will ask for are made
 ## ahead of time while the title is up (LookShots.prewarm): the Legend Vault's twelve on
-## this hero first (each takes about a second), then this hero's looks for the Style cards.
-## Not before the first run (a new phone is still warming up), and on Low graphics only
-## the Vault's (a slow phone keeps its frames for the title).
+## this hero first (each takes about a second), then this hero's looks for the Style cards
+## (v383: Style first for anyone who can't buy a Vault look yet). Before the first run only
+## the Style ones, after a longer wait; on Low graphics only the Vault's (a slow phone keeps
+## its frames for the title).
 var _prewarmed := ""
 
 func _prewarm_looks(id: String) -> void:
-	if id == _prewarmed or first_run_pending() or bench:
+	if id == _prewarmed or bench:
+		return
+	# Version 383 (visual review of 375, fix 8): a new player's Style cards (Glow, Aura) opened
+	# on drawn symbols, as nothing was made ahead before the first run. Now this hero's own
+	# looks are made ahead for everyone (after a longer wait before the first run, while the
+	# phone warms up), and first for anyone who can't buy a Legend Vault look yet: those are
+	# the cards they open.
+	var first := first_run_pending()
+	if first and graphics_level <= 0:
 		return
 	_prewarmed = id
-	var jobs: Array = []
-	for d: Dictionary in Legends.LIST:
-		if d.get("ready", false):
-			jobs.append([id, "legend", str(d.id)])
+	var vault: Array = []
+	if not first:
+		for d: Dictionary in Legends.LIST:
+			if d.get("ready", false):
+				vault.append([id, "legend", str(d.id)])
+	var style: Array = []
 	if graphics_level > 0:
 		var event_on := Events.active() or not Events.coming().is_empty()
 		for it: Dictionary in HeroStyle.items(id):
 			if it.has("event") and not event_on:
 				continue
-			jobs.append([id, str(it.slot), str(it.key)])
-	LookShots.prewarm(jobs)
+			style.append([id, str(it.slot), str(it.key)])
+	var jobs: Array = vault + style if coins >= Legends.LIST[0].price else style + vault
+	LookShots.prewarm(jobs, 6.0 if first else 1.5)
 
 
 func _open_road() -> void:

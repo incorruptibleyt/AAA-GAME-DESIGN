@@ -78,7 +78,7 @@ static func prize_rect(kind: String, px: float, dim := false) -> TextureRect:
 ## memory), so a list opened later shows real pictures at once. The Legend Vault's twelve
 ## each need a second or so for the look to play before its picture: its list opened on
 ## drawn symbols that turned into pictures one by one.
-static func prewarm(jobs: Array) -> void:
+static func prewarm(jobs: Array, wait := 1.5) -> void:
 	if _me == null:
 		var tree := Engine.get_main_loop() as SceneTree
 		if tree == null:
@@ -86,7 +86,7 @@ static func prewarm(jobs: Array) -> void:
 		_me = LookShots.new()
 		tree.root.add_child.call_deferred(_me)
 	_me._pre = jobs.duplicate()
-	_me._pre_wait = 1.5
+	_me._pre_wait = wait
 
 
 static func shot_key(id: String, slot: String, key: String) -> String:
@@ -455,21 +455,24 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 			# Close on the prize itself (a pet flies, and a finisher bursts, at the hero's right on
 			# the screen); the hero is half in the picture, to show it is worn.
 			var lid := str(def.style.legend.values()[0])
+			# Version 383 (visual review of 375, fix 8): closer still, on the item: a card's
+			# picture is small, and the whole Knight with a tiny lantern beside him read as
+			# "the same Knight again" on every card.
 			var own := {
-				"wisp": [Vector3(0.25, 1.5, 3.9), Vector3(0.2, 1.0, 0)],
-				"raven": [Vector3(0.4, 1.8, 3.9), Vector3(0.35, 1.25, 0)],
-				"mimic": [Vector3(0.45, 1.3, 3.6), Vector3(0.4, 0.6, 0)],
-				"wyrm": [Vector3(1.0, 2.0, 4.3), Vector3(0.85, 1.4, 0)],
-				"gold_rush": [Vector3(1.15, 1.5, 3.5), Vector3(1.05, 0.95, 0)],
-				"soul_harvest": [Vector3(1.05, 1.7, 3.7), Vector3(0.95, 1.05, 0)],
+				"wisp": [Vector3(0.45, 1.5, 2.8), Vector3(0.4, 1.05, 0)],
+				"raven": [Vector3(0.55, 2.05, 2.5), Vector3(0.45, 1.65, 0)],
+				"mimic": [Vector3(0.7, 1.15, 2.4), Vector3(0.6, 0.45, 0)],
+				"wyrm": [Vector3(1.0, 2.1, 3.3), Vector3(0.85, 1.55, 0)],
+				"gold_rush": [Vector3(1.35, 1.45, 2.7), Vector3(1.2, 0.95, 0)],
+				"soul_harvest": [Vector3(0.8, 1.3, 2.6), Vector3(0.65, 0.85, 0)],
 			}
 			if own.has(lid):
 				return own[lid]
 			match str(def.style.legend.keys()[0]):
 				"steps":
-					return [Vector3(0.0, 2.64, 3.7), Vector3(0, 0.45, 0)]
+					return [Vector3(0.0, 2.7, 2.2), Vector3(0, 0.0, 0.4)]
 				"wings":
-					return [Vector3(-0.2, 1.6, 4.2), Vector3(-0.25, 1.15, 0)]
+					return [Vector3(-0.2, 1.65, 3.5), Vector3(-0.25, 1.3, 0)]
 				"grand":
 					return [Vector3(0.0, 1.52, 4.64), Vector3(0, 1.0, 0)]
 	return [Vector3(0, 1.4, 4.9), Vector3(0, 0.9, 0)]
