@@ -589,22 +589,61 @@ func _meteors() -> void:
 		get_tree().create_timer(0.15 * i, false).timeout.connect(func(): _meteor(spot))
 
 
+## Version 378 (visual review of 375, fix 3): a meteor looked like two flat orange balls
+## dropping straight down. Now a dark, faceted rock glowing like an ember falls at a slant
+## out of the back of the room inside a burning flame, trailing fire. Its shadow grows on the
+## floor under a thin warning ring while it falls, and where it lands it leaves a short
+## scorch with sparks, dust and the old shockwave.
+const METEOR_FALL := 0.5
+const METEOR_FROM := Vector3(-2.6, 10.0, -4.5)   # where it falls from, seen from the landing spot
+static var _meteor_mesh: SphereMesh
+
 func _meteor(spot: Vector3) -> void:
 	if Room.current == null:
 		return
-	var mark := U.floor_quad(Room.current, Vector2(4.4, 4.4), U.unlit(Color(1, 0.75, 0.3, 0.5), U.soft_circle()).duplicate(), spot + Vector3.UP * 0.05)
+	var shadow := U.floor_quad(Room.current, Vector2(1.0, 1.0), U.unlit(Color(0.05, 0.02, 0.02, 0.85), U.soft_circle()).duplicate(), spot + Vector3.UP * 0.1)
+	var warn := U.floor_quad(Room.current, Vector2(4.4, 4.4), U.unlit(Color(1, 0.6, 0.2, 0.8), U.ring()).duplicate(), spot + Vector3.UP * 0.12)
+	shadow.scale = Vector3(2.0, 1.0, 2.0)
 	var rock := Node3D.new()
 	Room.current.add_child(rock)
-	rock.global_position = spot + Vector3.UP * 9.0
-	U.sphere(rock, 0.45, U.unlit(Color(1, 0.55, 0.2)))
-	U.sphere(rock, 0.3, U.unlit(Color(1, 0.95, 0.7)))
+	if _meteor_mesh == null:
+		_meteor_mesh = SphereMesh.new()   # few faces: a chunk of rock, not a ball
+		_meteor_mesh.radius = 0.75
+		_meteor_mesh.height = 1.35
+		_meteor_mesh.radial_segments = 7
+		_meteor_mesh.rings = 4
+	var body := MeshInstance3D.new()
+	body.mesh = _meteor_mesh
+	body.material_override = U.mat(Color(0.32, 0.1, 0.04), 0.9, 0.9)
+	body.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	rock.add_child(body)
+	for k in 3:   # glowing cracks of molten rock showing through
+		var a := TAU * k / 3.0
+		U.sphere(body, 0.17, U.unlit(Color(1.0, 0.75, 0.3)), Vector3(cos(a) * 0.45, 0.15 - 0.15 * k, sin(a) * 0.45))
+	Fx.flame(rock, Vector2(1.6, 3.0), Vector3(0, -0.1, 0))   # the fire round it, trailing up behind the rock
+	var from := spot + METEOR_FROM
+	rock.global_position = from
 	var tw := rock.create_tween()
-	tw.tween_property(rock, "global_position", spot + Vector3.UP * 0.3, 0.45).set_ease(Tween.EASE_IN)
+	var last := [0.0]
+	tw.tween_method(func(t: float):
+		if not is_instance_valid(rock):
+			return
+		rock.global_position = from.lerp(spot + Vector3.UP * 0.3, t * t)
+		body.rotation += Vector3(0.25, 0.4, 0.1)
+		shadow.scale = Vector3.ONE * lerpf(2.0, 5.0, t)
+		if t - last[0] > 0.12:
+			last[0] = t
+			Fx.trail(rock.global_position + Vector3.UP * 0.4, Color(1.0, 0.55, 0.15)), 0.0, 1.0, METEOR_FALL)
 	tw.tween_callback(func():
 		rock.queue_free()
-		mark.queue_free()
-		Fx.shockwave(spot, Color(1, 0.55, 0.2), 2.4)
+		warn.queue_free()
+		shadow.queue_free()
+		Fx.shockwave(spot, Color(1, 0.55, 0.2), 2.8)
+		Fx.impact(spot + Vector3.UP * 0.6, Color(1.0, 0.7, 0.3), 3.2)
 		Fx.magic(spot + Vector3.UP * 0.5, Color(1, 0.6, 0.2), 20)
+		Fx.sparks(spot + Vector3.UP * 0.4, Color(1.0, 0.7, 0.3))
+		Fx.dust(spot, 12)
+		_scorch(spot, 3.8, 1.8)
 		Sfx.play("boom", 0.7)
 		Game.shake(0.2)
 		for a: Actor in Actor.all.duplicate():
@@ -614,6 +653,34 @@ func _meteor(spot: Vector3) -> void:
 					Burning.apply(a, maxf(burn_dps, 8.0), 3.0)
 		if perks.has("meteors"):
 			_crater(spot))
+
+
+## A dark burn mark on the floor that fades away (a meteor's landing).
+func _scorch(spot: Vector3, size: float, life: float) -> void:
+	if Room.current == null:
+		return
+	var mark := U.floor_quad(Room.current, Vector2(size, size) * 1.9, U.unlit(Color(0.06, 0.02, 0.01, 1.0), U.soft_circle()).duplicate(), spot + Vector3.UP * 0.1)
+	var mat := mark.material_override as StandardMaterial3D
+	var tw := mark.create_tween()
+	tw.tween_interval(life * 0.5)
+	tw.tween_property(mat, "albedo_color:a", 0.0, life * 0.5)
+	tw.tween_callback(mark.queue_free)
+	# the ground still glowing like an ember inside the burn, cooling from yellow to red
+	var ember := U.floor_quad(Room.current, Vector2(size, size), U.unlit(Color(1.0, 0.75, 0.25, 1.0), U.soft_circle()).duplicate(), spot + Vector3.UP * 0.12)
+	var em := ember.material_override as StandardMaterial3D
+	em.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	var te := ember.create_tween()
+	te.tween_property(em, "albedo_color", Color(0.8, 0.15, 0.02, 0.0), life * 0.85)
+	te.tween_callback(ember.queue_free)
+	# a flash of fire rushing out over the floor where it struck
+	var flash := U.floor_quad(Room.current, Vector2(size, size), U.unlit(Color(1.0, 0.6, 0.15, 1.0), U.ring()).duplicate(), spot + Vector3.UP * 0.14)
+	var fm := flash.material_override as StandardMaterial3D
+	fm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	flash.scale = Vector3.ONE * 0.4
+	var tf := flash.create_tween().set_parallel()
+	tf.tween_property(flash, "scale", Vector3.ONE * 1.5, 0.35).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tf.tween_property(fm, "albedo_color:a", 0.0, 0.35).set_ease(Tween.EASE_IN)
+	tf.chain().tween_callback(flash.queue_free)
 
 
 ## Meteor Storm (version 308): a scorched crater where the meteor struck, burning for a while.
@@ -630,8 +697,48 @@ func _crater(spot: Vector3) -> void:
 	Game._teach("meteors", "METEOR STORM: meteors leave burning craters!")
 
 
+## Version 378 (visual review of 375, fix 3): Whirlwind showed only the Barbarian turning,
+## with a few sparks. Now a storm of wind blades sweeps round him on the floor while he
+## spins, out to the edge of what it hits (2.8 m), with a faint ring on that edge.
+const WHIRL_R := 2.8
+static var _storm_mat: ShaderMaterial
+var _storm: MeshInstance3D
+
+func _storm_show(on: bool) -> void:
+	if not on:
+		if _storm:
+			_storm.visible = false
+		return
+	if _storm == null:
+		if _storm_mat == null:
+			var sh := Shader.new()
+			sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0, 0.82, 0.55, 1.0);
+void fragment() {
+	vec2 p = UV * 2.0 - 1.0;
+	float r = length(p);
+	float a = atan(p.y, p.x) / 6.2831853;
+	// three curved blades of wind racing round, brightest toward the outside
+	float blade = fract(a * 3.0 + r * 0.9 + TIME * 3.2);
+	float arcs = smoothstep(0.0, 0.08, blade) * (1.0 - smoothstep(0.08, 0.42, blade));
+	float body = smoothstep(0.25, 0.75, r) * (1.0 - smoothstep(0.9, 1.0, r));
+	float edge = smoothstep(0.9, 0.95, r) * (1.0 - smoothstep(0.96, 1.0, r));
+	float k = arcs * body * 0.75 + edge * 0.45;
+	ALBEDO = col.rgb * k;
+	ALPHA = clamp(k, 0.0, 1.0);
+}
+"""
+			_storm_mat = ShaderMaterial.new()
+			_storm_mat.shader = sh
+		_storm = U.floor_quad(self, Vector2(WHIRL_R * 2.0, WHIRL_R * 2.0), _storm_mat, Vector3.UP * 0.12)
+	_storm.visible = true
+
+
 func _whirlwind(delta: float) -> void:
 	_spin_left -= delta
+	_storm_show(_spin_left > 0.0 and not dead)
 	visual.rotation.y += delta * 22.0
 	_spin_tick -= delta
 	if _spin_tick <= 0.0:
@@ -769,6 +876,8 @@ func _process(delta: float) -> void:
 	if _spin_left > 0.0 and playing:
 		_whirlwind(delta)
 		_shot_timer = maxf(_shot_timer, 0.1)
+	elif _storm and _storm.visible:
+		_storm_show(false)
 	var stick := Vector2.ZERO
 	if playing:
 		stick = Game.hud.joystick + Game.keyboard_move()
