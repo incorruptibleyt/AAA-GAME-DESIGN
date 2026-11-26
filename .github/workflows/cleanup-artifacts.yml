@@ -1,0 +1,26 @@
+# One-time cleanup (Nov 2026): deletes the old build copies kept on the Actions tab.
+# They filled the account's 0.5 GB Actions storage. It runs when this file is pushed, or from the Actions tab.
+name: Delete old build copies
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["claude/**"]
+    paths: [".github/workflows/cleanup-artifacts.yml"]
+
+permissions:
+  actions: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete every stored artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=0
+          for id in $(gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?per_page=100" --jq '.artifacts[].id'); do
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id" && n=$((n+1))
+          done
+          echo "Deleted $n build copies."
