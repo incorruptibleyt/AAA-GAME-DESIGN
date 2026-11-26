@@ -45,10 +45,14 @@ func _setup() -> void:
 	drop_chance = 0.0
 	move_speed = 1.35
 	contact_damage = 16.0
-	radius = 1.15
-	center_height = 1.9
+	# Version 387 (visual review of v383, fix 7): the last boss was the weakest, a navy
+	# skeleton about twice the hero's size, dark on the dark Abyss. Now it is a third bigger
+	# and made of the bright night sky: a glowing violet body full of stars (_night_bones),
+	# a starry ring of dust instead of a pale band, and a star in its ribs that blazes.
+	radius = 1.45
+	center_height = 2.4
 	knockback_scale = 0.05
-	var look := bones(Art.SKELETON_WARRIOR, 4.4, STAR)
+	var look := bones(Art.SKELETON_WARRIOR, 5.7, STAR)
 	look.accent = Color(0.14, 0.15, 0.3)
 	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
 	look.overlay = _night_bones()   # bones gone dark as the night sky, stars twinkling in them
@@ -68,7 +72,8 @@ static func _mat(key: String) -> Material:
 	var k := "star_eater_" + key
 	if not _meshes.has(k):
 		match key:
-			"star": _meshes[k] = U.mat(Color(0.9, 0.93, 1.0), 0.3, 1.1)
+			"star": _meshes[k] = U.mat(Color(1.0, 0.8, 0.4), 0.3, 1.6)   # (v387: a gold star, was a flat white one)
+			"star_core": _meshes[k] = U.unlit(Color(1.0, 0.97, 0.88))
 			"eye": _meshes[k] = U.unlit(Color(0.75, 0.88, 1.0))
 			"gold": _meshes[k] = U.mat(Color(1.0, 0.72, 0.25), 0.3, 1.4)
 			"shard": _meshes[k] = U.mat(Color(0.35, 0.5, 1.0), 0.25, 1.1)
@@ -93,7 +98,7 @@ static func _star_mesh() -> ArrayMesh:
 	if _meshes.has("star"):
 		return _meshes["star"]
 	var parts := []
-	parts.append([Props._sphere(), Props._xf(Vector3.ZERO, Vector3(0.15, 0.15, 0.1)), _mat("star")])
+	parts.append([Props._sphere(), Props._xf(Vector3.ZERO, Vector3(0.17, 0.17, 0.11)), _mat("star_core")])
 	parts.append([Props._knob(), Props._xf(Vector3(0, 0, 0.06), Vector3.ONE * 0.07), _mat("gold")])
 	for i in 5:
 		var a := PI * 0.5 + TAU * i / 5.0
@@ -179,7 +184,7 @@ static func _night_bones() -> ShaderMaterial:
 shader_type spatial;
 render_mode unshaded, blend_mul, depth_draw_never, cull_back;
 void fragment() {
-	ALBEDO = vec3(0.4, 0.43, 0.7);
+	ALBEDO = vec3(0.62, 0.52, 0.95);
 }
 """
 	var stars := Shader.new()
@@ -195,9 +200,12 @@ void fragment() {
 	float h = hash(cell);
 	float d = length(fract(q) - 0.5);
 	float tw = 0.5 + 0.5 * sin(TIME * 2.6 + h * 50.0);
-	float s = step(0.72, h) * smoothstep(0.2, 0.0, d) * tw;
-	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.4);
-	ALBEDO = vec3(0.05, 0.07, 0.2) + vec3(0.85, 0.9, 1.0) * s * 1.6 + vec3(0.35, 0.5, 1.0) * rim * 0.85;
+	float s = step(0.6, h) * smoothstep(0.24, 0.0, d) * tw;
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.8);
+	// a nebula drifting through it: violet and blue clouds
+	float neb = 0.5 + 0.5 * sin(lp.x * 3.1 + lp.y * 2.3 + TIME * 0.6) * sin(lp.z * 2.7 - lp.y * 1.9 - TIME * 0.4);
+	vec3 cloud = mix(vec3(0.28, 0.15, 0.6), vec3(0.15, 0.32, 0.72), neb);
+	ALBEDO = cloud + vec3(0.95, 0.95, 1.0) * s * 2.2 + vec3(0.5, 0.62, 1.0) * rim * 1.3;
 }
 """
 	var m := ShaderMaterial.new()
@@ -276,7 +284,7 @@ func _dress() -> void:
 		_star.position = Vector3(0, 0.22, 0.46)
 		# Tipped up to face the camera above the hero (facing straight ahead it showed edge-on).
 		_star.rotation.x = -0.75
-		_star.scale = Vector3.ONE * 1.35
+		_star.scale = Vector3.ONE * 1.25
 		chest.add_child(_star)
 		var core := MeshInstance3D.new()
 		core.mesh = _star_mesh()
@@ -285,7 +293,8 @@ func _dress() -> void:
 		var q := QuadMesh.new()
 		q.size = Vector2(1.0, 1.0)
 		_halo.mesh = q
-		_halo.material_override = _glow_mat(Color(0.5, 0.65, 1.0, 0.35))
+		_halo.material_override = _glow_mat(Color(1.0, 0.85, 0.55, 0.75))   # (v387: a blaze, was a faint blue)
+		_halo.scale = Vector3.ONE * 1.9
 		_halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_star.add_child(_halo)
 	if skel.find_bone("head") >= 0:

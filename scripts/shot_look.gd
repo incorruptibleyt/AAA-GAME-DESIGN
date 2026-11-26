@@ -253,10 +253,10 @@ void fragment() {
 			mc = vec3(0.66, 1.0, 0.2);
 			bg = vec3(0.02, 0.14, 0.04);
 		} else if (kind == 7) {
-			// Moon: a crescent, horns behind.
-			d = max(rr - 0.42, 0.34 - length(u - vec2(0.0, -0.2)));
-			mc = vec3(1.0, 0.93, 0.76);
-			bg = vec3(0.3, 0.0, 0.02);
+			// Version 387 (visual review of v383, fix 6): a blood-red ember, white-hot inside
+			// (a flat crescent badge before).
+			d = rr - 0.31 - 0.03 * sin(ang * 4.0 + TIME * 6.0);
+			mc = mix(vec3(0.7, 0.03, 0.05), vec3(1.0, 0.72, 0.55), smoothstep(0.02, 0.24, -d));
 		} else if (kind == 8) {
 			// Sand: a turning swirl.
 			float sw8 = sin(ang * 2.0 + rr * 12.0 - TIME * 7.0);
@@ -270,18 +270,21 @@ void fragment() {
 			mc = mix(vec3(0.6, 0.32, 1.0), vec3(1.0, 0.9, 1.0), step(0.0, u.x) * 0.55 + step(0.1, u.y) * 0.45);
 			bg = vec3(0.1, 0.01, 0.24);
 		} else if (kind == 10) {
-			// Ink: a black blot on a round of parchment.
-			d = rr - (0.25 + 0.08 * sin(ang * 5.0 + TIME * 3.0) + 0.04 * sin(ang * 9.0 - TIME * 5.0));
-			d = min(d, length(u - vec2(0.3, -0.28)) - 0.06);
-			d = min(d, length(u - vec2(-0.33, 0.2)) - 0.05);
-			mc = mix(vec3(0.015, 0.0, 0.05), vec3(0.4, 0.25, 0.9), 1.0 - smoothstep(0.0, 0.1, length(u - vec2(-0.08, 0.1))));
-			bg = vec3(0.86, 0.72, 0.45);
+			// Ink (v387): a drop of ink flying round end first, glowing violet in its middle
+			// (a blot on a round of parchment before).
+			vec2 hi = u - vec2(0.0, 0.18);
+			float ti = clamp(-hi.y / 0.7, 0.0, 1.0);
+			d = hi.y > 0.0 ? length(hi) - 0.28 : abs(u.x) - 0.28 * (1.0 - ti) * (1.0 - 0.3 * ti);
+			d = max(d, -0.52 - u.y);
+			mc = mix(vec3(0.05, 0.0, 0.12), vec3(0.62, 0.48, 1.0), smoothstep(0.03, 0.2, -d));
+			mc = mix(mc, vec3(1.0), 1.0 - smoothstep(0.03, 0.07, length(u - vec2(-0.1, 0.3))));
 		} else if (kind == 11) {
-			// Gear: a brass cog, turning.
-			vec2 gq = turn(u, TIME * 4.0);
-			d = max(rr - (0.32 + 0.1 * smoothstep(-0.3, 0.3, sin(atan(gq.y, gq.x) * 8.0))), 0.11 - rr);
-			mc = vec3(1.0, 0.66, 0.18);
-			bg = vec3(0.1, 0.05, 0.01);
+			// Gear (v387): a red-hot rivet of brass shot out of the Foundry, glowing inside
+			// (a turning cog badge before).
+			d = seg(u, vec2(0.0, -0.22), vec2(0.0, 0.26)) - 0.18;
+			float th = 0.5 + 0.5 * sin(u.y * 26.0 - TIME * 20.0);
+			mc = mix(vec3(0.75, 0.32, 0.06), vec3(1.0, 0.93, 0.6), smoothstep(0.02, 0.15, -d));
+			mc *= mix(0.82, 1.0, th);
 		} else if (kind == 12) {
 			// Star: four points, slowly turning.
 			vec2 a12 = abs(turn(u, TIME * 1.5)) + 0.0001;
@@ -295,39 +298,41 @@ void fragment() {
 			mc = mix(vec3(1.0, 0.8, 0.36), vec3(1.0, 1.0, 0.88), 1.0 - smoothstep(0.0, 0.07, abs(u.x)));
 			bg = vec3(0.2, 0.07, 0.0);
 		} else if (kind == 14) {
-			// Snow: a six-armed flake, slowly turning.
-			vec2 sn = turn(u, TIME * 1.2);
-			float a14 = mod(atan(sn.y, sn.x) + TAU / 12.0, TAU / 6.0) - TAU / 12.0;
-			vec2 fs = rr * vec2(cos(a14), abs(sin(a14)));
-			d = min(seg(fs, vec2(0.0), vec2(0.46, 0.0)) - 0.045, seg(fs, vec2(0.27, 0.0), vec2(0.39, 0.11)) - 0.035);
-			mc = vec3(0.95, 1.0, 1.0);
-			bg = vec3(0.03, 0.22, 0.5);
+			// Snow (v387): a ball of packed frost with a crust of little points, bright inside
+			// (a flat snowflake badge before).
+			vec2 sn = turn(u, TIME * 2.0);
+			d = rr - 0.3 - 0.04 * smoothstep(0.2, 1.0, sin(atan(sn.y, sn.x) * 7.0));
+			mc = mix(vec3(0.45, 0.72, 1.0), vec3(1.0), smoothstep(0.02, 0.22, -d));
 		} else if (kind == 15) {
-			// Version 371, the bosses. Crown (the Skeleton King): a gold band, three points, a
-			// red gem. Upright on the screen whichever way it flies.
-			float top = 0.34 - 1.4 * abs(mod(Q.x + 0.15, 0.3) - 0.15);
-			d = max(max(abs(Q.x) - 0.34, -0.28 - Q.y), (Q.y - top) * 0.55);
-			mc = mix(vec3(1.0, 0.1, 0.12), vec3(1.0, 0.78, 0.2), smoothstep(0.05, 0.08, length(Q - vec2(0.0, -0.14))));
-			bg = vec3(0.16, 0.0, 0.1);
+			// Version 387: the Skeleton King throws a gold blade with a red gem, point first
+			// (a crown badge before).
+			float wk = u.y > 0.1 ? 0.3 * (0.66 - u.y) / 0.56 : 0.3 * (u.y + 0.58) / 0.68;
+			d = max((abs(u.x) - wk) * 0.85, -0.58 - u.y);
+			mc = mix(vec3(0.95, 0.6, 0.1), vec3(1.0, 0.96, 0.66), 1.0 - smoothstep(0.0, 0.07, abs(u.x)));
+			mc = mix(vec3(1.0, 0.12, 0.12), mc, smoothstep(0.07, 0.09, length(u - vec2(0.0, 0.02))));
 		} else if (kind == 16) {
-			// Magma (the Cinder Colossus): a lump of black rock with glowing cracks.
-			d = rr - 0.43 - 0.035 * sin(ang * 5.0 + 1.0);
+			// Magma (the Cinder Colossus, v387): molten rock, yellow-hot inside, a thin cracked
+			// crust round the edge (black rock with thin cracks read as a rune badge).
+			d = rr - 0.42 - 0.04 * sin(ang * 5.0 + 1.0 + TIME * 3.0);
 			float crack = min(abs(sin(u.x * 5.0 + sin(u.y * 6.0) * 1.3 + 0.5)), abs(sin(u.y * 4.5 + sin(u.x * 7.0) * 1.1 + 1.2)));
-			mc = mix(vec3(1.0, 0.75, 0.15), vec3(0.2, 0.09, 0.06), smoothstep(0.06, 0.2, crack));
-			bg = vec3(0.55, 0.1, 0.0);
+			vec3 crust = mix(vec3(1.0, 0.55, 0.08), vec3(0.2, 0.07, 0.04), smoothstep(0.08, 0.22, crack));
+			vec3 molten = mix(vec3(1.0, 0.5, 0.06), vec3(1.0, 0.95, 0.62), smoothstep(0.1, 0.32, -d));
+			mc = mix(crust, molten, smoothstep(0.05, 0.13, -d));
 		} else if (kind == 17) {
-			// Skull (the Lich's souls): upright on the screen whichever way it drifts.
-			d = min(length(Q - vec2(0.0, 0.08)) - 0.3, max(abs(Q.x) - 0.17, max(Q.y - 0.0, -0.36 - Q.y)));
-			float eyes = min(length(vec2(abs(Q.x) - 0.12, Q.y - 0.05)) - 0.085, max(abs(Q.x) - 0.025, abs(Q.y + 0.13) - 0.05));
-			eyes = min(eyes, max(abs(abs(Q.x) - 0.075) - 0.012, abs(Q.y + 0.3) - 0.06));
-			mc = mix(vec3(0.02, 0.1, 0.1), vec3(0.8, 1.0, 0.9), smoothstep(-0.01, 0.015, eyes));
-			bg = vec3(0.0, 0.14, 0.13);
+			// Soul (the Lich, v387): a green soul flame, white at its heart, flickering behind
+			// (a skull badge before).
+			vec2 hs = u - vec2(0.0, 0.16);
+			float ts = clamp(-hs.y / 0.72, 0.0, 1.0);
+			float wobs = sin(u.y * 12.0 + TIME * 16.0) * 0.09 * ts;
+			d = hs.y > 0.0 ? length(hs) - 0.29 : abs(u.x + wobs) - 0.29 * (1.0 - ts * ts);
+			d = max(d, -0.56 - u.y);
+			mc = mix(vec3(0.1, 0.75, 0.45), vec3(0.9, 1.0, 0.92), smoothstep(0.03, 0.2, -d));
 		} else if (kind == 18) {
-			// Hex (the Lich's bolts): a violet eye with a slit, across the way it flies.
-			d = max(length(u - vec2(0.0, 0.3)), length(u + vec2(0.0, 0.3))) - 0.52;
-			mc = mix(vec3(0.03, 0.0, 0.08), mix(vec3(1.0, 0.92, 1.0), vec3(0.72, 0.38, 1.0), smoothstep(0.08, 0.2, rr)),
-				smoothstep(0.035, 0.06, max(abs(u.x), abs(u.y) - 0.13)));
-			bg = vec3(0.1, 0.0, 0.2);
+			// Hex (the Lich's bolts, v387): a long violet spike, lit on one face, bright down
+			// its middle (an eye badge before).
+			d = (abs(u.x) / 0.19 + abs(u.y - 0.02) / 0.58 - 1.0) * 0.16;
+			mc = mix(vec3(0.48, 0.2, 0.95), vec3(0.95, 0.85, 1.0), step(0.0, u.x) * 0.45);
+			mc = mix(mc, vec3(1.0, 0.95, 1.0), 1.0 - smoothstep(0.0, 0.05, abs(u.x)));
 		} else if (kind == 19) {
 			// Wisp (the Lich's spirals): a cold ghost flame with two eyes.
 			vec2 hw = u - vec2(0.0, 0.14);
@@ -363,11 +368,17 @@ void fragment() {
 		// Version 379 (visual review of 375, fix 4): no round badge behind it any more, so it
 		// reads as a thing flying, not a menu icon. The shape keeps a dark line, then a band of
 		// the danger pink that hugs the shape, then a glow in the shot's own colour.
+		// Version 387 (visual review of v383, fix 6): every shape is a solid thing, a little
+		// darker at its edge and hot in its middle, and the glow round it (in the colour of
+		// the place or the boss) is bigger, so floors differ by more than the shape. The pink
+		// band stays as the shared mark of danger, a little thinner.
+		mc *= mix(0.72, 1.0, smoothstep(0.0, 0.045, -d));
+		mc = mix(mc, vec3(1.0, 0.97, 0.9), smoothstep(0.1, 0.26, -d) * 0.4);
 		float fill = 1.0 - smoothstep(-0.012, 0.012, d);
 		float line = 1.0 - smoothstep(0.03, 0.05, d);
-		float rim = 1.0 - smoothstep(0.1, 0.125, d);
+		float rim = 1.0 - smoothstep(0.085, 0.108, d);
 		float edge = 1.0 - smoothstep(0.8, 1.0, length(q));
-		float halo = exp(-max(d, 0.0) * 7.0) * 0.85 * edge;
+		float halo = exp(-max(d, 0.0) * 5.0) * 0.95 * edge;
 		vec3 c = mix(glowc.rgb, col.rgb, rim);
 		c = mix(c, dark, line);
 		ALBEDO = mix(c, mc, fill);

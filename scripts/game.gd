@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26j"
+const BUILD := "2026-11-26k"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1654,6 +1654,11 @@ const HERO_ABOVE_CENTRE := -0.3
 ## Version 220: share of the screen at the top the hero is kept out of (the top HUD).
 const TOP_SAFE := 0.22
 const NEAR_EXTRA := 2.3   # v219 (review 4 fix 20): was 1.5; feet by the near wall stay clear
+## Version 387 (visual review of v383, fix 8, "dead floor at the bottom"): NEAR_EXTRA showed
+## 2.9 m past the near wall on every phone, a fifth of the screen with no fight in it. Now
+## the camera stops once a hero against the near wall stands this far (layout pixels) above
+## the bottom of the screen: clear of DASH and the special, the same on every phone shape.
+const NEAR_FEET_PX := 185.0
 ## The title screen's lobby camera looks down at this angle (the fight camera is steeper),
 ## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
 const LOBBY_PITCH := 24.0
@@ -1726,6 +1731,10 @@ func _room_focus() -> Vector3:
 	# Version 142: the camera follows 1.5 m further toward the near wall, so a hero standing
 	# against it sits above the DASH and special buttons instead of under them.
 	var hi := Room.HALF_L + 0.6 + NEAR_EXTRA - bottom
+	var vis_h := get_viewport().get_visible_rect().size.y
+	if vis_h > 0.0:
+		var a_feet := p + atan((0.5 - NEAR_FEET_PX / vis_h) * 2.0 * tan(half_v))
+		hi = minf(hi, Room.HALF_L - 0.4 - (d * cos(p) - d * sin(p) / tan(a_feet)))
 	var lo := -Room.HALF_L - 2.5 - top
 	var z := (lo + hi) * 0.5 if lo > hi else clampf(hero.global_position.z + HERO_ABOVE_CENTRE, lo, hi)
 	# Version 220 (v219 review): the wall clamp let a hero by the far wall sit under the top

@@ -111,6 +111,7 @@ func build(look: Dictionary) -> void:
 	if look.has("overlay"):
 		# A ready-made material drawn over the whole model (the Cinder Skeleton's charring).
 		_tint_mat = look.overlay
+		_body_overlay = true
 	elif look.has("tint"):
 		# A coloured glow over the whole model, so look-alike skeletons stand apart.
 		_tint_mat = U.unlit(look.tint)
@@ -488,6 +489,10 @@ func enrage(col: Color) -> void:
 	_set_flash(false)
 
 
+var _body_overlay := false
+var _hit_over := {}
+
+
 func _set_flash(on: bool) -> void:
 	if _flash_mat == null:
 		# Version 296 (deep review fix 4): the skeletons' hit flash brightens them instead of
@@ -510,6 +515,20 @@ func _set_flash(on: bool) -> void:
 		_hero_flash_mat = ShaderMaterial.new()
 		_hero_flash_mat.shader = sh
 	var hit_mat: Material = _hero_flash_mat if hero_flash else (_soft_flash_mat if soft_flash else _flash_mat)
+	if on and _body_overlay and _tint_mat != null:
+		# Version 387 (visual review of v383, fix 7): a body drawn by its overlay (the Star
+		# Eater's night sky, the Cinder Skeleton's charring) keeps it when hit, with the flash
+		# added on top; the flash used to replace it, so the bare bone showed for a moment.
+		var key := [_tint_mat, hit_mat]
+		if not _hit_over.has(key):
+			var chained: Material = _tint_mat.duplicate()
+			var last := chained
+			while last.next_pass != null:
+				last.next_pass = last.next_pass.duplicate()
+				last = last.next_pass
+			last.next_pass = hit_mat
+			_hit_over[key] = chained
+		hit_mat = _hit_over[key]
 	var mat: Material = hit_mat if on else (_blink_material() if _blink_off else _tint_mat)
 	var lined: Material = _with_outline(mat) if outline_me and (outlines or team_line) and not _dead else mat
 	if _outline_set.is_empty():

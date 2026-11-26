@@ -4531,7 +4531,8 @@ func _process(delta: float) -> void:
 			_pop_tip()
 	elif _tip_time > 0.0:
 		_tip_time -= delta
-		_tip.modulate.a = clampf(_tip_time / 0.4, 0.0, 1.0)
+		_tip_see = move_toward(_tip_see, 0.4 if _tip_over_hero() else 1.0, delta * 3.0)
+		_tip.modulate.a = clampf(_tip_time / 0.4, 0.0, 1.0) * _tip_see
 		if _tip_time <= 0.0:
 			_tip.visible = false
 	_update_end_count(delta)
@@ -4830,6 +4831,7 @@ func tip(text: String, seconds := 5.0, delay := 0.0, foe := false, pic := "") ->
 	var was := _tip.visible
 	_tip.visible = text != "" and seconds > 0.0 and _tip_delay <= 0.0
 	_tip.modulate.a = 1.0
+	_tip_see = 1.0
 	_tip_time = seconds if text != "" else 0.0
 	if _tip.visible and not was:
 		_pop_tip()
@@ -4970,6 +4972,23 @@ func _show_callout(text: String, col: Color, fight := false) -> void:
 	_callout.offset_top = -190.0 + drop
 	_callout.offset_bottom = -130.0 + drop
 	_callout_time = 1.1
+
+
+## Version 387 (visual review of v383, fix 8): the camera now lets a hero by the near wall
+## stand lower on the screen, where the tip card sits; the card turns see-through while the
+## hero is behind it.
+var _tip_see := 1.0
+
+
+func _tip_over_hero() -> bool:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null or Game.hero == null or not is_instance_valid(Game.hero) or not _tip.visible:
+		return false
+	var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.0)
+	var feet := cam.unproject_position(Game.hero.global_position)
+	var box := _tip.get_global_rect().grow(6.0)
+	return box.position.y < feet.y + 8.0 and box.end.y > head.y \
+		and absf(feet.x - box.get_center().x) < box.size.x * 0.5 + 24.0
 
 
 ## Version 386 (visual review of v383, fix 3): how far to move a callout (SHIELD SLAM!,

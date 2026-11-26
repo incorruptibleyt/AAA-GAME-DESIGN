@@ -15,6 +15,36 @@ const KIND := {"split": 1, "burst": 2, "fury": 3, "mender": 4, "ward": 5}
 const POOL := Color(0.7, 0.3, 1.0)
 ## How wide the floor sign is, in metres (the pool alone was 2.4).
 const SIGN := 3.3
+## Version 387 (visual review of v383, fix 7): the Mender's halo sits on its head (it floated
+## 0.75 m up, over the health bar, and read as a separate thing).
+const HALO_Y := 0.2
+
+
+## The Warded bubble's edge (v387): a solid band of `col` round the outline, dark outside.
+static func ward_rim(col: Color) -> ShaderMaterial:
+	var key := "ward_rim" + col.to_html()
+	if _mats.has(key):
+		return _mats[key]
+	var sh := Shader.new()
+	sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_back, shadows_disabled;
+uniform vec4 col : source_color = vec4(0.72, 0.88, 1.0, 1.0);
+void fragment() {
+	float f = 1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	float band = smoothstep(0.4, 0.52, f);
+	float ink = smoothstep(0.86, 0.94, f);
+	float shine = 1.0 - smoothstep(0.0, 0.07, abs(f - 0.6));
+	ALBEDO = mix(mix(col.rgb, vec3(1.0), shine * 0.6), vec3(0.04, 0.06, 0.14), ink);
+	ALPHA = band * 0.9;
+}
+"""
+	var m := ShaderMaterial.new()
+	m.shader = sh
+	m.set_shader_parameter("col", col)
+	m.render_priority = 2
+	_mats[key] = m
+	return m
 
 static var _shader: Shader
 static var _signs := {}
@@ -201,7 +231,17 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 			# A halo floating over its head (over the tallest hat), a small cross at its heart.
 			var halo := Node3D.new()
 			e.add_child(halo)
-			halo.position.y = top + 0.75
+			# (v387: just over the top of whatever it wears: a skeleton mage's tall hat too)
+			var high := top
+			for mi in (e.visual.find_children("*", "MeshInstance3D", true, false) if e.is_inside_tree() else []):
+				var m := mi as MeshInstance3D
+				if m.mesh == null or not m.is_visible_in_tree():
+					continue
+				var box := m.global_transform * m.get_aabb()
+				high = maxf(high, box.end.y - e.global_position.y)
+			top = minf(high, top + 0.9)
+			halo.position.y = top + HALO_Y
+			halo.set_meta("base_y", top + HALO_Y)   # (its bob in enemy.gd keeps to this)
 			var ring := MeshInstance3D.new()
 			var tm := TorusMesh.new()
 			tm.inner_radius = 0.42

@@ -16,16 +16,22 @@ static func _m(key: String) -> Material:
 			"velvet_dark": _mats[key] = U.mat(Color(0.38, 0.03, 0.07), 0.85)
 			"ermine": _mats[key] = U.mat(Color(0.96, 0.95, 0.92), 0.9)
 			"ermine_spot": _mats[key] = U.mat(Color(0.08, 0.08, 0.1), 0.9)
-			"lich_robe": _mats[key] = U.mat(Color(0.1, 0.12, 0.22), 0.85)
-			"lich_hem": _mats[key] = U.mat(Color(0.3, 0.95, 1.0), 0.4, 0.9)
-			"soul": _mats[key] = U.unlit(Color(0.55, 1.0, 1.0))
+			"lich_robe": _mats[key] = U.mat(Color(0.17, 0.07, 0.24), 0.85)   # (v387: violet-black, was the Wraith's navy)
+			"lich_hem": _mats[key] = U.mat(Color(0.4, 1.0, 0.5), 0.4, 1.0)
+			"soul": _mats[key] = U.unlit(Color(0.72, 1.0, 0.62))
+			"phylactery": _mats[key] = U.unlit(Color(0.55, 1.0, 0.45))
+			"phylactery_hot": _mats[key] = U.unlit(Color(0.92, 1.0, 0.85))
 			"soul_glow":
-				var g := U.unlit(Color(0.3, 0.9, 1.0, 0.5), U.soft_circle(), true).duplicate()
+				var g := U.unlit(Color(0.35, 1.0, 0.45, 0.5), U.soft_circle(), true).duplicate()
 				g.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 				_mats[key] = g
 			"basalt": _mats[key] = U.mat(Color(0.16, 0.12, 0.11), 0.9)
 			"lava": _mats[key] = U.unlit(Color(1.0, 0.5, 0.1))
 			"lava_hot": _mats[key] = U.unlit(Color(1.0, 0.85, 0.35))
+			"ember_glow":   # (v387) the glow round the Colossus's face and heart
+				var eg := U.unlit(Color(1.0, 0.55, 0.15, 0.55), U.soft_circle(), true).duplicate()
+				eg.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+				_mats[key] = eg
 			"spore_cap": _mats[key] = U.mat(Color(1.0, 0.45, 0.75), 0.5, 0.9)
 			"spore_gill": _mats[key] = U.mat(Color(0.95, 0.82, 0.86), 0.8, 0.2)
 			"moss": _mats[key] = U.mat(Color(0.32, 0.48, 0.22), 0.9, 0.1)
@@ -51,7 +57,31 @@ static func _m(key: String) -> Material:
 			"iron": _mats[key] = U.mat(Color(0.26, 0.25, 0.27), 0.45)
 			"smoke": _mats[key] = U.mat(Color(0.42, 0.4, 0.42), 1.0)
 			"iron_dark": _mats[key] = U.mat(Color(0.12, 0.11, 0.12), 0.5)
-			"ring": _mats[key] = U.mat(Color(0.75, 0.8, 1.0), 0.3, 0.8)
+			"ring":
+				# Version 387: a ring of glowing star dust (a smooth pale band read as a UI ring).
+				var rs := Shader.new()
+				rs.code = """
+shader_type spatial;
+render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled;
+varying vec3 lp;
+float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+void vertex() { lp = VERTEX; }
+void fragment() {
+	float a = atan(lp.z, lp.x);
+	float r = length(lp.xz);
+	vec2 q = vec2(a * 14.0, r * 22.0);
+	vec2 cell = floor(q);
+	float h = hash(cell);
+	float d = length(fract(q) - 0.5);
+	float st = step(0.55, h) * smoothstep(0.32, 0.0, d) * (0.55 + 0.45 * sin(TIME * 3.0 + h * 40.0));
+	float band = 0.5 + 0.5 * sin(r * 40.0);
+	vec3 dust = mix(vec3(0.3, 0.16, 0.55), vec3(0.2, 0.35, 0.75), band);
+	ALBEDO = dust * 0.55 + vec3(1.0, 0.95, 0.8) * st * 1.4;
+}
+"""
+				var rm := ShaderMaterial.new()
+				rm.shader = rs
+				_mats[key] = rm
 			"ring_dust": _mats[key] = U.unlit(Color(1.0, 0.95, 0.6))
 			_: return FoeBodies._m(key)
 	return _mats[key]
@@ -138,6 +168,30 @@ static func _lich(model: Node3D, skel: Skeleton3D) -> void:
 			var lining := U.box(c, Vector3(0.45, 0.88, 0.02), _m("lich_hem"), Vector3(side * 0.29, 0.6, -0.24))
 			lining.rotation = Vector3(-0.25, side * 0.45, -side * 0.3)
 		FeatHeads.bake(c, "boss lich mantle")
+		# Version 387: its phylactery, a green gem burning on its chest in a gold claw,
+		# with a glow round it, so the camera always finds the Lich's heart.
+		var ph := Node3D.new()
+		c.add_child(ph)
+		ph.position = Vector3(0, 0.12, 0.42)
+		ph.rotation.x = -0.6
+		var gem := U.sphere(ph, 0.2, _m("phylactery"))
+		gem.scale = Vector3(0.8, 1.25, 0.8)
+		U.sphere(ph, 0.09, _m("phylactery_hot"), Vector3(0, 0.03, 0.12))
+		for k in 3:
+			var cl := U.cone(ph, 0.04, 0.24, _m("gold"), Vector3(0, 0, 0))
+			var a := TAU * k / 3.0
+			cl.position = Vector3(cos(a) * 0.17, -0.12, sin(a) * 0.17 - 0.04)
+			cl.rotation = Vector3(sin(a) * 0.5, 0, -cos(a) * 0.5)
+		var pglow := U.sphere(ph, 0.5, _m("soul_glow"))
+		pglow.set_meta("fx", true)
+		gem.set_meta("fx", true)
+	var hd := FoeBodies._on(skel, "head")
+	if hd:
+		for side in [-1.0, 1.0]:   # green fire in its eye sockets
+			var eye := U.sphere(hd, 0.07, _m("phylactery_hot"), Vector3(side * 0.14, 0.42, 0.38))
+			eye.set_meta("fx", true)
+			var eg := U.sphere(hd, 0.16, _m("soul_glow"), Vector3(side * 0.14, 0.42, 0.4))
+			eg.set_meta("fx", true)
 
 
 ## The Cinder Colossus: hunched like an ape under a back of black basalt, cracked open in

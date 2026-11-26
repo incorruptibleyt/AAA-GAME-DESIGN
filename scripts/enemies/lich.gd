@@ -29,13 +29,16 @@ func _setup() -> void:
 	center_height = 1.8
 	knockback_scale = 0.0
 	drop_chance = 0.0
-	var look := bones(Art.SKELETON_MAGE, 3.6, Color(0.4, 0.9, 1.0))
+	var look := bones(Art.SKELETON_MAGE, 3.6, GREEN)
 	look.hide = ["Skeleton_Mage_Hat"]   # (v348: a bare crowned skull, not a big mage)
 	look.crown_y = 0.82
 	look.crown = true
 	look.accent = Color(0.18, 0.12, 0.32)
 	look.weapon = "Skeleton_Staff"
-	look.tint = Color(0.05, 0.18, 0.35, 1.0)
+	# Version 387 (visual review of v383, fix 7): the Lich in its own colours. It was the
+	# Frost Wraith's blue with a crown; now a violet-black robe trimmed in soul-fire green,
+	# green souls, green eyes and a burning green phylactery on its chest (BossBodies._lich).
+	look.tint = Color(0.16, 0.05, 0.24, 1.0)
 	look.shape = {"scale": {"chest": 0.85, "upperarm.l": 1.4, "upperarm.r": 1.4}, "lift": 0.4}   # (v348: floating, long-armed)
 	look.parts = "lich"
 	make_visual(look)
@@ -57,7 +60,7 @@ func _think(hero: Hero, delta: float) -> void:
 		_brain()
 	if not _enraged and health < max_health * 0.5:
 		_enraged = true
-		phase_two(Color(0.4, 0.9, 1.0), "blink", "Blink Volley")
+		phase_two(GREEN, "blink", "Blink Volley")
 	_float_t += delta
 	visual.position.y = 0.35 + sin(_float_t * 2.0) * 0.15
 	var to := hero.global_position - global_position
@@ -99,6 +102,8 @@ func _brain() -> void:
 ## hunt the hero, turning toward them all the time (Projectile.seek) for a few seconds. They
 ## are slower than the hero: keep running and turn sharply, or dash through them.
 const SOUL := Color(0.75, 1.0, 0.95)
+## Version 387: the Lich's own colour, soul-fire green (it shared the Frost Wraith's ice blue).
+const GREEN := Color(0.45, 1.0, 0.55)
 const SOUL_SPEED := 4.0
 const SOUL_TURN := 2.0
 func _seeking_souls() -> void:
@@ -157,7 +162,7 @@ func _spiral() -> void:
 			return
 		for a in arms:
 			var d := Vector3.FORWARD.rotated(Vector3.UP, spin + a * TAU / arms)
-			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 6.0, Color(0.4, 0.9, 1.0), 0.25, "Lich", "wisp")
+			Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 6.0, GREEN, 0.25, "Lich", "wisp")
 		spin += 0.33
 		if i % 3 == 0:
 			Sfx.play("shoot", 0.5)
@@ -178,7 +183,7 @@ func _teleport() -> void:
 	var mark := Telegraph.circle(spot, 1.6, 0.8, Callable())
 	mark.harmless = true   # only shows where it comes back; it never hurts
 	track(mark)
-	Fx.magic(center(), Color(0.4, 0.9, 1.0), 25)
+	Fx.magic(center(), GREEN, 25)
 	visual.visible = false
 	_hidden = true
 	await _wait(0.8)
@@ -187,12 +192,12 @@ func _teleport() -> void:
 	if not _alive():
 		return
 	global_position = spot
-	Fx.magic(center(), Color(0.4, 0.9, 1.0), 25)
+	Fx.magic(center(), GREEN, 25)
 	Sfx.play("boom", 0.6)
 	var count := (12 if _enraged else 9) if _gentle() else (14 if _enraged else 10)
 	for i in count:
 		var d := Vector3.FORWARD.rotated(Vector3.UP, i * TAU / count)
-		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 7.0, Color(0.5, 0.95, 1.0), 0.25, "Lich", "wisp")
+		Projectile.fire(Team.UNDEAD, global_position + Vector3.UP * 1.2 + d * 1.0, d, 11.0, 7.0, Color(0.65, 1.0, 0.7), 0.25, "Lich", "wisp")
 	await _wait(0.5)
 
 
@@ -248,5 +253,5 @@ func _on_death() -> void:
 	Sfx.play(roar_sound, 0.8)
 	Game.hit_stop(0.25)
 	Game.shake(0.8)
-	Fx.magic(center(), Color(0.4, 0.9, 1.0), 60)
+	Fx.magic(center(), GREEN, 60)
 	super._on_death()

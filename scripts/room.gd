@@ -1228,17 +1228,18 @@ void fragment() {
 		vec2 sp = (pos + par * depth) / cs + vec2(float(k) * 5.3, float(k) * 2.7);
 		vec2 sc = floor(sp);
 		vec2 sf = (fract(sp) - 0.5 - (vec2(h(sc + 1.3), h(sc + 2.9)) - 0.5) * 0.6) * cs;
-		float on = step(k == 0 ? 0.45 : 0.35, h(sc + 7.1));
+		float on = step(k == 0 ? 0.4 : 0.3, h(sc + 7.1));
 		float tw = 0.55 + 0.45 * sin(TIME * (1.0 + 2.5 * h(sc + 3.3)) + h(sc) * 6.283);
-		float sz = (k == 0 ? 0.034 : 0.02) * (0.6 + 0.8 * h(sc + 5.5));
+		float sz = (k == 0 ? 0.042 : 0.024) * (0.6 + 0.8 * h(sc + 5.5));
 		float star = on * tw * (1.0 - smoothstep(0.0, sz, length(sf)));
 		vec3 scol = h(sc + 8.8) > 0.85 ? spores2.rgb : vec3(0.85, 0.9, 1.0);
-		abyss_em += scol * star * (k == 0 ? 2.4 : 1.3);
+		// (Version 387, review of v383 fix 8: brighter and a few more, over darker plates.)
+		abyss_em += scol * star * (k == 0 ? 3.4 : 1.9);
 	}
 	// The plates: pale moonstone, each its own shade, with faint silver veins.
 	float vn = texture(grain, pos * 0.08 + vec2(r * 3.0, r2)).r;
 	float vein = 1.0 - smoothstep(0.0, 0.025 + fwidth(vn), abs(vn - 0.5));
-	c = vec3(0.265, 0.27, 0.295) * (0.84 + 0.26 * r) * (0.9 + 0.18 * fine) * tint.rgb;
+	c = vec3(0.16, 0.165, 0.195) * (0.84 + 0.26 * r) * (0.9 + 0.18 * fine) * tint.rgb;
 	c = mix(c, vec3(0.38, 0.39, 0.43), vein * 0.15);
 	rough = 0.7;
 	float g = smoothstep(0.62, 0.9, big + crumble * 0.3) * grime_amount;
@@ -1249,7 +1250,7 @@ void fragment() {
 	float paa = fwidth(pe) + 0.003;
 	float hole = 1.0 - smoothstep(gw - paa, gw + paa, pe);
 	float lip = (1.0 - smoothstep(gw, gw + 0.035, pe)) * (1.0 - hole);
-	em += spores.rgb * lip * 0.16;
+	em += spores.rgb * lip * 0.24;
 	// A few plates near the walls have fallen away altogether.
 	float gone = step(0.72, h(id + 21.7)) * step(wall, 1.1) * step(0.5, half_size.y - abs(pos.y) - 1.2);
 	hole = max(hole, gone);

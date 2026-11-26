@@ -27,6 +27,12 @@ static func dress(room: Room, layout: Array) -> void:
 	var moon := kind == "moon"
 	if moon:
 		kind = "bone"
+	var partner := ""
+	var pidx := Floors.remix_partner(Game.floor_num)
+	if pidx >= 0 and pidx < Floors.THEMES.size():
+		partner = str(Floors.THEMES[pidx].get("props", ""))
+		if partner == kind:
+			partner = ""
 	for c: Vector2i in CORNERS:
 		var row: String = layout[c.y] if c.y < layout.size() else ""
 		if c.x < row.length() and row[c.x] != ".":
@@ -34,75 +40,14 @@ static func dress(room: Room, layout: Array) -> void:
 		var p := Room.cell_to_world(c.x, c.y)
 		p += Vector3(signf(p.x), 0, signf(p.z)) * 0.12   # snug into the corner
 		var n := _place(room, p)
-		match kind:
-			"bone":
-				_mesh(n, _skull_pile(true))
-				var candle := Art.get_model("candle_triple")
-				if candle:
-					var at := p + Vector3(0, 0, -signf(p.z) * 0.7)
-					if room.leaves_gap(at, 0.3):
-						Art.place_prop(candle, _place(room, at), 0.6)
-						room._add_obstacle(at, 0.3)
-			"ice":
-				_mesh(n, _crystals())
-			"ember":
-				_mesh(n, _brazier())
-				Fx.flame(n, Vector2(0.7, 0.95), Vector3(0, 0.8, 0))
-				Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.15, 0.8, 0.1))
-			"water":
-				_mesh(n, _kelp_column())
-			"fungus":
-				_mesh(n, _mushroom_clump())
-				_glow_pool(n, 2.6)
-			"yule":
-				# Turned so its gifts face the middle of the room. Pine trees in the far
-				# corners; in the near ones (by the camera) a low snowman with a skull for a head.
-				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
-				_mesh(n, _pine_tree() if p.z < 0.0 else _snowman())
-				_glow_pool(n, 2.4, Color(1.0, 0.7, 0.35, 0.2))
-			"sand":
-				# An obelisk in each far corner; in the near ones (by the camera) a low heap
-				# of jars, one tipped over and spilling sand. Both look into the room.
-				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
-				_mesh(n, _obelisk() if p.z < 0.0 else _jars())
-			"mine":
-				# A great amethyst cluster glowing in each far corner; in the near ones a mine
-				# cart heaped with crystals (low, so it never hides the hero).
-				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
-				if p.z < 0.0:
-					_mesh(n, _crystal_cluster())
-					_glow_pool(n, 2.8, Color(0.7, 0.35, 1.0, 0.24))
-				else:
-					_mesh(n, _mine_cart())
-			"library":
-				# A lectern in each far corner, its pages flying round it; in the near ones
-				# (by the camera) books piled up with candles burning on them.
-				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
-				if p.z < 0.0:
-					_mesh(n, _lectern())
-					_add_pages(n, Vector3(0.45, 0, 0.45))
-					_glow_pool(n, 2.6, Color(0.35, 1.0, 0.82, 0.16))
-				else:
-					_mesh(n, _book_pile())
-			"foundry":
-				# A boiler with its fire door open in each far corner; in the near ones (by the
-				# camera) gears and parts heaped up.
-				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
-				if p.z < 0.0:
-					_mesh(n, _boiler())
-					_glow_pool(n, 2.8, Color(1.0, 0.45, 0.15, 0.2))
-				else:
-					_mesh(n, _cog_pile())
-			"abyss":
-				# A brazier of cold star fire in each far corner, rocks circling over it; in the
-				# near ones (by the camera) a low heap of broken moonstone round a fallen star.
-				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
-				if p.z < 0.0:
-					_add_star_brazier(n)
-					_glow_pool(n, 2.8, Color(0.55, 0.6, 1.0, 0.2))
-				else:
-					_mesh(n, _star_rubble())
-					_glow_pool(n, 1.6, Color(1.0, 0.8, 0.45, 0.16))
+		# Version 387 (visual review of v383, fix 8): in the endless remix the near corners
+		# (by the camera) bring the partner place's own piece, with its danger.
+		var ck := kind
+		if p.z > 0.0 and partner != "":
+			ck = partner
+		_corner(room, n, p, ck)
+		if Game.daily and Game.event == "":
+			_glow_pool(n, 2.8, Color(0.75, 0.45, 1.0, 0.2))   # v387: the Daily Crypt's violet light
 		if moon:
 			_glow_pool(n, 3.0, Color(1.0, 0.15, 0.1, 0.18))
 		# The prop's collision is a circle centred on the room's true corner, so a push out of
@@ -163,6 +108,7 @@ static func dress(room: Room, layout: Array) -> void:
 					_no_shadow(_mesh(n, _great_chain()))
 	_dress_kit(room, layout, "moon" if moon else kind)
 	_scatter(room, layout, kind)
+	_middle(room, layout, kind)
 	dress_gallery(room, "moon" if moon else kind)
 	# Two more on the far wall, either side of the door.
 	for x in [-3.6, 3.6]:
@@ -217,6 +163,79 @@ static func dress(room: Room, layout: Array) -> void:
 				n.rotation.y = -PI / 2
 				_add_monolith(n)
 				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + 0.3), 0.45)
+
+
+## One corner's own piece (see dress), for the place `kind`.
+static func _corner(room: Room, n: Node3D, p: Vector3, kind: String) -> void:
+	match kind:
+		"bone":
+			_mesh(n, _skull_pile(true))
+			var candle := Art.get_model("candle_triple")
+			if candle:
+				var at := p + Vector3(0, 0, -signf(p.z) * 0.7)
+				if room.leaves_gap(at, 0.3):
+					Art.place_prop(candle, _place(room, at), 0.6)
+					room._add_obstacle(at, 0.3)
+		"ice":
+			_mesh(n, _crystals())
+		"ember":
+			_mesh(n, _brazier())
+			Fx.flame(n, Vector2(0.7, 0.95), Vector3(0, 0.8, 0))
+			Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.15, 0.8, 0.1))
+		"water":
+			_mesh(n, _kelp_column())
+		"fungus":
+			_mesh(n, _mushroom_clump())
+			_glow_pool(n, 2.6)
+		"yule":
+			# Turned so its gifts face the middle of the room. Pine trees in the far
+			# corners; in the near ones (by the camera) a low snowman with a skull for a head.
+			n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+			_mesh(n, _pine_tree() if p.z < 0.0 else _snowman())
+			_glow_pool(n, 2.4, Color(1.0, 0.7, 0.35, 0.2))
+		"sand":
+			# An obelisk in each far corner; in the near ones (by the camera) a low heap
+			# of jars, one tipped over and spilling sand. Both look into the room.
+			n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+			_mesh(n, _obelisk() if p.z < 0.0 else _jars())
+		"mine":
+			# A great amethyst cluster glowing in each far corner; in the near ones a mine
+			# cart heaped with crystals (low, so it never hides the hero).
+			n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+			if p.z < 0.0:
+				_mesh(n, _crystal_cluster())
+				_glow_pool(n, 2.8, Color(0.7, 0.35, 1.0, 0.24))
+			else:
+				_mesh(n, _mine_cart())
+		"library":
+			# A lectern in each far corner, its pages flying round it; in the near ones
+			# (by the camera) books piled up with candles burning on them.
+			n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+			if p.z < 0.0:
+				_mesh(n, _lectern())
+				_add_pages(n, Vector3(0.45, 0, 0.45))
+				_glow_pool(n, 2.6, Color(0.35, 1.0, 0.82, 0.16))
+			else:
+				_mesh(n, _book_pile())
+		"foundry":
+			# A boiler with its fire door open in each far corner; in the near ones (by the
+			# camera) gears and parts heaped up.
+			n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+			if p.z < 0.0:
+				_mesh(n, _boiler())
+				_glow_pool(n, 2.8, Color(1.0, 0.45, 0.15, 0.2))
+			else:
+				_mesh(n, _cog_pile())
+		"abyss":
+			# A brazier of cold star fire in each far corner, rocks circling over it; in the
+			# near ones (by the camera) a low heap of broken moonstone round a fallen star.
+			n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+			if p.z < 0.0:
+				_add_star_brazier(n)
+				_glow_pool(n, 2.8, Color(0.55, 0.6, 1.0, 0.2))
+			else:
+				_mesh(n, _star_rubble())
+				_glow_pool(n, 1.6, Color(1.0, 0.8, 0.45, 0.16))
 
 
 ## KayKit pieces along the walls (version 134): a banner either side of the door and a few
@@ -366,6 +385,110 @@ static func _gallery_mesh(kind: String) -> ArrayMesh:
 		"abyss": return _fallen_star()
 		"ember": return _skull_pile(false)
 	return null
+
+
+## Version 387 (visual review of v383, fix 8, "rooms that fill the screen"): the open middle
+## of a room was bare floor between the props at its edges. Now three of the place's own low
+## pieces lie out in it, shrunk to knee height or less so they never hide anyone, with no
+## collision (they are walked over like the scattered bits) and no shadow. They keep off the
+## middle of the room (the floor's own seal or star gate), the hero's start and the door.
+const MIDDLE_PIECES := 3
+
+
+static func _middle(room: Room, layout: Array, kind: String) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(str(layout)) + Game.floor_num * 104729 + 17
+	var spots: Array[Vector3] = []
+	for row in range(3, Layouts.ROWS - 3):
+		var line: String = layout[row] if row < layout.size() else ""
+		for col in range(1, Layouts.COLUMNS - 1):
+			if col < line.length() and line[col] != ".":
+				continue
+			var p := Room.cell_to_world(col, row)
+			if absf(p.x) < 1.8 and absf(p.z) < 2.6:
+				continue
+			if p.distance_to(room.player_start()) < 2.6:
+				continue
+			var clear := true
+			for o: Dictionary in room.obstacles:
+				var d: Vector3 = p - o.pos
+				d.y = 0.0
+				if d.length() < float(o.r) + 1.1:
+					clear = false
+					break
+			if clear:
+				spots.append(p)
+	if spots.is_empty():
+		return
+	# Shuffled with the room's own numbers, then the two far enough apart.
+	for i in range(spots.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t := spots[i]
+		spots[i] = spots[j]
+		spots[j] = t
+	var placed: Array[Vector3] = []
+	for p in spots:
+		if placed.size() >= MIDDLE_PIECES:
+			break
+		var far := true
+		for q in placed:
+			if p.distance_to(q) < 4.0:
+				far = false
+		if not far:
+			continue
+		p += Vector3(rng.randf_range(-0.3, 0.3), 0, rng.randf_range(-0.3, 0.3))
+		if _middle_piece(room, p, kind, rng):
+			placed.append(p)
+	if OS.has_feature("editor") or "autoplay" in OS.get_cmdline_user_args():
+		print("[props] middle pieces %d of %d spots" % [placed.size(), spots.size()])
+
+
+static func _middle_piece(room: Room, p: Vector3, kind: String, rng: RandomNumberGenerator) -> bool:
+	var mesh: ArrayMesh = null
+	var k := 0.5
+	var pool := Color(0, 0, 0, 0)
+	match kind:
+		"bone":
+			mesh = _crypt_bones()
+			k = 1.0
+		"ice":
+			mesh = _crystals()
+			k = 0.5
+		"ember":
+			mesh = _skull_pile(false)
+			k = 0.6
+			pool = Color(1.0, 0.4, 0.12, 0.2)
+		"fungus":
+			mesh = _mushroom_clump()
+			k = 0.5
+			pool = Color(0.4, 0.6, 1.0, 0.22)
+		"sand":
+			mesh = _sand_heap()
+			k = 0.75
+		"mine":
+			mesh = _ore_pile()
+			k = 1.0
+			pool = Color(0.7, 0.35, 1.0, 0.16)
+		"library":
+			mesh = _book_pile()
+			k = 0.6
+		"foundry":
+			mesh = _cog_pile()
+			k = 0.7
+		"abyss":
+			mesh = _star_rubble()
+			k = 0.85
+			pool = Color(1.0, 0.8, 0.45, 0.22)
+	if mesh == null:
+		return false
+	var n := _place(room, p, false)
+	n.rotation.y = rng.randf() * TAU
+	if pool.a > 0.0:
+		_glow_pool(n, 2.0, pool)
+	var mi := _mesh(n, mesh)
+	mi.scale = Vector3.ONE * k
+	_no_shadow(mi)
+	return true
 
 
 ## Pieces flat against a wall cast no shadow worth its cost (a second draw each on High).

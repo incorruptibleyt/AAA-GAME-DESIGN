@@ -62,6 +62,27 @@ func _dress() -> void:
 		horn.rotation.z = -side * 0.6
 	# (sizes here grow with the model, which is 2.5 times a Cinder Skeleton)
 	_flame = Fx.flame(att, Vector2(0.45, 0.65), Vector3(0, 0.8, 0))
+	# Version 387 (visual review of v383, fix 7): a face lit from inside. It was a black blob
+	# from the run camera: now two slanted eyes and a mouth burn white-hot in the skull, with
+	# a glow on the face, and a molten heart burns in its chest between the vents.
+	for side in [-1.0, 1.0]:
+		var eye := U.box(att, Vector3(0.17, 0.07, 0.08), BossBodies._m("lava_hot"), Vector3(side * 0.15, 0.46, 0.4))
+		eye.rotation.z = side * 0.35
+		eye.set_meta("fx", true)
+	var mouth := U.box(att, Vector3(0.34, 0.06, 0.08), BossBodies._m("lava"), Vector3(0, 0.22, 0.42))
+	mouth.set_meta("fx", true)
+	var face := U.sphere(att, 0.5, BossBodies._m("ember_glow"), Vector3(0, 0.36, 0.45))
+	face.set_meta("fx", true)
+	if skel.find_bone("chest") >= 0:
+		var ch := BoneAttachment3D.new()
+		skel.add_child(ch)
+		ch.bone_name = "chest"
+		var heart := U.sphere(ch, 0.26, BossBodies._m("lava_hot"), Vector3(0, 0.12, 0.42))
+		heart.set_meta("fx", true)
+		var shell := U.sphere(ch, 0.36, BossBodies._m("lava"), Vector3(0, 0.12, 0.38))
+		shell.set_meta("fx", true)
+		var hg := U.sphere(ch, 0.85, BossBodies._m("ember_glow"), Vector3(0, 0.12, 0.5))
+		hg.set_meta("fx", true)
 
 
 func display_name() -> String:

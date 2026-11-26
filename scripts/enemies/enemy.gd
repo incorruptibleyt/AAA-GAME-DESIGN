@@ -268,13 +268,19 @@ func make_elite(pick := "") -> void:
 	if Hud.UI_FONT:
 		_tag.font = Hud.UI_FONT
 	_tag.position.y = center_height * 2.0 + 0.95   # just over its health bar
+	# Version 387 (visual review of v383, fix 7): drawn after the bodies and shots, so a
+	# skeleton walking past never covers it.
+	_tag.render_priority = 30
+	_tag.outline_render_priority = 29
 	_tag.visible = false   # shown once it has climbed out of the floor
 	add_child(_tag)
 	if elite_move == "ward":
 		_ward_hits = WARD_HITS
 		# (v372: clear in the middle, bright at the edge, so the skeleton inside still shows)
 		_bubble_mat = U.unlit(Color(info.col, 0.14)).duplicate() as StandardMaterial3D
-		_bubble_mat.next_pass = CharacterVisual.rim_material(Color(info.col, 0.9), 2.2)
+		# Version 387 (fix 7): a solid band of the ward's colour round the bubble's edge,
+		# painted over the floor (added light vanished on pale floors), with a dark line out.
+		_bubble_mat.next_pass = EliteParts.ward_rim(Color(0.3, 0.68, 1.0))   # (deeper than the pale tag, so it reads on pale floors)
 		_bubble = U.sphere(self, maxf(0.85, radius * 1.55), _bubble_mat, Vector3(0, center_height * 1.05, 0))
 		_bubble.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_bubble.visible = false   # with the tag, once it is out of the floor
@@ -323,7 +329,7 @@ func _elite_tick(delta: float) -> void:
 		"mender":
 			if _parts.has("halo"):
 				var halo := _parts.halo as Node3D
-				halo.position.y = center_height * 2.0 + 0.75 + sin(Time.get_ticks_msec() * 0.003 + get_instance_id()) * 0.06
+				halo.position.y = float(halo.get_meta("base_y", center_height * 2.0 + EliteParts.HALO_Y)) + sin(Time.get_ticks_msec() * 0.003 + get_instance_id()) * 0.06
 			_mend_left -= delta
 			if _mend_left <= 0.0:
 				_mend_left = MEND_EVERY
@@ -347,6 +353,12 @@ func _fade_tag(delta: float) -> void:
 		return
 	var under := cam.unproject_position(_tag.global_position).y < Game.hud.top_band()
 	_tag_a = move_toward(_tag_a, 0.0 if under else 1.0, delta * 6.0)
+	# Version 387 (fix 7): by the side of the screen the tag slides in, so it is never cut off.
+	var vw := get_viewport().get_visible_rect().size.x
+	if vw > 0.0:
+		var sx := cam.unproject_position(_tag.global_position).x / vw
+		var half := _tag.text.length() * 11.0 + 12.0
+		_tag.offset.x = half if sx < 0.2 else (-half if sx > 0.8 else 0.0)
 	# Version 386 (fix 3): see-through right by the hero, so a crowd's tags don't bury it.
 	_tag.modulate.a = _tag_a * (1.0 - 0.65 * HealthBar.near_hero(global_position))
 	_tag.outline_modulate.a = _tag.modulate.a

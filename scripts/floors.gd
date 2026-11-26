@@ -225,8 +225,9 @@ const THEMES := [
 		"patch_tint": Color(0.9, 0.9, 1.0), "patch_rough": 0.4,
 		"spores": Color(0.55, 0.68, 1.0, 1.0), "spores2": Color(1.0, 0.82, 0.5),
 		"wall": Color(0.12, 0.12, 0.15), "trim": Color(0.28, 0.29, 0.33),
-		"ambient": Color(0.2, 0.21, 0.25), "fog": Color(0.02, 0.02, 0.05), "background": Color(0.006, 0.007, 0.02),
-		"moon": Color(0.84, 0.87, 0.95), "torch": Color(0.62, 0.78, 1.0), "torch_energy": 1.4, "pool": 0.5,
+		# (Version 387, review of v383 fix 8: darker, so its stars and star gate shine; it read washed out.)
+		"ambient": Color(0.15, 0.155, 0.2), "fog": Color(0.02, 0.02, 0.05), "background": Color(0.006, 0.007, 0.02),
+		"moon": Color(0.7, 0.74, 0.88), "torch": Color(0.62, 0.78, 1.0), "torch_energy": 1.3, "pool": 0.5,
 		# Star dust drifting down out of the dark, a little of it gold.
 		"motes": [Color(0.85, 0.9, 1.0, 0.6), Color(1.0, 0.85, 0.55, 0.35)], "motes_fall": true, "motes_size": 0.35,
 		# Version 269 (hard review fix 3): its own skeleton, the Void Walker (it borrowed the
@@ -332,7 +333,48 @@ static func theme(floor_num: int) -> Dictionary:
 	if remixed(floor_num):
 		t = t.duplicate()
 		t.merge(PASS_REMIX[index(floor_num)], true)
+	# Version 387 (visual review of v383, fix 8): the endless remix and the Daily Crypt were
+	# the same places again, only darker and redder (floor 12 read as a muddy floor 3). Each
+	# place now comes back in its own light, and the Daily Crypt has a violet-and-gold one.
+	var own := Game.event == "" and not lobby
+	if own and floor_num > REMIX_FROM and REMIX_LOOK.has(index(floor_num)):
+		t = t.duplicate()
+		t.merge(REMIX_LOOK[index(floor_num)], true)
+		return t if loop <= 1 else _deeper(t, loop, true)
+	if own and Game.daily:
+		t = t.duplicate()
+		t.merge(DAILY_LOOK, true)
 	return t if loop <= 1 else _deeper(t, loop)
+
+
+## Version 387: each place's own light when it comes back in the endless remix (floor 11+).
+## Names stay close to the place's own, so a player knows where they are.
+const REMIX_LOOK := {
+	0: {"name": "Gilded Crypt", "ambient": Color(0.23, 0.2, 0.15), "moon": Color(0.95, 0.8, 0.5), "torch": Color(1.0, 0.8, 0.38),
+		"motes": [Color(1.0, 0.85, 0.4, 0.6), Color(1.0, 0.95, 0.75, 0.25)], "banner": Color(1.0, 0.82, 0.4)},
+	1: {"name": "Twilight Ossuary", "ambient": Color(0.26, 0.21, 0.36), "moon": Color(0.8, 0.62, 1.0), "torch": Color(0.85, 0.62, 1.0),
+		"motes": [Color(0.85, 0.7, 1.0, 0.7), Color(0.6, 0.8, 1.0, 0.3)], "banner": Color(0.82, 0.65, 1.0)},
+	2: {"name": "Bluefire Catacomb", "seams": Color(0.15, 0.5, 1.0), "ambient": Color(0.16, 0.18, 0.26), "moon": Color(0.55, 0.7, 1.0),
+		"torch": Color(0.45, 0.7, 1.0), "fog": Color(0.02, 0.04, 0.09), "background": Color(0.01, 0.015, 0.04),
+		"motes": [Color(0.45, 0.75, 1.0, 0.55), Color(0.3, 0.45, 1.0, 0.2)], "banner": Color(0.5, 0.75, 1.0)},
+	DROWNED: {"name": "Sunken Gold Vault", "ambient": Color(0.24, 0.22, 0.15), "moon": Color(1.0, 0.86, 0.55), "torch": Color(1.0, 0.8, 0.45),
+		"motes": [Color(1.0, 0.88, 0.5, 0.6), Color(0.6, 1.0, 0.9, 0.25)], "banner": Color(1.0, 0.85, 0.5)},
+	GROTTO: {"name": "Bloom Grotto", "spores": Color(1.0, 0.45, 0.8, 1.0), "ambient": Color(0.28, 0.19, 0.27), "moon": Color(1.0, 0.65, 0.85),
+		"torch": Color(1.0, 0.58, 0.82), "motes": [Color(1.0, 0.6, 0.85, 0.65), Color(1.0, 0.9, 0.6, 0.25)], "banner": Color(1.0, 0.6, 0.85)},
+	SANDFALL: {"name": "Moonlit Tomb", "ambient": Color(0.17, 0.2, 0.3), "moon": Color(0.62, 0.76, 1.0), "torch": Color(0.58, 0.8, 1.0),
+		"motes": [Color(0.75, 0.85, 1.0, 0.55), Color(1.0, 0.9, 0.7, 0.2)], "banner": Color(0.65, 0.8, 1.0)},
+	MINE: {"name": "Emerald Mine", "ambient": Color(0.15, 0.25, 0.19), "moon": Color(0.55, 1.0, 0.7), "torch": Color(0.55, 1.0, 0.62),
+		"motes": [Color(0.55, 1.0, 0.7, 0.6), Color(0.9, 1.0, 0.7, 0.25)], "banner": Color(0.55, 1.0, 0.7)},
+	LIBRARY: {"name": "Candlelit Library", "ambient": Color(0.27, 0.19, 0.13), "moon": Color(1.0, 0.72, 0.45), "torch": Color(1.0, 0.62, 0.3),
+		"motes": [Color(1.0, 0.7, 0.35, 0.55), Color(1.0, 0.9, 0.7, 0.25)], "banner": Color(1.0, 0.7, 0.4)},
+	FOUNDRY: {"name": "Frozen Foundry", "ambient": Color(0.16, 0.21, 0.27), "moon": Color(0.62, 0.82, 1.0), "torch": Color(0.5, 0.88, 1.0),
+		"motes": [Color(0.75, 0.92, 1.0, 0.6), Color(0.5, 0.8, 1.0, 0.25)], "motes_fall": true, "banner": Color(0.6, 0.88, 1.0)},
+	ABYSS: {"name": "Crimson Abyss", "spores": Color(1.0, 0.45, 0.55, 1.0), "ambient": Color(0.25, 0.15, 0.18), "moon": Color(1.0, 0.62, 0.66),
+		"torch": Color(1.0, 0.52, 0.56), "motes": [Color(1.0, 0.6, 0.65, 0.55), Color(1.0, 0.85, 0.55, 0.3)], "banner": Color(1.0, 0.6, 0.62)},
+}
+## Version 387: the Daily Crypt's own light, violet with gold candle sparks.
+const DAILY_LOOK := {"ambient": Color(0.25, 0.17, 0.32), "moon": Color(0.82, 0.58, 1.0), "torch": Color(1.0, 0.76, 0.4),
+	"motes": [Color(1.0, 0.82, 0.4, 0.6), Color(0.8, 0.6, 1.0, 0.3)], "banner": Color(0.85, 0.62, 1.0)}
 
 
 ## Version 219 (review 4 fix 28): the Crypt Pass's own takes on the three free crypts it
@@ -358,10 +400,13 @@ static func remixed(floor_num: int) -> bool:
 
 
 ## Every endless loop is a little darker and redder than the one before (down to loop 4).
-static func _deeper(t: Dictionary, loop: int) -> Dictionary:
+static func _deeper(t: Dictionary, loop: int, own_light := false) -> Dictionary:
 	var steps := mini(loop - 1, 3)
 	var dark := pow(0.86, steps)
-	var red := 0.14 * steps
+	# (Version 387: a place in its own remix light only darkens a little, and keeps its colour.)
+	if own_light:
+		dark = pow(0.94, steps)
+	var red := 0.0 if own_light else 0.14 * steps
 	var d := t.duplicate()
 	for key in ["ambient", "moon", "fog", "background", "wall", "trim", "torch"]:
 		var c: Color = t[key]
