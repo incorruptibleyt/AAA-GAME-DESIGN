@@ -15,6 +15,8 @@ static func _m(key: String) -> Material:
 			"iron_light": _mats[key] = U.mat(Color(0.55, 0.56, 0.62), 0.35)
 			"rust": _mats[key] = U.mat(Color(0.55, 0.2, 0.12), 0.7)
 			"bone": _mats[key] = U.mat(Color(0.8, 0.76, 0.66), 0.75)   # (v367: a little darker, it blew out white)
+			"horn": _mats[key] = U.mat(Color(0.2, 0.12, 0.13), 0.45)
+			"horn_tip": _mats[key] = U.mat(Color(0.42, 0.24, 0.2), 0.4)
 			"leather": _mats[key] = U.mat(Color(0.42, 0.26, 0.14), 0.85)
 			"fletch": _mats[key] = U.mat(Color(1.0, 0.82, 0.2), 0.6, 0.6)
 			"linen": _mats[key] = U.mat(Color(0.78, 0.7, 0.55), 0.95)   # (v367: aged wraps, not white)
@@ -77,6 +79,7 @@ static func dress(model: Node3D, kind: String) -> void:
 		"quiver": _quiver(skel)
 		"robe": _robe(model, skel)
 		"crest": _crest(skel)
+		"imp": _imp(skel)
 		"linen": _linen(skel)
 		"geode": _geode(skel)
 		"cogs": _cogs(skel)
@@ -172,6 +175,23 @@ static func _crest(skel: Skeleton3D) -> void:
 		s.position = Vector3(0.0, 0.92 - f * f * 0.14, f * 0.3)
 		s.rotation = Vector3(-0.35 + f * 0.25, 0, 0)
 	FeatHeads.bake(a, "foe crest")
+
+
+## Version 384 (visual review of v383, fix 1): the Skeleton Minion, the most common foe, was
+## a bare round skull: from the run camera a crowd of them read as buns. Two dark horn stubs
+## curl up and back from the crown, so from above it is a little horned imp's skull.
+static func _imp(skel: Skeleton3D) -> void:
+	var a := _on(skel, "head")
+	if a == null:
+		return
+	for side in [-1.0, 1.0]:
+		var h := U.cone(a, 0.12, 0.42, _m("horn"), Vector3.ZERO)
+		h.position = Vector3(0.3 * side, 0.86, -0.04)
+		h.rotation = Vector3(-0.42, 0.0, -0.62 * side)
+		var t := U.cone(a, 0.06, 0.2, _m("horn_tip"), Vector3.ZERO)
+		t.position = Vector3(0.43 * side, 1.08, -0.13)
+		t.rotation = Vector3(-0.9, 0.0, -0.95 * side)
+	FeatHeads.bake(a, "foe imp horns")
 
 
 ## The Tomb Mummy: long ends of linen hanging from its wrists as it reaches for you.

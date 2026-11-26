@@ -249,19 +249,25 @@ float seam(float d, float w) {
 void fragment() {
 	vec3 c = texture(tex, UV).rgb * tint.rgb * tone;
 	vec3 p = rest;
-	// Old ivory: a warm crown, darker and browner toward the back and down the sides.
-	c *= vec3(1.0, 0.93, 0.8);
+	// Version 384 (review of v383, fix 1): bone, not bread. The warm ivory and the coloured
+	// band round the brow read as a burger bun from the run camera, so the skull is a cooler,
+	// greyer bone, shaded darker toward the back and down the sides like a real cranium.
+	c *= vec3(0.93, 0.92, 0.88);
 	float back = smoothstep(0.2, -0.9, p.z);
 	float low = smoothstep(0.1, -0.7, p.y);
-	c *= 1.0 - 0.32 * back - 0.25 * low;
-	// A painted band round the brow in the kind's colour, just above the eyes.
-	float band = seam(p.y - 0.06, 0.2);
-	c = mix(c, paint.rgb * 0.8, band * paint_mix);
-	// One old crack across the crown, with a short branch.
+	c *= 1.0 - 0.36 * back - 0.3 * low;
+	// The kind's colour is a small glowing rune on the forehead (a diamond), seen from above.
+	float rune_d = abs(p.x) * 1.25 + abs(p.y - 0.34) - 0.17;
+	float front = smoothstep(0.05, 0.35, p.z);
+	float rune = (1.0 - smoothstep(0.0, 0.05, rune_d)) * front;
+	float rune_core = (1.0 - smoothstep(-0.1, -0.05, rune_d)) * front;
+	c = mix(c, vec3(0.1, 0.07, 0.08), rune * paint_mix);
+	c = mix(c, paint.rgb, rune_core * paint_mix);
+	// One thin old crack across the crown.
 	float crown = smoothstep(0.1, 0.4, p.y);
-	float k1 = seam(p.x - 0.18 + 0.35 * p.z + 0.07 * sin(p.z * 17.0), 0.07) * crown * smoothstep(0.75, 0.35, p.z) * smoothstep(-0.7, -0.3, p.z);
-	float k2 = seam(p.z + 0.05 - 0.6 * (p.x - 0.25), 0.055) * crown * step(0.25, p.x) * step(p.x, 0.6);
-	c = mix(c, vec3(0.18, 0.11, 0.08), clamp(max(k1, k2), 0.0, 1.0) * 0.8);
+	float k1 = seam(p.x - 0.18 + 0.35 * p.z + 0.07 * sin(p.z * 17.0), 0.045) * crown * smoothstep(0.75, 0.35, p.z) * smoothstep(-0.7, -0.3, p.z);
+	c = mix(c, vec3(0.22, 0.17, 0.15), clamp(k1, 0.0, 1.0) * 0.55);
+	EMISSION = paint.rgb * rune_core * paint_mix * 0.9;
 	// Edges turning away from the camera go dark, like a soft cartoon line.
 	float edge = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
 	c *= 1.0 - ink * smoothstep(0.5, 0.95, edge);
