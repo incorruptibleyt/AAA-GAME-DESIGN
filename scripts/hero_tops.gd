@@ -45,6 +45,9 @@ static func dress(skel: Skeleton3D, id: String, style: Dictionary) -> void:
 	var wizard := _hat(skel, "*Mage_Hat*")
 	if wizard:
 		_clear(wizard)
+	var helmet := _hat(skel, "*Knight_Helmet*")
+	if helmet:
+		_clear(helmet)
 	var legend: Dictionary = style.get("legend", {})
 	if str(legend.get("grand", "")) != "":
 		return
@@ -54,6 +57,8 @@ static func dress(skel: Skeleton3D, id: String, style: Dictionary) -> void:
 		_helm(bear)
 	if id == "mage" and wizard and wizard.visible and own_hat and not outfit.has("key"):
 		_stars(wizard)
+	if id == "knight" and helmet and helmet.visible and own_hat and not outfit.has("key"):
+		_crest(helmet)
 	if id == "rogue" and outfit.is_empty():
 		_night_cape(skel)
 	if chest and id == "rogue" and str(legend.get("wings", "")) == "":
@@ -112,6 +117,36 @@ static func _helm(hat: MeshInstance3D) -> void:
 		var d3 := Vector3(side * 0.2, 1.0, -0.25).normalized()
 		OutfitShapes._ray(root, 0.1, 0.34, tip, p3, d3, 0.0)
 	FeatHeads.bake(root, "herotop helm")
+	OutfitShapes._keep(root)
+
+
+## v390 (review v388 fix 2): the Knight's helm gets a tall red crest from brow to nape, so
+## from above the Knight is a red stripe over steel, not a grey dome among grey skulls. In
+## the helmet's own space (about 1.14 wide, crown at about 1.25 up, front toward +z).
+static func _crest(hat: MeshInstance3D) -> void:
+	var root := _holder(hat)
+	root.name = "HeroTopCrest"
+	var red := U.mat(Color(0.72, 0.08, 0.13), 0.75)
+	var deep := U.mat(Color(0.6, 0.06, 0.11), 0.8)
+	var gold := U.mat(GOLD, 0.35, 0.3)
+	var c := Vector3(0, 0.6, -0.04)
+	var r := 0.64
+	var n := 13
+	# (fix 2 critic: it ran down the back like a red danger line; it stops at the nape now
+	# and stands lower, a comb over the helm, not a rod)
+	for k in n:
+		var t := float(k) / (n - 1)
+		var a := lerpf(-0.5, 1.15, t)
+		var out := Vector3(0, cos(a), -sin(a))
+		var tall := 0.3 - 0.12 * absf(t - 0.4)
+		var fin := U.box(root, Vector3(0.26, tall, 0.2), red if k % 2 == 0 else deep, c + out * (r + tall * 0.4))
+		fin.rotation.x = -a
+	# the gold socket the crest stands in
+	for k in 5:
+		var a := lerpf(-0.45, 1.1, k / 4.0)
+		var s := U.box(root, Vector3(0.3, 0.07, 0.26), gold, c + Vector3(0, cos(a), -sin(a)) * (r + 0.02))
+		s.rotation.x = -a
+	FeatHeads.bake(root, "herotop crest")
 	OutfitShapes._keep(root)
 
 

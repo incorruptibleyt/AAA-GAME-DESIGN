@@ -1809,6 +1809,7 @@ var _find_k := 0.0
 var _find_t := 0.0
 static var _find_tex: ImageTexture
 const FIND_NEAR := 2.6
+const FIND_BOSS := 4.5
 const FIND_SIZE := 1.9
 
 func _build_find_ring() -> void:
@@ -1818,7 +1819,7 @@ func _build_find_ring() -> void:
 		for y in n:
 			for x in n:
 				var d := Vector2(x + 0.5 - n / 2.0, y + 0.5 - n / 2.0).length() / (n / 2.0)
-				var rim := clampf((1.0 - absf(d - 0.84) / 0.1) * 1.6, 0.0, 1.0)
+				var rim := clampf((1.0 - absf(d - 0.83) / 0.14) * 1.6, 0.0, 1.0)   # v390: thicker
 				var halo := clampf(1.0 - absf(d - 0.84) / 0.2, 0.0, 1.0) * 0.4
 				img.set_pixel(x, y, Color(1, 1, 1, maxf(rim, halo)))
 		_find_tex = ImageTexture.create_from_image(img)
@@ -1836,8 +1837,12 @@ func _update_find_ring(delta: float) -> void:
 	var crowd := 0
 	if Game.state == Game.State.PLAYING:
 		for a: Actor in Actor.all:
-			if a is Enemy and not a.dead and a.global_position.distance_squared_to(global_position) < FIND_NEAR * FIND_NEAR:
-				crowd += 1
+			if a is Enemy and not a.dead:
+				var d2 := a.global_position.distance_squared_to(global_position)
+				# v390 (review v388 fix 2): a boss close by counts as a crowd, so the ring
+				# shows while its body hangs over the hero.
+				if d2 < FIND_NEAR * FIND_NEAR or ((a as Enemy).is_boss and d2 < FIND_BOSS * FIND_BOSS):
+					crowd += 2 if (a as Enemy).is_boss else 1
 	_find_k = move_toward(_find_k, 1.0 if crowd >= 2 else 0.0, delta * 3.0)
 	_find_ring.visible = _find_k > 0.01
 	if _find_ring.visible:

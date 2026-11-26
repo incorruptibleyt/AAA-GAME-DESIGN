@@ -71,6 +71,7 @@ static var _blink_mat: ShaderMaterial
 var xray := false
 static var _xray_mat: ShaderMaterial
 static var _xray_mark: ShaderMaterial
+static var _edge_shader: Shader
 const XRAY_COL := Color(0.4, 0.95, 1.0)
 var _xrayed := {}
 ## A Master aura (hero_style.gd): a brighter, slightly wider outline in the aura's colours.
@@ -593,7 +594,7 @@ void fragment() { ALBEDO = vec3(0.0); ALPHA = 0.0; }
 		sh.code = """
 shader_type spatial;
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_back, shadows_disabled;
-stencil_mode read, compare_not_equal, 2;
+stencil_mode read, write, compare_not_equal, 2;
 uniform vec4 col : source_color = vec4(0.4, 0.95, 1.0, 1.0);
 // Version 361 (review of 357, fix 4): a bright edge with only a faint fill (it was a
 // solid cyan body at 38% that hid the outfit), so a hidden hero reads as an outline.
@@ -601,7 +602,9 @@ void fragment() {
 	float rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
 	ALBEDO = mix(col.rgb, vec3(0.92, 1.0, 1.0), pow(rim, 3.0));
 	// Version 377: thinner still, no fill (a hidden Rogue read as a see-through blue egg).
-	ALPHA = clamp(smoothstep(0.6, 0.88, rim) * 0.95, 0.0, 0.95);
+	// v390 (review v388 fix 2): a light fill again, now that the outline drawn on top gives
+	// the hidden hero its real shape (no egg), so a hero under a crowd is a solid shape.
+	ALPHA = clamp(0.3 + smoothstep(0.6, 0.88, rim) * 0.65, 0.0, 0.95);
 }
 """
 		_xray_mat = ShaderMaterial.new()
@@ -613,8 +616,37 @@ void fragment() {
 	var ghost := _xray_mat.duplicate() as ShaderMaterial
 	head.next_pass = ghost
 	ghost.next_pass = inner   # the flash and outline follow unchanged
+	# v390 (review v388 fix 2, always see your hero): the outline itself is drawn on top of
+	# whatever stands in front (a boss, a crowd, a pillar), in the line's own colour, so the
+	# hero's whole shape shows through. The ghost above marks the hidden body, so the line
+	# only draws outside the hero's shape, never across it.
+	var lined := inner as ShaderMaterial
+	if lined != null and lined.shader == _outline_shader:
+		var edge := ShaderMaterial.new()
+		edge.shader = _edge()
+		edge.render_priority = 11
+		for p in ["ink", "ink2", "cycle", "shine"]:
+			edge.set_shader_parameter(p, lined.get_shader_parameter(p))
+		var w = lined.get_shader_parameter("width")
+		edge.set_shader_parameter("width", (float(w) if w != null else OUTLINE_WIDTH) * 1.25)   # a little bolder than the line it covers
+		ghost.next_pass = edge
+		edge.next_pass = inner
 	_xrayed[inner] = head
 	return head
+
+
+## The outline's shader drawn with no depth test, only where the hero's shape isn't (the
+## stencil mark of 2), as a see-through pass after the marks and the ghost.
+static func _edge() -> Shader:
+	if _edge_shader == null:
+		outline_material()
+		var code := _outline_shader.code
+		code = code.replace("render_mode unshaded, cull_front, shadows_disabled;",
+			"render_mode unshaded, cull_front, shadows_disabled, depth_test_disabled, depth_draw_never;\nstencil_mode read, compare_not_equal, 2;")
+		code = code.replace("\tALBEDO = c;\n}", "\tALBEDO = c;\n\tALPHA = 0.96;\n}")
+		_edge_shader = Shader.new()
+		_edge_shader.code = code
+	return _edge_shader
 
 
 func _pick_outline_meshes() -> void:
