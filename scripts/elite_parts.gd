@@ -126,16 +126,16 @@ void fragment() {
 static func _m(key: String) -> Material:
 	if not _mats.has(key):
 		match key:
-			"crack": _mats[key] = U.unlit(Color(1.0, 0.45, 0.9))
-			"crack_hot": _mats[key] = U.unlit(Color(1.0, 0.9, 1.0))
-			"spike": _mats[key] = U.mat(Color(0.95, 0.78, 0.45), 0.5, 0.2)
+			"crack": _mats[key] = U.unlit(Color(0.78, 1.0, 0.12))   # (v414: lime, no hero's colour; it was pink by the Mage's violet)
+			"crack_hot": _mats[key] = U.unlit(Color(0.97, 1.0, 0.8))
+			"spike": _mats[key] = U.mat(Color(0.96, 0.93, 0.86), 0.5, 0.2)   # (v414: bone white, gold was the Knight's)
 			"spike_root": _mats[key] = U.mat(Color(0.5, 0.3, 0.12), 0.7)
 			"horn": _mats[key] = U.mat(Color(0.3, 0.07, 0.05), 0.5)
 			"horn_tip": _mats[key] = U.mat(Color(1.0, 0.4, 0.12), 0.4, 1.2)
 			"flame": _mats[key] = U.unlit(Color(1.0, 0.42, 0.1))
 			"flame_hot": _mats[key] = U.unlit(Color(1.0, 0.85, 0.35))
-			"halo": _mats[key] = U.unlit(Color(0.5, 1.0, 0.42))
-			"halo_hot": _mats[key] = U.unlit(Color(0.9, 1.0, 0.8))
+			"halo": _mats[key] = U.unlit(Color(1.0, 0.32, 0.55))   # (v414: rose; green melted into the Barbarian)
+			"halo_hot": _mats[key] = U.unlit(Color(1.0, 0.86, 0.9))
 			"twin": _mats[key] = U.mat(Color(0.88, 0.84, 0.74), 0.8)
 			"twin_dark": _mats[key] = U.mat(Color(0.08, 0.04, 0.1), 0.8)
 			"pole": _mats[key] = U.mat(Color(0.35, 0.24, 0.14), 0.8)
@@ -192,7 +192,7 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 				var side := along.cross((mid - Vector3(0, 0.5, 0)).normalized()).normalized()
 				var bs := Basis(side, along, side.cross(along).normalized())
 				for k in 2:
-					var seg := U.box(h, Vector3(0.15 - 0.08 * k, d.length() + 0.05, 0.07 + 0.02 * k), _m("crack" if k == 0 else "crack_hot"))
+					var seg := U.box(h, Vector3(0.22 - 0.11 * k, d.length() + 0.05, 0.09 + 0.02 * k), _m("crack" if k == 0 else "crack_hot"))   # (v414: wider, it read from the play camera as a thin line)
 					seg.transform = Transform3D(bs, mid)
 			FeatHeads.bake(h, "elite split")
 			_keep(h)
@@ -200,7 +200,7 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 			# shoulder, a second skull half its size with a glowing seam between them: the
 			# Splitter reads as "two in one" without its name tag.
 			var tw := _spot(e, skel, "chest", top * 0.6)
-			var sk := U.sphere(tw, 0.3, _m("twin"), Vector3(0.52, 0.42, 0.02))
+			var sk := U.sphere(tw, 0.36, _m("twin"), Vector3(0.56, 0.44, 0.02))
 			sk.scale = Vector3(1.0, 0.95, 1.05)
 			U.box(tw, Vector3(0.2, 0.14, 0.2), _m("twin"), Vector3(0.52, 0.2, 0.12))   # its jaw
 			for side: float in [-1.0, 1.0]:
@@ -218,8 +218,8 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 				var a := TAU * (i + 0.5) / 8.0
 				var dir := Vector3(sin(a), 0.45, cos(a)).normalized()
 				var from := Vector3(sin(a) * 0.38, 0.2, cos(a) * 0.38)
-				OutfitShapes._ray(c, 0.13, 0.6, _m("spike"), from, dir)   # (v395: a little longer and thicker)
-				OutfitShapes._ray(c, 0.065, 0.24, _m("flame"), from + dir * 0.42, dir)   # (burning tips: they are about to fly)
+				OutfitShapes._ray(c, 0.15, 0.8, _m("spike"), from, dir)   # (v414: longer still, a ring of spikes seen from above)
+				OutfitShapes._ray(c, 0.08, 0.3, _m("flame"), from + dir * 0.6, dir)   # (burning tips: they are about to fly)
 				U.sphere(c, 0.13, _m("spike_root"), from)
 			FeatHeads.bake(c, "elite burst")
 			_keep(c)
@@ -246,7 +246,8 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 			FeatHeads.bake(flames, "elite fury flames")
 			_keep(flames)
 			flames.set_meta("fx", true)
-			flames.visible = false
+			# (v414: always burning, a crown of fire to know it by; its rage adds the red edge)
+			flames.visible = true
 			out["flames"] = flames
 		"mender":
 			# A halo floating over its head (over the tallest hat), a small cross at its heart.
@@ -270,6 +271,7 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 			halo.position.z = -0.32
 			U.cylinder(halo, 0.045, 1.5, _m("pole"), Vector3(0, -1.2, 0))
 			var cx := Vector3(0, 0.5, 0)
+			halo.scale = Vector3.ONE * 1.35   # (v414: a bigger standard, read from the play camera)
 			U.box(halo, Vector3(0.2, 0.74, 0.2), _m("halo"), cx)
 			U.box(halo, Vector3(0.74, 0.2, 0.2), _m("halo"), cx)
 			U.box(halo, Vector3(0.2, 0.2, 0.74), _m("halo"), cx)

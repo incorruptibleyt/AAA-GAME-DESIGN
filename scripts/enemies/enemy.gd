@@ -31,13 +31,13 @@ var elite := false
 ## ward: a bubble that stops WARD_HITS hits, breaks, and grows back WARD_REGROW s later.
 var elite_move := ""
 const ELITE_MOVES := {
-	"split": {"tag": "SPLITTER", "word": "Splitter", "col": Color(1.0, 0.52, 0.92),
+	"split": {"tag": "SPLITTER", "word": "Splitter", "col": Color(0.82, 1.0, 0.2),
 		"tip": "SPLITTER ELITE: breaks into 2 skeletons when it dies!"},
-	"burst": {"tag": "BURST", "word": "Burst", "col": Color(1.0, 0.84, 0.5),
+	"burst": {"tag": "BURST", "word": "Burst", "col": Color(1.0, 0.58, 0.14),
 		"tip": "BURST ELITE: fires darts as it dies. Leave the lines!"},
 	"fury": {"tag": "FURY", "word": "Fury", "col": Color(1.0, 0.36, 0.22),
 		"tip": "FURY ELITE: fast at half health. Finish it quick!"},
-	"mender": {"tag": "MENDER", "word": "Mender", "col": Color(0.5, 1.0, 0.42),
+	"mender": {"tag": "MENDER", "word": "Mender", "col": Color(1.0, 0.4, 0.6),
 		"tip": "MENDER ELITE: heals the others. Kill it first!"},
 	"ward": {"tag": "WARDED", "word": "Warded", "col": Color(0.72, 0.88, 1.0),
 		"tip": "WARDED ELITE: its bubble stops 3 hits, then regrows."},
@@ -421,8 +421,8 @@ static func _tick_texture() -> ImageTexture:
 	return _tick
 
 
-## How far down (pill pixels, negative) this pill must go so it isn't on the hero (0 if it
-## isn't): under the hero's feet.
+## How far (pill pixels) this pill must move so it isn't on the hero (0 if it isn't): up over
+## the elite's own head.
 func _tag_off_hero(cam: Camera3D, base: float) -> float:
 	var hero := Game.hero
 	if hero == null or not is_instance_valid(hero) or hero.dead:
@@ -437,7 +437,10 @@ func _tag_off_hero(cam: Camera3D, base: float) -> float:
 		return 0.0
 	if me.y + 20.0 * k < head.y or me.y - 20.0 * k > feet.y + 14.0:
 		return 0.0
-	return -((feet.y + 16.0 + 20.0 * k) - me.y) / k
+	# Version 414 (re-review of v410, fix 4): up over the elite's own head, away from the hero
+	# (under the hero's feet, it lay in the hero's ring)
+	var top := cam.unproject_position(global_position + Vector3.UP * (center_height * 2.0 * visual.scale.y / 1.32 + 0.5))
+	return (me.y - top.y) / k + 24.0
 
 ## A dark rounded pill `w` x 40 pixels with a thin edge in `col` (version 404).
 static func _pill_texture(w: int, col: Color) -> ImageTexture:
@@ -485,7 +488,8 @@ func _fade_tag(delta: float) -> void:
 		# never run into each other.
 		# And a pill that would lie on the hero moves down under the hero's feet instead
 		# (it used to fade over the hero, unreadable, and hid the hero's ring).
-		var goal := minf(-46.0 * _tag_row(cam), _tag_off_hero(cam, base))
+		var off := _tag_off_hero(cam, base)
+		var goal := off if off > 0.0 else -46.0 * _tag_row(cam)
 		_tag_y = move_toward(_tag_y, goal, delta * 400.0)
 		_tag.offset.y = _tag_y
 		_tag_pill.offset.y = _tag_y
