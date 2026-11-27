@@ -60,6 +60,11 @@ const WARD_REGROW := 5.0
 const WARD_REGROWS := 2   # v298: then it stays broken (a slow hero was stuck on one for 10 min)
 var _ward_regrown := 0
 var _tag: Label3D
+var _tag_pill: Sprite3D   # v404: its dark pill and picture (children of _tag)
+var _tag_icon: Sprite3D
+var _tag_tick: Sprite3D   # (a thin line up to its owner when the pill had to step away)
+var _tag_shift := 0.0
+var _tag_y := 0.0
 var _tag_a := 1.0   # the tag's own fade (under the top bar), before the fade by the hero
 var _furious := false
 var _mend_left := MEND_EVERY
@@ -243,10 +248,14 @@ func make_elite(pick := "") -> void:
 	knockback_scale *= 0.5
 	radius *= 1.15
 	drop_chance = maxf(drop_chance, 0.5)
-	visual.scale *= 1.22
+	# Version 404 (re-review of v400, fix 4): a third bigger (was 1.22), and its edges glow
+	# in its own kind's colour, wider, so a Fury, Splitter or Burst reads from across the room
+	# (all five had the same faint purple edge).
+	visual.scale *= 1.32
 	# Version 372 (visual review fix 5): no purple wash. A purple glow round its edges and a
 	# purple pool with the kind's sign on the floor, and the kind's own pieces (EliteParts).
-	visual.set_rim(Color(0.78, 0.38, 1.0, 0.7), 3.2)
+	var own: Color = ELITE_MOVES[elite_move].col if ELITE_MOVES.has(elite_move) else Color(0.78, 0.38, 1.0)
+	visual.set_rim(Color(own, 0.85), 2.3)
 	_pool = U.floor_quad(self, Vector2(EliteParts.SIGN, EliteParts.SIGN), EliteParts.sign_mat(elite_move), Vector3(0, 0.05, 0))
 	_parts = EliteParts.dress(self, elite_move)
 	if _bar:
@@ -276,6 +285,42 @@ func make_elite(pick := "") -> void:
 	_tag.outline_render_priority = 29
 	_tag.visible = false   # shown once it has climbed out of the floor
 	add_child(_tag)
+	# Version 404 (re-review of v400, fix 4): the name sits on a dark pill with the kind's
+	# own little picture (tags in colour straight on the floor were unreadable on some floors).
+	var font: Font = Hud.UI_FONT if Hud.UI_FONT else ThemeDB.fallback_font
+	var tw := font.get_string_size(str(info.tag), HORIZONTAL_ALIGNMENT_LEFT, -1, _tag.font_size).x + float(_tag.outline_size)
+	_tag_pill = Sprite3D.new()
+	_tag_pill.texture = _pill_texture(int(tw) + 64, info.col)
+	_tag_icon = Sprite3D.new()
+	var icon := Hud.tip_picture("elite_" + elite_move)
+	_tag_icon.texture = icon
+	for sp: Sprite3D in [_tag_pill, _tag_icon]:
+		sp.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		sp.no_depth_test = true
+		sp.fixed_size = true
+		sp.top_level = true
+		sp.shaded = false
+		sp.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+		_tag.add_child(sp)
+	_tag_pill.pixel_size = _tag.pixel_size
+	_tag_pill.render_priority = 28
+	_tag_icon.render_priority = 31
+	_tag_icon.visible = icon != null
+	if icon:
+		_tag_icon.pixel_size = _tag.pixel_size * 44.0 / float(icon.get_height())
+	_tag_shift = 22.0   # the name moves right of the picture
+	_tag_tick = Sprite3D.new()
+	_tag_tick.texture = _tick_texture()
+	_tag_tick.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	_tag_tick.no_depth_test = true
+	_tag_tick.fixed_size = true
+	_tag_tick.top_level = true
+	_tag_tick.shaded = false
+	_tag_tick.pixel_size = _tag.pixel_size
+	_tag_tick.render_priority = 27
+	_tag_tick.modulate = Color(info.col, 1.0)
+	_tag_tick.visible = false
+	_tag.add_child(_tag_tick)
 	if elite_move == "ward":
 		_ward_hits = WARD_HITS
 		# (v372: clear in the middle, bright at the edge, so the skeleton inside still shows)
@@ -356,6 +401,66 @@ func _elite_tick(delta: float) -> void:
 ## way the elite faces.
 func _place_tag() -> void:
 	_tag.global_position = global_position + Vector3(0, 0.12, radius + 0.85)
+	if _tag_pill:
+		_tag_pill.global_position = _tag.global_position
+		_tag_icon.global_position = _tag.global_position
+		_tag_tick.global_position = _tag.global_position
+
+
+static var _pills := {}
+static var _tick: ImageTexture
+
+## A thin line 6 x 32 pixels, pale in the middle with dark edges (tinted by the elite's colour).
+static func _tick_texture() -> ImageTexture:
+	if _tick == null:
+		var img := Image.create(6, 32, false, Image.FORMAT_RGBA8)
+		for y in 32:
+			for x in 6:
+				img.set_pixel(x, y, Color(1, 1, 1, 1) if x in [2, 3] else Color(0.05, 0.03, 0.08, 0.85))
+		_tick = ImageTexture.create_from_image(img)
+	return _tick
+
+
+## How far down (pill pixels, negative) this pill must go so it isn't on the hero (0 if it
+## isn't): under the hero's feet.
+func _tag_off_hero(cam: Camera3D, base: float) -> float:
+	var hero := Game.hero
+	if hero == null or not is_instance_valid(hero) or hero.dead:
+		return 0.0
+	var vh := get_viewport().get_visible_rect().size.y
+	var k := _tag.pixel_size * vh * 0.5 / tan(deg_to_rad(cam.fov) * 0.5)
+	var me := cam.unproject_position(_tag.global_position) + Vector2(base * k, 0.0)
+	var feet := cam.unproject_position(hero.global_position)
+	var head := cam.unproject_position(hero.global_position + Vector3.UP * 2.2)
+	var half_w := float(_tag_pill.texture.get_width()) * k * 0.5
+	if absf(me.x - feet.x) > half_w + 34.0:
+		return 0.0
+	if me.y + 20.0 * k < head.y or me.y - 20.0 * k > feet.y + 14.0:
+		return 0.0
+	return -((feet.y + 16.0 + 20.0 * k) - me.y) / k
+
+## A dark rounded pill `w` x 40 pixels with a thin edge in `col` (version 404).
+static func _pill_texture(w: int, col: Color) -> ImageTexture:
+	var key := "%d%s" % [w, col.to_html()]
+	if _pills.has(key):
+		return _pills[key]
+	var h := 40
+	var img := Image.create(w, h, false, Image.FORMAT_RGBA8)
+	var r := h * 0.5
+	var fill := Color(0.05, 0.03, 0.08, 0.9)
+	var edge := Color(col.r, col.g, col.b, 0.85)
+	for y in h:
+		for x in w:
+			var cx := clampf(float(x) + 0.5, r, float(w) - r)
+			var d := Vector2(float(x) + 0.5 - cx, float(y) + 0.5 - r).length()
+			var a := clampf(r - d, 0.0, 1.0)
+			if a <= 0.0:
+				continue
+			var c := edge if d > r - 2.5 else fill
+			img.set_pixel(x, y, Color(c.r, c.g, c.b, c.a * a))
+	var t := ImageTexture.create_from_image(img)
+	_pills[key] = t
+	return t
 
 
 func _fade_tag(delta: float) -> void:
@@ -370,9 +475,61 @@ func _fade_tag(delta: float) -> void:
 		var sx := cam.unproject_position(_tag.global_position).x / vw
 		var half := _tag.text.length() * 11.0 + 12.0
 		_tag.offset.x = half if sx < 0.2 else (-half if sx > 0.8 else 0.0)
+	if _tag_pill:
+		var base := _tag.offset.x
+		_tag.offset.x = base + _tag_shift
+		_tag_pill.offset.x = base
+		var icon_k := maxf(_tag_icon.pixel_size / _tag.pixel_size, 0.001)
+		_tag_icon.offset.x = (base - _tag_pill.texture.get_width() * 0.5 + 26.0) / icon_k
+		# Two elites side by side: the later one's pill steps down a row, so the names
+		# never run into each other.
+		# And a pill that would lie on the hero moves down under the hero's feet instead
+		# (it used to fade over the hero, unreadable, and hid the hero's ring).
+		var goal := minf(-46.0 * _tag_row(cam), _tag_off_hero(cam, base))
+		_tag_y = move_toward(_tag_y, goal, delta * 400.0)
+		_tag.offset.y = _tag_y
+		_tag_pill.offset.y = _tag_y
+		_tag_icon.offset.y = _tag_y / icon_k
+		var gap := -_tag_y - 20.0
+		_tag_tick.visible = gap > 6.0
+		if _tag_tick.visible:
+			_tag_tick.scale = Vector3(1.0, gap / 32.0, 1.0)
+			_tag_tick.offset = Vector2(base, (_tag_y + 20.0) * 0.5 * 32.0 / gap)
 	# Version 386 (fix 3): see-through right by the hero, so a crowd's tags don't bury it.
-	_tag.modulate.a = _tag_a * (1.0 - 0.65 * HealthBar.near_hero(global_position))
+	_tag.modulate.a = _tag_a * (1.0 - 0.3 * HealthBar.near_hero(global_position))   # (v404: 0.65; the pill steps off the hero now)
 	_tag.outline_modulate.a = _tag.modulate.a
+	if _tag_pill:
+		_tag_pill.modulate.a = _tag.modulate.a
+		_tag_icon.modulate.a = _tag.modulate.a
+		_tag_tick.modulate.a = _tag.modulate.a * 0.9
+
+
+## How many rows down this elite's pill sits: the first row where no earlier elite's pill
+## would overlap it on the screen (version 404).
+func _tag_row(cam: Camera3D) -> int:
+	var vh := get_viewport().get_visible_rect().size.y
+	var k := _tag.pixel_size * vh * 0.5 / tan(deg_to_rad(cam.fov) * 0.5)
+	var me := cam.unproject_position(_tag.global_position) + Vector2(_tag_pill.offset.x * k, 0.0)   # (with its slide in from the screen edge)
+	var my_w := float(_tag_pill.texture.get_width()) * k
+	var gaps: Array[float] = []
+	for a: Actor in Actor.all:
+		if a == self or not (a is Enemy):
+			continue
+		var o := a as Enemy
+		if o.dead or o._tag == null or o._tag_pill == null or not o._tag.visible or o.get_instance_id() > get_instance_id():
+			continue
+		var p := cam.unproject_position(o._tag.global_position) + Vector2(o._tag_pill.offset.x * k, 0.0)
+		if absf(p.x - me.x) < (my_w + float(o._tag_pill.texture.get_width()) * k) * 0.5 + 4.0:
+			gaps.append((p.y - o._tag_y * k) - me.y)   # (screen y grows down; offset y grows up)
+	for r in 4:
+		var clash := false
+		for g in gaps:
+			if absf(g - 46.0 * r * k) < 44.0 * k:
+				clash = true
+				break
+		if not clash:
+			return r
+	return 0
 
 
 ## Fury: half health. It stops to roar, turns red and from then on runs FURY_SPEED times as

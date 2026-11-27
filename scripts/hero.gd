@@ -2026,7 +2026,7 @@ func _update_dash_ring() -> void:
 func chill(seconds: float) -> void:
 	if chill_left <= 0.0:
 		Fx.magic(center(), Color(0.6, 0.9, 1.0), 16)
-		Game.hud.callout("CHILLED!", Color(0.6, 0.9, 1.0), true)
+		Game.hud.status_at_hero("CHILLED!", Color(0.6, 0.9, 1.0))
 	chill_left = maxf(chill_left, seconds)
 
 
@@ -2038,7 +2038,7 @@ func hush(seconds: float) -> void:
 	if hush_left <= 0.0:
 		Fx.magic(global_position + Vector3.UP * 1.3, HushCircle.TEAL, 10)
 		if _hush_said <= 0.0:
-			Game.hud.callout("HUSHED! STEP OUT!", HushCircle.TEAL, true)
+			Game.hud.status_at_hero("HUSHED! STEP OUT!", HushCircle.TEAL)
 		_hush_said = 3.0
 	hush_left = maxf(hush_left, seconds)
 
@@ -2049,7 +2049,7 @@ func mire(seconds: float) -> void:
 	if dead:
 		return
 	if mired_left <= 0.0 and _mired_said <= 0.0:
-		Game.hud.callout("SINKING IN SAND! GET OUT!", SandMound.SAND, true)
+		Game.hud.status_at_hero("SINKING IN SAND! GET OUT!", SandMound.SAND)
 		_mired_said = 4.0
 	mired_left = maxf(mired_left, seconds)
 
@@ -2059,7 +2059,7 @@ func snare(seconds: float) -> void:
 	if not can_be_snared():
 		return
 	if snare_left <= 0.0:
-		Game.hud.callout("ROOTED! DASH FREE!", RootCrawl.LIME, true)
+		Game.hud.status_at_hero("ROOTED! DASH FREE!", RootCrawl.LIME)
 	snare_left = maxf(snare_left, seconds)
 	Game.buzz(30)
 
@@ -2091,7 +2091,7 @@ func freeze(seconds: float) -> void:
 	_ice.rotation.y = randf_range(-0.4, 0.4)
 	Fx.magic(center(), Color(0.75, 0.92, 1.0), 22)
 	Sfx.play("crack", 0.7, 0.8)
-	Game.hud.callout("FROZEN! DASH FREE!", Color(0.6, 0.9, 1.0), true)
+	Game.hud.status_at_hero("FROZEN! DASH FREE!", Color(0.6, 0.9, 1.0))
 	Game.buzz(40)
 
 

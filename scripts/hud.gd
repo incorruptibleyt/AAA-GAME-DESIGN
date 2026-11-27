@@ -253,6 +253,7 @@ var _phase_tw: Tween
 var _cards_age := 0.0
 var _fade: ColorRect
 var _coin_label: Label
+var _coins_box: Control
 var _title_coins: Label
 var _armory_box: Control
 var _armory_coins: Label
@@ -1060,6 +1061,8 @@ func _build_hud() -> void:
 	root.add_child(badge)
 
 	var coins := Control.new()
+	_coins_box = coins
+	coins.z_index = 2   # (v404: drawn over the boss plate, which it sits in during a boss fight)
 	coins.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	coins.position = Vector2(64, 54)
 	coins.size = Vector2(200, 30)
@@ -1230,6 +1233,22 @@ func _build_hud() -> void:
 	_boss_box.offset_top = 60
 	_boss_box.offset_bottom = 112
 	root.add_child(_boss_box)
+	# Version 404 (re-review of v400, fix 4): the name and bar sit on a solid dark plate, so a
+	# bright boss or a flash behind never washes the bar out (the Lich's did, mid-fight).
+	var plate := Panel.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var plsb := StyleBoxFlat.new()
+	plsb.bg_color = Color(0.05, 0.02, 0.05, 0.9)
+	plsb.set_corner_radius_all(14)
+	plsb.border_color = Color(1.0, 0.8, 0.6, 0.35)
+	plsb.set_border_width_all(2)
+	plate.add_theme_stylebox_override("panel", plsb)
+	plate.set_anchors_preset(Control.PRESET_FULL_RECT)
+	plate.offset_left = -10
+	plate.offset_right = 10
+	plate.offset_top = -4
+	plate.offset_bottom = 8
+	_boss_box.add_child(plate)
 	_boss_name = label(SkeletonKing.DISPLAY_NAME, 20, Color(1, 0.8, 0.6))
 	chunky(_boss_name.label_settings)
 	_boss_name.label_settings.outline_size = 5
@@ -1327,15 +1346,16 @@ func _build_hud() -> void:
 	# "SCORE 1,234", instead of a tiny word over a small number.
 	_spine = ChainSpine.new()
 	_spine.bar = true
-	_spine.position = Vector2(6, 27)
-	_spine.size = Vector2(68, 7)
+	# (v404, re-review of v400 fix 4: a thicker fuse and a bigger number)
+	_spine.position = Vector2(5, 26)
+	_spine.size = Vector2(70, 10)
 	_chain_box.add_child(_spine)
-	_chain_label = label("x1.0", 27, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_CENTER)
+	_chain_label = label("x1.0", 30, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_CENTER)
 	chunky(_chain_label.label_settings)   # v386: big chunky number, like the score
 	_chain_label.label_settings.outline_size = 7
 	_chain_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_chain_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_chain_label.position = Vector2(0, -4)
+	_chain_label.position = Vector2(0, -6)
 	_chain_label.size = Vector2(80, 32)
 	_chain_label.pivot_offset = Vector2(40, 18)
 	_chain_box.add_child(_chain_label)
@@ -4595,6 +4615,7 @@ func _on_card(i: int) -> void:
 
 func _process(delta: float) -> void:
 	_event_process(delta)
+	_place_status(delta)
 	_beat_deals(delta)
 	_cards_age += delta
 	# Version 158: "SURGE READY!" (or PERFECT!) caught by the pause menu, the cards or an end
@@ -4623,6 +4644,10 @@ func _process(delta: float) -> void:
 	_flash.visible = _flash.color.a > 0.003
 	_see_through(delta)
 	_chain_box.position.y = CHAIN_TOP + (64.0 if _boss_box.visible else 0.0)
+	# Version 404: in a boss fight the coins sit in the boss plate's top left corner (under
+	# the plate they were hidden), beside the boss's name.
+	if _coins_box:
+		_coins_box.position = Vector2(40, 58) if _boss_box.visible else Vector2(64, 54)
 	# Hidden behind the pause menu, where it would cross "Paused".
 	var meter := Game.chain_unlocked() and Game.state in [Game.State.PLAYING, Game.State.UPGRADE]
 	# With no chain going it stays faint (it sits over the far end of the room).
@@ -4672,8 +4697,14 @@ func _process(delta: float) -> void:
 			_pop_tip()
 	elif _tip_time > 0.0:
 		_tip_time -= delta
-		_tip_see = move_toward(_tip_see, 0.4 if _tip_over_hero() else 1.0, delta * 3.0)
-		_tip.modulate.a = clampf(_tip_time / 0.4, 0.0, 1.0) * _tip_see
+		# Version 404 (re-review of v400, fix 4): with the hero behind it, the tip card slides
+		# up to just under the top lane instead of fading out across the hero.
+		var vh := get_viewport().get_visible_rect().size.y
+		var goal := maxf(0.0, (vh - 198.0) - (_callout_lane() + 62.0)) if _tip_over_hero() else 0.0
+		_tip_see = move_toward(_tip_see, goal, delta * 2600.0)
+		_tip.offset_top = -198.0 - _tip_see
+		_tip.offset_bottom = -158.0 - _tip_see
+		_tip.modulate.a = clampf(_tip_time / 0.4, 0.0, 1.0)
 		if _tip_time <= 0.0:
 			_tip.visible = false
 	_update_end_count(delta)
@@ -4809,6 +4840,8 @@ func _see_through(delta: float) -> void:
 		# Version 213: only the hero under a button lets its touches through (a skeleton or a
 		# shot passing over it fades it too, but DASH must still work then).
 		c.set_meta("hero_under", want == 0.3)
+		if c == _boss_box:
+			want = maxf(want, 0.88)   # (v404: the boss's bar stays solid; it washed out under shots)
 		c.modulate.a = move_toward(c.modulate.a, want, delta * (6.0 if want < c.modulate.a else 3.0))
 
 
@@ -4869,6 +4902,15 @@ func _draw_wave_pips() -> void:
 	# v392 (review v388 fix 4, "room dots too small"): a third bigger, further apart.
 	var gap := minf(26.0, 66.0 / float(n - 1))
 	var y := 11.0
+	# Version 404 (re-review of v400, fix 4): the word WAVES under the pips (under "Room 1/5"
+	# they read as rooms; beside them there is no room left of the score).
+	var font: Font = UI_FONT if UI_FONT else ThemeDB.fallback_font
+	var mid := _wave_pips.size.x - 12.0 - float(n - 1) * gap * 0.5
+	var word := "WAVE %d/%d" % [mini(_wave_now, n), n]
+	var tw := font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+	var at := Vector2(minf(mid - tw * 0.5, _wave_pips.size.x - 4.0 - tw), y + 32.0)
+	_wave_pips.draw_string_outline(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, 6, INK)
+	_wave_pips.draw_string(font, at, word, HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(1, 0.93, 0.82))
 	for i in n:
 		var x := _wave_pips.size.x - 12.0 - float(n - 1 - i) * gap
 		var w := i + 1
@@ -4977,7 +5019,7 @@ func tip(text: String, seconds := 5.0, delay := 0.0, foe := false, pic := "") ->
 	var was := _tip.visible
 	_tip.visible = text != "" and seconds > 0.0 and _tip_delay <= 0.0
 	_tip.modulate.a = 1.0
-	_tip_see = 1.0
+	_tip_see = 0.0
 	_tip_time = seconds if text != "" else 0.0
 	if _tip.visible and not was:
 		_pop_tip()
@@ -5139,8 +5181,8 @@ func _callout_lane() -> float:
 
 ## Version 387 (visual review of v383, fix 8): the camera now lets a hero by the near wall
 ## stand lower on the screen, where the tip card sits; the card turns see-through while the
-## hero is behind it.
-var _tip_see := 1.0
+## hero is behind it. (Version 404: it slides up out of the way instead.)
+var _tip_see := 0.0   # (v404: how far the card has slid up, in pixels)
 
 
 func _tip_over_hero() -> bool:
@@ -5150,6 +5192,7 @@ func _tip_over_hero() -> bool:
 	var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.0)
 	var feet := cam.unproject_position(Game.hero.global_position)
 	var box := _tip.get_global_rect().grow(6.0)
+	box.position.y += _tip_see   # where it sits when not slid up (see _process)
 	return box.position.y < feet.y + 8.0 and box.end.y > head.y \
 		and absf(feet.x - box.get_center().x) < box.size.x * 0.5 + 24.0
 
@@ -5177,6 +5220,82 @@ func hero_says(kind: String) -> void:
 func hero_quiet() -> void:
 	if _hero_bubble:
 		_hero_bubble.hide_now()
+
+
+## Version 404 (re-review of v400, fix 4, "quieter fight words"): what is happening to the
+## hero (CHILLED, ROOTED, CAUGHT...) is a small dark tag just under their feet, where the eye
+## already is, not a wide strip across the top of the fight that covered the enemy. The top
+## lane is kept for the rare big moments.
+var _status_box: PanelContainer
+var _status_lbl: Label
+var _status_time := 0.0
+
+func status_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
+	if Game.state != Game.State.PLAYING:
+		return
+	if Game.hero == null or not is_instance_valid(Game.hero):
+		callout(text, col, true)
+		return
+	if _status_box == null:
+		_status_box = PanelContainer.new()
+		_status_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.04, 0.03, 0.08, 0.86)
+		sb.set_corner_radius_all(14)
+		sb.set_border_width_all(2)
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		sb.content_margin_top = 2
+		sb.content_margin_bottom = 2
+		_status_box.add_theme_stylebox_override("panel", sb)
+		_status_lbl = label("", 19, col)
+		chunky(_status_lbl.label_settings)
+		_status_lbl.label_settings.outline_size = 5
+		_status_lbl.label_settings.outline_color = Color(0.02, 0.02, 0.06)
+		_status_lbl.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_status_box.add_child(_status_lbl)
+		add_child(_status_box)
+		move_child(_status_box, 0)   # under the rest of the HUD
+	_status_lbl.text = text
+	# Lethal ones (stuck: dash or step out now) are bigger, with a red edge and a pulse.
+	var urgent := text.contains("DASH") or text.contains("OUT!")
+	_status_urgent = urgent
+	_status_lbl.label_settings.font_size = 23 if urgent else 19
+	var sbx := _status_box.get_theme_stylebox("panel") as StyleBoxFlat
+	sbx.set_border_width_all(3 if urgent else 2)
+	sbx.bg_color = Color(0.16, 0.02, 0.03, 0.9) if urgent else Color(0.04, 0.03, 0.08, 0.86)
+	col = Color.from_hsv(col.h, minf(col.s, 0.55), maxf(col.v, 0.97))   # (bright on the dark tag, even sand's dull colour)
+	_status_lbl.label_settings.font_color = col
+	sbx.border_color = Color(1.0, 0.25, 0.2, 0.95) if urgent else Color(col, 0.7)
+	_status_box.reset_size()
+	if _status_time <= 0.0:
+		_status_box.pivot_offset = _status_box.size * 0.5
+		_status_box.scale = Vector2(1.25, 1.25)
+	_status_time = 1.3
+	_status_box.visible = true
+	_place_status(0.0)
+
+
+var _status_urgent := false
+
+func _place_status(delta: float) -> void:
+	if _status_box == null or not _status_box.visible:
+		return
+	_status_time -= delta
+	var cam := get_viewport().get_camera_3d()
+	if _status_time <= 0.0 or Game.state != Game.State.PLAYING or cam == null or Game.hero == null or not is_instance_valid(Game.hero):
+		_status_box.visible = false
+		_status_time = 0.0
+		return
+	_status_box.scale = _status_box.scale.move_toward(Vector2.ONE, delta * 2.5)
+	if _status_urgent and _status_box.scale.is_equal_approx(Vector2.ONE):
+		_status_box.self_modulate.v = 0.85 + 0.15 * sin(Time.get_ticks_msec() * 0.012)
+	_status_box.modulate.a = clampf(_status_time / 0.18, 0.0, 1.0)
+	var feet := cam.unproject_position(Game.hero.global_position)
+	var w := get_viewport().get_visible_rect().size.x
+	var pos := feet + Vector2(-_status_box.size.x * 0.5, 22.0)
+	pos.x = clampf(pos.x, 8.0, w - _status_box.size.x - 8.0)
+	_status_box.position = pos
 
 
 ## PERFECT! just above the hero's head, where the eye already is (it used to show at the top

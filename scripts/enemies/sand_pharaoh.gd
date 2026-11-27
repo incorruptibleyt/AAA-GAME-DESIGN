@@ -711,7 +711,7 @@ func _bandages() -> void:
 							Sfx.play("lash", 0.7, 0.65)
 							if Time.get_ticks_msec() - TombMummy._said > 3000:
 								TombMummy._said = Time.get_ticks_msec()
-								Game.hud.callout("CAUGHT! DASH TO SNAP IT!", TURQUOISE, true)
+								Game.hud.status_at_hero("CAUGHT! DASH TO SNAP IT!", TURQUOISE)
 							continue
 			var tip := from + d * reach[i]
 			tip.y = lerpf(from.y, 0.8, minf(reach[i] / 3.0, 1.0))

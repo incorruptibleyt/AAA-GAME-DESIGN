@@ -522,7 +522,7 @@ func _catch(hero: Hero) -> void:
 	Sfx.play("lash", 0.6, 0.75)
 	if Time.get_ticks_msec() - _said > 3000:
 		_said = Time.get_ticks_msec()
-		Game.hud.callout("CAUGHT! DASH TO SNAP IT!", TURQUOISE, true)
+		Game.hud.status_at_hero("CAUGHT! DASH TO SNAP IT!", TURQUOISE)
 
 
 ## Reels the leash in. A dash snaps it; close enough, it strikes.
