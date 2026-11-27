@@ -237,6 +237,9 @@ var _pause_box: Control
 var _pause_button: Button
 var _score_shown := -1
 var _danger: TextureRect
+## The dark edge shade round the screen. Low graphics goes without it (v398): it is a
+## see-through layer over every pixel of the screen, every frame.
+var _vignette: TextureRect
 var _beat_phase := 0.0
 var _hint: Label
 var _end_tap: Label
@@ -1599,6 +1602,7 @@ func _build_danger() -> void:
 	vt.width = 128
 	vt.height = 128
 	var vig := TextureRect.new()
+	_vignette = vig
 	vig.texture = vt
 	vig.stretch_mode = TextureRect.STRETCH_SCALE
 	vig.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -3724,6 +3728,8 @@ func _beat_deals(delta: float) -> void:
 			r.visible = false
 		for l: Label in [_title_pass_badge, _end_pass_badge]:
 			l.visible = false
+		_tb(_title_pass_badge, false)
+		_trim_title_badges()
 		if Store.instance:
 			Store.instance.changed.emit()
 		return
@@ -5681,6 +5687,49 @@ func _fill_deal_pill(l: Label) -> void:
 	l.text = "%d%% OFF%s" % [int(d.pct), left]
 
 
+## Version 398 (visual review of 388, fix 10): the title wore six or seven tags at once
+## ("77 DROPS", "TRY FLOOR 6 FREE", "+50% COINS", "139 NEW LOOKS", "NEW LOOKS", "HEROIC!"),
+## so none of them read as the thing to do. Every tag says whether it has news (_tb), and
+## only the two that matter most are shown (_trim_title_badges).
+func _tb(l: Label, on: bool) -> void:
+	l.set_meta("want", on)
+	l.visible = on
+
+
+const TITLE_TAGS := 2
+func _trim_title_badges() -> void:
+	if _title_play_badge == null or _title_modes_badge == null or _rewards_badge == null \
+			or _title_armory_badge == null or _title_heroes_badge == null or _title_pass_badge == null:
+		return
+	var deal := not Store.deal_now().is_empty()
+	var up := _title_armory_badge.text == "UPGRADE"
+	var heroic := _title_play_badge.text == "HEROIC"
+	# Most important first: Heroic is switched on, a deal that ends, things to collect,
+	# coins that can buy an upgrade, today's coin bonus, then the rest.
+	var order: Array = []
+	if heroic:
+		order.append(_title_play_badge)
+	if deal:
+		order.append(_title_pass_badge)
+	order.append(_rewards_badge)
+	if up:
+		order.append(_title_armory_badge)
+	if not heroic:
+		order.append(_title_play_badge)
+	if not deal:
+		order.append(_title_pass_badge)
+	order.append(_title_modes_badge)
+	order.append(_title_heroes_badge)
+	if not up:
+		order.append(_title_armory_badge)
+	var shown := 0
+	for l: Label in order:
+		var on: bool = bool(l.get_meta("want", false)) and shown < TITLE_TAGS
+		l.visible = on
+		if on:
+			shown += 1
+
+
 ## The title's NEW LOOKS tag: shown while any hero has looks the Style screen hasn't shown.
 func refresh_looks_badge() -> void:
 	var cfg := Game._load_save()
@@ -5689,7 +5738,7 @@ func refresh_looks_badge() -> void:
 	var n := HeroStyle.new_count_all(cfg)
 	for pill: Label in [_title_heroes_badge, _end_heroes_badge]:
 		pill.text = "%d NEW LOOKS" % n if n > 1 else "NEW LOOK"
-	_title_heroes_badge.visible = n > 0
+	_tb(_title_heroes_badge, n > 0)
 	_end_heroes_badge.visible = n > 0
 	refresh_armory_badge()
 
@@ -5706,6 +5755,9 @@ func refresh_armory_badge() -> void:
 		if pill:
 			pill.visible = up or fresh
 			pill.text = "UPGRADE" if up else "NEW LOOKS"
+	if _title_armory_badge:
+		_tb(_title_armory_badge, up or fresh)
+	_trim_title_badges()
 	if _bazaar_tab_badge:
 		_bazaar_tab_badge.visible = Bazaar.unseen(cfg)
 
@@ -5943,7 +5995,8 @@ func refresh_rewards() -> void:
 	elif tdone < Today.COUNT and not Game.first_run_pending():
 		badge = "TODAY %d/%d" % [tdone, Today.COUNT]   # version 311: a reason to look in each day
 	_rewards_badge.text = badge
-	_rewards_badge.visible = badge != ""
+	_tb(_rewards_badge, badge != "")
+	_trim_title_badges()
 
 
 func show_title(v: bool, best := "", coins := 0) -> void:
@@ -5963,6 +6016,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	# and a Pass owner always reaches the Daily Crypt and Curses they bought (MODES).
 	_title_pass_row.visible = stage >= 2 and not has_pass
 	_fill_deal_pill(_title_pass_badge)
+	_tb(_title_pass_badge, _title_pass_badge.visible)
 	_title_modes_row.visible = stage >= 3 or has_pass
 	_title_records.visible = stage >= 3
 	_place_title_buttons()
@@ -5977,7 +6031,7 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	var heroic_new := Curses.unlocked("heroic", tcfg) and not bool(tcfg.get_value(Curses.SAVE_SECTION, "heroic_seen", false))
 	var race_new := Race.unlocked(tcfg) and Race.stat(tcfg, "races") == 0
 	_title_modes_badge.text = "HEROIC!" if heroic_new else ("NEW: RACE" if race_new else "DAILY READY")
-	_title_modes_badge.visible = heroic_new or race_new or not Curses.official_used(tcfg)
+	_tb(_title_modes_badge, heroic_new or race_new or not Curses.official_used(tcfg))
 	refresh_looks_badge()
 	_title_lock.visible = locked
 	if not v:
@@ -6037,7 +6091,8 @@ func show_title(v: bool, best := "", coins := 0) -> void:
 	if start_line != "" and _title_continue.visible and Game.chosen_start(tcfg) > 1:
 		_title_play.text = "NEW RUN: FLOOR %d" % Game.chosen_start(tcfg)
 	_title_play_badge.text = "HEROIC" if heroic else "+%d%% COINS" % roundi(Game.DAY_BONUS * 100)
-	_title_play_badge.visible = heroic or day_tag
+	_tb(_title_play_badge, heroic or day_tag)
+	_trim_title_badges()
 	_title_play.add_theme_font_size_override("font_size", (26 if _title_play.text.length() > 8 else 32) if _title_continue.visible else 38)
 	_title_play.remove_meta("armed")
 
@@ -6150,6 +6205,8 @@ func set_reports_label(on: bool, available: bool) -> void:
 func set_graphics_label(level: int) -> void:
 	_graphics_level = level
 	_graphics_button.text = "Graphics: " + Game.GRAPHICS_NAMES[level]
+	if _vignette:
+		_vignette.visible = level >= 2
 
 
 ## Screen shake level: 2 full, 1 reduced, 0 off.

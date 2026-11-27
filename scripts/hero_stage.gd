@@ -90,6 +90,20 @@ func _init(stage_size: Vector2) -> void:
 	set_process(false)
 
 
+## Version 398: the stage takes a new shape (the Heroes screen's pedestal is as tall as the
+## phone leaves room for). The camera's view keeps its height, so a taller stage shows a
+## bigger hero, drawn sharp at the new size, not a stretched picture.
+func fit_to(sz: Vector2) -> void:
+	if sz.x < 2.0 or sz.y < 2.0 or sz.is_equal_approx(_stage_size):
+		return
+	_stage_size = sz
+	_full_size = Vector2i(sz * RENDER_SCALE)
+	if _vp and _vp.render_target_update_mode != SubViewport.UPDATE_DISABLED:
+		_vp.size = _draw_size()
+	if _cam:
+		_frame_camera(_tall)
+
+
 func _make_viewport() -> void:
 	_vp = SubViewport.new()
 	# Version 135: made at its size once and kept (no growing from 1 pixel on every opening).

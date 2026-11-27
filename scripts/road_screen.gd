@@ -161,19 +161,15 @@ func _row(cfg: ConfigFile, i: int, b: int) -> Control:
 	sb.border_color = Hud.GOLD if reached and not got else (DONE.darkened(0.3) if got else Color(0.3, 0.28, 0.36))
 	sb.set_border_width_all(3 if reached and not got else 2)
 	sb.set_corner_radius_all(14)
-	sb.content_margin_left = 12
-	sb.content_margin_right = 12
+	sb.content_margin_left = 10
+	sb.content_margin_right = 10
 	sb.content_margin_top = 8
 	sb.content_margin_bottom = 8
 	panel.add_theme_stylebox_override("panel", sb)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.add_theme_constant_override("separation", 12)
+	h.add_theme_constant_override("separation", 8)
 	panel.add_child(h)
-	var at := Hud.label(str(int(s.at)), 24, Hud.GOLD if reached else DIM)
-	at.custom_minimum_size = Vector2(64, 0)
-	at.autowrap_mode = TextServer.AUTOWRAP_OFF
-	h.add_child(at)
 	# Version 363 (visual review v357 fix 5): a picture of the prize, not just its name.
 	h.add_child(LookShots.prize_rect({"drop": "drop", "lucky": "lucky"}.get(str(s.kind), "coins"), 62, not reached))
 	var texts := VBoxContainer.new()
@@ -185,20 +181,127 @@ func _row(cfg: ConfigFile, i: int, b: int) -> Control:
 	texts.add_child(what)
 	var need := ("Claimed" if got else "Ready!") if reached else "%d bones to go" % (int(s.at) - b)
 	if s.kind == "lucky":
-		need += "  ·  free blessing"
+		need += " Free blessing"
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if reached and not got:
 		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
-		c.custom_minimum_size = Vector2(118, 60)
+		c.custom_minimum_size = Vector2(100, 60)
 		c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		c.pressed.connect(func(): claim.emit(i))
 		h.add_child(c)
 	else:
 		var tag := Hud.label("DONE" if got else "", 16, DONE)
-		tag.custom_minimum_size = Vector2(118, 0)
+		tag.custom_minimum_size = Vector2(70, 0)
 		tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 		h.add_child(tag)
-	return panel
+	# Version 398 (visual review of 388, fix 10, "the Bone Road is a plain list of coin
+	# rows"): the road itself runs down the left, winding from stop to stop, walked in gold
+	# as far as the bones reach; each stop's reward is a signpost beside it.
+	var line := HBoxContainer.new()
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_theme_constant_override("separation", 6)
+	var stop := Stop.new()
+	stop.index = i
+	stop.bones = b
+	stop.got = got
+	line.add_child(stop)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(panel)
+	return line
+
+
+## One stop on the road and the stretch of road either side of it (half way to the stop
+## before and the stop after; the next row draws the other half, so the road joins up).
+class Stop extends Control:
+	var index := 0
+	var bones := 0
+	var got := false
+	const W := 86.0
+	const GAP := 8.0   # the list's own gap between rows
+	const ROAD := Color(0.24, 0.22, 0.3)
+	const EDGE := Color(0.05, 0.04, 0.08)
+	const WALKED := Color(0.95, 0.76, 0.3)
+	var _num: Label
+
+	func _init() -> void:
+		custom_minimum_size = Vector2(W, 76)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func _ready() -> void:
+		var at := int(BoneRoad.STEPS[index].at)
+		_num = Hud.label(str(at), 19 if at < 1000 else 16, Color.WHITE)
+		_num.autowrap_mode = TextServer.AUTOWRAP_OFF
+		_num.size = Vector2(60, 30)
+		add_child(_num)
+		resized.connect(_place)
+		_place()
+
+	static func _x(i: int) -> float:
+		return 30.0 if i % 2 == 0 else W - 30.0
+
+	func _place() -> void:
+		_num.position = Vector2(_x(index) - 30.0, size.y * 0.5 - 16.0)
+		queue_redraw()
+
+	## How much of the road from stop `i` to the next one is walked (0 to 1).
+	func _walked(i: int) -> float:
+		var from := 0 if i < 0 else int(BoneRoad.STEPS[i].at)
+		if i + 1 >= BoneRoad.STEPS.size():
+			return 0.0
+		var to := int(BoneRoad.STEPS[i + 1].at)
+		return clampf(float(bones - from) / float(maxi(to - from, 1)), 0.0, 1.0)
+
+	## A stretch of road through `pts`, the first `share` of it in gold.
+	func _stretch(pts: PackedVector2Array, share: float) -> void:
+		draw_polyline(pts, EDGE, 26.0, true)
+		draw_polyline(pts, ROAD, 18.0, true)
+		for k in range(1, pts.size(), 2):   # (pale stones down the middle)
+			draw_circle(pts[k], 2.2, Color(0.5, 0.48, 0.58, 0.8))
+		if share <= 0.0:
+			return
+		var gold := PackedVector2Array()
+		var upto := share * float(pts.size() - 1)
+		for k in pts.size():
+			if float(k) <= upto:
+				gold.append(pts[k])
+			else:
+				gold.append(pts[k - 1].lerp(pts[k], upto - float(k - 1)))
+				break
+		if gold.size() >= 2:
+			draw_polyline(gold, WALKED.darkened(0.45), 18.0, true)
+			draw_polyline(gold, WALKED, 10.0, true)
+		if share < 1.0:   # (where you stand now: a bright marker)
+			draw_circle(gold[-1], 9.0, EDGE)
+			draw_circle(gold[-1], 6.5, Color(1.0, 0.97, 0.85))
+
+	func _draw() -> void:
+		var here := Vector2(_x(index), size.y * 0.5)
+		var last := BoneRoad.STEPS.size() - 1
+		# The road in: from half way down from the stop before (the very start for the first).
+		var into := PackedVector2Array()
+		var before := _walked(index - 1)
+		for k in 9:
+			var t := k / 8.0
+			var sx := smoothstep(0.0, 1.0, 0.5 + 0.5 * t) if index > 0 else 1.0
+			into.append(Vector2(lerpf(_x(index - 1), here.x, sx), lerpf(-GAP * 0.5, here.y, t)))
+		_stretch(into, clampf(before * 2.0 - 1.0, 0.0, 1.0) if index > 0 else before)
+		# The road out: half way to the next stop.
+		if index < last:
+			var out := PackedVector2Array()
+			for k in 9:
+				var t := k / 8.0
+				out.append(Vector2(lerpf(here.x, _x(index + 1), smoothstep(0.0, 1.0, 0.5 * t)), lerpf(here.y, size.y + GAP * 0.5, t)))
+			_stretch(out, clampf(_walked(index) * 2.0, 0.0, 1.0))
+		# The stop itself: gold once reached, green once claimed.
+		var reached := bones >= int(BoneRoad.STEPS[index].at)
+		var face := (RoadScreen.DONE.darkened(0.35) if got else WALKED.darkened(0.2)) if reached else Color(0.2, 0.18, 0.26)
+		if reached and not got:
+			draw_circle(here, 31.0, Color(1.0, 0.85, 0.4, 0.3))
+		draw_circle(here, 27.0, EDGE)
+		draw_circle(here, 23.5, (RoadScreen.DONE if got else WALKED) if reached else Color(0.42, 0.4, 0.5))
+		draw_circle(here, 20.0, face)
+		if _num:
+			_num.label_settings.font_color = Color.WHITE if reached else RoadScreen.DIM
 
 
 ## The Bone Road bar on the title: bones so far and how far to the next reward.

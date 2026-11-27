@@ -106,6 +106,11 @@ func point_at(p: Vector2) -> void:
 		_place()
 
 
+## How big the card is (the Heroes screen keeps it under its tabs).
+func card_size() -> Vector2:
+	return _card.size
+
+
 func hide_now() -> void:
 	if _tw:
 		_tw.kill()

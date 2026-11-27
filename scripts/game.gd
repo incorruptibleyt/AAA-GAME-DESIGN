@@ -37,6 +37,7 @@ var _cam_focus := Vector3.ZERO
 ## 0..1: how far the camera has moved in on the hero for the title screen's lobby.
 var _lobby := 0.0
 var _lobby_light: SpotLight3D
+var _lobby_key: SpotLight3D
 var _shake := 0.0
 var shake_scale := 1.0   # the Screen shake setting
 var flash_scale := 1.0   # v219: the Flashes setting (full, reduced to 0.3, off)
@@ -101,7 +102,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27d"
+const BUILD := "2026-11-27e"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -805,6 +806,18 @@ func _setup() -> void:
 	_lobby_light.shadow_enabled = false
 	_lobby_light.rotation = Vector3(-PI * 0.5, 0, 0)
 	world.add_child(_lobby_light)
+	# Version 398 (visual review of 388, fix 10): a warm lamp from the front too. The lamp
+	# above lit hats and shoulders and left the face and chest in shade, so the title hero
+	# read as dim (worst for a new player, and under the Blood Moon).
+	_lobby_key = SpotLight3D.new()
+	_lobby_key.light_color = Color(1.0, 0.8, 0.56)
+	_lobby_key.spot_range = 11.0
+	_lobby_key.spot_angle = 17.0
+	_lobby_key.spot_attenuation = 0.5
+	_lobby_key.light_energy = 0.0
+	_lobby_key.light_specular = 0.2
+	_lobby_key.shadow_enabled = false
+	world.add_child(_lobby_key)
 
 	hud = Hud.new()
 	add_child(hud)
@@ -1666,6 +1679,7 @@ const LOBBY_FILL := 0.8
 ## Version 367: the lobby lamp's strength (was 5) and how much of the moon is left under it.
 const LOBBY_LAMP := 2.2
 const LOBBY_MOON := 0.3
+const LOBBY_KEY := 1.5   # v398: the warm lamp from the front
 const LOBBY_RIM := 0.25   # v382: the edge glow on the title hero (1 = as in a run)
 var _lobby_rim := 1.0
 
@@ -1688,17 +1702,19 @@ func _lobby_camera_position(pitch: float) -> Vector3:
 	# On a tall phone the Mage's staff reached down over the hero's name and into PLAY.
 	var box := _lobby_points()
 	if not box.is_empty():
-		var room := Vector2(vp.x * 0.94, space.size.y * 0.97)
+		# (Version 398: a tenth of the space stays free, most of it under the logo; a tall
+		# phone's hero stood with their horns in the logo and bare floor under their feet.)
+		var room := Vector2(vp.x * 0.94, space.size.y * 0.86)
 		for step in 2:
 			var ext := _lobby_extent(box, pos, b, vp, tan_half)
 			if ext.size.x <= 0.0:
 				break
-			var k := clampf(maxf(ext.size.y / room.y, ext.size.x / room.x), 1.0, 1.4)
+			var k := clampf(maxf(ext.size.y / room.y, ext.size.x / room.x), 1.0, 1.65)   # (v398: was 1.4; the Barbarian's shield still spilled on a tall phone)
 			if step == 0 and k > 1.001:
 				pos = centre + b.z * (d * k) + b.y * (below * k)
 				d *= k
 				continue
-			var shift := (ext.get_center().y - space.get_center().y) / vp.y * 2.0 * d * tan_half
+			var shift := (ext.get_center().y - (space.get_center().y + space.size.y * 0.05)) / vp.y * 2.0 * d * tan_half
 			pos -= b.y * shift
 			break
 	return pos
@@ -1919,12 +1935,16 @@ func _update_camera(real_delta: float) -> void:
 		_lobby = 0.0
 	var was_lobby := _lobby_light.visible
 	_lobby_light.visible = _lobby > 0.0
+	_lobby_key.visible = _lobby_light.visible
 	if _lobby_light.visible:
 		# Version 367 (visual review of 366, fix 1): the hero on the title was lit by the
 		# room's moon, the lobby lamp and its own lantern at once, and a silver Knight came out
 		# flat white. The lamp is the light there now: the moon dims under it, the lamp is softer.
 		_lobby_light.light_energy = LOBBY_LAMP * _lobby
 		_lobby_light.global_position = hero.global_position + Vector3(0, 6.5, 0.4)
+		_lobby_key.light_energy = LOBBY_KEY * _lobby
+		_lobby_key.global_position = hero.global_position + Vector3(-1.6, 3.4, 5.2)
+		_lobby_key.look_at(hero.global_position + Vector3(0, 1.0, 0))
 		if _moon:
 			_moon.light_energy = _moon_energy * lerpf(1.0, LOBBY_MOON, _lobby)
 	elif was_lobby and _moon:
@@ -7439,13 +7459,20 @@ func next_goal() -> String:
 		return ""
 	var cfg := _load_save()
 	var cheapest := _cheapest_upgrade(cfg)
+	var beaten := _best_boss(cfg)
+	# Version 398 (visual review of 388, fix 10): a new player's first goal is in the crypt,
+	# not in the shop ("NEXT: buy Vigor level 1 in the Armory" sent them shopping before
+	# they had beaten one boss; the ARMORY button's UPGRADE tag still says coins can buy).
+	# From the third run the shop comes first again: a tester once kept 900 coins unspent
+	# while falling on floor 1 over and over (version 150).
+	if beaten < 1 and roundi(record(cfg, "runs")) < 3:
+		return "NEXT: beat the floor 1 boss"
 	if not cheapest.is_empty() and coins >= int(cheapest.cost):
 		return "NEXT: buy %s in the Armory" % cheapest.name
 	if cheapest.is_empty():
 		var spare := _spare_coins_goal(cfg)
 		if spare != "":
 			return spare
-	var beaten := _best_boss(cfg)
 	if beaten < Store.FREE_FLOORS:
 		return "NEXT: beat the floor %d boss" % (beaten + 1)
 	# The hero's next Curse reward (the free curse earns the first one; the Crypt Pass opens
@@ -7455,11 +7482,11 @@ func next_goal() -> String:
 			and (not Store.owned() or roundi(record(cfg, "runs")) % 2 == 0):
 		# Version 306 (player panel fix 1): plain words. It read "NEXT: Curse Level 1 on the
 		# floor 5 boss: Cursed", which a returning player couldn't follow.
-		var prize := ("the title " + str(reward.title)) if str(reward.text).begins_with("Title") else str(reward.title)
-		# (Two lines of its own: as one line it wrapped edge to edge.)
-		var first := "turn on a Curse in MODES" if int(reward.level) <= 1 \
-			else "turn on Curses up to level %d in MODES" % int(reward.level)
-		return "NEXT: %s,\nthen beat the floor %d boss to win %s" % [first, Store.FREE_FLOORS, prize]
+		# (Version 398: one short line. It was two lines, "NEXT: turn on a Curse in MODES,
+		# then beat the floor 5 boss to win the title Cursed", the longest thing on the title.)
+		if int(reward.level) <= 1:
+			return "NEXT: beat floor %d with a Curse on (MODES)" % Store.FREE_FLOORS
+		return "NEXT: beat floor %d on Curse Level %d (MODES)" % [Store.FREE_FLOORS, int(reward.level)]
 	if not cheapest.is_empty():
 		return "NEXT: %d more coins for %s" % [int(cheapest.cost) - coins, cheapest.name]
 	if Store.owned():

@@ -53,6 +53,9 @@ var _stage_box: Control
 ## STAGE_MIN, so the buttons at the bottom always fit.
 const STAGE_H := 250.0
 const STAGE_MIN := 130.0
+## On a tall phone the pedestal takes the spare height (v398; the page sat in the middle
+## with empty bands above and below, the hero no bigger than on a short phone).
+const STAGE_MAX := 400.0
 
 
 func _init() -> void:
@@ -161,8 +164,8 @@ func _build_stage() -> Control:
 		b.anchor_right = b.anchor_left
 		# Low on the pedestal picture (version 129), leaving the space beside the hero's face
 		# for their speech bubble.
-		b.anchor_top = 0.62
-		b.anchor_bottom = 0.62
+		b.anchor_top = 0.7
+		b.anchor_bottom = 0.7
 		b.offset_left = 0.0 if side < 0 else -56.0
 		b.offset_right = b.offset_left + 56.0
 		b.offset_top = -42.0
@@ -175,15 +178,17 @@ func _build_stage() -> Control:
 func _build_stats() -> Control:
 	var panel := _panel(Color(0.1, 0.08, 0.13, 0.98))
 	var grid := GridContainer.new()
-	grid.columns = 3
+	# Version 398 (visual review of 388, fix 10): two numbers a row, not one. The four
+	# rows took the height the hero needed, on a page that read as a wall of text.
+	grid.columns = 6
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("h_separation", 10)
 	grid.add_theme_constant_override("v_separation", 6)
 	panel.add_child(grid)
 	for s: Array in STATS:
-		var n := Hud.label(s[1], 16, TEXT, HORIZONTAL_ALIGNMENT_LEFT)
+		var n := Hud.label(s[1], 15, TEXT, HORIZONTAL_ALIGNMENT_LEFT)
 		n.autowrap_mode = TextServer.AUTOWRAP_OFF
-		n.custom_minimum_size = Vector2(118, 0)
+		n.custom_minimum_size = Vector2(92, 0)
 		grid.add_child(n)
 		var bar := ColorRect.new()
 		bar.color = Color(0, 0, 0, 0.55)
@@ -199,7 +204,7 @@ func _build_stats() -> Control:
 		_fills.append(fill)
 		var v := Hud.label("", 16, Color.WHITE, HORIZONTAL_ALIGNMENT_RIGHT)
 		v.autowrap_mode = TextServer.AUTOWRAP_OFF
-		v.custom_minimum_size = Vector2(62, 0)
+		v.custom_minimum_size = Vector2(46, 0)
 		grid.add_child(v)
 		_values.append(v)
 	return panel
@@ -325,7 +330,12 @@ func _fit() -> void:
 		return
 	_stage_box.custom_minimum_size.y = STAGE_H
 	var over := _col.get_combined_minimum_size().y - (size.y - 32.0)
-	_stage_box.custom_minimum_size.y = clampf(STAGE_H - over, STAGE_MIN, STAGE_H)
+	_stage_box.custom_minimum_size.y = clampf(STAGE_H - over, STAGE_MIN, STAGE_MAX)
+	# (A tall, narrow stage sees less to the sides: the camera steps back for it, so a wide
+	# hero's axe and horns stay in the picture.)
+	var shape := maxf(_stage_box.size.x, 200.0) / maxf(_stage_box.custom_minimum_size.y, 1.0)
+	_stage.close = lerpf(1.08, 0.8, clampf((shape - 1.25) / 0.6, 0.0, 1.0))
+	_stage.fit_to(Vector2(maxf(_stage_box.size.x, 200.0), _stage_box.custom_minimum_size.y))
 
 
 func close() -> void:
@@ -448,8 +458,13 @@ func _greet(def: Dictionary) -> void:
 		add_child(_bubble)
 	var h := Heroes.get_hero(str(def.id))
 	_stage.emote(h.get("emote", []))
+	_bubble.max_width = clampf(_stage_box.size.x * 0.5 - _bubble_off() - 34.0, 110.0, 150.0)
 	_bubble.say(str(h.get("name", def.title)), Heroes.line(def, "pick"), def.ring, float(h.get("voice", 1.0)))
 	_place_bubble()
+
+
+func _bubble_off() -> float:
+	return maxf(50.0, _stage_box.size.y * 0.24)
 
 
 func _place_bubble() -> void:
@@ -459,7 +474,11 @@ func _place_bubble() -> void:
 	var mine := get_global_rect()
 	# Just left of the hero's face (near the top of the pedestal picture), above the < button
 	# (which sits low for this), the tail pointing at the face.
-	_bubble.point_at(box.position - mine.position + Vector2(box.size.x * 0.5 - 50.0, box.size.y * 0.27))
+	# Version 398: on a tall pedestal the hero is bigger, so the bubble stands further left
+	# (it covered the Barbarian's horn).
+	var off := _bubble_off()
+	_bubble.point_at(box.position - mine.position + Vector2(box.size.x * 0.5 - off,
+			maxf(box.size.y * 0.2, _bubble.card_size().y * 0.5 + 16.0)))
 
 
 func _process(_delta: float) -> void:
