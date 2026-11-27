@@ -136,6 +136,11 @@ static func _m(key: String) -> Material:
 			"flame_hot": _mats[key] = U.unlit(Color(1.0, 0.85, 0.35))
 			"halo": _mats[key] = U.unlit(Color(0.5, 1.0, 0.42))
 			"halo_hot": _mats[key] = U.unlit(Color(0.9, 1.0, 0.8))
+			"twin": _mats[key] = U.mat(Color(0.88, 0.84, 0.74), 0.8)
+			"twin_dark": _mats[key] = U.mat(Color(0.08, 0.04, 0.1), 0.8)
+			"pole": _mats[key] = U.mat(Color(0.35, 0.24, 0.14), 0.8)
+			"ward_plate": _mats[key] = U.mat(Color(0.25, 0.55, 1.0), 0.3, 0.5)
+			"ward_edge": _mats[key] = U.mat(Color(0.85, 0.95, 1.0), 0.3, 1.2)
 	return _mats[key]
 
 
@@ -187,10 +192,25 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 				var side := along.cross((mid - Vector3(0, 0.5, 0)).normalized()).normalized()
 				var bs := Basis(side, along, side.cross(along).normalized())
 				for k in 2:
-					var seg := U.box(h, Vector3(0.11 - 0.06 * k, d.length() + 0.05, 0.06 + 0.02 * k), _m("crack" if k == 0 else "crack_hot"))
+					var seg := U.box(h, Vector3(0.15 - 0.08 * k, d.length() + 0.05, 0.07 + 0.02 * k), _m("crack" if k == 0 else "crack_hot"))
 					seg.transform = Transform3D(bs, mid)
 			FeatHeads.bake(h, "elite split")
 			_keep(h)
+			# Version 395 (visual review of v388, fix 8): its twin already growing out of its
+			# shoulder, a second skull half its size with a glowing seam between them: the
+			# Splitter reads as "two in one" without its name tag.
+			var tw := _spot(e, skel, "chest", top * 0.6)
+			var sk := U.sphere(tw, 0.3, _m("twin"), Vector3(0.52, 0.42, 0.02))
+			sk.scale = Vector3(1.0, 0.95, 1.05)
+			U.box(tw, Vector3(0.2, 0.14, 0.2), _m("twin"), Vector3(0.52, 0.2, 0.12))   # its jaw
+			for side: float in [-1.0, 1.0]:
+				U.sphere(tw, 0.075, _m("twin_dark"), Vector3(0.52 + side * 0.11, 0.44, 0.27))
+			var seam := U.box(tw, Vector3(0.07, 0.5, 0.36), _m("crack"), Vector3(0.27, 0.36, 0.0))
+			seam.rotation.z = 0.25
+			var seam2 := U.box(tw, Vector3(0.03, 0.44, 0.38), _m("crack_hot"), Vector3(0.27, 0.36, 0.0))
+			seam2.rotation.z = 0.25
+			FeatHeads.bake(tw, "elite split twin")
+			_keep(tw)
 		"burst":
 			# A collar of bone spikes, wider than any skull, pointing out and a little up.
 			var c := _spot(e, skel, "chest", top * 0.6)
@@ -198,8 +218,9 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 				var a := TAU * (i + 0.5) / 8.0
 				var dir := Vector3(sin(a), 0.45, cos(a)).normalized()
 				var from := Vector3(sin(a) * 0.38, 0.2, cos(a) * 0.38)
-				OutfitShapes._ray(c, 0.1, 0.52, _m("spike"), from, dir)
-				U.sphere(c, 0.11, _m("spike_root"), from)
+				OutfitShapes._ray(c, 0.13, 0.6, _m("spike"), from, dir)   # (v395: a little longer and thicker)
+				OutfitShapes._ray(c, 0.065, 0.24, _m("flame"), from + dir * 0.42, dir)   # (burning tips: they are about to fly)
+				U.sphere(c, 0.13, _m("spike_root"), from)
 			FeatHeads.bake(c, "elite burst")
 			_keep(c)
 		"fury":
@@ -209,8 +230,8 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 			for side: float in [-1.0, 1.0]:
 				var dir := Vector3(side * 0.8, 0.6, -0.1).normalized()
 				var from := Vector3(side * 0.36, 0.55, 0.0)
-				OutfitShapes._ray(h, 0.18, 0.48, _m("horn"), from, dir, 0.1)
-				OutfitShapes._ray(h, 0.1, 0.38, _m("horn_tip"), from + dir * 0.48, (dir + Vector3(0, 0.7, 0)).normalized())
+				OutfitShapes._ray(h, 0.22, 0.64, _m("horn"), from, dir, 0.12)   # (v395: a third bigger)
+				OutfitShapes._ray(h, 0.12, 0.5, _m("horn_tip"), from + dir * 0.64, (dir + Vector3(0, 0.7, 0)).normalized())
 			FeatHeads.bake(h, "elite fury horns")
 			_keep(h)
 			var c := _spot(e, skel, "chest", top * 0.6)
@@ -242,18 +263,43 @@ static func dress(e: Enemy, move: String) -> Dictionary:
 			top = minf(high, top + 0.9)
 			halo.position.y = top + HALO_Y
 			halo.set_meta("base_y", top + HALO_Y)   # (its bob in enemy.gd keeps to this)
-			var ring := MeshInstance3D.new()
-			var tm := TorusMesh.new()
-			tm.inner_radius = 0.42
-			tm.outer_radius = 0.56
-			tm.rings = 24
-			tm.ring_segments = 8
-			ring.mesh = tm
-			ring.material_override = _m("halo")
-			halo.add_child(ring)
-			U.box(halo, Vector3(0.36, 0.09, 0.11), _m("halo_hot"))
-			U.box(halo, Vector3(0.11, 0.09, 0.36), _m("halo_hot"))
+			# Version 395 (visual review of v388, fix 8): "a green ring and a word". The ring is
+			# gone: it carries a healer's standard, a tall pole on its back with a big green
+			# cross over its head, made of bars both ways so it reads as a cross from above
+			# and from any side.
+			halo.position.z = -0.32
+			U.cylinder(halo, 0.045, 1.5, _m("pole"), Vector3(0, -1.2, 0))
+			var cx := Vector3(0, 0.5, 0)
+			U.box(halo, Vector3(0.2, 0.74, 0.2), _m("halo"), cx)
+			U.box(halo, Vector3(0.74, 0.2, 0.2), _m("halo"), cx)
+			U.box(halo, Vector3(0.2, 0.2, 0.74), _m("halo"), cx)
+			U.box(halo, Vector3(0.1, 0.78, 0.1), _m("halo_hot"), cx)
+			U.box(halo, Vector3(0.78, 0.1, 0.1), _m("halo_hot"), cx)
+			U.box(halo, Vector3(0.1, 0.1, 0.78), _m("halo_hot"), cx)
+			FeatHeads.bake(halo, "elite mender standard")
 			_keep(halo)
-			halo.rotation.x = 0.25   # tipped a little toward the camera, so the ring shows as a ring
 			out["halo"] = halo
+		"ward":
+			# Version 395 (fix 8): three blue shield plates circling it at chest height, so the
+			# Warded elite is known by its guard, with or without the faint bubble.
+			var spin := FoeBodies.Spin.new()
+			spin.speed = 1.5
+			e.add_child(spin)
+			spin.position.y = e.center_height * 1.05
+			var rr := maxf(0.85, e.radius * 1.55) * 1.08   # (just outside the bubble's edge)
+			for i in 3:
+				var ang := TAU * i / 3.0
+				var plate := Node3D.new()
+				spin.add_child(plate)
+				plate.position = Vector3(sin(ang) * rr, 0, cos(ang) * rr)
+				plate.rotation.y = ang
+				var body := U.sphere(plate, 0.38, _m("ward_plate"))
+				body.scale = Vector3(1.0, 1.25, 0.25)
+				var edge := U.sphere(plate, 0.43, _m("ward_edge"), Vector3(0, 0, -0.03))
+				edge.scale = Vector3(1.0, 1.25, 0.1)
+				U.sphere(plate, 0.11, _m("ward_edge"), Vector3(0, 0.02, 0.09))
+				plate.rotation.x = -0.5   # (leaning back, so the camera above sees their faces)
+				_keep(plate)
+			spin.visible = false   # (up with the bubble, once it is out of the floor: enemy.gd)
+			out["plates"] = spin
 	return out

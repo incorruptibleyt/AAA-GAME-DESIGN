@@ -261,13 +261,15 @@ func make_elite(pick := "") -> void:
 	_tag.no_depth_test = true
 	_tag.fixed_size = true
 	_tag.pixel_size = 0.0006
-	_tag.font_size = 34
-	_tag.outline_size = 12
+	_tag.font_size = 25   # (v395: was 34, and it sat on the elite's own helmet)
+	_tag.outline_size = 13   # (a heavy dark edge: green on a green floor still reads)
 	_tag.modulate = info.col
 	_tag.outline_modulate = Color(0.06, 0.02, 0.08)
 	if Hud.UI_FONT:
 		_tag.font = Hud.UI_FONT
-	_tag.position.y = center_height * 2.0 + 0.95   # just over its health bar
+	# Version 395 (visual review of v388, fix 8): the tag is smaller and lies at its feet, on
+	# the screen under the body (see _place_tag), not on its head: the body parts name it.
+	_tag.top_level = true
 	# Version 387 (visual review of v383, fix 7): drawn after the bodies and shots, so a
 	# skeleton walking past never covers it.
 	_tag.render_priority = 30
@@ -319,7 +321,10 @@ func _elite_tick(delta: float) -> void:
 		# Version 298: the line may have waited for a calmer moment (Game.TIP_GAP); try again.
 		Game._teach("elite_" + elite_move, ELITE_MOVES[elite_move].tip, 4.0, "elite_" + elite_move)
 	if _tag:
+		_place_tag()
 		_fade_tag(delta)
+	if _parts.has("plates"):   # (v395) the Warded elite's shield plates are up while its bubble is
+		(_parts.plates as Node3D).visible = _bubble != null and _bubble.visible
 	match elite_move:
 		"fury":
 			if not _furious and health < max_health * FURY_AT:
@@ -347,6 +352,12 @@ func _elite_tick(delta: float) -> void:
 ## Version 278: the name tag fades out while it is up under the top bar (health, room and
 ## chain), so elites at the far wall don't write over the Bone Chain; it comes back as
 ## they walk down the room.
+## The tag's place: on the floor just in front of its feet (toward the camera), whichever
+## way the elite faces.
+func _place_tag() -> void:
+	_tag.global_position = global_position + Vector3(0, 0.12, radius + 0.85)
+
+
 func _fade_tag(delta: float) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null or Game.hud == null:
@@ -1203,6 +1214,8 @@ func _on_death() -> void:
 		_bubble.visible = false
 	if _parts.has("halo"):
 		(_parts.halo as Node3D).visible = false
+	if _parts.has("plates"):
+		(_parts.plates as Node3D).visible = false
 	if _pool:
 		_pool.visible = false
 	# An elite's last move (not when it crumbles because its boss fell). Before the game

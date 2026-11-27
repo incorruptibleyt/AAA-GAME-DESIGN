@@ -14,6 +14,13 @@ static func _m(key: String) -> Material:
 		match key:
 			"iron_light": _mats[key] = U.mat(Color(0.55, 0.56, 0.62), 0.35)
 			"rust": _mats[key] = U.mat(Color(0.55, 0.2, 0.12), 0.7)
+			"dive_brass": _mats[key] = U.mat(Color(0.78, 0.46, 0.15), 0.35, 0.12)
+			"dive_dark": _mats[key] = U.mat(Color(0.03, 0.08, 0.1), 0.2)
+			"dive_eye": _mats[key] = U.unlit(Color(0.55, 1.0, 0.9))
+			"anchor": _mats[key] = U.mat(Color(0.2, 0.22, 0.26), 0.5, 0.05)
+			"leaf": _mats[key] = U.mat(Color(0.45, 0.85, 0.2), 0.7, 0.35)
+			"leaf_pale": _mats[key] = U.mat(Color(0.75, 1.0, 0.35), 0.7, 0.6)
+			"bark_light": _mats[key] = U.mat(Color(0.5, 0.33, 0.18), 0.9)
 			"bone": _mats[key] = U.mat(Color(0.8, 0.76, 0.66), 0.75)   # (v367: a little darker, it blew out white)
 			"horn": _mats[key] = U.mat(Color(0.2, 0.12, 0.13), 0.45)
 			"horn_tip": _mats[key] = U.mat(Color(0.42, 0.24, 0.2), 0.4)
@@ -266,6 +273,32 @@ static func _voidtail(model: Node3D, skel: Skeleton3D) -> void:
 		w.position = Vector3(cos(ang) * 0.3, -0.42, sin(ang) * 0.3)
 		w.rotation = Vector3(PI - 0.5 * sin(ang), 0, 0.5 * cos(ang))
 	FeatHeads.bake(a, "foe voidtail")
+	# Version 395 (visual review of v388, fix 8): it was a flat blue Warrior. Now it wears a
+	# wide mantle of night sky that flares out past its shoulders, ragged at the hem with a
+	# pale edge, under two tall wing-points: from above a dark star shape, not a skeleton.
+	var c := _on(skel, "chest")
+	if c:
+		# (Black starry sky, out of its blue overlay: all in blue it was a blob the size and
+		# colour of the Rogue's hood.)
+		var sky := StarEater._sky_mat()
+		U.cone(c, 0.62, 0.56, sky, Vector3(0, -0.3, -0.05), 0.22)
+		U.cone(c, 0.7, 0.1, _m("void_rim"), Vector3(0, -0.34, -0.05), 0.6)
+		for i in 8:
+			var ang := TAU * i / 8.0
+			var t := U.cone(c, 0.16, 0.36 if i % 2 == 0 else 0.24, sky, Vector3.ZERO)
+			t.position = Vector3(cos(ang) * 0.52, -0.36, sin(ang) * 0.52 - 0.05)
+			t.rotation = Vector3(PI - 0.9 * sin(ang), 0, 0.9 * cos(ang))   # points out and down
+		for side in [-1.0, 1.0]:
+			var w := U.cone(c, 0.17, 0.85, sky, Vector3.ZERO)
+			w.position = Vector3(side * 0.44, 0.44, -0.22)
+			w.rotation = Vector3(-0.3, 0, -side * 0.55)
+			w.scale = Vector3(1.0, 1.0, 0.35)
+			var wt := U.cone(c, 0.1, 0.4, _m("void_rim"), Vector3.ZERO)
+			wt.position = Vector3(side * 0.72, 0.88, -0.36)
+			wt.rotation = Vector3(-0.3, 0, -side * 0.55)
+		FeatHeads.bake(c, "foe void mantle")
+		for n in c.get_children():
+			n.set_meta("fx", true)
 
 
 ## The Hush Keeper: a tall stack of old books strapped to its bent back, above its head.
@@ -293,16 +326,8 @@ static func _books(skel: Skeleton3D) -> void:
 
 ## The Drowned Skeleton: weed hanging from its skull and shoulders, barnacles on its bones.
 static func _seaweed(skel: Skeleton3D) -> void:
-	var h := _on(skel, "head")
-	if h:
-		for i in 5:
-			var ang := -1.2 + 0.6 * i
-			var s := U.box(h, Vector3(0.09, 0.6 - 0.08 * (i % 2), 0.02), _m("weed" if i % 2 == 0 else "weed_dark"), Vector3.ZERO)
-			s.position = Vector3(sin(ang) * 0.42, 0.55, cos(ang) * 0.3 - 0.1)
-			s.rotation = Vector3(0.25, ang, 0.15 * sin(ang))
-		for i in 3:
-			U.sphere(h, 0.07, _m("barnacle"), Vector3(-0.25 + 0.22 * i, 0.9, 0.1 * (i - 1)))
-		FeatHeads.bake(h, "foe weed head")
+	# (v395: the weed and barnacles on its skull went; they poked through the diving helmet
+	# as dark blotches.)
 	var c := _on(skel, "chest")
 	if c:
 		for side in [-1.0, 1.0]:
@@ -311,6 +336,65 @@ static func _seaweed(skel: Skeleton3D) -> void:
 				s.position = Vector3(side * (0.3 + 0.08 * k), 0.05, 0.05 - 0.12 * k)
 				s.rotation = Vector3(0.1, 0, side * 0.25)
 		FeatHeads.bake(c, "foe weed chest")
+	# Version 395 (visual review of v388, fix 8): the Drowned was a teal Rogue skeleton with
+	# a few weeds. Now it is a drowned diver: a big brass diving helmet with a dark glass
+	# port its eyes glow through, and a ship's anchor chained to its back, its arms sticking
+	# out past its shoulders. Brass on the dark water, a shape no other skeleton has.
+	var hh := _on(skel, "head")
+	if hh:
+		var dome := U.sphere(hh, 0.52, _m("dive_brass"), Vector3(0, 0.46, 0.0))
+		dome.scale = Vector3(1.0, 0.95, 1.0)
+		U.cylinder(hh, 0.5, 0.12, _m("dive_brass"), Vector3(0, 0.0, 0))   # the collar on its shoulders
+		var port := U.cylinder(hh, 0.27, 0.1, _m("dive_brass"), Vector3.ZERO)
+		port.position = Vector3(0, 0.46, 0.47)
+		port.rotation.x = PI * 0.5
+		var glass := U.cylinder(hh, 0.2, 0.12, _m("dive_dark"), Vector3.ZERO)
+		glass.position = Vector3(0, 0.46, 0.48)
+		glass.rotation.x = PI * 0.5
+		for side in [-1.0, 1.0]:
+			var sp := U.cylinder(hh, 0.14, 0.08, _m("dive_dark"), Vector3.ZERO)   # side ports
+			sp.position = Vector3(side * 0.49, 0.5, 0.05)
+			sp.rotation.z = PI * 0.5
+		var tp := U.cylinder(hh, 0.16, 0.08, _m("dive_dark"), Vector3(0, 0.93, 0.0))   # the top port
+		tp.name = "TopPort"
+		U.cylinder(hh, 0.07, 0.18, _m("dive_brass"), Vector3(0.0, 0.86, -0.3))   # air valve
+		for i in 6:
+			var ang := TAU * i / 6.0
+			U.sphere(hh, 0.045, _m("dive_dark"), Vector3(cos(ang) * 0.48, 0.1, sin(ang) * 0.48))   # bolts
+		FeatHeads.bake(hh, "foe dive helmet")
+		for n in hh.get_children():
+			n.set_meta("fx", true)   # (brass stays brass under the wet overlay)
+		for side in [-1.0, 1.0]:
+			var eye := U.sphere(hh, 0.055, _m("dive_eye"), Vector3(side * 0.08, 0.47, 0.54))
+			eye.set_meta("fx", true)
+	var back := _on(skel, "chest")
+	if back:
+		var an := Node3D.new()
+		back.add_child(an)
+		an.position = Vector3(0, 0.1, -0.34)
+		an.rotation = Vector3(0.3, 0, 0.35)
+		U.box(an, Vector3(0.09, 1.1, 0.09), _m("anchor"), Vector3(0, 0.1, 0))   # shank
+		U.box(an, Vector3(0.6, 0.08, 0.08), _m("anchor"), Vector3(0, 0.52, 0))   # stock
+		for side in [-1.0, 1.0]:   # the two arms curving up to their flukes
+			var arm := U.box(an, Vector3(0.42, 0.1, 0.1), _m("anchor"), Vector3(side * 0.19, -0.38, 0))
+			arm.rotation.z = side * 0.55
+			var fl := U.cone(an, 0.13, 0.26, _m("anchor"), Vector3.ZERO)
+			fl.position = Vector3(side * 0.4, -0.16, 0)
+			fl.rotation.z = -side * 0.35
+		var ring := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.07
+		tm.outer_radius = 0.13
+		tm.rings = 10
+		tm.ring_segments = 5
+		ring.mesh = tm
+		ring.material_override = _m("anchor")
+		ring.position = Vector3(0, 0.74, 0)
+		ring.rotation.x = PI * 0.5
+		an.add_child(ring)
+		FeatHeads.bake(an, "foe dive anchor")
+		for n in an.get_children():
+			n.set_meta("fx", true)
 
 
 ## The Cinder Skeleton: tongues of flame standing up along its back and shoulders.
@@ -398,6 +482,40 @@ static func _roots(model: Node3D, skel: Skeleton3D) -> void:
 		r.rotation = Vector3(0, -ang, 0)
 		r.rotate_object_local(Vector3.FORWARD, PI * 0.5 - 0.25)   # lying out along the floor, pointing away
 	FeatHeads.bake(a, "foe roots")
+	# Version 395 (visual review of v388, fix 8): it was a murky green skeleton. Now it has a
+	# stag's antlers of pale branches with bright leaves at their ends, and a mossy log
+	# across its shoulders: a walking tree from above, bright on the dark Grotto floor.
+	var h := _on(skel, "head")
+	if h:
+		for side in [-1.0, 1.0]:
+			var root := Vector3(side * 0.28, 0.72, -0.05)
+			var d1 := Vector3(side * 0.75, 0.66, -0.1).normalized()
+			OutfitShapes._ray(h, 0.085, 0.75, _m("bark_light"), root, d1, 0.05)
+			var mid := root + d1 * 0.4
+			var end := root + d1 * 0.75
+			OutfitShapes._ray(h, 0.06, 0.42, _m("bark_light"), mid, Vector3(side * 0.2, 0.9, 0.35), 0.03)
+			OutfitShapes._ray(h, 0.055, 0.36, _m("bark_light"), end, Vector3(side * 0.9, 0.3, -0.35), 0.03)
+			for q: Array in [[end + Vector3(side * 0.34, 0.14, -0.13), 0.2], [mid + Vector3(side * 0.09, 0.42, 0.16), 0.17], [end + Vector3(0, 0.1, 0), 0.15]]:
+				var lf := U.sphere(h, q[1], _m("leaf" if q[1] > 0.16 else "leaf_pale"), q[0])
+				lf.scale = Vector3(1.4, 0.34, 1.0)   # (flat, like leaves: round they were lollipops)
+				lf.rotation = Vector3(0.3 * side, 0.8 * q[1] * 10.0, 0.25 * side)
+		FeatHeads.bake(h, "foe root antlers")
+		for n in h.get_children():
+			n.set_meta("fx", true)   # (the leaves stay bright under the fungal overlay)
+	var c := _on(skel, "chest")
+	if c:
+		var lg := U.cylinder(c, 0.17, 1.15, _m("bark_light"), Vector3.ZERO)
+		lg.position = Vector3(0, 0.3, -0.2)
+		lg.rotation.z = PI * 0.5
+		for side in [-1.0, 1.0]:
+			var cap := U.cylinder(c, 0.14, 0.02, _m("leaf_pale"), Vector3.ZERO)
+			cap.position = Vector3(side * 0.58, 0.3, -0.2)
+			cap.rotation.z = PI * 0.5
+			var ms := U.sphere(c, 0.16, _m("leaf"), Vector3(side * 0.28, 0.44, -0.2))
+			ms.scale = Vector3(1.3, 0.5, 1.0)
+		FeatHeads.bake(c, "foe root log")
+		for n in c.get_children():
+			n.set_meta("fx", true)
 
 
 ## Version 347 (part 5, the event foes).

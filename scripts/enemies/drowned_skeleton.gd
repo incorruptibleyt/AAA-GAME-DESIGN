@@ -35,7 +35,8 @@ func _setup() -> void:
 	look.weapon = "Skeleton_Blade"
 	# Bare bones, no hood or cape: pale enough to see on the dark water (and unlike the
 	# hooded archers).
-	look.hide = ["Skeleton_Rogue_Hood", "Skeleton_Rogue_Cape"]
+	# (v395: its skull is inside the diving helmet now; hidden, it poked through as blotches.)
+	look.hide = ["Skeleton_Rogue_Hood", "Skeleton_Rogue_Cape", "Skeleton_Rogue_Head", "Skeleton_Rogue_Eyes", "Skeleton_Rogue_Jaw"]
 	# Version 344 (visual review fix 7): swollen with sea water, long arms hanging, weed
 	# trailing from its skull and shoulders.
 	look.shape = {"scale": {"chest": 1.3, "head": 0.92, "upperarm.l": 1.3, "upperarm.r": 1.3, "upperleg.l": 0.85, "upperleg.r": 0.85},
