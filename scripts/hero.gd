@@ -520,9 +520,19 @@ func use_special() -> void:
 	# button already shows it; every cast put big words over the fight), and nearly white
 	# so it reads on any floor (2.7:1 before).
 	if int(Game._rep.get("special", 0)) <= 3:
-		Game.hud.callout(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.7), true)
+		# (v406: over the hero's head, not a banner across the top over the targets)
+		Game.hud.callout_at_hero(Heroes.get_hero(hero_id).special.to_upper() + "!", bolt_color.lerp(Color.WHITE, 0.7))
 	Game.shake(0.25)
 	Game.calm_glow(2.2)
+	# Version 406 (re-review of v400, fix 6): every special ends the same way: a white flash
+	# as it lands, the skeletons thrown outward, and one big number for all it did.
+	var lasts := 0.45
+	match hero_id:
+		"knight": lasts = 0.45 + (AFTERSHOCK_DELAY if perks.has("aftershock") else 0.0)
+		"barbarian": lasts = _spin_time_now()
+		"mage": lasts = 0.15 * maxf(0.0, meteor_count - 1) + METEOR_FALL + 0.1
+		_: lasts = 0.22 * maxf(0.0, volley_rings - 1) + 0.8
+	_payoff_begin(lasts)
 	match hero_id:
 		"knight": _shield_slam()
 		"barbarian":
@@ -533,7 +543,7 @@ func use_special() -> void:
 			Fx.slam_wave(global_position, bolt_color, WHIRL_R, 0.4)
 			Fx.floor_swirl(global_position, bolt_color, WHIRL_R * 0.85, 1.4)   # v393: its own mark
 			Fx.impact(center(), bolt_color.lerp(Color.WHITE, 0.35), 2.0)
-			Game.hud.flash(bolt_color, 0.12)
+			# (v406: the white flash of _payoff_begin)
 		"mage": _meteors()
 		_: _shadow_volley()
 	if perks.has("cold_snap"):
@@ -543,7 +553,43 @@ func use_special() -> void:
 func _special_hit(a: Actor, amount: float, from: Vector3, push: float) -> void:
 	var d := a.global_position - from
 	d.y = 0.0
-	a.take_damage(amount * Game.chain, d, push)   # specials get the full chain
+	var before := a.health
+	a.take_damage(amount * Game.chain, d, push * PAYOFF_PUSH)   # specials get the full chain
+	_payoff_sum += maxf(0.0, before - maxf(a.health, 0.0))
+
+
+## Version 406 (fix 6): the special's pay-off. While it lasts the small white numbers are
+## hushed and what it does is added up; when it ends one big gold number shows it all.
+const PAYOFF_PUSH := 1.4   # (the skeletons it hits fly further, outward)
+var _payoff_sum := 0.0
+var _payoff_id := 0
+
+func _payoff_begin(lasts: float) -> void:
+	_payoff_id += 1
+	var id := _payoff_id
+	_payoff_sum = 0.0
+	# (critic: numbers came back over the foes just after: the spin's last tick and the
+	# meteor's burning ground are hushed too; the total waits for the last tick)
+	DamageNumber.hush_left = lasts + (3.2 if hero_id == "mage" else 0.4)
+	Game.hud.flash(Color(1, 1, 1), 0.42)
+	get_tree().create_timer(lasts + (0.08 if hero_id == "mage" else 0.3), false).timeout.connect(func():
+		if id != _payoff_id or dead:
+			return
+		if _payoff_sum >= 1.0:
+			Game.hud.callout_at_hero(_comma(int(round(_payoff_sum))), Color(1.0, 0.85, 0.3), true))
+
+
+static func _comma(n: int) -> String:
+	var t := str(n)
+	var out := ""
+	while t.length() > 3:
+		out = "," + t.substr(t.length() - 3) + out
+		t = t.substr(0, t.length() - 3)
+	return t + out
+
+
+func _spin_time_now() -> float:
+	return whirl_time * (WHIRL_LONGER if perks.has("whirl") else 1.0)
 
 
 func _shadow_volley() -> void:
@@ -565,6 +611,7 @@ func _shadow_volley() -> void:
 
 func _shield_slam() -> void:
 	visual.attack()
+	_shield_ghost()
 	Game.finisher(global_position, 0.35, 0.3, Color(1, 0.95, 0.7), 0.12)
 	_invulnerable = maxf(_invulnerable, 1.2)
 	_slam(slam_reach, 3.0, 14.0)
@@ -582,14 +629,75 @@ func _shield_slam() -> void:
 			Game._teach("aftershock", "AFTERSHOCK: Shield Slam hits a second time!"))
 
 
+## Version 406 (fix 6): a great shield, the Knight's own (silver, gold rim, red cross),
+## comes down from the sky and drives its point into the floor behind the Knight, then sinks.
+func _shield_ghost() -> void:
+	if Room.current == null:
+		return
+	var root := Node3D.new()
+	Room.current.add_child(root)
+	root.global_position = global_position + Vector3(0, 3.8, -2.0)
+	# (v406 critic: a flat white board with a pink cross read as a first-aid sign: now steel
+	# shaded dark to light, a thick gold rim, a dark outline round it all and a deep red cross)
+	var ink := _flat(Color(0.05, 0.04, 0.06))
+	# (unlit: the room's lights and the flash burned lit steel to white)
+	var gold := _flat(Color(0.95, 0.66, 0.14))
+	var steel_lo := _flat(Color(0.36, 0.4, 0.48))
+	var steel_hi := _flat(Color(0.66, 0.7, 0.79))
+	var red := _flat(Color(0.56, 0.03, 0.05))
+	# a heater shield: a short straight top, then a long point (layers back to front)
+	U.box(root, Vector3(1.5, 0.82, 0.06), ink, Vector3(0, 0.4, -0.06))
+	var t0 := U.cone(root, 0.76, 1.48, ink, Vector3(0, -1.3, -0.06))   # (flipped: base given at its point)
+	t0.rotation = Vector3(PI, 0, 0)
+	t0.scale = Vector3(1.0, 1.0, 0.1)
+	U.box(root, Vector3(1.36, 0.7, 0.1), gold, Vector3(0, 0.4, -0.02))
+	var t1 := U.cone(root, 0.68, 1.32, gold, Vector3(0, -1.18, -0.02))
+	t1.rotation = Vector3(PI, 0, 0)
+	t1.scale = Vector3(1.0, 1.0, 0.16)
+	U.box(root, Vector3(1.1, 0.5, 0.12), steel_lo, Vector3(0, 0.4, 0))
+	var t2 := U.cone(root, 0.55, 1.05, steel_lo, Vector3(0, -0.95, 0.0))
+	t2.rotation = Vector3(PI, 0, 0)
+	t2.scale = Vector3(1.0, 1.0, 0.2)
+	U.box(root, Vector3(0.5, 0.5, 0.13), steel_hi, Vector3(-0.3, 0.4, 0.005))   # light falls on the left half
+	var t3 := U.cone(root, 0.3, 0.95, steel_hi, Vector3(-0.22, -0.82, 0.005))
+	t3.rotation = Vector3(PI, 0, 0)
+	t3.scale = Vector3(1.0, 1.0, 0.2)
+	U.box(root, Vector3(0.24, 0.9, 0.16), ink, Vector3(0, 0.25, 0.015))   # the cross, edged in ink
+	U.box(root, Vector3(0.8, 0.24, 0.16), ink, Vector3(0, 0.42, 0.015))
+	U.box(root, Vector3(0.16, 0.82, 0.17), red, Vector3(0, 0.25, 0.02))
+	U.box(root, Vector3(0.72, 0.16, 0.17), red, Vector3(0, 0.42, 0.02))
+	for c in root.get_children():
+		(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.scale = Vector3.ONE * 1.5
+	var tw := root.create_tween()
+	tw.set_parallel(true)
+	# (it stands behind the Knight, its point driven into the floor, leaning back to face the
+	# camera: lying flat it read as a white box)
+	tw.tween_property(root, "global_position", global_position + Vector3(0, 1.75, -2.0), 0.12).set_ease(Tween.EASE_IN)
+	tw.tween_property(root, "rotation", Vector3(-0.75, 0, 0), 0.12)
+	tw.tween_property(root, "scale", Vector3.ONE * 2.0, 0.12)
+	tw.set_parallel(false)
+	tw.tween_interval(0.32)
+	# (then it sinks into the floor whole, the same shape all the way: shrinking it pinched it)
+	tw.tween_property(root, "global_position", global_position + Vector3(0, -2.6, -2.0), 0.3).set_ease(Tween.EASE_IN)
+	tw.tween_callback(root.queue_free)
+
+
+## A solid colour no light changes (v406: the shield and the meteor's chunks).
+static func _flat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.albedo_color = c
+	return m
+
+
 func _slam(reach: float, mult: float, push: float) -> void:
 	# Version 386 (visual review of v383, fix 5): a thick wave in the hero's colour, a pop of
 	# light, a quick tint over the screen and cracks torn in the floor (a thin see-through
 	# ring before, which no picture of the fight could find).
-	Fx.slam_wave(global_position, bolt_color, reach, 0.45)
+	Fx.slam_wave(global_position, bolt_color, reach, 0.3)   # (v406: quicker, the shield is the picture now)
 	Fx.floor_cracks(global_position, bolt_color, minf(reach * 0.65, 2.8), 1.5)
 	Fx.impact(center(), bolt_color.lerp(Color.WHITE, 0.35), 2.2)
-	Game.hud.flash(bolt_color, 0.14)
 	Fx.dust(global_position, 30)
 	for a: Actor in Actor.all.duplicate():
 		if a.team != Team.UNDEAD or not a.can_be_hit():
@@ -674,6 +782,8 @@ func _meteor(spot: Vector3) -> void:
 		Fx.magic(spot + Vector3.UP * 0.5, Color(1, 0.6, 0.2), 20)
 		Fx.sparks(spot + Vector3.UP * 0.4, Color(1.0, 0.7, 0.3))
 		Fx.dust(spot, 12)
+		Game.hud.flash(Color(1, 1, 1), 0.22)   # (v406: each rock lands with a white flash)
+		_debris(spot)
 		_scorch(spot, 3.8, 2.6)
 		Sfx.play("boom", 0.7)
 		Game.shake(0.2)
@@ -684,6 +794,43 @@ func _meteor(spot: Vector3) -> void:
 					Burning.apply(a, maxf(burn_dps, 8.0), 3.0)
 		if perks.has("meteors"):
 			_crater(spot))
+
+
+## Version 406 (fix 6): chunks of the meteor's rock, glowing at one end, thrown out in
+## arcs from where it lands, and gone.
+func _debris(spot: Vector3) -> void:
+	if Room.current == null:
+		return
+	# (v406 critic: small dark chunks read as dirt specks on brown floors: twice the size,
+	# lighter grey stone, half of each glowing hot, and a dark edge round every chunk)
+	var rock := U.mat(Color(0.5, 0.45, 0.42), 0.95)
+	var hot := _flat(Color(1.0, 0.62, 0.16))
+	var ink := _flat(Color(0.05, 0.03, 0.03))
+	ink.cull_mode = BaseMaterial3D.CULL_FRONT   # (only its back faces: an edge round the chunk)
+	for i in 8:
+		var ch := Node3D.new()
+		Room.current.add_child(ch)
+		var s := randf_range(0.42, 0.66)
+		var o := U.box(ch, Vector3(s, s * 0.8, s * 1.1) * 1.18, ink)
+		o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var b := U.box(ch, Vector3(s, s * 0.8, s * 1.1), rock)
+		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var h := U.box(ch, Vector3(s * 0.9, s * 0.7, s * 0.5), hot, Vector3(0, s * 0.1, s * 0.33))
+		h.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		ch.global_position = spot + Vector3.UP * 0.5
+		var dir := Vector3.FORWARD.rotated(Vector3.UP, TAU * (i + randf() * 0.6) / 8.0)
+		var to := spot + dir * randf_range(2.2, 3.6)
+		var spin := Vector3(randf_range(-9, 9), randf_range(-9, 9), randf_range(-9, 9))
+		var tw := ch.create_tween()
+		tw.tween_method(func(t: float):
+			if not is_instance_valid(ch):
+				return
+			var p := (spot + Vector3.UP * 0.5).lerp(to, t)
+			p.y = 0.15 + 0.35 * (1.0 - t) + 1.6 * sin(t * PI)
+			ch.global_position = p
+			ch.rotation = spin * t, 0.0, 1.0, 0.42)
+		tw.tween_property(ch, "scale", Vector3(0.01, 0.01, 0.01), 0.35).set_delay(0.25)
+		tw.tween_callback(ch.queue_free)
 
 
 ## A dark burn mark on the floor that fades away (a meteor's landing).
@@ -759,23 +906,28 @@ void fragment() {
 	float r = length(p);
 	float a = atan(p.y, p.x) / 6.2831853;
 	// two trails, each a bright steel head with a long fading tail behind it
-	float b = fract(a * 2.0 - TIME * 3.6);
+	// v406 (re-review fix 6): six big bright axe blades round the hero (two small grey ones read as wedges)
+	float b = fract(a * 6.0 - TIME * 1.5);
 	// (the blade's edge is a rounded tip, not a cut: the front fades over its last few degrees)
 	// v393 (critic): the axe at the front of each trail is a crescent, widest across the
 	// middle of the band and coming to points at its edges, with a white cutting edge.
-	float m = clamp(1.0 - pow((r - 0.8) / 0.11, 2.0), 0.0, 1.0);
-	float hw = 0.1 * sqrt(m);
+	float m = clamp(1.0 - pow((r - 0.76) / 0.2, 2.0), 0.0, 1.0);
+	float hw = 0.3 * sqrt(m);
 	float front = 1.0 - smoothstep(0.985, 1.0, b);
 	float tail = pow(b, 3.0) * (1.0 - smoothstep(1.0 - hw - 0.02, 1.0 - hw, b)) * 0.75;
 	float head = smoothstep(1.0 - hw - 0.006, 1.0 - hw, b) * front * step(0.001, m);
-	float lip = smoothstep(0.972, 0.982, b) * front * step(0.001, m);
-	float band = smoothstep(0.66, 0.72, r) * (1.0 - smoothstep(0.88, 0.95, r));
-	float inkb = smoothstep(0.6, 0.66, r) * (1.0 - smoothstep(0.95, 0.99, r)) * (1.0 - band);
+	float lip = smoothstep(0.93, 0.96, b) * front * step(0.001, m);
+	float band = smoothstep(0.54, 0.6, r) * (1.0 - smoothstep(0.92, 0.97, r));
+	float inkb = smoothstep(0.5, 0.55, r) * (1.0 - smoothstep(0.97, 1.0, r)) * (1.0 - band);
 	// steel-white at the axe, the hero's colour along the blur behind it
-	vec3 steel = mix(vec3(0.55, 0.6, 0.68), vec3(1.0), lip);
+	// (v406 critic: flat white read as a paper fan: steel now darker at the hub, light at
+	// the rim, a white cutting edge and a dark line along the back of each blade)
+	vec3 steel = mix(vec3(0.42, 0.47, 0.56), vec3(0.88, 0.92, 0.98), smoothstep(0.6, 0.9, r));
+	steel = mix(steel, vec3(1.0), lip);
+	float back = smoothstep(1.0 - hw - 0.03, 1.0 - hw - 0.012, b) * (1.0 - smoothstep(1.0 - hw - 0.012, 1.0 - hw + 0.004, b)) * step(0.001, m);
 	vec3 c = head > 0.5 ? steel : mix(col.rgb, vec3(0.92, 0.96, 1.0), smoothstep(0.7, 0.95, b) * 0.5);
 	float al = max(band * tail * 0.9, head);
-	float ai = inkb * tail * 0.7;
+	float ai = max(inkb * tail * 0.7, back * 0.95);
 	ALBEDO = mix(vec3(0.06, 0.03, 0.03), c, al / max(al + ai, 0.001));
 	ALPHA = clamp(al + ai, 0.0, 1.0);
 }
@@ -784,7 +936,7 @@ void fragment() {
 			_blades_mat.shader = sh
 			_blades_mat.render_priority = 3
 		_blades = U.floor_quad(self, Vector2(WHIRL_R * 1.7, WHIRL_R * 1.7), _blades_mat, Vector3.UP * 0.95)
-	_blades_mat.set_shader_parameter("col", bolt_color)
+	_blades_mat.set_shader_parameter("col", shot_tint)   # (v406: the ring colour; brown on brown floors)
 	_blades.visible = true
 
 
@@ -823,7 +975,7 @@ void fragment() {
 			_storm_mat = ShaderMaterial.new()
 			_storm_mat.shader = sh
 		_storm = U.floor_quad(self, Vector2(WHIRL_R * 2.0, WHIRL_R * 2.0), _storm_mat, Vector3.UP * 0.12)
-	_storm_mat.set_shader_parameter("col", bolt_color)
+	_storm_mat.set_shader_parameter("col", shot_tint)
 	_storm.visible = true
 
 
@@ -906,6 +1058,8 @@ func _update_brim() -> void:
 
 
 func _process(delta: float) -> void:
+	if DamageNumber.hush_left > 0.0:
+		DamageNumber.hush_left -= delta   # (game time: a slow frame never cuts the hush short)
 	_update_brim()
 	delta = minf(delta, MAX_STEP)   # v282 (Tweaks report #7): a long frame is a short slow-down, never a jump
 	if dead:

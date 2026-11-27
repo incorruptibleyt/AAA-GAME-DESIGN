@@ -266,7 +266,8 @@ static func _place_brute(a: Node3D, place: String, side: float) -> void:
 	match place:
 		"frost":   # icicles hanging under the plate's edge
 			for k in 3:
-				var ic := U.cone(a, 0.06, 0.32 - 0.07 * absf(k - 1), _m("ice"), Vector3(x + side * 0.18, 0.08, -0.18 + 0.18 * k))
+				var il := 0.32 - 0.07 * absf(k - 1)
+				var ic := U.cone(a, 0.06, il, _m("ice"), Vector3(x + side * 0.18, 0.08 - il, -0.18 + 0.18 * k))
 				ic.rotation = Vector3(PI, 0, 0)
 		"ember":   # three tongues of flame standing up from a basalt plate
 			for k in 3:

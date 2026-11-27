@@ -171,7 +171,8 @@ static func _king_face(skel: Skeleton3D) -> void:
 		cheek.rotation = Vector3(0.2, 0, side * 0.15)
 	for k in 5:
 		var x := (k - 2) * 0.11
-		var b := U.cone(h, 0.06, 0.42 - 0.08 * absf(k - 2), _m("bone"), Vector3(x, 0.14, 0.34))
+		var bl := 0.42 - 0.08 * absf(k - 2)
+		var b := U.cone(h, 0.06, bl, _m("bone"), Vector3(x, 0.16 - bl, 0.36))   # (flipped round its middle: base at the point)
 		b.rotation = Vector3(PI - 0.45, 0, x * 0.8)
 	FeatHeads.bake(h, "boss king face")
 

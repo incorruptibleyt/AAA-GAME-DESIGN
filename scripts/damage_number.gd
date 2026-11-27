@@ -62,6 +62,10 @@ var _boss := false
 
 
 ## Damage taken by `who`. Hits on the hero are red; crits turn the number gold and bigger.
+## Version 406: while above 0 (seconds, counted down by the hero) hits on skeletons show no
+## number: a special is landing, and its one total shows when it ends.
+static var hush_left := 0.0
+
 static func hit(who: Actor, amount: float, crit: bool) -> void:
 	# Version 213 (hardest review fix #10/#17): the hero's own hits are white on a dark red
 	# edge (red on the red and orange floors could not be read), on the hero's far side.
@@ -72,6 +76,8 @@ static func hit(who: Actor, amount: float, crit: bool) -> void:
 	# v391 (review v388 fix 3): damage you take is red again (on the ink edge, which reads on
 	# the red floors too) and shakes as it pops; damage you deal stays white.
 	var mine := who.team == Actor.Team.HERO
+	if not mine and hush_left > 0.0:
+		return   # (v406: a special is landing; its one big total shows when it ends)
 	_add(who, "hit", amount, TAKEN if mine else Color.WHITE, "-" if mine else "", crit)
 
 

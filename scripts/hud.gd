@@ -5303,7 +5303,7 @@ func _place_status(delta: float) -> void:
 var _perfect_lbl: Label
 var _perfect_tw: Tween
 
-func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
+func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0), big := false) -> void:
 	var cam := get_viewport().get_camera_3d()
 	if cam == null or Game.hero == null:
 		callout(text, col)
@@ -5317,18 +5317,21 @@ func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0)) -> void:
 		add_child(_perfect_lbl)
 	_perfect_lbl.text = text
 	_perfect_lbl.label_settings.font_color = col
+	# (v406: a special's total is twice a hit number and punches in)
+	_perfect_lbl.label_settings.font_size = 62 if big else 40
+	_perfect_lbl.label_settings.outline_size = 14 if big else 10
 	_perfect_lbl.reset_size()
 	_perfect_lbl.pivot_offset = _perfect_lbl.size * 0.5
 	_place_perfect(0.0)
 	_perfect_lbl.visible = true
 	_perfect_lbl.modulate.a = 1.0
-	_perfect_lbl.scale = Vector2(1.5, 1.5)
+	_perfect_lbl.scale = Vector2(2.0, 2.0) if big else Vector2(1.5, 1.5)
 	if _perfect_tw:
 		_perfect_tw.kill()
 	_perfect_tw = create_tween().set_ignore_time_scale(true)
-	_perfect_tw.tween_property(_perfect_lbl, "scale", Vector2.ONE, 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	_perfect_tw.tween_property(_perfect_lbl, "scale", Vector2.ONE, 0.24 if big else 0.2).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	# It rides above the hero as they dash (version 119: it was left behind at the old spot).
-	_perfect_tw.parallel().tween_method(_place_perfect, 0.0, 40.0, 0.9)
+	_perfect_tw.parallel().tween_method(_place_perfect, 0.0, 40.0, 1.3 if big else 0.9)
 	_perfect_tw.tween_property(_perfect_lbl, "modulate:a", 0.0, 0.25)
 	_perfect_tw.tween_callback(func(): _perfect_lbl.visible = false)
 
