@@ -34,6 +34,9 @@ func _setup() -> void:
 	look.shape = {"scale": {"chest": 1.1, "upperarm.l": 1.35, "upperarm.r": 1.35}}
 	look.parts = "roots"
 	make_visual(look)
+	# Version 405 (re-review of v400, fix 5): a light rim round its dark bark, which was a black
+	# blob on the dark floors (its face and arms didn't read).
+	visual.set_rim(Color(1.2, 1.5, 0.7, 1.0), 1.15)
 	_dress()
 
 

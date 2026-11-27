@@ -46,6 +46,9 @@ func _setup() -> void:
 		"turn": {"spine": Vector3(10, 0, 0)}}
 	look.parts = "voidtail"
 	make_visual(look)
+	# Version 405 (re-review of v400, fix 5): a light rim round its dark void body, which was a black
+	# blob on the dark floors (its face and arms didn't read).
+	visual.set_rim(Color(1.1, 1.2, 1.5, 1.0), 1.15)
 	_dress()
 
 

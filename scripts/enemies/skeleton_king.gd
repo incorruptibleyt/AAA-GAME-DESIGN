@@ -4,6 +4,7 @@ extends Enemy
 ## warning; below half health it gets faster and adds the Royal Rush (three charges and a ring).
 
 const DISPLAY_NAME := "The Skeleton King"
+const KEEP_X := 3.4
 
 var _enraged := false
 var _started := false
@@ -20,15 +21,20 @@ func _setup() -> void:
 	move_speed = 1.8
 	contact_damage = 18.0
 	radius = 1.15
-	center_height = 1.8
+	center_height = 2.3   # (v405: he is taller now; the camera keeps his head under the top bar)
 	knockback_scale = 0.08
 	var key := Art.SKELETON_GOLEM if Art.has_model(Art.SKELETON_GOLEM) else Art.SKELETON_WARRIOR
-	var look := bones(key, 4.0, Color(1.0, 0.25, 0.15))
+	var look := bones(key, 4.7, Color(1.0, 0.25, 0.15))   # (v405: 4.0; he was barely bigger than the hero)
 	look.crown = true
 	look.horns = true
-	look.weapon = "Skeleton_Axe"
-	look.offhand = "Skeleton_Shield_Large_A"
-	look.attack_anim = "1H_Melee_Attack_Chop"
+	# Version 405 (re-review of v400, fix 5): he was the brute grown big with a crown (the
+	# brute's axe and shield). His own greatsword now (BossBodies._king), held high, and a
+	# tall crown, so his outline from above is a king's.
+	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Eyes"]   # (the brute's horned helmet: the crown alone on his skull)
+	look.crown_y = 0.92
+	look.crown_s = 0.85
+	look.crown_tall = 1.6
+	look.attack_anim = "2H_Melee_Attack_Chop"
 	look.shape = {"scale": {"chest": Vector3(1.35, 1.1, 1.2), "head": 0.9, "upperarm.l": 1.25, "upperarm.r": 1.25, "upperleg.l": 0.9, "upperleg.r": 0.9}}   # (v348: a broad king)
 	look.parts = "king"
 	make_visual(look)
@@ -50,7 +56,11 @@ func _think(hero: Hero, delta: float) -> void:
 		move_speed *= 1.35
 		phase_two(Color(1, 0.3, 0.2), "rush", "Royal Rush")
 	if not _busy:
-		var to := hero.global_position - global_position
+		# (v405: he walks back toward the middle, never far to the side, where the camera
+		# lost half of him off the screen's edge)
+		var goal := hero.global_position
+		goal.x = clampf(goal.x, -KEEP_X, KEEP_X)
+		var to := goal - global_position
 		if to.length() > 2.5:
 			walk(to, delta)
 		else:

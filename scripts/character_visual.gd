@@ -206,7 +206,7 @@ func _dress_model(look: Dictionary) -> void:
 		var att := BoneAttachment3D.new()
 		skel.add_child(att)
 		att.bone_name = "head"
-		_boss_crown(att, 0.6, float(look.get("crown_y", 1.25)))   # (v348: lower on a bare skull)
+		_boss_crown(att, float(look.get("crown_s", 0.6)), float(look.get("crown_y", 1.25)), float(look.get("crown_tall", 1.0)))   # (v348: lower on a bare skull)
 	if look.get("bomb", false) and skel.find_bone("chest") >= 0:
 		var att := BoneAttachment3D.new()
 		skel.add_child(att)
@@ -875,7 +875,7 @@ func _placeholder(look: Dictionary) -> Node3D:
 ## (store/icon-512.png): a gold band that flares out a little, five tall points each with a
 ## gold ball on top, a red jewel in front and blue ones at the sides, over a dark red cap.
 ## (It was a flat cylinder with six gold blocks.) `s` is its radius, `y` its height.
-static func _boss_crown(att: Node3D, s: float, y: float) -> void:
+static func _boss_crown(att: Node3D, s: float, y: float, tall_k := 1.0) -> void:
 	var gold := U.mat(Color(1.0, 0.76, 0.22), 0.25, 0.5)
 	var velvet := U.mat(Color(0.45, 0.04, 0.06), 0.9)
 	U.sphere(att, s * 0.42, velvet, Vector3(0, y + s * 0.12, 0)).scale = Vector3(1, 0.55, 1)
@@ -883,7 +883,7 @@ static func _boss_crown(att: Node3D, s: float, y: float) -> void:
 	for i in 5:
 		var a := (i / 5.0) * TAU + PI * 0.5
 		var at := Vector3(cos(a) * s * 0.47, y + s * 0.2, sin(a) * s * 0.47)
-		var tall := 0.62 if i == 0 else 0.46
+		var tall := (0.62 if i == 0 else 0.46) * tall_k
 		U.cone(att, s * 0.15, s * tall, gold, at)
 		U.sphere(att, s * 0.075, gold, at + Vector3.UP * s * (tall + 0.03))
 	var red := U.mat(Color(1.0, 0.1, 0.12), 0.2, 0.6)

@@ -102,7 +102,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27k"
+const BUILD := "2026-11-27l"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1905,8 +1905,8 @@ func _snap_camera() -> void:
 ## so the boss, the hero and the warnings fit together under the top bars (eased in and out).
 const BOSS_PULL := 1.12
 ## Version 394: how far the camera leans sideways toward the boss (0 none, 1 centred on it).
-const BOSS_SIDE_LEAN := 0.45
-const BOSS_LEAN_HERO := 0.4
+const BOSS_SIDE_LEAN := 0.6   # (v405: was 0.45)
+const BOSS_LEAN_HERO := 0.5   # (v405: was 0.4; the Skeleton King by a side wall was half off)
 var _boss_pull := 1.0
 ## Version 368: the farthest skeleton ahead of the hero (its head), followed slowly, and how
 ## much the camera leans toward it (see _room_focus).

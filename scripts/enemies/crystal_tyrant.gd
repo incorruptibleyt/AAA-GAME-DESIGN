@@ -91,7 +91,9 @@ func _setup() -> void:
 	center_height = 1.9
 	knockback_scale = 0.05
 	var look := bones(Art.SKELETON_MINION, 4.5, AMETHYST)
-	look.hide = ["Skeleton_Minion_Cloak"]
+	# Version 405 (re-review of v400, fix 5): its skull was the grunt's with crystals on; now
+	# the head itself is one great faceted amethyst with glowing eyes and crystal fangs (_dress).
+	look.hide = ["Skeleton_Minion_Cloak", "Skeleton_Minion_Head", "Skeleton_Minion_Jaw", "Skeleton_Minion_Eyes"]
 	look.overlay = _crystal_bones()
 	look.shape = {"scale": {"chest": 1.45, "head": 0.72, "upperarm.l": 1.3, "upperarm.r": 1.6, "upperleg.l": 0.8, "upperleg.r": 0.8},
 		"turn": {"spine": Vector3(15, 0, 0), "head": Vector3(-12, 0, 0)}}   # (v350: a hulk, its crystal fist long)
@@ -162,7 +164,9 @@ static func _mat(key: String) -> Material:
 			"pale": _meshes[k] = U.mat(Color(0.78, 0.56, 1.0), 0.15, 0.8)
 			"deep": _meshes[k] = U.mat(Color(0.3, 0.1, 0.58), 0.2, 0.6)
 			"rock": _meshes[k] = U.mat(Color(0.2, 0.18, 0.22), 0.95)
-			"eye": _meshes[k] = U.unlit(Color(0.9, 0.55, 1.0))
+			"eye": _meshes[k] = U.unlit(Color(1.0, 0.2, 0.75))   # (v405: hot magenta in a dark socket on the pale face)
+			"geode": _meshes[k] = U.mat(Color(0.93, 0.88, 1.0), 0.2, 0.15)   # (pale, against its purple body)
+			"socket": _meshes[k] = U.mat(Color(0.06, 0.02, 0.1), 0.6)
 			"glow":
 				var g := StandardMaterial3D.new()
 				g.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -284,15 +288,27 @@ func _dress() -> void:
 		var crown := MeshInstance3D.new()
 		crown.mesh = _crown_mesh()
 		_crown.add_child(crown)
-		# Violet eyes over the rig's own yellow ones.
+		var face := Node3D.new()
+		head.add_child(face)
+		face.scale = Vector3.ONE * 1.25   # (it hid among its own shoulder crystals)
+		face.position = Vector3(0, 0.08, 0.05)
+		BossBodies._gem(face, Vector3(0, 0.5, 0.02), Vector3(0.5, 0.98, 0.46), _mat("geode"), 6, Vector3(0, PI / 6.0, 0))
+		for sx in [-1.0, 1.0]:
+			var sock := U.sphere(face, 0.1, _mat("socket"), Vector3(sx * 0.16, 0.5, 0.37))
+			sock.scale = Vector3(1.25, 0.95, 0.6)
+		for k in 3:   # crystal fangs under the face
+			var fx := (k - 1) * 0.14
+			BossBodies._shard(face, Vector3(fx, 0.2, 0.3), Vector3(fx * 1.1, -0.06 + 0.04 * absf(k - 1), 0.36), 0.07, FoeBodies._m("amethyst"), 4)
+		FeatHeads.bake(face, "boss tyrant face")
+		# Eyes in the dark sockets.
 		for sx in [-1.0, 1.0]:
 			var eye := MeshInstance3D.new()
 			eye.mesh = Props._sphere()
 			eye.material_override = _mat("eye")
 			eye.scale = Vector3(0.085, 0.065, 0.03)
-			eye.position = Vector3(sx * 0.16, 0.49, 0.43)
+			eye.position = Vector3(sx * 0.16, 0.5, 0.44)
 			eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			head.add_child(eye)
+			face.add_child(eye)
 	if skel and skel.find_bone("chest") >= 0:
 		var chest := BoneAttachment3D.new()
 		skel.add_child(chest)

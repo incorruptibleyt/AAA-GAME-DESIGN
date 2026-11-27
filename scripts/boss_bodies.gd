@@ -12,6 +12,11 @@ static func _m(key: String) -> Material:
 	if not _mats.has(key):
 		match key:
 			"gold": _mats[key] = U.mat(Color(1.0, 0.76, 0.25), 0.25, 0.2)
+			"blade": _mats[key] = U.mat(Color(0.86, 0.88, 0.95), 0.2, 0.25)
+			"ruby": _mats[key] = U.mat(Color(1.0, 0.12, 0.15), 0.2, 0.7)
+			"steel_dark": _mats[key] = U.mat(Color(0.25, 0.26, 0.32), 0.3)
+			"socket": _mats[key] = U.mat(Color(0.05, 0.02, 0.03), 0.6)
+			"king_eye": _mats[key] = U.unlit(Color(1.0, 0.25, 0.15))
 			"velvet": _mats[key] = U.mat(Color(0.62, 0.06, 0.1), 0.8)
 			"velvet_dark": _mats[key] = U.mat(Color(0.38, 0.03, 0.07), 0.85)
 			"ermine": _mats[key] = U.mat(Color(0.96, 0.95, 0.92), 0.9)
@@ -128,9 +133,12 @@ static func _king(skel: Skeleton3D) -> void:
 		p.scale = Vector3(1.1, 0.85, 1.1)
 		var rim := U.sphere(c, 0.27, _m("velvet_dark"), Vector3(side * 0.5, 0.1, 0.0))
 		rim.scale = Vector3(1.1, 0.4, 1.1)
-		for k in 3:
-			var s := U.cone(c, 0.08, 0.45 - 0.08 * absf(k - 1), _m("bone"), Vector3(side * (0.52 + 0.05 * k), 0.3, -0.15 + 0.15 * k))
-			s.rotation = Vector3(0.3 - 0.3 * k, 0, -side * 0.5)
+		# (v405: layered gold plates with a ruby each, not the brute's bone spikes)
+		var p2 := U.sphere(c, 0.2, _m("gold"), Vector3(side * 0.62, 0.02, 0.0))
+		p2.scale = Vector3(1.0, 0.6, 1.1)
+		U.sphere(c, 0.075, _m("ruby"), Vector3(side * 0.52, 0.34, 0.05))
+		var trim := U.sphere(c, 0.27, _m("ermine"), Vector3(side * 0.47, 0.24, -0.04))
+		trim.scale = Vector3(1.05, 0.25, 1.05)
 	# the cape: wide at the floor, from the shoulders down behind him
 	var cape := U.cone(c, 0.78, 1.05, _m("velvet"), Vector3(0, -0.85, -0.3), 0.36)
 	cape.scale = Vector3(1.0, 1.0, 0.16)   # (flat: a cape, not a drum)
@@ -142,6 +150,51 @@ static func _king(skel: Skeleton3D) -> void:
 		var ang := PI * (0.12 + 0.76 * i / 5.0)
 		U.sphere(c, 0.03, _m("ermine_spot"), Vector3(cos(ang) * 0.4, 0.29, -0.12 - sin(ang) * 0.3))
 	FeatHeads.bake(c, "boss king")
+	_king_sword(skel)
+	_king_face(skel)
+
+
+## Version 405 (fix 5): a face of his own over the grunt's skull: a heavy dark brow, deep
+## glowing red eyes, gold cheek guards and a long bone beard of spikes under his jaw.
+static func _king_face(skel: Skeleton3D) -> void:
+	var h := FoeBodies._on(skel, "head")
+	if h == null:
+		return
+	var brow := U.box(h, Vector3(0.78, 0.13, 0.2), _m("velvet_dark"), Vector3(0, 0.62, 0.36))
+	brow.rotation = Vector3(0.25, 0, 0)
+	for side in [-1.0, 1.0]:
+		var sock := U.sphere(h, 0.12, _m("socket"), Vector3(side * 0.17, 0.5, 0.38))
+		sock.scale = Vector3(1.2, 0.85, 0.5)
+		var eye := U.sphere(h, 0.07, _m("king_eye"), Vector3(side * 0.17, 0.5, 0.43))
+		eye.scale = Vector3(1.2, 0.8, 0.5)
+		var cheek := U.box(h, Vector3(0.1, 0.36, 0.3), _m("gold"), Vector3(side * 0.42, 0.34, 0.2))
+		cheek.rotation = Vector3(0.2, 0, side * 0.15)
+	for k in 5:
+		var x := (k - 2) * 0.11
+		var b := U.cone(h, 0.06, 0.42 - 0.08 * absf(k - 2), _m("bone"), Vector3(x, 0.14, 0.34))
+		b.rotation = Vector3(PI - 0.45, 0, x * 0.8)
+	FeatHeads.bake(h, "boss king face")
+
+
+## Version 405 (fix 5): the King's own greatsword, longer than he is wide: a broad pale blade
+## with a red fuller, a wide gold cross-guard, a grip and a ruby pommel.
+static func _king_sword(skel: Skeleton3D) -> void:
+	var h := FoeBodies._on(skel, "handslot.r")
+	if h == null:
+		return
+	var blade := U.box(h, Vector3(0.34, 1.8, 0.14), _m("blade"), Vector3(0, 1.17, 0))   # (v405: broad and thick)
+	blade.name = "Blade"
+	U.box(h, Vector3(0.12, 1.5, 0.16), _m("velvet"), Vector3(0, 1.08, 0))   # the fuller
+	for side in [-1.0, 1.0]:   # dark bevels along both edges, so it reads as a blade
+		U.box(h, Vector3(0.04, 1.8, 0.1), _m("steel_dark"), Vector3(side * 0.17, 1.17, 0))
+	var tip := U.cone(h, 0.24, 0.42, _m("blade"), Vector3(0, 2.07, 0))
+	tip.scale = Vector3(1.0, 1.0, 0.45)
+	U.box(h, Vector3(0.66, 0.1, 0.12), _m("gold"), Vector3(0, 0.26, 0))   # cross-guard
+	for side in [-1.0, 1.0]:
+		U.sphere(h, 0.07, _m("gold"), Vector3(side * 0.34, 0.26, 0))
+	U.cylinder(h, 0.05, 0.36, _m("velvet_dark"), Vector3(0, -0.12, 0))   # grip
+	U.sphere(h, 0.09, _m("ruby"), Vector3(0, -0.16, 0))
+	FeatHeads.bake(h, "boss king sword")
 
 
 ## The Lich: no legs, floating on a long tattered robe with a soul-light hem; a mantle of
