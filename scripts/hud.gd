@@ -3993,7 +3993,7 @@ func _fit_pass() -> void:
 
 ## The Daily Crypt screen: today's theme, hero and three rules, and START.
 func _build_daily() -> void:
-	_daily_box = overlay(Color(0.03, 0.02, 0.05, 0.96))
+	_daily_box = overlay(Color(0.03, 0.02, 0.05, 0.96), "sundial")   # (version 408: the Sundial Court)
 	add_child(_daily_box)
 	var col := VBoxContainer.new()
 	col.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4631,7 +4631,8 @@ func _process(delta: float) -> void:
 		# v375: the PASS button is lifted over the event strip (z 1), which also lifted it
 		# over a screen opened straight over the title (Rewards, Today's Goals, Mastery).
 		if is_instance_valid(_title_pass_row):
-			_title_pass_row.z_index = 0 if covers_world() else 1
+			# (v408: and over the Crypt Race lobby, which isn't one of covers_world's screens)
+			_title_pass_row.z_index = 0 if covers_world() or race_screen.visible else 1
 	# The OPEN BONE DROP buttons glow gently, so a drop waiting isn't missed.
 	if _title_drops.is_visible_in_tree() or _end_drop.is_visible_in_tree():
 		var glow := 1.0 + 0.16 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 3.2))
@@ -5890,7 +5891,7 @@ func refresh_armory_badge() -> void:
 var _rewards_box: ColorRect
 var _rewards_badge: Label
 var _title_rewards_row: Control
-var _rw_road: RoadScreen.Bar
+var _rw_road: Button
 var _rw_drops: Button
 var _rw_feats: Button
 var _rw_drops_sub: Label
@@ -5911,29 +5912,30 @@ func _build_rewards() -> void:
 	_rewards_box.add_child(col)
 	col.add_child(label("REWARDS", 46, GOLD))
 	col.add_child(label("Everything you've earned, all free.", 19, Color(0.8, 0.78, 0.85)))
-	# Version 311: today's three goals and the Today Chest, first.
-	_rw_today = button("TODAY'S GOALS  0/3", 24, Color(0.05, 0.2, 0.1, 0.97), Color(0.5, 1.0, 0.65))
+	# Version 408 (re-review of v400, fix 8: "the hub is five stacked buttons"): four picture
+	# tiles, two by two, each showing the prize it leads to: the Today Chest's coins, the next
+	# Bone Road prize, a Bone Drop, the next Feat's look. Records and leaderboards stay rows.
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	col.add_child(grid)
+	_rw_today = _reward_tile(grid, "today", "TODAY'S GOALS", Color(0.05, 0.24, 0.11, 0.97), Color(0.5, 1.0, 0.65))
 	_rw_today.pressed.connect(func(): show_today(true))
-	col.add_child(_reward_row(_rw_today, null))
-	_rw_today_sub = col.get_child(col.get_child_count() - 1).get_child(1)
-	_rw_road = RoadScreen.Bar.new()
-	_rw_road.custom_minimum_size = Vector2(420, 70)
-	_rw_road.big(24)
+	_rw_road = _reward_tile(grid, "road", "BONE ROAD", Color(0.36, 0.22, 0.04, 0.97), GOLD)
 	_rw_road.pressed.connect(func(): road_pressed.emit())
-	# Version 121: every row says where it stands in a line under it ("2 waiting",
-	# "140/180 bones", "6/20 done"), and all rows share one size.
-	col.add_child(_reward_row(_rw_road, null))
-	_rw_road_sub = col.get_child(col.get_child_count() - 1).get_child(1)
-	_rw_drops = button("BONE DROPS", 24, Color(0.3, 0.2, 0.06, 0.97), GOLD)
+	_rw_drops = _reward_tile(grid, "drops", "BONE DROPS", Color(0.24, 0.1, 0.3, 0.97), Color(0.9, 0.7, 1.0))
 	_rw_drops.pressed.connect(func(): drops_pressed.emit())
-	col.add_child(_reward_row(_rw_drops, null))
-	_reward_pic(_rw_today, "coin")   # (v363: the prizes as pictures, at the buttons' left)
-	_reward_pic(_rw_drops, "drop")
-	_rw_drops_sub = col.get_child(col.get_child_count() - 1).get_child(1)
-	_rw_feats = button("FEATS", 24, Color(0.05, 0.16, 0.2, 0.97), Color(0.5, 0.95, 1.0))
+	_rw_feats = _reward_tile(grid, "feats", "FEATS", Color(0.04, 0.17, 0.24, 0.97), Color(0.5, 0.95, 1.0))
 	_rw_feats.pressed.connect(func(): feats_pressed.emit())
-	col.add_child(_reward_row(_rw_feats, null))
-	_rw_feats_sub = col.get_child(col.get_child_count() - 1).get_child(1)
+	_rw_today_sub = _rw_tiles.today.s
+	_rw_road_sub = _rw_tiles.road.s
+	_rw_drops_sub = _rw_tiles.drops.s
+	_rw_feats_sub = _rw_tiles.feats.s
+	_tile_pic("today", LookShots.prize_rect("coin", 112))
+	_tile_pic("drops", LookShots.prize_rect("drop", 124))
 	var rec := button("RECORDS", 24)
 	rec.pressed.connect(func(): records_pressed.emit())
 	col.add_child(_reward_row(rec, "Best runs, bosses beaten and totals"))
@@ -6048,6 +6050,66 @@ static func back_corner(back: Button) -> Button:
 	return back
 
 
+## Version 408: one REWARDS tile: a picture of its prize over a word and a status line.
+var _rw_tiles := {}
+
+func _reward_tile(grid: GridContainer, key: String, title: String, bg: Color, fg: Color) -> Button:
+	var b := button("", 22, bg, Color(fg, 0.75))
+	b.custom_minimum_size = Vector2(232, 262)
+	grid.add_child(b)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.alignment = BoxContainer.ALIGNMENT_BEGIN   # (every tile's name on the same line)
+	v.add_theme_constant_override("separation", 2)
+	full(v)
+	v.offset_left = 8
+	v.offset_right = -8
+	v.offset_top = 6
+	v.offset_bottom = -8
+	b.add_child(v)
+	var holder := CenterContainer.new()
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	holder.custom_minimum_size = Vector2(0, 128)
+	v.add_child(holder)
+	var t := label(title, 24, fg)
+	chunky(t.label_settings)
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(t)
+	var sub := label("", 16, Color(0.9, 0.88, 0.94))
+	sub.custom_minimum_size = Vector2(200, 0)
+	v.add_child(sub)
+	_rw_tiles[key] = {"b": b, "t": t, "s": sub, "pic": holder}
+	if key == "drops":
+		# Drops waiting: an orange OPEN button on the tile, so it reads as the thing to tap.
+		var go := label("OPEN", 20, Color.WHITE)
+		chunky(go.label_settings)
+		go.autowrap_mode = TextServer.AUTOWRAP_OFF
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.98, 0.55, 0.12)
+		sb.border_color = Color(1.0, 0.85, 0.4)
+		sb.set_border_width_all(2)
+		sb.border_width_bottom = 5
+		sb.set_corner_radius_all(12)
+		sb.content_margin_left = 18
+		sb.content_margin_right = 18
+		sb.content_margin_top = 2
+		sb.content_margin_bottom = 4
+		go.add_theme_stylebox_override("normal", sb)
+		go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		go.visible = false
+		v.add_child(go)
+		_rw_tiles[key]["go"] = go
+	return b
+
+
+## The tile's picture (replacing the one before).
+func _tile_pic(key: String, pic: Control) -> void:
+	var holder: Control = _rw_tiles[key].pic
+	for c in holder.get_children():
+		c.queue_free()
+	holder.add_child(pic)
+
+
 ## Version 363: a prize's picture over a REWARDS button's left end, sticking out of it.
 func _reward_pic(b: Control, kind: String) -> void:
 	var pic := LookShots.prize_rect(kind, 84)
@@ -6086,29 +6148,65 @@ func rewards_visible() -> bool:
 func refresh_rewards() -> void:
 	var cfg := Game._load_save()
 	var ni := BoneRoad.next_index(cfg)
-	_rw_road.set_road(BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at) if ni < BoneRoad.STEPS.size() else 0,
-			BoneRoad.progress(cfg), BoneRoad.ready_count(cfg))
+	# (v408: the road's tile shows the prize at its next step)
+	var road_kind := str(BoneRoad.STEPS[ni].kind) if ni < BoneRoad.STEPS.size() else "coins"
+	if str(_rw_tiles.road.get("kind", "")) != road_kind:
+		_rw_tiles.road.kind = road_kind
+		_tile_pic("road", LookShots.prize_rect(road_kind, 120))
+	_rw_tiles.road.t.text = "CLAIM!" if BoneRoad.ready_count(cfg) > 0 else "BONE ROAD"
 	var n := Drops.waiting(cfg)
-	_rw_drops.text = ("OPEN BONE DROP" if n == 1 else "OPEN %d BONE DROPS" % n) if n > 0 else "BONE DROPS  ·  looks %d/%d" % [Drops.found_looks(cfg), Drops.all_looks()]
+	_rw_tiles.drops.t.text = "BONE DROPS"
+	_rw_tiles.drops.go.text = "OPEN %d" % n
+	_rw_tiles.drops.go.visible = n > 0
 	_rw_drops.disabled = n <= 0
 	var fnew := bool(cfg.get_value(Feats.SECTION, "new", false))
-	_rw_feats.text = "FEATS  %d/%d%s" % [Feats.count(cfg), Feats.LIST.size(), "  NEW!" if fnew else ""]
+	_rw_tiles.feats.t.text = "FEATS %d/%d" % [Feats.count(cfg), Feats.LIST.size()]
+	# (the Feats tile shows the look the next Feat still to do wins, on the chosen hero)
+	var next_feat := {}
+	for f: Dictionary in Feats.LIST:
+		if not Feats.done(cfg, str(f.id)):
+			next_feat = f
+			break
+	var fkey := str(next_feat.get("look", [])) + Heroes.selected(cfg)
+	if str(_rw_tiles.feats.get("key", "")) != fkey:
+		_rw_tiles.feats.key = fkey
+		var fp := TextureRect.new()
+		fp.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fp.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		fp.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		fp.material = HeroStage._see_through()
+		# (the look picture has room round the hero: drawn bigger than its box, so the hero
+		# stands as big as the other tiles' prizes)
+		var fbox := Control.new()
+		fbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		fbox.custom_minimum_size = Vector2(128, 128)
+		fp.position = Vector2(-22, -16)
+		fp.size = Vector2(172, 172)
+		fbox.add_child(fp)
+		_tile_pic("feats", fbox)
+		if not next_feat.is_empty():
+			var lk: Array = next_feat.look
+			LookShots.want(Heroes.selected(cfg), str(lk[0]), str(lk[1]), func(t: Texture2D) -> void:
+				if is_instance_valid(fp):
+					fp.texture = t)
+		else:
+			_tile_pic("feats", LookShots.prize_rect("coins", 120))
 	var ready := BoneRoad.ready_count(cfg)
 	if ready > 0:
-		_rw_road_sub.text = "%d reward%s ready to claim" % [ready, "" if ready == 1 else "s"]
+		_rw_road_sub.text = "%d prize%s ready" % [ready, "" if ready == 1 else "s"]
 	elif ni < BoneRoad.STEPS.size():
-		_rw_road_sub.text = "%d / %d bones to the next reward" % [BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at)]
+		_rw_road_sub.text = "%d / %d bones" % [BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at)]
 	else:
-		_rw_road_sub.text = "Every reward claimed"
+		_rw_road_sub.text = "All claimed"
 	var pity := Drops.pity_text(cfg)
-	_rw_drops_sub.text = ("%d waiting" % n if n > 0 else "None waiting: win runs to earn more") + ("  ·  " + pity if pity != "" and n > 0 else "")
-	_rw_feats_sub.text = "%d of %d done  ·  each one wins a look" % [Feats.count(cfg), Feats.LIST.size()]
+	_rw_drops_sub.text = (pity if pity != "" else "%d waiting" % n) if n > 0 else "Win runs to earn more"
+	_rw_feats_sub.text = ("NEW look won!" if fnew else (str(next_feat.get("name", "")) + " wins this" if not next_feat.is_empty() else "All done"))
 	var tdone := Today.done_count(cfg)
 	var chest := Today.chest_ready(cfg)
-	_rw_today.text = "OPEN THE TODAY CHEST" if chest else "TODAY'S GOALS  %d/%d" % [tdone, Today.COUNT]
-	_rw_today_sub.text = ("All 3 done: %d coins and a Bone Drop inside" % Today.CHEST_COINS) if chest else \
-		("Chest opened  ·  new goals in %s" % _clock_text(Curses.seconds_left()) if Today.chest_open(cfg) else \
-		"+%d coins each  ·  all 3 open the Today Chest" % Today.GOAL_COINS)
+	_rw_tiles.today.t.text = "OPEN CHEST!" if chest else "TODAY %d/%d" % [tdone, Today.COUNT]
+	_rw_today_sub.text = ("%d coins and a Bone Drop" % Today.CHEST_COINS) if chest else \
+		("New goals in %s" % _clock_text(Curses.seconds_left()) if Today.chest_open(cfg) else \
+		"+%d coins each goal" % Today.GOAL_COINS)
 	var badge := ""
 	if chest:
 		badge = "CHEST!"
@@ -6414,6 +6512,7 @@ func show_armory(v: bool, rows := [], coins := 0) -> void:
 		return
 	_shop_curses = false
 	_shop_title.text = "ARMORY"
+	MenuBackdrop.of(_armory_box).set_look("forge")
 	# After a buy the list stays where it was; a fresh open starts at the top.
 	var keep := 0 if opening else _armory_scroll.scroll_vertical
 	_fill_shop(rows, coins)
@@ -6443,6 +6542,7 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 		return
 	_shop_curses = true
 	_shop_title.text = "CURSES"
+	MenuBackdrop.of(_armory_box).set_look("curse")   # (version 408: a cursed shrine of its own)
 	_shop_sub.text = "%s\n%s" % [info, goal]
 	_armory_tabs.visible = false
 	_armory_purse.visible = false
@@ -6537,12 +6637,67 @@ func _fill_shop(rows: Array, coins: int) -> void:
 		_armory_rows.add_child(_shop_head("TO BUY", "%d left" % buy.size()))
 		for r: Dictionary in buy:
 			_armory_rows.add_child(_shop_card(r, coins))
+	if not vault and buy.is_empty() and not have.is_empty():
+		# Version 408 (re-review of v400, fix 8: "a veteran's Upgrades tab is seven grey MAX
+		# pills"): every upgrade maxed folds into one trophy strip, and the room it frees shows
+		# what the coins can buy now: the Bazaar's look of the day and the next Legend look.
+		_armory_rows.add_child(_shop_head("MAXED", "%d / %d" % [have.size(), all]))
+		_armory_rows.add_child(_trophy_strip(have))
+		var star := {}
+		var legend := {}
+		for r: Dictionary in rows:
+			if r.has("look") and r.has("preview") and int(r.cost) >= 0 and (star.is_empty() or int(r.cost) > int(star.cost)):
+				star = r
+			if r.has("legend") and int(r.cost) >= 0 and r.get("ready", false) and (legend.is_empty() or int(r.cost) < int(legend.cost)):
+				legend = r
+		if not star.is_empty() or not legend.is_empty():
+			_armory_rows.add_child(_shop_head("SPEND YOUR COINS"))
+		if not star.is_empty():
+			_armory_rows.add_child(_bazaar_feature(star, coins))
+		if not legend.is_empty():
+			_armory_rows.add_child(_legend_row(legend, coins))
+		return
 	if not have.is_empty():
 		_armory_rows.add_child(_shop_head("IN YOUR RUNS" if vault else "MAXED", "%d / %d" % [have.size(), all]))
 		if vault and buy.is_empty():
 			_armory_rows.add_child(_shop_note("All %d are yours. Each one can turn up in your runs." % have.size()))
 		for r: Dictionary in have:
 			_armory_rows.add_child(_shop_card(r, coins))
+
+
+## Version 408: every maxed upgrade as a small gold-edged trophy, side by side.
+func _trophy_strip(have: Array) -> Control:
+	var panel := PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.16, 0.11, 0.05, 0.96)
+	sb.border_color = GOLD
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(14)
+	sb.content_margin_left = 8
+	sb.content_margin_right = 8
+	sb.content_margin_top = 10
+	sb.content_margin_bottom = 8
+	panel.add_theme_stylebox_override("panel", sb)
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 2)
+	panel.add_child(row)
+	for r: Dictionary in have:
+		var pic: Array = ARMORY_ICONS.get(str(r.id), ["", GOLD])
+		var v := VBoxContainer.new()
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.add_theme_constant_override("separation", 0)
+		var icon := BlessingIcon.new()
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		icon.show_icon(str(pic[0]), "bone", pic[1])
+		icon.zoom = 0.86
+		v.add_child(icon)
+		var m := label("MAX", 14, GOLD)
+		v.add_child(m)
+		row.add_child(v)
+	return panel
 
 
 ## Version 312: the Legend Vault. What is yours first (tap one to wear it or take it off),

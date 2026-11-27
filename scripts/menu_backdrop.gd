@@ -46,6 +46,13 @@ const THEMES := {
 	"gate": {"key": Color(0.6, 0.5, 1.0), "stone": Color(0.62, 0.58, 0.78), "ambient": Color(0.07, 0.06, 0.12), "dust": Color(0.9, 0.85, 1.0), "wall": 8, "pieces": "signs"},
 	"keep": {"key": Color(0.55, 0.45, 1.0), "stone": Color(0.7, 0.66, 0.66), "ambient": Color(0.08, 0.07, 0.1), "dust": Color(1.0, 0.9, 0.7), "wall": 9, "pieces": "heraldry"},
 	"keep_bare": {"key": Color(0.55, 0.45, 1.0), "stone": Color(0.7, 0.66, 0.66), "ambient": Color(0.08, 0.07, 0.1), "dust": Color(1.0, 0.9, 0.7), "wall": 9},   # (Heroes: its tabs are where the shields hang)
+	# Version 408 (re-review fix 8): the Daily Crypt and the Curses borrowed other screens'
+	# walls. The Daily Crypt is played in the Sundial Court, so its screen is that court in
+	# warm sun: sandstone, a great sundial set in the floor and the sun at the corner. The
+	# Curses are a cursed shrine: dark stone in red light, a ring of runes round the title,
+	# skull lanterns on chains and red embers.
+	"sundial": {"key": Color(1.0, 0.8, 0.42), "stone": Color(0.86, 0.72, 0.56), "ambient": Color(0.1, 0.075, 0.06), "dust": Color(1.0, 0.92, 0.65), "pieces": "sundial"},
+	"curse": {"key": Color(1.0, 0.16, 0.22), "stone": Color(0.6, 0.48, 0.58), "ambient": Color(0.08, 0.03, 0.07), "dust": Color(1.0, 0.3, 0.3), "embers": true, "pieces": "runes"},
 }
 const TORCH := Color(1.0, 0.52, 0.2)
 
@@ -147,6 +154,23 @@ func _init() -> void:
 
 
 func _ready() -> void:
+	_apply()
+	_on_shown()
+	_layout()
+
+
+## Turns this backdrop into another place (one box that shows two screens: the Armory's
+## forge and the Curses' shrine).
+func set_look(theme_name: String) -> void:
+	if theme_name == look:
+		return
+	look = theme_name
+	if is_node_ready():
+		_apply()
+		_layout()
+
+
+func _apply() -> void:
 	var th: Dictionary = THEMES.get(look, THEMES.crypt)
 	_key = th.key
 	_key_to = th.key
@@ -172,8 +196,6 @@ func _ready() -> void:
 		_dust.initial_velocity_max = 26.0
 		_dust.scale_amount_min = 0.1
 		_dust.scale_amount_max = 0.28
-	_on_shown()
-	_layout()
 
 
 func _notification(what: int) -> void:
@@ -922,6 +944,13 @@ class _Pieces extends Control:
 			"signs":
 				_sign(Vector2(s.x * 0.08, 0.0), s.x * 0.12, s.y * 0.05, -1.0)
 				_sign(Vector2(s.x * 0.92, 0.0), s.x * 0.12, s.y * 0.07, 1.0)
+			"sundial":
+				_sun(Vector2(s.x * 1.02, -s.y * 0.012), s.x * 0.1)
+				_sundial(Vector2(s.x * 0.6, s.y * 1.03), s.x * 0.74)
+			"runes":
+				_rune_ring(Vector2(s.x * 0.5, s.y * 0.066), s.x * 0.33)
+				for side in [0.07, 0.93]:
+					_lantern(Vector2(s.x * side, -6.0), s.y * 0.012)
 
 	## An iron chain hanging from `top`, `length` long, a hook at its end.
 	func _chain(top: Vector2, length: float) -> void:
@@ -1065,3 +1094,98 @@ class _Pieces extends Control:
 		draw_circle(c, w * 0.22, cloth.darkened(0.3))
 		draw_line(c + Vector2(-w * 0.13, -w * 0.13), c + Vector2(w * 0.13, w * 0.13), gold, 4.0)   # crossed bones
 		draw_line(c + Vector2(w * 0.13, -w * 0.13), c + Vector2(-w * 0.13, w * 0.13), gold, 4.0)
+
+	## The sun in the corner of the court, `r` across, its rays fanning into the screen.
+	func _sun(c: Vector2, r: float) -> void:
+		for k in 9:
+			var a := PI * 0.5 + PI * 0.18 * (k + 0.5) / 9.0   # (down the side, clear of the title)
+			var d := Vector2(cos(a), sin(a))
+			var side := Vector2(-d.y, d.x)
+			var far := r * (3.6 if k % 2 == 0 else 2.6)
+			draw_colored_polygon(PackedVector2Array([c + side * r * 0.16, c + d * far, c - side * r * 0.16]), Color(1.0, 0.82, 0.4, 0.16))
+		draw_circle(c, r * 1.25, Color(1.0, 0.7, 0.3, 0.25))
+		draw_circle(c, r, Color(1.0, 0.78, 0.36))
+		draw_circle(c, r * 0.78, Color(1.0, 0.9, 0.58))
+
+	## The court's great sundial set in the floor, centred at `c` (below the screen, so its top
+	## half shows): a sandstone ring with its hour marks, a bronze dial and the gnomon's shadow.
+	func _sundial(c: Vector2, r: float) -> void:
+		var sand := Color(0.5, 0.38, 0.26)
+		var bronze := Color(0.62, 0.42, 0.18)
+		var line := Color(0.24, 0.15, 0.08)
+		draw_set_transform(c, 0.0, Vector2(1.0, 0.42))   # laid flat on the floor
+		draw_circle(Vector2.ZERO, r * 1.08, Color(0.16, 0.11, 0.07))
+		draw_circle(Vector2.ZERO, r, sand)
+		draw_arc(Vector2.ZERO, r * 0.97, PI, TAU, 40, sand.lightened(0.25), r * 0.03)   # its sunlit rim
+		draw_circle(Vector2.ZERO, r * 0.72, bronze.darkened(0.25))
+		draw_circle(Vector2.ZERO, r * 0.68, bronze)
+		for k in 13:   # the hour marks, morning to evening
+			var a := PI + PI * k / 12.0
+			var d := Vector2(cos(a), sin(a))
+			draw_line(d * r * 0.74, d * r * (0.95 if k % 3 == 0 else 0.86), line, 5.0 if k % 3 == 0 else 3.0)
+			if k % 3 == 0:
+				draw_circle(d * r * 0.83, r * 0.035, Color(0.95, 0.78, 0.42))
+		for k in 7:
+			var a := PI + PI * k / 6.0
+			draw_line(Vector2.ZERO, Vector2(cos(a), sin(a)) * r * 0.66, bronze.darkened(0.35), 2.5)
+		# the gnomon's long shadow, pointing to the afternoon
+		var sh := Vector2(cos(PI * 1.72), sin(PI * 1.72)) * r * 0.9   # (away from BACK)
+		draw_colored_polygon(PackedVector2Array([Vector2(-r * 0.05, 0), sh, Vector2(r * 0.05, 0)]), Color(0.08, 0.05, 0.03, 0.75))
+		draw_set_transform(Vector2.ZERO)
+		# the gnomon itself: a bronze blade standing up from the middle
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-r * 0.03, 0), c + Vector2(r * 0.03, -r * 0.24), c + Vector2(r * 0.06, 0)]), bronze.lightened(0.2))
+		draw_line(c + Vector2(-r * 0.03, 0), c + Vector2(r * 0.03, -r * 0.24), line, 3.0)
+
+	## A ring of red runes laid round the title, `r` wide, glowing.
+	func _rune_ring(c: Vector2, r: float) -> void:
+		var red := Color(1.0, 0.2, 0.25)
+		draw_set_transform(c, 0.0, Vector2(1.0, 0.2))
+		draw_arc(Vector2.ZERO, r * 1.06, 0.0, TAU, 64, Color(red, 0.18), r * 0.16)   # its glow
+		draw_arc(Vector2.ZERO, r, 0.0, TAU, 64, Color(red, 0.85), 3.0)
+		draw_arc(Vector2.ZERO, r * 1.12, 0.0, TAU, 64, Color(red, 0.6), 2.0)
+		for k in 18:   # a rune between the two rings
+			var a := TAU * k / 18.0
+			var d := Vector2(cos(a), sin(a))
+			var side := Vector2(-d.y, d.x)
+			var p := d * r * 1.06
+			var g := r * 0.035
+			match k % 3:
+				0:
+					draw_line(p - side * g, p + side * g, red, 3.0)
+					draw_line(p + side * g, p + d * g * 1.4, red, 3.0)
+				1:
+					draw_line(p - d * g, p + d * g, red, 3.0)
+					draw_line(p - side * g, p + side * g, red, 3.0)
+				_:
+					draw_arc(p, g, 0.0, TAU, 8, red, 2.5)
+		draw_set_transform(Vector2.ZERO)
+
+	## A skull lantern hanging on a chain from `top`, `length` down, burning red inside.
+	func _lantern(top: Vector2, length: float) -> void:
+		var iron := Color(0.1, 0.07, 0.09)
+		var lit := Color(0.7, 0.14, 0.16)
+		var y := top.y
+		var i := 0
+		while y < top.y + length:
+			if i % 2 == 0:
+				draw_set_transform(Vector2(top.x, y + 12.0), 0.0, Vector2(0.62, 1.0))
+				draw_arc(Vector2.ZERO, 12.0, 0.0, TAU, 16, iron, 7.0)
+				draw_arc(Vector2.ZERO, 12.0, PI * 0.85, PI * 1.65, 8, lit, 2.5)
+				draw_set_transform(Vector2.ZERO)
+			else:
+				draw_rect(Rect2(top.x - 3.5, y + 2.0, 7.0, 20.0), iron)
+			y += 18.0
+			i += 1
+		var c := Vector2(top.x, y + 26.0)
+		draw_texture_rect(MenuBackdrop.dot(), Rect2(c - Vector2(70, 70), Vector2(140, 140)), false, Color(1.0, 0.15, 0.2, 0.35))
+		var bone := Color(0.82, 0.76, 0.68)
+		draw_circle(c, 22.0, bone)
+		draw_rect(Rect2(c.x - 12.0, c.y + 12.0, 24.0, 14.0), bone)
+		for ex in [-1.0, 1.0]:   # its eyes, with the fire inside
+			draw_circle(c + Vector2(ex * 8.5, -1.0), 6.5, Color(0.18, 0.02, 0.04))
+			draw_circle(c + Vector2(ex * 8.5, 0.0), 3.6, Color(1.0, 0.3, 0.25))
+		draw_colored_polygon(PackedVector2Array([c + Vector2(-3, 8), c + Vector2(3, 8), c + Vector2(0, 3)]), Color(0.18, 0.02, 0.04))
+		for tx in [-7.0, 0.0, 7.0]:
+			draw_line(c + Vector2(tx, 14), c + Vector2(tx, 25), Color(0.3, 0.2, 0.18), 2.0)
+		draw_rect(Rect2(c.x - 9.0, c.y - 30.0, 18.0, 8.0), iron)   # the cap it hangs from
+

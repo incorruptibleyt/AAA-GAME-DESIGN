@@ -43,6 +43,8 @@ var _l_daily: Label
 var _l_stats: Label
 var _l_win: Label
 var _l_note: Label
+var _l_me: TextureRect
+var _l_them: TextureRect
 # search
 var _spinner: Spinner
 var _s_text: Label
@@ -175,8 +177,37 @@ func _build_lobby() -> void:
 	var col := _page()
 	_lobby = col.get_parent()
 	col.alignment = BoxContainer.ALIGNMENT_CENTER   # (version 158: tall phones had a gap below)
+	var under_flags := Control.new()   # (v408: the title clear of the pennants)
+	under_flags.custom_minimum_size = Vector2(0, 16)
+	under_flags.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	col.add_child(under_flags)
 	col.add_child(Hud.label("CRYPT RACE", 46, TEAL.lightened(0.3)))
-	col.add_child(Hud.label("Race a rival through the same crypt.\nFirst to fell the boss wins!", 18, TEXT))
+	# Version 408 (re-review fix 8): the lobby said "race a rival" and showed nobody. Now it
+	# shows the race: your hero against a rival in shadow, still to be found.
+	var duel := HBoxContainer.new()
+	duel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	duel.alignment = BoxContainer.ALIGNMENT_CENTER
+	duel.add_theme_constant_override("separation", 8)
+	col.add_child(duel)
+	_l_me = _duel_card("YOU", YOU)
+	duel.add_child(_l_me.get_parent().get_parent().get_parent())
+	var mid := VBoxContainer.new()
+	mid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	mid.alignment = BoxContainer.ALIGNMENT_CENTER
+	mid.custom_minimum_size = Vector2(170, 0)
+	mid.add_theme_constant_override("separation", 0)
+	duel.add_child(mid)
+	var vs := Hud.label("VS", 46, Color(1.0, 0.86, 0.5))
+	Hud.chunky(vs.label_settings)
+	mid.add_child(vs)
+	mid.add_child(Hud.label("Same crypt.\nFirst to fell\nthe boss wins!", 16, TEXT))
+	_l_them = _duel_card("RIVAL", RIVAL)
+	duel.add_child(_l_them.get_parent().get_parent().get_parent())
+	var q := Hud.label("?", 64, Color(1.0, 0.45, 0.4))
+	Hud.chunky(q.label_settings)
+	Hud.full(q)
+	q.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_l_them.get_parent().add_child(q)
 	var top := HBoxContainer.new()
 	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	top.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -257,8 +288,8 @@ func _build_lobby() -> void:
 	hv.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hv.add_theme_constant_override("separation", 3)
 	how.add_child(hv)
-	for line: String in ["Same rooms, same cards, same Race Kit. No Armory: skill wins.",
-			"Kills fill SURGE. Tap it to stun your rival, for longer at its boss.",
+	for line: String in ["Same rooms and cards. No Armory: skill wins.",
+			"Kills fill SURGE. Tap it to stun your rival.",
 			"Fall and you get back up. Keep going!",
 			"From Silver up, rivals get quicker. Get faster to climb!"]:
 		hv.add_child(Hud.label("•  " + line, 16, TEXT, HORIZONTAL_ALIGNMENT_LEFT))
@@ -269,8 +300,42 @@ func _build_lobby() -> void:
 	col.add_child(_l_note)
 
 
+## A hero's picture in a framed box for the lobby's duel, `title` on a pill under it. Returns
+## the picture (inside its box, inside the card).
+func _duel_card(title: String, col: Color) -> TextureRect:
+	var card := VBoxContainer.new()
+	card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	card.add_theme_constant_override("separation", -10)
+	var p := _panel(col, Color(0.05, 0.07, 0.11, 0.92))
+	p.custom_minimum_size = Vector2(108, 108)
+	card.add_child(p)
+	var box := Control.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.clip_contents = true
+	p.add_child(box)
+	var pic := TextureRect.new()
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	Hud.full(pic)
+	pic.offset_left = -16
+	pic.offset_right = 16
+	pic.offset_top = -4
+	pic.offset_bottom = 34
+	box.add_child(pic)
+	var pill := _pill(title, col, 18)
+	card.add_child(pill)
+	return pic
+
+
 func open_lobby(cfg: ConfigFile, note := "") -> void:
 	_show_page(_lobby)
+	var mine := Heroes.selected(cfg)
+	_l_me.texture = _hero_pic(mine)
+	# The rival: someone else's hero, a dark shape until the race finds who it is.
+	var other := "knight" if mine != "knight" else "barbarian"
+	_l_them.texture = _hero_pic(other)
+	_l_them.modulate = Color(0.62, 0.12, 0.15)
 	_l_note.text = note
 	_l_note.visible = note != ""
 	var t := Race.trophies(cfg)
@@ -1187,3 +1252,9 @@ class Bar extends Control:
 			var font := Hud.UI_FONT
 			draw_string_outline(font, p + Vector2(-16, -r - 2.0), "Zz", HORIZONTAL_ALIGNMENT_CENTER, 32, 16, 5, Hud.INK)
 			draw_string(font, p + Vector2(-16, -r - 2.0), "Zz", HORIZONTAL_ALIGNMENT_CENTER, 32, 16, Color.WHITE)
+
+
+static func _hero_pic(hero_id: String) -> Texture2D:
+	var path := "res://art/ui/heroes/%s.png" % hero_id
+	return load(path) if ResourceLoader.exists(path) else null
+
