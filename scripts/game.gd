@@ -102,7 +102,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27p"
+const BUILD := "2026-11-27q"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1676,7 +1676,8 @@ const NEAR_FEET_PX := 185.0
 ## The title screen's lobby camera looks down at this angle (the fight camera is steeper),
 ## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
 const LOBBY_PITCH := 24.0
-const LOBBY_FILL := 0.8
+const LOBBY_FILL := 0.95   # (v410: was 0.8; the safe box still keeps it clear of the words)
+const LOBBY_TURN := -0.42   # v410: the title hero turned three-quarters to us, face toward the lamp
 ## Version 367: the lobby lamp's strength (was 5) and how much of the moon is left under it.
 const LOBBY_LAMP := 2.2
 const LOBBY_MOON := 0.3
@@ -1952,7 +1953,8 @@ func _update_camera(real_delta: float) -> void:
 	elif was_lobby and _moon:
 		_moon.light_energy = _moon_energy
 	if lobby:
-		hero.rotation.y = lerp_angle(hero.rotation.y, PI, 1.0 - exp(-6.0 * real_delta))   # turned to face us
+		# (v410: a three-quarter turn, not straight on: the hero reads as a figure, not a badge)
+		hero.rotation.y = lerp_angle(hero.rotation.y, PI + LOBBY_TURN, 1.0 - exp(-6.0 * real_delta))   # turned to face us
 	# Version 382 (visual review of 375, fix 7): on the title the hero is seen up close from
 	# the front, where the run's bright edge glow (added light) washed a silver Knight milky
 	# and the bright cyan "this is you" line read as a sticker's cut edge. Both belong to the
@@ -5215,7 +5217,7 @@ func _settle_events() -> void:
 		parts.append("%d road prize%s" % [r.prizes, "" if int(r.prizes) == 1 else "s"])
 	if int(r.caskets) > 0:
 		parts.append("%d %s" % [r.caskets, r.casket if int(r.caskets) == 1 else r.casket_n])
-	hud.tip("The %s is over.\nUnclaimed %s: +%d coins" % [str(r.name).capitalize(), " and ".join(parts), int(r.coins)], 6.0, 1.2)
+	hud.tip("The %s is over.\nUnclaimed %s: +%s coins" % [str(r.name).capitalize(), " and ".join(parts), Hud.thousands(int(r.coins))], 6.0, 1.2)
 	hud.set_drops(Drops.waiting(_load_save()))
 
 

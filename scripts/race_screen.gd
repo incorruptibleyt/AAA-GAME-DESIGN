@@ -594,7 +594,7 @@ func show_result(res: Dictionary, m: Race.Match) -> void:
 	_r_bar.frac = Race.league_progress(before)
 	_r_bar.col = Race.LEAGUES[mini(li + 1, Race.LEAGUES.size() - 1)].col
 	_r_bar.queue_redraw()
-	var lines := ["+%d coins" % int(res.coins) + ("  ·  +%d bones" % int(res.bones) if int(res.get("bones", 0)) > 0 else "")]
+	var lines := ["+%s coins" % Hud.thousands(int(res.coins)) + ("  ·  +%d bones" % int(res.bones) if int(res.get("bones", 0)) > 0 else "")]
 	if int(res.get("streak_bonus", 0)) > 0:
 		lines.append("Win streak: +%d trophies" % int(res.streak_bonus))
 	if bool(res.drop):

@@ -191,7 +191,7 @@ func _row(cfg: ConfigFile, i: int, b: int) -> Control:
 	h.add_child(texts)
 	var what := Hud.label(BoneRoad.reward_text(s), 22, TEXT if reached else DIM, HORIZONTAL_ALIGNMENT_LEFT)
 	texts.add_child(what)
-	var need := ("Claimed" if got else "Ready!") if reached else "%d bones to go" % (int(s.at) - b)
+	var need := ("Claimed" if got else "Ready!") if reached else "%s bones to go" % Hud.thousands(int(s.at) - b)
 	if s.kind == "lucky":
 		# (Version 400: "890 bones to go Free blessing" ran together and wrapped.)
 		need = (need + " Free blessing") if reached else "%d to go  ·  free blessing" % (int(s.at) - b)

@@ -21,8 +21,13 @@ var steps := false
 var back_angle := BACK   # (a grand set: from the side, so its mantle and crown both show)
 
 
+## Version 410: turned this much more from FRONT (the Victory Knight faces the other way,
+## so his raised shield doesn't cover his face).
+var front_turn := 0.0
+
+
 func _rest() -> float:
-	return back_angle if show_back else FRONT
+	return back_angle if show_back else FRONT + front_turn
 
 var _vp: SubViewport
 var _full_size: Vector2i

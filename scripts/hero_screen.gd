@@ -154,7 +154,7 @@ func _build_stage() -> Control:
 	_stage_box = box
 	_stage = HeroStage.new(Vector2(504, STAGE_H))
 	_stage.custom_minimum_size = Vector2.ZERO   # the box sets the size (_fit)
-	_stage.close = 0.8   # (v364: a bigger hero)
+	_stage.close = 0.88   # (v364: a bigger hero; v410: 0.8 cut the Barbarian's horns and the Mage's hat under the tabs)
 	Hud.full(_stage)
 	box.add_child(_stage)
 	for side in [-1, 1]:
@@ -164,8 +164,8 @@ func _build_stage() -> Control:
 		b.anchor_right = b.anchor_left
 		# Low on the pedestal picture (version 129), leaving the space beside the hero's face
 		# for their speech bubble.
-		b.anchor_top = 0.7
-		b.anchor_bottom = 0.7
+		b.anchor_top = 0.82   # (v410: was 0.7; a three-line bubble sat on the < button)
+		b.anchor_bottom = 0.82
 		b.offset_left = 0.0 if side < 0 else -56.0
 		b.offset_right = b.offset_left + 56.0
 		b.offset_top = -42.0
@@ -378,7 +378,7 @@ func _refresh() -> void:
 	if look_key != _shown_id:
 		_shown_id = look_key
 		_stage.show_hero(def, frame, frame_col)
-	_coin_label.text = str(_coins)
+	_coin_label.text = Hud.thousands(_coins)   # (v410: one number style: 58,875)
 	for i in _tabs.size():
 		var t := _tabs[i]
 		var on := i == _index
@@ -454,7 +454,7 @@ func _greet(def: Dictionary) -> void:
 		_bubble = SpeechBubble.new()
 		_bubble.side = SpeechBubble.Side.RIGHT
 		_bubble.max_width = 150.0
-		_bubble.text_size = 19
+		_bubble.text_size = 18
 		add_child(_bubble)
 	var h := Heroes.get_hero(str(def.id))
 	_stage.emote(h.get("emote", []))
@@ -499,7 +499,7 @@ func _share(key: String, value: float) -> float:
 func _fill_action(r: Dictionary, ring: Color) -> void:
 	var afford: bool = r.unlocked or r.cost <= _coins
 	_action_cost.get_parent().visible = not r.unlocked and not r.trying
-	_action_cost.text = str(r.cost)
+	_action_cost.text = Hud.thousands(int(r.cost))
 	_action_cost.label_settings.font_color = Hud.GOLD if afford else DIM
 	_try.visible = r.trial and not r.trying
 	var text_col := Color.WHITE

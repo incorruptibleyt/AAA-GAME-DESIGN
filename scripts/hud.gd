@@ -2004,6 +2004,9 @@ func _draw_card_back(c: Control) -> void:
 var _doors_head: VBoxContainer
 var _doors_shade: TextureRect
 var _doors_curtain: ColorRect
+var _door_names: Array[Label] = []
+var _door_texts: Array[Label] = []
+var _door_plates: Array[StyleBoxFlat] = []
 
 func _build_doors() -> void:
 	_doors_box = overlay(Color(0.02, 0.01, 0.04, 0.8))
@@ -2063,14 +2066,36 @@ func _build_doors() -> void:
 		var icon := BlessingIcon.new()
 		icon.zoom = 1.6
 		inner.add_child(_centered(icon))
+		# Version 410 (re-review fix 10): the words sit on a dark plate, so they read over the
+		# hall's light and over the hero standing in front of the doors.
+		var plate := PanelContainer.new()
+		plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var psb := StyleBoxFlat.new()
+		psb.bg_color = Color(0.03, 0.02, 0.06, 0.78)
+		psb.border_color = Color(1, 1, 1, 0.14)
+		psb.set_border_width_all(2)
+		psb.set_corner_radius_all(12)
+		psb.content_margin_left = 6
+		psb.content_margin_right = 6
+		psb.content_margin_top = 4
+		psb.content_margin_bottom = 8
+		plate.add_theme_stylebox_override("panel", psb)
+		inner.add_child(plate)
+		_door_plates.append(psb)
+		var words := VBoxContainer.new()
+		words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		words.add_theme_constant_override("separation", 2)
+		plate.add_child(words)
 		var name_l := label("", 25, Color.WHITE)
 		chunky(name_l.label_settings)
 		name_l.label_settings.outline_size = 6
-		inner.add_child(name_l)
+		words.add_child(name_l)
+		_door_names.append(name_l)
 		var text_l := label("", 16, Color(0.93, 0.93, 0.97))
 		text_l.label_settings.outline_size = 5
 		text_l.label_settings.outline_color = Color(0.03, 0.02, 0.06, 0.95)
-		inner.add_child(text_l)
+		words.add_child(text_l)
+		_door_texts.append(text_l)
 		b.pressed.connect(func(): _on_door(idx))
 		_doors_box.add_child(b)
 		_door_buttons.append(b)
@@ -2133,7 +2158,7 @@ func show_doors(doors: Array, boss_next := false) -> void:
 		# (a door with four lines of words, the Cursed Door, starts higher with a smaller
 		# badge, so its last line stays inside the doorway; the door beside it matches)
 		var long: bool = hall and doors.any(func(x: Dictionary) -> bool: return str(x.text).count("\n") >= 3)
-		inner.offset_top = r.size.y * (0.1 if long else 0.19) if hall else 62.0
+		inner.offset_top = r.size.y * (0.1 if long else 0.15) if hall else 62.0   # (v410: was 0.19; clear of the hero's head)
 		inner.offset_bottom = -30.0
 		inner.add_theme_constant_override("separation", 7 if long else 12)
 		(inner.get_child(0).get_child(0) as BlessingIcon).zoom = 1.3 if long else 1.6
@@ -2142,17 +2167,29 @@ func show_doors(doors: Array, boss_next := false) -> void:
 		_door_arches[i].press = 0.0
 		_door_arches[i].lit = -0.2 * i   # the light comes on behind each door in turn
 		(inner.get_child(0).get_child(0) as BlessingIcon).show_icon(d.icon, d.family, d.color)
-		var t := inner.get_child(1) as Label
+		var t := _door_names[i]
 		t.text = d.title
+		_door_plates[i].border_color = Color((d.color as Color).lightened(0.2), 0.55)
 		t.label_settings.font_color = (d.color as Color).lightened(0.25)
 		# a long name ("Champion's Door") shrinks to one line inside the doorway
 		var fs := 25
 		var font: Font = t.label_settings.font if t.label_settings.font else ThemeDB.fallback_font
-		var room := r.size.x - pad * 2.0 - 8.0
+		var room := r.size.x - pad * 2.0 - 20.0
 		while fs > 17 and font.get_string_size(t.text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + t.label_settings.outline_size > room:
 			fs -= 1
 		t.label_settings.font_size = fs
-		(inner.get_child(2) as Label).text = d.text
+		# (v410: both doors' words the same size and their plates the same height)
+		var fs_all := 25
+		var lines_all := 0
+		for j in doors.size():
+			var tj := str(doors[j].title)
+			var fj := 25
+			while fj > 17 and font.get_string_size(tj, HORIZONTAL_ALIGNMENT_LEFT, -1, fj).x + t.label_settings.outline_size > room:
+				fj -= 1
+			fs_all = mini(fs_all, fj)
+			lines_all = maxi(lines_all, str(doors[j].text).count("\n"))
+		t.label_settings.font_size = fs_all
+		_door_texts[i].text = str(d.text) + "\n".repeat(lines_all - str(d.text).count("\n"))
 		if hall:
 			# the words come up as the light does
 			inner.modulate.a = 0.0
@@ -6195,7 +6232,7 @@ func refresh_rewards() -> void:
 	if ready > 0:
 		_rw_road_sub.text = "%d prize%s ready" % [ready, "" if ready == 1 else "s"]
 	elif ni < BoneRoad.STEPS.size():
-		_rw_road_sub.text = "%d / %d bones" % [BoneRoad.bones(cfg), int(BoneRoad.STEPS[ni].at)]
+		_rw_road_sub.text = "%s / %s bones" % [thousands(BoneRoad.bones(cfg)), thousands(int(BoneRoad.STEPS[ni].at))]
 	else:
 		_rw_road_sub.text = "All claimed"
 	var pity := Drops.pity_text(cfg)
@@ -7233,6 +7270,7 @@ func show_end(v: bool, victory := false, stats := "", tap_text := "Tap to try ag
 	_end_hero_box.visible = big
 	_end_hero.set_active(big)
 	if big:
+		_end_hero.front_turn = 0.6 if str(end_hero_def.get("id", "")) == "knight" else 0.0
 		_end_hero.show_hero(end_hero_def)
 		_end_hero.emote(end_hero_def.get("emote", ["Cheer"]))
 	_end_tiles.visible = v and victory and not offer
@@ -7758,11 +7796,46 @@ func _draw_end_rays() -> void:
 	for i in 14:
 		var a := t * 0.22 + TAU * i / 14.0
 		var w := 0.1
-		var r := 190.0
+		var r := 220.0 if _end_title.text == "VICTORY" else 190.0
 		var pts := PackedVector2Array([c, c + Vector2.from_angle(a - w) * r, c + Vector2.from_angle(a + w) * r])
-		_end_hero_box.draw_polygon(pts, PackedColorArray([Color(glow, 0.34), Color(glow, 0.0), Color(glow, 0.0)]))
+		_end_hero_box.draw_polygon(pts, PackedColorArray([Color(glow, 0.5 if _end_title.text == "VICTORY" else 0.34), Color(glow, 0.0), Color(glow, 0.0)]))
 	for k in 4:
 		_end_hero_box.draw_circle(c, 120.0 - k * 26.0, Color(glow, 0.06))
+	if _end_title.text != "VICTORY":
+		return
+	# Version 410 (re-review fix 10, "Victory staged as a reward"): the winner stands in a
+	# gold laurel wreath, with stars twinkling round it, like a prize just won.
+	var gold := Color(1.0, 0.78, 0.3)
+	var dark := Color(0.42, 0.26, 0.05)
+	var lc := _end_hero_box.size * Vector2(0.5, 0.56)
+	var lr := 134.0   # (wide of the hero's sword and shield)
+	for sgn in [-1.0, 1.0]:
+		var pts := PackedVector2Array()
+		for k in 15:
+			var a: float = PI * 0.5 + sgn * (0.35 + 2.1 * k / 14.0)
+			pts.append(lc + Vector2(cos(a), sin(a)) * lr)
+		_end_hero_box.draw_polyline(pts, dark, 7.0, true)
+		_end_hero_box.draw_polyline(pts, gold, 3.5, true)
+		for k in range(1, 14):
+			var a: float = PI * 0.5 + sgn * (0.35 + 2.1 * k / 14.0)
+			var p: Vector2 = lc + Vector2(cos(a), sin(a)) * lr
+			var along: Vector2 = Vector2(-sin(a), cos(a)) * sgn   # up the branch
+			for side in [-1.0, 1.0]:
+				var out: Vector2 = Vector2(cos(a), sin(a)) * side
+				var tip: Vector2 = p + (along * 0.55 + out * 0.8).normalized() * 22.0
+				var mid: Vector2 = (p + tip) * 0.5
+				var nrm: Vector2 = (tip - p).normalized().orthogonal() * 6.0
+				var leaf := PackedVector2Array([p, mid + nrm, tip, mid - nrm])
+				_end_hero_box.draw_colored_polygon(leaf, dark)
+				var inner := PackedVector2Array([p.lerp(tip, 0.1), mid + nrm * 0.55, tip.lerp(p, 0.12), mid - nrm * 0.55])
+				_end_hero_box.draw_colored_polygon(inner, gold.lightened(0.1 * (k % 2)))
+	for i in 7:   # stars twinkling round the wreath
+		var a2 := TAU * i / 7.0 + 0.4
+		var tw := 0.5 + 0.5 * sin(t * 3.0 + i * 1.9)
+		var sp := lc + Vector2(cos(a2) * 168.0, sin(a2) * 118.0)
+		var sz := 5.0 + 7.0 * tw
+		_end_hero_box.draw_colored_polygon(PackedVector2Array([sp + Vector2(0, -sz), sp + Vector2(sz * 0.3, 0), sp + Vector2(0, sz), sp + Vector2(-sz * 0.3, 0)]), Color(1.0, 0.95, 0.7, 0.4 + 0.6 * tw))
+		_end_hero_box.draw_colored_polygon(PackedVector2Array([sp + Vector2(-sz, 0), sp + Vector2(0, sz * 0.3), sp + Vector2(sz, 0), sp + Vector2(0, -sz * 0.3)]), Color(1.0, 0.95, 0.7, 0.4 + 0.6 * tw))
 
 
 ## Version 396: the sun behind the Daily screen's hero, its rays turning slowly.
