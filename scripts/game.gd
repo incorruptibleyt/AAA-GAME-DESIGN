@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27c"
+const BUILD := "2026-11-27d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -7127,7 +7127,7 @@ func _armory_rows() -> Array:
 		rows.append({"id": "bazaar", "look": l, "title": HeroStyle.item_name(hero_id, slot, key),
 			"text": "%s  ·  every hero" % Bazaar.slot_name(slot), "level": 0, "max": 1,
 			"cost": -1 if Bazaar.has(cfg, slot, key) else Bazaar.price(slot, key),
-			"hero": hero_id, "base": Heroes.get_hero(hero_id)})
+			"hero": hero_id, "base": Heroes.get_hero(hero_id), "preview": _bazaar_def(cfg, hero_id, slot, key)})
 		var e := HeroStyle.extra(slot, key)
 		if e.has("drop"):
 			var tier: Dictionary = Drops.TIERS[int(e.drop)]
@@ -7151,6 +7151,14 @@ func _bazaar_preview(slot: String, key: String) -> void:
 		return
 	var cfg := _load_save()
 	var id := Heroes.selected(cfg)
+	var price := Bazaar.price(slot, key)
+	hud.show_offer({"name": HeroStyle.item_name(id, slot, key), "kind": Bazaar.slot_name(slot), "look": [slot, key],
+		"hero": id, "preview": _bazaar_def(cfg, id, slot, key), "price": price,
+		"owned": Bazaar.has(cfg, slot, key), "afford": coins >= price})
+
+
+## Hero `id` wearing Bazaar look [slot, key] over their own looks, for its picture.
+func _bazaar_def(cfg: ConfigFile, id: String, slot: String, key: String) -> Dictionary:
 	var picks := HeroStyle.picks(cfg, id)
 	for s: String in HeroStyle.PASS_SLOTS:
 		if picks.get(s, "") == HeroStyle.pass_key(s):
@@ -7162,10 +7170,7 @@ func _bazaar_preview(slot: String, key: String) -> void:
 		if s != slot:
 			picks[s] = ""
 	picks[slot] = key
-	var price := Bazaar.price(slot, key)
-	hud.show_offer({"name": HeroStyle.item_name(id, slot, key), "kind": Bazaar.slot_name(slot), "look": [slot, key],
-		"hero": id, "preview": HeroStyle.dressed(Heroes.get_hero(id), picks), "price": price,
-		"owned": Bazaar.has(cfg, slot, key), "afford": coins >= price})
+	return HeroStyle.dressed(Heroes.get_hero(id), picks)
 
 
 ## Version 312: a Legend Vault look on show: the chosen hero with it (and nothing else from

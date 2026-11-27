@@ -134,18 +134,18 @@ const GRAND := {
 ## Eclipse indigo and cyan, Venom lime and purple, Mirage aqua and sand, Glacier ice and deep
 ## blue, Spectral pale green and white, Sapphire blue and gold, Photon white and orchid.
 const GLOWS := {
-	"emerald": {"name": "Emerald", "fx": "flow", "ring": Color(0.3, 1.0, 0.55), "bolt": Color(0.55, 1.0, 0.7)},
-	"azure": {"name": "Azure", "fx": "wave", "ring": Color(0.4, 0.68, 1.0), "bolt": Color(0.62, 0.84, 1.0)},
+	"emerald": {"name": "Emerald", "fx": "flow", "shape": "hex", "ring": Color(0.3, 1.0, 0.55), "bolt": Color(0.55, 1.0, 0.7)},
+	"azure": {"name": "Azure", "fx": "wave", "shape": "ripple", "ring": Color(0.4, 0.68, 1.0), "bolt": Color(0.62, 0.84, 1.0)},
 	"ember": {"name": "Ember", "fx": "flame", "ring": Color(1.0, 0.52, 0.16), "bolt": Color(1.0, 0.68, 0.28)},
 	"frost": {"name": "Frost", "fx": "frost", "ring": Color(0.4, 0.94, 1.0), "bolt": Color(0.62, 1.0, 1.0)},
-	"gold": {"name": "Gold", "fx": "stars", "ring": Color(1.0, 0.82, 0.3), "bolt": Color(1.0, 0.9, 0.55)},
-	"violet": {"name": "Violet", "fx": "runes", "ring": Color(0.58, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
+	"gold": {"name": "Gold", "fx": "stars", "shape": "star5", "ring": Color(1.0, 0.82, 0.3), "bolt": Color(1.0, 0.9, 0.55)},
+	"violet": {"name": "Violet", "fx": "runes", "shape": "square", "ring": Color(0.58, 0.45, 1.0), "bolt": Color(0.84, 0.66, 1.0)},
 	"silver": {"name": "Silver", "fx": "beads", "ring": Color(0.86, 0.9, 1.0), "bolt": Color(1.0, 1.0, 1.0)},
-	"lime": {"name": "Lime", "fx": "storm", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
+	"lime": {"name": "Lime", "fx": "storm", "shape": "triangle", "ring": Color(0.72, 1.0, 0.3), "bolt": Color(0.86, 1.0, 0.55)},
 	# Version 132, the Legend road (Mastery 11, 16 and 18): glows that shimmer between two
 	# colours on the hero's edges ("ring2"), bright like Feat glows.
-	"diamond": {"name": "Diamond", "fx": "flow", "ring": Color(0.95, 0.97, 1.0), "ring2": Color(0.3, 0.9, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
-	"mythic": {"name": "Mythic", "fx": "storm", "ring": Color(0.92, 0.4, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.92, 0.7, 1.0)},
+	"diamond": {"name": "Diamond", "fx": "flow", "shape": "rhombus", "ring": Color(0.95, 0.97, 1.0), "ring2": Color(0.3, 0.9, 1.0), "bolt": Color(0.92, 1.0, 1.0)},
+	"mythic": {"name": "Mythic", "fx": "storm", "shape": "star8", "ring": Color(0.92, 0.4, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(0.92, 0.7, 1.0)},
 	"legend": {"name": "Legend", "fx": "rays", "ring": Color(1.0, 0.5, 0.18), "ring2": Color(1.0, 0.86, 0.32), "bolt": Color(1.0, 0.82, 0.45)},
 }
 
@@ -264,33 +264,33 @@ const EXTRA := {
 		"candle_crown": {"name": "Candle Crown", "hat": false, "extras": ["candle_crown"], "event": "frostfall"},
 	},
 	"glow": {
-		"mirage": {"name": "Mirage", "fx": "storm", "ring": Color(0.35, 1.0, 0.95), "ring2": Color(1.0, 0.8, 0.45), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
-		"inferno": {"name": "Inferno", "fx": "flame", "ring": Color(0.6, 0.22, 1.0), "ring2": Color(1.0, 0.55, 0.15), "bolt": Color(0.85, 0.6, 1.0), "feat": "linked"},
-		"glacier": {"name": "Glacier", "fx": "rays", "ring": Color(0.72, 0.88, 1.0), "ring2": Color(0.15, 0.3, 0.95), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
-		"aurora": {"name": "Aurora", "fx": "wave", "ring": Color(0.35, 1.0, 0.6), "ring2": Color(0.55, 0.45, 1.0), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
+		"mirage": {"name": "Mirage", "fx": "storm", "shape": "pentagon", "ring": Color(0.35, 1.0, 0.95), "ring2": Color(1.0, 0.8, 0.45), "bolt": Color(1.0, 1.0, 1.0), "feat": "dodger"},
+		"inferno": {"name": "Inferno", "fx": "flame", "shape": "drop", "ring": Color(0.6, 0.22, 1.0), "ring2": Color(1.0, 0.55, 0.15), "bolt": Color(0.85, 0.6, 1.0), "feat": "linked"},
+		"glacier": {"name": "Glacier", "fx": "rays", "shape": "crystal", "ring": Color(0.72, 0.88, 1.0), "ring2": Color(0.15, 0.3, 0.95), "bolt": Color(0.4, 0.75, 1.0), "feat": "untouched"},
+		"aurora": {"name": "Aurora", "fx": "wave", "shape": "flower", "ring": Color(0.35, 1.0, 0.6), "ring2": Color(0.55, 0.45, 1.0), "bolt": Color(0.75, 0.5, 1.0), "feat": "blessed"},
 		"eclipse": {"name": "Eclipse", "fx": "eclipse", "ring": Color(0.42, 0.28, 1.0), "ring2": Color(0.3, 0.92, 1.0), "bolt": Color(1.0, 0.82, 0.3), "drop": 2},
-		"venom": {"name": "Venom", "fx": "beads", "ring": Color(0.7, 1.0, 0.15), "ring2": Color(0.8, 0.3, 1.0), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
-		"abyss": {"name": "Abyss", "fx": "wave", "ring": Color(0.1, 0.22, 0.85), "ring2": Color(0.35, 1.0, 0.55), "bolt": Color(0.5, 1.0, 0.7), "drop": 2},
+		"venom": {"name": "Venom", "fx": "beads", "shape": "trefoil", "ring": Color(0.7, 1.0, 0.15), "ring2": Color(0.8, 0.3, 1.0), "bolt": Color(0.7, 0.35, 1.0), "drop": 2},
+		"abyss": {"name": "Abyss", "fx": "wave", "shape": "eye", "ring": Color(0.1, 0.22, 0.85), "ring2": Color(0.35, 1.0, 0.55), "bolt": Color(0.5, 1.0, 0.7), "drop": 2},
 		# Moon-white edges shimmering to blood-moon orange; pale moonlight shots.
-		"moonlight": {"name": "Moonlight", "fx": "beads", "ring": Color(1.0, 0.9, 0.65), "ring2": Color(1.0, 0.48, 0.12), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
-		"silver_moon": {"name": "Silver Moon", "fx": "eclipse", "ring": Color(0.22, 0.32, 0.95), "ring2": Color(0.9, 0.93, 1.0), "bolt": Color(0.9, 0.95, 1.0), "event": "blood_moon", "passroad": true},
+		"moonlight": {"name": "Moonlight", "fx": "beads", "shape": "star4", "ring": Color(1.0, 0.9, 0.65), "ring2": Color(1.0, 0.48, 0.12), "bolt": Color(1.0, 0.94, 0.82), "event": "blood_moon"},
+		"silver_moon": {"name": "Silver Moon", "fx": "eclipse", "shape": "moons2", "ring": Color(0.22, 0.32, 0.95), "ring2": Color(0.9, 0.93, 1.0), "bolt": Color(0.9, 0.95, 1.0), "event": "blood_moon", "passroad": true},
 		# Version 142: the Queen Hunt's ECLIPSE prize (Events.ECLIPSE_LOOK). A dark blood-orange
 		# ring with a night-violet crescent (version 232; it was gold, the Legend glow's colours).
-		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(0.5, 0.22, 0.95), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
+		"blood_eclipse": {"name": "Blood Eclipse", "fx": "eclipse", "shape": "moons3", "ring": Color(0.72, 0.3, 0.03), "ring2": Color(0.5, 0.22, 0.95), "bolt": Color(1.0, 0.62, 0.28), "event": "blood_moon", "hunt": true},
 		# Frostfall (version 244): frost white and candle gold with snowflakes turning round the
 		# ring; the Pass row's northern lights hanging off it; and the Krampus Hunt's WHITEOUT
 		# prize, a blizzard whirling round it.
 		"snowbound": {"name": "Snowbound", "fx": "snowflake", "ring": Color(0.86, 0.95, 1.0), "ring2": Color(1.0, 0.8, 0.42), "bolt": Color(0.92, 0.97, 1.0), "event": "frostfall"},
 		"polar_night": {"name": "Polar Night", "fx": "aurora", "ring": Color(0.55, 0.95, 1.0), "ring2": Color(0.3, 1.0, 0.5), "bolt": Color(0.6, 1.0, 0.8), "event": "frostfall", "passroad": true},
 		"whiteout": {"name": "Whiteout", "fx": "whirl", "ring": Color(1.0, 1.0, 1.0), "ring2": Color(0.3, 0.85, 1.0), "bolt": Color(0.92, 0.98, 1.0), "event": "frostfall", "hunt": true},
-		"candle": {"name": "Candlelight", "fx": "flame", "ring": Color(1.0, 0.76, 0.32), "ring2": Color(1.0, 0.97, 0.88), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
-		"sulfur": {"name": "Sulfur", "fx": "runes", "ring": Color(1.0, 0.93, 0.2), "ring2": Color(0.3, 0.5, 1.0), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
-		"spectral": {"name": "Spectral", "fx": "runes", "ring": Color(0.75, 1.0, 0.62), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.85, 1.0, 0.8), "bazaar": 600},
-		"sapphire": {"name": "Sapphire", "fx": "beads", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(1.0, 0.82, 0.35), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
+		"candle": {"name": "Candlelight", "fx": "flame", "shape": "clover", "ring": Color(1.0, 0.76, 0.32), "ring2": Color(1.0, 0.97, 0.88), "bolt": Color(1.0, 0.95, 0.8), "bazaar": 450},
+		"sulfur": {"name": "Sulfur", "fx": "runes", "shape": "cog", "ring": Color(1.0, 0.93, 0.2), "ring2": Color(0.3, 0.5, 1.0), "bolt": Color(1.0, 1.0, 0.6), "bazaar": 450},
+		"spectral": {"name": "Spectral", "fx": "runes", "shape": "broken", "ring": Color(0.75, 1.0, 0.62), "ring2": Color(1.0, 1.0, 1.0), "bolt": Color(0.85, 1.0, 0.8), "bazaar": 600},
+		"sapphire": {"name": "Sapphire", "fx": "beads", "shape": "cross", "ring": Color(0.2, 0.45, 1.0), "ring2": Color(1.0, 0.82, 0.35), "bolt": Color(0.6, 0.8, 1.0), "bazaar": 600},
 		# Crypt Race glows: Photon (white light with orchid lightning, version 232; it was the
 		# blue of Azure and Sapphire), Afterburn (flame orange to jet blue).
 		"photon": {"name": "Photon", "fx": "storm", "ring": Color(0.95, 0.95, 1.0), "ring2": Color(0.85, 0.4, 1.0), "bolt": Color(0.95, 0.85, 1.0), "race": 100},
-		"afterburn": {"name": "Afterburn", "fx": "wave", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
+		"afterburn": {"name": "Afterburn", "fx": "flame", "shape": "pinwheel", "ring": Color(1.0, 0.45, 0.08), "ring2": Color(0.3, 0.75, 1.0), "bolt": Color(1.0, 0.8, 0.45), "race": 800},
 	},
 	# Weapon finishes sold in the Bone Bazaar (version 172): the hero's grandest weapon in
 	# polished gold, or in night-violet steel with stars in it.
@@ -688,7 +688,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 	var glow: Dictionary = PASS_GLOW if is_pass(p.get("glow", "")) else GLOWS.get(p.get("glow", ""), extra("glow", p.get("glow", "")))
 	if not glow.is_empty():
 		d.ring = glow.ring
-		d.ring_fx = str(glow.get("fx", "flow"))
+		d.ring_fx = str(glow.get("fx", "flow")) + ":" + str(glow.get("shape", ""))
 		d.ring_tier = glow_tier(glow)
 		d.bolt_color = glow.bolt
 		# Feat, Bone Drop and Pass glows shine brighter and wider on the hero's edges, so the
@@ -716,6 +716,7 @@ static func dressed(def: Dictionary, p: Dictionary) -> Dictionary:
 		var on: String = PASS_OUTFIT.gold_on.get(id, "a")
 		style.outfit = {"a": PASS_OUTFIT.gold if on == "a" else PASS_OUTFIT.obsidian,
 			"b": PASS_OUTFIT.gold if on == "b" else PASS_OUTFIT.obsidian, "gold": on}
+		style.outfit.cut = "crypt"   # (v397: cut for each hero, OutfitShapes.CUTS)
 	elif not outfit.is_empty():
 		var b = outfit.get("b")
 		if id == "knight":
@@ -834,9 +835,13 @@ static func dress(model: Node3D, style: Dictionary) -> void:
 	var outfit: Dictionary = style.get("outfit", {})
 	if not outfit.is_empty():
 		_recolour(skel, id, outfit)
+	var legend: Dictionary = style.get("legend", {})
+	var wings := str(legend.get("wings", "")) != ""
+	var winged := wings or str(legend.get("grand", "")) != ""   # (a grand set has its own mantle)
 	if outfit.has("key"):   # version 353 (visual review fix 9): the outfit's own shapes
-		var legend: Dictionary = style.get("legend", {})
-		OutfitShapes.dress(skel, str(outfit.key), str(legend.get("wings", "")) != "")
+		OutfitShapes.dress(skel, str(outfit.key), wings, id, winged)
+	else:   # (v397: the Crypt King set's cut for this hero, or none)
+		OutfitShapes._cut(skel, id, str(outfit.get("cut", "")), winged)
 	# (Version 175: every weapon, with or without a finish or Glow. The weapon material gives
 	# it a lit edge, and weapons are a quarter bigger: from the camera above they could not
 	# be seen at all.)

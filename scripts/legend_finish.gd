@@ -617,33 +617,49 @@ class Flare extends Node3D:
 
 # ---------------------------------------------------------------- on a pedestal
 
-## The finisher shown over and over beside the hero on a pedestal: a skull pops, then the
-## finisher plays on it.
+## The finisher shown over and over beside the hero on a pedestal.
+## Version 397 (visual review of 388, fix 7): on a real skeleton. It stands beside the hero,
+## is struck and falls, the finisher bursts out of it (coins for Gold Rush, its ghost for
+## Soul Harvest), and it sinks into the floor and climbs out again for the next round. It
+## was a small bobbing skull, and the two finishers' pictures looked alike.
 class Show extends Node3D:
 	var kind := ""
 	var _t := 1.0
-	var _skull: Node3D
+	var _skull: Node3D   # (where the finisher bursts: the skeleton's feet)
+	var _foe: CharacterVisual
 	var _hero: Node3D
+	const CYCLE := 3.0
+	const AT := Vector3(-1.3, 0.0, 0.4)
+	const FALL := 1.45
 
 	func _ready() -> void:
 		_hero = get_parent() as Node3D
 		_skull = Node3D.new()
 		add_child(_skull)
-		var bone := LegendPet._mat("show_skull", Color(0.92, 0.9, 0.82), 0.7)
-		var dark := LegendPet._mat("show_eye", Color(0.1, 0.06, 0.08), 0.7)
-		var head := U.sphere(_skull, 0.2, bone, Vector3.ZERO)
-		head.scale = Vector3(1.0, 0.95, 1.05)
-		U.box(_skull, Vector3(0.2, 0.1, 0.12), bone, Vector3(0, -0.15, -0.08))
-		for side in [-1.0, 1.0]:
-			U.sphere(_skull, 0.055, dark, Vector3(0.075 * side, 0.0, -0.17))
-		_skull.position = Vector3(-0.95, 0.25, -0.35)
+		_skull.position = AT + Vector3(0, 0.3, 0)
+		_foe = CharacterVisual.new()
+		add_child(_foe)
+		_foe.build(Enemy.bones(Art.SKELETON_MINION, 2.0, Color(1.0, 0.75, 0.3) if kind == "gold_rush" else Color(0.5, 0.9, 1.0)))
+		_foe.position = AT
+		_foe.basis = Basis(Vector3.UP, -0.7)   # (half towards the hero, half towards the camera)
 
 	func _process(delta: float) -> void:
 		_t += delta
-		var cycle := 2.2
-		var k := fmod(_t, cycle)
-		# The skull bobs, then shrinks to nothing as the finisher bursts out of it.
-		_skull.scale = Vector3.ONE * (1.0 if k < 0.9 else maxf(0.0, 1.0 - (k - 0.9) * 8.0)) if k < 1.4 else Vector3.ONE * smoothstep(1.4, 2.2, k)
-		_skull.position.y = 0.25 + sin(_t * 3.0) * 0.04
-		if k - delta < 0.95 and k >= 0.95:
+		var k := fmod(_t, CYCLE)
+		var was := k - delta
+		if was < 0.75 and k >= 0.75:
+			_foe.hit()
+		if was < 0.95 and k >= 0.95:
 			LegendFinish.play(kind, _skull.global_position - Vector3(0, 0.3, 0), get_parent().get_parent() as Node3D, _hero)
+		# It falls on its back where it stood while the finisher plays, crumbles away, and
+		# a new one pops up. (Its own death throws it a metre back, out of the picture.)
+		var flat := smoothstep(0.95, 1.12, k) * (0.0 if k >= 2.35 else 1.0)
+		# (on its side, away from the hero, its skull and ribs to the camera; on its back
+		# only the soles of its feet showed)
+		_foe.basis = Basis(Vector3(0, 0, 1), FALL * flat) * Basis(Vector3.UP, -0.7)
+		var size := 1.0 - smoothstep(2.0, 2.3, k)
+		if k >= 2.35:
+			var up := smoothstep(2.42, 2.7, k)
+			size = up * (1.0 + 0.18 * sin(up * PI))   # (pops in a little too big, then settles)
+		_foe.scale = Vector3.ONE * maxf(size, 0.001)
+		_foe.visible = size > 0.02

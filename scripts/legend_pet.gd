@@ -2203,10 +2203,18 @@ class Icon extends Control:
 			_shadow()
 			return
 		if picture:
-			# (A warm light behind the hero, then the picture, a little over the circle's top.)
+			# (A warm light behind the hero, then the picture. Version 397: cut to the round
+			# frame; the square picture hung over it, with the hero sliced off along its edges.)
 			for i in 4:
 				draw_circle(Vector2(0, 6), 50 - i * 9, Color(0.07, 0.05, 0.02, 0.07))   # (premultiplied)
-			draw_texture_rect(picture, Rect2(-60, -66, 120, 120), false)
+			var pts := PackedVector2Array()
+			var uvs := PackedVector2Array()
+			for i in 48:
+				var q := Vector2.from_angle(TAU * i / 48.0) * 53.0
+				pts.append(q)
+				uvs.append((q - Vector2(-60, -63)) / 120.0)
+			draw_colored_polygon(pts, Color.WHITE, uvs, picture)
+			draw_arc(Vector2.ZERO, 54, 0, TAU, 48, Color(1.0, 0.8, 0.3, 0.9), 3.0, true)
 			return
 		match kind:
 			"wisp":

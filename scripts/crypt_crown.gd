@@ -40,6 +40,7 @@ static func make(id: String, y: float, hat: bool) -> CryptCrown:
 	c._base_y = y + lift
 	c.position = Vector3(0, c._base_y, 0)
 	c._build(r)
+	c._own(id, r)
 	c.scale = Vector3.ONE * 1.05   # (v198 made it 1.18: then the crown was all you saw of the hero)
 	return c
 
@@ -215,6 +216,76 @@ func _build(r: float) -> void:
 		mi.set_meta("fx", true)
 
 
+## Version 397 (visual review of 388, fix 7): the crown was the same on all four heroes.
+## Each hero's crown now has a part only theirs has, which stays facing the way the hero
+## faces while the crown turns: the Knight's two gold wings, the Barbarian's two great
+## obsidian horns, the Rogue's fan of blades standing behind it, and the Mage's two gold
+## rings turning round it with soul gems on them.
+var _still: Node3D
+var _rings: Node3D
+
+func _own(id: String, r: float) -> void:
+	_still = Node3D.new()
+	_still.name = "Own"
+	add_child(_still)
+	match id:
+		"knight":
+			for side in [-1.0, 1.0]:
+				for k in 4:   # feathers, the longest highest and furthest back
+					var from := Vector3(side * r * 1.1, 0.1 + 0.03 * k, -0.06 * k)
+					var dir := Vector3(side * (1.0 - 0.14 * k), 0.75 + 0.3 * k, -0.35 - 0.12 * k)
+					var f := OutfitShapes._ray(_still, 0.1, 0.5 + 0.13 * k, _gold, from, dir)
+					f.scale = Vector3(1.0, 1.0, 0.4)
+				U.sphere(_still, 0.1, _gem, Vector3(side * r * 1.14, 0.12, 0.0))
+		"barbarian":
+			for side in [-1.0, 1.0]:
+				var p0 := Vector3(side * r * 0.95, 0.1, 0.0)
+				var d0 := Vector3(side, 0.25, 0.0).normalized()
+				var p1 := p0 + d0 * 0.36
+				var d1 := Vector3(side * 0.55, 0.85, 0.1).normalized()
+				var p2 := p1 + d1 * 0.36
+				var d2 := Vector3(-side * 0.15, 1.0, 0.12).normalized()
+				OutfitShapes._ray(_still, 0.17, 0.4, _dark, p0, d0, 0.14)
+				OutfitShapes._ray(_still, 0.14, 0.4, _dark, p1, d1, 0.09)
+				OutfitShapes._ray(_still, 0.09, 0.42, _gold, p2, d2)
+				U.sphere(_still, 0.15, _gold, p1).scale = Vector3(1.0, 0.6, 1.0)
+				U.sphere(_still, 0.17, _gold, p0 + d0 * 0.04).scale = Vector3(0.6, 1.0, 1.0)
+		"rogue":
+			for k in 5:   # a fan of blades behind the crown
+				var x := (k - 2) * 0.25
+				var tall := 0.95 - 0.1 * absf(k - 2.0)
+				var from := Vector3(x, 0.14, -r * 0.9)
+				var dir := Vector3(x * 1.5, 1.0, -0.3)
+				var blade := OutfitShapes._ray(_still, 0.09, tall, _dark, from, dir)
+				blade.scale = Vector3(1.0, 1.0, 0.3)
+				var edge := OutfitShapes._ray(_still, 0.04, tall * 1.04, _gold, from + Vector3(0, 0, -0.03), dir)
+				edge.scale = Vector3(1.0, 1.0, 0.3)
+			var drop := OutfitShapes._ray(_still, 0.07, 0.2, _gem, Vector3(0, 0.02, r * 1.12), Vector3.DOWN)   # a gem hanging over the brow
+			drop.scale = Vector3(1.0, 1.0, 0.6)
+		"mage":
+			_rings = Node3D.new()
+			add_child(_rings)
+			for k in 2:
+				var hoop := TorusMesh.new()
+				hoop.inner_radius = r * 1.62
+				hoop.outer_radius = r * 1.74
+				hoop.rings = 28
+				hoop.ring_segments = 5
+				var h := _mesh(hoop, _gold, Vector3(0, 0.3, 0))
+				remove_child(h)
+				_rings.add_child(h)
+				h.rotation = Vector3(0.5 if k == 0 else -0.5, 0, 0.35 if k == 0 else -0.3)
+				for g in 2:
+					var ga := PI * g + k * 1.4
+					var gem := U.sphere(_rings, 0.085, _gem, Vector3.ZERO)
+					gem.position = h.transform * Vector3(cos(ga) * r * 1.68, 0, sin(ga) * r * 1.68)
+					gem.set_meta("fx", true)
+	if _still.get_child_count() > 0:
+		FeatHeads.bake(_still, "crypt_crown own %s %.2f" % [id, r])
+	for n in _still.get_children():
+		(n as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 func _mesh(m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	mi.mesh = m
@@ -228,4 +299,8 @@ func _mesh(m: Mesh, mat: Material, pos: Vector3) -> MeshInstance3D:
 func _process(delta: float) -> void:
 	_t += delta
 	rotation.y = _t * SPIN
+	if _still:
+		_still.rotation.y = -rotation.y   # (each hero's own part keeps facing the hero's way)
+	if _rings:
+		_rings.rotation.y = _t * 0.9
 	position.y = _base_y + sin(_t * 2.2) * BOB

@@ -34,6 +34,7 @@ var _env: Environment
 var _sparks: CPUParticles3D
 var _tall := false
 var _wide := false   # holding a great two-handed weapon (version 230)
+var _duo := false   # a Legend finisher is on show, on a skeleton beside the hero (version 397)
 var _time := 0.0
 ## The reveal under way: seconds into it (-1 for none), how long it lasts, and the slot.
 var _reveal_t := -1.0
@@ -140,6 +141,8 @@ func _framing() -> Array:
 
 
 func _framing_far() -> Array:
+	if _duo:   # (v397: a finisher's skeleton stands beside the hero: both in the picture)
+		return [Vector3(0.7, 1.5, 6.2), Vector3(0.7, 0.95, 0)]
 	if _wide:
 		var y := 0.15 if _tall else 0.0
 		return [Vector3(-0.45, 1.5 + y, 6.4 + y * 4.0), Vector3(-0.45, 0.92 + y, 0)]
@@ -292,6 +295,7 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	for n in _visual.find_children("2H_*", "MeshInstance3D", true, false):
 		if str(n.name) in ["2H_Sword", "2H_Axe"] and (n as Node3D).visible and (n.get_parent() as Node3D).visible:
 			_wide = true
+	_duo = str(def.get("style", {}).get("legend", {}).get("finisher", "")) != ""
 	_frame_camera(tall)
 	if def.has("aura"):
 		_visual.add_child(Fx.motif(str(def.aura.get("motif", "wisps")), def.aura.get("spark", Color.WHITE)))   # a Master aura's trail of light

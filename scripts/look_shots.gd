@@ -118,10 +118,23 @@ func _want(id: String, slot: String, key: String, done: Callable) -> void:
 	var base := Heroes.get_hero(id)
 	if base.is_empty():
 		return
-	var def := legend_def(base, key) if slot == "legend" else HeroStyle.dressed(base, {slot: key})
+	var def := _def_for(base, slot, key)
 	if def.is_empty():
 		return
 	_queue.append([k, def, slot])
+
+
+## The hero to draw for a picture of [slot, key]. Slot "set" (version 397) is the whole Crypt
+## King set, cut for that hero: outfit, crown, arms and glow together.
+static func _def_for(base: Dictionary, slot: String, key: String) -> Dictionary:
+	if slot == "legend":
+		return legend_def(base, key)
+	if slot == "set":
+		var picks := {}
+		for s: String in ["outfit", "head", "hold", "glow"]:
+			picks[s] = HeroStyle.pass_key(s)
+		return HeroStyle.dressed(base, picks)
+	return HeroStyle.dressed(base, {slot: key})
 
 
 ## Version 362 (visual review v357 fix 5): hero `base` in their classic look wearing Legend
@@ -241,7 +254,7 @@ func _pre_tick(delta: float) -> void:
 		var base := Heroes.get_hero(id)
 		if base.is_empty():
 			continue
-		var def := legend_def(base, key) if slot == "legend" else HeroStyle.dressed(base, {slot: key})
+		var def := _def_for(base, slot, key)
 		if def.is_empty():
 			continue
 		_waiting[k] = []
@@ -280,14 +293,23 @@ func _take(job: Array) -> void:
 	var col: Color = def.ring
 	# (Version 362: no glow ring under an aura: every aura card showed the same yellow ring,
 	# over the aura's own mark on the floor, which is what tells one aura from another.)
-	_ring.visible = slot in ["glow", "outfit"]
+	_ring.visible = slot in ["glow", "outfit", "set"]
 	LookFx.set_ring(_ring.material_override, col, def.get("ring2"), str(def.get("ring_fx", "flow")), int(def.get("ring_tier", 0)))
 	_pivot.rotation.y = HeroStage.FRONT + (PI * 0.78 if lslot == "wings" else 0.0)   # (wings: seen from behind)
 	# (Version 388, fix 9: the Starfall Mantle from the side, its starry mantle sweeping out
 	# behind; from the front it was a hat over a Knight, like the Bone Emperor's card.)
 	if lslot == "grand" and str(def.style.legend.values()[0]) == "starfall":
 		_pivot.rotation.y = HeroStage.FRONT + PI * 0.5
+	# (Version 397: a shield is turned to the camera; edge-on, three shields looked like one.)
+	var shield := false
+	if slot == "hold":
+		for n in v.find_children("*Shield*", "MeshInstance3D", true, false):
+			shield = shield or (n as Node3D).is_visible_in_tree()
+		if shield:
+			_pivot.rotation.y = HeroStage.FRONT + float(OS.get_environment("LS_TURN") if OS.has_environment("LS_TURN") else "-0.65")
 	var f := _frame(slot, v, def)
+	if shield:
+		f = [Vector3(0.15, 1.5, 4.9), Vector3(0.1, 1.08, 0)]
 	if OS.has_environment("LS_FRAME"):   # (lab only)
 		var n := Array(OS.get_environment("LS_FRAME").split(",")).map(func(x: String) -> float: return float(x))
 		f = [Vector3(n[0], n[1], n[2]), Vector3(n[3], n[4], n[5])]
@@ -442,19 +464,29 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 		tall = tall or extras.has(x)
 	match slot:
 		"head":
-			var y := 1.72 if tall else 1.55
-			return [Vector3(0.0, y + 0.25, 3.3 if tall else 2.9), Vector3(0, y, 0)]
+			# (Version 397: a little further back, so no hat or horn is cut off by the card.)
+			var y := 1.74 if tall else 1.55
+			if extras.has("crypt_crown"):   # (the tallest: its wings, horns and soul flame)
+				return [Vector3(0.0, 2.2, 4.7), Vector3(0, 1.95, 0)]
+			return [Vector3(0.0, y + 0.25, 3.7 if tall else 3.2), Vector3(0, y, 0)]
 		"hold":
 			var wide := false
 			for n in v.find_children("2H_*", "MeshInstance3D", true, false):
 				if str(n.name) in ["2H_Sword", "2H_Axe"] and (n as Node3D).is_visible_in_tree():
 					wide = true
+			# (Version 397: the whole hero holding it; the close-up cut their head off.)
 			if wide:
-				return [Vector3(-0.55, 1.35, 4.6), Vector3(-0.5, 0.95, 0)]
-			return [Vector3(0.2, 1.2, 3.0), Vector3(-0.05, 0.95, 0)]
+				return [Vector3(-0.55, 1.5, 5.5), Vector3(-0.5, 1.02, 0)]
+			return [Vector3(0.05, 1.6, 4.5), Vector3(-0.1, 1.36, 0)]
 		"aura":
 			# (Version 362: from higher up, so the aura's own mark on the floor shows whole.)
 			return [Vector3(0, 3.6, 5.1), Vector3(0, 0.36, 0)]
+		"set":
+			return [Vector3(0, 1.9, 7.2), Vector3(0, 1.22, 0)]
+		"glow":
+			# (Version 397: a glow is told by its ring's outline, so its card looks down on the
+			# ring, whole, with the whole hero standing in it.)
+			return [Vector3(0, 5.6, 4.4), Vector3(0, 0.5, 0)]
 		"legend":
 			# Close on the prize itself (a pet flies, and a finisher bursts, at the hero's right on
 			# the screen); the hero is half in the picture, to show it is worn.
@@ -467,8 +499,9 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 				"raven": [Vector3(0.55, 2.05, 2.5), Vector3(0.45, 1.65, 0)],
 				"mimic": [Vector3(0.7, 1.15, 2.4), Vector3(0.6, 0.45, 0)],
 				"wyrm": [Vector3(1.0, 2.1, 3.3), Vector3(0.85, 1.55, 0)],
-				"gold_rush": [Vector3(1.35, 1.45, 2.7), Vector3(1.2, 0.95, 0)],
-				"soul_harvest": [Vector3(0.8, 1.3, 2.6), Vector3(0.65, 0.85, 0)],
+				# (Version 397: wider, on the skeleton the finisher bursts out of.)
+				"gold_rush": [Vector3(1.4, 1.7, 4.0), Vector3(1.3, 0.62, 0)],
+				"soul_harvest": [Vector3(1.3, 1.7, 4.0), Vector3(1.2, 0.68, 0)],
 			}
 			if own.has(lid):
 				return own[lid]
@@ -479,7 +512,8 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 					return [Vector3(-0.2, 1.65, 3.5), Vector3(-0.25, 1.3, 0)]
 				"grand":
 					return [Vector3(0.0, 1.52, 4.64), Vector3(0, 1.0, 0)]
-	return [Vector3(0, 1.4, 4.9), Vector3(0, 0.9, 0)]
+	# (Version 397: the whole hero, plume to boots: the Knight's crest was cut off the card.)
+	return [Vector3(0, 1.5, 5.5), Vector3(0, 1.02, 0)]
 
 
 ## True when (almost) nothing was drawn: fewer than 2% of the pixels are seen.

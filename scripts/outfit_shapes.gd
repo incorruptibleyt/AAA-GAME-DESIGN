@@ -14,6 +14,8 @@ static func _m(outfit: String, tone: String, rough := 0.7, glow := 0.12) -> Mate
 	var key := outfit + "/" + tone
 	if not _mats.has(key):
 		var o: Dictionary = HeroStyle.OUTFITS.get(outfit, {})
+		if outfit == "crypt":   # (v397: the Crypt King's own parts: obsidian, trimmed in gold)
+			o = {"a": HeroStyle.PASS_OUTFIT.obsidian.lightened(0.08), "b": HeroStyle.PASS_OUTFIT.gold}
 		var c: Color
 		match tone:
 			"a": c = o.get("a", Color.GRAY)
@@ -82,7 +84,8 @@ const READY := ["crimson", "forest", "midnight", "ivory", "shadow", "royal", "em
 
 ## Puts outfit `key`'s shapes on a hero's skeleton. `wings`: the hero wears Legend wings
 ## (nothing hangs down the back then: it would go through them).
-static func dress(skel: Skeleton3D, key: String, wings := false) -> void:
+static func dress(skel: Skeleton3D, key: String, wings := false, id := "", no_cloak := false) -> void:
+	_cut(skel, id, key, wings or no_cloak)
 	if key not in READY:
 		return
 	match key:
@@ -676,3 +679,195 @@ static func _legend(skel: Skeleton3D, o: String) -> void:
 			_ray(root, 0.1 - 0.012 * k, 0.6 - 0.08 * k, _m(o, tone, 0.5, 1.6), Vector3(side * (0.38 + 0.06 * k), 0.24, -0.15 + 0.1 * k), Vector3(side * (0.15 + 0.12 * k), 1.0, -0.25))
 	FeatHeads.bake(root, "outfit legend")
 	_keep(root)
+
+
+# ------------------------------------------------------------ each hero's own cut (v397)
+
+## Version 397 (visual review of 388, fix 7, "looks with real shapes"): an outfit was the
+## same shoulder pieces on every hero. Three outfits of each hero now have a cut only that
+## hero wears, below the shoulders where nothing was: the Knight a plated battle skirt and
+## a long cloak, the Mage a robe to the ankles, the Rogue a long coat and a sash, the
+## Barbarian a kilt and a fur cloak. The Crypt King set is cut for each hero the same way.
+## [what hangs from the hips, what hangs down the back] ("" = nothing).
+const CUTS := {
+	"knight": {"midnight": ["", "long"], "ivory": ["tassets", ""], "royal": ["tassets", "train"], "crypt": ["tassets", "long"]},
+	"mage": {"crimson": ["robe", ""], "frost": ["robe_ice", ""], "shadow": ["robe_rag", ""], "crypt": ["robe", ""]},
+	"rogue": {"crimson": ["coat", ""], "forest": ["coat", ""], "shadow": ["sash", "ragged"], "crypt": ["coat", "ragged"]},
+	"barbarian": {"crimson": ["kilt", ""], "forest": ["", "fur"], "ember": ["kilt", "fur"], "crypt": ["kilt", "fur"]},
+}
+
+
+static func has_cut(id: String, key: String) -> bool:
+	return CUTS.get(id, {}).has(key)
+
+
+static func _cut(skel: Skeleton3D, id: String, key: String, wings: bool) -> void:
+	var hips := _on(skel, "hips")
+	var chest := _on(skel, "chest")
+	for att in [hips, chest]:
+		if att:
+			for n in att.get_children():
+				if str(n.name).begins_with("OutfitCut"):
+					att.remove_child(n)
+					n.queue_free()
+	var cut: Array = CUTS.get(id, {}).get(key, [])
+	if cut.is_empty():
+		return
+	if hips and str(cut[0]) != "":
+		var root := Node3D.new()
+		root.name = "OutfitCut"
+		hips.add_child(root)
+		match str(cut[0]):
+			"tassets": _tassets(root, key)
+			"robe", "robe_ice", "robe_rag": _robe(root, key, str(cut[0]))
+			"coat": _coat(root, key, true)
+			"sash": _coat(root, key, false)
+			"kilt": _kilt(root, key)
+		FeatHeads.bake(root, "cut %s %s %s" % [id, key, cut[0]])
+		_keep(root)
+	if chest and str(cut[1]) != "" and not wings:
+		var root := Node3D.new()
+		root.name = "OutfitCutBack"
+		chest.add_child(root)
+		_cloak(root, key, str(cut[1]))
+		FeatHeads.bake(root, "cloak %s %s %s" % [id, key, cut[1]])
+		_keep(root)
+
+
+## The Knight's battle skirt: a broad belt with a round buckle, and six plates hanging
+## from it, each edged in the outfit's trim.
+static func _tassets(root: Node3D, o: String) -> void:
+	var belt := U.cylinder(root, 0.36, 0.09, _m(o, "a_dark"), Vector3(0, 0.02, 0))
+	belt.scale = Vector3(1.0, 1.0, 0.82)
+	U.cylinder(root, 0.09, 0.05, _m(o, "gold", 0.3, 0.4), Vector3(0, 0.02, 0.3)).rotation.x = PI * 0.5
+	for i in 6:
+		var ang := TAU * (i + 0.5) / 6.0
+		var out := Vector3(sin(ang), 0, cos(ang) * 0.82)
+		var plate := U.box(root, Vector3(0.3, 0.36, 0.05), _m(o, "a", 0.4, 0.12), Vector3.ZERO)
+		var b := Basis(Vector3.UP, ang) * Basis(Vector3.RIGHT, -0.32)
+		plate.transform = Transform3D(b, out * 0.37 + Vector3(0, -0.2, 0))
+		var rim := U.box(root, Vector3(0.31, 0.06, 0.06), _m(o, "b", 0.4, 0.35), Vector3.ZERO)
+		rim.transform = Transform3D(b, out * 0.43 + Vector3(0, -0.37, 0))
+		var stud := U.sphere(root, 0.035, _m(o, "gold", 0.3, 0.4), Vector3.ZERO)
+		stud.position = out * 0.4 + Vector3(0, -0.12, 0)
+
+
+## The Mage's robe: a long skirt widening to the ankles, a band of trim at the hem and a
+## stripe down the front. "robe_ice": icicles hanging from the hem; "robe_rag": the hem torn
+## into points that glow at their tips.
+static func _robe(root: Node3D, o: String, kind: String) -> void:
+	var skirt := U.cone(root, 0.52, 0.66, _m(o, "a"), Vector3(0, -0.33, 0), 0.3)
+	skirt.scale = Vector3(1.0, 1.0, 0.9)
+	var sash := U.cylinder(root, 0.32, 0.08, _m(o, "b", 0.4, 0.3), Vector3(0, 0.0, 0))
+	sash.scale = Vector3(1.0, 1.0, 0.9)
+	var stripe := U.box(root, Vector3(0.1, 0.62, 0.04), _m(o, "b", 0.4, 0.3), Vector3(0, -0.33, 0.37))
+	stripe.rotation.x = 0.33
+	if kind == "robe":
+		var hem := U.cone(root, 0.55, 0.08, _m(o, "b", 0.4, 0.3), Vector3(0, -0.64, 0), 0.52)
+		hem.scale = Vector3(1.0, 1.0, 0.9)
+	var n := 9
+	for i in n:
+		var ang := TAU * i / float(n)
+		var at := Vector3(sin(ang) * 0.5, -0.66, cos(ang) * 0.45)
+		if kind == "robe_ice":
+			var ic := U.cone(root, 0.07, 0.26 if i % 2 == 0 else 0.16, _m(o, "glacier", 0.2, 0.5), Vector3.ZERO)
+			ic.transform = Transform3D(Basis(Vector3.RIGHT, PI), at + Vector3(0, -0.06, 0))
+			U.sphere(root, 0.05, _m(o, "b", 0.3, 0.4), at + Vector3(0, 0.04, 0))
+		elif kind == "robe_rag":
+			var tail := U.cone(root, 0.13, 0.3, _m(o, "a"), Vector3.ZERO)
+			tail.transform = Transform3D(Basis(Vector3.RIGHT, PI), at + Vector3(0, -0.1, 0))
+			var tip := U.cone(root, 0.05, 0.12, _m(o, "b", 0.4, 0.8), Vector3.ZERO)
+			tip.transform = Transform3D(Basis(Vector3.RIGHT, PI), at + Vector3(0, -0.24, 0))
+		else:
+			U.sphere(root, 0.045, _m(o, "gold", 0.3, 0.4), at + Vector3(sin(ang) * 0.04, 0.03, cos(ang) * 0.04))
+
+
+## The Rogue's long coat: two tails to the knees behind and a short skirt of leather at the
+## sides (`tails`), under a sash knotted at the hip, its two ends hanging.
+static func _coat(root: Node3D, o: String, tails: bool) -> void:
+	var sash := U.cylinder(root, 0.34, 0.1, _m(o, "b", 0.5, 0.3), Vector3(0, 0.02, 0))
+	sash.scale = Vector3(1.0, 1.0, 0.82)
+	U.sphere(root, 0.09, _m(o, "b", 0.5, 0.3), Vector3(0.3, 0.02, 0.12))
+	for k in 2:
+		var end := U.box(root, Vector3(0.09, 0.4 - 0.1 * k, 0.03), _m(o, "b", 0.5, 0.3), Vector3(0.34 + 0.07 * k, -0.2 + 0.04 * k, 0.12 - 0.07 * k))
+		end.rotation = Vector3(0.0, 0.3, 0.22 + 0.2 * k)
+	if not tails:
+		return
+	# The coat's skirt: five long panels round the sides and back, open at the front.
+	for i in 5:
+		var ang := PI * 0.42 + (TAU - PI * 0.84) * i / 4.0
+		var out := Vector3(sin(ang), 0, cos(ang) * 0.82)
+		var b := Basis(Vector3.UP, ang) * Basis(Vector3.RIGHT, -0.26)
+		var panel := U.box(root, Vector3(0.36, 0.62, 0.05), _m(o, "a" if i % 2 == 0 else "a_dark"), Vector3.ZERO)
+		panel.transform = Transform3D(b, out * 0.4 + Vector3(0, -0.32, 0))
+		var edge := U.box(root, Vector3(0.37, 0.06, 0.06), _m(o, "b", 0.5, 0.3), Vector3.ZERO)
+		edge.transform = Transform3D(b, out * 0.48 + Vector3(0, -0.61, 0))
+	for side in [-1.0, 1.0]:   # the front edges, turned back to show the lining
+		var lapel := U.box(root, Vector3(0.1, 0.6, 0.04), _m(o, "b", 0.5, 0.3), Vector3(side * 0.33, -0.32, 0.2))
+		lapel.rotation = Vector3(0.24, side * 0.5, side * 0.1)
+
+
+## The Barbarian's kilt: a wide belt with a great round buckle, pleats in the outfit's two
+## tones all round, and a fur tail hanging at each hip.
+static func _kilt(root: Node3D, o: String) -> void:
+	var belt := U.cylinder(root, 0.4, 0.12, _m(o, "bark"), Vector3(0, 0.03, 0))
+	belt.scale = Vector3(1.0, 1.0, 0.85)
+	var buckle := U.cylinder(root, 0.13, 0.06, _m(o, "gold", 0.3, 0.4), Vector3(0, 0.03, 0.34))
+	buckle.rotation.x = PI * 0.5
+	U.sphere(root, 0.06, _m(o, "b", 0.3, 0.6), Vector3(0, 0.03, 0.38))
+	var n := 12
+	for i in n:
+		var ang := TAU * (i + 0.5) / float(n)
+		var out := Vector3(sin(ang), 0, cos(ang) * 0.85)
+		var pleat := U.box(root, Vector3(0.2, 0.42, 0.05), _m(o, "a" if i % 2 == 0 else "b", 0.7, 0.1), Vector3.ZERO)
+		pleat.transform = Transform3D(Basis(Vector3.UP, ang) * Basis(Vector3.RIGHT, -0.3), out * 0.4 + Vector3(0, -0.22, 0))
+	for side in [-1.0, 1.0]:
+		var fur := U.cone(root, 0.11, 0.45, _m(o, "ermine", 0.95, 0.1), Vector3.ZERO)
+		fur.transform = Transform3D(Basis(Vector3.RIGHT, PI) * Basis(Vector3.FORWARD, side * 0.25), Vector3(side * 0.46, -0.22, 0.05))
+		U.sphere(root, 0.1, _m(o, "ermine", 0.95, 0.1), Vector3(side * 0.42, 0.02, 0.05))
+
+
+## A cloak down the back, in the chest's space. "long": to the ankles, a trim hem and a
+## clasp on each shoulder; "train": longer and wider, an ermine hem, sweeping out behind;
+## "ragged": torn into long points; "fur": short and broad with a thick fur collar.
+static func _cloak(root: Node3D, o: String, kind: String) -> void:
+	root.scale = Vector3.ONE * 1.45
+	var len: float = {"long": 1.0, "train": 1.12, "ragged": 0.86, "fur": 0.62}.get(kind, 1.0)
+	var wide: float = {"long": 0.5, "train": 0.62, "ragged": 0.46, "fur": 0.56}.get(kind, 0.5)
+	var lean: float = {"train": 0.34, "fur": 0.16}.get(kind, 0.2)
+	var top := Vector3(0, 0.22, -0.26)
+	var b := Basis(Vector3.RIGHT, lean)
+	var mid := top + b * Vector3(0, -len * 0.5, 0)
+	var body := U.cone(root, wide, len, _m(o, "a_dark" if kind != "fur" else "bark"), Vector3.ZERO, 0.3)
+	body.transform = Transform3D(b * Basis.from_scale(Vector3(1.0, 1.0, 0.22)), mid)
+	var lining := U.cone(root, wide * 0.93, len * 0.98, _m(o, "a"), Vector3.ZERO, 0.27)
+	lining.transform = Transform3D(b * Basis.from_scale(Vector3(1.0, 1.0, 0.2)), mid + Vector3(0, 0, -0.03))
+	for k in 3:   # folds
+		var fold := U.box(root, Vector3(0.035, len * 0.86, 0.03), _m(o, "a_dark"), Vector3.ZERO)
+		fold.transform = Transform3D(b * Basis(Vector3.FORWARD, 0.11 * (k - 1)), mid + b * Vector3(0.17 * (k - 1), -0.03, -0.11))
+	var foot := top + b * Vector3(0, -len, 0)
+	match kind:
+		"long", "train":
+			var hem := U.cone(root, wide * 1.03, 0.08, _m(o, "ermine" if kind == "train" else "b", 0.5, 0.35), Vector3.ZERO, wide * 0.98)
+			hem.transform = Transform3D(b * Basis.from_scale(Vector3(1.0, 1.0, 0.24)), foot + b * Vector3(0, 0.05, 0))
+			if kind == "train":
+				for i in 5:
+					U.sphere(root, 0.035, _m(o, "black"), foot + b * Vector3((i - 2) * 0.22, 0.05, -0.14))
+		"ragged":
+			for i in 5:
+				var tail := U.cone(root, 0.11, 0.34 + 0.1 * (i % 2), _m(o, "a_dark"), Vector3.ZERO)
+				tail.transform = Transform3D(b * Basis(Vector3.RIGHT, PI) * Basis.from_scale(Vector3(1.0, 1.0, 0.3)), foot + b * Vector3((i - 2) * 0.19, -0.12, 0))
+				var tip := U.cone(root, 0.045, 0.14, _m(o, "b", 0.4, 0.8), Vector3.ZERO)
+				tip.transform = Transform3D(b * Basis(Vector3.RIGHT, PI), foot + b * Vector3((i - 2) * 0.19, -0.3 - 0.05 * (i % 2), 0))
+		"fur":
+			for i in 6:
+				var tuft := U.cone(root, 0.1, 0.26, _m(o, "ermine", 0.95, 0.1), Vector3.ZERO)
+				tuft.transform = Transform3D(b * Basis(Vector3.RIGHT, PI), foot + b * Vector3((i - 2.5) * 0.2, -0.06, 0))
+	if kind == "fur":
+		for i in 7:   # the fur collar over the shoulders
+			var ang := PI * (i / 6.0)
+			var puff := U.sphere(root, 0.17, _m(o, "ermine", 0.95, 0.1), Vector3(cos(ang) * 0.42, 0.24, -0.08 - sin(ang) * 0.24))
+			puff.scale = Vector3(1.0, 0.8, 1.0)
+	else:
+		for side in [-1.0, 1.0]:
+			U.sphere(root, 0.075, _m(o, "gold", 0.3, 0.4), Vector3(side * 0.3, 0.26, -0.16))

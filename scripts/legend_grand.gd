@@ -199,15 +199,42 @@ func _throne_now() -> void:
 		# the throne stays put behind them, square to the camera: it goes on the stage itself
 		# (HeroStage: the visual's turning pivot, then the stage's root, where the camera looks
 		# down -Z). Facing the other way here would put the throne in front of the hero.
-		var pivot := get_parent().get_parent() if get_parent() else null
-		if _staged and pivot and pivot.get_parent() is Node3D:
-			pivot.get_parent().add_child(_throne)
-			_throne.transform = Transform3D(Basis(Vector3.UP, PI).scaled(Vector3.ONE * 0.86), Vector3(0, 0, -0.7))   # (v335: bigger)
+		if _staged:
+			# Version 397 (visual review of 388, fix 7): on a pedestal the Emperor sits on the
+			# throne, face to the camera, and it turns with them (it stood square behind a
+			# hero seen from the side, whose face the cape hid).
+			get_parent().add_child(_throne)
+			_throne.transform = Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * SEAT_SIZE), SEAT_AT - Vector3(0, SEAT_LIFT, 0))
+			(get_parent() as Node3D).position.y = SEAT_LIFT   # (the hero is lifted onto the cushion)
 		else:
 			get_parent().add_child(_throne)
 			_throne.position = Vector3(0, 0, 0.8)
 	if _throne:
 		_throne.visible = want
+	if _staged and _throne:
+		_sit()
+
+
+const SEAT_SIZE := 0.86
+const SEAT_AT := Vector3(0, 0, 0.1)
+const SEAT_LIFT := 0.29
+var _sit_name := ""
+
+## Sits the hero down (and again after a cheer or a wave has stood them up).
+func _sit() -> void:
+	var v := get_parent() as CharacterVisual
+	if v == null or v._anim == null:
+		return
+	if _sit_name == "":
+		_sit_name = "-"
+		for n: String in v._anim.get_animation_list():
+			if n.ends_with("Sit_Chair_Idle"):
+				_sit_name = n
+				v._anim.get_animation(n).loop_mode = Animation.LOOP_LINEAR
+	if _sit_name == "-" or v._anim.current_animation == _sit_name:
+		return
+	if v._anim.current_animation in [str(v._anim_names.get("idle", "")), ""]:
+		v._anim.play(_sit_name, 0.15)
 
 
 func _exit_tree() -> void:

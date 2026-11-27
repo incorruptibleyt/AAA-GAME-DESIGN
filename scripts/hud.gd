@@ -6312,8 +6312,18 @@ func _fill_shop(rows: Array, coins: int) -> void:
 		return
 	if bazaar:
 		var shown := 0
+		# Version 397 (visual review of 388, fix 7): the day's dearest look not yet owned is
+		# the featured look: a big card with the hero wearing it, alive, above the other two.
+		# (The Bazaar was three small cards and a third of an empty panel.)
+		var star := {}
 		for r: Dictionary in rows:
-			if r.has("look"):
+			if r.has("look") and r.has("preview") and int(r.cost) >= 0 and (star.is_empty() or int(r.cost) > int(star.cost)):
+				star = r
+		if not star.is_empty():
+			_armory_rows.add_child(_bazaar_feature(star, coins))
+			shown += 1
+		for r: Dictionary in rows:
+			if r.has("look") and not is_same(r, star):
 				_armory_rows.add_child(_bazaar_row(r, coins))
 				shown += 1
 		if shown == 0:
@@ -6490,6 +6500,107 @@ func _shop_note(text: String) -> Label:
 	return l
 
 
+## The Bone Bazaar's featured look (version 397): the hero wearing it on a small stage, under
+## a lantern's glow, its name large, and its price on a gold plate.
+func _bazaar_feature(r: Dictionary, coins: int) -> Button:
+	var afford: bool = r.cost <= coins
+	var amber := BAZAAR_AMBER
+	var b := button("", 20, Color(0.22, 0.12, 0.05, 0.98), GOLD if afford else amber)
+	b.custom_minimum_size = Vector2(0, 240)
+	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4)
+	var look: Array = r.look
+	_shop_tap(b, func(): bazaar_look.emit(str(look[0]), str(look[1])))
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	m.add_theme_constant_override("margin_left", 6)
+	m.add_theme_constant_override("margin_right", 14)
+	full(m)
+	b.add_child(m)
+	var h := HBoxContainer.new()
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 6)
+	m.add_child(h)
+	var box := Control.new()
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.custom_minimum_size = Vector2(212, 228)
+	box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	box.draw.connect(func() -> void:
+		# a lantern's glow behind the hero, and the floor's shadow under them
+		var c := Vector2(106, 112)
+		for i in 7:
+			var k := 1.0 - i / 7.0
+			box.draw_circle(c, 40.0 + 70.0 * k, Color(1.0, 0.62, 0.2, 0.05))
+		for i in 12:
+			var a := TAU * i / 12.0
+			box.draw_line(c + Vector2.from_angle(a) * 62.0, c + Vector2.from_angle(a) * (96.0 if i % 2 == 0 else 84.0), Color(1.0, 0.72, 0.3, 0.16), 5.0, true))
+	h.add_child(box)
+	var stage := HeroStage.new(Vector2(212, 228))
+	stage.soft_edge = true
+	stage.custom_minimum_size = Vector2(212, 228)
+	stage.size = Vector2(212, 228)
+	stage.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(stage)
+	stage.show_hero(r.preview)
+	stage.set_active(true)
+	b.visibility_changed.connect(func() -> void:
+		if is_instance_valid(stage):
+			stage.set_active(b.is_visible_in_tree()))
+	var texts := VBoxContainer.new()
+	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	texts.alignment = BoxContainer.ALIGNMENT_CENTER
+	texts.add_theme_constant_override("separation", 2)
+	h.add_child(texts)
+	var tag := label("TODAY'S FEATURED LOOK", 14, Color(0.16, 0.08, 0.02), HORIZONTAL_ALIGNMENT_LEFT)
+	var tsb := StyleBoxFlat.new()
+	tsb.bg_color = amber.lightened(0.15)
+	tsb.set_corner_radius_all(8)
+	tsb.content_margin_left = 8
+	tsb.content_margin_right = 8
+	tsb.content_margin_top = 1
+	tsb.content_margin_bottom = 1
+	tag.add_theme_stylebox_override("normal", tsb)
+	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
+	tag.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	texts.add_child(tag)
+	var t := label(r.title, 32, amber.lightened(0.45), HORIZONTAL_ALIGNMENT_LEFT)
+	t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	texts.add_child(t)
+	var d := label(r.text, 17, Color(0.86, 0.84, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
+	d.autowrap_mode = TextServer.AUTOWRAP_OFF
+	texts.add_child(d)
+	if r.has("from"):
+		var f := label(r.from, 16, r.from_color, HORIZONTAL_ALIGNMENT_LEFT)
+		f.autowrap_mode = TextServer.AUTOWRAP_OFF
+		texts.add_child(f)
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 6)
+	texts.add_child(gap)
+	var plate := PanelContainer.new()
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(0.09, 0.05, 0.03, 0.95)
+	psb.border_color = GOLD if afford else Color(0.5, 0.4, 0.32)
+	psb.set_border_width_all(2)
+	psb.set_corner_radius_all(22)
+	psb.content_margin_left = 12
+	psb.content_margin_right = 16
+	psb.content_margin_top = 3
+	psb.content_margin_bottom = 3
+	plate.add_theme_stylebox_override("panel", psb)
+	texts.add_child(plate)
+	var price := HBoxContainer.new()
+	price.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	plate.add_child(price)
+	var cost_label := coin_row(32, price)
+	cost_label.text = thousands(int(r.cost))
+	if not afford:
+		cost_label.label_settings.font_color = Color(0.6, 0.55, 0.5)
+	texts.add_child(label("Tap to try it on", 15, Color(0.7, 0.66, 0.7), HORIZONTAL_ALIGNMENT_LEFT))
+	return b
+
+
 ## A Bone Bazaar look: its picture, name and kind, and its price (or OWNED). A tap shows the
 ## hero wearing it, with BUY (drop_screen.gd show_offer).
 func _bazaar_row(r: Dictionary, coins: int) -> Button:
@@ -6497,7 +6608,7 @@ func _bazaar_row(r: Dictionary, coins: int) -> Button:
 	var afford: bool = not owned and r.cost <= coins
 	var amber := BAZAAR_AMBER
 	var b := button("", 20, Color(0.16, 0.1, 0.06, 0.98) if not owned else Color(0.1, 0.09, 0.12, 0.98), amber if afford else Color(0.5, 0.4, 0.32, 0.7))
-	b.custom_minimum_size = Vector2(0, 150)
+	b.custom_minimum_size = Vector2(0, 140)   # (v397: a little shorter, under the featured look)
 	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(3 if afford else 2)
 	var look: Array = r.look
 	_shop_tap(b, func(): bazaar_look.emit(str(look[0]), str(look[1])))

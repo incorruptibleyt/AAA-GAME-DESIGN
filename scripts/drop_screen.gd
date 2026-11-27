@@ -363,7 +363,9 @@ func show_offer(o: Dictionary) -> void:
 	_odds.visible = false   # (v388: the Bone Drop's odds never stay open over a look on sale)
 	_odds_dim.visible = false
 	var slot := str(Legends.def(str(o.look[1])).get("slot", "")) if legend and o.look.size() >= 2 else ""
-	_look.show_back = slot in ["wings", "grand"]
+	# (Version 397: the Bone Emperor faces the camera, sitting on the throne.)
+	var seated: bool = legend and o.look.size() >= 2 and str(o.look[1]) == "emperor"
+	_look.show_back = slot in ["wings", "grand"] and not seated
 	_look.back_angle = 1.35 if slot == "grand" else HeroStage.BACK
 	_show_look(true)
 	_wear.visible = true
@@ -727,6 +729,22 @@ var _counting := {}   # the prize line counting up: {from, to, t, dur}
 var _ticks := 0
 
 
+## Version 397 (visual review of 388, fix 7): with a look on sale the coins sit under BACK,
+## in the middle. Top left they covered the first letter of LEGEND VAULT and BONE BAZAAR.
+var _purse_low := false
+
+func _place_purse() -> void:
+	var low := not _offer.is_empty()
+	if low:
+		var y := _action.get_global_rect().end.y - get_global_rect().position.y + 16.0
+		_purse.position = Vector2((size.x - _purse.size.x) * 0.5, minf(y, size.y - _purse.size.y - 6.0))
+	elif _purse_low:
+		_purse.position = Vector2(20, 24)
+		_purse.remove_meta("safe_base")
+		Hud.safe_pad(_purse)
+	_purse_low = low
+
+
 func _set_purse(n: int) -> void:
 	_purse_shown = n
 	_purse_to = n
@@ -1015,6 +1033,7 @@ func _stage_light(delta: float) -> void:
 	_odds_btn.disabled = ui < 0.5
 	_fit_head()
 	_fit_look()
+	_place_purse()
 	# The prize hangs where the two small lines above the chest are: they make room for it.
 	var room := 0.0 if _staged and _step == Step.OPEN and _art.visible and not _feat_mode and _offer.is_empty() else 1.0
 	_count.modulate.a = move_toward(_count.modulate.a, room, delta * 6.0)

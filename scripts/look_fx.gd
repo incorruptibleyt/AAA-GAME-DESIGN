@@ -15,6 +15,11 @@ class_name LookFx
 ## hanging off it, and a blizzard whirling round it.)
 const STYLES := {"flow": 0, "flame": 1, "frost": 2, "storm": 3, "stars": 4, "runes": 5, "rays": 6, "beads": 7, "wave": 8, "eclipse": 9, "crown": 10,
 	"snowflake": 11, "aurora": 12, "whirl": 13}
+## Version 397 (visual review of 388, fix 7): the ring itself has a shape of its own, so two
+## glows are told apart by their outline, not only their colour ("shape" in hero_style.gd,
+## sent with the style as "flame:star5").
+const SHAPES := {"": 0, "circle": 0, "hex": 1, "square": 2, "triangle": 3, "star5": 4, "flower": 5, "rhombus": 6,
+	"star8": 7, "pinwheel": 8, "broken": 9, "pentagon": 10, "star4": 11, "moons2": 12, "moons3": 13, "trefoil": 14, "cog": 15, "star6": 16, "drop": 17, "ripple": 18, "crystal": 19, "eye": 20, "clover": 21, "cross": 22}
 const FINISHES := {"": 0, "gold": 1, "frost": 2, "ember": 3, "void": 4, "crypt": 5}
 ## The sparks a finished weapon throws when it fires (hero.gd).
 const FINISH_SPARK := {"gold": Color(1.0, 0.84, 0.4), "frost": Color(0.65, 0.92, 1.0), "ember": Color(1.0, 0.48, 0.12), "void": Color(0.72, 0.48, 1.0), "crypt": Color(0.3, 1.0, 0.8)}
@@ -69,9 +74,11 @@ static func ring(col: Color, col2: Variant, style: String, radius := 1.15, at :=
 ## and Crypt King glows): the rarer the glow, the more there is to its ring.
 static func set_ring(m: ShaderMaterial, col: Color, col2: Variant, style: String, tier := 0) -> void:
 	var c2: Color = col2 if col2 is Color else col.lightened(0.45)
+	var parts := style.split(":")
 	m.set_shader_parameter("col", col)
 	m.set_shader_parameter("col2", c2)
-	m.set_shader_parameter("style", int(STYLES.get(style, 0)))
+	m.set_shader_parameter("style", int(STYLES.get(parts[0], 0)))
+	m.set_shader_parameter("shape", int(SHAPES.get(parts[1] if parts.size() > 1 else "", 0)))
 	m.set_shader_parameter("tier", tier)
 	m.set_shader_parameter("two", 1.0 if col2 is Color else 0.0)
 
@@ -373,27 +380,70 @@ uniform vec4 col : source_color = vec4(1.0);
 uniform vec4 col2 : source_color = vec4(1.0);
 uniform int style = 0;
 uniform int tier = 0;
+uniform int shape = 0;
 uniform float two = 0.0;
 uniform float r0 = 0.48;
 uniform float power = 1.0;
 """ + NOISE + """
+// How far out a ring of `n` straight sides is at angle `q`, against its corners (1 there).
+float ngon(float q, float n) {
+	float s = 6.2831853 / n;
+	return cos(s * 0.5) / cos(mod(q, s) - s * 0.5);
+}
 void fragment() {
 	vec2 p = UV * 2.0 - 1.0;
-	float r = length(p);
+	float r_true = length(p);
+	float r = r_true;
 	float ang = atan(p.y, p.x + 1e-5);
 	float a = ang / 6.2831853 + 0.5;
 	float t = TIME;
+	// The ring's own outline (version 397): `b` is how far out it runs at this angle, 1 = a
+	// circle. Everything on the ring (flames, beads, crystals) follows the outline.
+	float b = 1.0;
+	float turn = ang + t * 0.12;
+	if (shape == 1) { b = ngon(turn, 6.0) * 1.12; }
+	else if (shape == 2) { b = ngon(turn + 0.785, 4.0) * 1.3; }
+	else if (shape == 3) { b = mix(1.0, ngon(ang - 0.5236, 3.0) * 1.75, 0.85); }
+	else if (shape == 4) { b = 1.32 - 0.56 * abs(sin(turn * 2.5)); }
+	else if (shape == 5) { b = 0.8 + 0.34 * abs(cos(turn * 3.0)); }
+	else if (shape == 6) { b = 1.0 / (abs(cos(ang)) * 0.72 + abs(sin(ang)) * 1.22); }
+	else if (shape == 7) { b = 1.16 - 0.3 * abs(sin(turn * 4.0)); }
+	else if (shape == 8) { b = 0.98 + 0.2 * sin(3.0 * ang + 1.3 * sin(3.0 * ang + 1.0) - t * 0.9); }
+	else if (shape == 10) { b = ngon(turn + 0.314, 5.0) * 1.18; }
+	else if (shape == 11) { b = 1.4 - 0.72 * abs(sin(turn * 2.0)); }
+	// (more outlines, after the fix-7 critic found pairs sharing one: three leaves, a cog,
+	// a six-pointed star, a flame drop, ripples, a tall crystal, an eye, four leaves, a cross)
+	else if (shape == 14) { b = 0.7 + 0.52 * abs(cos(turn * 1.5)); }
+	else if (shape == 15) { b = 0.95 + 0.17 * smoothstep(-0.25, 0.25, sin(turn * 9.0)); }
+	else if (shape == 16) { b = 1.3 - 0.5 * abs(sin(turn * 3.0)); }
+	else if (shape == 17) { b = 0.8 + 0.95 * pow(0.5 + 0.5 * cos(ang + 1.5708), 4.0); }
+	else if (shape == 18) { b = 1.0 + 0.085 * sin(ang * 10.0 + t * 1.2); }
+	else if (shape == 19) { b = 0.98 / max(abs(cos(ang)) * 1.28, abs(cos(ang)) * 0.55 + abs(sin(ang)) * 0.74); }
+	else if (shape == 20) { b = 1.34 - 0.62 * abs(sin(ang)); }
+	else if (shape == 21) { b = 0.78 + 0.4 * abs(cos(turn * 2.0)); }
+	else if (shape == 22) { b = min(1.3 / max(abs(cos(ang)), abs(sin(ang))), 0.5 / max(min(abs(cos(ang)), abs(sin(ang))), 0.001)); }
+	r = r_true / b;
 	// The ring, a soft halo either side of it, and two arcs of brighter light running round.
 	// (Version 232: a glow with a second colour of its own, "two", shows it on wide arcs, a
 	// good third of the ring, so two glows of one main colour are told apart by the second.)
 	float flow = pow(0.5 + 0.5 * sin(ang * 2.0 - t * 2.4), mix(3.0, 1.3, two));
 	float core = smoothstep(0.05, 0.02, abs(r - r0));
 	float halo = exp(-abs(r - r0) * 10.0) * 0.5;
+	if (shape == 9) {
+		// a broken ring: three arcs with gaps between them, turning, a bright stud on each end
+		float sg = fract(a * 3.0 + t * 0.06);
+		float gap = smoothstep(0.7, 0.73, sg) * (1.0 - smoothstep(0.97, 1.0, sg));
+		core *= 1.0 - gap;
+		halo *= 1.0 - gap * 0.8;
+		float xs = (min(abs(sg - 0.7), abs(sg - 1.0)) ) * 6.2831853 / 3.0 * r_true;
+		core = max(core, smoothstep(0.075, 0.05, length(vec2(xs, r - r0))));
+	}
 	vec3 c = mix(col.rgb, col2.rgb, clamp(flow * mix(0.8, 1.15, two), 0.0, 1.0));
 	float alpha = core * (0.82 + 0.18 * flow) + halo * (0.45 + 0.55 * flow);
 	float extra = 0.0;
 	vec3 ec = col2.rgb;
 	float d = r - r0;
+	float crescents = shape == 12 ? 2.0 : (shape == 13 ? 3.0 : 1.0);
 	if (style == 0) {
 		// Light: a thin second ring just outside, breathing.
 		extra = smoothstep(0.018, 0.0, abs(d - 0.13)) * (0.35 + 0.3 * sin(t * 2.0));
@@ -454,7 +504,7 @@ void fragment() {
 		ec = mix(col2.rgb, vec3(1.0), 0.3);
 	} else if (style == 9) {
 		// Eclipse: a crescent of light, thick on one side and gone on the other, turning.
-		float arc = pow(0.5 + 0.5 * cos(ang - t * 0.8), 2.0);
+		float arc = pow(0.5 + 0.5 * cos((ang - t * 0.8) * crescents), 2.0);
 		float th = 0.015 + 0.24 * arc;
 		extra = step(0.0, d) * (1.0 - smoothstep(th * 0.6, th, d)) * smoothstep(0.02, 0.2, arc);
 		ec = mix(col2.rgb * 1.15, col.rgb, clamp(d / th, 0.0, 1.0));
@@ -536,7 +586,7 @@ void fragment() {
 	}
 	float total = clamp(alpha + extra * 0.9, 0.0, 0.96);
 	ALBEDO = mix(c, ecol, clamp(extra / max(alpha + extra, 0.001), 0.0, 1.0)) * 1.2;
-	ALPHA = total * power * smoothstep(1.0, 0.92, r);
+	ALPHA = total * power * smoothstep(1.0, 0.92, r_true);
 }
 """
 
