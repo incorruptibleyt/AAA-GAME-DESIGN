@@ -345,6 +345,7 @@ class Beams extends Node3D:
 			c.position = Vector3(0, 0.7, LEN * 0.5)
 			c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			arm.add_child(c)
+			ShotLook.beam_rim(arm, WIDTH * 2.5, LEN, Vector3(0, 0.5, LEN * 0.5))   # v402: the enemy rim
 			_arms.append(arm)
 		_place()
 

@@ -487,25 +487,48 @@ void fragment() {
 	vec2 p = q;
 	float m = 0.0;
 	float inner = 0.0;
+	float halo = 0.0;   // a pale edge outside the ink rim, so a blue dart shows on a blue floor
+	vec3 paint = col.rgb;
 	if (kind == 0) {
-		float t = sat((p.y + 0.82) / 1.82);
-		float w = mix(0.34, 0.03, t);
+		// Version 402 (re-review of v400, fix 2): a chunky dart, about twice as wide, with a
+		// point at the front and a thick ink rim. It was a thin streak that read as white.
+		float t = sat((p.y + 0.9) / 1.8);
+		float w = mix(0.62, 0.07, pow(t, 0.8)) * smoothstep(0.0, 0.16, t);
 		float ax = abs(p.x);
-		float fade = smoothstep(-1.0, -0.8, p.y) * (1.0 - smoothstep(0.55, 0.95, t));
-		m = (1.0 - smoothstep(w * 0.55, w * 0.8, ax)) * fade;
-		inner = 1.0 - smoothstep(w * 0.3, w * 0.5, ax);
+		float fade = (1.0 - smoothstep(0.72, 0.98, t)) * step(-0.9, p.y);
+		m = (1.0 - smoothstep(w - 0.05, w, ax)) * fade;
+		inner = (1.0 - smoothstep(w * 0.6 - 0.05, w * 0.6, ax)) * smoothstep(0.04, 0.1, t);
+		halo = (1.0 - smoothstep(w + 0.03, w + 0.11, ax)) * fade * smoothstep(0.0, 0.1, t);
+		paint = mix(col.rgb * 1.1, col.rgb * 0.7, smoothstep(0.1, 0.9, t));
+		paint = mix(paint, vec3(1.0), 0.4 * (1.0 - smoothstep(0.0, w * 0.3 + 0.02, ax)));   // a light spine
 	} else if (kind == 1) {
-		float d = length(p - vec2(0.0, 1.25));
-		float tips = 1.0 - smoothstep(0.35, 0.9, abs(p.x));
-		m = (1.0 - smoothstep(0.16, 0.24, abs(d - 2.0))) * tips;
-		inner = 1.0 - smoothstep(0.06, 0.14, abs(d - 2.0));
-	} else {
+		// (Version 402, critic: the Knight's wave was still a thin line.) A thick gold crescent
+		// laid a little ahead of the light (see ShotLook.hero), with a light leading edge.
+		float d = length(p - vec2(0.0, 1.47));
+		float tips = 1.0 - smoothstep(0.4, 0.95, abs(p.x));
+		float band = abs(d - 2.0);
+		m = (1.0 - smoothstep(0.34, 0.41, band)) * tips;
+		inner = (1.0 - smoothstep(0.21, 0.28, band)) * tips;
+		halo = (1.0 - smoothstep(0.42, 0.5, band)) * tips;
+		paint = mix(col.rgb * 0.8, mix(col.rgb, vec3(1.0), 0.45), smoothstep(0.1, -0.2, d - 2.0));
+	} else if (kind == 2) {
+		// A spinning saw ring round the Barbarian's thrown axe, in his colour (version 402).
 		float r = length(p);
-		m = 1.0 - smoothstep(0.5, 0.58, r);
-		inner = 1.0 - smoothstep(0.36, 0.46, r);
+		float band = abs(r - 0.72);
+		m = 1.0 - smoothstep(0.2, 0.25, band);
+		inner = 1.0 - smoothstep(0.11, 0.15, band);
+		paint = col.rgb * (0.78 + 0.32 * sin(atan(p.y, p.x) * 3.0 - TIME * 26.0));
+	} else {
+		// A ball with a light side (version 402: flat, under the glow, it read as a soft haze).
+		float r = length(p);
+		m = 1.0 - smoothstep(0.56, 0.62, r);
+		inner = 1.0 - smoothstep(0.41, 0.47, r);
+		halo = 1.0 - smoothstep(0.64, 0.72, r);
+		paint = col.rgb * (0.7 + 0.45 * (1.0 - smoothstep(0.0, 0.5, length(p - vec2(-0.13, 0.15)))));
 	}
-	ALBEDO = mix(vec3(0.05, 0.03, 0.07), col.rgb, inner);
-	ALPHA = m * col.a;
+	vec3 ink = mix(vec3(0.92, 0.95, 1.0), vec3(0.05, 0.03, 0.07), m);
+	ALBEDO = mix(ink, paint, inner);
+	ALPHA = max(m, halo * 0.7) * col.a;
 }
 """
 	var key := "base%d%s%s" % [kind, col.to_html(), bill]
@@ -521,6 +544,35 @@ void fragment() {
 	m.render_priority = -1   # under the glow
 	_mats[key] = m
 	return m
+
+
+static var _rim_mat: ShaderMaterial
+
+## Version 402 (re-review of v400, fix 2): the enemy rim of a beam. A flat strip (UV.x goes
+## across it) with a band of the undead shot colour and a dark ink edge down both sides,
+## clear in the middle where the beam's own light is. A white-blue ice beam or a gold
+## sunbeam read as the hero's own light without it.
+static func beam_rim(parent: Node3D, width: float, length: float, pos := Vector3.ZERO) -> MeshInstance3D:
+	if _rim_mat == null:
+		var sh := Shader.new()
+		sh.code = """
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
+uniform vec4 col : source_color = vec4(1.0, 0.12, 0.38, 1.0);
+void fragment() {
+	float x = abs(UV.x - 0.5) * 2.0;
+	float ends = smoothstep(0.0, 0.08, UV.y) * (1.0 - smoothstep(0.86, 1.0, UV.y));
+	float band = smoothstep(0.4, 0.58, x) * (1.0 - smoothstep(0.95, 1.0, x)) * ends;
+	ALBEDO = mix(col.rgb, vec3(0.16, 0.0, 0.07), smoothstep(0.8, 0.88, x));
+	ALPHA = band * 0.92;
+}
+"""
+		_rim_mat = ShaderMaterial.new()
+		_rim_mat.shader = sh
+		_rim_mat.set_shader_parameter("col", DANGER)
+		_rim_mat.render_priority = -1   # under the beam's own light
+	_shaders()
+	return _put(parent, _flat, _rim_mat, Vector3(width, 1.0, length), pos)
 
 
 ## A soft pool of coloured light on the floor under a shot.
@@ -572,41 +624,49 @@ static func danger(p: Projectile, r: float, height: float, style := "") -> Node3
 
 ## Builds a hero shot on `p`. `kind` is "bolt", "wave", "axe", "orb" or "shard".
 ## Returns the glow that flashes big as the shot leaves (a muzzle flash) and settles.
-static func hero(p: Projectile, kind: String, col: Color, size: float, _height: float) -> Node3D:
+static func hero(p: Projectile, kind: String, col: Color, size: float, _height: float, tint := Color(0, 0, 0, 0)) -> Node3D:
 	_shaders()
-	var glow_col := Color(col.r, col.g, col.b, 0.75)
+	# Version 402 (re-review of v400, fix 2): every hero shot is a chunky solid shape in the
+	# hero's own colour (`tint`, the colour of their ring) with a dark rim, about twice the
+	# size, and the light added on top is weaker, so the shot no longer bleaches to white.
+	if tint.a <= 0.0:
+		tint = col
+	var glow_col := Color(tint.r, tint.g, tint.b, 0.5)
 	var glow := 3.2
 	match kind:
 		"wave":
 			# (The Knight's own bolt colour is the gold of the wave: a mastery color shows as is.)
-			glow_col = Color(col.r, col.g, col.b, 0.6)
-			_put(p, _flat, base_mat(K_WAVE, col), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
-			_put(p, _flat, hero_mat(K_WAVE, col), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
+			glow_col = Color(tint.r, tint.g, tint.b, 0.45)
+			_put(p, _flat, base_mat(K_WAVE, tint), Vector3(size * 7.4, 1.0, size * 3.6), Vector3(0, 0, size * 0.5))
+			_put(p, _flat, hero_mat(K_WAVE, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
 			glow = 2.6
 		"axe":
-			_axe(p, size * 3.6)
-			_put(p, _flat, hero_mat(K_AXE, Color(col.r, col.g, col.b, 0.9)), Vector3(size * 3.6, 1.0, size * 3.6))
-			_put(p, _flat, hero_mat(K_TAIL, Color(col.r, col.g, col.b, 0.45)), Vector3(size * 2.6, 1.0, size * 6.0), Vector3(0, 0, size * 3.4))
-			glow = 2.2
+			_put(p, _flat, base_mat(K_AXE, tint), Vector3(size * 4.8, 1.0, size * 4.8))
+			_axe(p, size * 4.0)
+			_put(p, _flat, hero_mat(K_AXE, Color(tint.r, tint.g, tint.b, 0.55)), Vector3(size * 4.0, 1.0, size * 4.0))
+			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.45)), Vector3(size * 2.8, 1.0, size * 6.0), Vector3(0, 0, size * 3.6))
+			glow = 2.0
 		"orb":
-			_put(p, _card, base_mat(K_ORB, col, true), Vector3(size * 4.4, size * 4.4, 1.0))
-			_put(p, _card, hero_mat(K_ORB, col, true), Vector3(size * 4.4, size * 4.4, 1.0))
-			_put(p, _flat, hero_mat(K_TAIL, Color(col.r, col.g, col.b, 0.7)), Vector3(size * 2.6, 1.0, size * 7.0), Vector3(0, 0, size * 3.6))
+			_put(p, _card, base_mat(K_ORB, tint, true), Vector3(size * 5.0, size * 5.0, 1.0))
+			_put(p, _card, hero_mat(K_ORB, Color(col.r, col.g, col.b, 0.5), true), Vector3(size * 4.2, size * 4.2, 1.0))
+			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.7)), Vector3(size * 2.8, 1.0, size * 7.0), Vector3(0, 0, size * 3.8))
 			glow = 0.0
 		"shard":
-			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 1.6, 1.0, size * 6.0), Vector3(0, 0, size * 6.0 * 0.41))
+			# (The Rogue's knives: a thin white streak before version 402.)
+			_put(p, _flat, base_mat(K_BOLT, tint), Vector3(size * 4.6, 1.0, size * 8.6), Vector3(0, 0, size * 8.6 * 0.4))
+			_put(p, _flat, hero_mat(K_BOLT, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 1.8, 1.0, size * 6.4), Vector3(0, 0, size * 6.4 * 0.41))
 			glow = 2.0
 		"volley":
 			# Version 386 (visual review of v383, fix 5): Shadow Volley's knives were all white
 			# light. Now each is a dark purple blade with a bright violet edge, flying inside
 			# the glow of the Rogue's colour, so a ring of them reads as knives, not sparks.
+			glow_col = Color(col.r, col.g, col.b, 0.75)
 			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 3.0, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
 			_put(p, _flat, _volley_mat(col), Vector3(size * 1.9, 1.0, size * 4.6))
 			glow = 2.4
 		_:
-			# (the base is wider than the light, so its colour and ink rim show round it)
-			_put(p, _flat, base_mat(K_BOLT, col), Vector3(size * 3.8, 1.0, size * 10.0), Vector3(0, 0, size * 10.0 * 0.41))
-			_put(p, _flat, hero_mat(K_BOLT, col), Vector3(size * 2.4, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
+			_put(p, _flat, base_mat(K_BOLT, tint), Vector3(size * 5.2, 1.0, size * 11.0), Vector3(0, 0, size * 11.0 * 0.4))
+			_put(p, _flat, hero_mat(K_BOLT, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 2.4, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
 	# (No pool of light on the floor under hero shots: a Mage with Twin Shots and Fan of Shots
 	# has dozens in the air, and each pool was one more thing to draw. Undead shots keep theirs.)
 	if glow <= 0.0:

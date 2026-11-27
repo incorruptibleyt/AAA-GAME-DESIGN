@@ -32,6 +32,9 @@ var hero_id := "rogue"
 var finisher := ""
 var bolt_size := 0.22
 var bolt_color := Color(0.55, 0.85, 1.0)
+## The colour of the solid shape under each of this hero's shots: their ring's colour
+## (version 402, see Projectile.fire and ShotLook.hero).
+var shot_tint := Color(0.3, 0.6, 1.0)
 var _finish_col = null   # a weapon finish's sparks when it fires (version 174)
 var _finish_ms := 0
 var bolt_push := 4.0
@@ -258,6 +261,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.bolt_speed = def.bolt_speed
 	h.bolt_size = def.bolt_size
 	h.bolt_color = def.bolt_color
+	h.shot_tint = def.ring
 	h._finish_col = LookFx.FINISH_SPARK.get(str(def.get("style", {}).get("finish", "")))
 	h.bolt_push = def.get("push", 4.0)
 	h.pierce = def.get("pierce", 0)
@@ -300,6 +304,7 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	var mastery := Curses.mastery(cfg, def.id)
 	if mastery >= 10 and HeroStyle.worn(cfg, def.id, "glow") == "":
 		h.bolt_color = Color(1.0, 0.8, 0.3)   # a glow picked on the Style screen wins
+		h.shot_tint = h.bolt_color
 	if mastery >= 6:
 		h._build_aura()
 	# A soft light that travels with the hero so they never get lost in the dark.

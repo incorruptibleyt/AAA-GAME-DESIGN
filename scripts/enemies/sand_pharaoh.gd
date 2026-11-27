@@ -76,6 +76,7 @@ var _beam: Node3D
 var _strip: MeshInstance3D
 var _shaft: MeshInstance3D
 var _beam_mat: ShaderMaterial
+var _rim: MeshInstance3D
 
 
 func _setup() -> void:
@@ -492,6 +493,7 @@ func _dress() -> void:
 	_strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_strip.position.y = 0.07
 	_beam.add_child(_strip)
+	_rim = ShotLook.beam_rim(_beam, BEAM_WIDTH * 2.0, 1.0, Vector3(0, 0.05, 0))   # v402: the enemy rim
 	_shaft = MeshInstance3D.new()
 	_shaft.mesh = Props._cone(0.14, 0.3, 1.0, 10)
 	_shaft.material_override = _mat("shaft")
@@ -1037,6 +1039,8 @@ func _beam_length(here: Vector3, d: Vector3) -> float:
 func _beam_at(here: Vector3, d: Vector3, length: float) -> void:
 	_beam.global_transform = Transform3D(Basis.looking_at(d, Vector3.UP), Vector3(here.x, 0.0, here.z))
 	_strip.scale = Vector3(1.0, 1.0, length)
+	_rim.scale.z = length
+	_rim.position.z = -length * 0.5
 	_beam_mat.set_shader_parameter("len", length)
 	if _sun:
 		var top := _sun.global_position

@@ -91,7 +91,15 @@ static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd
 	if hero_shot and style == "":
 		style = ShotLook.HERO_KIND.get(Game.hero.hero_id if Game.hero else "", "bolt")
 	# Undead orbs put their floor glow at the height they were fired from.
-	var key := "h%s|%s|%.3f" % [style, col.to_html(), size] if hero_shot else "u%s|%.3f|%.1f" % [style, size, origin.y]
+	# Version 402: a hero shot's solid shape is in the hero's own colour (their ring's), unless
+	# the shot has a colour of its own on purpose (a burning shot, a riposte).
+	var tint := col
+	if hero_shot and Game.hero:
+		var own: Color = Game.hero.bolt_color
+		var dh := absf(col.h - own.h)
+		if col.s < 0.25 or minf(dh, 1.0 - dh) < 0.09:
+			tint = Game.hero.shot_tint
+	var key := "h%s|%s|%s|%.3f" % [style, col.to_html(), tint.to_html(), size] if hero_shot else "u%s|%.3f|%.1f" % [style, size, origin.y]
 	var p := _take(key)
 	var fresh := p == null
 	if fresh:
@@ -114,7 +122,7 @@ static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd
 	p._col = col if hero_shot else DANGER
 	if fresh:
 		if hero_shot:
-			p._glow = ShotLook.hero(p, style, col, size, origin.y)
+			p._glow = ShotLook.hero(p, style, col, size, origin.y, tint)
 			if p._glow:
 				p._glow_size = p._glow.scale.x
 		else:

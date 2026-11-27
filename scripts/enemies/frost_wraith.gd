@@ -196,6 +196,7 @@ func _beam_flash(from: Vector3, dir: Vector3) -> void:
 		m.albedo_color = part[1]
 		U.box(beam, Vector3(part[0], part[0], 10.0), m, Vector3(0, 0, -5.0))
 		mats.append(m)
+	ShotLook.beam_rim(beam, 1.5, 10.0, Vector3(0, -0.12, -5.0))   # v402: an enemy's beam wears the enemy rim
 	var tw := beam.create_tween().set_parallel()
 	tw.tween_property(beam, "scale", Vector3(0.15, 0.15, 1.0), 0.45).set_ease(Tween.EASE_IN)
 	for m in mats:

@@ -463,9 +463,12 @@ func _beam(a: Vector3, b: Vector3, col: Color) -> void:
 	_room().add_child(m)
 	m.global_position = (a + b) * 0.5 + Vector3.UP * 0.25
 	m.look_at(m.global_position + d, Vector3.UP)
+	var rim := ShotLook.beam_rim(m, 0.95, d.length(), Vector3(0, -0.06, 0))   # v402: the enemy rim
 	var tw := m.create_tween()
+	tw.set_parallel()
+	tw.tween_property(rim, "scale:x", 0.1, 0.4).set_ease(Tween.EASE_IN)   # (thins out with the light)
 	tw.tween_property(mat, "albedo_color:a", 0.0, 0.4)
-	tw.tween_callback(m.queue_free)
+	tw.chain().tween_callback(m.queue_free)
 
 
 ## Constellation: stars fall round the hero, then the lines between them strike.
