@@ -5714,12 +5714,13 @@ func _trim_title_badges() -> void:
 	if deal:
 		order.append(_title_pass_badge)
 	order.append(_rewards_badge)
+	# (Version 400: the one-time free floor-6 try outranks the daily coin tag.)
+	if not deal:
+		order.append(_title_pass_badge)
 	if up:
 		order.append(_title_armory_badge)
 	if not heroic:
 		order.append(_title_play_badge)
-	if not deal:
-		order.append(_title_pass_badge)
 	order.append(_title_modes_badge)
 	order.append(_title_heroes_badge)
 	if not up:

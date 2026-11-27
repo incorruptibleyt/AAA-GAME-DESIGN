@@ -193,7 +193,8 @@ func _row(cfg: ConfigFile, i: int, b: int) -> Control:
 	texts.add_child(what)
 	var need := ("Claimed" if got else "Ready!") if reached else "%d bones to go" % (int(s.at) - b)
 	if s.kind == "lucky":
-		need += " Free blessing"
+		# (Version 400: "890 bones to go Free blessing" ran together and wrapped.)
+		need = (need + " Free blessing") if reached else "%d to go  ·  free blessing" % (int(s.at) - b)
 	texts.add_child(Hud.label(need, 14, Hud.GOLD if reached and not got else DIM, HORIZONTAL_ALIGNMENT_LEFT))
 	if reached and not got:
 		var c := Hud.button("CLAIM", 20, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
