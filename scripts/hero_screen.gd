@@ -154,7 +154,7 @@ func _build_stage() -> Control:
 	_stage_box = box
 	_stage = HeroStage.new(Vector2(504, STAGE_H))
 	_stage.custom_minimum_size = Vector2.ZERO   # the box sets the size (_fit)
-	_stage.close = 0.88   # (v364: a bigger hero; v410: 0.8 cut the Barbarian's horns and the Mage's hat under the tabs)
+	_stage.close = 0.9   # (v364: a bigger hero; _fit() sets it for the stage's shape)
 	Hud.full(_stage)
 	box.add_child(_stage)
 	for side in [-1, 1]:
@@ -334,7 +334,8 @@ func _fit() -> void:
 	# (A tall, narrow stage sees less to the sides: the camera steps back for it, so a wide
 	# hero's axe and horns stay in the picture.)
 	var shape := maxf(_stage_box.size.x, 200.0) / maxf(_stage_box.custom_minimum_size.y, 1.0)
-	_stage.close = lerpf(1.08, 0.8, clampf((shape - 1.25) / 0.6, 0.0, 1.0))
+	# (v411: 0.8 put the Knight's crest and the Barbarian's horns under the tab row)
+	_stage.close = lerpf(1.08, 0.9, clampf((shape - 1.25) / 0.6, 0.0, 1.0))
 	_stage.fit_to(Vector2(maxf(_stage_box.size.x, 200.0), _stage_box.custom_minimum_size.y))
 
 

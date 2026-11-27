@@ -2170,7 +2170,12 @@ func show_doors(doors: Array, boss_next := false) -> void:
 		var t := _door_names[i]
 		t.text = d.title
 		_door_plates[i].border_color = Color((d.color as Color).lightened(0.2), 0.55)
-		t.label_settings.font_color = (d.color as Color).lightened(0.25)
+		# (v411 re-review: a dark door colour, the Healing Spring's green, left its name dim on
+		# the black plate: lightened until it reads)
+		var nc := (d.color as Color).lightened(0.25)
+		while nc.get_luminance() < 0.62:
+			nc = nc.lightened(0.15)
+		t.label_settings.font_color = nc
 		# a long name ("Champion's Door") shrinks to one line inside the doorway
 		var fs := 25
 		var font: Font = t.label_settings.font if t.label_settings.font else ThemeDB.fallback_font
@@ -2195,7 +2200,7 @@ func show_doors(doors: Array, boss_next := false) -> void:
 			inner.modulate.a = 0.0
 			var tw := inner.create_tween()
 			tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-			tw.tween_interval(0.25 + 0.2 * i)
+			tw.tween_interval(0.25 + 0.1 * i)
 			tw.tween_property(inner, "modulate:a", 1.0, 0.35)
 		else:
 			inner.modulate.a = 1.0

@@ -281,7 +281,7 @@ func _row(id: String, l: int, lv: int, p: int) -> Control:
 	if got:
 		need = "Earned"
 	else:
-		need = "%d points to go" % (int(HeroMastery.LEVELS[l - 1]) - p)
+		need = "%s points to go" % Hud.thousands(int(HeroMastery.LEVELS[l - 1]) - p)
 	need = "%s  ·  %s" % [rank.name, need]
 	for r: Dictionary in HeroMastery.REWARDS.get(l, []):
 		if r.kind == "lucky":

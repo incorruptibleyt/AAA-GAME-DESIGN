@@ -61,7 +61,7 @@ static func describe(door: Dictionary, rerolls := -1) -> Dictionary:
 	match str(door.get("kind", "")):
 		"path":
 			var fam: Dictionary = Upgrades.FAMILIES[door.family]
-			return {"title": PATHS[door.family], "text": "Your next pick: 2 of 3\nare %s blessings" % fam.name,
+			return {"title": PATHS[door.family], "text": "Next pick: 2 of 3\nare %s blessings" % fam.name,
 				"color": fam.color, "icon": "", "family": door.family}
 		"spring":
 			return {"title": "Healing Spring", "text": "Heal %d%% of your\nhealth now" % roundi(SPRING_HEAL * 100),

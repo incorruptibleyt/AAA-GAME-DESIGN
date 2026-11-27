@@ -54,7 +54,7 @@ const LIST := [
 	# but Bouncing Shots ("heroes": only those heroes are offered it; the Knight's sword and
 	# the Barbarian's axes, which already come back off walls, have no use for it).
 	{"id": "bounce", "heroes": ["rogue", "mage"], "family": "bolt", "rarity": "rare", "title": "Bouncing Shots", "text": "Shots bounce off walls and pillars once", "max": 1},
-	{"id": "spark", "family": "bolt", "rarity": "rare", "title": "Static Shots", "text": "Every hit throws a spark of lightning to the next skeleton", "max": 2},
+	{"id": "spark", "family": "bolt", "rarity": "rare", "title": "Static Shots", "text": "Each hit sparks lightning to the next skeleton", "max": 2},
 	{"id": "orbit", "family": "bone", "rarity": "rare", "title": "Spinning Bones", "text": "Two bone blades circle you, cutting skeletons", "max": 2},
 	{"id": "blaze_dash", "family": "flame", "rarity": "rare", "title": "Blazing Dash", "text": "Your dash leaves a trail of fire that burns skeletons", "max": 1},
 	{"id": "phantom", "family": "bone", "rarity": "rare", "title": "Phantom Dash", "text": "Dash through skeletons to cut every one you pass", "max": 1},

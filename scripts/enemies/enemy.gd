@@ -909,6 +909,13 @@ var _rise_depth := 1.8
 
 func hold_under() -> void:
 	_entrance_held = true
+	# (v411 re-review: the Skeleton King rose with his back to the camera, his new face unseen:
+	# a boss rises facing the hero, who stands nearer the camera)
+	if is_instance_valid(Game.hero):
+		var d := Game.hero.global_position - global_position
+		d.y = 0.0
+		if d.length() > 0.1:
+			rotation.y = atan2(-d.x, -d.z)
 	_rise_depth = maxf(3.0, center_height * 3.2)
 	_spawn_timer = 1.0   # (can't be hit while it is down there)
 	visual.position.y = -_rise_depth

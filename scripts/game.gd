@@ -102,7 +102,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27q"
+const BUILD := "2026-11-27r"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1789,7 +1789,7 @@ func _focus_goal() -> Vector3:
 	if _intro_focus and is_instance_valid(boss):
 		if _intro_wide:   # (Version 366: then pulled back to show the boss and the hero together)
 			return Vector3(lerpf(boss.global_position.x, hero.global_position.x, 0.5) * 0.5, 0,
-				lerpf(boss.global_position.z, hero.global_position.z, 0.42))
+				lerpf(boss.global_position.z, hero.global_position.z, 0.3))   # (v411: 0.42 cut a tall boss's crown)
 		return Vector3(boss.global_position.x * 0.5, 0, boss.global_position.z + 1.5)
 	var goal := _room_focus()
 	if _zoom_hold > 0.0:

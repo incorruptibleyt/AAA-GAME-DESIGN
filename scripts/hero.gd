@@ -609,6 +609,9 @@ func _shadow_volley() -> void:
 			Game._teach("quiver", "SHADOW QUIVER: knives fly back, cutting again!"))
 
 
+const SHIELD_GHOST_SIZE := 2.6   # metres across (v406 was about 4.4)
+
+
 func _shield_slam() -> void:
 	visual.attack()
 	_shield_ghost()
@@ -629,57 +632,51 @@ func _shield_slam() -> void:
 			Game._teach("aftershock", "AFTERSHOCK: Shield Slam hits a second time!"))
 
 
-## Version 406 (fix 6): a great shield, the Knight's own (silver, gold rim, red cross),
-## comes down from the sky and drives its point into the floor behind the Knight, then sinks.
+## Version 406 (fix 6): a great shield, the Knight's own, comes down from the sky and drives
+## its point into the floor behind the Knight, then sinks.
+## Version 411: the re-review called the v406 shield (flat unlit plates) a road sign covering a
+## third of the screen. Now it is a big copy of the shield the Knight really carries (lit, real
+## depth, any look's shield), about a third smaller.
 func _shield_ghost() -> void:
-	if Room.current == null:
+	if Room.current == null or visual == null:
+		return
+	var src: MeshInstance3D = null
+	for n in visual.find_children("*Shield*", "MeshInstance3D", true, false):
+		if (n as MeshInstance3D).is_visible_in_tree() and (n as MeshInstance3D).mesh != null:
+			src = n
+			break
+	if src == null:
 		return
 	var root := Node3D.new()
 	Room.current.add_child(root)
-	root.global_position = global_position + Vector3(0, 3.8, -2.0)
-	# (v406 critic: a flat white board with a pink cross read as a first-aid sign: now steel
-	# shaded dark to light, a thick gold rim, a dark outline round it all and a deep red cross)
-	var ink := _flat(Color(0.05, 0.04, 0.06))
-	# (unlit: the room's lights and the flash burned lit steel to white)
-	var gold := _flat(Color(0.95, 0.66, 0.14))
-	var steel_lo := _flat(Color(0.36, 0.4, 0.48))
-	var steel_hi := _flat(Color(0.66, 0.7, 0.79))
-	var red := _flat(Color(0.56, 0.03, 0.05))
-	# a heater shield: a short straight top, then a long point (layers back to front)
-	U.box(root, Vector3(1.5, 0.82, 0.06), ink, Vector3(0, 0.4, -0.06))
-	var t0 := U.cone(root, 0.76, 1.48, ink, Vector3(0, -1.3, -0.06))   # (flipped: base given at its point)
-	t0.rotation = Vector3(PI, 0, 0)
-	t0.scale = Vector3(1.0, 1.0, 0.1)
-	U.box(root, Vector3(1.36, 0.7, 0.1), gold, Vector3(0, 0.4, -0.02))
-	var t1 := U.cone(root, 0.68, 1.32, gold, Vector3(0, -1.18, -0.02))
-	t1.rotation = Vector3(PI, 0, 0)
-	t1.scale = Vector3(1.0, 1.0, 0.16)
-	U.box(root, Vector3(1.1, 0.5, 0.12), steel_lo, Vector3(0, 0.4, 0))
-	var t2 := U.cone(root, 0.55, 1.05, steel_lo, Vector3(0, -0.95, 0.0))
-	t2.rotation = Vector3(PI, 0, 0)
-	t2.scale = Vector3(1.0, 1.0, 0.2)
-	U.box(root, Vector3(0.5, 0.5, 0.13), steel_hi, Vector3(-0.3, 0.4, 0.005))   # light falls on the left half
-	var t3 := U.cone(root, 0.3, 0.95, steel_hi, Vector3(-0.22, -0.82, 0.005))
-	t3.rotation = Vector3(PI, 0, 0)
-	t3.scale = Vector3(1.0, 1.0, 0.2)
-	U.box(root, Vector3(0.24, 0.9, 0.16), ink, Vector3(0, 0.25, 0.015))   # the cross, edged in ink
-	U.box(root, Vector3(0.8, 0.24, 0.16), ink, Vector3(0, 0.42, 0.015))
-	U.box(root, Vector3(0.16, 0.82, 0.17), red, Vector3(0, 0.25, 0.02))
-	U.box(root, Vector3(0.72, 0.16, 0.17), red, Vector3(0, 0.42, 0.02))
-	for c in root.get_children():
-		(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	root.scale = Vector3.ONE * 1.5
+	root.global_position = global_position + Vector3(0, 3.6, -2.0)
+	var mi := MeshInstance3D.new()
+	mi.mesh = src.mesh
+	for i in src.mesh.get_surface_count():
+		mi.set_surface_override_material(i, src.get_active_material(i))
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# the thinnest side of the shield's box is its depth: turn it to face the camera
+	var ab := src.mesh.get_aabb()
+	var s := ab.size
+	var b := Basis()
+	if s.x <= s.y and s.x <= s.z:
+		b = Basis(Vector3.UP, -PI * 0.5)
+	elif s.y <= s.x and s.y <= s.z:
+		b = Basis(Vector3.RIGHT, PI * 0.5)
+	var k := SHIELD_GHOST_SIZE / maxf(s.x, maxf(s.y, s.z))
+	b = b.scaled(Vector3.ONE * k)
+	mi.transform = Transform3D(b, -(b * ab.get_center()))
+	root.add_child(mi)
+	root.scale = Vector3.ONE * 0.7
 	var tw := root.create_tween()
 	tw.set_parallel(true)
-	# (it stands behind the Knight, its point driven into the floor, leaning back to face the
-	# camera: lying flat it read as a white box)
-	tw.tween_property(root, "global_position", global_position + Vector3(0, 1.75, -2.0), 0.12).set_ease(Tween.EASE_IN)
+	# (it stands behind the Knight, leaning back to face the camera)
+	tw.tween_property(root, "global_position", global_position + Vector3(0, SHIELD_GHOST_SIZE * 0.5, -2.0), 0.12).set_ease(Tween.EASE_IN)
 	tw.tween_property(root, "rotation", Vector3(-0.75, 0, 0), 0.12)
-	tw.tween_property(root, "scale", Vector3.ONE * 2.0, 0.12)
+	tw.tween_property(root, "scale", Vector3.ONE, 0.12)
 	tw.set_parallel(false)
 	tw.tween_interval(0.32)
-	# (then it sinks into the floor whole, the same shape all the way: shrinking it pinched it)
-	tw.tween_property(root, "global_position", global_position + Vector3(0, -2.6, -2.0), 0.3).set_ease(Tween.EASE_IN)
+	tw.tween_property(root, "global_position", global_position + Vector3(0, -SHIELD_GHOST_SIZE, -2.0), 0.3).set_ease(Tween.EASE_IN)
 	tw.tween_callback(root.queue_free)
 
 
@@ -803,7 +800,9 @@ func _debris(spot: Vector3) -> void:
 		return
 	# (v406 critic: small dark chunks read as dirt specks on brown floors: twice the size,
 	# lighter grey stone, half of each glowing hot, and a dark edge round every chunk)
-	var rock := U.mat(Color(0.5, 0.45, 0.42), 0.95)
+	# (v411 re-review: the light stone read as beige sugar cubes: dark basalt now, split by a
+	# glowing seam and a hot corner, so it reads as burning rock on any floor)
+	var rock := U.mat(Color(0.17, 0.13, 0.12), 0.95)
 	var hot := _flat(Color(1.0, 0.62, 0.16))
 	var ink := _flat(Color(0.05, 0.03, 0.03))
 	ink.cull_mode = BaseMaterial3D.CULL_FRONT   # (only its back faces: an edge round the chunk)
@@ -815,8 +814,11 @@ func _debris(spot: Vector3) -> void:
 		o.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		var b := U.box(ch, Vector3(s, s * 0.8, s * 1.1), rock)
 		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var h := U.box(ch, Vector3(s * 0.9, s * 0.7, s * 0.5), hot, Vector3(0, s * 0.1, s * 0.33))
+		var h := U.box(ch, Vector3(s * 1.04, s * 0.16, s * 1.14), hot, Vector3(0, s * 0.05, 0))
+		h.rotation = Vector3(0.0, 0.0, 0.35)
 		h.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var h2 := U.box(ch, Vector3(s * 0.4, s * 0.4, s * 0.4), hot, Vector3(s * 0.34, s * 0.24, s * 0.4))
+		h2.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		ch.global_position = spot + Vector3.UP * 0.5
 		var dir := Vector3.FORWARD.rotated(Vector3.UP, TAU * (i + randf() * 0.6) / 8.0)
 		var to := spot + dir * randf_range(2.2, 3.6)
