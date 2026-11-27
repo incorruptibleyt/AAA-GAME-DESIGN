@@ -647,10 +647,13 @@ void fragment() {
 	// Version 401 (re-review of v400, fix 1): the 30% cyan fill read as a pale glass ghost
 	// smeared over a pile of skeletons. A hidden hero is a solid figure in the hero's own
 	// colour now: lit from above, darker below, a pale edge, nothing seen through it.
+	// Version 412 (re-review of v410, fix 2): fresh critics still saw blue glass: fully solid
+	// now, in two flat tones like a cartoon (no glassy sheen), with a hard light edge.
 	float up = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
-	vec3 body = mix(col.rgb * 0.42, col.rgb * 1.05, smoothstep(0.3, 0.8, up));
-	ALBEDO = mix(body, rimc.rgb, smoothstep(0.62, 0.92, rim) * rimc.a);
-	ALPHA = 0.86;   // (a little of the attacker in front still shows)
+	// (the dark tone stays near the light one: a deep shade read as holes in the figure)
+	vec3 body = mix(col.rgb * 0.7, col.rgb * 1.0, smoothstep(0.4, 0.6, up));
+	ALBEDO = mix(body, rimc.rgb, step(0.82, rim) * rimc.a);
+	ALPHA = 1.0;
 }
 """
 		_xray_mat = ShaderMaterial.new()
@@ -661,7 +664,7 @@ void fragment() {
 	var head := _xray_mark.duplicate() as ShaderMaterial
 	var ghost := _xray_mat.duplicate() as ShaderMaterial
 	ghost.set_shader_parameter("col", xray_color)
-	ghost.set_shader_parameter("rimc", Color(0.94, 1.0, 1.0, 0.55) if xray_rim.a <= 0.0 else xray_rim)
+	ghost.set_shader_parameter("rimc", Color(1.0, 1.0, 1.0, 0.95) if xray_rim.a <= 0.0 else xray_rim)
 	head.next_pass = ghost
 	ghost.next_pass = inner   # the flash and outline follow unchanged
 	# v390 (review v388 fix 2, always see your hero): the outline itself is drawn on top of
