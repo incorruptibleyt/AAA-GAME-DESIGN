@@ -287,6 +287,8 @@ func play_named(n: String) -> bool:
 ## times a second looked like flickering, so a boss gets a faint glow added over
 ## its colours (it lifts bone, it does not white it out), at most twice a second.
 const FLASH_TIME := 0.07
+## The hero's red flush lasts longer (version 403), so a hit is seen on the hero.
+const HERO_FLASH_TIME := 0.16
 const FLASH_GAP := 0.25
 const SOFT_FLASH_GAP := 0.5
 
@@ -298,12 +300,14 @@ func hit() -> void:
 	if now - _last_flash_ms < int((SOFT_FLASH_GAP if soft_flash else FLASH_GAP) * 1000.0):
 		return
 	_last_flash_ms = now
-	_flash = FLASH_TIME
+	_flash = HERO_FLASH_TIME if hero_flash else FLASH_TIME
 	_set_flash(true)
 	# Version 218 (review 4): the hero's hit starts white for 0.04 s, so it isn't told by
 	# red alone (red bats, red Shades and red bars all around in the Blood Moon).
+	# Version 403 (critic of fix 3): only on the red floors and the Blood Moon now; elsewhere
+	# the hit is red from its first frame (white read as a dash or a heal, not a hurt).
 	if hero_flash and _hero_flash_mat:
-		_hero_flash_mat.set_shader_parameter("white", 1.0)
+		_hero_flash_mat.set_shader_parameter("white", 1.0 if (Floors.hot() or Floors.blood_moon()) else 0.0)
 
 
 ## Version 339 (visual review fix 4, "kills that pop"): a hit squashes the body for a blink
@@ -348,6 +352,27 @@ func die() -> void:
 		tw.tween_property(_model, "rotation:x", -1.45, 0.25).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 		tw.tween_interval(0.4)
 		tw.tween_property(_model, "position:y", -1.5, 0.8)
+
+
+## Version 403 (re-review of v400, fix 3, "real kill bursts"): a plain skeleton doesn't fall
+## over and sink for two seconds; it breaks apart. The body jolts up and wide, then caves in
+## flat to the floor in a fifth of a second and is gone, while its bones fly (Enemy._on_death).
+func crumble() -> void:
+	if _dead:
+		return
+	_dead = true
+	if _punch_tw and _punch_tw.is_valid():
+		_punch_tw.kill()
+	if _model == null:
+		return
+	if _base_scale != Vector3.ZERO:
+		_model.scale = _base_scale
+	_set_flash(false)
+	var s := _model.scale
+	var tw := create_tween()
+	tw.tween_property(_model, "scale", Vector3(s.x * 1.25, s.y * 1.12, s.z * 1.25), 0.05).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_model, "scale", Vector3(s.x * 1.5, s.y * 0.06, s.z * 1.5), 0.16).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.tween_callback(func(): _model.visible = false)
 
 
 ## Lying down (dead or knocked down): outfit bands measured by height above the floor are
@@ -408,7 +433,10 @@ func set_visible_blink(v: bool) -> void:
 	if _blink_off == (not v):
 		return
 	_blink_off = not v
-	_set_flash(false)
+	# Version 403 (re-review of v400, fix 3): the hit's red flush is not cut short by the
+	# blink that starts on the same frame (it was, so a hit showed as a white wash, never red).
+	if _flash <= 0.0:
+		_set_flash(false)
 
 
 # ---------------------------------------------------------------- internals
@@ -429,7 +457,7 @@ func _process(delta: float) -> void:
 		_flash -= delta / maxf(Engine.time_scale, 0.01)   # real seconds, even in slow motion
 		# v220 (v219 review): on the red and orange floors the hit stays white all the way (red
 		# on red could not be seen).
-		if hero_flash and _hero_flash_mat and _flash < FLASH_TIME - 0.04 and not (Floors.hot() or Floors.blood_moon()):
+		if hero_flash and _hero_flash_mat and _flash < HERO_FLASH_TIME - 0.04 and not (Floors.hot() or Floors.blood_moon()):
 			_hero_flash_mat.set_shader_parameter("white", 0.0)   # v218: white, then red
 		if _flash <= 0.0:
 			_set_flash(false)
@@ -512,11 +540,13 @@ func _set_flash(on: bool) -> void:
 	if _hero_flash_mat == null:
 		# Version 216 (review 2 fix #4): a red edge round the hero, painted over (not added
 		# to) the outfit, so a blue hero doesn't turn purple like an elite skeleton.
+		# Version 403 (re-review of v400, fix 3): the whole body flushes red now (0.42 over
+		# the body, the edge stronger), held a little longer: the hurt shows on the hero.
 		var sh := Shader.new()
 		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, cull_back, depth_draw_never;\n" \
 			+ "uniform float white = 0.0;\n" \
 			+ "void fragment() {\n\tfloat rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);\n" \
-			+ "\tALBEDO = mix(vec3(1.0, 0.16, 0.1), vec3(1.0), white);\n\tALPHA = clamp(pow(rim, 1.6) * 1.3 + 0.12 + white * 0.25, 0.0, 0.9);\n}\n"
+			+ "\tALBEDO = mix(vec3(1.0, 0.16, 0.1), vec3(1.0), white);\n\tALPHA = clamp(pow(rim, 1.6) * 1.2 + 0.42 + white * 0.2, 0.0, 0.9);\n}\n"
 		_hero_flash_mat = ShaderMaterial.new()
 		_hero_flash_mat.shader = sh
 	var hit_mat: Material = _hero_flash_mat if hero_flash else (_soft_flash_mat if soft_flash else _flash_mat)
@@ -570,13 +600,14 @@ func _marked_chain(inner: Material) -> Material:
 
 ## The pale flicker of a hero who can't be hurt just now (see _blink_off): a see-through
 ## white-cyan wash, brightest at the edges, over the outfit. (Version 401: a third as
-## strong over the body; just after a hit, in a pile, the hero turned into a white ghost.)
+## strong over the body; just after a hit, in a pile, the hero turned into a white ghost.
+## Version 403: only a pale edge now, nothing over the body.)
 static func _blink_material() -> ShaderMaterial:
 	if _blink_mat == null:
 		var sh := Shader.new()
 		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, cull_back, depth_draw_never;\n" \
 			+ "void fragment() {\n\tfloat rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);\n" \
-			+ "\tALBEDO = vec3(0.85, 0.98, 1.0);\n\tALPHA = clamp(0.1 + pow(rim, 1.5) * 0.55, 0.0, 0.65);\n}\n"
+			+ "\tALBEDO = vec3(0.85, 0.98, 1.0);\n\tALPHA = clamp(pow(rim, 2.0) * 0.5, 0.0, 0.45);\n}\n"
 		_blink_mat = ShaderMaterial.new()
 		_blink_mat.shader = sh
 	return _blink_mat

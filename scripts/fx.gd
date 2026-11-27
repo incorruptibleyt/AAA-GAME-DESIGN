@@ -759,7 +759,7 @@ static var _rings := {}
 
 
 ## A ring of light that rushes outwards (the finishing blow of a room).
-static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
+static func shockwave(pos: Vector3, color: Color, radius := 6.0, life := 0.6) -> void:
 	var world := Game.world
 	if world == null:
 		return
@@ -789,8 +789,8 @@ static func shockwave(pos: Vector3, color: Color, radius := 6.0) -> void:
 	ring.scale = Vector3(0.3, 0.3, 0.3)
 	var tw := ring.create_tween().set_parallel(true)
 	tw.set_ignore_time_scale(true)
-	tw.tween_property(ring, "scale", Vector3(radius, 1.0, radius), 0.6).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
-	tw.tween_property(m, "albedo_color:a", 0.0, 0.6)
+	tw.tween_property(ring, "scale", Vector3(radius, 1.0, radius), life).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_CUBIC)
+	tw.tween_property(m, "albedo_color:a", 0.0, life)
 	tw.chain().tween_callback(ring.queue_free)
 
 

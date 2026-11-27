@@ -46,7 +46,10 @@ var _key := ""
 var _off := OFFSET
 ## v391: up and to the LEFT of the hero (skeletons' numbers go up and right), so the hero's
 ## own number never lands on a skeleton's number or health bar.
-const HERO_OFFSET := Vector3(-1.2, 2.5, 0)   # v220: above the shoulder, off the body
+## Version 403 (re-review of v400, fix 3): just above the hero's head, a little to the left
+## (it was 1.2 m off and could be pushed up by other numbers, landing ~250 px from the hero,
+## so the hurt read as something happening elsewhere).
+const HERO_OFFSET := Vector3(-0.1, 2.3, 0)
 ## v391 (review v388 fix 3): the colour of damage the hero takes.
 const TAKEN := Color(1.0, 0.3, 0.26)
 ## A boss's number sits beside its head (numbers sat on boss faces), bigger.
@@ -140,8 +143,9 @@ static func _add(who: Actor, kind: String, amount: float, col: Color, prefix: St
 			if cam != null and cam.unproject_position(who.center()).x > n.get_viewport().get_visible_rect().size.x * 0.55:
 				n._off.x = -BOSS_OFFSET.x
 		elif not foe and prefix == "-":
-			n._size = 1.15   # the hurt you take, a little bigger than what you deal
-		n._lift = _free_lift(n._base + n._off)
+			n._size = 1.0   # v403: the hurt you take sits on the hero, one size (a "-15" was ~300 px wide)
+		# (v403: the hero's own number is never lifted out of the way: it stays on the hero)
+		n._lift = 0.0 if who.team == Actor.Team.HERO else _free_lift(n._base + n._off)
 		n.position = n._base + n._off + Vector3(0, n._lift, 0)
 		n._key = key
 		_live[key] = n
@@ -211,7 +215,7 @@ func _process(delta: float) -> void:
 		return
 	if is_instance_valid(_follow):
 		_base = _follow.center()
-	_rise = minf(_rise + delta * 1.4, 0.9)
+	_rise = minf(_rise + delta * 1.4, 0.45 if (not _foe and _prefix == "-") else 0.9)
 	# v391 (review v388 fix 3): a skeleton's number right by the hero floats up out of the
 	# crowd, clear of the hero, instead of fading where it stands.
 	if _foe and is_instance_valid(_follow):
@@ -224,7 +228,7 @@ func _process(delta: float) -> void:
 	# Pops in big, dips a little under its size and settles: a punchy bounce.
 	var pop := 1.0
 	if k < 0.1:
-		pop = lerpf(2.1 if _boss else 1.7, 0.9, k / 0.1)   # a boss hit lands with a bigger pop
+		pop = lerpf(2.1 if _boss else (1.25 if (not _foe and _prefix == "-") else 1.7), 0.9, k / 0.1)   # a boss hit lands with a bigger pop (v403: the hero's own hurt a small one)
 	elif k < 0.2:
 		pop = lerpf(0.9, 1.0, (k - 0.1) / 0.1)
 	scale = Vector3.ONE * _size * pop

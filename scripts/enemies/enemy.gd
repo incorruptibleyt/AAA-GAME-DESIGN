@@ -1181,6 +1181,9 @@ func take_damage(amount: float, direction: Vector3, push: float, crit := false) 
 			_contact_cooldown = 0.4
 
 
+static var _deaths_frame := -1
+static var _deaths_n := 0
+
 func _on_death() -> void:
 	if _ice_block:
 		_ice_block.visible = false
@@ -1188,13 +1191,27 @@ func _on_death() -> void:
 		if is_instance_valid(t):
 			t.cancel()
 	_telegraphs.clear()
-	visual.die()
+	# Version 403 (re-review of v400, fix 3): a plain skeleton breaks apart (CharacterVisual.
+	# crumble) with a ring on the floor; bosses keep their long fall.
+	if is_boss:
+		visual.die()
+	else:
+		visual.crumble()
+		# (critic: a filled pale disc per kill fogged the floor in a group kill; a thin ring in
+		# the chain's colour that rushes out and is gone in a quarter second)
+		Fx.shockwave(global_position, ChainSpine.color_for(Game.chain), 1.6 if radius < 0.8 else 2.4, 0.26)
+	# Several kills in one frame (a pierce, a special) throw half the bones each, so a group
+	# kill doesn't bury the hero in white.
+	var frame := Engine.get_process_frames()
+	_deaths_n = _deaths_n + 1 if frame == _deaths_frame else 1
+	_deaths_frame = frame
+	var bones_k := 1.0 if _deaths_n <= 1 else 0.5
 	# Version 339 (visual review fix 4): real bones fly, and a pop of light at the body.
 	# Version 386 (visual review of v383, fix 5): a kill read as a white puff (a big white pop
 	# and 22 white dots). Now it is mostly bones: more of them, fewer dots, and a smaller pop
 	# in the chain's colour (bone, then gold, then red-hot), so a streak shows in every kill.
-	Fx.bones(global_position, 9)
-	Fx.bone_chunks(global_position, 9 if radius < 0.8 else 13)
+	Fx.bones(global_position, int(9 * bones_k))
+	Fx.bone_chunks(global_position, int((12 if radius < 0.8 else 17) * bones_k))
 	Fx.impact(center(), ChainSpine.color_for(Game.chain).lerp(Color.WHITE, 0.15), 1.5 if radius < 0.8 else 2.4)
 	# The crunch climbs as the chain grows (x3 is about two semitones up), so a good streak
 	# sounds like one.
