@@ -54,7 +54,11 @@ func _setup() -> void:
 	knockback_scale = 0.05
 	var look := bones(Art.SKELETON_WARRIOR, 5.7, STAR)
 	look.accent = Color(0.14, 0.15, 0.3)
-	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak"]
+	# Version 394 (visual review of v388, fix 5): its skeleton is gone; the body is made of
+	# shards of night sky (BossBodies._star_giant), so it is not a skeleton with a sticker.
+	look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Cloak", "Skeleton_Warrior_Body", "Skeleton_Warrior_Head",
+		"Skeleton_Warrior_Jaw", "Skeleton_Warrior_Eyes", "Skeleton_Warrior_ArmLeft", "Skeleton_Warrior_ArmRight",
+		"Skeleton_Warrior_LegLeft", "Skeleton_Warrior_LegRight"]
 	look.overlay = _night_bones()   # bones gone dark as the night sky, stars twinkling in them
 	look.shape = {"scale": {"chest": 0.95, "head": 0.85, "upperarm.l": 1.5, "upperarm.r": 1.5, "upperleg.l": 1.35, "upperleg.r": 1.35}}   # (v351: towering and lanky)
 	look.parts = "planet"
@@ -201,11 +205,12 @@ void fragment() {
 	float d = length(fract(q) - 0.5);
 	float tw = 0.5 + 0.5 * sin(TIME * 2.6 + h * 50.0);
 	float s = step(0.6, h) * smoothstep(0.24, 0.0, d) * tw;
-	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 1.8);
 	// a nebula drifting through it: violet and blue clouds
 	float neb = 0.5 + 0.5 * sin(lp.x * 3.1 + lp.y * 2.3 + TIME * 0.6) * sin(lp.z * 2.7 - lp.y * 1.9 - TIME * 0.4);
-	vec3 cloud = mix(vec3(0.28, 0.15, 0.6), vec3(0.15, 0.32, 0.72), neb);
-	ALBEDO = cloud + vec3(0.95, 0.95, 1.0) * s * 2.2 + vec3(0.5, 0.62, 1.0) * rim * 1.3;
+	vec3 cloud = mix(vec3(0.28, 0.15, 0.6), vec3(0.15, 0.32, 0.72), neb) * 0.72;
+	// (v394: a thinner, brighter cyan edge on every shard, so the crystal body reads)
+	float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.6);
+	ALBEDO = cloud + vec3(0.95, 0.95, 1.0) * s * 2.2 + vec3(0.55, 0.88, 1.0) * edge * 1.9;
 }
 """
 	var m := ShaderMaterial.new()
@@ -284,7 +289,7 @@ func _dress() -> void:
 		_star.position = Vector3(0, 0.22, 0.46)
 		# Tipped up to face the camera above the hero (facing straight ahead it showed edge-on).
 		_star.rotation.x = -0.75
-		_star.scale = Vector3.ONE * 1.25
+		_star.scale = Vector3.ONE * 1.05   # (v394: smaller, so the heart of shards shows round it)
 		chest.add_child(_star)
 		var core := MeshInstance3D.new()
 		core.mesh = _star_mesh()
@@ -293,8 +298,8 @@ func _dress() -> void:
 		var q := QuadMesh.new()
 		q.size = Vector2(1.0, 1.0)
 		_halo.mesh = q
-		_halo.material_override = _glow_mat(Color(1.0, 0.85, 0.55, 0.75))   # (v387: a blaze, was a faint blue)
-		_halo.scale = Vector3.ONE * 1.9
+		_halo.material_override = _glow_mat(Color(1.0, 0.85, 0.55, 0.52))   # (v387: a blaze, was a faint blue; v394: a third softer, it outshone the monster)
+		_halo.scale = Vector3.ONE * 1.6
 		_halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_star.add_child(_halo)
 	if skel.find_bone("head") >= 0:
@@ -314,7 +319,10 @@ func _dress() -> void:
 			sm.rings = 4
 			eye.mesh = sm
 			eye.material_override = _mat("eye")
-			eye.position = Vector3(side * 0.14, 0.42, 0.4)
+			# (v394: slanted slits on the gem head, were round dots on the old skull)
+			eye.position = Vector3(side * 0.11, 0.42, 0.25)
+			eye.rotation.z = side * 0.45
+			eye.scale = Vector3(1.7, 0.55, 0.8)
 			head.add_child(eye)
 		_moons = Node3D.new()
 		_moons.position = Vector3(0, 0.95, 0)

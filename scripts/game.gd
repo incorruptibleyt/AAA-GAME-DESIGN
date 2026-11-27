@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-26q"
+const BUILD := "2026-11-27a"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1834,7 +1834,7 @@ func _room_focus() -> Vector3:
 	var far_boss := INF
 	for b in _bosses:
 		if is_instance_valid(b) and not b.dead:
-			far_boss = minf(far_boss, b.global_position.z - 2.0)   # its head and shoulders too
+			far_boss = minf(far_boss, b.global_position.z - maxf(2.0, b.center_height * 1.1))   # its head and shoulders too (v394: the tall Star Eater's too)
 	if far_boss != INF and not _intro_focus:
 		z = maxf(minf(z, far_boss - (d * cos(p) - d * sin(p) / tan(a_min))), minf(z, keep_hero))
 	var vp := get_viewport().get_visible_rect().size
@@ -1843,7 +1843,21 @@ func _room_focus() -> Vector3:
 	# Version 219 (review 4 fix 20): the wall clamp used the width seen at the middle of the
 	# screen, but rows nearer the camera see less, so a hero in a near corner sat half off the
 	# edge. Keeping the hero in view now wins over hiding the wall.
-	return _keep_hero(Vector3(clampf(hero.global_position.x, -x_room, x_room), 0, z))
+	# Version 394 (visual review of v388, fix 5): in a boss fight the camera also leans
+	# sideways toward the nearest boss, so a big one to the side (the Cinder Colossus by a
+	# wall) isn't cut off at the screen's edge; _keep_hero still keeps the hero well inside.
+	var x := hero.global_position.x
+	var near_boss: Enemy = null
+	for b in _bosses:
+		if is_instance_valid(b) and not b.dead and (near_boss == null or b.global_position.distance_squared_to(hero.global_position) < near_boss.global_position.distance_squared_to(hero.global_position)):
+			near_boss = b
+	if near_boss != null and not _intro_focus:
+		var k := clampf((_boss_pull - 1.0) / (BOSS_PULL - 1.0), 0.0, 1.0)
+		x = lerpf(x, near_boss.global_position.x, BOSS_SIDE_LEAN * k)
+		# (but never so far that the hero comes nearer than about 30% to the screen's edge)
+		var lim := VIEW_HALF_WIDTH * BOSS_LEAN_HERO
+		x = clampf(x, hero.global_position.x - lim, hero.global_position.x + lim)
+	return _keep_hero(Vector3(clampf(x, -x_room, x_room), 0, z))
 
 
 func _place_camera() -> void:
@@ -1872,6 +1886,9 @@ func _snap_camera() -> void:
 ## Version 305 (Supercell review fix 2): in a boss fight the camera stands 12% further back,
 ## so the boss, the hero and the warnings fit together under the top bars (eased in and out).
 const BOSS_PULL := 1.12
+## Version 394: how far the camera leans sideways toward the boss (0 none, 1 centred on it).
+const BOSS_SIDE_LEAN := 0.45
+const BOSS_LEAN_HERO := 0.4
 var _boss_pull := 1.0
 ## Version 368: the farthest skeleton ahead of the hero (its head), followed slowly, and how
 ## much the camera leans toward it (see _room_focus).

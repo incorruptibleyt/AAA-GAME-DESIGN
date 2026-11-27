@@ -16,7 +16,7 @@ static func _m(key: String) -> Material:
 			"velvet_dark": _mats[key] = U.mat(Color(0.38, 0.03, 0.07), 0.85)
 			"ermine": _mats[key] = U.mat(Color(0.96, 0.95, 0.92), 0.9)
 			"ermine_spot": _mats[key] = U.mat(Color(0.08, 0.08, 0.1), 0.9)
-			"lich_robe": _mats[key] = U.mat(Color(0.17, 0.07, 0.24), 0.85)   # (v387: violet-black, was the Wraith's navy)
+			"lich_robe": _mats[key] = U.mat(Color(0.3, 0.14, 0.44), 0.85)   # (v387: violet, was the Wraith's navy; v394: two steps lighter, it vanished on the dark floor)
 			"lich_hem": _mats[key] = U.mat(Color(0.4, 1.0, 0.5), 0.4, 1.0)
 			"soul": _mats[key] = U.unlit(Color(0.72, 1.0, 0.62))
 			"phylactery": _mats[key] = U.unlit(Color(0.55, 1.0, 0.45))
@@ -83,6 +83,15 @@ void fragment() {
 				rm.shader = rs
 				_mats[key] = rm
 			"ring_dust": _mats[key] = U.unlit(Color(1.0, 0.95, 0.6))
+			"star_shard": _mats[key] = U.mat(Color(0.22, 0.2, 0.62), 0.12, 0.35)
+			"star_tip": _mats[key] = U.mat(Color(1.0, 0.86, 0.5), 0.2, 1.5)
+			"star_tip_pale": _mats[key] = U.mat(Color(0.78, 0.86, 1.0), 0.2, 1.3)
+			"star_head":   # (a dark mask, its own value: the head no longer melts into the body)
+				var sh := U.mat(Color(0.03, 0.03, 0.1), 0.3, 0.0).duplicate() as StandardMaterial3D
+				sh.rim_enabled = true
+				sh.rim = 1.0
+				sh.rim_tint = 0.1
+				_mats[key] = sh
 			_: return FoeBodies._m(key)
 	return _mats[key]
 
@@ -101,7 +110,9 @@ static func dress(model: Node3D, skel: Skeleton3D, kind: String) -> bool:
 		"goat": _goat(skel)
 		"scholar": _scholar(skel)
 		"forge": _forge(skel)
-		"planet": _planet(skel)
+		"planet":
+			_star_giant(skel)
+			_planet(skel)
 		_: return false
 	return true
 
@@ -162,11 +173,10 @@ static func _lich(model: Node3D, skel: Skeleton3D) -> void:
 			for k in 4:
 				var s := U.cone(c, 0.12 - 0.012 * k, 0.95 - 0.12 * k, _m("bone"), Vector3(side * (0.45 + 0.06 * k), 0.2 - 0.04 * k, -0.24 + 0.1 * k))
 				s.rotation = Vector3(-0.35 + 0.12 * k, 0, -side * (0.75 + 0.22 * k))
-		for side in [-1.0, 1.0]:   # a high stiff collar standing up behind its skull
-			var panel := U.box(c, Vector3(0.55, 1.0, 0.06), _m("lich_robe"), Vector3(side * 0.3, 0.62, -0.28))
-			panel.rotation = Vector3(-0.25, side * 0.45, -side * 0.3)
-			var lining := U.box(c, Vector3(0.45, 0.88, 0.02), _m("lich_hem"), Vector3(side * 0.29, 0.6, -0.24))
-			lining.rotation = Vector3(-0.25, side * 0.45, -side * 0.3)
+		# (v394: the stiff collar panels went; with the crown and the pink wash they made the
+		# Lich a pile of pieces. Its hood frames the skull now, and its robe covers its chest,
+		# where the mage's crimson shirt showed.)
+		U.cone(c, 0.48, 0.78, _m("lich_robe"), Vector3(0, -0.52, 0.0), 0.3)
 		FeatHeads.bake(c, "boss lich mantle")
 		# Version 387: its phylactery, a green gem burning on its chest in a gold claw,
 		# with a glow round it, so the camera always finds the Lich's heart.
@@ -185,8 +195,28 @@ static func _lich(model: Node3D, skel: Skeleton3D) -> void:
 		var pglow := U.sphere(ph, 0.5, _m("soul_glow"))
 		pglow.set_meta("fx", true)
 		gem.set_meta("fx", true)
+	for side in ["l", "r"]:   # (v394) robe sleeves over the mage's crimson ones
+		var ua := FoeBodies._on(skel, "upperarm." + side)
+		if ua:
+			U.cone(ua, 0.16, 0.3, _m("lich_robe"), Vector3(0, -0.02, 0), 0.14)
+		var la := FoeBodies._on(skel, "lowerarm." + side)
+		if la:
+			var sl := U.cone(la, 0.24, 0.3, _m("lich_robe"), Vector3(0, -0.02, 0), 0.13)
+			sl.rotation.x = PI   # (a bell sleeve, wide at the wrist)
+			var cuff := U.cone(la, 0.25, 0.03, _m("lich_hem"), Vector3(0, 0.26, 0), 0.25)
+			cuff.rotation.x = PI
+			FeatHeads.bake(la, "boss lich sleeve")
 	var hd := FoeBodies._on(skel, "head")
 	if hd:
+		# Version 394 (visual review of v388, fix 5): a deep cowl over the skull,
+		# lined with soul-fire, so from above it is one dark hooded shape with a bone
+		# face and green eyes (it was a crowned, pink-washed pile).
+		var cowl := U.sphere(hd, 0.56, _m("lich_robe"), Vector3(0, 0.5, -0.2))
+		cowl.scale = Vector3(1.08, 1.0, 1.0)
+		var rim := U.cylinder(hd, 0.5, 0.035, _m("lich_hem"), Vector3(0, 0.5, 0.24))
+		rim.rotation.x = PI * 0.5
+		rim.scale = Vector3(1.0, 1.0, 1.15)
+		FeatHeads.bake(hd, "boss lich hood")
 		for side in [-1.0, 1.0]:   # green fire in its eye sockets
 			var eye := U.sphere(hd, 0.07, _m("phylactery_hot"), Vector3(side * 0.14, 0.42, 0.38))
 			eye.set_meta("fx", true)
@@ -479,3 +509,145 @@ static func _planet(skel: Skeleton3D) -> void:
 		var ang := TAU * i / 9.0
 		var d := U.sphere(spin, 0.05 + 0.03 * (i % 3), _m("ring_dust"), Vector3(cos(ang) * 1.14, 0.03, sin(ang) * 1.14))
 		d.set_meta("fx", true)
+
+
+# --- The Star Eater's body (Version 394, visual review of v388 fix 5) ------------------------
+# It was a skeleton warrior with a star stuck on its ribs ("a sticker"). Now its skeleton is
+# hidden and the whole giant is made of faceted shards of night sky (the starry overlay
+# shows through every facet): gem head, a heart of shards that bursts round the star,
+# great shoulder spikes, shard limbs and claws, and gold star-points on its edges.
+
+static var _shard_meshes := {}
+
+## A crystal with `sides` flat faces from y 0 to y 1, widest (radius 1) at `widest`.
+static func _shard_mesh(sides: int, widest: float) -> ArrayMesh:
+	var key := "%d_%.2f" % [sides, widest]
+	if _shard_meshes.has(key):
+		return _shard_meshes[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var lo := Vector3.ZERO
+	var hi := Vector3(0, 1, 0)
+	for i in sides:
+		var a0 := TAU * i / sides
+		var a1 := TAU * (i + 1) / sides
+		var p0 := Vector3(cos(a0), widest, sin(a0))
+		var p1 := Vector3(cos(a1), widest, sin(a1))
+		for tri in [[hi, p1, p0], [lo, p0, p1]]:
+			var n: Vector3 = (tri[1] - tri[0]).cross(tri[2] - tri[0]).normalized()
+			for j in [0, 2, 1]:   # (Godot's front faces wind clockwise)
+				st.set_normal(n)
+				st.add_vertex(tri[j])
+	var am := st.commit()
+	_shard_meshes[key] = am
+	return am
+
+
+## A shard from `a` to `b` (the point at b), `w` thick at its widest.
+static func _shard(parent: Node3D, a: Vector3, b: Vector3, w: float, mat: Material, sides := 5, widest := 0.3) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = _shard_mesh(sides, widest)
+	mi.material_override = mat
+	var d := b - a
+	var dir := d.normalized()
+	var basis := Basis.IDENTITY
+	if dir.dot(Vector3.UP) < -0.999:
+		basis = Basis(Vector3.RIGHT, PI)
+	elif dir.dot(Vector3.UP) < 0.999:
+		basis = Basis(Quaternion(Vector3.UP, dir))
+	mi.transform = Transform3D(basis * Basis.from_scale(Vector3(w, d.length(), w)), a)
+	parent.add_child(mi)
+	return mi
+
+
+## A two-pointed gem centred on `at`, `size` = (width, height, depth).
+static func _gem(parent: Node3D, at: Vector3, size: Vector3, mat: Material, sides := 6, rot := Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = _shard_mesh(sides, 0.5)
+	mi.material_override = mat
+	mi.transform = Transform3D(Basis.from_euler(rot) * Basis.from_scale(size), at) * Transform3D(Basis.IDENTITY, Vector3(0, -0.5, 0))
+	parent.add_child(mi)
+	return mi
+
+
+static func _star_giant(skel: Skeleton3D) -> void:
+	var body := _m("star_shard")
+	var gold := _m("star_tip")
+	var pale := _m("star_tip_pale")
+	var h := FoeBodies._on(skel, "hips")
+	if h:
+		_gem(h, Vector3(0, 0.02, 0), Vector3(0.34, 0.3, 0.26), body)
+		for side in [-1.0, 1.0]:   # hip plates pointing down and out
+			_shard(h, Vector3(side * 0.16, 0.06, 0), Vector3(side * 0.36, -0.22, 0.04), 0.1, body)
+		FeatHeads.bake(h, "boss star hips")
+	var sp := FoeBodies._on(skel, "spine")
+	if sp:
+		_gem(sp, Vector3(0, 0.2, 0), Vector3(0.26, 0.42, 0.2), body)
+		FeatHeads.bake(sp, "boss star spine")
+	var c := FoeBodies._on(skel, "chest")
+	if c:
+		# the chest: a broad gem, and a heart of shards bursting out round the star (tipped up
+		# to the camera like the star itself)
+		_gem(c, Vector3(0, 0.16, -0.04), Vector3(0.62, 0.62, 0.42), body, 6)
+		var heart := Node3D.new()
+		c.add_child(heart)
+		heart.position = Vector3(0, 0.22, 0.3)
+		heart.rotation.x = -0.75
+		for k in 8:
+			var ang := TAU * k / 8.0 + TAU / 16.0
+			var o := Vector3(cos(ang), sin(ang), 0)
+			_shard(heart, o * 0.18, o * (0.66 if k % 2 == 0 else 0.5), 0.11, body, 4)
+		FeatHeads.bake(heart, "boss star heart")
+		for side in [-1.0, 1.0]:
+			# great spikes off the shoulders, the outline from above
+			_shard(c, Vector3(side * 0.3, 0.3, -0.06), Vector3(side * 0.62, 0.98, -0.22), 0.15, body)
+			_shard(c, Vector3(side * 0.36, 0.22, -0.12), Vector3(side * 0.8, 0.6, -0.3), 0.1, body)
+			_shard(c, Vector3(side * 0.18, 0.36, -0.2), Vector3(side * 0.26, 0.84, -0.42), 0.09, body)
+		FeatHeads.bake(c, "boss star chest")
+		var tips := Node3D.new()   # gold star-points on the spikes, not under the night overlay
+		c.add_child(tips)
+		for side in [-1.0, 1.0]:
+			_shard(tips, Vector3(side * 0.56, 0.86, -0.2), Vector3(side * 0.64, 1.02, -0.23), 0.07, gold)
+			_shard(tips, Vector3(side * 0.73, 0.54, -0.27), Vector3(side * 0.82, 0.62, -0.31), 0.05, pale)
+		FeatHeads.bake(tips, "boss star chest tips")
+		for n in tips.get_children():
+			n.set_meta("fx", true)
+	var hd := FoeBodies._on(skel, "head")
+	if hd:
+		# a faceted gem head: a long diamond with a brow ridge of shards
+		# (dark, out of the starry overlay, so its face reads against its glowing body)
+		var face := Node3D.new()
+		hd.add_child(face)
+		_gem(face, Vector3(0, 0.38, 0.0), Vector3(0.46, 0.86, 0.44), _m("star_head"), 5, Vector3(0.3, 0, 0))
+		for side in [-1.0, 1.0]:
+			_shard(face, Vector3(side * 0.16, 0.52, 0.22), Vector3(side * 0.46, 0.8, 0.1), 0.08, _m("star_head"), 4)
+		FeatHeads.bake(face, "boss star head")
+		for n in face.get_children():
+			n.set_meta("fx", true)
+	for side in ["l", "r"]:
+		var ua := FoeBodies._on(skel, "upperarm." + side)
+		if ua:
+			_shard(ua, Vector3(0, -0.04, 0), Vector3(0, 0.34, 0), 0.19, body, 5, 0.35)
+			FeatHeads.bake(ua, "boss star upperarm")
+		var la := FoeBodies._on(skel, "lowerarm." + side)
+		if la:
+			_shard(la, Vector3(0, -0.06, 0), Vector3(0, 0.34, 0), 0.18, body, 5, 0.5)
+			FeatHeads.bake(la, "boss star lowerarm")
+		var hn := FoeBodies._on(skel, "hand." + side)
+		if hn:
+			for k in 3:   # three claws
+				var sp2 := (k - 1) * 0.07
+				_shard(hn, Vector3(sp2, -0.04, 0), Vector3(sp2 * 2.2, 0.26, 0.05 * (1 - absf(k - 1))), 0.06, body, 4)
+			FeatHeads.bake(hn, "boss star hand")
+		var ul := FoeBodies._on(skel, "upperleg." + side)
+		if ul:
+			_shard(ul, Vector3(0, -0.04, 0), Vector3(0, 0.3, 0), 0.2, body, 5, 0.4)
+			FeatHeads.bake(ul, "boss star upperleg")
+		var ll := FoeBodies._on(skel, "lowerleg." + side)
+		if ll:
+			_shard(ll, Vector3(0, -0.06, 0), Vector3(0, 0.22, 0), 0.19, body, 5, 0.5)
+			FeatHeads.bake(ll, "boss star lowerleg")
+		var ft := FoeBodies._on(skel, "foot." + side)
+		if ft:
+			_gem(ft, Vector3(0, 0.06, 0), Vector3(0.22, 0.26, 0.14), body, 5)
+			FeatHeads.bake(ft, "boss star foot")

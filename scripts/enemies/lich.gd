@@ -31,14 +31,14 @@ func _setup() -> void:
 	drop_chance = 0.0
 	var look := bones(Art.SKELETON_MAGE, 3.6, GREEN)
 	look.hide = ["Skeleton_Mage_Hat"]   # (v348: a bare crowned skull, not a big mage)
-	look.crown_y = 0.82
-	look.crown = true
 	look.accent = Color(0.18, 0.12, 0.32)
 	look.weapon = "Skeleton_Staff"
 	# Version 387 (visual review of v383, fix 7): the Lich in its own colours. It was the
 	# Frost Wraith's blue with a crown; now a violet-black robe trimmed in soul-fire green,
 	# green souls, green eyes and a burning green phylactery on its chest (BossBodies._lich).
-	look.tint = Color(0.16, 0.05, 0.24, 1.0)
+	# Version 394 (visual review of v388, fix 5): no crown and no violet wash (it turned its
+	# bones pink); a hood and a faint pale edge glow (BossBodies._lich).
+	look.rim = Color(0.78, 0.66, 1.0, 0.35)   # (pale violet: a green edge tinted its skull green)
 	look.shape = {"scale": {"chest": 0.85, "upperarm.l": 1.4, "upperarm.r": 1.4}, "lift": 0.4}   # (v348: floating, long-armed)
 	look.parts = "lich"
 	make_visual(look)
