@@ -141,6 +141,7 @@ func _emperor(visual: Node3D, model: Node3D) -> void:
 	var skel := Art._find_skeleton(model)
 	if skel:
 		LegendEmperor.pauldrons(skel)
+		LegendEmperor.breastplate(skel)
 
 
 ## Version 329: a dash raises a row of bone spikes out of the floor along its path: clumps of

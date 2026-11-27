@@ -572,9 +572,10 @@ class Swatch extends Control:
 		if _lock == null:
 			return
 		var r := minf(size.x, size.y + pic_grow.x + pic_grow.y) * 0.5
-		var d := clampf(r * 0.56, 22.0, 34.0)
+		var d := clampf(r * 0.46, 20.0, 28.0)
 		_lock.size = Vector2(d, d)
-		_lock.position = size * 0.5 + Vector2(r * 0.52, r * 0.38) - _lock.size * 0.5
+		# (v407: out in the corner, off the prize: it sat on the weapon it locked)
+		_lock.position = size * 0.5 + Vector2(r * 0.88, r * 0.66) - _lock.size * 0.5
 		move_child(_lock, -1)
 
 	func _init() -> void:

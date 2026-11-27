@@ -277,6 +277,8 @@ func open_screen(waiting: int, is_casket := false) -> void:
 	casket = is_casket
 	_offer = {}
 	_look.show_back = false
+	_look.hide_shield = false
+	_look.steps = false
 	_feat_mode = false
 	_feat_queue.clear()
 	_left = waiting
@@ -294,6 +296,8 @@ func close() -> void:
 	_land_all()
 	_show_look(false)
 	_look.show_back = false
+	_look.hide_shield = false
+	_look.steps = false
 	_odds.visible = false
 	_odds_dim.visible = false
 	_feat_mode = false
@@ -366,7 +370,9 @@ func show_offer(o: Dictionary) -> void:
 	# (Version 397: the Bone Emperor faces the camera, sitting on the throne.)
 	var seated: bool = legend and o.look.size() >= 2 and str(o.look[1]) == "emperor"
 	_look.show_back = slot in ["wings", "grand"] and not seated
-	_look.back_angle = 1.35 if slot == "grand" else HeroStage.BACK
+	_look.back_angle = 0.9 if slot == "grand" else HeroStage.BACK   # (v407: grand from three-quarters behind: the mantle spread, not a sliver)
+	_look.hide_shield = legend   # (v407: the shield hid the look on sale)
+	_look.steps = slot == "steps"
 	_show_look(true)
 	_wear.visible = true
 	_offer_buttons()
@@ -429,6 +435,8 @@ func _next_feat() -> void:
 	_odds.visible = false
 	_odds_dim.visible = false
 	_look.show_back = false
+	_look.hide_shield = false
+	_look.steps = false
 	_show_look(true)
 	_wear.visible = true
 	_wear.disabled = false

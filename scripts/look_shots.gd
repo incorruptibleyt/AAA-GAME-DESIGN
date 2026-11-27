@@ -286,8 +286,16 @@ func _take(job: Array) -> void:
 	var lslot := ""
 	if slot == "legend":
 		lslot = str(def.style.legend.keys()[0])
-	if lslot == "":
+	if lslot == "" and slot != "hold":
 		v.attack(def.id == "mage")
+	if slot == "hold" and not OS.has_environment("LS_BODY"):
+		# Version 407 (re-review of v400, fix 7): a weapon's card shows the weapon, not a small
+		# hero holding it: the hero's body is left out and the camera fills the card with what
+		# the hands hold (the hero standing at ease, hands low, so the pair sits close).
+		var pre := str(HeroStyle.PREFIX.get(str(def.id), "-"))
+		for mi in v.find_children("*", "MeshInstance3D", true, false):
+			if (str(mi.name).begins_with(pre) and not "Shield" in str(mi.name)) or not _in_hand(mi):
+				(mi as Node3D).visible = false
 	if v._anim:
 		v._anim.advance(0.0)
 	var col: Color = def.ring
@@ -310,6 +318,16 @@ func _take(job: Array) -> void:
 	var f := _frame(slot, v, def)
 	if shield:
 		f = [Vector3(0.15, 1.5, 4.9), Vector3(0.1, 1.08, 0)]
+	elif slot == "hold":
+		# (v407 critic: the two hands are far apart, so a pair of small things shrank to specks
+		# with empty card between them: turned three-quarters, the hands come together)
+		_pivot.rotation.y = HeroStage.FRONT + 0.8
+		v.force_update_transform()
+		# Version 407 (re-review of v400, fix 7: "weapon cards are tiny full-body pictures"):
+		# the camera finds what is held in the hands and fills the card with it.
+		var box := _held_box(v)
+		if box.size != Vector3.ZERO:
+			f = _frame_box(box)
 	if OS.has_environment("LS_FRAME"):   # (lab only)
 		var n := Array(OS.get_environment("LS_FRAME").split(",")).map(func(x: String) -> float: return float(x))
 		f = [Vector3(n[0], n[1], n[2]), Vector3(n[3], n[4], n[5])]
@@ -480,7 +498,8 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 			return [Vector3(0.05, 1.6, 4.5), Vector3(-0.1, 1.36, 0)]
 		"aura":
 			# (Version 362: from higher up, so the aura's own mark on the floor shows whole.)
-			return [Vector3(0, 3.6, 5.1), Vector3(0, 0.36, 0)]
+			# (v407: further back, so the head no longer pokes out of the top of the card)
+			return [Vector3(0, 3.5, 6.1), Vector3(0, 0.62, 0)]
 		"set":
 			return [Vector3(0, 1.9, 7.2), Vector3(0, 1.22, 0)]
 		"glow":
@@ -514,6 +533,68 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 					return [Vector3(0.0, 1.52, 4.64), Vector3(0, 1.0, 0)]
 	# (Version 397: the whole hero, plume to boots: the Knight's crest was cut off the card.)
 	return [Vector3(0, 1.5, 5.5), Vector3(0, 1.02, 0)]
+
+
+## Where the hands are, in the picture's world, as a box grown round them by what they hold
+## (KayKit's weapons are skinned to the hand bone, so their own boxes don't show where they are).
+func _held_box(v: CharacterVisual) -> AABB:
+	var skel := Art._find_skeleton(v)
+	if skel == null:
+		return AABB()
+	var pts: Array[Vector3] = []
+	for bn in ["handslot.r", "handslot.l"]:
+		var bi := skel.find_bone(bn)
+		if bi >= 0:
+			pts.append(skel.global_transform * skel.get_bone_global_pose(bi).origin)
+	if pts.is_empty():
+		return AABB()
+	var wide := false
+	for n in v.find_children("2H_*", "MeshInstance3D", true, false):
+		wide = wide or (n as Node3D).is_visible_in_tree()
+	var grow := 0.66 if wide else 0.46
+	var box := AABB(pts[0], Vector3.ZERO)
+	for p in pts:
+		box = box.expand(p)
+	box = box.grow(grow)
+	# (the great made weapons hang off the hand bones as plain meshes: their own boxes are
+	# true, so a long blade or a big axe head is taken in whole)
+	for mi in v.find_children("*", "MeshInstance3D", true, false):
+		var m := mi as MeshInstance3D
+		# (only what the game built: the model's own weapons give boxes far off their shape)
+		if m.owner != null or not m.is_visible_in_tree() or m.mesh == null or not _in_hand(m):
+			continue
+		var b := m.global_transform * m.get_aabb()
+		if b.size.length() < 3.2:   # (not a glow quad or a trail)
+			box = box.merge(b.grow(0.06))
+			if OS.has_environment("LS_DEBUG"):
+				print("  in hand ", m.name, " ", b.size)
+	box.position.y = maxf(box.position.y, 0.05)
+	if OS.has_environment("LS_DEBUG"):
+		print("HELD ", box, " wide=", wide)
+	return box
+
+
+## True for a mesh held in a hand: KayKit's own weapons (skinned, right under the skeleton)
+## and anything hung on a hand bone; false for what hangs on the head, back or shoulders.
+static func _in_hand(n: Node) -> bool:
+	var p := n.get_parent()
+	while p != null:
+		if p is Skeleton3D:
+			return true
+		if p is BoneAttachment3D:
+			var bn := str((p as BoneAttachment3D).bone_name)
+			return bn.begins_with("handslot") or bn.begins_with("hand") or bn.begins_with("wrist")
+		p = p.get_parent()
+	return false
+
+
+## The camera for a card filled by `box`: in front of it and a little above, far enough back
+## that its longest side fits the card with a margin.
+func _frame_box(box: AABB) -> Array:
+	var c := box.get_center()
+	var reach := maxf(maxf(box.size.x, box.size.y), 0.45)
+	var dist := reach * 0.5 / tan(deg_to_rad(_cam.fov * 0.5)) * 1.22 + box.size.z * 0.5
+	return [c + Vector3(0.0, dist * 0.18, dist), c]
 
 
 ## True when (almost) nothing was drawn: fewer than 2% of the pixels are seen.

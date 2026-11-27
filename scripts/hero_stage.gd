@@ -13,6 +13,11 @@ const FRONT := PI - 0.35
 ## (the Knight's shield hid the Phoenix Wings on sale).
 const BACK := 0.5
 var show_back := false
+## Version 407 (re-review of v400, fix 7: prize pictures show the prize): a Legend Vault look
+## is shown without the shield (it covered the body: Ember Steps and Stardust Steps read as
+## one picture of a shield), and footsteps from higher up, on the floor they mark.
+var hide_shield := false
+var steps := false
 var back_angle := BACK   # (a grand set: from the side, so its mantle and crown both show)
 
 
@@ -156,7 +161,9 @@ func _framing() -> Array:
 
 func _framing_far() -> Array:
 	if _duo:   # (v397: a finisher's skeleton stands beside the hero: both in the picture)
-		return [Vector3(0.7, 1.5, 6.2), Vector3(0.7, 0.95, 0)]
+		return [Vector3(0.85, 1.6, 7.0), Vector3(0.85, 0.95, 0)]   # (v407: the skeleton was cut by the edge)
+	if steps:   # (v407: from higher up, on the line of steps walking out towards the camera)
+		return [Vector3(0, 3.6, 5.5), Vector3(0, 0.78, 0.8)]   # (the Barbarian's horns kept in)
 	if _wide:
 		var y := 0.15 if _tall else 0.0
 		return [Vector3(-0.45, 1.5 + y, 6.4 + y * 4.0), Vector3(-0.45, 0.92 + y, 0)]
@@ -319,9 +326,10 @@ func show_hero(def: Dictionary, gold := false, frame_col := Color(1.0, 0.8, 0.3)
 	_visual.attack(def.id == "mage")
 	if _visual._anim:
 		_visual._anim.advance(0.0)   # pose them now, so they never flash up in a T-pose
-	if show_back:
+	if show_back or hide_shield:
 		for n in _visual.find_children("*hield*", "Node3D", true, false):
 			(n as Node3D).visible = false
+	if show_back:
 		if back_angle == BACK:
 			# (wings: the hero's own cape or cloak hid the wings' roots as a big blob)
 			for n in _visual.find_children("*_Cape", "MeshInstance3D", true, false) + _visual.find_children("*_Cloak", "MeshInstance3D", true, false):

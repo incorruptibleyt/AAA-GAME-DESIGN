@@ -391,6 +391,53 @@ static func pauldrons(skel: Skeleton3D) -> void:
 		_fx(p)
 
 
+## Version 407 (re-review of v400, fix 7: "the Emperor is a grey Knight under a crown"): a
+## breastplate of bone over the chest, ribs on a gold keel with a skull at its heart, and a
+## collar of ermine (white fur, black tails) round the neck, so the front is the Emperor's.
+static func breastplate(skel: Skeleton3D) -> void:
+	_mats()
+	var bi := skel.find_bone("chest")
+	if bi < 0:
+		return
+	var att := HeroStyle._attachment(skel, "chest")
+	var p := Node3D.new()
+	p.name = "EmperorChest"
+	att.add_child(p)
+	p.transform = skel.get_bone_global_rest(bi).affine_inverse() * Transform3D(Basis.IDENTITY, Vector3(0, 0.98, 0.3))
+	p.scale = Vector3.ONE * 1.15
+	U.box(p, Vector3(0.5, 0.46, 0.06), _velvet, Vector3(0, 0.0, -0.02))   # crimson under the ribs
+	U.box(p, Vector3(0.09, 0.5, 0.08), _gold, Vector3(0, 0.0, 0.03))   # the gold keel
+	for k in 3:   # three pairs of ribs curving round from the keel
+		var y := 0.15 - 0.13 * k
+		var w := 0.2 - 0.02 * k
+		for sd in [-1.0, 1.0]:
+			var rib := U.box(p, Vector3(w, 0.055, 0.07), _bone, Vector3(sd * (0.05 + w * 0.5), y, 0.03))
+			rib.rotation.z = sd * -0.28
+			U.sphere(p, 0.035, _bone, Vector3(sd * (0.06 + w), y - sd * sd * 0.05, 0.02))
+	skull(p, 0.17, Vector3(0, 0.02, 0.1))
+	# the ermine collar: a thick ring of white fur with black tails
+	var fur := _hero_mat(Color(0.97, 0.96, 0.93), 1.0, 0.0)
+	var col := Node3D.new()
+	col.position = Vector3(0, 0.2, -0.27)
+	col.rotation.x = 0.3   # (its front dips onto the chest, under the chin, where it shows)
+	p.add_child(col)
+	var tor := MeshInstance3D.new()
+	var tm := TorusMesh.new()
+	tm.inner_radius = 0.22
+	tm.outer_radius = 0.38
+	tm.rings = 18
+	tm.ring_segments = 8
+	tor.mesh = tm
+	tor.material_override = fur
+	tor.scale = Vector3(1.0, 0.75, 0.9)
+	col.add_child(tor)
+	for k in 7:
+		var a := PI * (0.15 + 0.7 * k / 6.0)
+		var tail := U.box(col, Vector3(0.035, 0.07, 0.03), _dark, Vector3(cos(a) * 0.3, 0.05, sin(a) * 0.3))
+		tail.rotation.y = -a
+	_fx(p)
+
+
 # ---------------------------------------------------------------- the crown of skulls
 
 ## The crown of skulls, in the head bone's space (`y` the top of the head; HeroStyle._extra).
