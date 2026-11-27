@@ -366,7 +366,9 @@ func _take(job: Array) -> void:
 	var tex := ImageTexture.create_from_image(img)
 	_keep(k, tex)
 	for cb: Callable in cbs:
-		if cb.is_valid():
+		# (by id first: a card closed while its picture was made leaves a freed object, and
+		# asking that Callable is_valid() prints an engine error)
+		if is_instance_id_valid(cb.get_object_id()) and cb.is_valid():
 			cb.call(tex)
 
 
@@ -469,7 +471,9 @@ func _take_prize(k: String, kind: String) -> void:
 	var tex := ImageTexture.create_from_image(img)
 	_keep(k, tex)
 	for cb: Callable in cbs:
-		if cb.is_valid():
+		# (by id first: a card closed while its picture was made leaves a freed object, and
+		# asking that Callable is_valid() prints an engine error)
+		if is_instance_id_valid(cb.get_object_id()) and cb.is_valid():
 			cb.call(tex)
 
 
@@ -505,7 +509,9 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 		"glow":
 			# (Version 397: a glow is told by its ring's outline, so its card looks down on the
 			# ring, whole, with the whole hero standing in it.)
-			return [Vector3(0, 5.6, 4.4), Vector3(0, 0.5, 0)]
+			# (Version 415, re-review of v410 fix 5: "six glows look the same except the ring
+			# colour": closer and more from above, so the ring's outline fills the card.)
+			return [Vector3(0, 5.0, 2.5), Vector3(0, 0.25, 0)]
 		"legend":
 			# Close on the prize itself (a pet flies, and a finisher bursts, at the hero's right on
 			# the screen); the hero is half in the picture, to show it is worn.
@@ -551,7 +557,7 @@ func _held_box(v: CharacterVisual) -> AABB:
 	var wide := false
 	for n in v.find_children("2H_*", "MeshInstance3D", true, false):
 		wide = wide or (n as Node3D).is_visible_in_tree()
-	var grow := 0.66 if wide else 0.46
+	var grow := 0.5 if wide else 0.32   # (v415: tighter, so the weapon fills its card)
 	var box := AABB(pts[0], Vector3.ZERO)
 	for p in pts:
 		box = box.expand(p)
@@ -593,7 +599,7 @@ static func _in_hand(n: Node) -> bool:
 func _frame_box(box: AABB) -> Array:
 	var c := box.get_center()
 	var reach := maxf(maxf(box.size.x, box.size.y), 0.45)
-	var dist := reach * 0.5 / tan(deg_to_rad(_cam.fov * 0.5)) * 1.22 + box.size.z * 0.5
+	var dist := reach * 0.5 / tan(deg_to_rad(_cam.fov * 0.5)) * 1.04 + box.size.z * 0.5
 	return [c + Vector3(0.0, dist * 0.18, dist), c]
 
 

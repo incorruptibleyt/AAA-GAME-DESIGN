@@ -36,7 +36,7 @@ static var _mark_shader: Shader
 ## Shapes: 0 polygon, 1 star, 2 spiral, 3 rays, 4 crescents, 5 dots, 6 zigzag ring,
 ## 7 a six-armed snowflake, 8 a compass star (version 244, the Frostfall auras).
 const MARKS := {
-	"Nightshade": [4, 2], "Venom": [2, 3], "Shadow King": [1, 5], "Duskblade": [3, 4], "Nightlord": [4, 3],
+	"Nightshade": [0, 3], "Venom": [2, 3], "Shadow King": [1, 5], "Duskblade": [3, 4], "Nightlord": [4, 3],
 	"Sunguard": [3, 8], "Stormplate": [0, 6], "Paladin": [0, 4], "Dawnshield": [1, 4], "Lionheart": [6, 12],
 	"Wildfire": [6, 7], "Thunder": [0, 3], "Warlord": [5, 5], "Stormrage": [2, 2], "Worldbreaker": [3, 6],
 	"Starfire": [1, 6], "Arcane Frost": [1, 8], "Archmage": [0, 5], "Voidweave": [2, 4], "Starsage": [5, 8],

@@ -214,6 +214,7 @@ func _throne_now() -> void:
 		_throne.visible = want
 	if _staged and _throne:
 		_sit()
+		_hold_scepter()
 
 
 const SEAT_SIZE := 0.86
@@ -236,6 +237,36 @@ func _sit() -> void:
 		return
 	if v._anim.current_animation in [str(v._anim_names.get("idle", "")), ""]:
 		v._anim.play(_sit_name, 0.15)
+
+
+## Version 415 (re-review of v410, fix 5): on a pedestal the Emperor holds his own bone
+## scepter (LegendEmperor.scepter), upright in his right hand, and the hero's weapons are put
+## away (the Knight's sword ran through his arm). In a run the hero keeps their weapon.
+var _scepter: Node3D
+var _hand := -1
+var _skel: Skeleton3D
+func _hold_scepter() -> void:
+	var v := get_parent() as Node3D
+	if _scepter == null:
+		_skel = Art._find_skeleton(v)
+		if _skel == null:
+			return
+		_hand = _skel.find_bone("handslot.r")
+		if _hand < 0:
+			_hand = _skel.find_bone("hand.r")
+		if _hand < 0:
+			return
+		_scepter = LegendEmperor.scepter()
+		v.add_child(_scepter)
+	for c in _skel.get_children():   # (each frame: a look change re-dresses the hands)
+		var att := c as BoneAttachment3D
+		if att and str(att.bone_name).begins_with("handslot"):
+			for w in att.get_children():
+				if w is Node3D:
+					(w as Node3D).visible = false
+	var at := _skel.global_transform * _skel.get_bone_global_pose(_hand)
+	var s := v.global_transform.basis.get_scale().y
+	_scepter.global_transform = Transform3D(v.global_transform.basis.orthonormalized().scaled(Vector3.ONE * s), at.origin - v.global_transform.basis.y.normalized() * LegendEmperor.SCEPTER_GRIP * s)
 
 
 func _exit_tree() -> void:

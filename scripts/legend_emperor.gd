@@ -528,6 +528,46 @@ static func _arch_mesh(r: float, h: float) -> Mesh:
 	return m
 
 
+# ---------------------------------------------------------------- the bone scepter
+
+## Version 415 (re-review of v410, fix 5: "the million-coin Emperor is the Knight with his
+## own sword through his arm"): on a pedestal the Emperor holds his own weapon, a tall bone
+## scepter, instead of the hero's. A long bone shaft bound in gold, a gold grip where the hand
+## holds it (GRIP up from its foot), and on top a big skull wearing a gold crown of spikes,
+## its eyes burning, over a ring of gold fangs. Its foot rests on the throne's step.
+const SCEPTER_GRIP := 0.95
+static func scepter() -> Node3D:
+	_mats()
+	var t := Node3D.new()
+	t.name = "BoneScepter"
+	long_bone(t, Vector3(0, 0.05, 0), Vector3(0, 1.95, 0), 0.055)
+	U.sphere(t, 0.1, _gold, Vector3(0, 0.03, 0))   # the gold foot
+	for y in [0.42, 1.5]:
+		U.cylinder(t, 0.08, 0.08, _gold, Vector3(0, y, 0))   # gold bands
+	U.cylinder(t, 0.072, 0.26, _velvet, Vector3(0, SCEPTER_GRIP - 0.13, 0))   # the grip, wrapped in crimson
+	for y in [SCEPTER_GRIP - 0.15, SCEPTER_GRIP + 0.13]:
+		U.cylinder(t, 0.085, 0.035, _gold, Vector3(0, y, 0))
+	# A ring of gold fangs curling up round the skull's jaw.
+	U.cylinder(t, 0.2, 0.07, _gold, Vector3(0, 1.98, 0))
+	for i in 7:
+		var a := TAU * i / 7.0
+		var f := Node3D.new()
+		f.position = Vector3(sin(a) * 0.18, 2.02, cos(a) * 0.18)
+		f.rotation = Vector3(cos(a) * 0.55, 0, -sin(a) * 0.55)
+		t.add_child(f)
+		U.cone(f, 0.05, 0.28, _gold, Vector3.ZERO)
+	skull(t, 0.66, Vector3(0, 2.36, 0)).rotate_y(PI)
+	# The skull's crown: a gold band with five spikes, the front one tallest.
+	U.cylinder(t, 0.29, 0.1, _gold, Vector3(0, 2.6, -0.02))
+	for i in 5:
+		var a := TAU * i / 5.0
+		U.cone(t, 0.07, 0.3 if i == 0 else 0.22, _gold, Vector3(sin(a) * 0.25, 2.69, cos(a) * 0.25 - 0.02))
+	for mi in t.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_fx(t)
+	return t
+
+
 # ---------------------------------------------------------------- the bone throne
 
 ## The bone throne, its front towards -Z (the way the hero faces), its floor at y 0.
@@ -545,7 +585,10 @@ static func throne() -> Node3D:
 	U.box(t, Vector3(1.5, 0.5, 0.8), _stone, Vector3(0, 0.39, 0.2))
 	U.box(t, Vector3(1.4, 0.12, 0.72), _velvet, Vector3(0, 0.7, 0.2))
 	U.box(t, Vector3(1.52, 0.05, 0.05), _gold, Vector3(0, 0.64, -0.2))
-	skull(t, 0.26, Vector3(0, 0.42, -0.21), true, _gold)
+	skull(t, 0.26, Vector3(0, 0.42, -0.21), true, _gold).rotate_y(PI)
+	# (Version 415: the throne's and the scepter's skulls turned round to face the way the
+	# throne does, -Z; skull() faces +Z, so they showed the backs of their heads, plain white
+	# balls on posts, and the throne read as a cot.)
 	# The back: a wide velvet panel in a gold frame with gold finials, and a fan of long bones
 	# rising behind it, each topped with a skull; the middle one tallest, with the biggest skull.
 	U.box(t, Vector3(1.7, 1.55, 0.08), _velvet, Vector3(0, 1.45, 0.55))
@@ -557,7 +600,7 @@ static func throne() -> Node3D:
 		var k := (i - 4) / 4.0
 		var top := Vector3(k * 1.45, 2.62 - absf(k) * 0.6, 0.62 + absf(k) * 0.05)
 		long_bone(t, Vector3(k * 0.6, 0.66, 0.62), top, 0.055 if i != 4 else 0.07)
-		skull(t, 0.42 if i == 4 else 0.27, top + Vector3(0, 0.14 if i == 4 else 0.1, -0.04), i == 4 or i % 2 == 0)
+		skull(t, 0.42 if i == 4 else 0.27, top + Vector3(0, 0.14 if i == 4 else 0.1, -0.04), i == 4 or i % 2 == 0).rotate_y(PI)
 	# The armrests: a bone on two bone legs each side, a skull on a gold cap at the front.
 	for sd in [-1.0, 1.0]:
 		var x: float = sd * 0.86
@@ -565,7 +608,7 @@ static func throne() -> Node3D:
 		long_bone(t, Vector3(x, 0.14, -0.12), Vector3(x, 0.98, -0.12), 0.05)
 		long_bone(t, Vector3(x, 0.14, 0.45), Vector3(x, 0.98, 0.45), 0.05)
 		U.cylinder(t, 0.1, 0.05, _gold, Vector3(x, 1.02, -0.26))
-		skull(t, 0.3, Vector3(x, 1.18, -0.28))
+		skull(t, 0.3, Vector3(x, 1.18, -0.28)).rotate_y(PI)
 	for mi in t.find_children("*", "MeshInstance3D", true, false):
 		(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	return t
