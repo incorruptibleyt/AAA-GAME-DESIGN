@@ -41,7 +41,7 @@ func _setup() -> void:
 	look.offhand = "Skeleton_Axe"
 	look.attack_anim = "Dualwield_Melee_Attack_Chop"
 	look.hide = ["Skeleton_Warrior_Cloak"]
-	look.shape = {"scale": {"chest": 1.5, "head": 0.65, "upperarm.l": 1.5, "upperarm.r": 1.5, "upperleg.l": 0.72, "upperleg.r": 0.72},
+	look.shape = {"scale": {"chest": 1.5, "head": 0.92, "upperarm.l": 1.5, "upperarm.r": 1.5, "upperleg.l": 0.72, "upperleg.r": 0.72},
 		"turn": {"spine": Vector3(18, 0, 0), "head": Vector3(-16, 0, 0)}}   # (v348: an ape of a giant)
 	look.parts = "magma"
 	make_visual(look)
@@ -81,7 +81,7 @@ func _dress() -> void:
 		heart.set_meta("fx", true)
 		var shell := U.sphere(ch, 0.36, BossBodies._m("lava"), Vector3(0, 0.12, 0.38))
 		shell.set_meta("fx", true)
-		var hg := U.sphere(ch, 0.85, BossBodies._m("ember_glow"), Vector3(0, 0.12, 0.5))
+		var hg := U.sphere(ch, 0.5, BossBodies._m("ember_glow"), Vector3(0, 0.12, 0.5))   # (v413: 0.85 read as a sun ball, not a heart)
 		hg.set_meta("fx", true)
 
 

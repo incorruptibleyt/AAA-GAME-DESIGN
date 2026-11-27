@@ -439,10 +439,12 @@ static func _tyrant(skel: Skeleton3D) -> void:
 	var c := FoeBodies._on(skel, "chest")
 	if c == null:
 		return
+	# (v413 re-review: eight shoulder shards buried its head and arms in a heap of crystal:
+	# two great ones a side now, thrown back, so the face and the fists read)
 	for side in [-1.0, 1.0]:
-		for k in 4:
-			var s := U.cone(c, 0.16 - 0.025 * k, 0.8 - 0.14 * k, FoeBodies._m("amethyst" if k % 2 == 0 else "amethyst_pale"), Vector3(side * (0.48 + 0.06 * k), 0.12, -0.2 + 0.14 * k))
-			s.rotation = Vector3(-0.35 + 0.2 * k, 0.3 * k, -side * (0.45 + 0.2 * k))
+		for k in 2:
+			var s := U.cone(c, 0.17 - 0.03 * k, 0.85 - 0.2 * k, FoeBodies._m("amethyst" if k == 0 else "amethyst_pale"), Vector3(side * (0.5 + 0.08 * k), 0.12, -0.3 + 0.1 * k))
+			s.rotation = Vector3(-0.7 + 0.2 * k, 0.3 * k, -side * (0.6 + 0.3 * k))
 	FeatHeads.bake(c, "boss tyrant shoulders")
 	for n in c.get_children():
 		n.set_meta("fx", true)

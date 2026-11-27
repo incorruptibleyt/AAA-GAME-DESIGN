@@ -25,11 +25,11 @@ func _setup() -> void:
 	init_health(590.0 if _gentle() else 650.0)
 	move_speed = 0.0
 	contact_damage = 14.0
-	radius = 1.0
-	center_height = 1.8
+	radius = 1.15
+	center_height = 2.2   # (v413: the Lich stood barely taller than the Knight)
 	knockback_scale = 0.0
 	drop_chance = 0.0
-	var look := bones(Art.SKELETON_MAGE, 3.6, GREEN)
+	var look := bones(Art.SKELETON_MAGE, 4.5, GREEN)
 	look.hide = ["Skeleton_Mage_Hat"]   # (v348: a bare crowned skull, not a big mage)
 	look.accent = Color(0.18, 0.12, 0.32)
 	look.weapon = "Skeleton_Staff"

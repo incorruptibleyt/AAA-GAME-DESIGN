@@ -148,6 +148,8 @@ var _hp_label: Label
 var _room_label: Label
 var _heroic_crest: Label   # version 152: a gold HEROIC under the pause button while Heroic is on
 var _title_play_badge: Label   # HEROIC on PLAY while it's switched on
+const BOSS_BADGE_ROOM := 52.0
+var _boss_badge: BossBadge
 var _boss_box: Control
 var _boss_fill: Control
 ## Version 386 (visual review of v383, fix 4): a pale trail behind the boss bar's fill that
@@ -1254,11 +1256,24 @@ func _build_hud() -> void:
 	_boss_name.label_settings.outline_size = 5
 	_boss_name.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_boss_name.offset_bottom = 26
+	_boss_name.offset_right = -BOSS_BADGE_ROOM
 	_boss_box.add_child(_boss_name)
+	# Version 413 (re-review of v410, fix 3): the boss's own badge at the plate's right end,
+	# a crowned skull in its colour, so the bar says whose it is at a glance.
+	_boss_badge = BossBadge.new()
+	_boss_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_boss_badge.anchor_left = 1.0
+	_boss_badge.anchor_right = 1.0
+	_boss_badge.offset_left = -BOSS_BADGE_ROOM + 4.0
+	_boss_badge.offset_right = 4.0
+	_boss_badge.offset_top = -2.0
+	_boss_badge.offset_bottom = BOSS_BADGE_ROOM - 6.0
+	_boss_box.add_child(_boss_badge)
 	var bar_holder := Control.new()
 	bar_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_holder.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	bar_holder.offset_top = -26
+	bar_holder.offset_right = -BOSS_BADGE_ROOM
 	_boss_box.add_child(bar_holder)
 	_boss_fill = _bar(bar_holder, Color(0.75, 0.1, 0.12))
 	_boss_trail = Panel.new()
@@ -1277,6 +1292,8 @@ func _build_hud() -> void:
 	_boss_hp.autowrap_mode = TextServer.AUTOWRAP_OFF
 	full(_boss_hp)
 	_boss_hp.offset_top = -2
+	_boss_hp.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT   # (v413: off the middle, where Phase 2's tick runs)
+	_boss_hp.offset_right = -10
 	# Version 121: a notch at half health shows from the start where Phase 2 begins, and a
 	# white flash lights the bar when it does.
 	# v389 (review v388 fix 1): a small gold diamond under the bar's middle marks Phase 2; a
@@ -1298,6 +1315,20 @@ func _build_hud() -> void:
 		notch.pivot_offset = Vector2(r, r)
 		notch.rotation = PI / 4.0
 		bar_holder.add_child(notch)
+	# (v413: and a tick right across the bar at half, where Phase 2 begins)
+	for d: Array in [[3.0, Color(0.1, 0.02, 0.03)], [1.5, Color(1.0, 0.86, 0.5)]]:
+		var w: float = d[0]
+		var tick := ColorRect.new()
+		tick.color = d[1]
+		tick.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tick.anchor_left = 0.5
+		tick.anchor_right = 0.5
+		tick.anchor_bottom = 1.0
+		tick.offset_left = -w
+		tick.offset_right = w
+		tick.offset_top = -3.0
+		tick.offset_bottom = 3.0
+		bar_holder.add_child(tick)
 	_boss_flash = ColorRect.new()
 	_boss_flash.color = Color(1, 1, 1, 0)
 	_boss_flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -4903,6 +4934,9 @@ func set_room(index: int, total: int, boss: bool, floor_num := 1) -> void:
 
 func set_boss_name(n: String) -> void:
 	_boss_name.text = n
+	if is_instance_valid(Game.boss):
+		_boss_badge.col = Game.boss.boss_color()
+		_boss_badge.queue_redraw()
 	_boss_trail.anchor_right = 1.0
 	_trail_last = 1.0
 	_boss_name.label_settings.font_color = Color(1, 0.8, 0.6)
@@ -8185,3 +8219,28 @@ func _event_process(delta: float) -> void:
 	if _surge_warn:
 		want = maxf(want, 0.35 * (0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 14.0)))
 	_surge_edge.modulate.a = want
+
+
+## Version 413 (re-review of v410, fix 3): the boss bar's badge, a crowned skull on a dark
+## disc ringed in the boss's own colour.
+class BossBadge extends Control:
+	var col := Color(1.0, 0.36, 0.26)
+
+	func _draw() -> void:
+		var c := size * 0.5 + Vector2(0, 2)
+		var r := minf(size.x, size.y) * 0.5 - 2.0
+		draw_circle(c, r, Color(0.06, 0.03, 0.06))
+		draw_arc(c, r - 1.5, 0.0, TAU, 40, col, 3.0, true)
+		var bone := Color(0.96, 0.92, 0.84)
+		var s := r / 22.0
+		draw_circle(c + Vector2(0, -1) * s, 11.0 * s, bone)
+		draw_rect(Rect2(c + Vector2(-6.5, 5) * s, Vector2(13, 7) * s), bone)
+		for sx in [-1.0, 1.0]:
+			draw_circle(c + Vector2(sx * 4.4, 0) * s, 3.3 * s, col.darkened(0.55))
+			draw_circle(c + Vector2(sx * 4.4, 0) * s, 1.4 * s, col.lightened(0.2))
+		for k in 3:
+			draw_line(c + Vector2(-3.5 + 3.5 * k, 8) * s, c + Vector2(-3.5 + 3.5 * k, 12) * s, Color(0.06, 0.03, 0.06), 1.5 * s)
+		var gold := Color(1.0, 0.8, 0.25)
+		var base := c + Vector2(0, -11) * s
+		draw_colored_polygon(PackedVector2Array([base + Vector2(-9, 2) * s, base + Vector2(-9, -6) * s, base + Vector2(-4.5, -1) * s,
+			base + Vector2(0, -8) * s, base + Vector2(4.5, -1) * s, base + Vector2(9, -6) * s, base + Vector2(9, 2) * s]), gold)

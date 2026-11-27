@@ -95,7 +95,7 @@ func _setup() -> void:
 	# the head itself is one great faceted amethyst with glowing eyes and crystal fangs (_dress).
 	look.hide = ["Skeleton_Minion_Cloak", "Skeleton_Minion_Head", "Skeleton_Minion_Jaw", "Skeleton_Minion_Eyes"]
 	look.overlay = _crystal_bones()
-	look.shape = {"scale": {"chest": 1.45, "head": 0.72, "upperarm.l": 1.3, "upperarm.r": 1.6, "upperleg.l": 0.8, "upperleg.r": 0.8},
+	look.shape = {"scale": {"chest": 1.45, "head": 0.82, "upperarm.l": 1.3, "upperarm.r": 1.6, "upperleg.l": 0.8, "upperleg.r": 0.8},
 		"turn": {"spine": Vector3(15, 0, 0), "head": Vector3(-12, 0, 0)}}   # (v350: a hulk, its crystal fist long)
 	look.parts = "tyrant"
 	look.attack_anim = "1H_Melee_Attack_Chop"
