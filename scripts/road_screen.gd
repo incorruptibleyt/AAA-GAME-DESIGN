@@ -4,6 +4,8 @@ extends ColorRect
 ## each needs and its reward. Steps reached show a gold CLAIM button.
 
 signal claim(index: int)
+## Version 399: every ready reward at once (a veteran had 32 CLAIM buttons to press).
+signal claim_all
 signal closed
 
 const DIM := Color(0.6, 0.58, 0.66)
@@ -16,6 +18,7 @@ var _scroll: ScrollContainer
 var _list: VBoxContainer
 var _prize_stage: HeroStage
 var _prize_state: Label
+var _all: Button
 
 
 func _init() -> void:
@@ -57,7 +60,14 @@ func _init() -> void:
 	var box := HBoxContainer.new()
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.alignment = BoxContainer.ALIGNMENT_BEGIN
+	box.add_theme_constant_override("separation", 12)
 	box.add_child(back)
+	_all = Hud.button("CLAIM ALL", 24, Color(0.3, 0.2, 0.06, 0.97), Hud.GOLD)
+	_all.custom_minimum_size = Vector2(0, 72)
+	_all.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_all.visible = false
+	_all.pressed.connect(func(): claim_all.emit())
+	box.add_child(_all)
 	col.add_child(box)
 
 
@@ -118,6 +128,8 @@ func open_road(cfg: ConfigFile) -> void:
 	_count.text = "%s bones" % Hud.thousands(b)
 	var ni := BoneRoad.next_index(cfg)
 	var claimable := BoneRoad.ready_count(cfg)
+	_all.visible = claimable >= 2
+	_all.text = "CLAIM ALL %d" % claimable
 	if claimable > 0:
 		_sub.text = "%d reward%s ready to claim!" % [claimable, "" if claimable == 1 else "s"]
 	elif ni < BoneRoad.STEPS.size():
@@ -320,6 +332,10 @@ class Bar extends Button:
 		_text.offset_bottom = -5   # centred on the face, above the lip
 		add_child(_text)
 		Hud.squash(self)
+
+	## Version 399: the REWARDS screen's bar speaks as loud as the buttons around it.
+	func big(px: int) -> void:
+		_text.label_settings.font_size = px
 
 	func set_road(bones: int, next_at: int, f: float, ready_n: int) -> void:
 		frac = f

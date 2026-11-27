@@ -102,7 +102,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27e"
+const BUILD := "2026-11-27f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -812,7 +812,7 @@ func _setup() -> void:
 	_lobby_key = SpotLight3D.new()
 	_lobby_key.light_color = Color(1.0, 0.8, 0.56)
 	_lobby_key.spot_range = 11.0
-	_lobby_key.spot_angle = 17.0
+	_lobby_key.spot_angle = 13.0
 	_lobby_key.spot_attenuation = 0.5
 	_lobby_key.light_energy = 0.0
 	_lobby_key.light_specular = 0.2
@@ -843,6 +843,7 @@ func _setup() -> void:
 	hud.drops_closed.connect(_drops_closed)
 	hud.road_pressed.connect(_open_road)
 	hud.road_claim.connect(_claim_road)
+	hud.road_claim_all.connect(_claim_road_all)
 	hud.road_closed.connect(_drops_closed)
 	hud.mastery_pressed.connect(_open_mastery)
 	hud.mastery_train.connect(_train_hero)
@@ -1679,7 +1680,7 @@ const LOBBY_FILL := 0.8
 ## Version 367: the lobby lamp's strength (was 5) and how much of the moon is left under it.
 const LOBBY_LAMP := 2.2
 const LOBBY_MOON := 0.3
-const LOBBY_KEY := 1.5   # v398: the warm lamp from the front
+const LOBBY_KEY := 2.3   # v398: the warm lamp from the front
 const LOBBY_RIM := 0.25   # v382: the edge glow on the title hero (1 = as in a run)
 var _lobby_rim := 1.0
 
@@ -1704,17 +1705,18 @@ func _lobby_camera_position(pitch: float) -> Vector3:
 	if not box.is_empty():
 		# (Version 398: a tenth of the space stays free, most of it under the logo; a tall
 		# phone's hero stood with their horns in the logo and bare floor under their feet.)
-		var room := Vector2(vp.x * 0.94, space.size.y * 0.86)
+		var room := Vector2(vp.x * 0.94, space.size.y * 0.93)
 		for step in 2:
 			var ext := _lobby_extent(box, pos, b, vp, tan_half)
 			if ext.size.x <= 0.0:
 				break
-			var k := clampf(maxf(ext.size.y / room.y, ext.size.x / room.x), 1.0, 1.65)   # (v398: was 1.4; the Barbarian's shield still spilled on a tall phone)
-			if step == 0 and k > 1.001:
+			var k := clampf(maxf(ext.size.y / room.y, ext.size.x / room.x), 0.88, 1.65)   # (v398: was 1.4; the Barbarian's shield still spilled on a tall phone)
+			# (Version 399: a small hero, the Rogue on a wide phone, also steps a little closer.)
+			if step == 0 and absf(k - 1.0) > 0.001:
 				pos = centre + b.z * (d * k) + b.y * (below * k)
 				d *= k
 				continue
-			var shift := (ext.get_center().y - (space.get_center().y + space.size.y * 0.05)) / vp.y * 2.0 * d * tan_half
+			var shift := (ext.get_center().y - (space.get_center().y + space.size.y * 0.035)) / vp.y * 2.0 * d * tan_half
 			pos -= b.y * shift
 			break
 	return pos
@@ -5509,6 +5511,37 @@ func _claim_road(i: int) -> void:
 	if s.has("prize"):   # (v254: the road's last prize, a look found nowhere else)
 		hud.callout("NEW %s AURA!" % str(HeroStyle.extra(s.prize[0], s.prize[1]).name).to_upper(), Color(1.0, 0.85, 0.55))
 	print("[road] claimed %d: %s" % [i, BoneRoad.reward_text(s)])
+	hud.open_road(_load_save())
+
+
+## Version 399 (fix 10 critic): CLAIM ALL on the Bone Road, one save for the lot.
+func _claim_road_all() -> void:
+	var cfg := _load_save()
+	var gained := 0
+	var n := 0
+	var prize := []
+	for i in BoneRoad.STEPS.size():
+		var s := BoneRoad.claim(cfg, i)
+		if s.is_empty():
+			continue
+		n += 1
+		if s.kind == "coins":
+			gained += int(s.n)
+		if s.has("prize"):
+			prize = s.prize
+	if n == 0:
+		return
+	coins += gained
+	cfg.set_value("stats", "coins", coins)
+	write_save(cfg)
+	if gained > 0:
+		record_add("coins", gained)
+	hud.set_coins(coins)
+	Sfx.play("upgrade")
+	Sfx.play("coin", 0.6, 1.2)
+	if not prize.is_empty():
+		hud.callout("NEW %s AURA!" % str(HeroStyle.extra(prize[0], prize[1]).name).to_upper(), Color(1.0, 0.85, 0.55))
+	print("[road] claimed all: %d rewards, %d coins" % [n, gained])
 	hud.open_road(_load_save())
 
 

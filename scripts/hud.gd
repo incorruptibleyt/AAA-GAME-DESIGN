@@ -23,6 +23,7 @@ signal records_pressed
 signal drops_pressed
 signal road_pressed
 signal road_claim(index: int)
+signal road_claim_all
 signal road_closed
 signal drops_closed
 signal mastery_pressed(id: String)
@@ -547,6 +548,7 @@ func _ready() -> void:
 	_road = RoadScreen.new()
 	add_child(_road)
 	_road.claim.connect(func(i: int): road_claim.emit(i))
+	_road.claim_all.connect(func(): road_claim_all.emit())
 	_road.closed.connect(func(): road_closed.emit())
 	race_screen = RaceScreen.new()
 	add_child(race_screen)
@@ -5793,6 +5795,7 @@ func _build_rewards() -> void:
 	_rw_today_sub = col.get_child(col.get_child_count() - 1).get_child(1)
 	_rw_road = RoadScreen.Bar.new()
 	_rw_road.custom_minimum_size = Vector2(420, 70)
+	_rw_road.big(24)
 	_rw_road.pressed.connect(func(): road_pressed.emit())
 	# Version 121: every row says where it stands in a line under it ("2 waiting",
 	# "140/180 bones", "6/20 done"), and all rows share one size.

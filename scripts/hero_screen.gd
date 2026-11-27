@@ -464,7 +464,7 @@ func _greet(def: Dictionary) -> void:
 
 
 func _bubble_off() -> float:
-	return maxf(50.0, _stage_box.size.y * 0.24)
+	return maxf(50.0, _stage_box.size.y * 0.28)
 
 
 func _place_bubble() -> void:
