@@ -91,11 +91,16 @@ static func _helm(hat: MeshInstance3D) -> void:
 	var iron := U.mat(IRON, 0.45)
 	var horn := U.mat(HORN, 0.6, 0.1)
 	var tip := U.mat(HORN_TIP, 0.6)
-	var green := U.mat(Heroes.get_hero("barbarian").ring.darkened(0.15), 0.5, 0.25)
-	# An iron cap on the crown, with a ridge from brow to nape in the Barbarian's green.
-	var cap := U.sphere(root, 0.5, iron, Vector3(0, 0.92, 0.04))
+	var ring: Color = Heroes.get_hero("barbarian").ring
+	var green := U.mat(ring.lightened(0.1), 0.5, 0.45)
+	# Version 401 (re-review of v400, fix 1): the cap was iron grey, the same helmet the
+	# brutes wear, so from above the Barbarian was one more brute in the pile. The cap is his
+	# own green now, with a brass band and a bright ridge from brow to nape.
+	var cap_mat := U.mat(Color(ring.r * 0.42, ring.g * 0.62, ring.b * 0.5), 0.4, 0.12)
+	var brass := U.mat(Color(0.86, 0.66, 0.24), 0.35, 0.1)
+	var cap := U.sphere(root, 0.5, cap_mat, Vector3(0, 0.92, 0.04))
 	cap.scale = Vector3(1.0, 0.62, 1.08)
-	var band := U.cylinder(root, 0.53, 0.1, iron, Vector3(0, 0.84, 0.04))
+	var band := U.cylinder(root, 0.53, 0.1, brass, Vector3(0, 0.84, 0.04))
 	band.scale = Vector3(1.0, 1.0, 1.08)
 	for k in 5:
 		var a := -0.9 + 0.45 * k

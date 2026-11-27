@@ -69,6 +69,10 @@ static var _blink_mat: ShaderMaterial
 ## player never loses their hero. It only shows where the hero is hidden (a
 ## test through a stencil mark, see _with_xray).
 var xray := false
+## The colour of that silhouette: the hero's own (ring) colour (version 401).
+var xray_color := Color(0.4, 0.95, 1.0)
+## Its edge colour, when the body colour isn't the ring's (the Knight: silver, gold edge).
+var xray_rim := Color(0, 0, 0, 0)
 static var _xray_mat: ShaderMaterial
 static var _xray_mark: ShaderMaterial
 static var _edge_shader: Shader
@@ -540,9 +544,12 @@ func _set_flash(on: bool) -> void:
 	# over the hero's own shield and sword, so the hero looked see-through cyan with
 	# nothing in front of them.
 	var plain: Material = _marked_chain(mat) if xray and not _dead else mat
+	# Version 401: the weapon is not part of the solid figure (a staff or crossbow drawn over
+	# the heads of a pile looked pasted on): it keeps its line and its mark only.
+	var arm: Material = _marked_chain(lined) if xray and not _dead else lined
 	for m in _meshes:
 		if is_instance_valid(m):
-			m.material_overlay = seen if _outline_set.has(m) else plain
+			m.material_overlay = (arm if m.has_meta("big") else seen) if _outline_set.has(m) else plain
 	for m in _marked:
 		if is_instance_valid(m):
 			m.material_overlay = _xray_mark if xray and not _dead else null
@@ -562,13 +569,14 @@ func _marked_chain(inner: Material) -> Material:
 
 
 ## The pale flicker of a hero who can't be hurt just now (see _blink_off): a see-through
-## white-cyan wash, brightest at the edges, over the outfit.
+## white-cyan wash, brightest at the edges, over the outfit. (Version 401: a third as
+## strong over the body; just after a hit, in a pile, the hero turned into a white ghost.)
 static func _blink_material() -> ShaderMaterial:
 	if _blink_mat == null:
 		var sh := Shader.new()
 		sh.code = "shader_type spatial;\nrender_mode unshaded, blend_mix, cull_back, depth_draw_never;\n" \
 			+ "void fragment() {\n\tfloat rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);\n" \
-			+ "\tALBEDO = vec3(0.85, 0.98, 1.0);\n\tALPHA = clamp(0.3 + pow(rim, 1.5) * 0.5, 0.0, 0.75);\n}\n"
+			+ "\tALBEDO = vec3(0.85, 0.98, 1.0);\n\tALPHA = clamp(0.1 + pow(rim, 1.5) * 0.55, 0.0, 0.65);\n}\n"
 		_blink_mat = ShaderMaterial.new()
 		_blink_mat.shader = sh
 	return _blink_mat
@@ -596,15 +604,22 @@ shader_type spatial;
 render_mode unshaded, depth_test_disabled, depth_draw_never, cull_back, shadows_disabled;
 stencil_mode read, write, compare_not_equal, 2;
 uniform vec4 col : source_color = vec4(0.4, 0.95, 1.0, 1.0);
+uniform vec4 rimc : source_color = vec4(0.94, 1.0, 1.0, 1.0);
 // Version 361 (review of 357, fix 4): a bright edge with only a faint fill (it was a
 // solid cyan body at 38% that hid the outfit), so a hidden hero reads as an outline.
 void fragment() {
-	float rim = 1.0 - clamp(dot(normalize(NORMAL), normalize(VIEW)), 0.0, 1.0);
-	ALBEDO = mix(col.rgb, vec3(0.92, 1.0, 1.0), pow(rim, 3.0));
+	vec3 n = normalize(NORMAL);
+	float rim = 1.0 - clamp(dot(n, normalize(VIEW)), 0.0, 1.0);
 	// Version 377: thinner still, no fill (a hidden Rogue read as a see-through blue egg).
 	// v390 (review v388 fix 2): a light fill again, now that the outline drawn on top gives
 	// the hidden hero its real shape (no egg), so a hero under a crowd is a solid shape.
-	ALPHA = clamp(0.3 + smoothstep(0.6, 0.88, rim) * 0.65, 0.0, 0.95);
+	// Version 401 (re-review of v400, fix 1): the 30% cyan fill read as a pale glass ghost
+	// smeared over a pile of skeletons. A hidden hero is a solid figure in the hero's own
+	// colour now: lit from above, darker below, a pale edge, nothing seen through it.
+	float up = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
+	vec3 body = mix(col.rgb * 0.42, col.rgb * 1.05, smoothstep(0.3, 0.8, up));
+	ALBEDO = mix(body, rimc.rgb, smoothstep(0.62, 0.92, rim) * rimc.a);
+	ALPHA = 0.86;   // (a little of the attacker in front still shows)
 }
 """
 		_xray_mat = ShaderMaterial.new()
@@ -614,6 +629,8 @@ void fragment() {
 		return _xrayed[inner]
 	var head := _xray_mark.duplicate() as ShaderMaterial
 	var ghost := _xray_mat.duplicate() as ShaderMaterial
+	ghost.set_shader_parameter("col", xray_color)
+	ghost.set_shader_parameter("rimc", Color(0.94, 1.0, 1.0, 0.55) if xray_rim.a <= 0.0 else xray_rim)
 	head.next_pass = ghost
 	ghost.next_pass = inner   # the flash and outline follow unchanged
 	# v390 (review v388 fix 2, always see your hero): the outline itself is drawn on top of

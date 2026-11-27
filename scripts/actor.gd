@@ -55,6 +55,12 @@ func wants_outline() -> bool:
 ## (Version 90 gave plain skeletons a faint edge glow on High graphics. It drew every
 ## skeleton twice, a third more draw calls in a busy room, and version 91 ran at 41 FPS on a
 ## Galaxy S23 Ultra instead of 57, so it was taken out in version 92.)
+## The colour of the solid figure a hidden hero is drawn as (version 401: the hero's own
+## ring colour, set by Hero.spawn before make_visual).
+var xray_tint := Color(0.4, 0.95, 1.0)
+var xray_rim := Color(0, 0, 0, 0)
+
+
 func make_visual(look: Dictionary) -> CharacterVisual:
 	visual = CharacterVisual.new()
 	visual.outline_me = wants_outline()
@@ -64,6 +70,8 @@ func make_visual(look: Dictionary) -> CharacterVisual:
 	# turning solid white, so the player never loses sight of them in a busy fight.
 	visual.hero_flash = team == Team.HERO
 	visual.xray = self is Hero   # version 296: seen through whatever hides them
+	visual.xray_color = xray_tint
+	visual.xray_rim = xray_rim
 	add_child(visual)
 	visual.build(look)
 	if team == Team.UNDEAD:
