@@ -101,7 +101,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27b"
+const BUILD := "2026-11-27c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3509,7 +3509,30 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	RoomMood.apply(room, mood, _run[index])
 	if mood == "approach":
 		_env.ambient_light_energy *= 0.6
-	Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, [14, 14, 24, 36][graphics_level], look.motes, look.motes_fall, look.get("motes_size", 1.0))
+	var air := Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, [14, 14, 24, 36][graphics_level], look.motes, look.motes_fall, look.get("motes_size", 1.0))
+	# Version 396: the Daily Crypt's weather in the air. Rain falls fast and straight, in
+	# twice the drops; blown sand streams across the court.
+	match str(look.get("motes_kind", "")):
+		"rain":
+			air.amount *= 3
+			air.lifetime = 0.8
+			air.preprocess = 0.8
+			air.spread = 3.0
+			air.initial_velocity_min = 4.5
+			air.initial_velocity_max = 6.0
+			air.gravity = Vector3(0.3, -3.0, 0)
+			air.position.y = 3.6
+		"wind":
+			air.amount *= 2
+			air.lifetime = 4.0
+			air.preprocess = 4.0
+			air.direction = Vector3(1, 0, 0.15)
+			air.spread = 10.0
+			air.initial_velocity_min = 2.2
+			air.initial_velocity_max = 3.6
+			air.gravity = Vector3(0.4, -0.05, 0)
+			air.emission_box_extents = Vector3(Room.HALF_W + 3.0, 1.0, Room.HALF_L - 0.5)
+			air.position = Vector3(-5.0, 1.2, 0)
 	Fx.wisps(room, look.get("wisp", Color(0.6, 1.0, 0.85)), [2, 3, 4, 5][graphics_level], Room.HALF_W - 0.8, Room.HALF_L - 0.8)
 	if hero == null:
 		hero = Hero.spawn(world, room.player_start(), _run_hero_id if _run_hero_id != "" else Heroes.selected(_load_save()))
@@ -6903,7 +6926,7 @@ func _show_daily() -> void:
 	var rules := []
 	for id in Curses.daily_rules():
 		var r := Curses.get_curse(id)
-		rules.append({"title": r.title, "text": r.text, "kind": r.get("kind", "harm")})
+		rules.append({"id": id, "title": r.title, "text": r.text, "kind": r.get("kind", "harm")})
 	var used := Curses.official_used(cfg)
 	var best := Curses.daily_best(cfg)
 	var status := "Your Official run is ready.\nOnly that one counts!"
@@ -6918,7 +6941,8 @@ func _show_daily() -> void:
 	var left := Curses.seconds_left()
 	var t := Curses.theme()
 	hud.show_daily(true, {"title": "DAILY CRYPT #%d" % Curses.day_number(), "theme": t.name, "theme_text": t.text,
-		"hero": Heroes.get_hero(Curses.daily_hero()).title, "mult": _mult_text(Curses.score_mult(Curses.daily_rules())),
+		"hero": Heroes.get_hero(Curses.daily_hero()).title, "hero_def": HeroStyle.styled(cfg, Heroes.get_hero(Curses.daily_hero())),
+		"weather": Curses.weather(), "mult": _mult_text(Curses.score_mult(Curses.daily_rules())),
 		"rules": rules, "status": status, "open": Curses.can_play(owned, cfg), "practice": used,
 		"next": "Next Daily Crypt in %dh %02dm" % [left / 3600, (left % 3600) / 60]})
 

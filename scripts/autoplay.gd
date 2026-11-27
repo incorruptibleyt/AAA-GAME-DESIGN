@@ -320,6 +320,8 @@ func _ready() -> void:
 			_force_cards = Array(a.substr(6).split(","))
 		elif a.begins_with("runs="):
 			runs = int(a.substr(5))
+		elif a.begins_with("weather="):   # version 396: the Daily Crypt's weather, whatever the day
+			Curses.weather_test = int(a.trim_prefix("weather="))
 		elif a.begins_with("room="):
 			start_room = int(a.substr(5))
 		elif a.begins_with("shots="):

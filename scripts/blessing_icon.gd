@@ -154,6 +154,34 @@ func _draw() -> void:
 		"door_champion": _crown()
 		"door_dark": _lantern()
 		"door_traps": _spike_row()
+		# Version 396: the Curses and the Daily Crypt's rules ("c_" + its id).
+		"c_heroic": _c_heroic()
+		"c_restless": _c_restless()
+		"c_gilded": _c_gilded()
+		"c_narrow": _c_narrow()
+		"c_blood": _c_blood()
+		"c_fragile": _c_fragile()
+		"c_famine": _c_famine()
+		"c_hourglass": _c_hourglass()
+		"c_gravepact": _c_gravepact()
+		"c_twin": _c_twin()
+		"c_brittle": _c_brittle()
+		"c_blessed": _c_blessed()
+		"c_rich": _coins()
+		"c_dice": _c_dice()
+		"c_quick": _c_quick()
+		"c_hearty": _c_hearty()
+		"c_longlinks": _chain()
+		"c_glass": _c_glass()
+		"c_frenzy": _c_frenzy()
+		"c_swarm": _c_swarm()
+		"c_hunt": _c_hunt()
+		"w_clear": _w_clear()
+		"w_rain": _w_rain()
+		"w_sand": _w_sand()
+		"w_petals": _w_petals()
+		"w_snow": _snowflake()
+		"w_fireflies": _w_fireflies()
 		_:
 			match family:
 				"bolt": _bolt()
@@ -998,3 +1026,247 @@ func _crown() -> void:
 	_dot(Vector2(0, 4), 3.0, Color(0.9, 0.2, 0.25))
 	_dot(Vector2(-9, 5), 2.0, Color(0.4, 0.7, 1.0))
 	_dot(Vector2(9, 5), 2.0, Color(0.4, 0.7, 1.0))
+
+
+# ---------------------------------------------------------------- version 396: Curses and Daily rules
+
+## A small skull at `at`, `s` times the size of _skull's.
+func _mini_skull(at: Vector2, s: float, col := color) -> void:
+	_dot(at + Vector2(0, -3) * s, 10.0 * s, col)
+	_poly([at + Vector2(-6, 2) * s, at + Vector2(6, 2) * s, at + Vector2(5, 10) * s, at + Vector2(-5, 10) * s], col)
+	_dot(at + Vector2(-4, -2.5) * s, 3.0 * s, DARK)
+	_dot(at + Vector2(4, -2.5) * s, 3.0 * s, DARK)
+	_poly([at + Vector2(0, 2) * s, at + Vector2(-2, 5) * s, at + Vector2(2, 5) * s], DARK)
+
+
+## A heart round `at`, `s` times the size of _heart's.
+func _heart_pts(at: Vector2, s: float) -> Array:
+	var pts := []
+	for i in 32:
+		var t := TAU * i / 32.0
+		var x := 16.0 * pow(sin(t), 3)
+		var y := -(13.0 * cos(t) - 5.0 * cos(2 * t) - 2.0 * cos(3 * t) - cos(4 * t))
+		pts.append(at + Vector2(x, y) * 0.95 * s)
+	return pts
+
+
+func _c_heroic() -> void:
+	# Heroic: a skull wearing a gold crown.
+	_mini_skull(Vector2(0, 5), 1.25)
+	var gold := Color(1.0, 0.8, 0.3)
+	_poly([Vector2(-12, -8), Vector2(-13, -19), Vector2(-6, -13), Vector2(0, -21), Vector2(6, -13), Vector2(13, -19), Vector2(12, -8)], gold)
+	_dot(Vector2(0, -11), 1.8, BLOOD)
+
+
+func _c_restless() -> void:
+	# Restless Dead: a skull rushing, speed lines behind it.
+	_mini_skull(Vector2(6, 0), 1.2)
+	for y in [-9.0, 0.0, 9.0]:
+		_ln(Vector2(-19, y), Vector2(-9 - absf(y) * 0.3, y), 3.0, HOT)
+
+
+func _c_gilded() -> void:
+	# Gilded Horde: the elites' gold stars, twice.
+	# (Two elite stars, one behind the other: the skulls of Heroic and Restless Dead looked the same.)
+	var gold := Color(1.0, 0.8, 0.3)
+	_star(Vector2(7, -6), 5, 13.0, 5.5, -PI / 2.0, gold.darkened(0.4))
+	_star(Vector2(-4, 3), 5, 16.0, 6.5, -PI / 2.0, gold)
+	_dot(Vector2(-4, 3), 3.0, Color.WHITE)
+
+
+func _c_narrow() -> void:
+	# Narrow Path: only two cards to choose from.
+	# (Two big cards and nothing else: with a third struck out it was too small to read.)
+	for q in [[-8.0, -0.22, color.darkened(0.3)], [7.0, 0.18, color]]:
+		var pts := []
+		for p in [Vector2(-8, -15), Vector2(8, -15), Vector2(8, 15), Vector2(-8, 15)]:
+			pts.append(Vector2(q[0], 0) + (p as Vector2).rotated(q[1]))
+		_poly(pts, q[2])
+		_outline(pts, 1.5, DARK)
+	_sparkle(Vector2(7, 0), 6.0, DARK)
+
+
+func _c_blood() -> void:
+	# Blood Price: a drop of blood with the special's bolt in it.
+	_blood_drop()
+	_poly([Vector2(2, -4), Vector2(-5, 6), Vector2(-1, 6), Vector2(-3, 14), Vector2(5, 3), Vector2(1, 3)], HOT)
+
+
+func _c_fragile() -> void:
+	# Fragile Chain: a chain link snapped in two.
+	_arc(Vector2(-7, 5), 8.0, PI * 0.35, PI * 1.65, 4.0)
+	_arc(Vector2(7, -5), 8.0, -PI * 0.65, PI * 0.65, 4.0)
+	_ln(Vector2(-3, -6), Vector2(1, -2), 2.5, HOT)
+	_ln(Vector2(-2, 3), Vector2(3, 6), 2.5, HOT)
+	_sparkle(Vector2(0, 0), 5.0)
+
+
+func _c_famine() -> void:
+	# Famine: a heart struck through.
+	_outline(_heart_pts(Vector2(0, -1), 0.95), 3.0, color.darkened(0.2))
+	_ln(Vector2(-15, 14), Vector2(15, -15), 4.5, BLOOD)
+
+
+func _c_hourglass() -> void:
+	# Hourglass: the sand nearly run out.
+	var gold := Color(1.0, 0.8, 0.3)
+	_ln(Vector2(-11, -16), Vector2(11, -16), 4.0, gold)
+	_ln(Vector2(-11, 16), Vector2(11, 16), 4.0, gold)
+	_outline([Vector2(-9, -14), Vector2(9, -14), Vector2(1.5, 0), Vector2(9, 14), Vector2(-9, 14), Vector2(-1.5, 0)], 2.5, Color.WHITE)
+	_poly([Vector2(-7, 13), Vector2(7, 13), Vector2(0, 3)], HOT)
+	_poly([Vector2(-3, -7), Vector2(3, -7), Vector2(0, -2)], HOT)
+	_ln(Vector2(0, -2), Vector2(0, 5), 1.5, HOT)
+
+
+func _c_gravepact() -> void:
+	# Grave Pact: a gravestone and the dash that feeds the chain.
+	var stone := Color(0.72, 0.72, 0.8)
+	var pts := [Vector2(-3, 16), Vector2(-3, -6)]
+	for i in 9:
+		var a := PI + PI * i / 8.0
+		pts.append(Vector2(6 + cos(a) * 9.0, -6 + sin(a) * 9.0))
+	pts.append(Vector2(15, 16))
+	_poly(pts, stone)
+	_ln(Vector2(6, -6), Vector2(6, 6), 2.5, DARK)
+	_ln(Vector2(2, -2), Vector2(10, -2), 2.5, DARK)
+	_arrow(Vector2(-19, 6), Vector2(-5, 6), 3.5, 8.0, HOT)
+	_ln(Vector2(-19, -2), Vector2(-12, -2), 2.5, HOT)
+
+
+func _c_twin() -> void:
+	# Twin Wardens: two crowned skulls side by side.
+	var gold := Color(1.0, 0.8, 0.3)
+	for x in [-10.0, 10.0]:
+		_mini_skull(Vector2(x, 4), 0.9)
+		_poly([Vector2(x - 7, -6), Vector2(x - 8, -14), Vector2(x - 3, -10), Vector2(x, -16), Vector2(x + 3, -10), Vector2(x + 8, -14), Vector2(x + 7, -6)], gold)
+
+
+func _c_brittle() -> void:
+	# Brittle Bones: half a heart, the other half gone, a crack between.
+	var pts := _heart_pts(Vector2(0, -1), 1.0)
+	var left := []
+	for p: Vector2 in pts:
+		left.append(Vector2(minf(p.x, 0.0), p.y))
+	_poly(left, Color(0.95, 0.3, 0.35))
+	_outline(pts, 2.0, color.darkened(0.3))
+	_zig([Vector2(0, -9), Vector2(4, -3), Vector2(-3, 3), Vector2(3, 9), Vector2(0, 15)])
+
+
+func _c_blessed() -> void:
+	# Blessed Start: a blessing's light.
+	_sparkle(Vector2(-2, 1), 16.0, HOT)
+	_sparkle(Vector2(12, -12), 6.0)
+	_sparkle(Vector2(-13, -11), 4.5)
+	_dot(Vector2(-2, 1), 3.0, Color.WHITE)
+
+
+func _c_dice() -> void:
+	# Loaded Dice: a die showing five.
+	var pts := []
+	for corner in [Vector2(-1, -1), Vector2(1, -1), Vector2(1, 1), Vector2(-1, 1)]:
+		for i in 4:
+			var a: float = atan2(corner.y, corner.x) - PI / 4.0 + PI / 2.0 * i / 3.0
+			pts.append(corner * 10.0 + Vector2(cos(a), sin(a)) * 5.0)
+	_poly(pts, Color(0.95, 0.95, 1.0))
+	for p in [Vector2(-7, -7), Vector2(7, -7), Vector2(0, 0), Vector2(-7, 7), Vector2(7, 7)]:
+		_dot(p, 2.6, DARK)
+
+
+func _c_quick() -> void:
+	# Quick Hands: a stopwatch with a bolt across it.
+	_arc(Vector2(0, 2), 13.0, 0.0, TAU, 3.0, Color.WHITE)
+	_ln(Vector2(0, -15), Vector2(0, -11), 5.0, Color.WHITE)
+	_ln(Vector2(-4, -17), Vector2(4, -17), 3.0, Color.WHITE)
+	_poly([Vector2(3, -8), Vector2(-6, 4), Vector2(-1, 4), Vector2(-3, 12), Vector2(6, 0), Vector2(1, 0)], HOT)
+
+
+func _c_hearty() -> void:
+	# Hearty: a heart, and a second one for the double.
+	_poly(_heart_pts(Vector2(6, -6), 0.55), Color(0.95, 0.3, 0.35).darkened(0.3))
+	_poly(_heart_pts(Vector2(-3, 3), 0.85), Color(0.95, 0.3, 0.35))
+	_dot(Vector2(-9, -3), 2.5, Color(1, 1, 1, 0.8))
+
+
+func _c_glass() -> void:
+	# Glass Shots: a shot of glass, sharp and cracked.
+	var glass := Color(0.7, 0.92, 1.0)
+	_poly([Vector2(14, -16), Vector2(4, 4), Vector2(-4, -4)], glass)
+	_poly([Vector2(4, 4), Vector2(-4, -4), Vector2(-15, 15)], glass.darkened(0.3))
+	_ln(Vector2(14, -16), Vector2(-15, 15), 1.5, Color.WHITE)
+	_zig([Vector2(4, -6), Vector2(0, -1), Vector2(4, 1), Vector2(-2, 6)])
+
+
+func _c_frenzy() -> void:
+	# Frenzy: three claw marks.
+	for x in [-10.0, 0.0, 10.0]:
+		_poly([Vector2(x + 6, -16), Vector2(x + 2.5, 0), Vector2(x - 6, 16), Vector2(x - 2, 0)], BLOOD.lightened(0.15))
+
+
+func _c_swarm() -> void:
+	# Swarm: three skulls crowding in.
+	_mini_skull(Vector2(-9, -6), 0.8, color.darkened(0.25))
+	_mini_skull(Vector2(9, -6), 0.8, color.darkened(0.25))
+	_mini_skull(Vector2(0, 6), 0.95)
+
+
+func _c_hunt() -> void:
+	# Elite Hunt: an elite's crown in the sights.
+	var gold := Color(1.0, 0.8, 0.3)
+	_poly([Vector2(-8, 5), Vector2(-9, -6), Vector2(-4, -1), Vector2(0, -8), Vector2(4, -1), Vector2(9, -6), Vector2(8, 5)], gold)
+	_arc(Vector2(0, 0), 15.0, 0.0, TAU, 2.5, Color.WHITE)
+	for d in [Vector2(1, 0), Vector2(-1, 0), Vector2(0, 1), Vector2(0, -1)]:
+		_ln(d * 12.0, d * 19.0, 2.5, Color.WHITE)
+
+
+# ---------------------------------------------------------------- version 396: the Daily Crypt's weather
+
+func _w_clear() -> void:
+	# Clear Skies: the sun.
+	_star(Vector2.ZERO, 10, 19.0, 11.0, 0.0, HOT)
+	_dot(Vector2.ZERO, 9.5, Color(1.0, 0.75, 0.25))
+
+
+func _cloud(at: Vector2, col: Color) -> void:
+	_dot(at + Vector2(-8, 2), 7.0, col)
+	_dot(at + Vector2(0, -3), 9.0, col)
+	_dot(at + Vector2(9, 2), 6.5, col)
+	_poly([at + Vector2(-8, 2), at + Vector2(9, 2), at + Vector2(9, 8.5), at + Vector2(-8, 9)], col)
+
+
+func _w_rain() -> void:
+	# Golden Rain: a cloud and gold drops.
+	_cloud(Vector2(0, -7), Color(0.82, 0.84, 0.92))
+	for x in [-9.0, 0.0, 9.0]:
+		_ln(Vector2(x + 2, 5), Vector2(x - 2, 15), 3.0, HOT)
+
+
+func _w_sand() -> void:
+	# Sand Wind: gusts curling across.
+	var sand := Color(0.95, 0.76, 0.45)
+	_ln(Vector2(-17, -8), Vector2(6, -8), 3.0, sand)
+	_arc(Vector2(6, -13), 5.0, -PI / 2.0, PI / 2.0, 3.0, sand)
+	_ln(Vector2(-13, 1), Vector2(12, 1), 3.0, sand)
+	_arc(Vector2(12, 6), 5.0, -PI / 2.0, PI / 2.0, 3.0, sand)
+	_ln(Vector2(-17, 11), Vector2(0, 11), 3.0, sand)
+	for p in [Vector2(-6, -15), Vector2(15, -5), Vector2(6, 15), Vector2(-15, 5)]:
+		_dot(p, 1.6, sand)
+
+
+func _w_petals() -> void:
+	# Petal Fall: petals tumbling down.
+	var pink := Color(1.0, 0.62, 0.74)
+	for q in [[Vector2(-9, -9), 0.5], [Vector2(8, -11), -0.7], [Vector2(0, 2), 1.2], [Vector2(-11, 11), -0.3], [Vector2(11, 10), 0.9]]:
+		var pts := []
+		for i in 12:
+			var t := TAU * i / 12.0
+			pts.append((q[0] as Vector2) + Vector2(cos(t) * 6.5, sin(t) * 3.4 * (1.0 + 0.5 * cos(t))).rotated(q[1]))
+		_poly(pts, pink if (q[1] as float) > 0.0 else pink.lightened(0.3))
+
+
+func _w_fireflies() -> void:
+	# Firefly Night: little lights adrift.
+	var lime := Color(0.8, 1.0, 0.4)
+	for q in [[Vector2(-10, -8), 4.0], [Vector2(9, -11), 2.8], [Vector2(2, 3), 4.6], [Vector2(-9, 12), 3.0], [Vector2(13, 9), 3.4]]:
+		_dot(q[0], (q[1] as float) * 2.1, Color(lime, 0.25))
+		_dot(q[0], q[1], lime)
+		_dot(q[0], (q[1] as float) * 0.45, Color.WHITE)

@@ -140,6 +140,11 @@ static var _floor_shaders := {}
 ## 11. The Starfall Abyss (floor 10): moonstone plates drifted apart over a starry void that
 ##    shows in every gap (and where plates by the walls have fallen away), and a star gate in
 ##    the middle: a window onto a turning spiral of stars under a silver seal.
+## 12. The Sundial Court (the Daily Crypt, version 396): one great sundial of honey limestone
+##    laid in rings, a brass sun in the middle, a dark ring of twelve brass hour marks and a
+##    brass hand that points at the hour; the day's weather lies on the stone.
+## 13. The Bluefire Catacomb (floor 12, version 396): black glass in big three-sided plates,
+##    blue fire in the joints and a round iron furnace grate in the middle.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
 ## where the point is in the room, so there is no tiling pattern to spot.
@@ -155,7 +160,8 @@ static func _floor_material(look: Dictionary, style := -1) -> Material:
 	sm.set_shader_parameter("grain", U.noise_tex(0.045, 11, 4))
 	sm.set_shader_parameter("blobs_a", U.noise_tex(0.016, 23))
 	sm.set_shader_parameter("blobs_b", U.noise_tex(0.018, 37))
-	sm.set_shader_parameter("tint", look.floor)
+	# (Style 12, the Sundial Court, is its own stone: only the hour or the weather tints it.)
+	sm.set_shader_parameter("tint", look.get("floor_tint", Color.WHITE) if style == 12 else look.floor)
 	for key in ["grout", "grime", "grime_amount", "patch_tint", "patch_rough"]:
 		if look.has(key):
 			sm.set_shader_parameter(key, look[key])
@@ -176,12 +182,14 @@ static func _floor_material(look: Dictionary, style := -1) -> Material:
 	sm.set_shader_parameter("calm_mid", float(CALM_MID.get(style, 0.0)) * tl)
 	sm.set_shader_parameter("calm_depth", float(look.get("calm_depth", CALM_DEPTH)))
 	sm.set_shader_parameter("calm_sat", float(look.get("calm_sat", CALM_SAT)))
+	sm.set_shader_parameter("hour", float(look.get("hour", 0.0)))
+	sm.set_shader_parameter("weather", float(look.get("weather", 0.0)))
 	return sm
 
 
 ## Version 337: the usual brightness of each floor style's stone (see the shader's first
 ## colour in each style), and the styles whose stone is multiplied by the place's floor tint.
-const CALM_MID := {0: 0.34, 1: 0.2, 2: 0.157, 3: 0.196, 4: 0.14, 5: 0.103, 6: 0.17, 7: 0.23, 8: 0.25, 9: 0.19, 10: 0.22, 11: 0.27}
+const CALM_MID := {0: 0.34, 1: 0.2, 2: 0.157, 3: 0.196, 4: 0.14, 5: 0.103, 6: 0.17, 7: 0.23, 8: 0.25, 9: 0.19, 10: 0.22, 11: 0.27, 12: 0.25, 13: 0.09}
 const CALM_TINTED := [0, 1, 5, 7, 8, 10, 11]
 const CALM_DEPTH := 0.3
 const CALM_GRIME := 0.55
@@ -224,6 +232,10 @@ uniform float dim = 1.0;
 uniform float calm_mid = 0.0;
 uniform float calm_depth = 0.5;
 uniform float calm_sat = 0.8;
+// The Daily Crypt's sundial (style 12): the hour its hand points at (0 dawn, 0.5 noon, 1
+// dusk) and the day's weather on the stone (0 none, 1 rain, 2 sand, 3 petals, 4 snow).
+uniform float hour = 0.0;
+uniform float weather = 0.0;
 varying vec2 pos;
 varying float up;
 
@@ -575,12 +587,56 @@ void fragment() {
 	// Roots and darker hollows in the earth.
 	float hollow = smoothstep(0.6, 0.85, big2);
 	c *= 1.0 - 0.35 * hollow;
-	float stone = 0.0;
+	// Version 396 (real ground): flat stepping stones half sunk in the earth, lying in loose
+	// clusters, and thick roots reaching in from the side walls. The fungus threads and the
+	// glowing caps keep to the open ground between them.
+	vec2 sid;
+	vec2 sv = cells(pos / 1.15 + vec2(3.7, 1.9), sid);
+	float cluster = texture(blobs_a, pos * 0.04 + vec2(0.83, 0.29)).r;
+	float srad = (0.3 + 0.14 * h(sid + 2.3)) * step(0.35, h(sid + 1.1)) * smoothstep(0.4, 0.48, cluster);
+	float sdist = sv.x + 0.06 * (fine - 0.5);
+	float stone = (1.0 - smoothstep(srad - 0.02, srad + 0.02, sdist)) * step(0.01, srad);
+	float sshadow = (1.0 - smoothstep(srad, srad + 0.13, sdist)) * (1.0 - stone) * step(0.01, srad);
+	vec3 scol = vec3(0.2, 0.215, 0.21) * (0.78 + 0.4 * h(sid + 4.4)) * (0.85 + 0.3 * fine);
+	scol = mix(scol, vec3(0.12, 0.2, 0.1) * (0.85 + 0.3 * fine), smoothstep(0.5, 0.7, big + 0.2 * fine) * 0.55);
+	scol *= 1.0 - 0.28 * smoothstep(srad - 0.09, srad, sdist);
+	c *= 1.0 - 0.4 * sshadow;
+	c = mix(c, scol, stone);
+	rough = mix(rough, 0.8, stone);
+	float root = 0.0;
+	float root_hi = 0.0;
+	float root_sh = 0.0;
+	for (int k = 0; k < 6; k++) {
+		float fk = float(k);
+		float side = k % 2 == 0 ? -1.0 : 1.0;
+		float xr = half_size.x - side * pos.x;
+		float y0 = -7.3 + 5.5 * floor(fk * 0.5) + (h(vec2(fk, 2.2)) - 0.5) * 2.4;
+		float len = 3.2 + 2.6 * h(vec2(fk, 6.1));
+		float yc = y0 + (0.35 + 0.2 * xr) * sin(xr * 1.1 + fk * 2.1) * 0.6;
+		float w = 0.38 * pow(clamp(1.0 - xr / len, 0.0, 1.0), 0.7);
+		float d = (pos.y - yc) * 0.82;
+		float m = (1.0 - smoothstep(w - 0.015, w + 0.015, abs(d))) * step(0.004, w);
+		// A thinner root forks off it part of the way along.
+		float yc2 = y0 + (h(vec2(fk, 9.3)) > 0.5 ? 0.5 : -0.5) * (xr - 0.7) + 0.25 * sin(xr * 1.9 + fk);
+		float w2 = 0.2 * pow(clamp(1.0 - xr / (len * 0.8), 0.0, 1.0), 0.7) * step(0.7, xr);
+		float d2 = (pos.y - yc2) * 0.8;
+		float m2 = (1.0 - smoothstep(w2 - 0.012, w2 + 0.012, abs(d2))) * step(0.004, w2);
+		root = max(root, max(m, m2));
+		root_hi = max(root_hi, max(m * (1.0 - smoothstep(0.0, w * 0.6, abs(d + w * 0.35))), m2 * (1.0 - smoothstep(0.0, w2 * 0.6, abs(d2 + w2 * 0.35)))));
+		root_sh = max(root_sh, max((1.0 - smoothstep(w, w + 0.2, d)) * step(0.0, d) * step(0.004, w), (1.0 - smoothstep(w2, w2 + 0.08, d2)) * step(0.0, d2) * step(0.004, w2)));
+	}
+	c *= 1.0 - 0.6 * root_sh * (1.0 - root);
+	vec3 rcol = vec3(0.17, 0.12, 0.08) * (0.7 + 0.6 * texture(grain, vec2(pos.x * 0.9, pos.y * 0.25)).r);
+	c = mix(c, rcol, root);
+	c += vec3(0.08, 0.055, 0.03) * root_hi;
+	stone = max(stone, root);
 	// Fungus threads where two slow noises cross their middle, with light running along them.
 	// Only where the ground is mossy enough, so they wind in a few long strands.
 	float t1 = texture(blobs_b, pos * 0.045 + vec2(0.2, 0.4)).r;
-	float th = (1.0 - smoothstep(0.0, 0.012 + fwidth(t1), abs(t1 - 0.5)));
-	float glow_band = (1.0 - smoothstep(0.0, 0.06, abs(t1 - 0.5))) * 0.25;
+	// (Version 396: the threads are gone. They wound over the whole floor as thin blue
+	// squiggles, and the roots and stones give the ground its shape now.)
+	float th = 0.0;
+	float glow_band = 0.0;
 	th *= (1.0 - stone) * smoothstep(0.3, 0.6, big);
 	glow_band *= (1.0 - stone) * smoothstep(0.3, 0.6, big);
 	float flow = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(TIME * 1.4 - t1 * 60.0 - pos.x * 0.3), 4.0);
@@ -593,7 +649,7 @@ void fragment() {
 	float spr = h(sqc + 7.1);
 	vec2 sp = sqc + 0.5 + (vec2(h(sqc + 3.3), h(sqc + 5.9)) - 0.5) * 0.6;
 	float sd = length(sq - sp);
-	float lit = step(0.75, spr) * moss;
+	float lit = step(0.75, spr) * moss * (1.0 - stone);
 	float cap = (1.0 - smoothstep(0.07, 0.13 + fwidth(sd), sd)) * lit;
 	float halo = (1.0 - smoothstep(0.0, 0.45, sd)) * lit * 0.18;
 	float pulse = 0.6 + 0.4 * sin(TIME * (1.1 + spr) + spr * 31.0);
@@ -1308,6 +1364,190 @@ void fragment() {
 	gap = 0.0;
 	n = normalize(vec3((r - 0.5) * 0.07, 1.0, (r2 - 0.5) * 0.07));
 	c = mix(vec3(dot(c, vec3(0.3, 0.59, 0.11))), c, 0.85);
+#elif STYLE == 12
+	// The Daily Crypt's Sundial Court (version 396): the whole floor is one great sundial of
+	// honey limestone, laid in rings round the middle of the room. A brass sun sits in the
+	// middle, a dark ring with twelve brass hour marks lies round it, and a brass hand points
+	// at the hour (the day's first floor is dawn, its last is dusk); the mark it points at
+	// glows. The day's weather lies on the stone: rain, blown sand, petals or snow.
+	float rad = length(pos);
+	float ang = atan(pos.y, pos.x);
+	float px = fwidth(pos.x) + fwidth(pos.y);
+	const float RING = 1.15;
+	float ri = floor(rad / RING);
+	float nseg = max(6.0, ri * 6.0 + 3.0);
+	float sa = (ang + 3.14159265) / 6.2831853 * nseg + floor(h(vec2(ri, 4.1)) * 8.0) * 0.125;
+	vec2 bid = vec2(ri, mod(floor(sa), nseg));
+	r = h(bid);
+	float r2 = h(bid + 13.7);
+	float fr = fract(rad / RING);
+	float er = min(fr, 1.0 - fr) * RING;
+	float fa = fract(sa);
+	float ea = min(fa, 1.0 - fa) / nseg * 6.2831853 * max(rad, 0.3);
+	float edge = min(er, ea);
+	vec3 honey = vec3(0.27, 0.25, 0.215) * (0.84 + 0.3 * r) * (0.9 + 0.2 * fine);
+	honey *= mix(vec3(1.0), vec3(1.06, 0.99, 0.9), step(0.6, r2));
+	vec3 teal = vec3(0.07, 0.13, 0.17) * (0.85 + 0.3 * r) * (0.9 + 0.2 * fine);
+	float hour_ring = step(2.5, ri) * (1.0 - step(3.5, ri));
+	float dark_ring = max(hour_ring, step(6.5, ri) * (1.0 - step(7.5, ri)));
+	c = mix(honey, teal, dark_ring) * tint.rgb;
+	rough = mix(0.8, 0.5, dark_ring);
+	// Worn paler in patches, dusty by the walls.
+	c *= 1.0 + 0.12 * smoothstep(0.62, 0.85, big2);
+	float dusty = (1.0 - smoothstep(0.2, 1.8 + big, wall)) * grime_amount;
+	c = mix(c, grime.rgb * (0.8 + 0.4 * fine), dusty * 0.5);
+	gap = 1.0 - smoothstep(0.014, 0.022 + px, edge);
+	c *= 1.0 + 0.1 * (1.0 - smoothstep(0.02, 0.09, edge));
+	c = mix(c, grout.rgb, gap);
+	vec3 brass = vec3(0.34, 0.27, 0.14) * (0.8 + 0.4 * fine);
+	// A brass line inlaid either side of the two dark rings.
+	float bl = min(min(abs(rad - 3.0 * RING), abs(rad - 4.0 * RING)), min(abs(rad - 7.0 * RING), abs(rad - 8.0 * RING)));
+	float inlay = 1.0 - smoothstep(0.03, 0.04 + px, bl);
+	// The twelve hour marks: a diamond at each quarter, one or two strokes between.
+	float hs = (ang + 3.14159265) / 6.2831853 * 12.0 + 0.5;
+	float sec = mod(floor(hs), 12.0);
+	float la = (fract(hs) - 0.5) / 12.0 * 6.2831853 * rad;
+	float lr = rad - 3.5 * RING;
+	float cnt = mod(sec, 3.0);
+	float mark = 0.0;
+	if (cnt < 0.5) {
+		float dm = abs(la) + abs(lr);
+		mark = (1.0 - smoothstep(0.3, 0.31 + px, dm)) * smoothstep(0.2, 0.21 + px, dm) + (1.0 - smoothstep(0.1, 0.11 + px, dm));
+	} else {
+		float u = la / 0.19 + (cnt - 1.0) * 0.5;
+		float kk = clamp(floor(u + 0.5), 0.0, cnt - 1.0);
+		mark = (1.0 - smoothstep(0.04, 0.05 + px, abs(u - kk) * 0.19)) * (1.0 - smoothstep(0.32, 0.33 + px, abs(lr)));
+	}
+	mark *= hour_ring;
+	// The hand: from the sun out to the hour ring, with a short tail behind.
+	float kf = 1.0 + hour * 4.0;
+	float th = -3.14159265 + kf * 0.5235988;
+	vec2 hd = vec2(cos(th), sin(th));
+	float along = dot(pos, hd);
+	float across = abs(dot(pos, vec2(-hd.y, hd.x)));
+	float hw = along > 0.0 ? mix(0.15, 0.03, clamp(along / 3.25, 0.0, 1.0)) : 0.11;
+	float span = step(-0.95, along) * (1.0 - smoothstep(3.25, 3.27 + px, along));
+	float hand = (1.0 - smoothstep(hw, hw + 0.01 + px, across)) * span;
+	float hand_edge = (1.0 - smoothstep(hw + 0.035, hw + 0.045 + px, across)) * span * (1.0 - hand);
+	float lit = mark * (1.0 - step(0.5, abs(sec - kf)));
+	c = mix(c, brass, max(inlay, mark));
+	if (rad < RING) {
+		// The sun: a dark disc, sixteen brass rays (long and short in turn) and a brass face.
+		c = vec3(0.07, 0.115, 0.13) * (0.9 + 0.2 * fine);
+		float s16 = (ang + 3.14159265) / 6.2831853 * 16.0 + 0.5;
+		float rf = abs(fract(s16) - 0.5);
+		float len = mod(floor(s16), 2.0) < 0.5 ? 1.04 : 0.84;
+		float rw = clamp((len - rad) / (len - 0.5), 0.0, 1.0) * 0.4;
+		float aw = min(px * 16.0 / (6.2831853 * max(rad, 0.1)), 0.1);
+		float ray = (1.0 - smoothstep(rw - aw, rw + aw, rf)) * step(0.5, rad) * step(rad, len);
+		float disc = 1.0 - smoothstep(0.54, 0.55 + px, rad);
+		c = mix(c, brass * 1.1, max(ray, disc));
+		c = mix(c, brass * 0.45, 1.0 - smoothstep(0.014, 0.022 + px, abs(rad - 0.42)));
+		c = mix(c, brass, 1.0 - smoothstep(0.03, 0.04 + px, abs(rad - RING + 0.05)));
+		em += vec3(1.0, 0.7, 0.25) * disc * 0.06;
+		gap = 0.0;
+		rough = 0.45;
+	}
+	c = mix(c, vec3(0.06, 0.045, 0.02), hand_edge * 0.8);
+	c = mix(c, vec3(0.44, 0.35, 0.18) * (0.85 + 0.3 * fine), hand);
+	c = mix(c, vec3(0.3, 0.21, 0.07), (1.0 - smoothstep(0.1, 0.11 + px, rad)));
+	em += vec3(1.0, 0.68, 0.22) * lit * (0.28 + 0.1 * sin(TIME * 2.0));
+	rough = mix(rough, 0.35, max(max(inlay, mark), hand));
+	n = normalize(vec3((r - 0.5) * 0.06, 1.0, (r2 - 0.5) * 0.06));
+	if (weather > 0.5 && weather < 1.5) {
+		// Rain: wet stone, and rings where the drops land.
+		c *= 0.8;
+		rough = mix(rough, 0.14, 0.8);
+		vec2 dq = pos * 1.7;
+		vec2 di = floor(dq);
+		float dr = h(di + 2.2);
+		float dt = TIME * (0.45 + 0.5 * dr) + dr * 7.0;
+		vec2 dp = di + 0.5 + (vec2(h(di + 5.1 + floor(dt)), h(di + 8.7 + floor(dt))) - 0.5) * 0.6;
+		float dl = length(dq - dp) / 1.7;
+		float ft = fract(dt);
+		float ring = (1.0 - smoothstep(0.0, 0.022 + px, abs(dl - ft * 0.26))) * (1.0 - ft);
+		c += vec3(0.55, 0.52, 0.42) * ring * 0.4;
+	} else if (weather > 1.5 && weather < 2.5) {
+		// Blown sand: long drifts lying across the court, thicker by the walls.
+		float st = texture(blobs_a, vec2(pos.x * 0.03 + TIME * 0.004, pos.y * 0.16)).r;
+		float drift = smoothstep(0.52, 0.7, st + (1.0 - smoothstep(0.0, 2.5, wall)) * 0.25);
+		c = mix(c, vec3(0.4, 0.31, 0.19) * (0.85 + 0.3 * fine), drift * 0.42);
+		rough = mix(rough, 0.95, drift);
+	} else if (weather > 2.5 && weather < 3.5) {
+		// Petals lying where they fell.
+		vec2 pid;
+		vec2 pv = cells(pos * 2.4, pid);
+		// (In drifts: thick where the wind left them, few elsewhere.)
+		float heap = smoothstep(0.45, 0.7, big2 + (1.0 - smoothstep(0.0, 2.0, wall)) * 0.3);
+		float pet = (1.0 - smoothstep(0.1, 0.14 + px * 2.4, pv.x)) * step(mix(0.88, 0.3, heap), h(pid + 3.3));
+		c = mix(c, mix(vec3(0.6, 0.27, 0.37), vec3(0.72, 0.47, 0.52), h(pid + 9.0)), pet * 0.6);
+	} else if (weather > 3.5) {
+		// Snow: lying in patches, deeper by the walls.
+		// (Banked against the walls and lying in the joints between the stones, with a few
+		// thin patches: blotches all over the court read as clouds, not snow.)
+		float sn = smoothstep(0.4, 0.5, (1.0 - smoothstep(0.0, 2.2, wall)) * 0.6 + 0.25 * big2 + 0.1 * fine);
+		sn = max(sn, (1.0 - smoothstep(0.03, 0.07 + 0.05 * fine, er)) * step(0.5, h(bid + 21.0)) * 0.7);
+		c = mix(c, vec3(0.47, 0.5, 0.56) * (0.9 + 0.2 * fine), sn * 0.85);
+		rough = mix(rough, 0.95, sn);
+		gap *= 1.0 - sn;
+	}
+#elif STYLE == 13
+	// The Bluefire Catacomb (floor 12 and its returns, version 396): the fire has burned so
+	// hot that the floor is black glass: big three-sided plates of obsidian, each tilted its
+	// own way so they catch the light differently, some chipped in shell-shaped ripples, with
+	// the blue fire showing in the joints. In the middle a round iron grate lies over the
+	// furnace, the fire rolling under its bars.
+	float px = fwidth(pos.x) + fwidth(pos.y);
+	const float TS = 1.7;
+	vec2 q = vec2(pos.x - pos.y * 0.57735, pos.y * 1.1547005) / TS;
+	vec2 qi = floor(q);
+	vec2 qf = fract(q);
+	float upper = step(1.0, qf.x + qf.y);
+	vec3 bary = upper > 0.5 ? vec3(1.0 - qf.x, 1.0 - qf.y, qf.x + qf.y - 1.0) : vec3(qf.x, qf.y, 1.0 - qf.x - qf.y);
+	vec2 tid = vec2(qi.x * 2.0 + upper, qi.y);
+	r = h(tid);
+	float r2 = h(tid + 13.7);
+	float edge = min(bary.x, min(bary.y, bary.z)) * TS * 0.8660254;
+	c = vec3(0.095, 0.098, 0.11) * (0.72 + 0.56 * r) * (0.92 + 0.16 * fine);
+	c *= mix(vec3(1.0), vec3(0.9, 1.0, 1.12), step(0.66, r2));
+	rough = mix(0.34, 0.6, step(0.75, r2));
+	vec2 vq = qi + upper;
+	vec2 vw = vec2(vq.x + vq.y * 0.5, vq.y * 0.8660254) * TS;
+	float vdist = length(pos - vw);
+	c *= 1.0 + 0.14 * sin(vdist * 24.0) * (1.0 - smoothstep(0.15, 0.8, vdist)) * step(0.6, h(tid + 5.5));
+	gap = 1.0 - smoothstep(0.012, 0.02 + px, edge);
+	float bev = (1.0 - smoothstep(0.02, 0.075, edge)) * (1.0 - gap);
+	c += vec3(0.04, 0.048, 0.06) * bev * (0.3 + 0.9 * r2) * smoothstep(0.0, 0.3, 1.0 - max(bary.x, max(bary.y, bary.z)));
+	float ash = (1.0 - smoothstep(0.2, 1.6 + big, wall)) * grime_amount;
+	c = mix(c, vec3(0.05, 0.05, 0.055) * (0.8 + 0.4 * fine), ash * 0.5);
+	rough = mix(rough, 0.9, ash * 0.6);
+	c = mix(c, vec3(0.012, 0.014, 0.02), gap);
+	n = normalize(vec3((r - 0.5) * 0.14, 1.0, (r2 - 0.5) * 0.14));
+	float rad = length(pos);
+	if (rad < 1.75) {
+		float ang = atan(pos.y, pos.x);
+		float outer = smoothstep(1.3, 1.31 + px, rad);
+		float collar = outer * (1.0 - smoothstep(1.7, 1.71 + px, rad));
+		float inside = 1.0 - outer;
+		float sp = abs(fract((ang + 3.14159265) / 6.2831853 * 8.0) - 0.5) * 0.7853982 * rad;
+		float spoke = 1.0 - smoothstep(0.045, 0.055 + px, sp);
+		float hoops = 1.0 - smoothstep(0.04, 0.05 + px, min(abs(rad - 0.45), abs(rad - 0.9)));
+		bar = max(max(spoke, hoops), 1.0 - smoothstep(0.13, 0.14 + px, rad)) * inside;
+		pit = inside;
+		vec3 iron = vec3(0.13, 0.135, 0.15) * (0.75 + 0.5 * fine);
+		c = mix(c, iron * (0.85 + 0.3 * smoothstep(1.3, 1.7, rad)), collar);
+		float rv = length(vec2((fract((ang + 3.14159265) / 6.2831853 * 16.0) - 0.5) * 0.3926991 * rad, rad - 1.5));
+		c = mix(c, iron * 1.9, (1.0 - smoothstep(0.045, 0.06 + px, rv)) * collar);
+		c = mix(c, vec3(0.008, 0.01, 0.018), inside);
+		c = mix(c, iron * 1.2, bar);
+		float fl = texture(blobs_b, pos * 0.3 + vec2(TIME * 0.05, -TIME * 0.08)).r;
+		float fl2 = texture(grain, pos * 0.35 - vec2(TIME * 0.11, TIME * 0.04)).r;
+		vec3 fire = seam.a > 0.0 ? seam.rgb : vec3(0.15, 0.5, 1.0);
+		em += fire * inside * (1.0 - bar) * (0.12 + smoothstep(0.35, 0.8, fl * 0.6 + fl2 * 0.6) * 0.7);
+		gap *= 1.0 - step(rad, 1.71);
+		rough = mix(rough, 0.5, max(collar, inside));
+		n = mix(n, vec3(0.0, 1.0, 0.0), max(collar, inside));
+	}
 #else
 	// Slabs 1.8 m wide and 1.3 m deep, each row shifted sideways by its own amount.
 	const vec2 SLAB = vec2(1.8, 1.3);
@@ -1916,6 +2156,76 @@ void fragment() {
 			em += spores.rgb * st * (0.45 + 0.25 * sin(TIME * 1.7 + uv.x * 3.0)) + spores.rgb * ln * 0.05;
 		}
 	}
+#elif STYLE == 12
+	// The Sundial Court (the Daily Crypt, version 396): honey limestone in courses under a
+	// dark frieze of brass suns and silver crescent moons, taking turns.
+	float cr = floor(height / 0.5);
+	vec2 bq = vec2(uv.x / 1.1 + 0.5 * mod(cr, 2.0), height / 0.5);
+	vec2 bci = floor(bq);
+	vec2 bfr = fract(bq) - 0.5;
+	vec2 bee = (0.5 - abs(bfr)) * vec2(1.1, 0.5);
+	float rb = h(bci);
+	c = vec3(0.235, 0.215, 0.18) * (0.82 + 0.32 * rb) * (0.86 + 0.28 * fine);
+	float bg = min(bee.x, bee.y);
+	c *= 1.0 - 0.5 * (1.0 - smoothstep(0.008, 0.02, bg));
+	c *= 1.0 + 0.1 * (1.0 - smoothstep(0.02, 0.06, bg));
+	rough = 0.85;
+	if (top > 0.5) {
+		c = vec3(0.19, 0.175, 0.145) * (0.85 + 0.3 * fine);
+	} else if (height > 1.93 && height < 2.5) {
+		float fy = height - 2.215;
+		c = vec3(0.055, 0.095, 0.11) * (0.85 + 0.3 * fine);
+		vec3 brass = vec3(0.6, 0.44, 0.17);
+		c = mix(c, brass, 1.0 - smoothstep(0.012, 0.02, abs(abs(fy) - 0.25)));
+		float cell = floor(uv.x / 0.8);
+		vec2 d = vec2((fract(uv.x / 0.8) - 0.5) * 0.8, fy);
+		float dl = length(d);
+		if (mod(cell, 2.0) < 0.5) {
+			float rf = abs(fract(atan(d.y, d.x) / 6.2831853 * 8.0 + 0.5) - 0.5);
+			float rw = clamp((0.2 - dl) / 0.09, 0.0, 1.0) * 0.036;
+			float ray = (1.0 - smoothstep(rw, rw + 0.008, rf * 0.7853982 * dl)) * step(0.105, dl) * step(dl, 0.2);
+			float disc = 1.0 - smoothstep(0.078, 0.088, dl);
+			c = mix(c, brass * 1.1, max(ray, disc));
+			em += vec3(1.0, 0.7, 0.25) * disc * (0.22 + 0.08 * sin(TIME * 1.3 + cell));
+		} else {
+			float cres = (1.0 - smoothstep(0.105, 0.115, dl)) * smoothstep(0.085, 0.095, length(d - vec2(0.05, 0.025)));
+			c = mix(c, vec3(0.6, 0.63, 0.7), cres);
+		}
+	}
+#elif STYLE == 13
+	// The Bluefire Catacomb (floor 12, version 396): a wall of black glass in big three-sided
+	// facets, with small arched furnace doors along its foot, the blue fire behind their bars.
+	const float TS = 1.25;
+	vec2 q = vec2(uv.x - height * 0.57735, height * 1.1547005) / TS;
+	vec2 qi = floor(q);
+	vec2 qf = fract(q);
+	float upper = step(1.0, qf.x + qf.y);
+	vec3 bary = upper > 0.5 ? vec3(1.0 - qf.x, 1.0 - qf.y, qf.x + qf.y - 1.0) : vec3(qf.x, qf.y, 1.0 - qf.x - qf.y);
+	float rb = h(vec2(qi.x * 2.0 + upper, qi.y));
+	float edge = min(bary.x, min(bary.y, bary.z)) * TS * 0.8660254;
+	c = vec3(0.075, 0.09, 0.125) * (0.55 + 0.9 * rb) * (0.9 + 0.2 * fine);
+	c += vec3(0.07, 0.1, 0.15) * (1.0 - smoothstep(0.015, 0.05, edge));
+	c *= 1.0 - 0.7 * (1.0 - smoothstep(0.004, 0.012, edge));
+	rough = 0.25;
+	if (top > 0.5) {
+		c = vec3(0.05, 0.055, 0.075) * (0.85 + 0.3 * fine);
+	} else {
+		float dx = (fract(uv.x / 2.4) - 0.5) * 2.4;
+		float dy = height - 0.22;
+		float sd = dy < 0.5 ? abs(dx) - 0.32 : length(vec2(dx, dy - 0.5)) - 0.32;
+		sd = max(sd, -dy);
+		float door = 1.0 - smoothstep(0.0, 0.015, sd);
+		float frame = (1.0 - smoothstep(0.07, 0.085, sd)) * (1.0 - door);
+		float bars = 1.0 - smoothstep(0.02, 0.03, abs(fract(dx / 0.16 + 0.5) - 0.5) * 0.16);
+		vec3 iron = vec3(0.11, 0.115, 0.13) * (0.8 + 0.4 * fine);
+		c = mix(c, iron, frame);
+		c = mix(c, vec3(0.008, 0.01, 0.02), door);
+		c = mix(c, iron * 1.2, bars * door);
+		vec3 fire = seam.a > 0.0 ? seam.rgb : vec3(0.15, 0.5, 1.0);
+		float fl = texture(blobs, vec2(uv.x * 0.5, height * 0.4 - TIME * 0.12)).r;
+		em += fire * door * (1.0 - bars) * (0.3 + 0.9 * smoothstep(0.35, 0.75, fl)) * (1.0 - smoothstep(0.0, 1.0, dy));
+		em += fire * (1.0 - door) * (1.0 - frame) * (1.0 - smoothstep(0.0, 0.4, sd)) * 0.07;
+	}
 #endif
 	// Darker at the foot of the wall, where the floor meets it.
 	float foot = mix(0.55, 1.0, smoothstep(0.0, 0.7, height));
@@ -2057,12 +2367,13 @@ func _read_layout(layout: Array) -> void:
 						Props.add_iron_column(_anchor(p))
 					elif kind == "drift":
 						Props.add_drift_column(_anchor(p))
-					elif kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf":
+					elif kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf" or kind == "sunpost":
 						var post := MeshInstance3D.new()
 						match kind:
 							"timber": post.mesh = Props.timber_post()
 							"lotus": post.mesh = Props.lotus_column()
 							"rock": post.mesh = Props.rock_column()
+							"sunpost": post.mesh = Props.sun_column()
 							_: post.mesh = Props.bookcase_column()
 						var anchor := _anchor(p)
 						anchor.add_child(post)

@@ -11,7 +11,7 @@ class_name Curses
 ## after it come with the Crypt Pass.
 
 const LIST := [
-	{"id": "heroic", "title": "Heroic", "text": "Skeletons +35% health and damage, +50% coins", "level": 2, "free": true, "unlock_boss": 5},
+	{"id": "heroic", "title": "Heroic", "text": "Skeletons 35% stronger, +50% coins", "level": 2, "free": true, "unlock_boss": 5},
 	{"id": "restless", "title": "Restless Dead", "text": "Skeletons move 20% faster", "level": 1, "free": true},
 	{"id": "gilded", "title": "Gilded Horde", "text": "Twice as many elites", "level": 1},
 	{"id": "narrow", "title": "Narrow Path", "text": "Two blessings to choose from, no reroll", "level": 1},
@@ -177,6 +177,33 @@ const THEMES := [
 	{"name": "Frenzy Friday", "text": "The dead are restless tonight", "hero": "rogue", "force": "frenzy"},
 	{"name": "Swarm Saturday", "text": "The crypt is packed", "hero": "knight", "force": "swarm"},
 ]
+## Version 396 (visual review of v388, fix 9): the Daily Crypt's weather, one a day in turn.
+## It changes how the Sundial Court looks and nothing else: what lies on the floor ("weather",
+## room.gd floor style 12), what drifts in the air and a little of the light.
+const WEATHER := [
+	{"id": "clear", "name": "Clear Skies", "text": "Sun on the stone", "look": {}},
+	{"id": "rain", "name": "Golden Rain", "text": "The court shines wet", "look": {"weather": 1.0, "motes_kind": "rain",
+		"motes": [Color(1.0, 0.88, 0.55, 0.7), Color(0.85, 0.9, 1.0, 0.4)], "motes_fall": true, "motes_size": 0.45}},
+	{"id": "sand", "name": "Sand Wind", "text": "Drifts cross the dial", "look": {"weather": 2.0, "motes_kind": "wind",
+		"motes": [Color(0.9, 0.72, 0.42, 0.7), Color(0.7, 0.55, 0.32, 0.3)], "motes_size": 0.55, "fog": Color(0.1, 0.075, 0.04)}},
+	{"id": "petals", "name": "Petal Fall", "text": "Petals on the wind", "look": {"weather": 3.0,
+		"motes": [Color(1.0, 0.6, 0.72, 0.45), Color(1.0, 0.86, 0.88, 0.25)], "motes_fall": true, "motes_size": 0.6}},
+	{"id": "snow", "name": "First Snow", "text": "Snow on the sundial", "look": {"weather": 4.0,
+		"motes": [Color(1.0, 1.0, 1.0, 0.9), Color(0.8, 0.88, 1.0, 0.5)], "motes_fall": true, "motes_size": 0.9}},
+	{"id": "fireflies", "name": "Firefly Night", "text": "Lights drift over the court", "look": {"wisp": Color(0.8, 1.0, 0.4),
+		"ambient": Color(0.13, 0.16, 0.25), "moon": Color(0.56, 0.66, 0.96), "floor_tint": Color(0.72, 0.8, 1.0), "banner": Color(0.8, 1.0, 0.5),
+		"motes": [Color(0.8, 1.0, 0.45, 0.5), Color(1.0, 0.9, 0.5, 0.25)], "motes_size": 0.4}},
+]
+## Test hook: this weather whatever the day (autoplay's weather=N).
+static var weather_test := -1
+
+
+static func weather(date := "") -> Dictionary:
+	if weather_test >= 0:
+		return WEATHER[weather_test % WEATHER.size()]
+	return WEATHER[day_number(date) % WEATHER.size()]
+
+
 ## Sunday's hero takes turns, so free players get to try a hero they don't own.
 const SUNDAY_HEROES := ["knight", "barbarian", "mage"]
 

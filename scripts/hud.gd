@@ -462,6 +462,10 @@ var _daily_box: Control
 var _daily_title: Label
 var _daily_theme: Label
 var _daily_info: Label
+var _daily_hero: HeroStage   # v396: the day's hero on the Daily screen
+var _daily_hero_box: Control
+var _daily_sky: Label   # the day's weather
+var _daily_sky_icon: BlessingIcon
 var _daily_rules: VBoxContainer
 var _daily_status: Label
 var _daily_go: Button
@@ -3975,10 +3979,45 @@ func _build_daily() -> void:
 	_daily_box.add_child(col)
 	_daily_title = label("DAILY CRYPT", 46, GOLD)
 	col.add_child(_daily_title)
-	_daily_theme = label("", 24, Color(1, 0.93, 0.8))
-	col.add_child(_daily_theme)
-	_daily_info = label("", 18, Color(0.8, 0.8, 0.86))
-	col.add_child(_daily_info)
+	# Version 396 (visual review of v388, fix 9): the screen was all words. The day's hero
+	# stands on the left in front of a sun, with the day's theme, floors and weather beside.
+	var top := HBoxContainer.new()
+	top.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	top.alignment = BoxContainer.ALIGNMENT_CENTER
+	top.add_theme_constant_override("separation", 10)
+	col.add_child(top)
+	_daily_hero_box = Control.new()
+	_daily_hero_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_daily_hero_box.custom_minimum_size = Vector2(176, 176)
+	_daily_hero_box.draw.connect(_draw_daily_sun)
+	_daily_hero = HeroStage.new(Vector2(176, 176))
+	_daily_hero.soft_edge = true
+	_daily_hero.custom_minimum_size = Vector2(176, 176)
+	_daily_hero.size = Vector2(176, 176)
+	_daily_hero.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_daily_hero_box.add_child(_daily_hero)
+	top.add_child(_daily_hero_box)
+	var words := VBoxContainer.new()
+	words.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	words.custom_minimum_size = Vector2(290, 0)
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 6)
+	top.add_child(words)
+	_daily_theme = label("", 24, Color(1, 0.93, 0.8), HORIZONTAL_ALIGNMENT_LEFT)
+	words.add_child(_daily_theme)
+	_daily_info = label("", 18, Color(0.8, 0.8, 0.86), HORIZONTAL_ALIGNMENT_LEFT)
+	words.add_child(_daily_info)
+	var sky := HBoxContainer.new()
+	sky.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sky.add_theme_constant_override("separation", 8)
+	words.add_child(sky)
+	_daily_sky_icon = BlessingIcon.new()
+	_daily_sky_icon.zoom = 0.7
+	_daily_sky_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	sky.add_child(_daily_sky_icon)
+	_daily_sky = label("", 18, Color(1.0, 0.85, 0.5), HORIZONTAL_ALIGNMENT_LEFT)
+	_daily_sky.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	sky.add_child(_daily_sky)
 	_daily_rules = VBoxContainer.new()
 	_daily_rules.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_daily_rules.add_theme_constant_override("separation", 8)
@@ -4011,12 +4050,19 @@ func _build_daily() -> void:
 func show_daily(v: bool, info := {}) -> void:
 	_daily_box.visible = v
 	_disarm(_daily_go)   # a first tap from before (then BACK) mustn't make the next tap start
+	var def: Dictionary = info.get("hero_def", {})
+	_daily_hero.set_active(v and not def.is_empty())
 	if not v:
 		return
 	_daily_open = info.open
 	_daily_title.text = info.title
 	_daily_theme.text = "%s\n%s" % [info.theme, info.theme_text]
-	_daily_info.text = "Hero: %s  ·  %d floors  ·  Score x%s" % [info.hero, Curses.DAILY_FLOORS, info.mult]
+	_daily_info.text = "Hero: %s\n%d floors  ·  Score x%s" % [info.hero, Curses.DAILY_FLOORS, info.mult]
+	if not def.is_empty():
+		_daily_hero.show_hero(def)
+	var sky: Dictionary = info.get("weather", {})
+	_daily_sky.text = "%s\n%s" % [sky.get("name", ""), sky.get("text", "")]
+	_daily_sky_icon.show_icon("w_" + str(sky.get("id", "clear")), "bolt", Color(1.0, 0.8, 0.4))
 	for c in _daily_rules.get_children():
 		c.queue_free()
 	for r: Dictionary in info.rules:
@@ -4267,7 +4313,14 @@ func _rule_row(r: Dictionary) -> Control:
 	panel.add_theme_stylebox_override("panel", sb)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 10)
 	panel.add_child(h)
+	if r.has("id"):   # version 396: each rule's own picture
+		var icon := BlessingIcon.new()
+		icon.zoom = 0.72
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		icon.show_icon("c_" + str(r.id), "bone", k[1])
+		h.add_child(icon)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -4619,6 +4672,8 @@ func _process(delta: float) -> void:
 	_update_tally(delta)
 	if _end_hero_box.visible:
 		_end_hero_box.queue_redraw()
+	if _daily_box.visible:
+		_daily_hero_box.queue_redraw()
 	# Version 213 (hardest review fix #9): one word at a time over the action. A callout that
 	# came while another word, the room banner or the phase card was up waits its turn.
 	# (v216: only during play, and only once the banner is fully gone.)
@@ -6493,6 +6548,9 @@ func _bazaar_row(r: Dictionary, coins: int) -> Button:
 	return b
 
 
+const CURSE_TINTS := [Color(1.0, 0.74, 0.32), Color(0.8, 0.52, 1.0), Color(1.0, 0.3, 0.36)]
+
+
 func _curse_row(r: Dictionary) -> Button:
 	var on: bool = r.on
 	var locked: bool = r.get("locked", false)
@@ -6506,13 +6564,23 @@ func _curse_row(r: Dictionary) -> Button:
 	_shop_tap(b, func(): curse_toggled.emit(cid))
 	var m := MarginContainer.new()
 	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	for side in ["left", "right"]:
-		m.add_theme_constant_override("margin_" + side, 16)
+	m.add_theme_constant_override("margin_left", 8)
+	m.add_theme_constant_override("margin_right", 16)
 	full(m)
 	b.add_child(m)
 	var h := HBoxContainer.new()
 	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_theme_constant_override("separation", 10)
 	m.add_child(h)
+	# Version 396 (visual review of v388, fix 9): each curse has its own picture, coloured
+	# by its level (amber, orange, red; Heroic gold), dim while it is locked.
+	var icon := BlessingIcon.new()
+	icon.zoom = 0.8
+	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.show_icon("c_" + cid, "bone", GOLD if r.get("gold", false) else CURSE_TINTS[clampi(int(r.level), 1, 3) - 1])
+	if locked:
+		icon.modulate = Color(0.6, 0.6, 0.66, 0.75)
+	h.add_child(icon)
 	var texts := VBoxContainer.new()
 	texts.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	texts.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -6523,7 +6591,8 @@ func _curse_row(r: Dictionary) -> Button:
 	t.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(t)
 	var d := label(r.text, 15, Color(0.78, 0.78, 0.84), HORIZONTAL_ALIGNMENT_LEFT)
-	d.autowrap_mode = TextServer.AUTOWRAP_OFF
+	if not r.get("gold", false):   # (v396: Heroic's long line wraps in its taller row, beside its picture)
+		d.autowrap_mode = TextServer.AUTOWRAP_OFF
 	texts.add_child(d)
 	var tag := label(str(r.get("lock", "PASS")) if locked else ("ON" if on else "OFF"), 20, GOLD.darkened(0.2) if locked else (red if on else Color(0.6, 0.58, 0.62)))
 	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -7245,6 +7314,21 @@ func _draw_end_rays() -> void:
 		_end_hero_box.draw_polygon(pts, PackedColorArray([Color(glow, 0.34), Color(glow, 0.0), Color(glow, 0.0)]))
 	for k in 4:
 		_end_hero_box.draw_circle(c, 120.0 - k * 26.0, Color(glow, 0.06))
+
+
+## Version 396: the sun behind the Daily screen's hero, its rays turning slowly.
+func _draw_daily_sun() -> void:
+	var c := _daily_hero_box.size * Vector2(0.5, 0.5)
+	var t := Time.get_ticks_msec() / 1000.0
+	var glow := Color(1.0, 0.78, 0.36)
+	for i in 12:
+		var a := t * 0.18 + TAU * i / 12.0
+		var r := 96.0 if i % 2 == 0 else 80.0
+		var pts := PackedVector2Array([c + Vector2.from_angle(a - 0.16) * 56.0, c + Vector2.from_angle(a) * r, c + Vector2.from_angle(a + 0.16) * 56.0])
+		_daily_hero_box.draw_colored_polygon(pts, Color(glow, 0.5))
+	_daily_hero_box.draw_circle(c, 62.0, Color(0.34, 0.22, 0.06, 0.95))
+	_daily_hero_box.draw_arc(c, 62.0, 0.0, TAU, 48, Color(glow, 0.9), 4.0, true)
+	_daily_hero_box.draw_circle(c, 50.0, Color(glow, 0.12))
 
 
 ## A line like "Coins this run  45" or "Bone Road  +12 bones" counts up; text lines (and

@@ -101,6 +101,11 @@ static func dress(room: Room, layout: Array) -> void:
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
 					_add_wall_gears(n)
+				"dial":
+					# A brass sun hung on the wall.
+					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
+					n.rotation.y = 0.0 if side < 0 else PI
+					_no_shadow(_mesh(n, _sun_plaque()))
 				"abyss":
 					# A great chain hung down the wall from the dark above to a ring at its foot.
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
@@ -156,6 +161,13 @@ static func dress(room: Room, layout: Array) -> void:
 				n.rotation.y = -PI / 2
 				_add_piston(n)
 				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + 0.3), 0.45)
+			"dial":
+				# A sun standard either side of the door, a pool of its light at its foot.
+				var n := _place(room, Vector3(x * 1.2, 0, -Room.HALF_L + 0.02), false)
+				n.rotation.y = -PI / 2
+				_mesh(n, _sun_standard())
+				_glow_pool(n, 2.2, Color(1.0, 0.7, 0.3, 0.2))
+				room._add_obstacle(Vector3(x * 1.2, 0, -Room.HALF_L + 0.3), 0.4)
 			"abyss":
 				# A standing stone carved with a constellation either side of the door, its
 				# broken top floating above it.
@@ -226,6 +238,11 @@ static func _corner(room: Room, n: Node3D, p: Vector3, kind: String) -> void:
 				_glow_pool(n, 2.8, Color(1.0, 0.45, 0.15, 0.2))
 			else:
 				_mesh(n, _cog_pile())
+		"dial":
+			# The Sundial Court (the Daily Crypt, version 396): an armillary sphere in each far
+			# corner; in the near ones (by the camera) a low garden sundial.
+			n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+			_mesh(n, _armillary() if p.z < 0.0 else _garden_dial())
 		"abyss":
 			# A brazier of cold star fire in each far corner, rocks circling over it; in the
 			# near ones (by the camera) a low heap of broken moonstone round a fallen star.
@@ -259,6 +276,7 @@ const KIT := {
 	"library": {"banner": "", "side": [["@books", 0.0], ["candle_triple", 0.6], ["@books", 0.0], ["box_small_decorated", 0.62]]},
 	"foundry": {"banner": "", "side": [["@cogs", 0.0], ["barrel_small", 0.8], ["@cogs", 0.0], ["box_small", 0.6]]},
 	"abyss": {"banner": "", "side": [["@float", 0.0], ["rubble_half", 0.5], ["@star", 0.0], ["rubble_half", 0.55]]},
+	"dial": {"banner": "", "side": [["@dial", 0.0], ["rubble_half", 0.5], ["@vase", 0.0], ["rubble_half", 0.55]]},
 }
 const KIT_Z := [-7.8, -4.4, 1.7, 4.4]
 
@@ -314,6 +332,8 @@ static func _own_mesh(key: String) -> ArrayMesh:
 		"@star": return _fallen_star()
 		"@candles": return _crypt_candles()
 		"@bones": return _crypt_bones()
+		"@dial": return _garden_dial()
+		"@vase": return _sun_vase()
 	return _wall_cogs()
 
 
@@ -384,6 +404,7 @@ static func _gallery_mesh(kind: String) -> ArrayMesh:
 		"library": return _book_pile()
 		"abyss": return _fallen_star()
 		"ember": return _skull_pile(false)
+		"dial": return _garden_dial()
 	return null
 
 
@@ -479,6 +500,9 @@ static func _middle_piece(room: Room, p: Vector3, kind: String, rng: RandomNumbe
 			mesh = _star_rubble()
 			k = 0.85
 			pool = Color(1.0, 0.8, 0.45, 0.22)
+		"dial":
+			mesh = _dial_rubble()
+			k = 0.9
 	if mesh == null:
 		return false
 	var n := _place(room, p, false)
@@ -2510,6 +2534,10 @@ static func add_cover(n: Node3D, cell: String) -> bool:
 		"wreck:b":
 			n.rotation.y = randf_range(-0.8, 0.8)   # its front porthole turned towards the camera
 			_mesh(n, _diving_helmet())
+		"dial:c":
+			n.rotation.y = randf_range(-0.5, 0.5)   # the fallen drum towards the camera
+			_mesh(n, _fallen_drums())
+		"dial:b": _mesh(n, _sun_vase())
 		"moon:c":
 			n.rotation.y = randf_range(-0.3, 0.3)   # the carved moon towards the camera
 			_mesh(n, _blood_altar())
@@ -4008,3 +4036,201 @@ static func _moon_lantern() -> ArrayMesh:
 		parts.append([_cone(0.0, 0.025, 0.12, 4), _xf(Vector3(cos(a) * 0.07, 1.22, sin(a) * 0.07), Vector3.ONE, Basis(Vector3(-sin(a), 0, cos(a)), 0.35)), iron])
 	_baked["moon_lantern"] = _bake(parts)
 	return _baked["moon_lantern"]
+
+
+# ---------------------------------------------------------------- the Sundial Court (v396)
+
+## The Daily Crypt's Sundial Court (version 396, visual review of v388 fix 9): honey
+## limestone, dark teal stone and brass. "sun" is brass that glows a little.
+static func _dial_mat(key: String) -> Material:
+	var k := "dial_" + key
+	if not _baked.has(k):
+		match key:
+			"stone": _baked[k] = U.mat(Color(0.56, 0.52, 0.44), 0.9)
+			"stone_dark": _baked[k] = U.mat(Color(0.38, 0.35, 0.3), 0.9)
+			"teal": _baked[k] = U.mat(Color(0.1, 0.2, 0.22), 0.6)
+			"brass": _baked[k] = U.mat(Color(0.74, 0.54, 0.2), 0.32)
+			"brass_dark": _baked[k] = U.mat(Color(0.42, 0.3, 0.11), 0.45)
+			"sun": _baked[k] = U.mat(Color(0.95, 0.7, 0.26), 0.3, 0.3)
+	return _baked[k]
+
+
+## A hoop `r` across and `thick` through, lying flat.
+static func _hoop(r: float, thick: float) -> TorusMesh:
+	var key := "hoop%.3f/%.3f" % [r, thick]
+	if not _baked.has(key):
+		var t := TorusMesh.new()
+		t.inner_radius = r - thick
+		t.outer_radius = r + thick
+		t.rings = 20
+		t.ring_segments = 6
+		_baked[key] = t
+	return _baked[key]
+
+
+## A sun's rays round `at`: `count` brass spikes in the plane across `axis`, from `r0` out to `r1`.
+static func _sun_rays(parts: Array, at: Vector3, axis: Vector3, count: int, r0: float, r1: float, width: float, mat: Material) -> void:
+	var side := axis.cross(Vector3.UP).normalized() if absf(axis.y) < 0.9 else Vector3.RIGHT
+	for k in count:
+		var dir := side.rotated(axis, TAU * (k + 0.5) / count)   # (the half step: never straight down, which the turn below can't do)
+		var ln := (r1 - r0) * (1.0 if k % 2 == 0 else 0.7)
+		# (A cone stands along +Y: turn +Y onto `dir`.)
+		var b := Basis(Quaternion(Vector3.UP, dir))
+		parts.append([_cone(0.0, width, ln, 4), Transform3D(b, at + dir * (r0 + ln * 0.5)), mat])
+
+
+## The far corners' piece: an armillary sphere on a stepped plinth, three brass hoops round a
+## small glowing sun on a tilted rod. About as tall as the walls.
+static func _armillary() -> ArrayMesh:
+	if _baked.has("armillary"):
+		return _baked["armillary"]
+	var parts := []
+	var stone := _dial_mat("stone")
+	var brass := _dial_mat("brass")
+	parts.append([_cube(), _xf(Vector3(0, 0.13, 0), Vector3(1.0, 0.26, 1.0)), _dial_mat("stone_dark")])
+	parts.append([_cube(), _xf(Vector3(0, 0.36, 0), Vector3(0.76, 0.2, 0.76)), stone])
+	parts.append([_cone(0.2, 0.3, 0.62, 8), _xf(Vector3(0, 0.77, 0), Vector3.ONE), stone])
+	_band(parts, 0.24, 0.06, 0.6, _dial_mat("teal"), 8)
+	parts.append([_cone(0.07, 0.16, 0.2, 8), _xf(Vector3(0, 1.17, 0), Vector3.ONE), brass])
+	var c := Vector3(0, 1.82, 0)
+	parts.append([_hoop(0.56, 0.035), Transform3D(Basis.IDENTITY, c), brass])
+	parts.append([_hoop(0.56, 0.03), Transform3D(Basis(Vector3.RIGHT, PI / 2), c), brass])
+	parts.append([_hoop(0.5, 0.028), Transform3D(Basis(Vector3.FORWARD, 0.9) * Basis(Vector3.RIGHT, PI / 2), c), _dial_mat("brass_dark")])
+	parts.append([_hoop(0.43, 0.026), Transform3D(Basis(Vector3.RIGHT, 0.45) * Basis(Vector3.FORWARD, 0.3), c), brass])
+	var tilt := Basis(Vector3.FORWARD, 0.42)
+	parts.append([_cone(0.016, 0.016, 1.36, 5), Transform3D(tilt, c), _dial_mat("brass_dark")])
+	parts.append([_sphere(), _xf(c, Vector3.ONE * 0.15), _dial_mat("sun")])
+	parts.append([_cone(0.0, 0.05, 0.16, 6), Transform3D(tilt, c + tilt * Vector3(0, 0.76, 0)), brass])
+	_baked["armillary"] = _bake(parts)
+	return _baked["armillary"]
+
+
+## A garden sundial: a stone drum with a brass dial plate on top and its blade standing on
+## the plate. Low (the near corners, the walls and the gallery).
+static func _garden_dial() -> ArrayMesh:
+	if _baked.has("garden_dial"):
+		return _baked["garden_dial"]
+	var parts := []
+	var stone := _dial_mat("stone")
+	parts.append([_cone(0.44, 0.48, 0.14, 10), _xf(Vector3(0, 0.07, 0), Vector3.ONE), _dial_mat("stone_dark")])
+	parts.append([_cone(0.3, 0.36, 0.5, 10), _xf(Vector3(0, 0.39, 0), Vector3.ONE), stone])
+	_band(parts, 0.34, 0.05, 0.3, _dial_mat("teal"), 10)
+	parts.append([_cone(0.43, 0.38, 0.08, 12), _xf(Vector3(0, 0.68, 0), Vector3.ONE), stone])
+	parts.append([_cone(0.37, 0.37, 0.025, 16), _xf(Vector3(0, 0.73, 0), Vector3.ONE), _dial_mat("brass")])
+	for k in 12:
+		var a := TAU * k / 12.0
+		parts.append([_cube(), _xf(Vector3(cos(a) * 0.3, 0.745, sin(a) * 0.3), Vector3(0.07 if k % 3 == 0 else 0.045, 0.012, 0.022), Basis(Vector3.UP, -a)), _dial_mat("brass_dark")])
+	# The blade: a thin three-cornered plate, leaning up from the middle to the rim.
+	parts.append([_cone(0.0, 0.22, 0.34, 3), _xf(Vector3(0.08, 0.86, 0), Vector3(1.0, 1.0, 0.1), Basis(Vector3.FORWARD, -0.5)), _dial_mat("sun")])
+	_baked["garden_dial"] = _bake(parts)
+	return _baked["garden_dial"]
+
+
+## A brass sun hung on the wall: a dark round plate, a brass face and sixteen rays, long and
+## short in turn. Built facing +X (out from the wall), its middle 1.45 m up.
+static func _sun_plaque() -> ArrayMesh:
+	if _baked.has("sun_plaque"):
+		return _baked["sun_plaque"]
+	var parts := []
+	var flat := Basis(Vector3.FORWARD, PI / 2)   # a cylinder's axis turned onto X
+	var c := Vector3(0.03, 1.45, 0)
+	parts.append([_cone(0.6, 0.6, 0.04, 20), Transform3D(flat, c), _dial_mat("teal")])
+	parts.append([_hoop(0.6, 0.03), Transform3D(flat, c + Vector3(0.02, 0, 0)), _dial_mat("brass")])
+	_sun_rays(parts, c + Vector3(0.035, 0, 0), Vector3.RIGHT, 16, 0.24, 0.54, 0.055, _dial_mat("brass"))
+	parts.append([_sphere(), _xf(c + Vector3(0.03, 0, 0), Vector3(0.07, 0.24, 0.24)), _dial_mat("sun")])
+	parts.append([_hoop(0.24, 0.02), Transform3D(flat, c + Vector3(0.05, 0, 0)), _dial_mat("brass_dark")])
+	_baked["sun_plaque"] = _bake(parts)
+	return _baked["sun_plaque"]
+
+
+## A sun standard either side of the door: a brass pole on a stone foot carrying a great
+## sun, its rays in the plane that faces the room (+X).
+static func _sun_standard() -> ArrayMesh:
+	if _baked.has("sun_standard"):
+		return _baked["sun_standard"]
+	var parts := []
+	parts.append([_cone(0.26, 0.34, 0.2, 8), _xf(Vector3(0.3, 0.1, 0), Vector3.ONE), _dial_mat("stone_dark")])
+	parts.append([_cone(0.14, 0.22, 0.2, 8), _xf(Vector3(0.3, 0.3, 0), Vector3.ONE), _dial_mat("stone")])
+	parts.append([_cone(0.035, 0.045, 1.6, 6), _xf(Vector3(0.3, 1.2, 0), Vector3.ONE), _dial_mat("brass_dark")])
+	_band(parts, 0.07, 0.05, 0.9, _dial_mat("brass"), 6, Vector3(0.3, 0, 0))
+	_band(parts, 0.07, 0.05, 1.7, _dial_mat("brass"), 6, Vector3(0.3, 0, 0))
+	var c := Vector3(0.3, 2.3, 0)
+	_sun_rays(parts, c, Vector3.RIGHT, 12, 0.2, 0.52, 0.06, _dial_mat("brass"))
+	parts.append([_sphere(), _xf(c, Vector3(0.1, 0.22, 0.22)), _dial_mat("sun")])
+	parts.append([_hoop(0.22, 0.025), Transform3D(Basis(Vector3.FORWARD, PI / 2), c), _dial_mat("brass_dark")])
+	_baked["sun_standard"] = _bake(parts)
+	return _baked["sun_standard"]
+
+
+## The Sundial Court's pillars: a round limestone column on a square foot, two brass bands
+## and a teal one, and under its capital a ring of brass rays like a sun seen from below.
+static func sun_column() -> ArrayMesh:
+	if _baked.has("sun_column"):
+		return _baked["sun_column"]
+	var parts := []
+	var h := Room.WALL_H + 0.4
+	var stone := _dial_mat("stone")
+	parts.append([_cube(), _xf(Vector3(0, 0.14, 0), Vector3(1.0, 0.28, 1.0)), _dial_mat("stone_dark")])
+	parts.append([_cone(0.34, 0.4, h - 0.5, 12), _xf(Vector3(0, 0.28 + (h - 0.5) * 0.5, 0), Vector3.ONE), stone])
+	_band(parts, 0.42, 0.09, 0.5, _dial_mat("brass"), 12)
+	_band(parts, 0.39, 0.16, 1.5, _dial_mat("teal"), 12)
+	_band(parts, 0.37, 0.07, h - 0.5, _dial_mat("brass"), 12)
+	_sun_rays(parts, Vector3(0, h - 0.5, 0), Vector3.UP, 12, 0.36, 0.62, 0.07, _dial_mat("sun"))
+	parts.append([_cube(), _xf(Vector3(0, h - 0.12, 0), Vector3(0.96, 0.24, 0.96)), _dial_mat("stone_dark")])
+	_baked["sun_column"] = _bake(parts)
+	return _baked["sun_column"]
+
+
+## The Sundial Court's crates: a column broken in three, two drums stacked askew and the
+## third fallen beside them, a brass dial plate still fixed to the top one.
+static func _fallen_drums() -> ArrayMesh:
+	if _baked.has("fallen_drums"):
+		return _baked["fallen_drums"]
+	var parts := []
+	var stone := _dial_mat("stone")
+	parts.append([_cone(0.5, 0.52, 0.5, 12), _xf(Vector3(0, 0.25, 0), Vector3.ONE), stone])
+	_band(parts, 0.53, 0.08, 0.14, _dial_mat("teal"), 12)
+	var lean := Basis(Vector3.FORWARD, 0.16) * Basis(Vector3.UP, 0.5)
+	parts.append([_cone(0.46, 0.48, 0.44, 12), Transform3D(lean, Vector3(0.06, 0.73, 0.03)), _dial_mat("stone_dark")])
+	parts.append([_cone(0.4, 0.4, 0.03, 16), Transform3D(lean, Vector3(0.06, 0.73, 0.03) + lean * Vector3(0, 0.235, 0)), _dial_mat("brass")])
+	parts.append([_cone(0.0, 0.2, 0.3, 3), Transform3D(lean * Basis(Vector3.FORWARD, -0.5) * Basis.from_scale(Vector3(1.0, 1.0, 0.1)), Vector3(0.06, 0.73, 0.03) + lean * Vector3(0.06, 0.36, 0)), _dial_mat("sun")])
+	parts.append([_cone(0.3, 0.32, 0.5, 10), Transform3D(Basis(Vector3.UP, 0.7) * Basis(Vector3.RIGHT, PI / 2), Vector3(-0.35, 0.31, 0.55)), stone])
+	parts.append([_cube(), _xf(Vector3(0.5, 0.09, 0.42), Vector3(0.3, 0.18, 0.24), Basis(Vector3.UP, 0.4)), _dial_mat("stone_dark")])
+	_baked["fallen_drums"] = _bake(parts)
+	return _baked["fallen_drums"]
+
+
+## The Sundial Court's barrels: a great stone vase on three brass feet, a teal band round
+## its belly, a brass rim and a little sun on each side.
+static func _sun_vase() -> ArrayMesh:
+	if _baked.has("sun_vase"):
+		return _baked["sun_vase"]
+	var parts := []
+	var stone := _dial_mat("stone")
+	for k in 3:
+		var a := TAU * k / 3.0 + 0.5
+		parts.append([_sphere(), _xf(Vector3(cos(a) * 0.26, 0.07, sin(a) * 0.26), Vector3(0.09, 0.07, 0.09)), _dial_mat("brass_dark")])
+	parts.append([_cone(0.36, 0.22, 0.3, 12), _xf(Vector3(0, 0.27, 0), Vector3.ONE), stone])
+	parts.append([_sphere(), _xf(Vector3(0, 0.56, 0), Vector3(0.4, 0.3, 0.4)), stone])
+	_band(parts, 0.405, 0.1, 0.56, _dial_mat("teal"), 12)
+	parts.append([_cone(0.2, 0.3, 0.26, 12), _xf(Vector3(0, 0.9, 0), Vector3.ONE), stone])
+	parts.append([_cone(0.28, 0.2, 0.1, 12), _xf(Vector3(0, 1.07, 0), Vector3.ONE), stone])
+	parts.append([_hoop(0.28, 0.03), Transform3D(Basis.IDENTITY, Vector3(0, 1.12, 0)), _dial_mat("brass")])
+	for a in [0.0, PI * 0.5, PI, PI * 1.5]:
+		var out := Vector3(cos(a), 0, sin(a))
+		parts.append([_sphere(), _xf(out * 0.41 + Vector3(0, 0.56, 0), Vector3.ONE * 0.06), _dial_mat("sun")])
+	_baked["sun_vase"] = _bake(parts)
+	return _baked["sun_vase"]
+
+
+## Out in the room: a broken brass hoop off an armillary lying on a piece of its plinth.
+static func _dial_rubble() -> ArrayMesh:
+	if _baked.has("dial_rubble"):
+		return _baked["dial_rubble"]
+	var parts := []
+	parts.append([_cube(), _xf(Vector3(0, 0.08, 0), Vector3(0.6, 0.16, 0.44), Basis(Vector3.UP, 0.3)), _dial_mat("stone_dark")])
+	parts.append([_cube(), _xf(Vector3(0.45, 0.06, 0.25), Vector3(0.22, 0.12, 0.18), Basis(Vector3.UP, 1.1)), _dial_mat("stone")])
+	parts.append([_hoop(0.5, 0.035), Transform3D(Basis(Vector3.RIGHT, 0.32) * Basis(Vector3.FORWARD, 0.12), Vector3(0.05, 0.16, 0.0)), _dial_mat("brass")])
+	parts.append([_sphere(), _xf(Vector3(-0.3, 0.1, -0.35), Vector3.ONE * 0.1), _dial_mat("sun")])
+	_baked["dial_rubble"] = _bake(parts)
+	return _baked["dial_rubble"]
