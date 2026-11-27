@@ -361,9 +361,11 @@ const REMIX_LOOK := {
 		"motes": [Color(0.85, 0.7, 1.0, 0.7), Color(0.6, 0.8, 1.0, 0.3)], "banner": Color(0.82, 0.65, 1.0)},
 	# Version 396 (fix 9): floor 12 stands on its own floor, black glass over a furnace
 	# (room.gd floor style 13), between walls of glass with furnace doors.
-	2: {"name": "Bluefire Catacomb", "floor_style": 13, "floor": Color(0.26, 0.3, 0.4), "seams": Color(0.15, 0.5, 1.0), "ambient": Color(0.16, 0.18, 0.26), "moon": Color(0.55, 0.7, 1.0),
-		"torch": Color(0.45, 0.7, 1.0), "fog": Color(0.02, 0.04, 0.09), "background": Color(0.01, 0.015, 0.04),
-		"motes": [Color(0.45, 0.75, 1.0, 0.55), Color(0.3, 0.45, 1.0, 0.2)], "banner": Color(0.5, 0.75, 1.0)},
+	# Version 409 (re-review fix 9): its blue fire still read as floor 2's blue. Now the
+	# furnace burns red-hot: glowing joints, a red-orange grate, ember light and sparks.
+	2: {"name": "Furnace Catacomb", "floor_style": 13, "floor": Color(0.4, 0.28, 0.24), "seams": Color(1.0, 0.36, 0.08), "ambient": Color(0.2, 0.13, 0.12), "moon": Color(0.92, 0.6, 0.46), "pool": 0.95,
+		"torch": Color(1.0, 0.5, 0.2), "fog": Color(0.09, 0.03, 0.015), "background": Color(0.035, 0.01, 0.005),
+		"motes": [Color(1.0, 0.55, 0.2, 0.65), Color(1.0, 0.85, 0.4, 0.25)], "banner": Color(1.0, 0.55, 0.25)},
 	DROWNED: {"name": "Sunken Gold Vault", "ambient": Color(0.24, 0.22, 0.15), "moon": Color(1.0, 0.86, 0.55), "torch": Color(1.0, 0.8, 0.45),
 		"motes": [Color(1.0, 0.88, 0.5, 0.6), Color(0.6, 1.0, 0.9, 0.25)], "banner": Color(1.0, 0.85, 0.5)},
 	GROTTO: {"name": "Bloom Grotto", "spores": Color(1.0, 0.45, 0.8, 1.0), "ambient": Color(0.28, 0.19, 0.27), "moon": Color(1.0, 0.65, 0.85),

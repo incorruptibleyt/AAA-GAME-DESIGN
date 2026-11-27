@@ -447,6 +447,14 @@ static func _middle(room: Room, layout: Array, kind: String) -> void:
 		var t := spots[i]
 		spots[i] = spots[j]
 		spots[j] = t
+	# Version 409 (re-review fix 9): the near half of the room, where the hero fights, was
+	# bare floor. One piece now always goes there first when there's a spot for it.
+	for i in spots.size():
+		if spots[i].z > 1.2:
+			var t := spots[i]
+			spots.remove_at(i)
+			spots.push_front(t)
+			break
 	var placed: Array[Vector3] = []
 	for p in spots:
 		if placed.size() >= MIDDLE_PIECES:

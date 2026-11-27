@@ -42,6 +42,7 @@ static func build(parent: Node, layout: Array, label: String) -> Room:
 	room._build_shell()
 	room._read_layout(layout)
 	Props.dress(room, layout)
+	room._apply_low(not Game._high_graphics)
 	return room
 
 
@@ -96,6 +97,7 @@ func _build_shell() -> void:
 	U.box(self, Vector3(side, WALL_H, t), wall, Vector3(DOOR_HALF + side / 2, WALL_H / 2, -HALF_L - t / 2))
 	U.box(self, Vector3(1.2, 0.16, HALF_L * 2 + 2), trim, Vector3(-HALF_W - 0.5, WALL_H + 0.08, 0))
 	U.box(self, Vector3(1.2, 0.16, HALF_L * 2 + 2), trim, Vector3(HALF_W + 0.5, WALL_H + 0.08, 0))
+	_build_wall_trims(trim)
 
 	_build_door(trim, dark)
 
@@ -143,7 +145,7 @@ static var _floor_shaders := {}
 ## 12. The Sundial Court (the Daily Crypt, version 396): one great sundial of honey limestone
 ##    laid in rings, a brass sun in the middle, a dark ring of twelve brass hour marks and a
 ##    brass hand that points at the hour; the day's weather lies on the stone.
-## 13. The Bluefire Catacomb (floor 12, version 396): black glass in big three-sided plates,
+## 13. The Furnace Catacomb (floor 12, version 396; red-hot since 409): black glass in big three-sided plates,
 ##    blue fire in the joints and a round iron furnace grate in the middle.
 ## Every style is darker by the walls, takes warm pools of light under the wall torches and
 ## a little in the middle, and deeper endless loops add blood. Everything is worked out from
@@ -227,6 +229,7 @@ uniform float ledge = 0.0;
 // middle sits in the room, and how much darker it is than the room.
 uniform vec2 shift = vec2(0.0);
 uniform float dim = 1.0;
+uniform float low_gfx = 0.0;   // (v409: 1 on Low graphics, the floor paints its own light)
 // Version 337: calmer floors. The floor stone's usual brightness (0 = leave as drawn), how
 // deep darker marks may stay (share of their depth) and how much colour is kept.
 uniform float calm_mid = 0.0;
@@ -1508,8 +1511,8 @@ void fragment() {
 	r = h(tid);
 	float r2 = h(tid + 13.7);
 	float edge = min(bary.x, min(bary.y, bary.z)) * TS * 0.8660254;
-	c = vec3(0.095, 0.098, 0.11) * (0.72 + 0.56 * r) * (0.92 + 0.16 * fine);
-	c *= mix(vec3(1.0), vec3(0.9, 1.0, 1.12), step(0.66, r2));
+	c = vec3(0.07, 0.052, 0.048) * (0.72 + 0.56 * r) * (0.92 + 0.16 * fine);
+	c *= mix(vec3(1.0), vec3(1.15, 0.9, 0.82), step(0.66, r2));   // (v409: warm, some plates scorched red)
 	rough = mix(0.34, 0.6, step(0.75, r2));
 	vec2 vq = qi + upper;
 	vec2 vw = vec2(vq.x + vq.y * 0.5, vq.y * 0.8660254) * TS;
@@ -1517,11 +1520,12 @@ void fragment() {
 	c *= 1.0 + 0.14 * sin(vdist * 24.0) * (1.0 - smoothstep(0.15, 0.8, vdist)) * step(0.6, h(tid + 5.5));
 	gap = 1.0 - smoothstep(0.012, 0.02 + px, edge);
 	float bev = (1.0 - smoothstep(0.02, 0.075, edge)) * (1.0 - gap);
-	c += vec3(0.04, 0.048, 0.06) * bev * (0.3 + 0.9 * r2) * smoothstep(0.0, 0.3, 1.0 - max(bary.x, max(bary.y, bary.z)));
+	c += vec3(0.07, 0.04, 0.03) * bev * (0.3 + 0.9 * r2) * smoothstep(0.0, 0.3, 1.0 - max(bary.x, max(bary.y, bary.z)));
 	float ash = (1.0 - smoothstep(0.2, 1.6 + big, wall)) * grime_amount;
 	c = mix(c, vec3(0.05, 0.05, 0.055) * (0.8 + 0.4 * fine), ash * 0.5);
 	rough = mix(rough, 0.9, ash * 0.6);
-	c = mix(c, vec3(0.012, 0.014, 0.02), gap);
+	c = mix(c, vec3(0.02, 0.008, 0.004), gap);
+	em += (seam.a > 0.0 ? seam.rgb : vec3(1.0, 0.36, 0.08)) * gap * 0.13;   // (v409: every joint red-hot, the hot patches hotter still)
 	n = normalize(vec3((r - 0.5) * 0.14, 1.0, (r2 - 0.5) * 0.14));
 	float rad = length(pos);
 	if (rad < 1.75) {
@@ -1665,9 +1669,20 @@ void fragment() {
 			float fl = 0.85 + 0.15 * sin(TIME * 6.3 + float(i) * 1.7) * sin(TIME * 2.9 + float(i) * 4.1);
 			tpool += (1.0 - smoothstep(0.0, 4.2, d)) * fl;
 		}
-		c *= 1.0 + torch_glow.rgb * tpool * torch_amount;
+		c *= 1.0 + torch_glow.rgb * tpool * torch_amount * (1.0 + 0.7 * low_gfx);
 	}
 
+	if (low_gfx > 0.0) {
+		// Version 409 (re-review fix 9): Low graphics has no colour pass and only two lit
+		// torches, and rooms went grey-brown. The floor paints its own light instead: the
+		// torches' pools brighter and wider, a soft pool of moonlight down the middle, and the
+		// colour pass's extra colour and contrast laid into the stone itself.
+		float mid = 1.0 - smoothstep(1.5, 8.5, length(pos * vec2(1.25, 0.62)));
+		c *= 1.0 + low_gfx * 0.42 * mid;
+		float lum = dot(c, vec3(0.3, 0.59, 0.11));
+		c = mix(vec3(lum), c, 1.0 + 0.3 * low_gfx);
+		c = max((c - 0.16) * (1.0 + 0.14 * low_gfx) + 0.16, 0.0);
+	}
 	ALBEDO = clamp(c * dim, 0.0, 1.0);
 	ROUGHNESS = rough;
 	if (up > 0.5) {
@@ -2203,12 +2218,12 @@ void fragment() {
 	vec3 bary = upper > 0.5 ? vec3(1.0 - qf.x, 1.0 - qf.y, qf.x + qf.y - 1.0) : vec3(qf.x, qf.y, 1.0 - qf.x - qf.y);
 	float rb = h(vec2(qi.x * 2.0 + upper, qi.y));
 	float edge = min(bary.x, min(bary.y, bary.z)) * TS * 0.8660254;
-	c = vec3(0.075, 0.09, 0.125) * (0.55 + 0.9 * rb) * (0.9 + 0.2 * fine);
-	c += vec3(0.07, 0.1, 0.15) * (1.0 - smoothstep(0.015, 0.05, edge));
+	c = vec3(0.1, 0.075, 0.07) * (0.55 + 0.9 * rb) * (0.9 + 0.2 * fine);
+	c += vec3(0.16, 0.07, 0.035) * (1.0 - smoothstep(0.015, 0.05, edge));   // (v409: edges lit by the furnace)
 	c *= 1.0 - 0.7 * (1.0 - smoothstep(0.004, 0.012, edge));
 	rough = 0.25;
 	if (top > 0.5) {
-		c = vec3(0.05, 0.055, 0.075) * (0.85 + 0.3 * fine);
+		c = vec3(0.075, 0.055, 0.05) * (0.85 + 0.3 * fine);
 	} else {
 		float dx = (fract(uv.x / 2.4) - 0.5) * 2.4;
 		float dy = height - 0.22;
@@ -2271,6 +2286,7 @@ const GALLERY_DIM := 0.72
 ## lights (with a longer reach to cover the middle) and Low keeps only the middle pair.
 ## The torch flames themselves always show.
 func apply_graphics(high: bool) -> void:
+	_apply_low(not high)
 	for i in _torch_lights.size():
 		var keep := (i != 2 and i != 3) if high else (i == 2 or i == 3)
 		_torch_lights[i].visible = keep
@@ -2344,6 +2360,76 @@ func _add_torch(pos: Vector3, facing: float) -> void:
 	light.position = Vector3(0.8 * facing, 0.4, 0)
 	root.add_child(light)
 	_torch_lights.append(light)
+
+
+## Version 409 (re-review fix 9): the side walls were blank slabs from end to end. Now each
+## has a skirting at its foot and stone pilasters standing out of it between the torches
+## and the wall pieces (torches at z -6, 0, 6; pieces at -3, 3), each with a cap. One mesh
+## for all of them, in the place's trim colour.
+func _build_wall_trims(trim: Material) -> void:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var box := BoxMesh.new()
+	var pieces := []
+	for side in [-1.0, 1.0]:
+		var x: float = side * HALF_W
+		pieces.append([Vector3(0.16, 0.26, HALF_L * 2), Vector3(x - side * 0.08, 0.13, 0)])   # skirting
+		for z in [-8.4, -4.5, 4.5, 8.4]:
+			pieces.append([Vector3(0.22, WALL_H, 0.46), Vector3(x - side * 0.11, WALL_H * 0.5, z)])   # pilaster
+			pieces.append([Vector3(0.32, 0.16, 0.6), Vector3(x - side * 0.15, WALL_H - 0.12, z)])   # its cap
+			pieces.append([Vector3(0.3, 0.3, 0.58), Vector3(x - side * 0.14, 0.15, z)])   # its foot
+	for pc in pieces:
+		var sz: Vector3 = pc[0]
+		st.append_from(box, 0, Transform3D(Basis.from_scale(sz), pc[1]))
+	var mi := MeshInstance3D.new()
+	mi.mesh = st.commit()
+	mi.material_override = trim
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+
+
+var _low_blobs: Node3D
+
+## Version 409 (re-review fix 9): Low graphics. The floor's painted light (low_gfx above),
+## and a soft dark spot under each pillar and piece of cover standing in for the shadows
+## Low has none of (skeletons already have theirs).
+func _apply_low(on: bool) -> void:
+	_set_low(self, 1.0 if on else 0.0)
+	if on and _low_blobs == null and not obstacles.is_empty():
+		_low_blobs = Node3D.new()
+		add_child(_low_blobs)
+		var mat := StandardMaterial3D.new()
+		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		mat.albedo_texture = U.soft_circle()
+		mat.albedo_color = Color(0, 0, 0, 0.78)
+		mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(1, 1)
+		for o: Dictionary in obstacles:
+			var p: Vector3 = o.pos
+			if absf(p.x) > HALF_W - 0.2 or absf(p.z) > HALF_L - 0.2:
+				continue   # (a corner piece's circle is centred outside the room)
+			var b := MeshInstance3D.new()
+			b.mesh = plane
+			b.material_override = mat
+			b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var d := float(o.r) * 3.4
+			b.scale = Vector3(d, 1, d * 0.9)
+			b.position = Vector3(p.x + 0.25, 0.025, p.z + 0.3)   # (falling a little toward the camera, like the moon's)
+			_low_blobs.add_child(b)
+	if _low_blobs:
+		_low_blobs.visible = on
+
+
+static func _set_low(n: Node, v: float) -> void:
+	if n is MeshInstance3D:
+		var m := (n as MeshInstance3D).material_override
+		if m is ShaderMaterial and (m as ShaderMaterial).shader and (m as ShaderMaterial).shader.code.contains("low_gfx"):
+			(m as ShaderMaterial).set_shader_parameter("low_gfx", v)
+	for c in n.get_children():
+		if c is Node3D:
+			_set_low(c, v)
 
 
 func _read_layout(layout: Array) -> void:
