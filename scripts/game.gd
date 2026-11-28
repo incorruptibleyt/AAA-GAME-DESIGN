@@ -102,7 +102,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-27w"
+const BUILD := "2026-11-27y"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -7176,13 +7176,23 @@ func _armory_rows() -> Array:
 	if day != Curses.today():
 		write_save(cfg)   # the day's looks are picked once and kept
 	var hero_id := Heroes.selected(cfg)
+	# Version 418 (re-review of v410, fix 8: "the Bazaar shows the same Knight three times"):
+	# the day's looks are for every hero, so each is shown on a different one, the player's
+	# own hero first.
+	var shown_on: Array[String] = [hero_id]
+	for h: Dictionary in Heroes.LIST:
+		if str(h.id) != hero_id:
+			shown_on.append(str(h.id))
+	var nth := 0
 	for l: Array in offer:
 		var slot: String = l[0]
 		var key: String = l[1]
+		var on_id: String = shown_on[nth % shown_on.size()]
+		nth += 1
 		rows.append({"id": "bazaar", "look": l, "title": HeroStyle.item_name(hero_id, slot, key),
 			"text": "%s  ·  every hero" % Bazaar.slot_name(slot), "level": 0, "max": 1,
 			"cost": -1 if Bazaar.has(cfg, slot, key) else Bazaar.price(slot, key),
-			"hero": hero_id, "base": Heroes.get_hero(hero_id), "preview": _bazaar_def(cfg, hero_id, slot, key)})
+			"hero": on_id, "base": Heroes.get_hero(on_id), "preview": _bazaar_def(cfg, on_id, slot, key)})
 		var e := HeroStyle.extra(slot, key)
 		if e.has("drop"):
 			var tier: Dictionary = Drops.TIERS[int(e.drop)]

@@ -6634,8 +6634,20 @@ func show_curses(v: bool, rows := [], info := "", goal := "") -> void:
 	var keep := _armory_scroll.scroll_vertical if again else 0
 	for c in _armory_rows.get_children():
 		c.queue_free()
+	# Version 418 (re-review of v410, fix 8: "Curses is still a list of OFF rows"): the curses
+	# are cards, two a row, each a dark stone tablet with its picture big; one that is on
+	# cracks open red (CurseCracks) and says CURSED. Heroic, the gold one, keeps its wide row.
+	var grid := GridContainer.new()
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
 	for r: Dictionary in rows:
-		_armory_rows.add_child(_curse_row(r))
+		if r.get("gold", false):
+			_armory_rows.add_child(_curse_row(r))
+		else:
+			grid.add_child(_curse_card(r))
+	_armory_rows.add_child(grid)
 	_armory_scroll.scroll_vertical = keep
 	if keep > 0:
 		_armory_scroll.set_deferred("scroll_vertical", keep)
@@ -6746,8 +6758,56 @@ func _fill_shop(rows: Array, coins: int) -> void:
 		_armory_rows.add_child(_shop_head("IN YOUR RUNS" if vault else "MAXED", "%d / %d" % [have.size(), all]))
 		if vault and buy.is_empty():
 			_armory_rows.add_child(_shop_note("All %d are yours. Each one can turn up in your runs." % have.size()))
-		for r: Dictionary in have:
-			_armory_rows.add_child(_shop_card(r, coins))
+		if vault:
+			# Version 418 (re-review of v410, fix 8: "the Vault tab is a plain list"): what is
+			# yours is a collection, a grid of badges, three a row, each its blessing's own
+			# picture in a ring of its colour with its name under it.
+			_armory_rows.add_child(_badge_grid(have))
+		else:
+			for r: Dictionary in have:
+				_armory_rows.add_child(_shop_card(r, coins))
+
+
+## Version 418: the Vault blessings you own, as a grid of collected badges.
+func _badge_grid(have: Array) -> Control:
+	var grid := GridContainer.new()
+	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	grid.columns = 3
+	grid.add_theme_constant_override("h_separation", 8)
+	grid.add_theme_constant_override("v_separation", 8)
+	for r: Dictionary in have:
+		var blessing: Dictionary = r.get("vault", {})
+		var col: Color = Upgrades.color(blessing) if not blessing.is_empty() else GOLD
+		var badge := PanelContainer.new()
+		badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		badge.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		badge.custom_minimum_size = Vector2(0, 150)
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(col.r * 0.16, col.g * 0.16, col.b * 0.16, 0.97)
+		sb.border_color = col
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(16)
+		sb.content_margin_top = 10
+		sb.content_margin_bottom = 8
+		sb.content_margin_left = 4
+		sb.content_margin_right = 4
+		badge.add_theme_stylebox_override("panel", sb)
+		var v := VBoxContainer.new()
+		v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		v.alignment = BoxContainer.ALIGNMENT_CENTER
+		v.add_theme_constant_override("separation", 4)
+		badge.add_child(v)
+		var icon := BlessingIcon.new()
+		icon.zoom = 1.25
+		icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		if not blessing.is_empty():
+			icon.show_for(blessing)
+		v.add_child(icon)
+		var t := label(str(r.title), 16, col.lightened(0.45))
+		t.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		v.add_child(t)
+		grid.add_child(badge)
+	return grid
 
 
 ## Version 408: every maxed upgrade as a small gold-edged trophy, side by side.
@@ -7132,6 +7192,96 @@ func _curse_row(r: Dictionary) -> Button:
 	tag.autowrap_mode = TextServer.AUTOWRAP_OFF
 	h.add_child(tag)
 	return b
+
+
+## Version 418: one curse as a card (show_curses): its picture big at the top, the name, the
+## level, the rule in a line or two, and OFF / CURSED / what unlocks it. An "on"
+## card is blood red, edged thick, and cracked.
+func _curse_card(r: Dictionary) -> Button:
+	var on: bool = r.on
+	var locked: bool = r.get("locked", false)
+	var lv := clampi(int(r.level), 1, 3)
+	var tint: Color = CURSE_TINTS[lv - 1]
+	var red := Color(0.95, 0.3, 0.32)
+	var b := button("", 18, Color(0.26, 0.05, 0.07, 0.98) if on else Color(0.13, 0.11, 0.15, 0.98), red if on else Color(0.42, 0.37, 0.46, 0.7))
+	b.custom_minimum_size = Vector2(0, 214)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	(b.get_theme_stylebox("normal") as StyleBoxFlat).set_border_width_all(4 if on else 2)
+	var cid: String = r.id
+	_shop_tap(b, func(): curse_toggled.emit(cid))
+	if on:
+		var cracks := CurseCracks.new()
+		cracks.seed_from = cid
+		full(cracks)
+		b.add_child(cracks)
+	var m := MarginContainer.new()
+	m.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	for side in ["left", "right"]:
+		m.add_theme_constant_override("margin_" + side, 8)
+	m.add_theme_constant_override("margin_top", 8)
+	m.add_theme_constant_override("margin_bottom", 8)
+	full(m)
+	b.add_child(m)
+	var v := VBoxContainer.new()
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 2)
+	m.add_child(v)
+	var icon := BlessingIcon.new()
+	icon.zoom = 1.1
+	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon.show_icon("c_" + cid, "bone", red if on else tint)
+	if locked:
+		icon.modulate = Color(0.6, 0.6, 0.66, 0.75)
+	v.add_child(icon)
+	var t := label(str(r.title), 19, red.lightened(0.35) if on else (Color(0.6, 0.58, 0.62) if locked else Color.WHITE))
+	t.autowrap_mode = TextServer.AUTOWRAP_OFF
+	v.add_child(t)
+	var pips := label("LEVEL %d" % lv, 14, tint if not on else red.lightened(0.2))
+	chunky(pips.label_settings)
+	pips.label_settings.outline_size = 3
+	v.add_child(pips)
+	var d := label(str(r.text), 13, Color(0.8, 0.78, 0.84))
+	d.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	v.add_child(d)
+	var tag := label(str(r.get("lock", "PASS")) if locked else ("CURSED" if on else "OFF"), 17, GOLD.darkened(0.2) if locked else (red.lightened(0.15) if on else Color(0.58, 0.56, 0.6)))
+	chunky(tag.label_settings)
+	tag.label_settings.outline_size = 4
+	v.add_child(tag)
+	return b
+
+
+## Red cracks over a curse card that is on: jagged lines from two edges, a dark core with a
+## glowing red edge, seeded by the curse so each card cracks its own way.
+class CurseCracks extends Control:
+	var seed_from := ""
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		clip_contents = true   # (the cracks stay on their card)
+		resized.connect(queue_redraw)
+	func _draw() -> void:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = hash(seed_from)
+		for k in 3:
+			var p := Vector2(rng.randf_range(0.1, 0.9) * size.x, 0.0) if k != 1 else Vector2(size.x, rng.randf_range(0.3, 0.8) * size.y)
+			if k == 2:
+				p = Vector2(0.0, rng.randf_range(0.5, 0.95) * size.y)
+			var dir := (size * 0.5 - p).normalized()
+			var pts := PackedVector2Array([p])
+			var w := 4.0
+			for i in 6:
+				dir = dir.rotated(rng.randf_range(-0.7, 0.7))
+				p += dir * rng.randf_range(12.0, 24.0)
+				p = p.clamp(Vector2(4, 4), size - Vector2(4, 4))
+				pts.append(p)
+			for i in pts.size() - 1:
+				var f := 1.0 - float(i) / pts.size()
+				draw_line(pts[i], pts[i + 1], Color(1.0, 0.2, 0.15, 0.45), (w + 4.0) * f, true)
+				draw_line(pts[i], pts[i + 1], Color(0.12, 0.0, 0.0, 0.9), w * f, true)
+				draw_line(pts[i], pts[i + 1], Color(1.0, 0.55, 0.35, 0.8), maxf(1.0, w * f * 0.3), true)
+				if i == 2:
+					var br := pts[i] + dir.rotated(1.2) * 18.0
+					draw_line(pts[i], br, Color(1.0, 0.25, 0.15, 0.6), 2.0, true)
 
 
 ## One Armory or Vault card (version 225): the picture, the name with its level dots, the
