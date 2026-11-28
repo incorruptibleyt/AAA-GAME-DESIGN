@@ -107,7 +107,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-28b"
+const BUILD := "2026-11-28c"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1102,6 +1102,10 @@ func _setup_environment() -> void:
 	moon.light_energy = 0.5
 	moon.shadow_enabled = true
 	moon.directional_shadow_max_distance = 45.0
+	# Version 422 (speed pass): one shadow map, not four. With 4 splits every skeleton, wall
+	# and prop was drawn into the shadows up to four times: 43% of all draw calls in the Speed
+	# Test. The camera looks down from one height, so the splits bought nothing you can see.
+	moon.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
 	world.add_child(moon)
 
 

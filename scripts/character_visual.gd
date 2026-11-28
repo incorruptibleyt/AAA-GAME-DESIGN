@@ -113,6 +113,8 @@ func build(look: Dictionary) -> void:
 	else:
 		_model = _placeholder(look)
 	_collect_meshes(_model)
+	if scene and not look.has("style") and not look.get("keep_parts", false):
+		_join_parts()
 	if look.has("overlay"):
 		# A ready-made material drawn over the whole model (the Cinder Skeleton's charring).
 		_tint_mat = look.overlay
@@ -230,6 +232,118 @@ func _find_anim(n: Node) -> AnimationPlayer:
 		if r:
 			return r
 	return null
+
+
+## Version 422 (speed pass): a KayKit skeleton comes as 7 to 9 separate body pieces (arms,
+## legs, body, head, jaw, cloak, eyes) that all bend with the same bones and almost all wear
+## the same material. Each piece cost its own draw for the body, the tint or rim over it, the
+## ink line and the shadow: about 30 draws for one plain skeleton. Pieces that look the same
+## (same material, same skin, same line or no line) are joined into one, so a skeleton costs
+## about a third. Nothing changes on screen: the same triangles, bones, materials and lines.
+## Heroes (dressed by Style) keep their pieces.
+static var _joined := {}
+
+func _join_parts() -> void:
+	var skel := Art._find_skeleton(_model)
+	if skel == null:
+		return
+	_pick_outline_meshes()   # which pieces carry the ink line, chosen as before
+	var groups := {}
+	for c in skel.get_children():
+		var mi := c as MeshInstance3D
+		if mi == null or not mi.visible or not (mi.mesh is ArrayMesh) or mi.skin == null:
+			continue
+		if mi.has_meta("fx") or mi.has_meta("mark") or mi.has_meta("big") or not _meshes.has(mi):
+			continue
+		var mesh := mi.mesh as ArrayMesh
+		if mesh.get_surface_count() != 1 or mesh.get_blend_shape_count() != 0 or mesh.surface_get_primitive_type(0) != Mesh.PRIMITIVE_TRIANGLES:
+			continue
+		if not mi.transform.is_equal_approx(Transform3D.IDENTITY) or mi.material_override != null or mi.material_overlay != null:
+			continue
+		var over := mi.get_surface_override_material(0)
+		var mat: Material = over if over else mesh.surface_get_material(0)
+		var key := "%d|%d|%d|%d|%d|%d|%s" % [mi.skin.get_instance_id(), mat.get_instance_id() if mat else 0,
+			mesh.surface_get_format(0), mi.cast_shadow, mi.layers, 1 if over else 0, _outline_set.has(mi)]
+		if not groups.has(key):
+			groups[key] = []
+		groups[key].append(mi)
+	for key: String in groups:
+		var parts: Array = groups[key]
+		if parts.size() < 2:
+			continue
+		var ids := PackedStringArray()
+		for p: MeshInstance3D in parts:
+			ids.append(str(p.mesh.get_instance_id()))
+		var cache_key := key + "|" + ",".join(ids)
+		if not _joined.has(cache_key):
+			_joined[cache_key] = _join_meshes(parts)
+		var joined: ArrayMesh = _joined[cache_key]
+		if joined == null:
+			continue
+		var first: MeshInstance3D = parts[0]
+		var mi := MeshInstance3D.new()
+		mi.name = String(first.name) + "_Joined"
+		mi.mesh = joined
+		mi.skin = first.skin
+		mi.cast_shadow = first.cast_shadow
+		mi.layers = first.layers
+		var over := first.get_surface_override_material(0)
+		if over:
+			mi.set_surface_override_material(0, over)
+		skel.add_child(mi)
+		mi.skeleton = NodePath("..")
+		var lined := _outline_set.has(first)
+		for p: MeshInstance3D in parts:
+			_meshes.erase(p)
+			_outline_set.erase(p)
+			skel.remove_child(p)
+			p.queue_free()
+		_meshes.append(mi)
+		if lined:
+			_outline_set[mi] = true
+
+
+## One mesh with every piece's triangles, in the pieces' own (shared) bone space.
+static func _join_meshes(parts: Array) -> ArrayMesh:
+	var out: Array = []
+	out.resize(Mesh.ARRAY_MAX)
+	var base := 0
+	var bones_per := -1
+	for p: MeshInstance3D in parts:
+		var a: Array = (p.mesh as ArrayMesh).surface_get_arrays(0)
+		var verts: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+		var n := verts.size()
+		if n == 0:
+			return null
+		if a[Mesh.ARRAY_BONES] == null:
+			return null
+		var bp: int = (a[Mesh.ARRAY_BONES] as PackedInt32Array).size() / n
+		if bones_per < 0:
+			bones_per = bp
+		elif bp != bones_per:
+			return null
+		for i in Mesh.ARRAY_MAX:
+			var v: Variant = a[i]
+			if i == Mesh.ARRAY_INDEX:
+				var idx: PackedInt32Array = v if v != null else PackedInt32Array(range(n))
+				var moved := PackedInt32Array(idx)
+				for k in moved.size():
+					moved[k] += base
+				v = moved
+			if (v == null) != (out[i] == null) and base > 0:
+				return null   # pieces with different vertex data: leave them alone
+			if v == null:
+				continue
+			if out[i] == null:
+				out[i] = v.duplicate()
+			else:
+				out[i].append_array(v)
+		base += n
+	var m := ArrayMesh.new()
+	var flags := Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS if bones_per == 8 else 0
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, out, [], {}, flags)
+	m.surface_set_material(0, (parts[0].mesh as ArrayMesh).surface_get_material(0))
+	return m
 
 
 func _collect_meshes(n: Node) -> void:
