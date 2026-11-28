@@ -1846,6 +1846,12 @@ func _build_cards() -> void:
 		band.position = Vector2(4, 4)
 		band.size = Vector2(CARD_SIZE.x - 8, 38)
 		b.add_child(band)
+		# Version 420 (review fix 10): each kind of blessing has its own frame ornaments
+		# (bone knuckles, arrowheads, flames, icicles, a hero's gold corners).
+		var orn := KindFrame.new()
+		orn.name = "Frame"
+		orn.size = CARD_SIZE
+		b.add_child(orn)
 		var kind := label("", 16, INK)
 		kind.name = "Kind"
 		kind.label_settings.outline_size = 0
@@ -5625,7 +5631,9 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		var col: Color = rar.color if tags else Color(0.62, 0.64, 0.7)
 		var bright: bool = tags and u.rarity != "common"
 		var syn := Upgrades.completes(u, taken) if tags else {}
-		_paint_card(b, col, bright, not syn.is_empty())
+		var kk := "hero" if u.has("hero") else str(u.family)
+		var hero_col: Color = Heroes.get_hero(u.hero).get("ring", GOLD) if u.has("hero") else GOLD
+		_paint_card(b, col, bright, not syn.is_empty(), kk, hero_col)
 		var rs := rl.get_minimum_size()
 		rl.size = rs
 		rl.position = Vector2((CARD_SIZE.x - rs.x) * 0.5, CARD_SIZE.y - 22 - rs.y)
@@ -5647,10 +5655,10 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		var back := b.get_node("Back") as Control
 		back.visible = true
 		var face: Array[Node] = []
-		for n in ["Band", "Kind", "Niche", "Icon", "Words", "Rarity", "Combo", "ShineClip", "Sheen", "Halo"]:
+		for n in ["Band", "Kind", "Niche", "Icon", "Words", "Rarity", "Combo", "ShineClip", "Sheen", "Halo", "Frame"]:
 			face.append(b.get_node(n))
 		# (what shows once it's face up: set here, as a reroll mid-deal finds them hidden)
-		var face_vis: Array = [true, true, true, true, true, tags, combo.visible, true, true, true]
+		var face_vis: Array = [true, true, true, true, true, tags, combo.visible, true, true, true, true]
 		var fam_col := Upgrades.color(u)
 		(b.get_node("Sheen") as CanvasItem).modulate = Color(fam_col, 0.55 if bright else 0.4)
 		(b.get_node("Halo") as CanvasItem).modulate = Color(fam_col, 0.7 if bright else 0.5)
@@ -5739,9 +5747,34 @@ func _fill_have(taken: Dictionary) -> void:
 ## A blessing card in its rarity colour: the frame and the thick lip under it, a band across
 ## the top, the lit niche behind the badge, the ribbon. `bright` (rare and up) gets a deeper
 ## tint and a glow; `synergy` (it completes one) a gold frame and a gold glow.
-func _paint_card(b: Button, col: Color, bright: bool, synergy := false) -> void:
-	var face := Color(0.13, 0.1, 0.19).lerp(col.darkened(0.55), 0.45 if bright else 0.3)   # (v357: every card its rarity's colour)
-	var edge := GOLD if synergy else (col if bright else col.darkened(0.15))
+## Version 420 (review fix 10): the frame, face and band come from the blessing's kind (a
+## Bone card is ivory on dark wood, a Shot card steel on navy, a Flame card ember on
+## char, a hero's own card gold on that hero's colour); the rarity keeps the ribbon, the
+## glow and the ring round the badge. (Every common card was the same grey box.)
+const CARD_KINDS := {
+	"bone": {"frame": Color(0.93, 0.86, 0.68), "face": Color(0.22, 0.16, 0.11)},
+	"bolt": {"frame": Color(0.56, 0.74, 0.98), "face": Color(0.07, 0.11, 0.23)},
+	"flame": {"frame": Color(1.0, 0.5, 0.16), "face": Color(0.26, 0.07, 0.04)},
+	"frost": {"frame": Color(0.62, 0.93, 1.0), "face": Color(0.05, 0.15, 0.22)},
+	"moon": {"frame": Color(1.0, 0.36, 0.32), "face": Color(0.22, 0.03, 0.06)},
+	"yule": {"frame": Color(0.55, 1.0, 0.74), "face": Color(0.04, 0.17, 0.11)},
+	"hero": {"frame": Color(1.0, 0.8, 0.3), "face": Color(0.14, 0.1, 0.2)},
+}
+
+func _paint_card(b: Button, col: Color, bright: bool, synergy := false, kind_key := "", hero_col := Color.WHITE) -> void:
+	var look: Dictionary = CARD_KINDS.get(kind_key, {"frame": col, "face": Color(0.13, 0.1, 0.19)})
+	var frame: Color = look.frame
+	var face: Color = look.face
+	if kind_key == "hero":
+		face = face.lerp(hero_col.darkened(0.6), 0.45)
+	face = face.lerp(col.darkened(0.5), 0.12 if bright else 0.0)
+	var edge := GOLD if synergy else frame
+	var orn := b.get_node_or_null("Frame") as KindFrame
+	if orn:
+		orn.kind = kind_key
+		orn.col = frame
+		orn.accent = hero_col
+		orn.queue_redraw()
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = face
 	normal.border_color = edge
@@ -5767,15 +5800,15 @@ func _paint_card(b: Button, col: Color, bright: bool, synergy := false) -> void:
 	glow.shadow_size = 26 if synergy else 16
 	(b.get_node("Aura") as Panel).add_theme_stylebox_override("panel", glow)
 	var band := StyleBoxFlat.new()
-	band.bg_color = col if bright else col.darkened(0.25)
+	band.bg_color = frame.darkened(0.08)
 	band.corner_radius_top_left = 14
 	band.corner_radius_top_right = 14
 	(b.get_node("Band") as Panel).add_theme_stylebox_override("panel", band)
 	var niche := StyleBoxFlat.new()
-	niche.bg_color = Color(col.lightened(0.2), 0.16 if bright else 0.1)
-	niche.set_corner_radius_all(56)
-	niche.border_color = Color(col, 0.35)
-	niche.set_border_width_all(2)
+	niche.bg_color = Color(frame.lightened(0.2), 0.12)
+	niche.set_corner_radius_all(68)
+	niche.border_color = Color(col, 0.85 if bright else 0.45)   # (the rarity's ring)
+	niche.set_border_width_all(3 if bright else 2)
 	(b.get_node("Niche") as Panel).add_theme_stylebox_override("panel", niche)
 	var r := b.get_node("Rarity") as Label
 	(r.get_theme_stylebox("normal") as StyleBoxFlat).bg_color = col
@@ -7274,6 +7307,104 @@ func _curse_card(r: Dictionary) -> Button:
 
 ## Red cracks over a curse card that is on: jagged lines from two edges, a dark core with a
 ## glowing red edge, seeded by the curse so each card cracks its own way.
+## The ornaments on a blessing card's frame, by kind (version 420).
+class KindFrame extends Control:
+	var kind := ""
+	var col := Color.WHITE
+	var accent := Color.WHITE
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		var w := size.x
+		var h := size.y - 6.0   # (the card's thick lip)
+		var dark := Color(0.05, 0.03, 0.03)
+		match kind:
+			"bone":
+				# a knuckle-bone knob at each corner and vertebrae down both sides
+				for p: Vector2 in [Vector2(7, 7), Vector2(w - 7, 7), Vector2(7, h - 4), Vector2(w - 7, h - 4)]:
+					draw_circle(p, 9.0, dark)
+					draw_circle(p, 7.5, col)
+					draw_circle(p + Vector2(-2.5, -1), 1.8, dark)
+					draw_circle(p + Vector2(2.5, -1), 1.8, dark)
+				for x: float in [2.0, w - 2.0]:
+					for k in 4:
+						var y := h * 0.42 + k * 15.0
+						var r := Rect2(Vector2(x - 6, y - 5), Vector2(12, 10))
+						draw_rect(r.grow(1.5), dark)
+						draw_rect(r, col)
+						draw_line(Vector2(x - 6, y + 5), Vector2(x + 6, y + 5), col.darkened(0.4), 2.0)
+			"bolt":
+				# arrowheads pointing out of each corner and fletching on both sides
+				for c: Vector2 in [Vector2(0, 0), Vector2(w, 0), Vector2(0, h), Vector2(w, h)]:
+					var d := (Vector2(w * 0.5, h * 0.5) - c).normalized()
+					var tip := c + d * 2.0
+					var base := c + d * 20.0
+					var n := Vector2(-d.y, d.x) * 9.0
+					var tri := PackedVector2Array([tip, base + n, base - n])
+					draw_colored_polygon(tri, dark)
+					draw_colored_polygon(PackedVector2Array([tip + d * 2.0, base + n * 0.75 - d, base - n * 0.75 - d]), col)
+				for x: float in [3.0, w - 3.0]:
+					for k in 3:
+						var y := h * 0.45 + k * 13.0
+						var sx := 1.0 if x < w * 0.5 else -1.0
+						draw_polyline(PackedVector2Array([Vector2(x - 6 * sx, y), Vector2(x, y + 7), Vector2(x + 6 * sx, y)]), dark, 6.0, true)
+						draw_polyline(PackedVector2Array([Vector2(x - 6 * sx, y), Vector2(x, y + 7), Vector2(x + 6 * sx, y)]), col, 3.0, true)
+			"flame":
+				# flames licking up from the bottom of the card, tallest at the sides
+				var hot := Color(1.0, 0.85, 0.35)
+				for i in 9:
+					var x := 10.0 + i * (w - 20.0) / 8.0
+					var t: float = absf(float(i) - 4.0) / 4.0
+					var tall := lerpf(8.0, 30.0, t * t)
+					_tongue(Vector2(x, h + 2), tall, 8.0, dark.lerp(col, 0.25))
+					_tongue(Vector2(x, h + 1), tall - 3.0, 6.0, col)
+					_tongue(Vector2(x, h), (tall - 3.0) * 0.55, 3.2, hot)
+				for x: float in [9.0, w - 9.0]:
+					_tongue(Vector2(x, 12), 20.0, 7.0, col)
+					_tongue(Vector2(x, 11), 11.0, 3.5, hot)
+			"frost":
+				# icicles hanging off the band and frost stars at the bottom corners
+				for x: float in [12.0, 24.0, 36.0, w - 36.0, w - 24.0, w - 12.0]:
+					var ln := 10.0 + 8.0 * fmod(x * 0.37, 1.0) + (6.0 if x < 15 or x > w - 15 else 0.0)
+					draw_colored_polygon(PackedVector2Array([Vector2(x - 5, 40), Vector2(x + 5, 40), Vector2(x, 40 + ln)]), col)
+				for p: Vector2 in [Vector2(12, h - 10), Vector2(w - 12, h - 10)]:
+					for a in 3:
+						var v := Vector2.from_angle(a * PI / 3.0) * 9.0
+						draw_line(p - v, p + v, col, 2.5, true)
+			"moon", "yule":
+				for p: Vector2 in [Vector2(11, 11), Vector2(w - 11, 11), Vector2(11, h - 8), Vector2(w - 11, h - 8)]:
+					draw_circle(p, 10.0, dark)
+					if kind == "moon":
+						draw_circle(p, 8.0, Color(1.0, 0.82, 0.7))
+						draw_circle(p + Vector2(3.5, -2.5), 7.0, dark)
+					else:
+						for a in 3:
+							var v := Vector2.from_angle(a * PI / 3.0) * 7.5
+							draw_line(p - v, p + v, Color(0.9, 1.0, 0.95), 2.5, true)
+			"hero":
+				# gold filigree corners with a gem in the hero's own colour, gems down the sides
+				for c: Vector2 in [Vector2(0, 0), Vector2(w, 0), Vector2(0, h), Vector2(w, h)]:
+					var sx := 1.0 if c.x == 0.0 else -1.0
+					var sy := 1.0 if c.y == 0.0 else -1.0
+					var o := c + Vector2(6 * sx, 6 * sy)
+					for lw: float in [7.0, 3.5]:
+						var cc := dark if lw > 5.0 else col
+						draw_polyline(PackedVector2Array([o + Vector2(0, 30 * sy), o, o + Vector2(30 * sx, 0)]), cc, lw, true)
+					var g := o + Vector2(6 * sx, 6 * sy)
+					var gem := PackedVector2Array([g + Vector2(0, -7), g + Vector2(7, 0), g + Vector2(0, 7), g + Vector2(-7, 0)])
+					draw_colored_polygon(gem, col)
+					draw_colored_polygon(PackedVector2Array([g + Vector2(0, -4.5), g + Vector2(4.5, 0), g + Vector2(0, 4.5), g + Vector2(-4.5, 0)]), accent)
+				for x: float in [3.0, w - 3.0]:
+					var g := Vector2(x, h * 0.55)
+					draw_colored_polygon(PackedVector2Array([g + Vector2(0, -9), g + Vector2(6, 0), g + Vector2(0, 9), g + Vector2(-6, 0)]), col)
+					draw_colored_polygon(PackedVector2Array([g + Vector2(0, -6), g + Vector2(3.5, 0), g + Vector2(0, 6), g + Vector2(-3.5, 0)]), accent)
+	func _tongue(base: Vector2, tall: float, half: float, c: Color) -> void:
+		if tall <= 1.0:
+			return
+		draw_colored_polygon(PackedVector2Array([base + Vector2(-half, 0), base + Vector2(-half * 0.6, -tall * 0.45),
+			base + Vector2(0, -tall), base + Vector2(half * 0.6, -tall * 0.45), base + Vector2(half, 0)]), c)
+
+
 class CurseCracks extends Control:
 	var seed_from := ""
 	func _ready() -> void:
