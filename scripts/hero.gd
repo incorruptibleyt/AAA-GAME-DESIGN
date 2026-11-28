@@ -361,6 +361,33 @@ func is_dashing() -> bool:
 	return _dash_left > 0.0
 
 
+## Version 424 (re-review of v420, fix 3, "bosses you can't walk through"): a boss's body is
+## solid. Walking into one stops at its edge, and a boss that steps onto the hero shoves them
+## aside, so the hero is never seen standing inside the Colossus or the Star Eater. A dash
+## still goes through (that is what it is for), and a hero who ends a dash inside is pushed
+## out at once.
+func move_by(delta_move: Vector3, delta: float) -> void:
+	super.move_by(delta_move, delta)
+	if _dash_left > 0.0 or fling_left > 0.0 or dead:
+		return
+	for b in Game._bosses:
+		if not is_instance_valid(b):
+			continue
+		var e := b as Enemy
+		if e == null or e.dead or not e.can_be_hit() or not e.is_visible_in_tree():
+			continue
+		var d := global_position - e.global_position
+		d.y = 0.0
+		var m := e.radius + e.body_extra + radius
+		var sq := d.length_squared()
+		if sq >= m * m:
+			continue
+		var dist := sqrt(sq)
+		var dir := d / dist if dist > 0.001 else Vector3(0, 0, 1)
+		var step := dir * (m - dist)
+		global_position = Room.current.resolve_move(global_position, step, radius) if Room.current else global_position + step
+
+
 ## For the Grave Pact curse: a dash in the last 1.5 seconds.
 func dashed_recently() -> bool:
 	return Time.get_ticks_msec() - _last_dash_ms < 1500

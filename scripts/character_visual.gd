@@ -727,6 +727,22 @@ static func _blink_material() -> ShaderMaterial:
 	return _blink_mat
 
 
+## The hero's own colour picture (the body's texture), for the hidden-hero figure (v424).
+func _own_picture() -> Texture2D:
+	for g in _meshes:
+		if not is_instance_valid(g):
+			continue
+		var m := g as MeshInstance3D
+		if m == null or not _outline_set.has(m) or m.has_meta("big") or not (m.mesh is ArrayMesh):
+			continue
+		var over := m.get_surface_override_material(0)
+		var mat: Material = over if over else (m.mesh as ArrayMesh).surface_get_material(0)
+		var sm := mat as StandardMaterial3D
+		if sm != null and sm.albedo_texture != null:
+			return sm.albedo_texture
+	return null
+
+
 ## `inner` with the see-through silhouette (see xray). Two passes head the chain: the first
 ## marks every pixel where the hero can be seen (a stencil mark, drawing nothing), the second
 ## draws the silhouette with no depth test, but only on unmarked pixels: so it shows where
@@ -750,6 +766,8 @@ render_mode unshaded, depth_test_disabled, depth_draw_never, cull_back, shadows_
 stencil_mode read, write, compare_not_equal, 2;
 uniform vec4 col : source_color = vec4(0.4, 0.95, 1.0, 1.0);
 uniform vec4 rimc : source_color = vec4(0.94, 1.0, 1.0, 1.0);
+uniform sampler2D tex : source_color, filter_linear_mipmap;
+uniform float has_tex = 0.0;
 // Version 361 (review of 357, fix 4): a bright edge with only a faint fill (it was a
 // solid cyan body at 38% that hid the outfit), so a hidden hero reads as an outline.
 void fragment() {
@@ -766,6 +784,14 @@ void fragment() {
 	float up = clamp(n.y * 0.5 + 0.5, 0.0, 1.0);
 	// (the dark tone stays near the light one: a deep shade read as holes in the figure)
 	vec3 body = mix(col.rgb * 0.7, col.rgb * 1.0, smoothstep(0.4, 0.6, up));
+	// Version 424 (re-review of v420, fix 3): a hidden hero wears their own colours (the
+	// outfit, read off the hero's own picture, lifted and washed a little toward the hero's
+	// colour), so a knight behind a boss still looks like the knight, not a gold coin.
+	if (has_tex > 0.5) {
+		vec3 own = texture(tex, UV).rgb;
+		own = mix(own, col.rgb, 0.22) * mix(0.95, 1.25, smoothstep(0.4, 0.6, up));
+		body = own;
+	}
 	ALBEDO = mix(body, rimc.rgb, step(0.82, rim) * rimc.a);
 	ALPHA = 1.0;
 }
@@ -778,6 +804,10 @@ void fragment() {
 	var head := _xray_mark.duplicate() as ShaderMaterial
 	var ghost := _xray_mat.duplicate() as ShaderMaterial
 	ghost.set_shader_parameter("col", xray_color)
+	var own := _own_picture()
+	if own != null:
+		ghost.set_shader_parameter("tex", own)
+		ghost.set_shader_parameter("has_tex", 1.0)
 	ghost.set_shader_parameter("rimc", Color(1.0, 1.0, 1.0, 0.95) if xray_rim.a <= 0.0 else xray_rim)
 	head.next_pass = ghost
 	ghost.next_pass = inner   # the flash and outline follow unchanged

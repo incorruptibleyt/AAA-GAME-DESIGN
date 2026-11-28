@@ -163,6 +163,97 @@ static func _keep(root: Node3D) -> void:
 			(c as GeometryInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
+## Version 424 (re-review of v420, fix 5, "elites marked over the head"): every elite but
+## the Mender (its green standard does this) wears a floating crown in its kind's colour,
+## high over its head and its hat, with a dark rim, turning slowly: the one mark that says
+## "elite, and which kind" from anywhere in the room, long after the name tag has gone.
+## Returns the crown; its height over the elite's feet is kept in meta "base_y".
+static func _flat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	m.albedo_color = c
+	return m
+
+
+static var _crown_meshes := {}
+
+
+## A crown: a band `r` wide and `low` tall with five points rising to `high`, as one closed
+## shape (an outer and an inner wall joined along the zigzag top and the bottom rim).
+static func _crown_mesh(r: float, low: float, high: float, base := 0.0, closed := false) -> ArrayMesh:
+	var k := "%.2f_%.2f_%.2f_%.2f_%s" % [r, low, high, base, closed]
+	if _crown_meshes.has(k):
+		return _crown_meshes[k]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var n := 10
+	var inner := r * 0.8
+	for i in n:
+		var a0 := TAU * i / n
+		var a1 := TAU * (i + 1) / n
+		var h0 := base + (high if i % 2 == 0 else low)
+		var h1 := base + (high if (i + 1) % 2 == 0 else low)
+		var d0 := Vector3(cos(a0), 0, sin(a0))
+		var d1 := Vector3(cos(a1), 0, sin(a1))
+		var ob0 := d0 * r + Vector3(0, base, 0)
+		var ob1 := d1 * r + Vector3(0, base, 0)
+		var ot0 := d0 * r + Vector3(0, h0, 0)
+		var ot1 := d1 * r + Vector3(0, h1, 0)
+		var ib0 := d0 * inner + Vector3(0, base, 0)
+		var ib1 := d1 * inner + Vector3(0, base, 0)
+		var it0 := d0 * inner + Vector3(0, h0, 0)
+		var it1 := d1 * inner + Vector3(0, h1, 0)
+		for q: Array in [[ob0, ob1, ot1, ot0], [ib1, ib0, it0, it1], [ot0, ot1, it1, it0], [ib0, ib1, ob1, ob0]]:
+			st.add_vertex(q[0]); st.add_vertex(q[1]); st.add_vertex(q[2])
+			st.add_vertex(q[0]); st.add_vertex(q[2]); st.add_vertex(q[3])
+	st.generate_normals()
+	var m := st.commit()
+	_crown_meshes[k] = m
+	return m
+
+
+static func crown(e: Enemy, move: String) -> Node3D:
+	var col: Color = Enemy.ELITE_MOVES[move].col if Enemy.ELITE_MOVES.has(move) else POOL
+	var top := e.center_height * 2.0
+	var high := top
+	for mi in (e.visual.find_children("*", "MeshInstance3D", true, false) if e.is_inside_tree() else []):
+		var m := mi as MeshInstance3D
+		if m.mesh == null or not m.is_visible_in_tree() or m.has_meta("fx"):
+			continue
+		var box := m.global_transform * m.get_aabb()
+		if box.size.length() < 12.0:
+			high = maxf(high, box.end.y - e.global_position.y)
+	top = minf(high, top + 0.9)
+	var c := Node3D.new()
+	e.add_child(c)
+	c.position.y = top + 0.4
+	c.set_meta("base_y", top + 0.4)
+	c.rotation.x = -0.5   # leaned toward the camera (see Enemy._elite_tick)
+	var key := "crown_" + move
+	# (plain flat colour with no vertex colour; one zigzag band, a real crown's outline, with
+	# a dark shell just behind it as its ink edge)
+	if not _mats.has(key):
+		_mats[key] = _flat(col.lerp(Color.WHITE, 0.15))
+	if not _mats.has("crown_ink"):
+		var inkm := _flat(Color(0.05, 0.02, 0.08))
+		inkm.cull_mode = BaseMaterial3D.CULL_FRONT
+		_mats["crown_ink"] = inkm
+	var band := MeshInstance3D.new()
+	band.mesh = _crown_mesh(0.4, 0.2, 0.56)
+	band.material_override = _mats[key]
+	band.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	c.add_child(band)
+	var shell := MeshInstance3D.new()
+	shell.mesh = _crown_mesh(0.47, 0.25, 0.66, -0.05, true)
+	shell.material_override = _mats["crown_ink"]
+	shell.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	c.add_child(shell)
+	_keep(c)
+	c.scale = Vector3.ONE * 1.0
+	return c
+
+
 ## Puts `move`'s pieces on elite `e`. Returns the ones the elite moves itself:
 ## "flames" (Fury: shown once it rages) and "halo" (Mender: bobs).
 static func dress(e: Enemy, move: String) -> Dictionary:

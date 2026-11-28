@@ -150,6 +150,7 @@ var _heroic_crest: Label   # version 152: a gold HEROIC under the pause button w
 var _title_play_badge: Label   # HEROIC on PLAY while it's switched on
 const BOSS_BADGE_ROOM := 52.0
 var _boss_badge: BossBadge
+var _boss_phase: Label
 var _boss_box: Control
 var _boss_fill: Control
 ## Version 386 (visual review of v383, fix 4): a pale trail behind the boss bar's fill that
@@ -1012,6 +1013,7 @@ func _bar(parent: Control, fill_col: Color) -> Control:
 
 func _build_hud() -> void:
 	add_child(EdgeMarkers.new())
+	add_child(HeroBehindMark.new())   # v424 (re-review of v420, fix 3)
 	_safe = MarginContainer.new()
 	_safe.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	full(_safe)
@@ -1256,7 +1258,7 @@ func _build_hud() -> void:
 	_boss_name.label_settings.outline_size = 5
 	_boss_name.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	_boss_name.offset_bottom = 26
-	_boss_name.offset_right = -BOSS_BADGE_ROOM
+	_boss_name.offset_right = -BOSS_BADGE_ROOM - 18.0   # (v424: clear of the bigger face)
 	_boss_box.add_child(_boss_name)
 	# Version 413 (re-review of v410, fix 3): the boss's own badge at the plate's right end,
 	# a crowned skull in its colour, so the bar says whose it is at a glance.
@@ -1264,30 +1266,30 @@ func _build_hud() -> void:
 	_boss_badge.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_boss_badge.anchor_left = 1.0
 	_boss_badge.anchor_right = 1.0
-	_boss_badge.offset_left = -BOSS_BADGE_ROOM + 4.0
-	_boss_badge.offset_right = 4.0
-	_boss_badge.offset_top = -2.0
-	_boss_badge.offset_bottom = BOSS_BADGE_ROOM - 6.0
+	_boss_badge.offset_left = -BOSS_BADGE_ROOM - 10.0   # v424: half as big again, its face sits on the plate's end
+	_boss_badge.offset_right = 14.0
+	_boss_badge.offset_top = -10.0
+	_boss_badge.offset_bottom = BOSS_BADGE_ROOM + 14.0
 	_boss_box.add_child(_boss_badge)
 	var bar_holder := Control.new()
 	bar_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	bar_holder.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar_holder.offset_top = -26
-	bar_holder.offset_right = -BOSS_BADGE_ROOM
+	bar_holder.offset_top = -30   # (v424: taller, for words that read on a phone)
+	bar_holder.offset_right = -BOSS_BADGE_ROOM - 18.0
 	_boss_box.add_child(bar_holder)
 	_boss_fill = _bar(bar_holder, Color(0.75, 0.1, 0.12))
 	_boss_trail = Panel.new()
 	_boss_trail.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var tsb := StyleBoxFlat.new()
-	tsb.bg_color = Color(1.0, 0.93, 0.8, 0.9)
+	tsb.bg_color = Color(1.0, 1.0, 0.97, 0.95)   # (v424: a white chunk, plain to see)
 	tsb.set_corner_radius_all(6)
 	_boss_trail.add_theme_stylebox_override("panel", tsb)
 	_boss_fill.get_parent().add_child(_boss_trail)
 	_boss_fill.get_parent().move_child(_boss_trail, 0)
 	_boss_trail.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_boss_hp = label("", 18, Color(1, 0.98, 0.95))
+	_boss_hp = label("", 22, Color(1, 0.98, 0.95))
 	chunky(_boss_hp.label_settings)
-	_boss_hp.label_settings.outline_size = 6
+	_boss_hp.label_settings.outline_size = 7
 	_boss_hp.label_settings.outline_color = Color(0.1, 0.02, 0.03)
 	_boss_hp.autowrap_mode = TextServer.AUTOWRAP_OFF
 	full(_boss_hp)
@@ -1335,6 +1337,18 @@ func _build_hud() -> void:
 	full(_boss_flash)
 	bar_holder.add_child(_boss_flash)
 	bar_holder.add_child(_boss_hp)
+	# Version 424 (fix 4): which phase the fight is in, at the bar's left end (the share left
+	# is at its right end).
+	_boss_phase = label("PHASE 1", 21, Color(1.0, 0.86, 0.5))
+	chunky(_boss_phase.label_settings)
+	_boss_phase.label_settings.outline_size = 7
+	_boss_phase.label_settings.outline_color = Color(0.1, 0.02, 0.03)
+	_boss_phase.autowrap_mode = TextServer.AUTOWRAP_OFF
+	full(_boss_phase)
+	_boss_phase.offset_top = -2
+	_boss_phase.offset_left = 10
+	_boss_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	bar_holder.add_child(_boss_phase)
 	# Version 380 (visual review of 375, fix 5): a broken chain in a boss fight is told just
 	# under the boss bar. Before, the chain strip faded in over the boss's name to say it.
 	_boss_broken = label("", 18, Color(1, 0.38, 0.32))
@@ -4844,15 +4858,21 @@ func _process(delta: float) -> void:
 		_boss_fill.anchor_right = k
 		# Version 386: the pale trail waits a moment after a hit, then slides down to the fill.
 		if k < _trail_last - 0.0005:
-			_trail_hold = 0.45
+			_trail_hold = 0.6
 		elif k > _boss_trail.anchor_right:
 			_boss_trail.anchor_right = k   # (healed, or a new boss)
 		_trail_last = k
 		_trail_hold -= delta
 		if _trail_hold <= 0.0:
-			_boss_trail.anchor_right = move_toward(_boss_trail.anchor_right, k, delta * 0.7)
+			_boss_trail.anchor_right = move_toward(_boss_trail.anchor_right, k, delta * 0.4)
 		_boss_trail.anchor_right = maxf(_boss_trail.anchor_right, k)
-		_boss_hp.text = Hud.thousands(ceili(Game.boss_hp_left()))
+		# Version 424 (fix 4): how much is left as a share ("62%"); the raw 51,168 barely moved.
+		_boss_hp.text = "%d%%" % ceili(k * 100.0)
+		var two := k <= 0.5
+		if _boss_phase.text != ("PHASE 2" if two else "PHASE 1"):
+			_boss_phase.text = "PHASE 2" if two else "PHASE 1"
+			# (a pale yellow over the dark edge: red on the red bar could not be read)
+			_boss_phase.label_settings.font_color = Color(1.0, 0.97, 0.55) if two else Color(1.0, 0.82, 0.45)
 	if _banner_time > 0.0:
 		_banner_time -= delta
 		_banner.modulate.a = clampf(_banner_time / 0.4, 0.0, 1.0)
@@ -4949,6 +4969,8 @@ func set_boss_name(n: String) -> void:
 	_boss_name.text = n
 	if is_instance_valid(Game.boss):
 		_boss_badge.col = Game.boss.boss_color()
+		var pic := "res://art/ui/bosses/%s.png" % str(Game.boss.get_script().get_global_name())
+		_boss_badge.tex = load(pic) as Texture2D if ResourceLoader.exists(pic) else null
 		_boss_badge.queue_redraw()
 	_boss_trail.anchor_right = 1.0
 	_trail_last = 1.0
@@ -8637,11 +8659,27 @@ func _event_process(delta: float) -> void:
 ## disc ringed in the boss's own colour.
 class BossBadge extends Control:
 	var col := Color(1.0, 0.36, 0.26)
+	## Version 424 (re-review of v420, fix 4): the boss's own face (art/ui/bosses/<Class>.png),
+	## drawn in the round in its colour; null draws the old crowned skull.
+	var tex: Texture2D
 
 	func _draw() -> void:
 		var c := size * 0.5 + Vector2(0, 2)
 		var r := minf(size.x, size.y) * 0.5 - 2.0
 		draw_circle(c, r, Color(0.06, 0.03, 0.06))
+		if tex != null:
+			var pts := PackedVector2Array()
+			var uvs := PackedVector2Array()
+			var ri := r - 3.0
+			for i in 40:
+				var a := TAU * i / 40.0
+				var v := Vector2(cos(a), sin(a))
+				pts.append(c + v * ri)
+				uvs.append(Vector2(0.5, 0.5) + v * 0.5)
+			draw_polygon(pts, PackedColorArray([Color.WHITE]), uvs, tex)
+			draw_arc(c, r - 1.0, 0.0, TAU, 48, Color(0.06, 0.03, 0.06), 6.0, true)
+			draw_arc(c, r - 2.0, 0.0, TAU, 48, col, 4.0, true)
+			return
 		draw_arc(c, r - 1.5, 0.0, TAU, 40, col, 3.0, true)
 		var bone := Color(0.96, 0.92, 0.84)
 		var s := r / 22.0
@@ -8656,3 +8694,67 @@ class BossBadge extends Control:
 		var base := c + Vector2(0, -11) * s
 		draw_colored_polygon(PackedVector2Array([base + Vector2(-9, 2) * s, base + Vector2(-9, -6) * s, base + Vector2(-4.5, -1) * s,
 			base + Vector2(0, -8) * s, base + Vector2(4.5, -1) * s, base + Vector2(9, -6) * s, base + Vector2(9, 2) * s]), gold)
+
+
+## Version 424 (re-review of v420, fix 3): when the hero stands behind a big boss (the
+## camera looks down at a slant, so a tall boss covers the floor behind it), a bright ring
+## round the hero's feet and a bobbing arrow over their head are drawn over the boss, in the
+## hero's own colour with a dark edge. The see-through ghost alone was lost on a pale boss.
+class HeroBehindMark extends Control:
+	var _on := 0.0
+	var _drawn := false
+
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+
+	static func hidden_by_boss(h: Hero) -> bool:
+		for b in Game._bosses:
+			if not is_instance_valid(b):
+				continue
+			var e := b as Enemy
+			if e == null or e.dead or not e.is_visible_in_tree():
+				continue
+			var dz := e.global_position.z - h.global_position.z   # > 0: the hero is farther from the camera
+			var tall := e.center_height * 2.0 * maxf(e.visual.scale.y if e.visual else 1.0, 1.0)
+			if dz > -0.4 and dz < tall * 0.85 and absf(e.global_position.x - h.global_position.x) < e.radius + e.body_extra + 0.7:
+				return true
+		return false
+
+	func _process(delta: float) -> void:
+		var h := Game.hero
+		var want := 0.0
+		if Game.state == Game.State.PLAYING and h != null and is_instance_valid(h) and not h.dead and not Game._bosses.is_empty():
+			want = 1.0 if hidden_by_boss(h) else 0.0
+		_on = move_toward(_on, want, delta * (8.0 if want > _on else 4.0))
+		if _on > 0.0 or _drawn:
+			queue_redraw()
+
+	func _draw() -> void:
+		_drawn = _on > 0.0
+		var h := Game.hero
+		var cam := get_viewport().get_camera_3d()
+		if _on <= 0.0 or h == null or not is_instance_valid(h) or cam == null:
+			return
+		var col: Color = h.xray_tint
+		col = Color.from_hsv(col.h, minf(col.s, 0.8), 1.0)
+		var ink := Color(0.03, 0.02, 0.06, 0.9 * _on)
+		var bright := Color(col.r, col.g, col.b, _on)
+		var feet := cam.unproject_position(h.global_position)
+		var head := cam.unproject_position(h.global_position + Vector3.UP * 2.1)
+		var t := Time.get_ticks_msec() * 0.001
+		# the ring at the feet, flattened like the floor ring
+		var pts := PackedVector2Array()
+		for i in 33:
+			var a := TAU * i / 32.0
+			pts.append(feet + Vector2(cos(a) * 34.0, sin(a) * 15.0))
+		draw_polyline(pts, ink, 10.0, true)
+		draw_polyline(pts, bright, 5.0, true)
+		# the arrow over the head, bobbing
+		var tip := head + Vector2(0, -10.0 - 6.0 * absf(sin(t * 5.0)))
+		var tri := PackedVector2Array([tip, tip + Vector2(-17, -20), tip + Vector2(-6, -20), tip + Vector2(-6, -34),
+			tip + Vector2(6, -34), tip + Vector2(6, -20), tip + Vector2(17, -20)])
+		var edge := tri.duplicate()
+		edge.append(tip)
+		draw_polyline(edge, ink, 8.0, true)
+		draw_colored_polygon(tri, bright)

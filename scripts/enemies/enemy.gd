@@ -10,6 +10,9 @@ var knockback_scale := 1.0
 var drop_chance := 0.09
 ## Bosses use the big bar at the top of the screen instead of a little one.
 var is_boss := false
+## Version 424 (fix 3): how far a boss's drawn body reaches past `radius` (its crystals,
+## its cloak): the hero is kept out to here (Hero.move_by), so it is never seen inside.
+var body_extra := 0.2
 ## Version 251 (review fix 11): each skeleton family dies with its own sound and each boss
 ## roars in its own voice (audio/sfx/die_<family>_N.ogg and roar_<boss>_N.ogg, made by
 ## tools/audio/voices.py). Set in a kind's _setup; a name with no files falls back to the
@@ -258,6 +261,8 @@ func make_elite(pick := "") -> void:
 	visual.set_rim(Color(own, 0.85), 2.3)
 	_pool = U.floor_quad(self, Vector2(EliteParts.SIGN, EliteParts.SIGN), EliteParts.sign_mat(elite_move), Vector3(0, 0.05, 0))
 	_parts = EliteParts.dress(self, elite_move)
+	if elite_move != "" and elite_move != "mender":
+		_parts["crown"] = EliteParts.crown(self, elite_move)   # v424: the kind's crown over its head
 	if _bar:
 		_bar.queue_free()
 		_bar = HealthBar.attach(self)
@@ -368,6 +373,12 @@ func _elite_tick(delta: float) -> void:
 	if _tag:
 		_place_tag()
 		_fade_tag(delta)
+	if _parts.has("crown"):
+		var cr := _parts.crown as Node3D
+		# leaned back toward the camera's slant so it reads side-on as a crown (from above it
+		# was a ring), turning slowly on its own axis whichever way the elite faces
+		cr.global_basis = Basis(Vector3.RIGHT, -0.5) * Basis(Vector3.UP, Time.get_ticks_msec() * 0.0009) * Basis.from_scale(Vector3.ONE * 1.0)
+		cr.position.y = float(cr.get_meta("base_y", 3.0)) + sin(Time.get_ticks_msec() * 0.0025 + get_instance_id()) * 0.07
 	if _parts.has("plates"):   # (v395) the Warded elite's shield plates are up while its bubble is
 		(_parts.plates as Node3D).visible = _bubble != null and _bubble.visible
 	match elite_move:
@@ -400,7 +411,11 @@ func _elite_tick(delta: float) -> void:
 ## The tag's place: on the floor just in front of its feet (toward the camera), whichever
 ## way the elite faces.
 func _place_tag() -> void:
-	_tag.global_position = global_position + Vector3(0, 0.12, radius + 0.85)
+	# Version 424 (re-review of v420, fix 5): over its head (over its crown), where the eye looks
+	# for a name; on the floor at its feet it slid under the hero and the thumb buttons.
+	var over := (float((_parts.crown as Node3D).get_meta("base_y", 0.0)) + 1.35) if _parts.has("crown") and is_instance_valid(_parts.crown) \
+		else ((float((_parts.halo as Node3D).get_meta("base_y", 0.0)) + 1.3) if _parts.has("halo") and is_instance_valid(_parts.halo) else center_height * 2.0 + 0.8)
+	_tag.global_position = global_position + Vector3(0, over, 0)
 	if _tag_pill:
 		_tag_pill.global_position = _tag.global_position
 		_tag_icon.global_position = _tag.global_position
@@ -488,8 +503,7 @@ func _fade_tag(delta: float) -> void:
 		# never run into each other.
 		# And a pill that would lie on the hero moves down under the hero's feet instead
 		# (it used to fade over the hero, unreadable, and hid the hero's ring).
-		var off := _tag_off_hero(cam, base)
-		var goal := off if off > 0.0 else -46.0 * _tag_row(cam)
+		var goal := 46.0 * _tag_row(cam)   # (v424: a second elite's pill one row higher)
 		_tag_y = move_toward(_tag_y, goal, delta * 400.0)
 		_tag.offset.y = _tag_y
 		_tag_pill.offset.y = _tag_y
@@ -500,7 +514,8 @@ func _fade_tag(delta: float) -> void:
 			_tag_tick.scale = Vector3(1.0, gap / 32.0, 1.0)
 			_tag_tick.offset = Vector2(base, (_tag_y + 20.0) * 0.5 * 32.0 / gap)
 	# Version 386 (fix 3): see-through right by the hero, so a crowd's tags don't bury it.
-	_tag.modulate.a = _tag_a * (1.0 - 0.3 * HealthBar.near_hero(global_position))   # (v404: 0.65; the pill steps off the hero now)
+	# (v424: it stays over the head and fades as the hero comes close, so it never covers them)
+	_tag.modulate.a = _tag_a * (1.0 - 0.3 * HealthBar.near_hero(global_position))   # (only a little: over the head it is off the hero)
 	_tag.outline_modulate.a = _tag.modulate.a
 	if _tag_pill:
 		_tag_pill.modulate.a = _tag.modulate.a
@@ -524,7 +539,7 @@ func _tag_row(cam: Camera3D) -> int:
 			continue
 		var p := cam.unproject_position(o._tag.global_position) + Vector2(o._tag_pill.offset.x * k, 0.0)
 		if absf(p.x - me.x) < (my_w + float(o._tag_pill.texture.get_width()) * k) * 0.5 + 4.0:
-			gaps.append((p.y - o._tag_y * k) - me.y)   # (screen y grows down; offset y grows up)
+			gaps.append(me.y - (p.y - o._tag_y * k))   # (screen y grows down; offset y grows up)
 	for r in 4:
 		var clash := false
 		for g in gaps:
@@ -1219,7 +1234,7 @@ func _touch(hero: Hero, delta: float) -> void:
 		return
 	var d := hero.global_position - global_position
 	d.y = 0.0
-	var reach := radius + hero.radius + 0.1
+	var reach := radius + (body_extra if is_boss else 0.0) + hero.radius + 0.1   # (v424: a solid boss still hurts at its edge)
 	if swipe_time > 0.0:
 		if d.length_squared() < (reach + SWIPE_REACH) * (reach + SWIPE_REACH):
 			_start_swipe(d)

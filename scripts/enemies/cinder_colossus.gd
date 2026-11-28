@@ -31,6 +31,7 @@ func _setup() -> void:
 	move_speed = 1.6
 	contact_damage = 18.0
 	radius = 1.2
+	body_extra = 0.4   # v424: its drawn body is wider than its hit circle
 	center_height = 1.9
 	knockback_scale = 0.06
 	var look := bones(Art.SKELETON_WARRIOR, 4.3, Color(1.0, 0.65, 0.15))

@@ -88,6 +88,7 @@ func _setup() -> void:
 	move_speed = 1.25
 	contact_damage = 16.0
 	radius = 1.15
+	body_extra = 0.6   # v424: its drawn body is wider than its hit circle
 	center_height = 1.9
 	knockback_scale = 0.05
 	var look := bones(Art.SKELETON_MINION, 4.5, AMETHYST)
@@ -167,6 +168,7 @@ static func _mat(key: String) -> Material:
 			"eye": _meshes[k] = U.unlit(Color(1.0, 0.2, 0.75))   # (v405: hot magenta in a dark socket on the pale face)
 			"geode": _meshes[k] = U.mat(Color(0.93, 0.88, 1.0), 0.2, 0.15)   # (pale, against its purple body)
 			"socket": _meshes[k] = U.mat(Color(0.06, 0.02, 0.1), 0.6)
+			"skull": _meshes[k] = U.mat(Color(0.58, 0.34, 0.96), 0.1, 0.45)   # v424: lilac crystal, lit from inside
 			"glow":
 				var g := StandardMaterial3D.new()
 				g.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -179,6 +181,53 @@ static func _mat(key: String) -> Material:
 				g.albedo_color = Color(0.8, 0.5, 1.0, 0.55)
 				_meshes[k] = g
 	return _meshes[k]
+
+
+## Version 424: a skull cut from one crystal, flat facets (each its own shade in the light):
+## a round dome, a flat face, the cheeks drawn in under the eyes, and a narrow back. About
+## 0.66 wide and 0.6 tall, its middle at the origin, +Z the face.
+static func _crystal_skull_mesh() -> ArrayMesh:
+	if _meshes.has("skull_mesh"):
+		return _meshes["skull_mesh"]
+	var rows := 6
+	var cols := 9
+	var pts := []
+	for i in rows + 1:
+		var th := PI * i / rows
+		var row := []
+		for j in cols:
+			var ph := TAU * j / cols + (PI / cols if i % 2 == 1 else 0.0)
+			var p := Vector3(sin(th) * sin(ph), cos(th), sin(th) * cos(ph))
+			p *= Vector3(0.33, 0.3, 0.32)
+			if p.y < 0.0:   # under the eyes the cheeks draw in, and the back of the head more
+				var k := clampf(-p.y / 0.3, 0.0, 1.0)
+				p.x *= 1.0 - 0.32 * k
+				p.z *= 1.0 - (0.15 if p.z > 0.0 else 0.5) * k
+			p.z = minf(p.z, 0.27)   # a flat face
+			row.append(p)
+		pts.append(row)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in rows:
+		for j in cols:
+			var a: Vector3 = pts[i][j]
+			var b: Vector3 = pts[i][(j + 1) % cols]
+			var c: Vector3 = pts[i + 1][j]
+			var d: Vector3 = pts[i + 1][(j + 1) % cols]
+			for tri in [[a, c, b], [b, c, d]]:
+				var n: Vector3 = (tri[1] - tri[0]).cross(tri[2] - tri[0])
+				if n.length_squared() < 1e-10:
+					continue
+				n = n.normalized()
+				if n.dot((tri[0] + tri[1] + tri[2]) / 3.0) < 0.0:
+					n = -n
+					tri = [tri[0], tri[2], tri[1]]
+				for j2 in [0, 2, 1]:   # (Godot's front faces wind clockwise)
+					st.set_normal(n)
+					st.add_vertex(tri[j2])
+	var am := st.commit()
+	_meshes["skull_mesh"] = am
+	return am
 
 
 ## The crown (head-bone space, +Z the face; the skull reaches 0.92 up): crystals bursting
@@ -292,10 +341,18 @@ func _dress() -> void:
 		head.add_child(face)
 		face.scale = Vector3.ONE * 1.25   # (it hid among its own shoulder crystals)
 		face.position = Vector3(0, 0.08, 0.05)
-		BossBodies._gem(face, Vector3(0, 0.5, 0.02), Vector3(0.5, 0.98, 0.46), _mat("geode"), 6, Vector3(0, PI / 6.0, 0))
+		# Version 424 (re-review of v420, fix 4): a real crystal skull (a faceted amethyst
+		# dome, cheekbones and a jaw), not the pale six-sided gem the critics called a white box.
+		var skull := MeshInstance3D.new()
+		skull.mesh = _crystal_skull_mesh()
+		skull.material_override = _mat("skull")
+		skull.position = Vector3(0, 0.52, 0.0)
+		face.add_child(skull)
+		BossBodies._gem(face, Vector3(0, 0.2, 0.17), Vector3(0.34, 0.16, 0.26), _mat("skull"), 6, Vector3(0, PI / 6.0, 0))   # the jaw
 		for sx in [-1.0, 1.0]:
-			var sock := U.sphere(face, 0.1, _mat("socket"), Vector3(sx * 0.16, 0.5, 0.37))
-			sock.scale = Vector3(1.25, 0.95, 0.6)
+			var sock := U.sphere(face, 0.1, _mat("socket"), Vector3(sx * 0.13, 0.5, 0.3))
+			sock.scale = Vector3(1.2, 1.0, 0.7)
+		BossBodies._shard(face, Vector3(0, 0.37, 0.33), Vector3(0, 0.44, 0.335), 0.08, _mat("socket"), 3)   # the nose
 		for k in 3:   # crystal fangs under the face
 			var fx := (k - 1) * 0.14
 			BossBodies._shard(face, Vector3(fx, 0.2, 0.3), Vector3(fx * 1.1, -0.06 + 0.04 * absf(k - 1), 0.36), 0.07, FoeBodies._m("amethyst"), 4)
@@ -306,7 +363,7 @@ func _dress() -> void:
 			eye.mesh = Props._sphere()
 			eye.material_override = _mat("eye")
 			eye.scale = Vector3(0.085, 0.065, 0.03)
-			eye.position = Vector3(sx * 0.16, 0.5, 0.44)
+			eye.position = Vector3(sx * 0.13, 0.5, 0.37)
 			eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			face.add_child(eye)
 	if skel and skel.find_bone("chest") >= 0:

@@ -50,6 +50,7 @@ func _setup() -> void:
 	# and made of the bright night sky: a glowing violet body full of stars (_night_bones),
 	# a starry ring of dust instead of a pale band, and a star in its ribs that blazes.
 	radius = 1.45
+	body_extra = 0.35   # v424: its drawn body is wider than its hit circle
 	center_height = 2.4
 	knockback_scale = 0.05
 	var look := bones(Art.SKELETON_WARRIOR, 5.7, STAR)
