@@ -38,6 +38,11 @@ var _cam_focus := Vector3.ZERO
 var _lobby := 0.0
 var _lobby_light: SpotLight3D
 var _lobby_key: SpotLight3D
+## Version 419 (re-review of v410, fix 9: "the new player's title is dark and empty"): the
+## Skeleton King looms behind the title hero, half again their height, a red light behind
+## him: the first boss, shown before the first run.
+var _lobby_boss: CharacterVisual
+var _lobby_red: OmniLight3D
 var _shake := 0.0
 var shake_scale := 1.0   # the Screen shake setting
 var flash_scale := 1.0   # v219: the Flashes setting (full, reduced to 0.3, off)
@@ -1726,6 +1731,54 @@ func _lobby_camera_position(pitch: float) -> Vector3:
 const WIDEST := 0.5625
 
 
+## The Skeleton King behind the title hero (see _lobby_boss), made the first time.
+func _lobby_looming(on: bool) -> void:
+	if not on or hero == null:
+		if _lobby_boss:
+			_lobby_boss.visible = false
+			_lobby_red.visible = false
+		return
+	if _lobby_boss == null:
+		_lobby_boss = CharacterVisual.new()
+		world.add_child(_lobby_boss)
+		var key := Art.SKELETON_GOLEM if Art.has_model(Art.SKELETON_GOLEM) else Art.SKELETON_WARRIOR
+		var look := Enemy.bones(key, 4.7, Color(1.0, 0.25, 0.15))
+		look.crown = true
+		look.horns = true
+		look.hide = ["Skeleton_Warrior_Helmet", "Skeleton_Warrior_Eyes"]
+		look.crown_y = 0.92
+		look.crown_s = 0.85
+		look.crown_tall = 1.6
+		look.shape = {"scale": {"chest": Vector3(1.35, 1.1, 1.2), "head": 0.9, "upperarm.l": 1.25, "upperarm.r": 1.25, "upperleg.l": 0.9, "upperleg.r": 0.9}}
+		look.parts = "king"
+		_lobby_boss.build(look)
+		_lobby_red = OmniLight3D.new()
+		_lobby_red.light_color = Color(1.0, 0.22, 0.1)
+		_lobby_red.light_energy = 2.5
+		_lobby_red.omni_range = 5.5
+		_lobby_red.shadow_enabled = false
+		world.add_child(_lobby_red)
+	var vis := _lobby > 0.5 and state == State.TITLE and not daily and event == ""
+	_lobby_boss.visible = vis
+	_lobby_red.visible = vis
+	if vis:
+		_lobby_boss.global_position = hero.global_position + Vector3(LOBBY_BOSS_AT.x, 0, LOBBY_BOSS_AT.z)
+		_lobby_boss.scale = Vector3.ONE * 0.7
+		# (his greatsword, held low, ran across in front of the hero: it stays in its sheath here)
+		var ks := Art._find_skeleton(_lobby_boss)
+		if ks:
+			for c in ks.get_children():
+				if c is BoneAttachment3D and str((c as BoneAttachment3D).bone_name).begins_with("handslot"):
+					for w in c.get_children():
+						if w is Node3D:
+							(w as Node3D).visible = false
+		_lobby_boss.rotation.y = PI - 0.15   # (turned to face the camera)
+		_lobby_red.global_position = _lobby_boss.global_position + Vector3(0.4, 2.4, -1.3)   # (behind him: a red edge round his shape)
+
+
+const LOBBY_BOSS_AT := Vector3(1.0, 0, -3.3)
+
+
 var _lobby_pts := PackedVector3Array()
 var _lobby_of := 0
 var _lobby_frames := 0
@@ -1948,10 +2001,13 @@ func _update_camera(real_delta: float) -> void:
 		_lobby_key.light_energy = LOBBY_KEY * _lobby
 		_lobby_key.global_position = hero.global_position + Vector3(-1.6, 3.4, 5.2)
 		_lobby_key.look_at(hero.global_position + Vector3(0, 1.0, 0))
+		_lobby_looming(true)
 		if _moon:
 			_moon.light_energy = _moon_energy * lerpf(1.0, LOBBY_MOON, _lobby)
 	elif was_lobby and _moon:
 		_moon.light_energy = _moon_energy
+	if not _lobby_light.visible and _lobby_boss != null:
+		_lobby_looming(false)
 	if lobby:
 		# (v410: a three-quarter turn, not straight on: the hero reads as a figure, not a badge)
 		hero.rotation.y = lerp_angle(hero.rotation.y, PI + LOBBY_TURN, 1.0 - exp(-6.0 * real_delta))   # turned to face us

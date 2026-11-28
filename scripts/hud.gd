@@ -6221,8 +6221,29 @@ func show_rewards(v: bool) -> void:
 	if v:
 		Sfx.play("click")
 		refresh_rewards()
+		_fit_rewards_tall()
 	_rewards_box.visible = v
 	_rw_leaders.visible = Leaders.available()
+
+
+## Version 419 (re-review of v410, fix 9: "tall phones show a 500 px gap on Rewards"): on a
+## phone taller than 16:9 the four tiles and their pictures grow into the extra height,
+## instead of leaving it empty under RECORDS.
+func _fit_rewards_tall() -> void:
+	var extra := clampf(get_viewport().get_visible_rect().size.y - 960.0, 0.0, 400.0)
+	var k := 1.0 + extra / 700.0
+	for key: String in _rw_tiles:
+		var tile: Dictionary = _rw_tiles[key]
+		(tile.b as Control).custom_minimum_size.y = 262.0 + extra * 0.42
+		var holder := tile.pic as Control
+		holder.custom_minimum_size.y = 128.0 * k
+		for c in holder.get_children():
+			var pic := c as Control
+			if pic == null:
+				continue
+			if not pic.has_meta("base"):
+				pic.set_meta("base", pic.custom_minimum_size)
+			pic.custom_minimum_size = (pic.get_meta("base") as Vector2) * k
 
 
 func rewards_visible() -> bool:
