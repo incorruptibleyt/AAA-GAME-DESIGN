@@ -128,7 +128,7 @@ static func fire(team: int, origin: Vector3, direction: Vector3, dmg: float, spd
 		else:
 			p._look = ShotLook.danger(p, maxf(size, 0.2) * 1.3, origin.y, style)
 	if p._glow:
-		p._glow.scale = Vector3(p._glow_size * 2.2, p._glow_size * 2.2, 1.0)   # muzzle flash: starts big, settles
+		p._glow.scale = Vector3(p._glow_size * 3.0, p._glow_size * 3.0, 1.0)   # muzzle flash: starts big, settles (v425: bigger)
 	if p._look:
 		p._look.scale = Vector3.ONE * 0.3
 	return p

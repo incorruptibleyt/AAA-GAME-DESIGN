@@ -215,6 +215,29 @@ func _liven(delta: float) -> void:
 	visual.position.y = absf(sin(_live_t * 8.5)) * 0.11 * _live_step + sin(_live_t * 2.4) * 0.02 * (1.0 - _live_step)
 	visual.rotation.x = -0.17 * _live_step + 0.3 * _live_rear
 	visual.rotation.z = sin(_live_t * 4.25) * 0.09 * _live_step
+	if _thrown_left > 0.0:
+		# Version 425 (re-review of v420, fix 7): thrown by a special, it flies up in an arc,
+		# tipped over backwards, and lands with a bump of dust.
+		_thrown_left -= delta
+		var k := 1.0 - maxf(_thrown_left, 0.0) / THROWN_TIME
+		var up := sin(k * PI)
+		visual.position.y += up * _thrown_h
+		visual.rotation.x += 1.1 * up
+		if _thrown_left <= 0.0 and not dead:
+			Fx.dust(global_position, 6)
+
+
+## Version 425 (fix 7): how long a skeleton a special hits is in the air.
+const THROWN_TIME := 0.5
+var _thrown_left := 0.0
+var _thrown_h := 0.0
+
+## Thrown up and back by a hero's special (bosses only rock, see _liven).
+func thrown(height: float) -> void:
+	if is_boss or dead or visual == null:
+		return
+	_thrown_left = THROWN_TIME
+	_thrown_h = height
 
 
 func _setup() -> void:

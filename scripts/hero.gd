@@ -583,6 +583,15 @@ func _special_hit(a: Actor, amount: float, from: Vector3, push: float) -> void:
 	var before := a.health
 	a.take_damage(amount * Game.chain, d, push * PAYOFF_PUSH)   # specials get the full chain
 	_payoff_sum += maxf(0.0, before - maxf(a.health, 0.0))
+	# Version 425 (re-review of v420, fix 7, "specials that hit"): the skeletons it hits fly
+	# up and back, and the first hit of each cast stops time for a blink with a hard shake.
+	if a is Enemy and not a.dead:
+		(a as Enemy).thrown(1.1 if hero_id != "barbarian" else 0.6)
+	if _payoff_landed != _payoff_id:
+		_payoff_landed = _payoff_id
+		Game.hit_stop(0.08)
+		Game.shake(0.55)
+		Game.hud.flash(Color(1, 1, 1), 0.3)
 
 
 ## Version 406 (fix 6): the special's pay-off. While it lasts the small white numbers are
@@ -590,6 +599,7 @@ func _special_hit(a: Actor, amount: float, from: Vector3, push: float) -> void:
 const PAYOFF_PUSH := 1.4   # (the skeletons it hits fly further, outward)
 var _payoff_sum := 0.0
 var _payoff_id := 0
+var _payoff_landed := -1
 
 func _payoff_begin(lasts: float) -> void:
 	_payoff_id += 1

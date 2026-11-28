@@ -2444,31 +2444,19 @@ func _read_layout(layout: Array) -> void:
 			match ch:
 				"#":
 					_add_obstacle(p, 0.6)
-					# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts,
-					# the Sandfall Tomb's lotus columns, the Amethyst Mine's rock columns, the
-					# Whispering Library's bookcases, the Clockwork Foundry's iron columns and the
-					# Starfall Abyss's broken floating columns are made in code (props.gd).
-					var kind := str(Floors.current().get("pillar", ""))
-					if kind == "iron":
-						Props.add_iron_column(_anchor(p))
-					elif kind == "furnace":
-						Props.add_furnace_column(_anchor(p))   # (v417: floor 12's own)
-					elif kind == "drift":
-						Props.add_drift_column(_anchor(p))
-					elif kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf" or kind == "sunpost":
-						var post := MeshInstance3D.new()
-						match kind:
-							"timber": post.mesh = Props.timber_post()
-							"lotus": post.mesh = Props.lotus_column()
-							"rock": post.mesh = Props.rock_column()
-							"sunpost": post.mesh = Props.sun_column()
-							_: post.mesh = Props.bookcase_column()
-						var anchor := _anchor(p)
-						anchor.add_child(post)
-						if kind == "shelf":
-							anchor.rotation.y = PI / 2 * randi_range(0, 3)   # (square: kept square to the room)
-					else:
-						_add_pillar(p, stone)
+					_pillar_at(p, stone)
+				"W":
+					# Version 425 (re-review of v420, fix 8): a low wall from the side wall to a
+					# pillar (RoomPlan "aisle"); a run of W cells is built once, as one wall.
+					_add_obstacle(p, 0.72)
+					if col == 0 or line[col - 1] != "W":
+						var end := col
+						while end + 1 < line.length() and line[end + 1] == "W":
+							end += 1
+						_low_wall(row, col, end)
+				"O":
+					_add_obstacle(p, 1.6)
+					_shrine(p, stone)
 				"b":
 					_add_obstacle(p, 0.45)
 					var prefab := Art.get_model(Art.BARREL)
@@ -2499,6 +2487,137 @@ func _read_layout(layout: Array) -> void:
 						trap.position = p
 				"m", "w", "a", "g", "K", "L", "x", "t", "s":
 					spawns.append({"kind": ch, "pos": p})
+
+
+## The place's own pillar standing at `p` (each crypt has its own, version 134).
+func _pillar_at(p: Vector3, stone: Material) -> void:
+	# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts,
+	# the Sandfall Tomb's lotus columns, the Amethyst Mine's rock columns, the
+	# Whispering Library's bookcases, the Clockwork Foundry's iron columns and the
+	# Starfall Abyss's broken floating columns are made in code (props.gd).
+	var kind := str(Floors.current().get("pillar", ""))
+	if kind == "iron":
+		Props.add_iron_column(_anchor(p))
+	elif kind == "furnace":
+		Props.add_furnace_column(_anchor(p))   # (v417: floor 12's own)
+	elif kind == "drift":
+		Props.add_drift_column(_anchor(p))
+	elif kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf" or kind == "sunpost":
+		var post := MeshInstance3D.new()
+		match kind:
+			"timber": post.mesh = Props.timber_post()
+			"lotus": post.mesh = Props.lotus_column()
+			"rock": post.mesh = Props.rock_column()
+			"sunpost": post.mesh = Props.sun_column()
+			_: post.mesh = Props.bookcase_column()
+		var anchor := _anchor(p)
+		anchor.add_child(post)
+		if kind == "shelf":
+			anchor.rotation.y = PI / 2 * randi_range(0, 3)   # (square: kept square to the room)
+	else:
+		_add_pillar(p, stone)
+
+
+# ---------------------------------------------------------------- room plans (v425)
+
+## Version 425 (re-review of v420, fix 8, "rooms that differ"): the critics saw the same
+## pillars-and-ring stamp in every room of a floor. A combat room now takes one of three
+## plans: the open "hall" (as drawn), an "aisle" (low walls run from the side walls to the
+## pillars, so the room is a long nave with alcoves) or a "shrine" (a round dais with the
+## place's pillar in the middle of the room, to fight around).
+const PLANS := ["hall", "aisle", "shrine"]
+
+static func plan_layout(layout: Array, plan: String) -> Array:
+	var out := layout.duplicate()
+	if plan == "shrine":
+		# the free 3 x 3 nearest the middle of the room (rows 5-9), its centre an "O"
+		for dr: int in [0, -1, 1, -2, 2]:
+			for dc: int in [0, -1, 1]:
+				var r0 := 6 + dr
+				var c0 := 3 + dc
+				var free := true
+				for row in range(r0, r0 + 3):
+					for col in range(c0, c0 + 3):
+						if row >= out.size() or col >= (out[row] as String).length() or (out[row] as String)[col] != ".":
+							free = false
+				if free:
+					for row in range(r0, r0 + 3):
+						var line: String = out[row]
+						out[row] = line.substr(0, c0) + ("oOo" if row == r0 + 1 else "ooo") + line.substr(c0 + 3)
+					return out
+		plan = "aisle"   # (no room in the middle: an aisle instead)
+	if plan == "aisle":
+		var walls := 0
+		for row in range(2, mini(out.size(), Layouts.ROWS - 3)):
+			var line: String = out[row]
+			# from each side wall in to the outermost pillar on that side
+			var left := line.find("#")
+			var right := line.rfind("#")
+			for side: Array in [[0, left - 1] if left >= 1 and left <= 3 else [], [right + 1, line.length() - 1] if right >= 5 and right <= 7 else []]:
+				if side.is_empty():
+					continue
+				var a: int = side[0]
+				var b: int = side[1]
+				var ok := true
+				for c in range(a, b + 1):
+					if line[c] != ".":
+						ok = false
+				if ok:
+					line = line.substr(0, a) + "W".repeat(b - a + 1) + line.substr(b + 1)
+					walls += 1
+			out[row] = line
+		if walls == 0:
+			# (no pillars to reach: two bays cut by short walls off each side)
+			for row: int in [5, 9]:
+				var line: String = out[row]
+				for ab: Array in [[0, 1], [7, 8]]:
+					if line.substr(ab[0], 2) == "..":
+						line = line.substr(0, ab[0]) + "WW" + line.substr(ab[0] + 2)
+				out[row] = line
+	return out
+
+
+## A low wall over cells `a`..`b` of `row`, run on into the side wall it touches.
+func _low_wall(row: int, a: int, b: int) -> void:
+	var look := Floors.current()
+	var wall := _wall_material(look, U.mat(look.wall, 0.95))
+	var trim := U.mat(look.trim, 0.85)
+	var x0 := cell_to_world(a, row).x - CELL * 0.5
+	var x1 := cell_to_world(b, row).x + CELL * 0.5
+	if a == 0:
+		x0 = -HALF_W
+	if b == Layouts.COLUMNS - 1:
+		x1 = HALF_W
+	var z := cell_to_world(a, row).z
+	var h := 1.25
+	var w := x1 - x0
+	var wb := U.box(self, Vector3(w, h, 0.95), wall, Vector3((x0 + x1) * 0.5, h * 0.5, z))
+	wb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	U.box(self, Vector3(w + 0.1, 0.14, 1.1), trim, Vector3((x0 + x1) * 0.5, h + 0.07, z))
+	if Props._furnace():
+		# (floor 12: a furnace mouth glows in the wall's end, where the fight is)
+		var n := Node3D.new()
+		add_child(n)
+		n.position = Vector3(x1 if a == 0 else x0, 0.0, z)
+		n.rotation.y = 0.0 if a == 0 else PI
+		n.scale = Vector3.ONE * 0.75
+		Props._add_furnace_mouth(n)
+
+
+## A round stepped dais in the middle of the room with the place's pillar on it.
+func _shrine(p: Vector3, stone: Material) -> void:
+	var look := Floors.current()
+	var wall := _wall_material(look, U.mat(look.wall, 0.95))
+	var trim := U.mat(look.trim, 0.85)
+	var lo := U.cylinder(self, 1.6, 0.32, wall, p)
+	lo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	U.cylinder(self, 1.66, 0.08, trim, p + Vector3.UP * 0.28)
+	U.cylinder(self, 1.15, 0.3, wall, p + Vector3.UP * 0.32)
+	U.cylinder(self, 1.2, 0.07, trim, p + Vector3.UP * 0.58)
+	if Props._furnace():
+		Props.add_furnace_column(_anchor(p + Vector3.UP * 0.6))   # (floor 12: a kiln in the middle)
+	else:
+		_pillar_at(p + Vector3.UP * 0.6, stone)
 
 
 func _add_pillar(p: Vector3, stone: Material) -> void:

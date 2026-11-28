@@ -575,6 +575,80 @@ void fragment() {
 	return _put(parent, _flat, _rim_mat, Vector3(width, 1.0, length), pos)
 
 
+## Version 425: the small solid shapes of skeleton shots, 1 m long along -Z (the way it flies).
+static var _shot_meshes := {}
+
+static func _shot_mesh(shape: String) -> ArrayMesh:
+	if _shot_meshes.has(shape):
+		return _shot_meshes[shape]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	match shape:
+		"arrow":   # a broad head, a shaft and two fins
+			_spike(st, Vector3(0, 0, -0.95), Vector3(0, 0, -0.35), 0.34, 4)
+			_spike(st, Vector3(0, 0, 0.8), Vector3(0, 0, -0.4), 0.11, 4)
+			for sx in [-1.0, 1.0]:
+				_spike(st, Vector3(sx * 0.3, 0, 0.88), Vector3(0, 0, 0.45), 0.08, 3)
+		"ice":   # a long two-pointed shard
+			_spike(st, Vector3(0, 0, -0.9), Vector3(0, 0, -0.05), 0.4, 6)
+			_spike(st, Vector3(0, 0, 0.65), Vector3(0, 0, -0.05), 0.4, 6)
+		_:   # an ember: a cut gem, round from every side
+			for v: Vector3 in [Vector3.UP, Vector3.DOWN, Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]:
+				_spike(st, v * 0.62, Vector3.ZERO, 0.62, 4)
+	var m := st.commit()
+	_shot_meshes[shape] = m
+	return m
+
+
+## A pyramid from a ring of `sides` points round `base` (radius `w`) to the point `tip`;
+## `cap` closes the ring's other side to that point too (or leaves it open when ZERO).
+static func _spike(st: SurfaceTool, tip: Vector3, base: Vector3, w: float, sides: int, cap := Vector3.INF) -> void:
+	var ax := (tip - base).normalized()
+	var u := ax.cross(Vector3.UP if absf(ax.y) < 0.9 else Vector3.RIGHT).normalized()
+	var v := ax.cross(u)
+	for i in sides:
+		var a0 := TAU * (i + 0.5) / sides
+		var a1 := TAU * (i + 1.5) / sides
+		var p0 := base + (u * cos(a0) + v * sin(a0)) * w
+		var p1 := base + (u * cos(a1) + v * sin(a1)) * w
+		var tris := [[tip, p0, p1]]
+		if cap != Vector3.INF:
+			tris.append([cap, p1, p0])
+		var mid := (tip + (cap if cap != Vector3.INF else base)) * 0.5
+		for t: Array in tris:
+			var n: Vector3 = (t[1] - t[0]).cross(t[2] - t[0]).normalized()
+			if n.dot((t[0] + t[1] + t[2]) / 3.0 - mid) < 0.0:
+				n = -n
+				t = [t[0], t[2], t[1]]
+			for j in [0, 2, 1]:   # (Godot's front faces wind clockwise)
+				st.set_normal(n)
+				st.add_vertex(t[j])
+
+
+static func _shot_body(style: String, col: Color, shape: String) -> StandardMaterial3D:
+	var key := "body_" + style
+	if not _mats.has(key):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = col.lerp(Color.WHITE, 0.25)
+		m.roughness = 0.35
+		m.emission_enabled = true
+		m.emission = col
+		m.emission_energy_multiplier = 1.4 if shape == "moon" else 0.55
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_mats[key] = m
+	return _mats[key]
+
+
+static func _shot_ink() -> StandardMaterial3D:
+	if not _mats.has("shot_ink"):
+		var m := StandardMaterial3D.new()
+		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		m.albedo_color = Color(0.1, 0.0, 0.04)
+		m.cull_mode = BaseMaterial3D.CULL_FRONT
+		_mats["shot_ink"] = m
+	return _mats["shot_ink"]
+
+
 ## A soft pool of coloured light on the floor under a shot.
 static func floor_mat(col: Color) -> StandardMaterial3D:
 	var key := col.to_html()
@@ -608,8 +682,19 @@ static func danger(p: Projectile, r: float, height: float, style := "") -> Node3
 	var look := Node3D.new()
 	p.add_child(look)
 	var d := r * 1.35 / 0.70 * 2.0   # the dark edge sits a little outside what it hits
-	_put(look, _card, danger_mat(style), Vector3(d, d, 1.0))
 	var tail: Color = SHOT_TAIL.get(style, DANGER)
+	# Version 425 (re-review of v420, fix 6): a skeleton's shot is a small solid thing now, lit
+	# like the room and in the place's own colour, inside a dark shell: an arrow, a shard (bone,
+	# ice, crystal, sand), or a glowing ember. The flat picture with the same pink rim on every
+	# floor read as a sticker. The comet tail and the red light on the floor still say danger.
+	var shape: String = SKELETON_SHAPE.get(style, "")
+	if shape in ["arrow", "ice", "moon"]:
+		var mesh := _shot_mesh(shape)
+		var body := _put(look, mesh, _shot_body(style, tail, shape), Vector3.ONE * r * 3.0)
+		body.set_meta("shot_body", true)
+		_put(look, mesh, _shot_ink(), Vector3.ONE * r * 3.0 * 1.16)
+	else:
+		_put(look, _card, danger_mat(style), Vector3(d, d, 1.0))
 	if style in FLAMING:
 		# Version 379: fire flies as a streak of flame, a long bright trail and a glow round
 		# its head that lights what it passes, instead of a little picture.
@@ -637,7 +722,8 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 		"wave":
 			# (The Knight's own bolt colour is the gold of the wave: a mastery color shows as is.)
 			glow_col = Color(tint.r, tint.g, tint.b, 0.45)
-			_put(p, _flat, base_mat(K_WAVE, tint), Vector3(size * 7.4, 1.0, size * 3.6), Vector3(0, 0, size * 0.5))
+			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.5)), Vector3(size * 5.0, 1.0, size * 6.0), Vector3(0, 0, size * 4.2))   # (v425: its wake)
+			_put(p, _flat, base_mat(K_WAVE, tint), Vector3(size * 8.4, 1.0, size * 4.2), Vector3(0, 0, size * 0.5))
 			_put(p, _flat, hero_mat(K_WAVE, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
 			glow = 2.6
 		"axe":
@@ -653,7 +739,8 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 			glow = 0.0
 		"shard":
 			# (The Rogue's knives: a thin white streak before version 402.)
-			_put(p, _flat, base_mat(K_BOLT, tint), Vector3(size * 4.6, 1.0, size * 8.6), Vector3(0, 0, size * 8.6 * 0.4))
+			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.55)), Vector3(size * 2.6, 1.0, size * 9.0), Vector3(0, 0, size * 7.5))
+			_put(p, _flat, base_mat(K_BOLT, tint), Vector3(size * 5.6, 1.0, size * 9.6), Vector3(0, 0, size * 9.6 * 0.4))
 			_put(p, _flat, hero_mat(K_BOLT, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 1.8, 1.0, size * 6.4), Vector3(0, 0, size * 6.4 * 0.41))
 			glow = 2.0
 		"volley":
@@ -665,8 +752,11 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 			_put(p, _flat, _volley_mat(col), Vector3(size * 1.9, 1.0, size * 4.6))
 			glow = 2.4
 		_:
-			_put(p, _flat, base_mat(K_BOLT, tint), Vector3(size * 5.2, 1.0, size * 11.0), Vector3(0, 0, size * 11.0 * 0.4))
-			_put(p, _flat, hero_mat(K_BOLT, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 2.4, 1.0, size * 9.0), Vector3(0, 0, size * 9.0 * 0.41))
+			# (v425, re-review of v420 fix 6: a fatter bolt with a trail in the hero's colour;
+			# a thin sliver was lost among the sparks)
+			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.6)), Vector3(size * 3.4, 1.0, size * 12.0), Vector3(0, 0, size * 9.5))
+			_put(p, _flat, base_mat(K_BOLT, tint), Vector3(size * 6.8, 1.0, size * 12.5), Vector3(0, 0, size * 12.5 * 0.4))
+			_put(p, _flat, hero_mat(K_BOLT, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 3.2, 1.0, size * 10.0), Vector3(0, 0, size * 10.0 * 0.41))
 	# (No pool of light on the floor under hero shots: a Mage with Twin Shots and Fan of Shots
 	# has dozens in the air, and each pool was one more thing to draw. Undead shots keep theirs.)
 	if glow <= 0.0:

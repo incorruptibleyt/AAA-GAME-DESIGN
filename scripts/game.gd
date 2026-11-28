@@ -107,7 +107,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-28e"
+const BUILD := "2026-11-28f"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3588,7 +3588,12 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	_hourglass_out = false
 	_hourglass_left = Curses.HOURGLASS_BOSS if index == _run.size() - 1 else Curses.HOURGLASS_ROOM
 	hud.set_timer(_hourglass_left if spawn_enemies and curses.has("hourglass") else -1.0)
-	var room := Room.build(world, _run[index], "Boss" if _in_boss_room() else str(index + 1))
+	# Version 425 (re-review of v420, fix 8): each combat room takes one of three plans (an
+	# open hall, an aisle of low walls, a shrine in the middle), so a floor's rooms differ.
+	var lay: Array = _run[index]
+	if not _in_boss_room() and ftue_room() >= 99:
+		lay = Room.plan_layout(lay, Room.PLANS[(index + floor_num) % Room.PLANS.size()])
+	var room := Room.build(world, lay, "Boss" if _in_boss_room() else str(index + 1))
 	if event != "" and Floors.frostfall():
 		Blizzard.dress(room)   # version 243: two braziers against the Blizzard
 	var look := Floors.current()
@@ -3596,7 +3601,7 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	# Version 143: every room gets its own mood (gold treasure, the champion's ring, the lit
 	# boss gate, light shafts and ritual circles), so a floor's rooms stop looking alike.
 	var mood := RoomMood.pick(index, _run.size(), _door, floor_num)
-	RoomMood.apply(room, mood, _run[index])
+	RoomMood.apply(room, mood, lay)
 	if mood == "approach":
 		_env.ambient_light_energy *= 0.6
 	var air := Fx.ambience(room, Room.HALF_W - 0.5, Room.HALF_L - 0.5, [14, 14, 24, 36][graphics_level], look.motes, look.motes_fall, look.get("motes_size", 1.0))
