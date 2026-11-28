@@ -18,9 +18,12 @@ var _shards: Array = []   # {p, v, rot, spin, col, life}
 var _pop := 0.0
 
 
+## (Version 416, re-review of v410 fix 6: gold by x1.25, not still bone-white, so the number
+## reads as the chain's colour from the first kills; red-hot by x4.)
 static func color_for(m: float) -> Color:
-	var t := clampf((m - 1.0) / 3.0, 0.0, 1.0)
-	return BONE.lerp(GOLD, t / 0.5) if t < 0.5 else GOLD.lerp(HOT, (t - 0.5) / 0.5)
+	if m <= 1.5:
+		return BONE.lerp(GOLD, clampf((m - 1.0) / 0.25, 0.0, 1.0))
+	return GOLD.lerp(HOT, clampf((m - 1.5) / 2.5, 0.0, 1.0))
 
 
 func _ready() -> void:
@@ -135,10 +138,16 @@ func _draw_bar() -> void:
 	if mult > 1.01 and drain > 0.0:
 		var w := maxf(size.y, (size.x - 2.0) * drain)
 		var fill := StyleBoxFlat.new()
-		fill.bg_color = col.lerp(Color.WHITE, glow * 0.35)
+		# (v416: the last third of the fuse flashes, so running out is seen, not read)
+		var low := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.016) if drain < 0.34 else 0.0
+		fill.bg_color = col.lerp(Color.WHITE, glow * 0.35 + low * 0.45)
 		fill.set_corner_radius_all(int(size.y * 0.5))
 		draw_style_box(fill, Rect2(Vector2(1, 1), Vector2(w, size.y - 2.0)))
-		draw_circle(Vector2(1.0 + w - size.y * 0.5, size.y * 0.5), size.y * 0.32 * (1.0 + _pop * 0.5), Color(1, 1, 0.95, 0.9))
+		var tip := Vector2(1.0 + w - size.y * 0.5, size.y * 0.5)
+		# a burning spark at the fuse's end: a soft halo in the chain's colour round a white core
+		var flick := 1.0 + 0.18 * sin(Time.get_ticks_msec() * 0.03)
+		draw_circle(tip, size.y * 0.85 * flick, Color(col.r, col.g, col.b, 0.35))
+		draw_circle(tip, size.y * 0.42 * (1.0 + _pop * 0.5), Color(1, 1, 0.95, 0.95))
 	for sh in _shards:
 		var a: float = sh.life
 		var pts := PackedVector2Array()

@@ -315,7 +315,7 @@ var _chain_box: Control
 ## Where the slim chain row sits under the top bar, and how tall it is (version 135).
 const TOP_SHADE := 118.0   # v380: how far down the shade behind the top row reaches
 const CHAIN_TOP := 52.0   # v358: up in the top bar, beside the coins (v338: 90)
-const CHAIN_H := 34.0
+const CHAIN_H := 46.0   # v416: 34 -> 46, a bigger number over a fuse the whole width
 const CHAIN_X := 158.0
 const CHAIN_W := 216.0   # v392: 200 -> 216, the score on one line
 var _chain_label: Label
@@ -1378,23 +1378,26 @@ func _build_hud() -> void:
 	_spine = ChainSpine.new()
 	_spine.bar = true
 	# (v404, re-review of v400 fix 4: a thicker fuse and a bigger number)
-	_spine.position = Vector2(5, 26)
-	_spine.size = Vector2(70, 10)
+	# Version 416 (re-review of v410, fix 6: "the chain number is the dimmest thing on the top
+	# bar"): the fuse runs the whole width of the pill under the number and the score, 12 px
+	# thick, and the number is bigger, always in the chain's colour.
+	_spine.position = Vector2(4, CHAIN_H - 13)
+	_spine.size = Vector2(CHAIN_W - 4, 12)
 	_chain_box.add_child(_spine)
-	_chain_label = label("x1.0", 30, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_CENTER)
+	_chain_label = label("x1.0", 38, ChainSpine.BONE, HORIZONTAL_ALIGNMENT_CENTER)
 	chunky(_chain_label.label_settings)   # v386: big chunky number, like the score
-	_chain_label.label_settings.outline_size = 7
+	_chain_label.label_settings.outline_size = 8
 	_chain_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_chain_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_chain_label.position = Vector2(0, -6)
-	_chain_label.size = Vector2(80, 32)
-	_chain_label.pivot_offset = Vector2(40, 18)
+	_chain_label.position = Vector2(0, -8)
+	_chain_label.size = Vector2(84, 42)
+	_chain_label.pivot_offset = Vector2(42, 22)
 	_chain_box.add_child(_chain_label)
 	var divider := ColorRect.new()
 	divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	divider.color = Color(1, 1, 1, 0.14)
-	divider.position = Vector2(83, 5)
-	divider.size = Vector2(2, 24)
+	divider.position = Vector2(85, 4)
+	divider.size = Vector2(2, 26)
 	_chain_box.add_child(divider)
 	var caption := label("SCORE", 13, Color(1.0, 0.85, 0.55, 0.95))
 	chunky(caption.label_settings)
@@ -4740,6 +4743,9 @@ func _process(delta: float) -> void:
 	_spine.drain = clampf(Game._combo_left / Game.chain_time(), 0.0, 1.0) if Game.chain > 1.01 else 0.0
 	_chain_pop = move_toward(_chain_pop, 0.0, delta * 3.0)
 	var pulse := 1.0 + _chain_pop * 0.5 + (0.05 * sin(Time.get_ticks_msec() * 0.012) if Game.chain >= Game.chain_max() else 0.0)
+	# (v416: the last third of the fuse, the number beats like a heart: keep killing)
+	if Game.chain > 1.01 and _spine.drain < 0.34:
+		pulse += 0.09 * maxf(0.0, sin(Time.get_ticks_msec() * 0.016))
 	_chain_label.scale = Vector2(pulse, pulse)
 	_shown_score = move_toward(_shown_score, Game.score, maxf(40.0, absf(Game.score - _shown_score) * 8.0) * delta)
 	var shown := roundi(_shown_score)
@@ -4749,6 +4755,7 @@ func _process(delta: float) -> void:
 		var sf: Font = _score_label.label_settings.font if _score_label.label_settings.font else ThemeDB.fallback_font
 		var tw: float = sf.get_string_size(_score_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, _score_label.label_settings.font_size).x
 		_chain_pill.size.x = clampf(139.0 + tw + 14.0, 190.0, CHAIN_W + 8.0)
+		_spine.size.x = _chain_pill.size.x - 16.0   # (v416: the fuse spans the pill)
 	if _broken_time > 0.0:
 		_broken_time -= delta
 		var fade := clampf(_broken_time / 0.4, 0.0, 1.0)
@@ -5230,10 +5237,12 @@ func _show_callout(text: String, col: Color, fight := false) -> void:
 	_callout_fight = fight
 	_callout.text = text
 	_callout.label_settings.font_color = col
-	_callout.label_settings.font_size = 42 if text.length() <= 10 else 32
+	# Version 416 (re-review of v410, fix 6): a slim strip at the top, not a big word over the
+	# fight: smaller letters on a thinner band.
+	_callout.label_settings.font_size = 30 if text.length() <= 10 else 25
 	var top := _callout_lane()
 	_callout.offset_top = top
-	_callout.offset_bottom = top + 56.0
+	_callout.offset_bottom = top + 40.0
 	# The strip hugs the word (centred), never the whole width.
 	var cf: Font = _callout.label_settings.font if _callout.label_settings.font else ThemeDB.fallback_font
 	var vw := get_viewport().get_visible_rect().size.x
@@ -5245,12 +5254,12 @@ func _show_callout(text: String, col: Color, fight := false) -> void:
 
 ## The callout lane (v392): under the top bar, the boss bar or the race bar, whichever is
 ## lowest. Nothing else of the fight's words sits there.
-const CALLOUT_LANE := 98.0
+const CALLOUT_LANE := 106.0   # v416: under the taller chain pill
 
 func _callout_lane() -> float:
 	var y := CALLOUT_LANE
 	if _boss_box.visible:
-		y = _boss_box.offset_bottom + 40.0
+		y = _boss_box.offset_bottom + 54.0   # (v416: under the chain pill there)
 	if race_bar != null and race_bar.visible:
 		y = maxf(y, race_bar.position.y + race_bar.size.y + 6.0)
 	return y
