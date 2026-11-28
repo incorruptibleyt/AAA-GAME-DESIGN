@@ -6052,7 +6052,7 @@ func _build_rewards() -> void:
 	_rw_road_sub = _rw_tiles.road.s
 	_rw_drops_sub = _rw_tiles.drops.s
 	_rw_feats_sub = _rw_tiles.feats.s
-	_tile_pic("today", LookShots.prize_rect("coin", 112))
+	_tile_pic("today", LookShots.prize_rect("goals", 120))
 	_tile_pic("drops", LookShots.prize_rect("drop", 124))
 	var rec := button("RECORDS", 24)
 	rec.pressed.connect(func(): records_pressed.emit())
@@ -6185,6 +6185,11 @@ func _reward_tile(grid: GridContainer, key: String, title: String, bg: Color, fg
 	v.offset_top = 6
 	v.offset_bottom = -8
 	b.add_child(v)
+	# (Version 421: room above the picture on a tall phone, the same in every tile, so the
+	# names still line up)
+	var top_pad := Control.new()
+	top_pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	v.add_child(top_pad)
 	var holder := CenterContainer.new()
 	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	holder.custom_minimum_size = Vector2(0, 128)
@@ -6196,7 +6201,13 @@ func _reward_tile(grid: GridContainer, key: String, title: String, bg: Color, fg
 	var sub := label("", 16, Color(0.9, 0.88, 0.94))
 	sub.custom_minimum_size = Vector2(200, 0)
 	v.add_child(sub)
-	_rw_tiles[key] = {"b": b, "t": t, "s": sub, "pic": holder}
+	# Version 421 (re-review of v420): how far along each one is, as a bar (pips for
+	# Today's goals) in the tile's colour.
+	var bar := TileBar.new()
+	bar.col = fg
+	bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(bar)
+	_rw_tiles[key] = {"b": b, "t": t, "s": sub, "pic": holder, "pad": top_pad, "bar": bar}
 	if key == "drops":
 		# Drops waiting: an orange OPEN button on the tile, so it reads as the thing to tap.
 		var go := label("OPEN", 20, Color.WHITE)
@@ -6213,9 +6224,15 @@ func _reward_tile(grid: GridContainer, key: String, title: String, bg: Color, fg
 		sb.content_margin_top = 2
 		sb.content_margin_bottom = 4
 		go.add_theme_stylebox_override("normal", sb)
-		go.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		# (v421: hung on the tile's top right corner like a sticker: under the words it ran
+		# over the tile's bottom edge)
+		go.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		go.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+		go.offset_right = 6
+		go.offset_top = -8
+		go.rotation = deg_to_rad(6)
 		go.visible = false
-		v.add_child(go)
+		b.add_child(go)
 		_rw_tiles[key]["go"] = go
 	return b
 
@@ -6268,6 +6285,7 @@ func _fit_rewards_tall() -> void:
 	for key: String in _rw_tiles:
 		var tile: Dictionary = _rw_tiles[key]
 		(tile.b as Control).custom_minimum_size.y = 262.0 + extra * 0.42
+		(tile.pad as Control).custom_minimum_size.y = extra * 0.26
 		var holder := tile.pic as Control
 		holder.custom_minimum_size.y = 128.0 * k
 		for c in holder.get_children():
@@ -6319,8 +6337,13 @@ func refresh_rewards() -> void:
 		var fbox := Control.new()
 		fbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		fbox.custom_minimum_size = Vector2(128, 128)
-		fp.position = Vector2(-22, -16)
-		fp.size = Vector2(172, 172)
+		# (v421: anchored to its box so it grows with it on a tall phone, and no higher than
+		# the box: the hero's head stuck out over the tile's top edge)
+		fp.set_anchors_preset(Control.PRESET_FULL_RECT)
+		fp.offset_left = -22
+		fp.offset_right = 22
+		fp.offset_top = 0
+		fp.offset_bottom = 30
 		fbox.add_child(fp)
 		_tile_pic("feats", fbox)
 		if not next_feat.is_empty():
@@ -6337,6 +6360,15 @@ func refresh_rewards() -> void:
 		_rw_road_sub.text = "%s / %s bones" % [thousands(BoneRoad.bones(cfg)), thousands(int(BoneRoad.STEPS[ni].at))]
 	else:
 		_rw_road_sub.text = "All claimed"
+	var road_bar := _rw_tiles.road.bar as TileBar
+	if ni < BoneRoad.STEPS.size():
+		var from := 0 if ni == 0 else int(BoneRoad.STEPS[ni - 1].at)
+		road_bar.set_ratio(1.0 if ready > 0 else inverse_lerp(float(from), float(BoneRoad.STEPS[ni].at), float(BoneRoad.bones(cfg))))
+	else:
+		road_bar.set_ratio(1.0)
+	(_rw_tiles.feats.bar as TileBar).set_ratio(float(Feats.count(cfg)) / maxf(1.0, float(Feats.LIST.size())))
+	(_rw_tiles.drops.bar as TileBar).set_ratio(1.0 if n > 0 else clampf(float(Drops.dry(cfg)) / float(Drops.PITY), 0.0, 1.0))
+	(_rw_tiles.today.bar as TileBar).set_pips(Today.done_count(cfg), Today.COUNT)
 	var pity := Drops.pity_text(cfg)
 	_rw_drops_sub.text = (pity if pity != "" else "%d waiting" % n) if n > 0 else "Win runs to earn more"
 	_rw_feats_sub.text = ("NEW look won!" if fnew else (str(next_feat.get("name", "")) + " wins this" if not next_feat.is_empty() else "All done"))
@@ -7307,6 +7339,46 @@ func _curse_card(r: Dictionary) -> Button:
 
 ## Red cracks over a curse card that is on: jagged lines from two edges, a dark core with a
 ## glowing red edge, seeded by the curse so each card cracks its own way.
+## A REWARDS tile's progress (version 421): a rounded bar, or one pip per goal.
+class TileBar extends Control:
+	var col := Color.WHITE
+	var ratio := 0.0
+	var pips := 0
+	var lit := 0
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		custom_minimum_size = Vector2(176, 14)
+	func set_ratio(r: float) -> void:
+		ratio = clampf(r, 0.0, 1.0)
+		pips = 0
+		queue_redraw()
+	func set_pips(n: int, of: int) -> void:
+		lit = n
+		pips = of
+		queue_redraw()
+	func _draw() -> void:
+		var ink := Color(0.03, 0.02, 0.05, 0.85)
+		if pips > 0:
+			var w := (size.x - (pips - 1) * 8.0) / pips
+			for i in pips:
+				var r := Rect2(Vector2(i * (w + 8.0), 0), Vector2(w, size.y))
+				draw_style_box(_box(ink, 7), r)
+				if i < lit:
+					draw_style_box(_box(col, 7), r.grow(-3))
+			return
+		var full := Rect2(Vector2.ZERO, size)
+		draw_style_box(_box(ink, 7), full)
+		if ratio > 0.0:
+			var f := full.grow(-3)
+			f.size.x = maxf(f.size.y, f.size.x * ratio)
+			draw_style_box(_box(col, 5), f)
+	static func _box(c: Color, r: int) -> StyleBoxFlat:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = c
+		sb.set_corner_radius_all(r)
+		return sb
+
+
 ## The ornaments on a blessing card's frame, by kind (version 420).
 class KindFrame extends Control:
 	var kind := ""

@@ -238,12 +238,32 @@ func _process(delta: float) -> void:
 	elif k < 0.2:
 		pop = lerpf(0.9, 1.0, (k - 0.1) / 0.1)
 	scale = Vector3.ONE * _size * pop
+	_cap_size(pop)
 	# (the hurt you take stays solid longer before it fades)
 	var hold := 0.8 if (not _foe and _prefix == "-") else 0.6
 	modulate.a = 1.0 - clampf((k - hold) / (1.0 - hold), 0.0, 1.0)
 	# (Version 386 made a number by the hero see-through, v389 only a quarter; v391 floats
 	# it up instead, above.)
 	outline_modulate.a = modulate.a
+
+
+## Version 421 (re-review of v420): a number is never taller than MAX_SCREEN of the screen
+## (a little more while it pops). Numbers live in the world, so when the camera came in close
+## on a big boss a crit grew to a quarter of the screen's width, right over the boss's face.
+const MAX_SCREEN := 0.055
+
+func _cap_size(pop: float) -> void:
+	var cam := get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var at := cam.unproject_position(global_position)
+	var per_m := absf(cam.unproject_position(global_position + cam.global_transform.basis.y).y - at.y)
+	if per_m <= 0.01:
+		return
+	var tall := float(font_size) * pixel_size * scale.y * per_m   # its height on screen now
+	var most := get_viewport().get_visible_rect().size.y * MAX_SCREEN * clampf(pop, 1.0, 1.2)
+	if tall > most:
+		scale *= most / tall
 
 
 func _keep_below_hud() -> void:

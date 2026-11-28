@@ -430,6 +430,55 @@ func _take_prize(k: String, kind: String) -> void:
 				c.rotation = Vector3(0, 0.45, 0)
 				thing.add_child(c)
 				_cam.transform = Transform3D(Basis.looking_at(Vector3(0, 0.15, 0) - Vector3(0, 0.2, 0.75)), Vector3(0, 0.2, 0.75))
+			"goals":
+				# Version 421: Today's Goals, a little slate with three ticks (it was the same gold
+				# coin as the Bone Road's tile beside it).
+				var slate := MeshInstance3D.new()
+				var bm := BoxMesh.new()
+				bm.size = Vector3(0.62, 0.74, 0.06)
+				slate.mesh = bm
+				var sm := StandardMaterial3D.new()
+				sm.albedo_color = Color(0.2, 0.15, 0.1)
+				sm.roughness = 0.8
+				slate.material_override = sm
+				slate.position = Vector3(0, 0.4, 0)
+				thing.add_child(slate)
+				var frame := MeshInstance3D.new()
+				var fm := BoxMesh.new()
+				fm.size = Vector3(0.7, 0.82, 0.04)
+				frame.mesh = fm
+				frame.material_override = mat
+				frame.position = Vector3(0, 0.4, -0.02)
+				thing.add_child(frame)
+				var tick_m := StandardMaterial3D.new()
+				tick_m.albedo_color = Color(0.4, 1.0, 0.5)
+				tick_m.emission_enabled = true
+				tick_m.emission = Color(0.15, 0.6, 0.2)
+				var short_m := BoxMesh.new()
+				short_m.size = Vector3(0.09, 0.045, 0.05)
+				var long_m := BoxMesh.new()
+				long_m.size = Vector3(0.17, 0.045, 0.05)
+				for i in 3:
+					var y := 0.62 - i * 0.22
+					var tk := Node3D.new()
+					tk.position = Vector3(-0.17, y, 0.05)
+					thing.add_child(tk)
+					for part in [[short_m, Vector3(-0.045, 0.0, 0), -0.8], [long_m, Vector3(0.04, 0.03, 0), 0.9]]:
+						var pm := MeshInstance3D.new()
+						pm.mesh = part[0]
+						pm.material_override = tick_m
+						pm.position = part[1]
+						pm.rotation.z = part[2]
+						tk.add_child(pm)
+					var line := MeshInstance3D.new()
+					var lm := BoxMesh.new()
+					lm.size = Vector3(0.28, 0.035, 0.02)
+					line.mesh = lm
+					line.material_override = mat
+					line.position = Vector3(0.1, y, 0.04)
+					thing.add_child(line)
+				thing.rotation = Vector3(0, 0.3, 0)
+				_cam.transform = Transform3D(Basis.looking_at(Vector3(0, 0.4, 0) - Vector3(0, 0.55, 1.6)), Vector3(0, 0.55, 1.6))
 			_:
 				# A Lucky Start: a cut star of green glass with a gold rim light.
 				var st := SurfaceTool.new()

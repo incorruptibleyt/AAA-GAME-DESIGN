@@ -20,7 +20,7 @@ const LIST := [
 		"emote": ["Jump_Full_Short", "1H_Ranged_Reload"]},
 	{"id": "knight", "difficulty": 1, "title": "Knight", "text": "Sword swings up close, sword waves from afar. Standing still, his shield blocks shots from the front.", "cost": 100,
 		"key": "Knight", "hide": ["1H_Sword_Offhand", "Badge_Shield", "Rectangle_Shield", "Spike_Shield", "2H_Sword"],
-		"attack_anim": "1H_Melee_Attack_Slice_Horizontal", "body": Color(0.6, 0.62, 0.7), "helmet": true, "ring": Color(1.0, 0.85, 0.35), "sil": Color(0.82, 0.85, 0.96),
+		"attack_anim": "1H_Melee_Attack_Slice_Horizontal", "body": Color(0.6, 0.62, 0.7), "helmet": true, "ring": Color(1.0, 0.85, 0.35), "sil": Color(1.0, 0.72, 0.16),
 		"health": 150.0, "move_speed": 4.7, "damage": 22.0, "rate": 1.0, "bolt_speed": 13.0, "bolt_size": 0.4,
 		"bolt_color": Color(1.0, 0.86, 0.5), "pierce": 1, "armor": 0.15, "melee": 2.6, "guard": true,
 		"special": "Shield Slam", "special_text": "A huge shockwave that slows and shoves everything nearby.",

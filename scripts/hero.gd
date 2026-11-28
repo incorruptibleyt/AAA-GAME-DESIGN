@@ -277,9 +277,9 @@ static func spawn(parent: Node, pos: Vector3, id := "rogue") -> Hero:
 	h.global_position = pos
 	# Version 401: hidden in a crowd, the hero is a solid figure in their own colour. (The
 	# Knight is silver with a gold edge: all gold, a silver knight looked like a missing picture.)
+	# (Version 421: the Knight's was pale silver, the colour of bone, so behind a skeleton he
+	# looked like one more skeleton. Now a deep gold under the hard white edge every hero has.)
 	h.xray_tint = def.get("sil", def.ring)
-	if def.has("sil"):
-		h.xray_rim = Color(def.ring, 0.85)
 	h.make_visual(Heroes.look(def))
 	# (Version 182: with an aura on, the glow's ring is fainter, so the two don't stack into
 	# one sparkling blob round the feet.)
