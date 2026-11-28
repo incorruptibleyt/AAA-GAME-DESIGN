@@ -107,7 +107,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-28c"
+const BUILD := "2026-11-28d"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1676,12 +1676,18 @@ const VIEW_HALF_WIDTH := 4.0
 const HERO_ABOVE_CENTRE := -0.3
 ## Version 220: share of the screen at the top the hero is kept out of (the top HUD).
 const TOP_SAFE := 0.22
-const NEAR_EXTRA := 2.3   # v219 (review 4 fix 20): was 1.5; feet by the near wall stay clear
+const NEAR_EXTRA := 3.0   # v219: was 1.5; v423: 3.0, so NEAR_FEET_PX (not this) sets the limit on phones
 ## Version 387 (visual review of v383, fix 8, "dead floor at the bottom"): NEAR_EXTRA showed
 ## 2.9 m past the near wall on every phone, a fifth of the screen with no fight in it. Now
 ## the camera stops once a hero against the near wall stands this far (layout pixels) above
 ## the bottom of the screen: clear of DASH and the special, the same on every phone shape.
-const NEAR_FEET_PX := 185.0
+## Version 423 (re-review of v420, fix 2, "a safe zone for the fight"): 288 (was 185), the
+## hero's feet never below 70% of the screen: at 185 a hero by the near wall stood with their
+## ring touching DASH and the special, under the player's thumbs.
+const NEAR_FEET_PX := 288.0
+## The lowest the hero's feet go in a boss fight while the camera leans toward the boss
+## (share of the screen from the top): the same 70% line (was 0.74).
+const HERO_LOWEST := 0.70
 ## The title screen's lobby camera looks down at this angle (the fight camera is steeper),
 ## so the hero is seen from the front, and makes the hero this tall (a share of the free space).
 const LOBBY_PITCH := 24.0
@@ -1899,7 +1905,7 @@ func _room_focus() -> Vector3:
 	# limit as for bosses keeps the hero above the DASH and special buttons. The lean eases in
 	# and out (_foe_k), and follows the farthest skeleton slowly (_foe_far), so a kill never
 	# jerks the camera.
-	var a_bot := p + atan((0.74 - 0.5) * 2.0 * tan(half_v))
+	var a_bot := p + atan((HERO_LOWEST - 0.5) * 2.0 * tan(half_v))
 	var keep_hero := hero.global_position.z - (d * cos(p) - d * sin(p) / tan(a_bot))
 	if _foe_k > 0.0 and not _intro_focus:
 		# (The hero's feet stay above 64% of the screen here: lower, and a tip covered them.)

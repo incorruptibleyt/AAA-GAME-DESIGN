@@ -5386,7 +5386,13 @@ func _place_status(delta: float) -> void:
 	var feet := cam.unproject_position(Game.hero.global_position)
 	var w := get_viewport().get_visible_rect().size.x
 	var pos := feet + Vector2(-_status_box.size.x * 0.5, 22.0)
-	pos.x = clampf(pos.x, 8.0, w - _status_box.size.x - 8.0)
+	pos.x = clampf(pos.x, 22.0, w - _status_box.size.x - 22.0)
+	# Version 423 (fix 2): never under DASH or the special (HUSHED! STEP OUT! was cut by the
+	# buttons): it goes over the hero's head instead.
+	var box := Rect2(pos, _status_box.size * _status_box.scale)
+	if box.intersects(button_rect()) or box.end.y > get_viewport().get_visible_rect().size.y - 12.0:
+		var head := cam.unproject_position(Game.hero.global_position + Vector3.UP * 2.6)
+		pos.y = head.y - _status_box.size.y - 6.0
 	_status_box.position = pos
 
 
@@ -5396,6 +5402,10 @@ var _perfect_lbl: Label
 var _perfect_tw: Tween
 
 func callout_at_hero(text: String, col := Color(0.6, 0.95, 1.0), big := false) -> void:
+	# Version 423 (fix 2: one banner at a time): a word over the hero clears the room banner
+	# ("Room 3") at once, instead of the two big words stacked in the middle of the screen.
+	if _banner_time > 0.25:
+		_banner_time = 0.25
 	var cam := get_viewport().get_camera_3d()
 	if cam == null or Game.hero == null:
 		callout(text, col)
@@ -5515,6 +5525,25 @@ func show_hud(v: bool) -> void:
 
 ## How far down the screen the top bar reaches (health, coins, room counter, chain and
 ## score), so damage numbers can keep below it.
+## Version 423 (re-review of v420, fix 2): where DASH and the special sit (screen pixels,
+## a little grown), so words and arrows of the fight can stay out from under the thumbs.
+func button_rect() -> Rect2:
+	var r := Rect2()
+	for b: Control in [_dash_button, _special]:
+		if b != null and b.is_visible_in_tree():
+			r = b.get_global_rect() if r.size == Vector2.ZERO else r.merge(b.get_global_rect())
+	if r.size == Vector2.ZERO:
+		return r
+	r = r.grow(10.0)
+	r.end.y = get_viewport().get_visible_rect().size.y   # (and the labels under them)
+	return r
+
+
+## The top of the fight's free space: under the top bar, the boss bar or the race bar.
+func fight_top() -> float:
+	return _callout_lane()
+
+
 func top_band() -> float:
 	return float(_safe.get_theme_constant("margin_top")) + 225.0
 

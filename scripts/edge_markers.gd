@@ -15,6 +15,7 @@ func _ready() -> void:
 ## Each arrow is two entries: where it sits on the margin, and the way it points.
 var _arrows := PackedVector2Array()
 var _had_arrows := false
+var _buttons := Rect2()
 
 
 func _process(_delta: float) -> void:
@@ -39,7 +40,14 @@ func _add_point(cam: Camera3D, p: Vector3, view: Vector2, mid: Vector2, inner: R
 	var d := (s - mid)
 	var k := minf(absf((inner.size.x / 2.0) / d.x) if d.x != 0.0 else INF,
 			absf((inner.size.y / 2.0) / d.y) if d.y != 0.0 else INF)
-	_arrows.append(mid + d * k)
+	var at := mid + d * k
+	# (never under DASH or the special: slid along the edge to clear them)
+	if _buttons.size != Vector2.ZERO and _buttons.grow(18.0).has_point(at):
+		if absf(at.y - inner.end.y) < 1.0:
+			at.x = _buttons.position.x - 24.0
+		else:
+			at.y = _buttons.position.y - 24.0
+	_arrows.append(at)
 	_arrows.append(d.normalized())
 
 
@@ -52,6 +60,11 @@ func _find_arrows() -> void:
 	var s := Hud.safe_margins(get_viewport())   # left, top, right, bottom (0 off phones)
 	var inner := Rect2(Vector2(MARGIN + s.x, MARGIN + s.y),
 			view - Vector2(MARGIN * 2.0 + s.x + s.z, MARGIN * 2.0 + s.y + s.w))
+	# Version 423 (re-review of v420, fix 2): under the top bar and the boss bar, not over
+	# the room number ("F3 Room" had an arrow on it).
+	var top := maxf(inner.position.y, Game.hud.fight_top() if Game.hud else 0.0)
+	inner = Rect2(inner.position.x, top, inner.size.x, maxf(40.0, inner.end.y - top))
+	_buttons = Game.hud.button_rect() if Game.hud else Rect2()
 	var mid := inner.get_center()
 	for a: Actor in Actor.all:
 		if a.team == Actor.Team.UNDEAD and not a.dead:
