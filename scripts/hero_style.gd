@@ -682,6 +682,8 @@ static func crown_grand(d: Dictionary, legend: Dictionary) -> void:
 		d.style.hide.append(OWN_HAT[id])
 	d.style.hat = false
 	d.style.extras = [g + "_crown"]
+	if g == "emperor" and HEAD_MESH.has(id):
+		d.style.hide.append(HEAD_MESH[id])   # (v426: the skull mask is the head; no face clips through)
 
 
 ## `def` in the looks `p` ({slot: key}): its glow colours, and a "style" for the model.

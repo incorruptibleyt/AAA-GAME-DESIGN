@@ -539,7 +539,8 @@ func _frame(slot: String, v: CharacterVisual, def: Dictionary) -> Array:
 			var y := 1.74 if tall else 1.55
 			if extras.has("crypt_crown"):   # (the tallest: its wings, horns and soul flame)
 				return [Vector3(0.0, 2.2, 4.7), Vector3(0, 1.95, 0)]
-			return [Vector3(0.0, y + 0.25, 3.7 if tall else 3.2), Vector3(0, y, 0)]
+			# (v426, re-review of v420 fix 9: closer, the hat or crown fills the card)
+			return [Vector3(0.0, y + 0.2, 3.5 if tall else 2.6), Vector3(0, y + 0.05, 0)]
 		"hold":
 			var wide := false
 			for n in v.find_children("2H_*", "MeshInstance3D", true, false):

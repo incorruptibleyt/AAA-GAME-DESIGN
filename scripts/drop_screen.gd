@@ -277,6 +277,7 @@ func open_screen(waiting: int, is_casket := false) -> void:
 	casket = is_casket
 	_offer = {}
 	_look.show_back = false
+	_look.front_turn = 0.0
 	_look.hide_shield = false
 	_look.steps = false
 	_feat_mode = false
@@ -296,6 +297,7 @@ func close() -> void:
 	_land_all()
 	_show_look(false)
 	_look.show_back = false
+	_look.front_turn = 0.0
 	_look.hide_shield = false
 	_look.steps = false
 	_odds.visible = false
@@ -369,7 +371,11 @@ func show_offer(o: Dictionary) -> void:
 	var slot := str(Legends.def(str(o.look[1])).get("slot", "")) if legend and o.look.size() >= 2 else ""
 	# (Version 397: the Bone Emperor faces the camera, sitting on the throne.)
 	var seated: bool = legend and o.look.size() >= 2 and str(o.look[1]) == "emperor"
-	_look.show_back = slot in ["wings", "grand"] and not seated
+	# Version 426 (re-review of v420, fix 9): a grand set faces you, turned three-quarters so
+	# the mantle spreads behind the shoulder (from behind, the Starfall Mantle read as a cape
+	# on nobody).
+	_look.show_back = slot == "wings" and not seated
+	_look.front_turn = 1.0 if slot == "grand" and not seated else 0.0
 	_look.back_angle = 0.9 if slot == "grand" else HeroStage.BACK   # (v407: grand from three-quarters behind: the mantle spread, not a sliver)
 	_look.hide_shield = legend   # (v407: the shield hid the look on sale)
 	_look.steps = slot == "steps"
@@ -435,6 +441,7 @@ func _next_feat() -> void:
 	_odds.visible = false
 	_odds_dim.visible = false
 	_look.show_back = false
+	_look.front_turn = 0.0
 	_look.hide_shield = false
 	_look.steps = false
 	_show_look(true)

@@ -229,6 +229,7 @@ func set_note(text: String) -> void:
 
 
 func close() -> void:
+	_stage.browse = ""
 	if not visible:
 		return
 	Sfx.play("click")
@@ -313,6 +314,7 @@ func _show_preview() -> void:
 
 func _show_tab(slot: String, to_top := false) -> void:
 	_slot = slot
+	_stage.browse = slot   # (v426: the big hero leans in on what you browse)
 	for k: String in _tabs:
 		var b: Button = _tabs[k]
 		Hud.paint(b, "gold" if k == slot else "slate")

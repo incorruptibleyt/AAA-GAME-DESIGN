@@ -501,8 +501,18 @@ static func crown(id: String, y: float) -> Node3D:
 		arch.rotation.y = turn
 		c.add_child(arch)
 	skull(c, 0.24, Vector3(0, top + 0.1, 0.02), true, _gold)
+	# Version 426 (re-review of v420, fix 9): the Emperor wears a skull for a face, under the
+	# crown, its eyes burning: a crown on the hero's own bald, smiling face was "the worst
+	# thing in the menus".
+	var mask := skull(c, EMPEROR_MASK, Vector3(0, base + MASK_Y, 0.1 + MASK_Z), true)
+	mask.name = "EmperorMask"
 	_fx(c)
 	return c
+
+
+const EMPEROR_MASK := 1.15
+const MASK_Y := -0.5
+const MASK_Z := -0.05
 
 
 static var _arches := {}

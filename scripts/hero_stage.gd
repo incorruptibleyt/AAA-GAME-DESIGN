@@ -157,11 +157,23 @@ func _frame_camera(tall: bool) -> void:
 var close := 1.0
 
 
+## Version 426 (re-review of v420, fix 9: "the big hero shows what you are browsing"): the
+## slot whose looks are being browsed (Style tabs); the camera leans in on it, on the head
+## for headwear and on the hands for weapons, and eases back for the rest.
+var browse := ""
+var _browse_k := 0.0
+
+
 ## The camera's usual place and the point it looks at.
 func _framing() -> Array:
 	var f := _framing_far()
 	var down := Vector3(0, -(1.0 - close) * 0.55, 0)   # (nearer, it looks a little lower: the feet stay in)
-	return [f[1] + (f[0] - f[1]) * close + down, f[1] + down]
+	var r := [f[1] + (f[0] - f[1]) * close + down, f[1] + down]
+	if _browse_k > 0.001:
+		var z := _zoomed(browse if browse != "" else "head")
+		var k := _browse_k * 0.75
+		r = [(r[0] as Vector3).lerp(z[0], k), (r[1] as Vector3).lerp(z[1], k)]
+	return r
 
 
 func _framing_far() -> Array:
@@ -669,6 +681,10 @@ func _notification(what: int) -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
+	var bk := 1.0 if browse in ["head", "hold"] else 0.0
+	if absf(_browse_k - bk) > 0.001 and _reveal_t < 0.0:
+		_browse_k = move_toward(_browse_k, bk, delta * 2.5)
+		_frame_camera(_tall)
 	if _reveal_t >= 0.0:
 		_update_reveal(delta)
 		return
