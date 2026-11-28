@@ -2491,6 +2491,14 @@ func _read_layout(layout: Array) -> void:
 
 ## The place's own pillar standing at `p` (each crypt has its own, version 134).
 func _pillar_at(p: Vector3, stone: Material) -> void:
+	var first := get_child_count()
+	_pillar_body(p, stone)
+	# (v427: marked, so the title can set aside a pillar standing in front of the King)
+	for i in range(first, get_child_count()):
+		get_child(i).set_meta("pillar", true)
+
+
+func _pillar_body(p: Vector3, stone: Material) -> void:
 	# Each crypt has its own pillars (version 134); Frostfall Hall's timber posts,
 	# the Sandfall Tomb's lotus columns, the Amethyst Mine's rock columns, the
 	# Whispering Library's bookcases, the Clockwork Foundry's iron columns and the

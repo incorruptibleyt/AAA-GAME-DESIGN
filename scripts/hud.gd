@@ -184,6 +184,7 @@ var _cards_have: PanelContainer   # the row of blessings already held, over the 
 var _cards_row: HBoxContainer
 var _cards_ready: Array[bool] = [false, false, false]   # a card can be picked once it's face up
 var _cards_picking := false
+var _cards_choices: Array = []   # (v427: the blessings on the cards, for the badge that flies to the tray)
 var _cards_tweens: Array = []
 const CARD_SIZE := Vector2(160, 368)
 const CARD_GAP := 10
@@ -1854,6 +1855,32 @@ func _build_cards() -> void:
 		halo.size = Vector2(196, 196)
 		halo.position = Vector2((CARD_SIZE.x - 196) * 0.5, 16)
 		b.add_child(halo)
+		# v427 (re-review of v420, fix 10): the rarity is loud. A wash of its colour rises
+		# from the bottom of a rare or epic card, and an epic card has rays turning behind
+		# its badge.
+		var wash := TextureRect.new()
+		wash.name = "Wash"
+		wash.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		wash.texture = _card_sheen_tex()
+		wash.flip_v = true
+		wash.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		wash.stretch_mode = TextureRect.STRETCH_SCALE
+		wash.position = Vector2(4, CARD_SIZE.y * 0.38)
+		wash.size = Vector2(CARD_SIZE.x - 8, CARD_SIZE.y * 0.62 - 10)
+		b.add_child(wash)
+		var bclip := Control.new()   # (keeps the rays inside the card)
+		bclip.name = "BurstClip"
+		bclip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		bclip.clip_contents = true
+		bclip.position = Vector2(4, 4)
+		bclip.size = CARD_SIZE - Vector2(8, 14)
+		b.add_child(bclip)
+		var burst := RarityBurst.new()
+		burst.name = "Burst"
+		burst.size = Vector2(260, 260)
+		burst.position = Vector2((CARD_SIZE.x - 260) * 0.5 - 4, -16)
+		burst.pivot_offset = Vector2(130, 130)
+		bclip.add_child(burst)
 		var band := Panel.new()
 		band.name = "Band"
 		band.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1866,6 +1893,14 @@ func _build_cards() -> void:
 		orn.name = "Frame"
 		orn.size = CARD_SIZE
 		b.add_child(orn)
+		# (v427) A cut gem on the card's top corner in the rarity's colour: one for rare,
+		# a bigger sparkling one for epic.
+		var gem := RarityGem.new()
+		gem.name = "Gem"
+		gem.size = Vector2(44, 44)
+		gem.position = Vector2(CARD_SIZE.x - 46, -10)
+		gem.pivot_offset = Vector2(22, 22)
+		b.add_child(gem)
 		var kind := label("", 16, INK)
 		kind.name = "Kind"
 		kind.label_settings.outline_size = 0
@@ -4699,12 +4734,98 @@ func _on_card(i: int) -> void:
 		else:
 			tw.tween_property(b, "position:y", 90.0, 0.22).set_ease(Tween.EASE_IN)
 			tw.tween_property(b, "modulate:a", 0.0, 0.2)
-	tw.chain().tween_interval(0.12)
+	# (v427: the heading and Reroll fade at once: the choice is made)
+	for c in _cards_row.get_parent().get_children():
+		if c != _cards_row and c != _cards_have and c is CanvasItem:
+			tw.tween_property(c, "modulate:a", 0.0, 0.12)
+	tw.chain().tween_interval(0.04)
+	tw.chain().tween_callback(_fly_to_tray.bind(i))
+
+
+## v427 (re-review of v420, fix 10): the chosen blessing's badge leaves its card and flies up
+## into YOUR BLESSINGS, landing there with a pop, before the cards close (the card used to
+## just flare and vanish).
+func _fly_to_tray(i: int) -> void:
+	if not _cards_box.visible or i >= _cards_choices.size():   # (something closed the cards)
+		_cards_picking = false
+		if _cards_box.visible:
+			_cards_box.visible = false
+			card_picked.emit(i)
+		return
+	var u: Dictionary = _cards_choices[i]
+	var b := _cards[i]
+	var src := b.get_node("Icon") as BlessingIcon
+	var from := src.get_global_rect().get_center()
+	# Room for the new badge at the end of the row (the row shows from the first pick on).
+	var shown := _cards_have.visible
+	var slot := Control.new()
+	slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slot.custom_minimum_size = Vector2(40, 40)
+	_cards_have_row.add_child(slot)
+	_cards_have.visible = true
+	if not shown:
+		_cards_have.modulate.a = 0.0
+	await get_tree().process_frame
+	if not is_instance_valid(slot) or not _cards_box.visible:
+		_cards_picking = false
+		return
+	var to := slot.get_global_rect().get_center()
+	var fly := BlessingIcon.new()
+	fly.show_for(u)
+	fly.zoom = 1.85
+	fly.pivot_offset = fly.size * 0.5
+	fly.top_level = true
+	_cards_box.add_child(fly)
+	fly.global_position = from - fly.size * 0.5
+	src.visible = false
+	var trail := _fly_trail(Upgrades.color(u))
+	fly.add_child(trail)
+	var tw := create_tween()
+	tw.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+	tw.set_parallel()
+	tw.tween_property(b, "scale", Vector2(0.6, 0.6), 0.24).set_ease(Tween.EASE_IN)
+	tw.tween_property(b, "modulate:a", 0.0, 0.22)
+	tw.tween_property(_cards_have, "modulate:a", 1.0, 0.16)
+	tw.tween_property(fly, "global_position", to - fly.size * 0.5, 0.34).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+	tw.tween_property(fly, "scale", Vector2(0.62 / 1.85, 0.62 / 1.85) * 1.1, 0.34).set_ease(Tween.EASE_IN)
+	tw.chain().tween_callback(func():
+		Sfx.play("chest_tick", 0.8, 1.5)
+		if is_instance_valid(fly):
+			fly.queue_free()
+		if is_instance_valid(slot):
+			var ic := BlessingIcon.new()
+			ic.show_for(u)
+			ic.scale = Vector2(0.62, 0.62)
+			slot.add_child(ic)
+			slot.pivot_offset = Vector2(20, 20)
+			slot.scale = Vector2(1.7, 1.7)
+			var pop := slot.create_tween()
+			pop.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			pop.tween_property(slot, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
+	tw.chain().tween_interval(0.16)
 	tw.chain().tween_callback(func():
 		_cards_picking = false
+		src.visible = true
+		b.scale = Vector2.ONE
 		if _cards_box.visible:   # (not if something closed the cards meanwhile)
 			_cards_box.visible = false
 			card_picked.emit(i))
+
+
+## A short glowing tail behind the flying badge.
+func _fly_trail(c: Color) -> Control:
+	var g := Panel.new()
+	g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(c, 0.0)
+	st.set_corner_radius_all(64)
+	st.shadow_color = Color(c, 0.85)
+	st.shadow_size = 22
+	g.add_theme_stylebox_override("panel", st)
+	g.show_behind_parent = true
+	g.position = Vector2(24, 24)
+	g.size = Vector2(70, 70)
+	return g
 
 
 # ---------------------------------------------------------------- per frame
@@ -5658,6 +5779,10 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 			(tw as Tween).kill()
 	_cards_tweens.clear()
 	_cards_picking = false
+	_cards_choices = choices
+	for c in _cards_row.get_parent().get_children():
+		if c is CanvasItem:
+			(c as CanvasItem).modulate.a = 1.0
 	var partners := {}   # held blessings a card would complete: their badges glow too
 	for i in _cards.size():
 		var b := _cards[i]
@@ -5706,10 +5831,20 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 		var back := b.get_node("Back") as Control
 		back.visible = true
 		var face: Array[Node] = []
-		for n in ["Band", "Kind", "Niche", "Icon", "Words", "Rarity", "Combo", "ShineClip", "Sheen", "Halo", "Frame"]:
+		var tier: int = 0 if not tags else int({"rare": 1, "epic": 2}.get(str(u.rarity), 0))
+		for n in ["Band", "Kind", "Niche", "Icon", "Words", "Rarity", "Combo", "ShineClip", "Sheen", "Halo", "Frame", "Wash", "BurstClip", "Gem"]:
 			face.append(b.get_node(n))
 		# (what shows once it's face up: set here, as a reroll mid-deal finds them hidden)
-		var face_vis: Array = [true, true, true, true, true, tags, combo.visible, true, true, true, true]
+		var face_vis: Array = [true, true, true, true, true, tags, combo.visible, true, true, true, true, tier > 0, tier == 2, tier > 0]
+		(b.get_node("Wash") as CanvasItem).modulate = Color(col.lightened(0.1), 0.55 if tier == 2 else 0.38)
+		var burst := b.get_node("BurstClip/Burst") as RarityBurst
+		burst.col = col
+		burst.queue_redraw()
+		var gem := b.get_node("Gem") as RarityGem
+		gem.col = col
+		gem.big = tier == 2
+		gem.scale = Vector2.ONE * (1.25 if tier == 2 else 1.0)
+		gem.queue_redraw()
 		var fam_col := Upgrades.color(u)
 		(b.get_node("Sheen") as CanvasItem).modulate = Color(fam_col, 0.55 if bright else 0.4)
 		(b.get_node("Halo") as CanvasItem).modulate = Color(fam_col, 0.7 if bright else 0.5)
@@ -5755,6 +5890,19 @@ func show_cards(choices: Array, rerolls := 0, tags := true, mastery: Variant = n
 			pulse.tween_property(aura, "modulate:a", 0.45, 0.6).set_trans(Tween.TRANS_SINE)
 			pulse.tween_property(aura, "modulate:a", 1.0, 0.6).set_trans(Tween.TRANS_SINE)
 			_cards_tweens.append(pulse)
+		if tier == 2:
+			# (v427) An epic lands with a burst: the card pops, the gem flashes, the rays spin up.
+			tw.tween_callback(func():
+				Sfx.play("shimmer", 0.75, 0.8)
+				b.modulate = Color(1.6, 1.4, 1.8))
+			tw.tween_property(b, "scale", Vector2(1.1, 1.1), 0.1).set_ease(Tween.EASE_OUT)
+			tw.parallel().tween_property(b, "modulate", Color.WHITE, 0.35)
+			tw.tween_property(b, "scale", Vector2.ONE, 0.14).set_trans(Tween.TRANS_BACK)
+			var spin := burst.create_tween().set_loops()
+			spin.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
+			burst.rotation = 0.0
+			spin.tween_property(burst, "rotation", TAU, 9.0).from(0.0)
+			_cards_tweens.append(spin)
 		if bright:
 			# A glint sweeps across rare, epic and synergy cards as they land.
 			tw.tween_callback(func():
@@ -7428,6 +7576,47 @@ class TileBar extends Control:
 		sb.bg_color = c
 		sb.set_corner_radius_all(r)
 		return sb
+
+
+## v427: rays turning behind an epic card's badge.
+class RarityBurst extends Control:
+	var col := Color.WHITE
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := size.x * 0.5
+		for k in 12:
+			var a := TAU * k / 12.0
+			var w := 0.11
+			var pts := PackedVector2Array([c + Vector2.from_angle(a - w) * r * 0.32, c + Vector2.from_angle(a) * r, c + Vector2.from_angle(a + w) * r * 0.32])
+			draw_colored_polygon(pts, Color(col.lightened(0.4), 0.62 if k % 2 == 0 else 0.34))
+
+
+## v427: a cut gem in the rarity's colour on a rare or epic card's top corner.
+class RarityGem extends Control:
+	var col := Color.WHITE
+	var big := false
+	func _ready() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		var c := size * 0.5
+		var r := size.x * 0.42
+		var top := c + Vector2(0, -r)
+		var bot := c + Vector2(0, r)
+		var lt := c + Vector2(-r * 0.86, -r * 0.18)
+		var rt := c + Vector2(r * 0.86, -r * 0.18)
+		var ink := Color(0.06, 0.03, 0.08)
+		var o := r + 4.0
+		draw_colored_polygon(PackedVector2Array([c + Vector2(0, -o), c + Vector2(o * 0.88, -o * 0.18), c + Vector2(0, o), c + Vector2(-o * 0.88, -o * 0.18)]), ink)
+		draw_colored_polygon(PackedVector2Array([top, rt, c, lt]), col.lightened(0.45))
+		draw_colored_polygon(PackedVector2Array([lt, c, bot]), col)
+		draw_colored_polygon(PackedVector2Array([c, rt, bot]), col.darkened(0.3))
+		draw_line(lt + Vector2(r * 0.25, -r * 0.1), top + Vector2(-r * 0.1, r * 0.3), Color(1, 1, 1, 0.8), 3.0)
+		if big:   # a four-point sparkle on the epic gem
+			var s := c + Vector2(r * 0.55, -r * 0.75)
+			for v in [Vector2(1, 0), Vector2(0, 1)]:
+				draw_line(s - v * r * 0.55, s + v * r * 0.55, Color(1, 1, 1, 0.95), 3.0)
 
 
 ## The ornaments on a blessing card's frame, by kind (version 420).

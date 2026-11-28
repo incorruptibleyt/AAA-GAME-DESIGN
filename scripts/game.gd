@@ -107,7 +107,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-28g"
+const BUILD := "2026-11-28h"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -1747,6 +1747,7 @@ func _lobby_looming(on: bool) -> void:
 		if _lobby_boss:
 			_lobby_boss.visible = false
 			_lobby_red.visible = false
+		_lobby_pillars(false)
 		return
 	if _lobby_boss == null:
 		_lobby_boss = CharacterVisual.new()
@@ -1771,9 +1772,11 @@ func _lobby_looming(on: bool) -> void:
 	var vis := _lobby > 0.5 and state == State.TITLE and not daily and event == ""
 	_lobby_boss.visible = vis
 	_lobby_red.visible = vis
+	_lobby_pillars(vis)
 	if vis:
 		_lobby_boss.global_position = hero.global_position + Vector3(LOBBY_BOSS_AT.x, 0, LOBBY_BOSS_AT.z)
-		_lobby_boss.scale = Vector3.ONE * 0.7
+		_lobby_boss.scale = Vector3.ONE * _lobby_boss_s
+		_lobby_face_clear()
 		# (his greatsword, held low, ran across in front of the hero: it stays in its sheath here)
 		var ks := Art._find_skeleton(_lobby_boss)
 		if ks:
@@ -1787,6 +1790,55 @@ func _lobby_looming(on: bool) -> void:
 
 
 const LOBBY_BOSS_AT := Vector3(1.0, 0, -3.3)
+var _lobby_boss_s := 0.7
+var _lobby_hid: Array[Node3D] = []
+var _lobby_hid_room: Node
+
+
+## v427: on the title, a pillar standing between us and the King (or crowding the hero) steps
+## aside, only while the title shows; it is back before any fight.
+func _lobby_pillars(hide: bool) -> void:
+	if not hide:
+		for n in _lobby_hid:
+			if is_instance_valid(n):
+				n.visible = true
+		_lobby_hid.clear()
+		_lobby_hid_room = null
+		return
+	if Room.current == null or hero == null or Room.current == _lobby_hid_room:
+		return
+	_lobby_hid_room = Room.current
+	_lobby_hid.clear()
+	for c in Room.current.get_children():
+		if c is Node3D and c.has_meta("pillar") and (c as Node3D).visible:
+			var d := (c as Node3D).global_position - hero.global_position
+			if absf(d.x) < 3.4 and d.z > -5.0 and d.z < 2.5:
+				(c as Node3D).visible = false
+				_lobby_hid.append(c)
+
+
+## v427 (re-review of v420, fix 10): on a tall phone the hero is drawn bigger and the King's
+## face hid behind the BONE CHAIN logo (only his jaw showed). His size follows the screen:
+## he shrinks until his face sits in the gap between the logo and the hero's head.
+func _lobby_face_clear() -> void:
+	var cam := get_viewport().get_camera_3d()
+	var sk := Art._find_skeleton(_lobby_boss)
+	if cam == null or sk == null or _lobby < 0.95:
+		return
+	var vp := get_viewport().get_visible_rect().size
+	if vp.y < vp.x * 1.9:   # (a 16:9 phone already shows his face whole)
+		_lobby_boss_s = 0.7
+		return
+	var hb := sk.find_bone("head")
+	if hb < 0:
+		return
+	var feet := cam.unproject_position(_lobby_boss.global_position)
+	var head := cam.unproject_position(sk.global_transform * sk.get_bone_global_pose(hb).origin)
+	var want := hud.title_hero_space().position.y + vp.y * 0.075   # (his eyes just under the logo)
+	if feet.y - head.y < 4.0 or feet.y <= want:
+		return
+	var s := clampf(_lobby_boss_s * (feet.y - want) / (feet.y - head.y), 0.42, 0.7)
+	_lobby_boss_s = lerpf(_lobby_boss_s, s, 0.25)
 
 
 var _lobby_pts := PackedVector3Array()

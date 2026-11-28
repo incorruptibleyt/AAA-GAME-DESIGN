@@ -119,6 +119,21 @@ func _build_main() -> void:
 	_run_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	_run_btn.pressed.connect(func(): _confirm(_run_btn, run_pressed.emit))
 	play.add_child(_run_btn)
+	# v427 (re-review of v420, fix 10): the Blood Queen herself on the way in, her face in a
+	# crimson medal on the button's end (the event's foe was nowhere on its own screen).
+	if not Events.frost() and ResourceLoader.exists(QUEEN_PIC):
+		var medal := FoeMedal.new(load(QUEEN_PIC), Color(0.9, 0.12, 0.14))
+		medal.position = Vector2(2, -8)
+		medal.size = Vector2(102, 102)
+		_run_btn.add_child(medal)
+		_run_btn.custom_minimum_size.x = 470
+		for st in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+			var sb := _run_btn.get_theme_stylebox(st)
+			if sb:
+				sb = sb.duplicate()
+				sb.content_margin_left = 100
+				sb.content_margin_right = 14
+				_run_btn.add_theme_stylebox_override(st, sb)
 	_run_sub = Hud.label("", 16, GOLD)
 	play.add_child(_run_sub)
 	# The road: the bar (its stars are the set's pieces) and the next prize under it.
@@ -921,3 +936,63 @@ func _process(delta: float) -> void:
 	if _double.visible:
 		var g := 0.85 + 0.15 * sin(_t * 4.0)
 		_double.modulate = Color(g, g, g)
+
+
+const QUEEN_PIC := "res://art/ui/bosses/BloodQueen.png"
+
+
+## v427: a foe's face in a round medal with a thick ring and an ink edge.
+class FoeMedal extends Control:
+	var _tex: Texture2D
+	var _ring: Color
+	static var _mask: Shader
+	func _init(tex: Texture2D, ring: Color) -> void:
+		_tex = tex
+		_ring = ring
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _ready() -> void:
+		if _mask == null:
+			_mask = Shader.new()
+			_mask.code = "shader_type canvas_item;\nvoid fragment() {\n\tfloat r = length(UV - vec2(0.5));\n\tCOLOR = texture(TEXTURE, UV);\n\tCOLOR.a *= 1.0 - smoothstep(0.47, 0.5, r);\n}\n"
+		var pic := TextureRect.new()
+		pic.texture = _tex
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_SCALE
+		pic.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		pic.offset_left = 7
+		pic.offset_top = 7
+		pic.offset_right = -7
+		pic.offset_bottom = -7
+		var m := ShaderMaterial.new()
+		m.shader = _mask
+		pic.material = m
+		add_child(pic)
+		var rim := Panel.new()
+		rim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		rim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var sb := StyleBoxFlat.new()
+		sb.draw_center = false
+		sb.border_color = _ring
+		sb.set_border_width_all(7)
+		sb.set_corner_radius_all(60)
+		sb.shadow_color = Color(0, 0, 0, 0.55)
+		sb.shadow_size = 6
+		sb.shadow_offset = Vector2(0, 4)
+		sb.anti_aliasing_size = 1.5
+		rim.add_theme_stylebox_override("panel", sb)
+		add_child(rim)
+		var ink := Panel.new()
+		ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		ink.offset_left = -3
+		ink.offset_top = -3
+		ink.offset_right = 3
+		ink.offset_bottom = 3
+		var ib := StyleBoxFlat.new()
+		ib.draw_center = false
+		ib.border_color = Color(0.08, 0.02, 0.03)
+		ib.set_border_width_all(3)
+		ib.set_corner_radius_all(64)
+		ink.add_theme_stylebox_override("panel", ib)
+		add_child(ink)
