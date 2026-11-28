@@ -68,7 +68,10 @@ static func dress(room: Room, layout: Array) -> void:
 				"ember":
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
-					_mesh(n, _grate())
+					if _furnace():
+						_add_furnace_mouth(n)   # (v417: floor 12's own wall)
+					else:
+						_mesh(n, _grate())
 				"water":
 					var n := _place(room, Vector3(side * (Room.HALF_W - 0.02), 0, z), false)
 					n.rotation.y = 0.0 if side < 0 else PI
@@ -125,7 +128,14 @@ static func dress(room: Room, layout: Array) -> void:
 			"ember":
 				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
-				_mesh(n, _grate())
+				if _furnace():
+					# (v417) floor 12: a chain hung from the dark with a cage of coals on it
+					var c := _place(room, Vector3(x * 1.35, 0, -Room.HALF_L + 0.45), false)
+					_no_shadow(_mesh(c, _furnace_chain()))
+					_glow_pool(c, 1.8, Color(1.0, 0.4, 0.1, 0.22))
+					_add_furnace_mouth(n)
+				else:
+					_mesh(n, _grate())
 			"water":
 				var n := _place(room, Vector3(x, 0, -Room.HALF_L + 0.02), false)
 				n.rotation.y = -PI / 2
@@ -191,9 +201,16 @@ static func _corner(room: Room, n: Node3D, p: Vector3, kind: String) -> void:
 		"ice":
 			_mesh(n, _crystals())
 		"ember":
-			_mesh(n, _brazier())
-			Fx.flame(n, Vector2(0.7, 0.95), Vector3(0, 0.8, 0))
-			Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.15, 0.8, 0.1))
+			if _furnace():
+				# (v417) floor 12: a crucible of molten iron on three legs, a ladle in it
+				n.rotation.y = atan2(-signf(p.x), -signf(p.z)) - PI / 4
+				_mesh(n, _crucible())
+				Fx.flame(n, Vector2(0.5, 0.6), Vector3(0, 0.95, 0))
+				_glow_pool(n, 2.8, Color(1.0, 0.42, 0.12, 0.24))
+			else:
+				_mesh(n, _brazier())
+				Fx.flame(n, Vector2(0.7, 0.95), Vector3(0, 0.8, 0))
+				Fx.flame(n, Vector2(0.4, 0.6), Vector3(0.15, 0.8, 0.1))
 		"water":
 			_mesh(n, _kelp_column())
 		"fungus":
@@ -413,7 +430,7 @@ static func _gallery_mesh(kind: String) -> ArrayMesh:
 ## pieces lie out in it, shrunk to knee height or less so they never hide anyone, with no
 ## collision (they are walked over like the scattered bits) and no shadow. They keep off the
 ## middle of the room (the floor's own seal or star gate), the hero's start and the door.
-const MIDDLE_PIECES := 3
+const MIDDLE_PIECES := 4   # (v417: 3 -> 4, one more for the near half)
 
 
 static func _middle(room: Room, layout: Array, kind: String) -> void:
@@ -449,8 +466,16 @@ static func _middle(room: Room, layout: Array, kind: String) -> void:
 		spots[j] = t
 	# Version 409 (re-review fix 9): the near half of the room, where the hero fights, was
 	# bare floor. One piece now always goes there first when there's a spot for it.
+	# Version 417 (re-review of v410, fix 7: "floors 4 and 10 have an empty lower half"): the
+	# lower third of the screen gets one too, the nearest spot past z 3 going first of all.
 	for i in spots.size():
 		if spots[i].z > 1.2:
+			var t := spots[i]
+			spots.remove_at(i)
+			spots.push_front(t)
+			break
+	for i in spots.size():
+		if spots[i].z > 3.0:
 			var t := spots[i]
 			spots.remove_at(i)
 			spots.push_front(t)
@@ -484,8 +509,8 @@ static func _middle_piece(room: Room, p: Vector3, kind: String, rng: RandomNumbe
 			mesh = _crystals()
 			k = 0.5
 		"ember":
-			mesh = _skull_pile(false)
-			k = 0.6
+			mesh = _slag() if _furnace() else _skull_pile(false)
+			k = 0.8 if _furnace() else 0.6
 			pool = Color(1.0, 0.4, 0.12, 0.2)
 		"fungus":
 			mesh = _mushroom_clump()
@@ -4242,3 +4267,143 @@ static func _dial_rubble() -> ArrayMesh:
 	parts.append([_sphere(), _xf(Vector3(-0.3, 0.1, -0.35), Vector3.ONE * 0.1), _dial_mat("sun")])
 	_baked["dial_rubble"] = _bake(parts)
 	return _baked["dial_rubble"]
+
+
+# ---------------------------------------------------------------- Furnace Catacomb (floor 12)
+
+## Version 417 (re-review of v410, fix 7: "floor 12 borrows floor 3's fire wall and pillar"):
+## the Furnace Catacomb (floor 12, floors.gd REMIX_LOOK "set") has its own pieces: furnace
+## mouths in the walls, chains hung from the dark with cages of coals, crucibles of molten
+## iron in the corners, chimney columns of black glass split by fire, and heaps of slag.
+static func _furnace() -> bool:
+	return str(Floors.current().get("set", "")) == "furnace"
+
+
+static func _furnace_mat(key: String) -> Material:
+	var k := "furnace_" + key
+	if not _baked.has(k):
+		match key:
+			"brick": _baked[k] = U.mat(Color(0.16, 0.09, 0.08), 0.95)
+			"iron": _baked[k] = U.mat(Color(0.1, 0.09, 0.09), 0.5)
+			"glass": _baked[k] = U.mat(Color(0.05, 0.035, 0.04), 0.12)
+			"fire": _baked[k] = U.mat(Color(1.0, 0.32, 0.05), 0.9, 1.5)
+			"hot": _baked[k] = U.mat(Color(1.0, 0.6, 0.22), 0.9, 1.8)
+			"brass": _baked[k] = U.mat(Color(0.6, 0.38, 0.16), 0.4)
+	return _baked[k]
+
+
+## A furnace mouth set in the wall (+X out of it): a brick arch round a fire, iron bars across
+## its lower half, a heap of coals in it and a brass keystone.
+static func _add_furnace_mouth(n: Node3D) -> void:
+	if not _baked.has("furnace_mouth"):
+		var parts := []
+		var brick := _furnace_mat("brick")
+		parts.append([_cube(), _xf(Vector3(0.03, 0.7, 0), Vector3(0.06, 1.4, 1.3)), _furnace_mat("fire")])
+		parts.append([_sphere(), _xf(Vector3(0.03, 1.4, 0), Vector3(0.03, 0.62, 0.65)), _furnace_mat("fire")])
+		parts.append([_sphere(), _xf(Vector3(0.18, 0.05, 0), Vector3(0.22, 0.2, 0.55)), _furnace_mat("hot")])
+		for sd in [-1.0, 1.0]:
+			parts.append([_cube(), _xf(Vector3(0.14, 0.75, sd * 0.85), Vector3(0.3, 1.5, 0.36)), brick])
+		for i in 9:
+			var a := PI * i / 8.0
+			var at := Vector3(0.14, 1.42 + sin(a) * 0.86, cos(a) * 0.86)
+			parts.append([_cube(), _xf(at, Vector3(0.32, 0.34, 0.3), Basis(Vector3.RIGHT, -a + PI / 2)), brick])
+		parts.append([_cube(), _xf(Vector3(0.22, 2.3, 0), Vector3(0.2, 0.3, 0.26)), _furnace_mat("brass")])
+		for i in 4:
+			parts.append([_cube(), _xf(Vector3(0.26, 0.55, -0.45 + 0.3 * i), Vector3(0.06, 1.1, 0.06)), _furnace_mat("iron")])
+		parts.append([_cube(), _xf(Vector3(0.26, 1.08, 0), Vector3(0.08, 0.08, 1.3)), _furnace_mat("iron")])
+		_baked["furnace_mouth"] = _bake(parts)
+	_no_shadow(_mesh(n, _baked["furnace_mouth"]))
+	Fx.flame(n, Vector2(0.8, 0.9), Vector3(0.12, 0.45, 0))
+	_glow_pool(n, 2.6, Color(1.0, 0.4, 0.1, 0.26))
+
+
+## A great iron chain from the dark down to a cage of glowing coals at head height.
+static func _furnace_chain() -> ArrayMesh:
+	if _baked.has("furnace_chain"):
+		return _baked["furnace_chain"]
+	var parts := []
+	var link := TorusMesh.new()
+	link.inner_radius = 0.07
+	link.outer_radius = 0.115
+	link.rings = 10
+	link.ring_segments = 6
+	var y := Room.WALL_H + 1.8
+	var k := 0
+	while y > 1.6:
+		var b := Basis(Vector3.RIGHT, PI / 2) * Basis.from_scale(Vector3(1.0, 1.0, 1.7))
+		if k % 2 == 1:
+			b = Basis(Vector3.UP, PI / 2) * b
+		parts.append([link, Transform3D(b, Vector3(0, y, 0)), _furnace_mat("iron")])
+		y -= 0.3
+		k += 1
+	var ring := TorusMesh.new()
+	ring.inner_radius = 0.24
+	ring.outer_radius = 0.3
+	ring.rings = 14
+	ring.ring_segments = 5
+	for ry in [1.0, 1.5]:
+		parts.append([ring, _xf(Vector3(0, ry, 0), Vector3.ONE), _furnace_mat("iron")])
+	for i in 6:
+		var a := TAU * i / 6.0
+		parts.append([_cube(), _xf(Vector3(cos(a) * 0.27, 1.25, sin(a) * 0.27), Vector3(0.05, 0.55, 0.05)), _furnace_mat("iron")])
+	parts.append([_cone(0.0, 0.3, 0.2, 6), _xf(Vector3(0, 1.62, 0), Vector3.ONE), _furnace_mat("iron")])
+	parts.append([_sphere(), _xf(Vector3(0, 1.15, 0), Vector3(0.2, 0.15, 0.2)), _furnace_mat("hot")])
+	parts.append([_sphere(), _xf(Vector3(0.05, 1.27, -0.04), Vector3(0.12, 0.1, 0.12)), _furnace_mat("fire")])
+	_baked["furnace_chain"] = _bake(parts)
+	return _baked["furnace_chain"]
+
+
+## A crucible of molten iron on three iron legs, a ladle leaning in it.
+static func _crucible() -> ArrayMesh:
+	if _baked.has("crucible"):
+		return _baked["crucible"]
+	var parts := []
+	var iron := _furnace_mat("iron")
+	parts.append([_cone(0.62, 0.42, 0.62, 12), _xf(Vector3(0, 0.62, 0), Vector3.ONE), iron])
+	parts.append([_cone(0.66, 0.66, 0.08, 12), _xf(Vector3(0, 0.94, 0), Vector3.ONE), _furnace_mat("brass")])
+	parts.append([_sphere(), _xf(Vector3(0, 0.9, 0), Vector3(0.58, 0.08, 0.58)), _furnace_mat("hot")])
+	for i in 3:
+		var a := TAU * i / 3.0
+		parts.append([_cube(), _xf(Vector3(cos(a) * 0.38, 0.17, sin(a) * 0.38), Vector3(0.1, 0.36, 0.1)), iron])
+	parts.append([_cube(), _xf(Vector3(0.3, 1.25, 0.1), Vector3(0.06, 0.95, 0.06), Basis(Vector3.FORWARD, 0.5)), iron])
+	parts.append([_sphere(), _xf(Vector3(0.12, 0.95, 0.1), Vector3(0.16, 0.08, 0.16)), iron])
+	_baked["crucible"] = _bake(parts)
+	return _baked["crucible"]
+
+
+## A low heap of black slag with molten cracks, to lie out in the room.
+static func _slag() -> ArrayMesh:
+	if _baked.has("slag"):
+		return _baked["slag"]
+	var parts := []
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1212
+	for i in 6:
+		var a := rng.randf() * TAU
+		var r := rng.randf_range(0.0, 0.45)
+		var sz := rng.randf_range(0.18, 0.32)
+		parts.append([_sphere(), _xf(Vector3(cos(a) * r, sz * 0.4, sin(a) * r), Vector3(sz, sz * 0.6, sz * 0.9), Basis(Vector3.UP, a)), _furnace_mat("glass")])
+		parts.append([_cube(), _xf(Vector3(cos(a) * r, sz * 0.62, sin(a) * r), Vector3(sz * 1.3, 0.03, 0.05), Basis(Vector3.UP, a + 0.6)), _furnace_mat("fire")])
+	parts.append([_sphere(), _xf(Vector3(0, 0.03, 0), Vector3(0.38, 0.04, 0.3)), _furnace_mat("fire")])
+	_baked["slag"] = _bake(parts)
+	return _baked["slag"]
+
+
+## Floor 12's own column: a chimney of black glass on an iron foot, split by four seams of
+## fire, banded in iron, a flared iron cap with the fire showing at its mouth.
+static func add_furnace_column(n: Node3D) -> void:
+	if not _baked.has("furnace_column"):
+		var parts := []
+		var h := Room.WALL_H + 0.4
+		parts.append([_cube(), _xf(Vector3(0, 0.15, 0), Vector3(1.0, 0.3, 1.0)), _furnace_mat("iron")])
+		parts.append([_cone(0.36, 0.44, h, 8), _xf(Vector3(0, h * 0.5, 0), Vector3.ONE, Basis(Vector3.UP, PI / 8)), _furnace_mat("glass")])
+		for k in 4:
+			var a := TAU * k / 4.0 + PI / 4
+			parts.append([_cube(), _xf(Vector3(cos(a) * 0.41, h * 0.45, sin(a) * 0.41), Vector3(0.06, h * 0.7, 0.06)), _furnace_mat("fire")])
+		for y in [0.55, 2.1]:
+			_band(parts, 0.45, 0.12, y, _furnace_mat("iron"), 8)
+		parts.append([_cone(0.6, 0.38, 0.4, 8), _xf(Vector3(0, h + 0.1, 0), Vector3.ONE), _furnace_mat("iron")])
+		parts.append([_cone(0.42, 0.42, 0.04, 8), _xf(Vector3(0, h + 0.31, 0), Vector3.ONE), _furnace_mat("fire")])
+		_baked["furnace_column"] = _bake(parts)
+	_mesh(n, _baked["furnace_column"])
+	_glow_pool(n, 2.2, Color(1.0, 0.4, 0.1, 0.2))

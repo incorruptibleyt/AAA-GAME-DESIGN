@@ -363,7 +363,8 @@ const REMIX_LOOK := {
 	# (room.gd floor style 13), between walls of glass with furnace doors.
 	# Version 409 (re-review fix 9): its blue fire still read as floor 2's blue. Now the
 	# furnace burns red-hot: glowing joints, a red-orange grate, ember light and sparks.
-	2: {"name": "Furnace Catacomb", "floor_style": 13, "floor": Color(0.4, 0.28, 0.24), "seams": Color(1.0, 0.36, 0.08), "ambient": Color(0.2, 0.13, 0.12), "moon": Color(0.92, 0.6, 0.46), "pool": 0.95,
+	# Version 417 (re-review of v410, fix 7): and its own set (props.gd "furnace").
+	2: {"name": "Furnace Catacomb", "set": "furnace", "pillar": "furnace", "floor_style": 13, "floor": Color(0.4, 0.28, 0.24), "seams": Color(1.0, 0.36, 0.08), "ambient": Color(0.2, 0.13, 0.12), "moon": Color(0.92, 0.6, 0.46), "pool": 0.95,
 		"torch": Color(1.0, 0.5, 0.2), "fog": Color(0.09, 0.03, 0.015), "background": Color(0.035, 0.01, 0.005),
 		"motes": [Color(1.0, 0.55, 0.2, 0.65), Color(1.0, 0.85, 0.4, 0.25)], "banner": Color(1.0, 0.55, 0.25)},
 	DROWNED: {"name": "Sunken Gold Vault", "ambient": Color(0.24, 0.22, 0.15), "moon": Color(1.0, 0.86, 0.55), "torch": Color(1.0, 0.8, 0.45),

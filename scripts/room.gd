@@ -2451,6 +2451,8 @@ func _read_layout(layout: Array) -> void:
 					var kind := str(Floors.current().get("pillar", ""))
 					if kind == "iron":
 						Props.add_iron_column(_anchor(p))
+					elif kind == "furnace":
+						Props.add_furnace_column(_anchor(p))   # (v417: floor 12's own)
 					elif kind == "drift":
 						Props.add_drift_column(_anchor(p))
 					elif kind == "timber" or kind == "lotus" or kind == "rock" or kind == "shelf" or kind == "sunpost":
