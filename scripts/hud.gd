@@ -324,6 +324,7 @@ var _chain_label: Label
 var _chain_pop := 0.0
 var _spine: ChainSpine
 var _score_label: Label
+var _score_cap: Control   # (v429: the SCORE word, faded with the number under CHAIN BROKEN)
 var _chain_pill: Panel   # v392: grows with the score, so no empty end on the pill
 var _broken_label: Label
 var _broken_time := 0.0
@@ -1148,8 +1149,8 @@ func _build_hud() -> void:
 	_timer_label.set_anchors_preset(Control.PRESET_TOP_RIGHT)
 	_timer_label.offset_left = -284
 	_timer_label.offset_right = -84
-	_timer_label.offset_top = 72
-	_timer_label.offset_bottom = 100
+	_timer_label.offset_top = 96   # (v429: under the WAVE word, which it was written over)
+	_timer_label.offset_bottom = 124
 	_timer_label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	_timer_label.visible = false
 	root.add_child(_timer_label)
@@ -1422,6 +1423,7 @@ func _build_hud() -> void:
 	caption.position = Vector2(91, 2)
 	caption.size = Vector2(46, 30)
 	_chain_box.add_child(caption)
+	_score_cap = caption
 	_score_label = label("", 21, Color(1.0, 0.97, 0.9), HORIZONTAL_ALIGNMENT_LEFT)
 	chunky(_score_label.label_settings)
 	_score_label.label_settings.outline_size = 5
@@ -4798,7 +4800,7 @@ func _fly_to_tray(i: int) -> void:
 			ic.scale = Vector2(0.62, 0.62)
 			slot.add_child(ic)
 			slot.pivot_offset = Vector2(20, 20)
-			slot.scale = Vector2(1.7, 1.7)
+			slot.scale = Vector2(1.3, 1.3)
 			var pop := slot.create_tween()
 			pop.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
 			pop.tween_property(slot, "scale", Vector2.ONE, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
@@ -4904,6 +4906,9 @@ func _process(delta: float) -> void:
 		_broken_label.modulate.a = 0.0 if in_boss else fade
 		_boss_broken.modulate.a = fade if in_boss else 0.0
 		_chain_label.modulate.a = 1.0 - _broken_label.modulate.a
+		# (v429: the score steps aside too; CHAIN BROKEN was written over SCORE 126)
+		_score_label.modulate.a = 1.0 - _broken_label.modulate.a
+		_score_cap.modulate.a = _score_label.modulate.a
 	# Tips, hints and callouts belong to the action: hide them while a menu or the
 	# blessing cards cover it, so they never show through ("PERFECT!" over the cards).
 	var covered := 0.0 if _overlay_open() else 1.0

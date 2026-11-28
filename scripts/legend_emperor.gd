@@ -510,8 +510,8 @@ static func crown(id: String, y: float) -> Node3D:
 	return c
 
 
-const EMPEROR_MASK := 1.15
-const MASK_Y := -0.5
+const EMPEROR_MASK := 0.88
+const MASK_Y := -0.36
 const MASK_Z := -0.05
 
 
