@@ -107,7 +107,7 @@ var _mastery_callout := ""   # a mid-run level-up, for the blessing screen to sh
 var _mastery_hero := ""
 var _env: Environment
 ## Run report: numbers collected during a run so Jesse can paste them back for balancing.
-const BUILD := "2026-11-28h"
+const BUILD := "2026-11-28i"
 var hit_source := ""
 var _last_report := ""
 var _rep := {}
@@ -3643,9 +3643,13 @@ func _load_room(index: int, spawn_enemies: bool) -> void:
 	# Version 425 (re-review of v420, fix 8): each combat room takes one of three plans (an
 	# open hall, an aisle of low walls, a shrine in the middle), so a floor's rooms differ.
 	var lay: Array = _run[index]
+	var plan := ""
 	if not _in_boss_room() and ftue_room() >= 99:
-		lay = Room.plan_layout(lay, Room.PLANS[(index + floor_num) % Room.PLANS.size()])
+		plan = Room.PLANS[(index + floor_num) % Room.PLANS.size()]
+		lay = Room.plan_layout(lay, plan)
 	var room := Room.build(world, lay, "Boss" if _in_boss_room() else str(index + 1))
+	if plan == "hall" and state != State.TITLE:
+		room.hall_seal()   # (v427: the open hall's floor seal; not under the title hero)
 	if event != "" and Floors.frostfall():
 		Blizzard.dress(room)   # version 243: two braziers against the Blizzard
 	var look := Floors.current()

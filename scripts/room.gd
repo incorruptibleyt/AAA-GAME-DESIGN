@@ -2585,6 +2585,53 @@ static func plan_layout(layout: Array, plan: String) -> Array:
 	return out
 
 
+## v427 (re-review of v420, fix 8, bolder pass): an open hall has a great seal let into its
+## floor, two glowing rings and four spokes in the place's trim colour, so it reads as a
+## room of its own beside the aisle (low walls) and the shrine (a dais). Skipped where a
+## pillar stands too close to the middle.
+func hall_seal() -> void:
+	# (the most open spot of the three middle rows; the seal shrinks to fit, or is skipped)
+	var best := Vector3.ZERO
+	var room_k := 0.0
+	for row: int in [7, 6, 8]:
+		var c := cell_to_world(4, row)
+		var free := 2.5
+		for o: Dictionary in obstacles:
+			var d: Vector3 = o.pos - c
+			d.y = 0.0
+			free = minf(free, d.length() - float(o.r) - 0.25)
+		if free > room_k:
+			room_k = free
+			best = c
+	if room_k < 1.3:
+		return
+	var k := minf(room_k / 2.3, 1.0)
+	var look := Floors.current()
+	var glow := U.mat(Color(look.trim).lightened(0.15), 0.6, 1.1)
+	var seal := Node3D.new()
+	seal.name = "HallSeal"
+	seal.position = Vector3(best.x, 0.025, best.z)
+	seal.scale = Vector3(k, 1.0, k)
+	add_child(seal)
+	for ring: Array in [[2.05, 2.3], [1.05, 1.22]]:
+		var tm := TorusMesh.new()
+		tm.inner_radius = ring[0]
+		tm.outer_radius = ring[1]
+		tm.rings = 32
+		tm.ring_segments = 4
+		var mi := MeshInstance3D.new()
+		mi.mesh = tm
+		mi.material_override = glow
+		mi.scale = Vector3(1.0, 0.12, 1.0)
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		seal.add_child(mi)
+	for q in 4:
+		var a := TAU * q / 4.0 + PI / 4.0
+		var sp := U.box(seal, Vector3(0.16, 0.03, 0.9), glow, Vector3(cos(a), 0, sin(a)) * 1.65)
+		sp.rotation.y = -a + PI / 2.0
+		sp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 ## A low wall over cells `a`..`b` of `row`, run on into the side wall it touches.
 func _low_wall(row: int, a: int, b: int) -> void:
 	var look := Floors.current()
@@ -2602,6 +2649,13 @@ func _low_wall(row: int, a: int, b: int) -> void:
 	var wb := U.box(self, Vector3(w, h, 0.95), wall, Vector3((x0 + x1) * 0.5, h * 0.5, z))
 	wb.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 	U.box(self, Vector3(w + 0.1, 0.14, 1.1), trim, Vector3((x0 + x1) * 0.5, h + 0.07, z))
+	# (v427, bolder pass: a lit brazier on the wall's open end, so an aisle room reads at a glance)
+	var br := MeshInstance3D.new()
+	br.mesh = Props._brazier()
+	br.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	br.scale = Vector3.ONE * 0.7
+	br.position = Vector3((x1 - 0.45) if a == 0 else (x0 + 0.45), h + 0.12, z)
+	add_child(br)
 	if Props._furnace():
 		# (floor 12: a furnace mouth glows in the wall's end, where the fight is)
 		var n := Node3D.new()

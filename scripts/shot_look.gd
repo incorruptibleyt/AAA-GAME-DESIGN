@@ -725,6 +725,7 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.5)), Vector3(size * 5.0, 1.0, size * 6.0), Vector3(0, 0, size * 4.2))   # (v425: its wake)
 			_put(p, _flat, base_mat(K_WAVE, tint), Vector3(size * 8.4, 1.0, size * 4.2), Vector3(0, 0, size * 0.5))
 			_put(p, _flat, hero_mat(K_WAVE, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 7.0, 1.0, size * 3.4), Vector3(0, 0, size * 0.9))
+			_solid(p, "crescent", tint, size * 4.0, Vector3(0, 0, size * 0.2))
 			glow = 2.6
 		"axe":
 			_put(p, _flat, base_mat(K_AXE, tint), Vector3(size * 4.8, 1.0, size * 4.8))
@@ -733,6 +734,7 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.45)), Vector3(size * 2.8, 1.0, size * 6.0), Vector3(0, 0, size * 3.6))
 			glow = 2.0
 		"orb":
+			_solid(p, "orb", tint, size * 1.9)
 			_put(p, _card, base_mat(K_ORB, tint, true), Vector3(size * 5.0, size * 5.0, 1.0))
 			_put(p, _card, hero_mat(K_ORB, Color(col.r, col.g, col.b, 0.5), true), Vector3(size * 4.2, size * 4.2, 1.0))
 			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.7)), Vector3(size * 2.8, 1.0, size * 7.0), Vector3(0, 0, size * 3.8))
@@ -757,11 +759,108 @@ static func hero(p: Projectile, kind: String, col: Color, size: float, _height: 
 			_put(p, _flat, hero_mat(K_TAIL, Color(tint.r, tint.g, tint.b, 0.6)), Vector3(size * 3.4, 1.0, size * 12.0), Vector3(0, 0, size * 9.5))
 			_put(p, _flat, base_mat(K_BOLT, tint), Vector3(size * 6.8, 1.0, size * 12.5), Vector3(0, 0, size * 12.5 * 0.4))
 			_put(p, _flat, hero_mat(K_BOLT, Color(col.r, col.g, col.b, 0.8)), Vector3(size * 3.2, 1.0, size * 10.0), Vector3(0, 0, size * 10.0 * 0.41))
+			_solid(p, "bolt", tint, size * 6.0, Vector3(0, 0, size * 1.5))
 	# (No pool of light on the floor under hero shots: a Mage with Twin Shots and Fan of Shots
 	# has dozens in the air, and each pool was one more thing to draw. Undead shots keep theirs.)
 	if glow <= 0.0:
 		return null
 	return _put(p, _card, hero_mat(K_GLOW, glow_col, true), Vector3(size * glow, size * glow, 1.0))
+
+
+## v427 (re-review of v420, fix 6, bolder pass): every hero shot has a solid body inside its
+## light, lit like the room, in the hero's colour inside a dark shell: the Knight's wave is a
+## curved steel-and-colour blade, the Rogue's bolt a real bolt with fins, the Mage's orb a
+## ball with a ring round it. (The flat glowing shapes alone read the same on every hero.)
+static func _solid(p: Node3D, shape: String, col: Color, s: float, pos := Vector3.ZERO) -> void:
+	var mesh := _hero_mesh(shape)
+	var body := _put(p, mesh, _hero_body(col), Vector3.ONE * s, pos)
+	body.set_meta("shot_body", true)
+	_put(p, mesh, _shot_ink(), Vector3.ONE * s * 1.14, pos)
+
+
+static func _hero_body(col: Color) -> StandardMaterial3D:
+	var key := "hero_body_" + col.to_html()
+	if not _mats.has(key):
+		var m := StandardMaterial3D.new()
+		m.albedo_color = col.lerp(Color.WHITE, 0.12)
+		m.roughness = 0.3
+		m.metallic = 0.25
+		m.emission_enabled = true
+		m.emission = col
+		m.emission_energy_multiplier = 0.55
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED
+		_mats[key] = m
+	return _mats[key]
+
+
+static func _hero_mesh(shape: String) -> ArrayMesh:
+	var key := "hero_" + shape
+	if _shot_meshes.has(key):
+		return _shot_meshes[key]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	match shape:
+		"crescent":   # a curved blade, bowed forward, thick in the middle and sharp at the tips
+			var n := 10
+			var r := 0.62
+			var c := Vector3(0, 0, 0.32)
+			var outer: Array[Vector3] = []
+			var inner: Array[Vector3] = []
+			for i in n + 1:
+				var a := lerpf(-1.15, 1.15, float(i) / n)
+				var w := 0.3 * pow(cos(a * 1.25), 0.8) + 0.02
+				outer.append(c + Vector3(sin(a) * r, 0, -cos(a) * r))
+				inner.append(c + Vector3(sin(a) * (r - w), 0, -cos(a) * (r - w) + w * 0.35))
+			var h := Vector3(0, 0.09, 0)
+			for i in n:
+				var mid := (outer[i] + inner[i + 1]) * 0.5
+				_face(st, [outer[i] + h, outer[i + 1] + h, inner[i + 1] + h, inner[i] + h], mid)
+				_face(st, [outer[i] - h, outer[i + 1] - h, inner[i + 1] - h, inner[i] - h], mid)
+				_face(st, [outer[i] + h, outer[i + 1] + h, outer[i + 1] - h, outer[i] - h], mid)
+				_face(st, [inner[i] + h, inner[i + 1] + h, inner[i + 1] - h, inner[i] - h], mid)
+		"bolt":   # a crossbow bolt: a sharp head, a shaft and three fins
+			_spike(st, Vector3(0, 0, -1.0), Vector3(0, 0, -0.55), 0.2, 4, Vector3(0, 0, -0.45))
+			_spike(st, Vector3(0, 0, 0.75), Vector3(0, 0, -0.5), 0.07, 4)
+			for k in 3:
+				var a := TAU * k / 3.0 + 0.3
+				var out := Vector3(cos(a), sin(a), 0) * 0.2
+				_face(st, [Vector3(0, 0, 0.35), Vector3(0, 0, 0.78), out + Vector3(0, 0, 0.82)], Vector3(0, 0, 0.6) - out)
+		_:   # the orb: a cut ball with a ring round its middle
+			var sides := 8
+			for v: Vector3 in [Vector3.UP, Vector3.DOWN]:
+				_spike(st, v * 0.5, Vector3.ZERO, 0.5, sides)
+			for i in sides:
+				var a0 := TAU * i / sides
+				var a1 := TAU * (i + 1) / sides
+				var o0 := Vector3(cos(a0), 0.0, sin(a0))
+				var o1 := Vector3(cos(a1), 0.0, sin(a1))
+				var t := Vector3(0, 0.05, 0)
+				_face(st, [o0 * 0.78 + t, o1 * 0.78 + t, o1 * 0.58 + t, o0 * 0.58 + t], Vector3(0, -1, 0))
+				_face(st, [o0 * 0.78 - t, o1 * 0.78 - t, o1 * 0.58 - t, o0 * 0.58 - t], Vector3(0, 1, 0))
+				_face(st, [o0 * 0.78 + t, o1 * 0.78 + t, o1 * 0.78 - t, o0 * 0.78 - t], Vector3.ZERO)
+	var m := st.commit()
+	_shot_meshes[key] = m
+	return m
+
+
+## A flat face (3 or 4 points) wound so it faces away from `inside`.
+static func _face(st: SurfaceTool, pts: Array, inside: Vector3) -> void:
+	var tris := [[pts[0], pts[1], pts[2]]]
+	if pts.size() == 4:
+		tris.append([pts[0], pts[2], pts[3]])
+	for tr: Array in tris:
+		var a: Vector3 = tr[0]
+		var b: Vector3 = tr[1]
+		var c: Vector3 = tr[2]
+		var nrm := (b - a).cross(c - a).normalized()
+		if nrm.dot((a + b + c) / 3.0 - inside) < 0.0:
+			nrm = -nrm
+			var sw := b
+			b = c
+			c = sw
+		for v: Vector3 in [a, c, b]:   # (Godot's front faces wind clockwise)
+			st.set_normal(nrm)
+			st.add_vertex(v)
 
 
 static var _axe_scene: PackedScene
